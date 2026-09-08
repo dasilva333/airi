@@ -68,7 +68,9 @@ const activeSessionLabel = computed(() => {
   const meta = activeSessionMeta.value
   if (!meta)
     return 'Main Timeline'
-  return meta.title && meta.title !== 'Untitled Timeline' ? meta.title : 'Main Timeline'
+  if (meta.title && meta.title !== 'Untitled Timeline')
+    return meta.title
+  return activeSessionId.value ? chatSessionStore.getSessionDisplayTitle(activeSessionId.value, activeCardId.value) : 'Main Timeline'
 })
 
 function handleSelectSession(sessionId: string) {
@@ -157,7 +159,7 @@ function handleOpenManage() {
                   v-if="activeSessionId === session.sessionId"
                   class="size-1.5 shrink-0 rounded-full bg-primary-500"
                 />
-                <span class="truncate">{{ session.title || 'Main Timeline' }}</span>
+                <span class="truncate">{{ session.title && session.title !== 'Untitled Timeline' ? session.title : chatSessionStore.getSessionDisplayTitle(session.sessionId, activeCardId) }}</span>
               </div>
               <span v-if="session.universeId && session.universeId !== 'global'" class="mt-0.5 truncate text-[9px] text-neutral-400 font-normal">
                 Universe: {{ session.universeId }}

@@ -132,7 +132,7 @@ const editText = ref('')
 
 function handleStartEdit(sessionId: string, currentTitle?: string) {
   editingSessionId.value = sessionId
-  editText.value = currentTitle || 'Untitled Timeline'
+  editText.value = currentTitle || chatSessionStore.getSessionDisplayTitle(sessionId, activeCardId.value)
 }
 
 function handleSaveTitle(sessionId: string) {
@@ -237,7 +237,7 @@ function handleSaveTitle(sessionId: string) {
                   session.sessionId === activeSessionId ? 'text-primary-700 dark:text-primary-300' : 'text-neutral-700 dark:text-neutral-200',
                 ]"
               >
-                {{ session.title || 'Untitled Timeline' }}
+                {{ session.title || chatSessionStore.getSessionDisplayTitle(session.sessionId, activeCardId) }}
               </span>
 
               <div class="mt-1 flex items-center gap-4">

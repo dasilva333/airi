@@ -346,6 +346,25 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     return index.value.characters[characterId] ?? null
   }
 
+  function getSessionDisplayTitle(sessionId: string, characterId?: string): string {
+    const meta = sessionMetas.value[sessionId]
+    if (meta?.title && meta.title !== 'Untitled Timeline')
+      return meta.title
+
+    const charId = characterId || meta?.characterId || getCurrentCharacterId()
+    const charIndex = getCharacterIndex(charId)
+    const indexed = charIndex?.sessions?.[sessionId]
+    if (indexed?.title && indexed.title !== 'Untitled Timeline')
+      return indexed.title
+
+    const sessions = charIndex ? Object.values(charIndex.sessions) : []
+    const sorted = [...sessions].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+    const foundIdx = sorted.findIndex(s => s.sessionId === sessionId)
+    const orderNumber = foundIdx >= 0 ? foundIdx + 1 : 1
+    const shortHash = sessionId ? sessionId.slice(0, 5) : ''
+    return shortHash ? `Timeline ${orderNumber} (${shortHash})` : `Timeline ${orderNumber}`
+  }
+
   async function persistIndex() {
     if (!index.value)
       return
@@ -1526,6 +1545,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     getAllSessions,
     resetAllSessions,
     getCharacterIndex,
+    getSessionDisplayTitle,
 
     ensureSession,
     setSessionMessages,

@@ -5,7 +5,7 @@ import type { PacingMetrics } from '@proj-airi/stage-ui/types'
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { resolveAtmosphereComponent } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
-import { ChatBrainPopover, ChatMemoryPopover } from '@proj-airi/stage-ui/components'
+import { ChatBrainPopover, ChatMemoryPopover, ChatSessionModal } from '@proj-airi/stage-ui/components'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
@@ -545,26 +545,27 @@ const activeSessionMeta = computed(() => {
   return sessionMetas.value[activeSessionId.value]
 })
 
-// Formatting active session switcher label
-const activeSessionLabel = computed(() => {
-  const baseName = activeCard.value?.nickname || activeCard.value?.name || 'AIRI'
+// Character name & active timeline badge for header switcher
+const activeCharacterName = computed(() => {
+  return activeCard.value?.nickname || activeCard.value?.name || 'AIRI'
+})
+
+const activeTimelineTag = computed(() => {
   const meta = activeSessionMeta.value
   if (!meta)
-    return baseName
+    return ''
 
   const universe = meta.universeId && meta.universeId !== 'global' ? meta.universeId : ''
-  const title = meta.title && meta.title !== 'Untitled Timeline' ? meta.title : ''
+  const hasCustomTitle = meta.title && meta.title !== 'Untitled Timeline'
+  const title = hasCustomTitle ? meta.title : ''
 
-  if (universe && title) {
-    return `${baseName} (${universe}>${title})`
-  }
-  else if (universe) {
-    return `${baseName} (${universe})`
-  }
-  else if (title) {
-    return `${baseName} (${title})`
-  }
-  return baseName
+  if (universe && title)
+    return `${universe} › ${title}`
+  if (title)
+    return title
+  if (universe)
+    return universe
+  return ''
 })
 
 // --- Generation Stats Popover & Token Output Limits ---
@@ -743,18 +744,62 @@ const saturationColorClass = computed(() => {
   return 'text-green-500 bg-emerald-500'
 })
 
+// Timeline Switcher & Management State
+const isSessionPopoverOpen = ref(false)
+const showManageModal = ref(false)
+
 // List of sessions for dropdown
 const characterSessions = computed(() => {
-  if (!activeCardId.value)
-    return []
-  const characterIndex = chatSessionStore.getCharacterIndex(activeCardId.value)
-  if (!characterIndex)
-    return []
-  return Object.values(characterIndex.sessions).sort((a, b) => b.updatedAt - a.updatedAt)
+  const cardId = activeCardId.value
+  const characterIndex = cardId ? chatSessionStore.getCharacterIndex(cardId) : null
+  const indexedList = characterIndex
+    ? Object.values(characterIndex.sessions).map(s => ({
+        ...s,
+        messageCount: s.sessionId === activeSessionId.value ? Math.max(s.messageCount || 0, messages.value.length) : (s.messageCount || 0),
+      }))
+    : []
+
+  // Ensure active session is present in the list even if index hasn't finished writing
+  const currentId = activeSessionId.value
+  if (currentId && !indexedList.some(s => s.sessionId === currentId)) {
+    const meta = sessionMetas.value[currentId]
+    indexedList.unshift({
+      sessionId: currentId,
+      userId: 'local',
+      characterId: cardId || 'default',
+      title: meta?.title,
+      messageCount: messages.value.length || meta?.messageCount || 0,
+      createdAt: meta?.createdAt || Date.now(),
+      updatedAt: meta?.updatedAt || Date.now(),
+      universeId: meta?.universeId,
+    })
+  }
+
+  return indexedList.sort((a, b) => b.updatedAt - a.updatedAt)
 })
+
+function formatTimelineTitle(session: { sessionId: string, title?: string }) {
+  if (session.title && session.title !== 'Untitled Timeline')
+    return session.title
+  return chatSessionStore.getSessionDisplayTitle(session.sessionId, activeCardId.value)
+}
 
 function handleSelectSession(sessionId: string) {
   chatSessionStore.setActiveSession(sessionId)
+  isSessionPopoverOpen.value = false
+}
+
+async function handleCreateSession() {
+  if (!activeCardId.value)
+    return
+  const newSessionId = await chatSessionStore.createSession(activeCardId.value)
+  chatSessionStore.setActiveSession(newSessionId)
+  isSessionPopoverOpen.value = false
+}
+
+function handleOpenManage() {
+  isSessionPopoverOpen.value = false
+  showManageModal.value = true
 }
 
 // --- Token Calculations ---
@@ -858,43 +903,89 @@ function selectSurface(surface: typeof activeSurface.value) {
             </div>
           </div>
 
-          <PopoverRoot>
+          <PopoverRoot v-model:open="isSessionPopoverOpen">
             <PopoverTrigger as-child>
-              <div
+              <button
+                type="button"
                 class="flex cursor-pointer select-none items-center gap-2 border border-neutral-200/50 rounded-xl bg-neutral-100/30 px-3 py-1 text-xs font-bold transition-all duration-200 ease-in-out dark:border-neutral-800 dark:bg-neutral-900/40 hover:bg-neutral-200/50 hover:dark:bg-neutral-800/40"
+                :class="isSessionPopoverOpen ? 'ring-2 ring-primary-500/30' : ''"
               >
-                <span class="max-w-64 truncate text-neutral-700 dark:text-neutral-300">{{ activeSessionLabel }}</span>
-                <div class="i-solar:alt-arrow-down-bold text-[10px] text-neutral-400 opacity-60 dark:text-neutral-500" />
-              </div>
+                <div class="i-solar:notebook-bookmark-bold-duotone size-3.5 shrink-0 text-primary-500" />
+                <span class="max-w-48 truncate text-neutral-700 dark:text-neutral-300">{{ activeCharacterName }}</span>
+                <span
+                  v-if="activeTimelineTag"
+                  class="shrink-0 rounded-md bg-primary-500/10 px-1.5 py-0.5 text-[10px] text-primary-600 font-semibold dark:bg-primary-950/50 dark:text-primary-400"
+                >
+                  {{ activeTimelineTag }}
+                </span>
+                <div
+                  class="i-solar:alt-arrow-down-bold text-[10px] text-neutral-400 opacity-60 transition-transform duration-200 dark:text-neutral-500"
+                  :class="isSessionPopoverOpen ? 'rotate-180' : ''"
+                />
+              </button>
             </PopoverTrigger>
             <PopoverPortal>
               <PopoverContent
                 side="bottom"
                 :side-offset="6"
                 align="center"
-                class="animate-in fade-in slide-in-from-top-1 z-[10000] w-64 border border-neutral-200/60 rounded-2xl bg-white/95 p-2 shadow-2xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
+                class="animate-in fade-in slide-in-from-top-1 z-[10000] w-72 flex flex-col border border-neutral-200/60 rounded-2xl bg-white/95 p-2.5 shadow-2xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
               >
-                <div class="mb-1 select-none border-b border-neutral-100 px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase dark:border-neutral-900">
-                  Switch Timeline
+                <!-- Header: Story Timelines & New Timeline Button -->
+                <div class="mb-2 flex items-center justify-between border-b border-neutral-200/40 px-1 pb-2 dark:border-neutral-800/40">
+                  <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
+                    <div class="i-solar:history-bold-duotone text-primary-500" />
+                    <span>Story Timelines</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="flex cursor-pointer items-center gap-1 rounded-lg bg-primary-500/10 px-2 py-0.5 text-[10px] text-primary-600 font-bold transition active:scale-95 hover:bg-primary-500/20 dark:text-primary-400"
+                    @click="handleCreateSession"
+                  >
+                    <div class="i-solar:add-circle-bold size-3" />
+                    <span>New Timeline</span>
+                  </button>
                 </div>
-                <div class="max-h-60 overflow-y-auto scrollbar-thin space-y-1">
+
+                <!-- Session List -->
+                <div class="max-h-60 overflow-y-auto pr-1 scrollbar-thin space-y-1">
                   <div
                     v-for="session in characterSessions"
                     :key="session.sessionId"
-                    class="flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold transition-all duration-200"
-                    :class="activeSessionId === session.sessionId ? 'bg-primary-50/50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400' : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100/60 dark:hover:bg-neutral-900/40'"
+                    class="flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium transition-all duration-150"
+                    :class="activeSessionId === session.sessionId
+                      ? 'bg-primary-500/10 text-primary-700 font-bold dark:bg-primary-950/50 dark:text-primary-300'
+                      : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900'"
                     @click="handleSelectSession(session.sessionId)"
                   >
-                    <div class="flex flex-col">
-                      <span class="max-w-44 truncate">{{ session.title || 'Untitled Timeline' }}</span>
-                      <span v-if="session.universeId && session.universeId !== 'global'" class="mt-0.5 text-[9px] text-neutral-400 font-medium dark:text-neutral-500">
+                    <div class="min-w-0 flex flex-col pr-2">
+                      <div class="flex items-center gap-1.5">
+                        <div
+                          v-if="activeSessionId === session.sessionId"
+                          class="size-1.5 shrink-0 rounded-full bg-primary-500"
+                        />
+                        <span class="truncate">{{ formatTimelineTitle(session) }}</span>
+                      </div>
+                      <span v-if="session.universeId && session.universeId !== 'global'" class="mt-0.5 truncate text-[9px] text-neutral-400 font-normal">
                         Universe: {{ session.universeId }}
                       </span>
                     </div>
-                    <span class="ml-3 text-[10px] text-neutral-400 font-bold dark:text-neutral-500">
-                      {{ session.messageCount || 0 }}
+                    <span class="shrink-0 rounded-md bg-neutral-100 px-1.5 py-0.5 text-[9px] text-neutral-500 font-mono dark:bg-neutral-800 dark:text-neutral-400">
+                      {{ session.messageCount || 0 }} msgs
                     </span>
                   </div>
+                </div>
+
+                <!-- Footer: Manage All Timelines -->
+                <div class="mt-2 border-t border-neutral-200/40 pt-2 dark:border-neutral-800/40">
+                  <button
+                    type="button"
+                    class="w-full flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-neutral-100/70 py-1.5 text-[10px] text-neutral-600 font-semibold transition active:scale-95 dark:bg-neutral-800/60 hover:bg-neutral-200/70 dark:text-neutral-300 dark:hover:bg-neutral-700/60"
+                    @click="handleOpenManage"
+                  >
+                    <div class="i-solar:settings-bold-duotone size-3.5 text-neutral-400" />
+                    <span>Manage All Timelines</span>
+                  </button>
                 </div>
               </PopoverContent>
             </PopoverPortal>
@@ -1863,6 +1954,8 @@ function selectSurface(surface: typeof activeSurface.value) {
         </Transition>
       </div>
     </div>
+    <!-- Full Timeline Management Modal -->
+    <ChatSessionModal v-model="showManageModal" />
   </div>
 </template>
 
