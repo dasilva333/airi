@@ -1,220 +1,263 @@
-# AIRI Onboarding Evolution: From V2 Baseline to Advanced Subsystems
+# AIRI Onboarding V3 Proposal: Intent-Driven Hero Bundles, Persona-First Flow & Unified Subsystems
 
 ---
 
-## 1. Executive Summary & Shipped Baseline
+## 1. Executive Summary & The Architectural Paradigm Shift
 
-The **V2 Onboarding Flow** is fully implemented and active as the single canonical first-run wizard across AIRI (Desktop, Web, and Pocket). It provides an end-to-end, zero-friction path that configures all necessary baseline subsystems in a 9-step sequence, atomically synthesizes the initial `AiriCard`, and immediately launches the live Stage, Chatbox, and Companion.
+Previous onboarding designs faced a sharp tension:
+1. **The Fixed 9–11 Step Gauntlet**: Forcing every new user through microphone testing, LLM provider selection, profile input, character selection, avatar selection, and TTS voice sliders before they ever reach the desktop stage caused cognitive fatigue (*"I just wanna play!"*).
+2. **The "Advanced Setup Lab" Dilemma**: Deferring advanced features (Sensory Proactivity, Autonomous Artistry, Generative Motion, Memory Matrix) into a post-launch "second onboarding lab" created a disjointed secondary wizard that felt bolted onto the app.
 
-### Shipped V2 Step Sequence
-
-```text
-Step 0: Welcome Landing (Hardware/WebGPU Check)
-   │
-   ▼
-Step 0.5: Path Triage (Cloudflare PKCE Zero-Trust Sync vs. 100% Offline Local-First)
-   │
-   ├─► [Cloudflare Sync Track] ──► Edge Services & Cloud Restore ──┐
-   │                                                               │
-   ▼                                                               │
-Step 1: Hearing & Mic Playground (Whisper WebGPU / Browser STT / Cloud)
-   │
-   ▼
-Step 2: Consciousness (WebLLM WebGPU Hero Cards / Cloud Grid)
-   │
-   ▼
-Step 3: User Profile & Identity (Name, Bio, Narrative Prompt Tags)
-   │
-   ▼
-Step 4: Soul & Persona (Seeded Starters, Anime Archetypes, Community Card Hub)
-   │
-   ▼
-Step 5: Physical Vessel (3D VRM Avatars & 2D Live2D Bodies)
-   │
-   ▼
-Step 6: Contextual Speech & Voice Studio (Kokoro WebGPU, Pocket-TTS, Moss-Nano, Cloud)
-   │
-   ▼
-Step 7: Stage Calibration & Victory Launch (Live Audio Greeting & Instant Stage Spawn)
-```
-
----
-
-## 2. The Future Vision: The "I Just Wanna Play" Dilemma
-
-While the 9-step V2 wizard successfully solves initial companion creation, AIRI features several deep, high-power subsystems that are currently left to manual settings discovery or technical documentation:
-
-1. **Generative Motion & VRMA Text-to-Motion**: Real-time keyframe animation compilation, FlowMDM diffusion synthesis, and kinetic dance cues.
-2. **Autonomous Artistry & ComfyUI Bridge**: Configuring local ComfyUI endpoints, Replicate/Nanobanana backends, node workflows, and desktop widget frames.
-3. **Sensory Proactivity & Environmental Telemetry**: Calibrating OS sensory polling (active window monitoring, AFK idle thresholds, system load) and attention-ecology gating.
-4. **`<|ACT:...|>` Token Calibration (Rehearsal Room)**: Fine-tuning streaming kinetic and emotional action markers to match the chosen model's prompt format and tokenizer.
-5. **Memory Synthesis & Consciousness Matrix**: Configuring local vector indexing, Sacred Journal (LTMM), Lifetime consolidation (DRMM), Dreaming Worker, and Echo-Chips.
-
-### The Problem: Onboarding Fatigue vs. Capability Discovery
-
-Forcing new users through an endless, 15+ step setup gauntlet causes severe onboarding fatigue ("I just wanna play!"). Conversely, completely hiding these capabilities means users miss AIRI's most distinctive autonomous features.
-
----
-
-## 3. The Future Architecture: The Advanced Setup Lab
-
-To bridge this gap, the next evolution of AIRI onboarding introduces an **optional, non-blocking post-launch continuation**:
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                   Step 7: Calibration Finale                │
-│       "Your companion is ready! Ready to enter Stage?"       │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-               ┌───────────────┴───────────────┐
-               ▼                               ▼
-    [ 🚀 Enter AIRI Stage ]        [ 🛠️ Advanced Setup Lab ]
-    "I just wanna play!"           "Let's tune everything!"
-               │                               │
-               ▼                               ▼
-    ┌────────────────────┐          ┌─────────────────────────┐
-    │  Active Companion  │ ◄─────── │ Floating Setup Sidecar  │
-    │  Stage + Chatbox   │ (Live    │ - VRMA Kinetic Dance    │
-    │  Open & Running    │  Echo)   │ - ComfyUI Artistry      │
-    └────────────────────┘          │ - Sensory Proactivity   │
-                                    │ - ACT Marker Rehearsal  │
-                                    │ - Memory & Consciousness│
-                                    └─────────────────────────┘
-```
-
-### Key Modalities for Advanced Setup
-
-1. **Option A: Non-Blocking Floating Sidecar (Recommended)**:
-   - Clicking `[ 🛠️ Advanced Setup Lab ]` launches the Stage and Chatbox immediately so the companion is already alive and visible on the desktop.
-   - An auxiliary setup window remains open beside the stage, letting the user test motions, image generation, proactivity check-ins, and memory search **live** with their companion reacting in real time.
-2. **Option B: Step Extension (Sequential)**:
-   - For users who prefer a linear flow, defers the final launch and advances directly through the advanced modules before entering the stage.
-3. **Re-openable at Any Time**:
-   - Users who click `[ 🚀 Enter AIRI Stage ]` can launch the Advanced Setup Lab at any time from the Control Strip or Settings drawer without re-running first-run onboarding.
-
----
-
-## 4. Advanced Setup Lab Subsystem Modules
+**Onboarding V3 replaces both with a Unified Intent-Driven Flow**:
+Users choose what they want their companion to do upfront via **4 Hero Archetype Cards**. That selection dynamically generates their tailored onboarding path. Advanced capabilities are no longer segregated into a secondary lab—they are seamlessly woven into the primary onboarding journey for users who want them, while users who just want simple text chat encounter a lightning-fast 3-screen setup.
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────┐
-│                       🛠️ AIRI Advanced Setup Lab                           │
+│                    Onboarding V3 Journey Topology                          │
 ├────────────────────────────────────────────────────────────────────────────┤
-│  [ 💃 Kinetic Motion ] [ 🎨 Artistry ] [ 👁️ Proactivity ] [ 🎭 Rehearsal ]  │
-│  [ 🧠 Memory & Consciousness Matrix ]                                      │
+│  Step 0: Welcome Landing + Language Selector (Phase 1)                     │
+│     │                                                                      │
+│     ▼                                                                      │
+│  Step 0.5: Path Triage (New Companion vs. Cloudflare Zero-Trust Restore)   │
+│     │                                                                      │
+│     ▼                                                                      │
+│  Step 1: Choose Your Experience (4 Hero Bundles + Customizer Deck)         │
+│     │                                                                      │
+│     ├───────────────────┬───────────────────┬───────────────────┐          │
+│     ▼                   ▼                   ▼                   ▼          │
+│  [Chat Only]      [Talk & Listen]     [Sentinel]           [Artistic]      │
+│  (3 screens)      (5 screens)         (7 screens)          (6 screens)     │
+│     │                   │                   │                   │          │
+│     └───────────────────┴─────────┬─────────┴───────────────────┘          │
+│                                   ▼                                        │
+│             Step 2: Soul & Persona (Emotional Payoff First!)               │
+│                                   │                                        │
+│                                   ▼                                        │
+│             Step 3: Physical Vessel (DiscoverCarousel Starters)            │
+│                                   │                                        │
+│                                   ▼                                        │
+│             Step 4: User Profile & Identity                                │
+│                                   │                                        │
+│                                   ▼                                        │
+│             [Dynamic Tailored Modules: Brain, Voice, Sensory, Art]         │
+│                                   │                                        │
+│                                   ▼                                        │
+│             Step Finale: Stage Calibration (Readiness Honesty)             │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Module 1: VRMA Kinetic Dance & Generative Motion Studio
-*Connecting to:* [`docs/proposal-text-to-vrma-system.md`](docs/proposal-text-to-vrma-system.md) & [`@pixiv/three-vrm-animation`](.agents/skills/airi-generative-motion-vrma/SKILL.md)
+## 2. Two-Phase Internationalization Strategy
 
-* **Purpose**: Verifies that 3D avatar rigging, Mixamo bone retargeting, and browser-side `@pixiv/three-vrm-animation` GLB keyframe compilation work smoothly.
-* **The Interactive UX Flow**:
-  1. **Preset Motion Chips**: 1-click test chips (*"Victory Dance"*, *"Dramatic Bow"*, *"Fortnite Emote"*, *"Playful Twirl"*) or custom prompt text box.
-  2. **Direct Motion Dispatch**: Clicking **`[ 🎬 Synthesize Motion ]`** skips conversational LLM latency and sends the request directly to the generative motion worker / FlowMDM bridge.
-  3. **Live Real-Time Execution**: The compiled GLB animation streams directly to the active 3D VRM vessel on Stage.
-  4. **The Showtime Fanfare**: The companion performs the dance on the desktop stage in real time, accompanied by a confetti burst and a *"Kinetic Motion Verified! 🎉"* achievement banner in the lab.
+Upstream's biggest usability strength is early language selection. Users should never have to navigate an entire English setup wizard just to find language preferences later.
 
----
+### Phase 1: Zero-Friction Welcome Language Selector (Immediate)
+- Mount a language selector dropdown directly in the top-right header of **Step 0 (Welcome Landing)**.
+- Binds to `useI18n().locale.value` and synchronizes with `settings/general.yaml` (`language` key).
+- Instantly switches the UI locale in-memory for all already-translated strings across `@proj-airi/i18n`.
 
-### Module 2: ComfyUI & Artistry Studio Wizard (Ending the 3-Page Friction)
-*Connecting to:* [`packages/stage-ui/src/stores/modules/artistry.ts`](packages/stage-ui/src/stores/modules/artistry.ts) & [`apps/stage-tamagotchi/src/main/services/airi/widgets/artistry-bridge.ts`](apps/stage-tamagotchi/src/main/services/airi/widgets/artistry-bridge.ts)
-
-* **Purpose**: Condenses the scattered configuration (provider credentials, node workflow JSONs, widget display modes) into a compact 3-click wizard.
-* **The Interactive UX Flow**:
-  1. **Provider Selector**: Radio toggle: **ComfyUI Local** (with automated `http://127.0.0.1:8188` connection ping) vs. **Replicate Cloud** vs. **Nanobanana**.
-  2. **Workflow Templates**: Dropdown of verified pre-bundled workflows (*SDXL Anime Character*, *Flux Schnell Fast*, *SD1.5 Portrait*), plus an optional custom workflow JSON dropzone.
-  3. **The First Snapshot**: Pre-filled test prompt (*"Polaroid selfie with Manager backstage"*) with a **`[ 📸 Snap Test Photo ]`** button.
-  4. **Instant Verification**: The generated image renders in the lab preview AND immediately pops open the desktop floating widget on the Stage!
+### Phase 2: Systematic Onboarding String Audit (Deep Localization)
+- Audit all steps under `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/`.
+- Extract hardcoded English strings into `packages/i18n/locales/en/settings.yaml` under `settings.pages.onboarding.*` using `node scripts/yaml-manager.js sync`.
+- Populate localized counterparts (`zh-CN`, `ja-JP`, `es-ES`, etc.) to guarantee 100% render completeness.
 
 ---
 
-### Module 3: Sensory Proactivity Playground (Live Telemetry & Isolated Simulation)
-*Connecting to:* [`packages/stage-ui/src/stores/proactivity.ts`](packages/stage-ui/src/stores/proactivity.ts) & [`docs/design-proactivity-heartbeats-engine.md`](docs/design-proactivity-heartbeats-engine.md)
+## 3. Reordered Topology: Emotional Payoff First
 
-* **Purpose**: Demonstrates OS environmental telemetry, idle AFK detection, and NO_REPLY decision gating without waiting hours for a natural heartbeat.
-* **The Interactive UX Flow**:
-  1. **Live Sensor HUD**: Displays real-time Electron OS telemetry:
-     - `Active Window`: `Visual Studio Code — airi-rebase-scratch`
-     - `User State`: `Idle for 14 minutes (AFK)`
-     - `System Load`: `RAM 38% · CPU 12%`
-     - `Time of Day`: `2:30 AM (Late Night Session)`
-  2. **Scenario Simulator**: Allows toggling between **Live OS State** and **Simulated Presets** (*"Deep Coding Grind"*, *"Gaming Session: Elden Ring"*, *"AFK for 45 mins"*).
-  3. **Isolated Simulation Turn**: Clicking **`[ 🧠 Simulate Proactive Check-in ]`** fires an isolated turn with the companion's system prompt + telemetry payload.
-  4. **Live Response Output**: The user sees the companion's internal thought process and proactive spoken check-in:
-     > *"You've been staring at that shader for 45 minutes, Manager. Don't forget to blink and drink some water!"*
-  5. **Quick-Tuning Sliders**: User adjusts the **Idle Interval** (5m, 15m, 30m) and **NO_REPLY Sensitivity** with immediate visual feedback.
+### The Problem With Current V2 Ordering
+Current V2 calibrates hardware before identity:
+`Welcome → Triage → Hearing (STT) → Consciousness (LLM) → User Profile → Persona → Vessel → Speech → Finale`
+Users are asked to test a microphone and configure AI providers for an abstract entity they haven't met yet.
 
----
+### The New Emotional Sequence
+**Persona (Soul) and Vessel (Body) are moved to the front of the journey:**
+1. **Meet Your Companion (Persona)**: Choose who she is (ReLU, Dr. Aria, Lupin, Anime Archetype, or Custom Card Import).
+2. **Choose Her Appearance (Vessel)**: Select her body (3D VRM or 2D Live2D via the new Coverflow Carousel).
+3. **Your Identity (User Profile)**: Establish your name and how she should address you.
+4. **Awaken Her Senses (Hardware & Models)**: Only *after* the companion has a soul and body does the user configure how she thinks (LLM), hears (STT), speaks (TTS), or sees (Vision/Sensory).
 
-### Module 4: ACT Marker Calibration (The "Rehearsal Room" Pattern)
-*Connecting to:* [`apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue`](apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue) & [`docs/proposal-acting-sidebar.md`](docs/proposal-acting-sidebar.md)
-
-* **Purpose**: Validates that the chosen LLM and avatar rig properly handle streaming action tokens without leaking raw syntax into speech.
-* **The Interactive UX Flow**:
-  1. **Rehearsal Script Box**: Interactive token-tagger UX adapted from `chat_rehearsal.vue`.
-  2. **Click-to-Insert Action Tokens**: Quick-insert chips for `<|ACT:motion="wave" expression="joy"|>`, `<|ACT:expression="blush" gesture="shy"|>`, `<|ACT:motion="nod"|>`.
-  3. **`[ 🎭 Rehearse Action ]` Playback**: Streams the tagged script through the LLM marker categorizer and speech runtime pipeline.
-  4. **Live Avatar Blendshapes**: 3D VRM blendshapes or Live2D parameter morphs trigger in real time on stage, validating that the chosen model and avatar rig interpret kinetic markers seamlessly.
+### Dependency Integrity
+- **Persona & Vessel** depend only on bundled static presets (`STARTER_CHARACTERS`, `animadex-catalog.json`, `display-models.ts`) and have **zero** hardware or network dependencies.
+- **Speech (TTS)** naturally benefits from knowing the character's persona and gender first, making voice selection intuitive.
+- **Consciousness (LLM)** prompt compilation requires the character card and user profile to be assembled first.
 
 ---
 
-### Module 5: Memory & Consciousness Matrix (Solving the Zero-History Cold Start)
-*Connecting to:* [`packages/stage-ui/src/stores/echo-chips.ts`](packages/stage-ui/src/stores/echo-chips.ts), [`packages/stage-ui/src/stores/memory-text-journal.ts`](packages/stage-ui/src/stores/memory-text-journal.ts), [`packages/stage-ui/src/stores/memory-lifetime.ts`](packages/stage-ui/src/stores/memory-lifetime.ts), [`packages/stage-ui/src/libs/search/layered-memory.ts`](packages/stage-ui/src/libs/search/layered-memory.ts)
+## 4. Step 1: Choose Your Experience (The 4 Hero Bundles + Customizer)
 
-* **The Problem**: Memory systems (Short-Term, Sacred Journal LTMM, Lifetime Synthesis, Dreaming DRMM) feel abstract or "dead" on a brand-new companion with 0 conversation history.
-* **The Solution — The "Prologue Seed"**: Uses the chosen character's backstory and first meeting with the user to generate a synthetic **Prologue Memory Chronicle**, providing immediate real data to index, search, and dream about.
+### 4.1 The 4 Hero Archetype Cards
+Users select one primary card that matches their immediate intent:
+
+| Hero Card | Archetype | Included Capabilities | Target User / Flow |
+| :--- | :--- | :--- | :--- |
+| **💬 Chat Only** | Text Companion | Soul + Vessel + Profile + LLM Consciousness | Zero audio friction. Fastest route to chatting (3 steps). |
+| **🎙️ Talk & Listen** | Voice Companion | Chat + Hearing (STT) + Speech (TTS) | Natural conversational voice partner with microphone input and audio playback. |
+| **👁️ Sentinel Companion** | Proactive Companion | Talk & Listen + Sensory Telemetry + Proactive Check-ins | Observes active window/desktop context and proactively initiates conversations. |
+| **🎨 Artistic Companion** | Creative Collaborator | Talk & Listen + ComfyUI / Pollinations Artistry | Collaborates on artwork, snaps desktop selfies, and visualizes journal scenes. |
+
+---
+
+### 4.2 Complete Layout Specification & Customizer Deck
+
+Below the Hero Cards sits the **"Customize Your Journey"** deck. Selecting a Hero Card automatically pre-checks its baseline modules. Users can toggle individual capabilities on or off, or click `[ Select All ]` for the complete power-user suite.
+
+To provide a complete vision of AIRI's modular architecture, **all planned capabilities are spec'd in the layout**. Future expansion modules are rendered as styled, unclickable/disabled "Coming Soon" badges with clear tooltip explanations, allowing users to see the full evolutionary roadmap of their companion without breaking the wizard flow.
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────┐
-│                    🧠 Memory & Consciousness Deck                          │
-│   "Configure how your companion remembers, reflects, and dreams."          │
+│                    Choose Your Companion Experience                        │
+│   "Select an archetype to get started. You can tune any module below."     │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────┐  │
+│  │   💬 Chat Only       │  │  🎙️ Talk & Listen     │  │  👁️ Sentinel     │  │
+│  │  Pure text dialogue  │  │  Voice conversation  │  │  Proactive desk  │  │
+│  │  Zero audio friction │  │  Hear & speak freely │  │  companion       │  │
+│  │  [  Select Chat  ]   │  │  [ Selected ✓ ]      │  │  [ Select Sent. ]│  │
+│  └──────────────────────┘  └──────────────────────┘  └──────────────────┘  │
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │   🎨 Artistic Companion                                              │  │
+│  │  Creative collaborator for generative art, selfies, and visual lore │  │
+│  │  [ Select Artistic ]                                                 │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+│  ─────────────────── ⚙️ Customize Your Journey ──────────────────────────  │
+│                                                                            │
+│  Core Capabilities (Configured in Guided Flow):                            │
+│  [✓] 🧠 Consciousness (LLM)      — Required. Language model for dialogue.  │
+│  [✓] 🎭 Soul & Persona           — Required. Companion identity and lore.  │
+│  [✓] 💃 Physical Vessel          — Required. 3D VRM or 2D Live2D avatar.   │
+│  [✓] 👤 User Profile             — Required. Your name, callsign & lore.   │
+│  [✓] 🎙️ Hearing & Mic (STT)      — In-browser Whisper WebGPU / Web Speech. │
+│  [✓] 🔊 Voice Studio (TTS)       — Kokoro WebGPU / Pocket-TTS / Cloud.     │
+│                                                                            │
+│  Extended Capabilities (Active in V3 Engine):                              │
+│  [ ] 🎨 Autonomous Artistry      — ComfyUI node runner / Pollinations AI.  │
+│  [ ] 👁️ Sensory Proactivity      — OS window telemetry, AFK heartbeats.    │
+│                                                                            │
+│  Future Capabilities (Spec'd Layout — Unclickable / Coming Soon):         │
+│  [ ] 🎬 Generative Motion & VRMA — [Coming Soon] Real-time 3D dance cues.  │
+│  [ ] 📖 Lifetime Memory Matrix   — [Coming Soon] LTMM Orama & DRMM dreams. │
+│  [ ] 🎭 Marker Rehearsal Room    — [Coming Soon] <|ACT:...|> token tuner.  │
+│  [ ] 🎮 Dating Sim Mode & HUD    — [Coming Soon] Intimacy & branching lore.│
+│  [ ] 🪟 Multi-Window Stage Island — [Coming Soon] Transparent overlay bubble.│
+│  [ ] ☁️ 24/7 Cloud Relay & Bot   — [Coming Soon] Cloudflare Discord daemon.│
+│                                                                            │
+│  Estimated Journey: 5 Steps · ~2 Minutes Setup                             │
+│  [ Skip All (Direct to Stage) ]                      [ Continue Setup > ]  │
 └────────────────────────────────────────────────────────────────────────────┘
-                                      │
-       ┌──────────────────────────────┼──────────────────────────────┐
-       ▼                              ▼                              ▼
- 🏷️ Echo-Chips Hub             📖 Sacred Journal (LTMM)      🌙 Dreaming & Lifetime
- - Live Floating Chips         - 5W Fact Extraction          - Idle Sleep Worker
- - Vibe/Contextual Tags        - Orama Local Vector Search   - Lifetime Synthesis
- - [ ✨ Spawn Test Chip ]      - [ 🔍 Live Search Probe ]     - [ 🌙 Simulate 1 Dream ]
 ```
 
-#### A. 🏷️ Echo-Chips Studio (Sensory Working Memory)
-- **Configuration**: Master toggle (Show/Hide HUD), Floating Position (Above WhisperDock vs. Floating on Desktop Stage), Max Active Chips count (3, 5, 8).
-- **Interactive Demo**: Spawns 2 live interactive chips from the prologue:
-  - `🏷️ [Origin: Met Manager in Neo-Tokyo]`
-  - `💡 [Preference: Prefers green tea]`
-- Clicking a chip shows the prompt injection preview and pulses the desktop Stage window.
+#### 4.3 Detailed Capability Matrix & State Behavior
 
-#### B. 📖 Sacred Journal & Long-Term Memory (LTMM)
-- **Configuration**: Auto-journal trigger (Automatic vs Manual/Director only), Vector Embedding Provider (Local WASM Embeddings vs Remote Cloud), Journal Detail Level (Concise bullets vs Narrative prose).
-- **Interactive Demo (Search Probe)**: Displays the prologue journal entry with 5W extraction (`Who`, `What`, `When`, `Where`, `Why`) and an Emotional Delta (`Trust: +15%`, `Curiosity: High`). Includes a **Live Search Probe Box**: typing *"tea"* or *"meeting"* runs local Orama hybrid vector search live and highlights the match with its similarity score (`0.94 Match`).
-
-#### C. 🌙 The Dreaming Lab & Lifetime Memory (DRMM Consolidation)
-- **Configuration**: Background dreaming schedule (Idle sleep trigger after 30 mins AFK), PCL contradiction resolution mode (automatically invalidate outdated facts when contradicted), Lifetime archiving threshold.
-- **Interactive Demo (1-Night Dream Simulation)**: Clicking **`[ 🌙 Simulate 1 Night of Dreaming ]`** runs the consolidation worker on the prologue journal $\rightarrow$ synthesizes a permanent **Lifetime Insight**:
-  > *"Core Insight: Manager is supportive; I feel safe expressing my true thoughts around them."*
-  $\rightarrow$ shifts the companion's baseline mood dial from `Neutral` to `Warm & Connected`.
-
-#### D. ⚙️ The "Dry Dump" Quick-Accordion (For Power Users)
-- Collapsible tray providing instant access to all low-level store parameters in one clean grid:
-  - Short-term rolling token window size.
-  - Top-K vector candidate retrieval depth.
-  - Memory decay half-life curves.
-  - Raw JSON export / import for memory databases.
+| Capability Identifier | Category | UI State | Default in Hero Bundles | Step Screen / Behavior |
+| :--- | :--- | :--- | :--- | :--- |
+| `consciousness` | Core | Enabled (Locked) | All Bundles | Step 6: Consciousness (WebLLM / Cloud) |
+| `persona` | Core | Enabled (Locked) | All Bundles | Step 2: Soul & Persona (Trope / Card Import) |
+| `vessel` | Core | Enabled (Locked) | All Bundles | Step 3: Physical Vessel (DiscoverCarousel) |
+| `user_profile` | Core | Enabled (Locked) | All Bundles | Step 4: User Profile & Identity |
+| `hearing` | Core | Toggleable | Talk & Listen, Sentinel, Artistic | Step 5: Hearing & Mic (Whisper WebGPU / Web Speech) |
+| `speech` | Core | Toggleable | Talk & Listen, Sentinel, Artistic | Step 7: Voice Studio (Kokoro / Pocket-TTS / Cloud) |
+| `artistry` | Extended | Toggleable | Artistic Companion | Configures ComfyUI API / Pollinations provider |
+| `sensory` | Extended | Toggleable | Sentinel Companion | Prompts OS permission & enables AFK telemetry loops |
+| `generative_motion` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "FlowMDM WebGPU procedural text-to-motion". |
+| `memory_matrix` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "Lifetime Sacred Journal & DRMM dreaming consolidation". |
+| `rehearsal_room` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "<|ACT:...|> live emotion and motion cue testing sandbox". |
+| `dating_sim` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "Branching visual novel HUD, intimacy tracking, and scene sets". |
+| `multi_window` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "Detached desktop chat bubble and transparent stage overlay". |
+| `cloud_relay_bot` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "Cloudflare Edge Worker for 24/7 Discord bot and multi-device sync". |
 
 ---
 
-## 5. Technical Integration Seams
+## 5. Physical Vessel (Step 3): DiscoverCarousel Overhaul
 
-- **Orchestrator**: [`packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/onboarding-v2.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/onboarding-v2.vue)
-- **Calibration Step (Launch Fork)**: [`packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-7-calibration.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-7-calibration.vue)
-- **Draft Store**: [`packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/draft-store.ts`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/draft-store.ts)
-- **Auxiliary Window / Sidecar Host**: `apps/stage-tamagotchi/src/main/windows/` (`customizer/`, `notice/`, `dashboard/`)
-- **BroadcastChannel State Relays**: `airi:stage:motion-event`, `airi:widgets:command`, `airi:proactivity:telemetry`, `airi:memory:sync`
+### 5.1 The Friction in Current Vessel Selection
+In current V2 ([`step-5-vessel.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue)), clicking "Explore" opens an external links grid to third-party marketplaces (Hololive MMD, NicoNico, Reverse: 1999, etc.). Users are kicked out of the flow to download files manually.
 
-## Relevant Skills
+### 5.2 The Solution: Spotlight Coverflow Carousel
+Integrate the 3D coverflow carousel from [`packages/stage-pages/src/pages/settings/models/components/DiscoverCarousel.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/models/components/DiscoverCarousel.vue) as the **primary default view**:
 
-- [[airi-onboarding-v2]]
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│                             Physical Vessel                                │
+│        "Choose a starter body for your companion, or drop your own."       │
+│                                                                            │
+│   [ All Formats ]  [ VRM (3D) ]  [ Live2D (2D) ]  [ Spine ]  [ MMD ]       │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│            ┌───────────┐      ┌─────────────┐      ┌───────────┐           │
+│            │           │      │  ★ ACTIVE   │      │           │           │
+│            │  Avatar_A │ ◄─── │   Hiyori    │ ───► │  Avatar_B │           │
+│            │  3D VRM   │      │   Live2D    │      │  3D VRM   │           │
+│            └───────────┘      └─────────────┘      └───────────┘           │
+│                                      ▲                                     │
+│                         Drag / Swipe Carousel Deck                         │
+│                                                                            │
+│   Selected Body: Hiyori (Live2D Cubism) · Free Starter Avatar              │
+│                                                                            │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │ 📁 Drop or browse custom model (.vrm, .zip, .pmx, .skel)           │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│                                                                            │
+│   [ 📂 Choose from Installed Library (100+) ]   (Secondary View Toggle)    │
+│                                                                            │
+│   [ < Back to Persona ]                                   [ Next: Voice > ]│
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Interactive Drag & Snap**: Smooth 3D momentum carousel showing spotlight VRM and Live2D avatars.
+- **Format Filter Chips**: Instant switching between `All`, `VRM (3D)`, `Live2D (2D)`, `Spine`, and `MMD`.
+- **Secondary View**: `[ Choose from Installed Library ]` toggles the full grid for users with existing avatar collections.
+- **Dropzone Kept Intact**: Direct drag-and-drop of `.vrm` or `.zip` archives works instantly.
+
+---
+
+## 6. Calibration Finale: Readiness Honesty & Live First Exchange
+
+### 6.1 Truthful Subsystem Status Matrix
+Replace the artificial "Everything is 100% prepared" claim with honest, multi-state status cards:
+
+| Subsystem | State | Visual Indicator | Status Label | Meaning |
+| :--- | :--- | :--- | :--- | :--- |
+| **Consciousness** | Probe Passed | 🟢 Green Check | `Verified Active` | Real LLM generation ping succeeded. |
+| **Consciousness** | Untested Cloud | 🟡 Yellow Dot | `Configured (Untested)` | API key present, probe skipped. |
+| **Hearing** | Mic Passed | 🟢 Green Check | `Calibrated` | Live audio transcription captured. |
+| **Hearing** | Deselected/Skipped| ⚪ Grey Dash | `Muted / Skipped` | Mic input disabled for this companion. |
+| **Speech** | Audio Previewed| 🟢 Green Check | `Voice Active` | Real audio synthesis played. |
+| **Speech** | Deselected/Skipped| ⚪ Grey Dash | `Silent Mode` | Text-only companion. |
+| **Artistry** | Connected | 🟢 Green Check | `Art Engine Ready` | ComfyUI or Pollinations verified. |
+| **Sensory** | Granted | 🟢 Green Check | `Sensory Active` | OS telemetry permissions granted. |
+
+### 6.2 The Real First Exchange
+- The finale initiates a **real first model completion**:
+  1. Sends a hidden generation request using the companion's compiled system prompt and starter greeting.
+  2. If Speech is enabled, streams the response through the chosen TTS voice.
+  3. The companion speaks her actual live first words on the calibration screen.
+  4. If the model fails or has no internet, falls back gracefully to a designated offline greeting with a clear notice: *"Unable to reach cloud brain; offline starter loaded."*
+
+---
+
+## 7. Technical Implementation Map
+
+| Layer / Component | File Location | Responsibility |
+| :--- | :--- | :--- |
+| **Wizard Orchestrator** | [`packages/stage-ui/.../onboarding/v2/onboarding-v2.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/onboarding-v2.vue) | Dynamic step rail computation based on active draft archetype/capabilities |
+| **Draft Store** | [`packages/stage-ui/.../onboarding/v2/draft-store.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/draft-store.ts) | State management for `selectedHeroBundle`, `enabledCapabilities`, and step data |
+| **Step 0 Welcome** | [`.../onboarding/v2/steps/step-0-welcome.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-0-welcome.vue) | Hardware check + Phase 1 Language Selector mounting |
+| **Step 1 Experience Picker** | `.../onboarding/v2/steps/step-1-experience.vue` (New) | 4 Hero Cards + Customizer toggles (active & coming-soon specs) |
+| **Step 2 Persona** | [`.../onboarding/v2/steps/step-4-persona.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-4-persona.vue) | Promoted to Step 2: Starter characters, anime catalog, card imports |
+| **Step 3 Vessel** | [`.../onboarding/v2/steps/step-5-vessel.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue) | Promoted to Step 3: DiscoverCarousel 3D coverflow starters + dropzone |
+| **Discover Carousel** | [`packages/stage-pages/.../models/components/DiscoverCarousel.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/models/components/DiscoverCarousel.vue) | Reusable coverflow component powering Step 3 avatar selection |
+| **Step Finale** | [`.../onboarding/v2/steps/step-7-calibration.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-7-calibration.vue) | Readiness honesty badges + real first live greeting call |
+
+---
+
+## 8. Relevant Skills
+
+- [[airi-onboarding-v2]] — First-run onboarding wizard architecture and draft contracts
+- [[airi-card-schema]] — AiriCard and CCv3 card assembly
+- [[airi-character-rendering]] — 3D VRM and 2D Live2D display model loading
+- [[airi-i18n-localization]] — Language selection and settings YAML translation

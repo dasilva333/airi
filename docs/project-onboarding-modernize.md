@@ -19,12 +19,15 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
 
 ## 2. Core Design Principles
 
-1. **In-Context Component Preparation**: No late 99% download screens. Selecting a local engine initializes its WebWorker, WASM, or WebGPU weights immediately on that step with a live progress bar and test playground.
-2. **Decoupled Soul & Form**: Personality/Lore (Step 4) and Physical Avatar Body (Step 5) are completely decoupled, granting total mix-and-match freedom.
-3. **Hardware Capability Transparency**: Every local model card clearly displays VRAM requirements, model size, and supported languages so users make informed choices based on their hardware.
-4. **Early Hardware & WebGPU Detection**: Detects `isWebGPUSupported()` globally on startup to guide the user toward WebGPU vs. WASM/Browser-native options.
-5. **Zero-Custody Cloud Relay**: Cloud accounts authenticate via Cloudflare OAuth 2.0 PKCE. All storage (R2/S3) and compute (Workers/KV) run inside the user's personal Cloudflare account. AIRI never holds custody of user API keys or master credentials.
-6. **Transient Composition State & Deferred Card Assembly**: Onboarding V2 collects choices (STT, LLM, User Profile, Persona, Vessel, TTS) in a clean, transient onboarding composition draft store (`useOnboardingV2Draft`). It does **NOT** dirty-mutate existing IndexedDB character cards as a step-by-step scratchpad. On Step 7 (Calibration / Finale), the assembled choices are cleanly compiled into the target `AiriCard` and `AiriExtension` payload.
+1. **Emotional Payoff First**: Companion identity and form (Soul & Persona on Step 2, Physical Vessel on Step 3) are introduced *before* technical hardware calibration (Hearing and Consciousness). Users fall in love with their companion first instead of testing a microphone for an abstract empty shell.
+2. **Intent-Driven Dynamic Journey**: Users select from **4 Hero Archetype Cards** (`Chat Only`, `Talk & Listen`, `Sentinel Companion`, `Artistic Companion`) or configure the **Customizer Deck** upfront. The wizard dynamically renders only the steps required for their chosen experience (e.g. 3 screens for pure text chat vs. 7 screens for full multimodal).
+3. **Decoupled Soul & Form**: Personality/Lore (Step 2) and Physical Avatar Body (Step 3) are completely decoupled, granting total mix-and-match freedom.
+4. **Hardware Capability Transparency**: Every local model card clearly displays VRAM requirements, model size, and supported languages so users make informed choices based on their hardware.
+5. **Early Hardware & WebGPU Detection**: Detects `isWebGPUSupported()` globally on startup to guide the user toward WebGPU vs. WASM/Browser-native options.
+6. **Two-Phase Internationalization**: Phase 1 mounts an immediate language selector on the Step 0 Welcome screen; Phase 2 provides full deep localization across all step components via `@proj-airi/i18n` YAML strings.
+7. **Zero-Custody Cloud Relay**: Cloud accounts authenticate via Cloudflare OAuth 2.0 PKCE. All storage (R2/S3) and compute (Workers/KV) run inside the user's personal Cloudflare account. AIRI never holds custody of user API keys or master credentials.
+8. **Transient Composition State & Deferred Card Assembly**: Choices are collected in a clean, transient draft store (`useOnboardingV2Draft`). IndexedDB character cards are never dirty-mutated during the wizard. On the Calibration Finale, the assembled choices are atomically compiled into the target `AiriCard` and `AiriExtension` payload.
+9. **Readiness Honesty**: Replaces artificial 100% checkmarks with truthful status states (`Verified Active`, `Configured (Untested)`, `Muted / Skipped`, `Silent Mode`) and tests a real first spoken completion before launch.
 
 ---
 
@@ -33,13 +36,13 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
 ```text
                      ┌──────────────────────────────────────────────┐
                      │           Step 0: Welcome Landing            │
-                     │   "Welcome to AIRI · Zero-Custody Stage"     │
+                     │    + Phase 1 Language Selector Dropdown      │
                      └──────────────────────┬───────────────────────┘
                                             │
                                             ▼
                      ┌──────────────────────────────────────────────┐
                      │          Step 0.5: Path Triage               │
-                     │  "Choose How You Want to Experience AIRI"   │
+                     │  "Choose How You Want to Experience AIRI"    │
                      └──────────────┬───────────────────────────────┘
                                     │
                ┌────────────────────┴────────────────────┐
@@ -48,182 +51,226 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
    (Cloud-Connected & Multi-Device Sync)        (New Users & 100% Local-First)
                │                                         │
                ▼                                         ▼
-   ┌───────────────────────┐                 ┌───────────────────────┐
-   │ Cloudflare OAuth PKCE │                 │ 7-Step Guided Wizard  │
-   │  - Auth with CF       │                 │  1. Hearing (Whisper) │
-   │  - Provision Worker   │                 │  2. Consciousness     │
-   │  - Connect S3/R2      │                 │  3. User Profile      │
-   │  - Sync/Restore State │                 │  4. Persona           │
-   └───────────┬───────────┘                 │  5. Vessel (Avatar)   │
-               │                             │  6. Voice (TTS)       │
-               ▼                             │  7. Calibration       │
-   ┌───────────────────────┐                 └───────────┬───────────┘
-   │  "Everything Synced!" │                             │
-   │  [ Enter Stage ]  OR  │                             │
-   │  [ + New Companion ]  │ ────────────────────────────┘
-   └───────────┬───────────┘
-               │
-               ▼
-   ┌───────────────────────┐
-   │    Live AIRI Stage    │
-   └───────────────────────┘
+   ┌───────────────────────┐                 ┌────────────────────────────────┐
+   │ Cloudflare OAuth PKCE │                 │ Step 1: Choose Your Experience │
+   │  - Auth with CF       │                 │ (4 Hero Cards + Customizer)    │
+   │  - Provision Worker   │                 └──────────────┬─────────────────┘
+   │  - Connect S3/R2      │                                │
+   │  - Sync/Restore State │                                ▼
+   └───────────┬───────────┘                 ┌────────────────────────────────┐
+               │                             │ Step 2: Soul & Persona (Soul)  │
+               ▼                             │ (Starter Cards / Tropes / Img) │
+   ┌───────────────────────┐                 └──────────────┬─────────────────┘
+   │  "Everything Synced!" │                                │
+   │  [ Enter Stage ]  OR  │                                ▼
+   │  [ + New Companion ]  │ ────────┐       ┌────────────────────────────────┐
+   └───────────┬───────────┘         │       │ Step 3: Physical Vessel (Body) │
+               │                     │       │ (DiscoverCarousel 3D Coverflow)│
+               │                     │       └──────────────┬─────────────────┘
+               │                     │                      │
+               │                     │                      ▼
+               │                     │       ┌────────────────────────────────┐
+               │                     │       │ Step 4: User Profile & Identity│
+               │                     │       └──────────────┬─────────────────┘
+               │                     │                      │
+               │                     │                      ▼
+               │                     │       ┌────────────────────────────────┐
+               │                     │       │ Step 5: Hearing & Mic (STT)*   │
+               │                     │       │ (*Conditional if Voice Enabled)│
+               │                     │       └──────────────┬─────────────────┘
+               │                     │                      │
+               │                     │                      ▼
+               │                     │       ┌────────────────────────────────┐
+               │                     │       │ Step 6: Consciousness (LLM)    │
+               │                     │       └──────────────┬─────────────────┘
+               │                     │                      │
+               │                     │                      ▼
+               │                     │       ┌────────────────────────────────┐
+               │                     │       │ Step 7: Voice Studio (TTS)*    │
+               │                     │       │ (*Conditional if Voice Enabled)│
+               │                     │       └──────────────┬─────────────────┘
+               │                     │                      │
+               │                     │                      ▼
+               │                     │       ┌────────────────────────────────┐
+               │                     │       │ Extended: Artistry / Sensory*  │
+               │                     │       │ (*Conditional on Archetype)    │
+               │                     │       └──────────────┬─────────────────┘
+               │                     │                      │
+               │                     │                      ▼
+               │                     │       ┌────────────────────────────────┐
+               │                     │       │ Step Finale: Stage Calibration │
+               │                     │       │ (Readiness Honesty & Greeting) │
+               │                     │       └──────────────┬─────────────────┘
+               │                     │                      │
+               ▼                     ▼                      ▼
+   ┌──────────────────────────────────────────────────────────┐
+   │                     Live AIRI Stage                      │
+   └──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 4. Detailed Step Breakdown
 
-### Step 0: Welcome Landing & Path Triage
+### Step 0: Welcome Landing & Language Selector
+- **Phase 1 Language Selector**: Dropdown in top header allows immediate switching of application locale (`en`, `zh-CN`, `ja-JP`, `es-ES`, `de-DE`, `fr-FR`), synchronizing with `useI18n().locale.value` and `settings/general.yaml`.
 - **Hardware Check**: Runs `isWebGPUSupported()` early and stores the capability flag in memory.
-- **Companion Bubble**: *"Don't worry, it's easier than it looks! We've pre-configured everything to run locally on your machine, or you can sign in with Cloudflare for zero-trust cloud backup."*
-- **Triage Action (`step-start-choice.vue`)**:
-  - **Track A: "Sign In with Cloudflare" (`[ZERO-TRUST]`) (Cloud-Connected / Multi-Device Sync)**:
-    - Initiates OAuth 2.0 PKCE directly with Cloudflare.
-    - Automates personal Worker deployment (Edge CORS proxy + 24/7 Discord bot host) and R2 bucket connectivity for private zero-trust backups.
-    - **Existing Data Found**: Hydrates character cards, 3D VRM/2D Live2D models, and memory archives from S3/R2 into local IndexedDB $\rightarrow$ Drops to Victory Stage with active companion ready, or opens Wizard to add another companion.
-    - **New Cloudflare Account / Empty Sync**: Provisions the user's empty cloud bucket/worker upfront, then proceeds into the 7-step wizard so new companions are immediately cloud-backed and portable.
-  - **Track B: "Local Companion (Offline)" (`[LOCAL-FIRST]`) (Local-First Wizard)**:
-    - Advances to Step 1 for 100% offline, private local companion creation without an account.
+- **Companion Greeting**: *"Welcome to AIRI. Choose your language, configure your companion, or connect your personal zero-trust cloud relay."*
 
+### Step 0.5: Path Triage (`step-start-choice.vue`)
+- **Track A: "Sign In with Cloudflare" (`[ZERO-TRUST]`) (Cloud-Connected / Multi-Device Sync)**:
+  - Initiates OAuth 2.0 PKCE directly with Cloudflare.
+  - Automates personal Worker deployment (Edge CORS proxy + 24/7 Discord bot host) and R2 bucket connectivity for private zero-trust backups.
+  - **Existing Data Found**: Hydrates character cards, 3D VRM/2D Live2D models, and memory archives from S3/R2 into local IndexedDB $\rightarrow$ Drops to Victory Stage with active companion ready, or opens Wizard to add another companion.
+  - **New Cloudflare Account / Empty Sync**: Provisions the user's empty cloud bucket/worker upfront, then proceeds into the guided wizard so new companions are immediately cloud-backed and portable.
+- **Track B: "Local Companion (Offline)" (`[LOCAL-FIRST]`) (Local-First Wizard)**:
+  - Advances to Step 1 for 100% offline, private local companion creation without an account.
 
-### Step 1: Hearing & Mic Playground (STT / Ear Setup)
-- **Why Right After Welcome?**: Speech recognition has zero dependencies on character language or persona! Combining the microphone hardware test with the STT provider picker creates an immediate, interactive playground right after the welcome page.
-- **Architectural Principle**: **Reuse & Extract, Don't Reinvent**. Lifts existing verified STT machinery directly from `packages/stage-pages/src/pages/settings/modules/hearing.vue`:
-  - `useSettingsAudioDevice` (mic enumeration & device switching)
-  - `useAudioAnalyzer` → `LevelMeter` component (live volume level wave animation)
-  - `transcribeForMediaStream` & `transcribeForRecording` (`stores/modules/hearing.ts`)
-  - `electronGet/SetMicToggleHotkey` (hardware lock key shortcuts for CapsLock, NumLock, ScrollLock)
-- **Provider Selection Matrix (Reused Step 2 Grid Primitive)**:
-  - Reuses the exact category-agnostic provider grid & filter template from Step 2 (Consciousness), pointed at all audio transcription providers (`allAudioTranscriptionProvidersMetadata`):
-    - Filter controls for **DEPLOYMENT** (`All`, `Cloud`, `Local`) and **PRICING** (`All`, `Free`, `Paid`).
-    - Full grid of transcription provider cards: **Whisper WebGPU** (`whisper-local`), **Browser Web Speech API**, **Groq Whisper**, **OpenAI Whisper**, **Deepgram**, **ElevenLabs**, etc.
-  - **Provider Seam Truth**: Registers `whisper-local` in the provider registry with `listModels` returning `WHISPER_MODELS` (`whisper-large-v3-turbo` ~800MB and `whisper-small` ~480MB), replacing the no-op placeholder.
-  - **No Deep Links / Escapes**: Selecting cloud cards expands `step-provider-configuration` inline — users enter API keys directly within the step without navigating to `/settings/providers`.
-- **In-Context Model Weight Download**:
-  - Selecting **Whisper WebGPU** immediately calls `ensureWhisperLoaded(modelId)` to trigger real-time weight shard downloading & WASM compilation via `onProgress(ProgressPayload)` right inside Step 1 before moving forward (enforces Core Principle 1: In-Context Component Preparation).
-- **Lock-Key Hardware Shortcut Widget (`MicToggleHotkey`)**:
-  - Electron-only hotkey selector allowing users to set **Caps Lock**, **Num Lock**, or **Scroll Lock** as their PTT / mic toggle key (hidden on Web).
-  - Listens for `toggle-mic-from-shortcut` IPC to flash a live "Key detected ✓" indicator when pressed.
-- **Empirical Live Verification & Gated Navigation**:
-  - **Verification Rule**: Selecting a provider does **NOT** mark it as verified. Verification occurs **ONLY** when the live transcript display label receives actual output text from the active provider (`transcribedText !== ""`).
-  - Orchestrator Gate (`provide`/`inject` `onboardingV2Gate` contract):
-    - `[ Skip Step ]`: Always enabled. Allows users without a mic or interest in voice STT to bypass setup.
-    - `[ Next > ]`: **Disabled by default**. Automatically lights up & unlocks ONLY after live spoken text is successfully transcribed and displayed in the transcript label.
-- **Cleanup**: Stopping monitoring, VAD, and streaming sessions on step unmount to avoid mic stream leaks into Step 2.
+### Step 1: Choose Your Experience (4 Hero Bundles + Customizer Deck)
+- **4 Hero Archetype Cards**:
+  1. **💬 Chat Only** (3 steps): Soul + Vessel + Profile + LLM Consciousness. Zero audio friction; lightning fast.
+  2. **🎙️ Talk & Listen** (5 steps): Adds Hearing (Whisper WebGPU / Web Speech) and Voice Studio (Kokoro / Pocket-TTS / Cloud).
+  3. **👁️ Sentinel Companion** (7 steps): Adds OS sensory telemetry, active-window context, and idle AFK check-ins.
+  4. **🎨 Artistic Companion** (6 steps): Adds Autonomous Artistry (ComfyUI / Pollinations) for generative art and selfies.
+- **Customize Your Journey Deck**:
+  - Live checkboxes allow tuning individual modules or selecting all.
+  - Spec'd future expansion capabilities are displayed with styled disabled/unclickable `[Coming Soon]` badges to showcase the full vision without breaking flow:
+    - `🎬 Generative Motion & VRMA`: FlowMDM WebGPU procedural text-to-motion dance cues.
+    - `📖 Lifetime Memory Matrix`: Sacred Journal & DRMM dreaming consolidation.
+    - `🎭 Marker Rehearsal Room`: `<|ACT:...|>` live token expression sandbox.
+    - `🎮 Dating Sim Mode & HUD`: Interactive storyline presets & intimacy meters.
+    - `🪟 Multi-Window Stage Island`: Detached overlay chat bubble.
+    - `☁️ 24/7 Cloud Relay & Bot`: Cloudflare edge daemon for Discord presence.
 
----
-
-### Step 2: Consciousness (Mind / LLM Setup)
-- **Unified Composition**: Top section displays WebLLM hero cards; bottom section reuses the category-agnostic Provider Grid primitive for cloud & local providers.
-- **Top Section - WebLLM Hero Cards (with VRAM Transparency)**:
-  - Sourced directly from `WEB_LLM_MODELS` in [`libs/inference/constants.ts`](packages/stage-ui/src/libs/inference/constants.ts):
-    - `Qwen 3.5 4B` — `[⭐ RECOMMENDED]` — VRAM: ~3.9 GB (3868 MB) — Outstanding chat, instruction, & roleplay.
-    - `Qwen 3.5 0.8B` — VRAM: ~1.6 GB (1629 MB) — Fast distill for lightweight systems.
-    - `Gemma 3 1B` — VRAM: ~0.7 GB (711 MB) — Lowest VRAM; integrated GPUs & mobile.
-    - `Ministral 3B` — VRAM: ~2.9 GB (2864 MB) — High reasoning capability.
-    - `Phi-4 Mini` — VRAM: ~3.4 GB (3438 MB) — Compact Microsoft 3.8B model.
-- **In-Context WebLLM Weight Download**:
-  - Selecting a WebLLM hero card dynamically imports `getWebLlmAdapter()` (`libs/inference/adapters/web-llm.ts`) and calls `adapter.loadModel(target, { onProgress })` inline, streaming real `ProgressPayload` percent/bytes to drive the progress bar on Step 2.
-- **Hardware & WebGPU Gating**:
-  - If `isWebGPUSupported()` is `false`, displays an amber callout ("Local AI brain needs WebGPU") and steers users to the cloud provider grid.
-- **Bottom Section - Reused Provider Grid Primitive**:
-  - Reuses the shared provider grid primitive (`ProviderPickerGrid`) pointed at `allChatProvidersMetadata`.
-  - Selecting cloud cards (OpenAI, Anthropic, Gemini, Groq, NVIDIA NIM, OpenRouter, Ollama, LM Studio) expands `step-provider-configuration` inline for API key entry.
-- **Transient Draft Composition (Core Principle 6)**:
-  - Provider/model selection writes ONLY into `useOnboardingV2Draft` (`recordDraft()` → `setConsciousness({ provider, model, engine: 'web-llm' | 'cloud' })`). `consciousnessStore.activeProvider` / `activeModel` and `activeCard.extensions.airi.modules.consciousness` are NOT touched until Step 7 performs the atomic synthesis.
-  - The only in-step production write is the entered API key itself (account credentials committed to `providersStore` via `markProviderAdded` when the user connects a provider) — credentials are account config, not card state, and survive Step 7 synthesis intentionally.
-- **Live Inference Probe & Verification Gate**:
-  - An ad-hoc inference validation widget is implemented (formerly a future-polish note): connecting a provider allows a live `generateText` probe (`probeState`: `connecting` → `inferencing` → `verified`).
-  - WebLLM: Verified when `loadModel()` resolves and adapter state flips to `ready`.
-  - Cloud LLMs: Verified on probe success, or as a fallback when a provider is configured and a model is selected.
-  - Orchestrator Gate (`provide`/`inject` `onboardingV2Gate` contract):
-    - `[ Skip Step ]`: Always enabled.
-    - `[ Next > ]`: **Disabled by default** until the selected LLM engine is verified ready (probe verified, or provider+model chosen).
-
----
-
-### Step 3: User Profile & Identity Setup
-- **Source Ref**: [`packages/stage-pages/src/pages/settings/system/user-profile.vue`](packages/stage-pages/src/pages/settings/system/user-profile.vue)
-- **Store**: `useSettingsUserProfile` (`name`, `description`, `prompt`, `voiceProfileId`).
-- **Purpose**: Captures User Display Name, Narrative Description, and Visual Prompt Tags **before** Persona Selection so Tier 3 AI Card Creators and SillyTavern template engines know who the user is.
-
----
-
-### Step 4: Soul & Persona Selection (Pure Personality)
-- **Total Decoupling**: Purely handles personality cards and system prompts. Visual avatar bodies are chosen on Step 5.
+### Step 2: Soul & Persona (Emotional Payoff First!)
+- **Total Decoupling**: Purely handles personality cards and system prompts. Visual avatar bodies are chosen on Step 3.
 - **3-Tier Structure**:
   - **Tier 1 (1-Click Starter Cards & Archetypes)**:
-    - ReLU (Companion), Dr. Aria (Scientist), Lupin (Guardian) — the three existing seeded defaults (`airi-card.ts`).
+    - ReLU (Companion), Dr. Aria (Scientist), Lupin (Guardian) — the three seeded defaults (`airi-card.ts`).
     - Anime archetype cards (Tsundere, Kuudere, Yandere, etc.) sourced from `assets/animadex-catalog.json`.
   - **Tier 2 (Community Card Interceptor Hub & SillyTavern Interceptor Wizard)**:
     - Opens a webview side-sheet for community providers (JannyAI, Chub AI, JanitorAI, Risu Realm, DataCat).
     - Intercepts Chromium `onDidDownload` image download events when users click to download a SillyTavern PNG/JSON card.
-    - Reads PNG tEXt / JSON metadata, extracts character fields, and runs a templating wizard replacing `{{user}}` placeholders with Step 3's User Profile!
+    - Reads PNG tEXt / JSON metadata, extracts character fields, and replaces `{{user}}` placeholders.
   - **Tier 3 (AI Guided Creator Wizard)**:
-    - Displayed as a **Feature Preview / "Coming Soon" placeholder card** for now so it remains visible without getting bogged down in its complex 4-step synthesis gauntlet (`guided.vue`).
+    - Displayed as a feature preview / coming soon card so it remains visible without bogging down the initial flow.
+
+### Step 3: Physical Vessel (DiscoverCarousel 3D Coverflow)
+- **Primary View: 3D Coverflow Carousel**:
+  - Direct integration of `DiscoverCarousel.vue` (from `settings/models/explore.vue`).
+  - Interactive drag-and-snap carousel showcasing spotlight avatars (Hiyori Live2D, AvatarSample_A 3D VRM, AvatarSample_B 3D VRM).
+  - Format filter chips: `All Formats`, `VRM (3D)`, `Live2D (2D)`, `Spine`, `MMD`.
+- **Secondary View Toggle**: `[ 📂 Choose from Installed Library ]` toggles the full installed model grid for existing users.
+- **Ever-Present Dropzone**: Drag-and-drop support for custom `.vrm`, `.model3.json`, or `.zip` archives works instantly.
+
+### Step 4: User Profile & Identity Setup
+- **Source Ref**: [`packages/stage-pages/src/pages/settings/system/user-profile.vue`](packages/stage-pages/src/pages/settings/system/user-profile.vue)
+- **Store**: `useSettingsUserProfile` (`name`, `description`, `prompt`, `voiceProfileId`).
+- **Purpose**: Captures User Display Name, Narrative Description, and Visual Prompt Tags so the companion's prompts know who the user is.
 
 ---
 
-### Step 5: Physical Vessel (Pure 3D/2D Avatar Selection)
-- **Built-in Portals**: Hiyori (2D Live2D — seeded as Free **and** Pro preset variants), AvatarSample_A (3D VRM), AvatarSample_B (3D VRM) — 4 preset entries total in `display-models.ts`.
-- **Ever-Present Dropzone**: Custom model uploader (`.vrm`, `.model3.json`, `.zip`) remains fixed.
-- **Explore Link Wall Swap**: Tapping `[ 🌐 Find Free Bodies ]` swaps starter cards for the full AIRI Explore Link Wall (Steam Workshop, Booth, VRoid Hub, Eikanya Archive, SillyTavern Live2D Portal, itch.io, Sketchfab, etc.).
+### Step 5: Hearing & Mic Playground (STT / Ear Setup)
+> *Conditional Step: Rendered when `Talk & Listen`, `Sentinel`, `Artistic`, or custom `hearing` capability is enabled.*
+- **Lifts Existing STT Machinery**: Direct reuse of verified hearing engine components from `packages/stage-pages/src/pages/settings/modules/hearing.vue`:
+  - `useSettingsAudioDevice` (device switching)
+  - `useAudioAnalyzer` → `LevelMeter` (real-time audio waveform meter)
+  - `transcribeForMediaStream` & `transcribeForRecording` (`stores/modules/hearing.ts`)
+  - `electronGet/SetMicToggleHotkey` (hardware lock key shortcuts for CapsLock, NumLock, ScrollLock on desktop)
+- **Transcription Providers**:
+  - Filter controls for **DEPLOYMENT** (`All`, `Cloud`, `Local`) and **PRICING** (`All`, `Free`, `Paid`).
+  - Provider options: **Whisper WebGPU** (`whisper-local` via `whisper-large-v3-turbo` / `whisper-small`), **Browser Web Speech API** (zero-download fallback), **Groq Whisper**, **OpenAI Whisper**, **Deepgram**, etc.
+- **In-Context Model Preparation**: Selecting Whisper WebGPU initiates on-step weight downloads with streaming progress percentages.
+- **Live Verification**: `[ Next > ]` unlocks automatically once live speech is detected and transcribed into the preview label.
 
 ---
 
-### Step 6: Contextual Speech (Her Voice Studio Setup)
-- **Section A — Visual Provider Hierarchy (Local Hero Cards vs Remote Cloud Grid)**:
-  - **3x Prominent Local Hero Cards (Top Row)**:
-    - **Kokoro Local WebGPU**: Badges `[🇺🇸 EN]` `[🇯🇵 JP]` `[🇨🇳 ZH]` `[🇪🇸 ES]` `[🇫🇷 FR]` — High-performance local neural TTS.
-    - **Pocket-TTS Local**: Badges `[🇺🇸 EN]` `[🇫🇷 FR]` `[🇪🇸 ES]` `[🇩🇪 DE]` `[🇵🇹 PT]` `[🇮🇹 IT]` — Low-latency 0.1B CPU engine with voice cloning.
-    - **Moss-Nano Local**: Badges `[🇺🇸 EN]` `[🇨🇳 ZH]` — Fast low-resource local voice.
-  - **Remote Cloud Provider Mini-Card Grid (Second Row)**:
-    - Compact mini cards for ElevenLabs, OpenAI Audio, Deepgram Aura, Azure Speech, Fish Speech.
-- **Section B — Model Selection & Provisioning Panel**:
-  - **Model Dropdown**: Dynamically populated based on active provider (e.g. Kokoro `v0.19`/`v1.0`; ElevenLabs `eleven_multilingual_v2`; OpenAI `tts-1`).
-  - **Local Provisioning Branch**: Displays **`[ Activate & Download Weights ]`** action button with a real-time weight loading progress bar.
-  - **Remote Provisioning Branch**: Displays **API Key password input** with inline 👁️ eye icon show/hide toggle + ↗ quick console button leveraging `consoleUrl` (opens key settings page directly in a new browser window).
-- **Section C — Unified Voice Selector & Audio Tuning Controls**:
-  - **Voice Selector Dropdown + `[ 🔄 Load Voices ]`**: Calls `getVoices()` for the active provider to fetch or refresh live voice presets.
-  - **Speed & Pitch Sliders**: Constrained to a tight, high-quality tuning range of **`0.75x` to `1.5x`** (step `0.05`, default `1.0x`) to prevent severe audio distortion.
-- **Section D — Live Audio Preview Playground**:
-  - **Dynamic Sample Text Input**: Pre-filled with Step 3 User Name and Step 4 Persona Name: *"Hello {userName}! I'm {personaName}. Everything is ready — how do I sound?"*
-  - **`[ ▶ Play Preview ]` Button**: Synthesizes speech live using the active engine, model, voice, pitch, and speed, playing the audio back live.
-- **Internal Architecture & Audio Studio Proxy Mapping**:
-  - Leverages AIRI's internal Audio Studio proxy framework (`AutoVoiceConfigModal.vue` / `speechStore`).
-  - `draftStore.state.speech` stores a **3-part tuple**: `providerId: 'virtual-audio-studio'`, `modelId: 'virtual'`, `voiceId: voice_profile_{personaName}_onboarding`.
-  - Under the hood, this compiles into a temporary/final `VoiceProfile` containing the real `baseProvider`, `baseModel`, `baseVoice`, and `effects: { pitch, rate, volume }`.
+### Step 6: Consciousness (Mind / LLM Setup)
+> *Core Required Step: Configures the companion's reasoning and dialogue engine.*
+- **Top Section - WebLLM Hero Cards (Local WebGPU with VRAM Transparency)**:
+  - `Qwen 3.5 4B` — `[⭐ RECOMMENDED]` — VRAM: ~3.9 GB — Outstanding roleplay and instruction following.
+  - `Qwen 3.5 0.8B` — VRAM: ~1.6 GB — Ultra-fast distilled model for lightweight laptops.
+  - `Gemma 3 1B` — VRAM: ~0.7 GB — Lowest VRAM footprint; ideal for integrated graphics and mobile.
+  - `Ministral 3B` — VRAM: ~2.9 GB — High reasoning density.
+  - `Phi-4 Mini` — VRAM: ~3.4 GB — Microsoft 3.8B compact reasoning model.
+- **Hardware & WebGPU Detection**: If `isWebGPUSupported()` is false, displays a friendly callout steering users to cloud providers.
+- **Bottom Section - Cloud & Self-Hosted Provider Grid**:
+  - Categorized grid: OpenAI, Anthropic, Google Gemini, Groq, OpenRouter, Ollama, LM Studio, etc.
+  - Selecting a cloud provider expands inline credential inputs without kicking the user to settings.
+- **Live Inference Probe**: Performs an active completion ping to verify connection before unlocking progression.
 
-### Step 7: Stage Calibration & Victory Launch
-- **Zero Download Waiting**: Every local engine was already cached and verified on steps 1, 2, 5, and 6.
-- **Summary Badges**: Green status indicators for Consciousness, Hearing, Speech, Avatar, and Soul.
-- **Live Greeting Trial**: [Character Name] speaks an instant live greeting using the configured model and voice!
-- **Instant Entry**: Tapping `[ 🚀 Enter AIRI Stage ]` opens AIRI immediately.
+---
+
+### Step 7: Contextual Speech (Her Voice Studio Setup)
+> *Conditional Step: Rendered when voice speech is enabled.*
+- **Section A — Visual Provider Hierarchy**:
+  - **Local Neural Hero Cards**:
+    - **Kokoro Local WebGPU**: Multilingual neural synthesis (`[EN]`, `[JA]`, `[ZH]`, `[ES]`, `[FR]`).
+    - **Pocket-TTS Local**: Ultra-fast CPU engine with instant voice cloning.
+    - **Moss-Nano Local**: Lightweight local synthesis.
+  - **Cloud Providers**: ElevenLabs, OpenAI Audio, Deepgram Aura, Azure Speech, Fish Audio.
+- **Section B — Unified Voice Tuning Controls**:
+  - Voice Selector dropdown + `[ 🔄 Load Voices ]`.
+  - Tight tuning range for Speed & Pitch (`0.75x` – `1.5x`) to preserve natural vocal timber.
+- **Section C — Live Audio Preview Playground**:
+  - Pre-filled sample text: *"Hello {userName}! I'm {personaName}. Everything is ready — how do I sound?"*
+  - `[ ▶ Play Preview ]` synthesizes and plays audio live through the selected engine.
+
+---
+
+### Extended Modules: Autonomous Artistry & Sensory Proactivity
+> *Conditional Steps: Rendered when Sentinel Companion, Artistic Companion, or corresponding customizer checkboxes are active.*
+- **🎨 Autonomous Artistry**:
+  - Configures local ComfyUI API endpoint (`http://127.0.0.1:8188`) or Pollinations AI cloud fallback.
+  - Tests workflow connectivity for autonomous selfies, visual storytelling, and stage widget manifestation.
+- **👁️ Sensory Proactivity**:
+  - Guides OS permission setup for active window title tracking and desktop AFK detection.
+  - Calibrates attention thresholds and non-intrusive heartbeat interval triggers.
+
+---
+
+### Step Finale: Stage Calibration & Truthful Readiness Launch
+- **Readiness Honesty Matrix**:
+  - Replaces false "100% prepared" claims with granular, truthful status cards:
+    - `Verified Active` (🟢): Subsystem verified via live probe or local weights loaded.
+    - `Configured (Untested)` (🟡): API key entered, probe skipped.
+    - `Muted / Skipped` (⚪): Microphone input disabled or skipped.
+    - `Silent Mode` (⚪): Speech disabled (Chat Only mode).
+- **Live First Spoken Greeting**:
+  - Triggers an actual LLM completion with the companion's compiled persona, user profile, and starter prompt.
+  - If speech is enabled, streams the response through the chosen TTS voice so she speaks her real first words.
+  - Graceful fallback to offline starter text if network is unavailable.
+- **Instant Launch**: Tapping `[ 🚀 Enter AIRI Stage ]` transitions smoothly into the desktop stage with the new companion active.
 
 ---
 
 ## 5. Implementation Status & Active Architecture
 
-- **Canonical Implementation**: V2 onboarding is the single active onboarding implementation across all platforms. Legacy V1 files have been completely removed.
-- **Modal Mounting**: `OnboardingDialog` (`packages/stage-ui/src/components/scenarios/dialogs/onboarding/onboarding-dialog.vue`) directly mounts `OnboardingV2` within desktop `DialogRoot` and mobile `DrawerRoot`.
-- **State Isolation**: Transient state is isolated in `useOnboardingV2Draft` (`onboarding/v2-draft`), guaranteeing that cancelling or navigating back never leaves orphaned or corrupted cards in IndexedDB.
+- **Canonical Implementation**: Onboarding V3 evolves V2's robust component modularity by adding dynamic bundle routing, coverflow vessel selection, and persona-first ordering.
+- **Modal Mounting**: `OnboardingDialog` (`packages/stage-ui/src/components/scenarios/dialogs/onboarding/onboarding-dialog.vue`) hosts the onboarding flow across desktop `DialogRoot` and mobile `DrawerRoot`.
+- **State Isolation**: Transient choices reside in `useOnboardingV2Draft` (`onboarding/v2-draft`), guaranteeing that navigating or cancelling never leaves orphaned or corrupted records in IndexedDB.
 
 ---
 
 ## 6. Codebase Reference Table
 
-| Step | Vue Component Path | Pinia Store Ref | Key Constants / Services |
+| Step | Component / Location | Pinia Store / Composable Ref | Key Constants / Services |
 |---|---|---|---|
-| **0** | [`v2/steps/step-0-welcome.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-0-welcome.vue) | `useOnboardingStore` | `isWebGPUSupported()` |
-| **0.5**| [`step-start-choice.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-start-choice.vue) | `useOnboardingStore` | `onSelectPath('new' \| 'returning')`, Cloudflare OAuth PKCE |
-| **1** | [`v2/steps/step-1-hearing.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-1-hearing.vue) | `useHearingStore` | `WHISPER_MODELS`, `useAudioContext` |
-| **2** | [`v2/steps/step-2-consciousness.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-2-consciousness.vue) | `useConsciousnessStore` / `useProvidersStore` | `WEB_LLM_MODELS`, `getWebLlmAdapter()` |
-| **3** | [`v2/steps/step-3-user-profile.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-3-user-profile.vue) | `useSettingsUserProfile` | `name`, `description`, `prompt` |
-| **4** | [`v2/steps/step-4-persona.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-4-persona.vue) | `useAiriCardStore` | `STARTER_CHARACTERS`, `getStarterCharacter()` |
-| **5** | [`v2/steps/step-5-vessel.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue) | `useDisplayModelsStore` | `displayModelsStore.displayModels` |
-| **6** | [`v2/steps/step-6-speech.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-6-speech.vue) | `useSpeechStore` | `kokoro-local`, `pocket-tts-local`, `moss-nano-local` |
-| **7** | [`v2/steps/step-7-calibration.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-7-calibration.vue) | `useOnboardingStore` / `useAiriCardStore` | Atomic card synthesis & launch |
+| **0: Welcome** | [`v2/steps/step-0-welcome.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-0-welcome.vue) | `useOnboardingStore`, `useI18n` | `isWebGPUSupported()`, Phase 1 Language Selector |
+| **0.5: Triage** | [`step-start-choice.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-start-choice.vue) | `useOnboardingStore` | `onSelectPath('new' \| 'returning')`, Cloudflare OAuth PKCE |
+| **1: Experience** | `v2/steps/step-1-experience.vue` (New) | `useOnboardingV2Draft` | 4 Hero Archetype Cards + Customizer Deck |
+| **2: Soul & Persona** | [`v2/steps/step-4-persona.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-4-persona.vue) | `useAiriCardStore` | `STARTER_CHARACTERS`, `animadex-catalog.json`, Card Imports |
+| **3: Vessel** | [`v2/steps/step-5-vessel.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue) | `useDisplayModelsStore` | `DiscoverCarousel.vue`, VRM/Live2D starter presets, uploader |
+| **4: User Profile** | [`v2/steps/step-3-user-profile.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-3-user-profile.vue) | `useSettingsUserProfile` | `name`, `description`, `prompt` |
+| **5: Hearing (STT)** | [`v2/steps/step-1-hearing.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-1-hearing.vue) | `useHearingStore` | `WHISPER_MODELS`, `useAudioContext`, `MicToggleHotkey` |
+| **6: Consciousness** | [`v2/steps/step-2-consciousness.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-2-consciousness.vue) | `useConsciousnessStore` / `useProvidersStore` | `WEB_LLM_MODELS`, `getWebLlmAdapter()`, Live LLM probe |
+| **7: Speech (TTS)** | [`v2/steps/step-6-speech.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-6-speech.vue) | `useSpeechStore` | `kokoro-local`, `pocket-tts-local`, `moss-nano-local`, Audio Preview |
+| **Finale: Calibration** | [`v2/steps/step-7-calibration.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-7-calibration.vue) | `useOnboardingStore` / `useAiriCardStore` | Readiness Honesty Matrix, Live First Spoken Greeting |
 
 ## Relevant Skills
 
 - [[airi-onboarding-v2]]
+- [[airi-card-schema]]
+- [[airi-character-rendering]]
+- [[airi-i18n-localization]]
+
