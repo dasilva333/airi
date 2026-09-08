@@ -1,7 +1,7 @@
 ---
 name: airi-memory-text-journal
 description: >-
-  Use when working with AIRI memory pillar 2 — the Long-Term Text Journal (LTMM): memory-text-journal.ts store (598 lines), text-journal.repo (local:memory/text-journal/{userId}), the Sacred Journal append-only rule, the text_journal builtin tool (create/search), universe-scoped entry filtering, and journal indexing into the semantic search layer. Trigger on journal entries, LTMM, text_journal tool, or sacred/append-only journal constraints. Airi memory pillar hub: airi-memory-systems.
+  Implement/debug Long-Term Text Journal (LTMM): append-only entries, Sacred Journal Rule, text_journal create/search tool, universe filtering, semantic indexing. Retrieval ranking uses airi-memory-retrieval-engine; daily summaries use airi-memory-short-term.
 ---
 
 # Memory Pillar 2 — Text Journal (LTMM)

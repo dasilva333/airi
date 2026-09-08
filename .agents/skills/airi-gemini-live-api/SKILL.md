@@ -1,15 +1,7 @@
 ---
 name: airi-gemini-live-api
 description: >-
-  Use when working with the Gemini Live API bidirectional WebSocket streaming integration,
-  LiveSessionStore, google-genai sessions, real-time PCM audio in/out, sub-second multimodal
-  streaming, mandatory ['AUDIO'] responseModalities rule, zero-length TTS suppression hack,
-  live marker parsing, native tool calling mid-turn, and Google Search Grounding gated on
-  isGroundingEnabled. Key tech: google-genai SDK, raw Bidi WebSocket, Pinia, Vue 3,
-  useLlmmarkerParser, streaming categorizer. Paths:
-  docs/design-gemini-live-api-integration.md,
-  packages/stage-ui/src/stores/modules/live-session.ts,
-  apps/stage-tamagotchi/src/renderer/pages/notice/gemini.vue.
+  Implement/debug Gemini Live bidirectional sessions: google-genai/Bidi WebSocket, PCM audio, AUDIO response modality, live markers, native tool calls, Search Grounding, duplicate TTS suppression. Conventional TTS/STT uses airi-audio-pipeline.
 ---
 
 # AIRI Gemini Live API Integration

@@ -1,7 +1,7 @@
 ---
 name: airi-memory-image-journal
 description: >-
-  Use when working with AIRI memory pillar 6 — the Image Journal and Autonomous Artistry (AA): BackgroundEntry storage in background.ts (localforage, types builtin/scene/journal/selfie, bg-{nanoid} keys with image-journal- legacy migration), the assistant-callable image_journal tool (create/apply), the separate Autonomous Artistry deterministic side-pipeline (Director 2nd-LLM analysis → threshold gate → headless generation → journal save, invisible to the talking assistant), artistry providers/settings, and reconcileBackgrounds() sync. Trigger on image journal, autonomous artistry, generated art storage, journal/selfie backgrounds, or AA. Hub: airi-memory-systems.
+  Implement/debug durable image journal: generated art/selfie storage, character/universe filtering, legacy migration, background reconciliation. Distinguish image_journal tool output from Autonomous Artistry output; generation orchestration uses airi-artistry-comfyui-widgets.
 ---
 
 # Memory Pillar 6 — Image Journal & Autonomous Artistry

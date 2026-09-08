@@ -1,6 +1,7 @@
 ---
 name: airi-card-schema
-description: "Use when working with Character Card Specifications (CCv2/CCv3), AiriCard and AiriExtension Valibot schemas, PNG tEXt chunk writing/parsing (chara keyword, CRC32), base64 UTF-8 encoding, or webview download interception."
+description: >-
+  Extend/debug CCv2/CCv3 character-card formats, AiriCard/AiriExtension Valibot schemas, PNG tEXt import/export, chara chunks, CRC32, base64 UTF-8 encoding, webview downloads. Card editing UI uses airi-card-editor-wizard.
 ---
 
 # Overview & Architecture

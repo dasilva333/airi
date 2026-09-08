@@ -1,7 +1,7 @@
 ---
 name: airi-memory-systems
 description: >-
-  Use when working with AIRI memory systems at scale — the Eight Pillars of Memory hub skill covering chat sessions, text journal (LTMM), short-term daily summaries (STMM), echo chips, lifetime artifacts, image journal / autonomous artistry backgrounds, event log, and provisioning sessions. This skill is deliberately a map-of-maps: it locates each pillar's store, repo, storage namespace, universe tagging, and prompt-injection point, then defers implementation detail to the eight dedicated pillar skills plus retrieval (airi-memory-retrieval-engine), consolidation (airi-memory-consolidation-dreaming), and UI (airi-memory-ui-pages). Trigger on cross-pillar questions, universe isolation, memory data model overview, or "which skill owns this memory". Grounded in: docs/data-catalog.md, docs/design-timeline-flat.md, docs/memory_lab/.
+  Map memory subsystem ownership, storage boundaries, universe isolation, prompt-injection points. Use for cross-pillar architecture or locating relevant memory skill; individual session, journal, summary, retrieval, and UI tasks use dedicated skills.
 ---
 
 # AIRI Memory Systems — The Eight Pillars Hub

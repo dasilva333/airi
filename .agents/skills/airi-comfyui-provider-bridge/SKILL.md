@@ -1,7 +1,7 @@
 ---
 name: airi-comfyui-provider-bridge
 description: >-
-  Use when developing, wiring, or debugging AIRI's ComfyUI local image generation: the main-process ComfyUIProvider (queue → history poll → view/upload endpoints), workflow_api.json upload + prompt/image target annotation (exposedFields), the {{PROMPT}}/{{IMAGE}} placeholder protocol, the exposed-field security boundary, the artistryComfyHealthCheck connection test, the browser-side generateComfyUIWeb fallback, and how ComfyUI sits as a generic ArtistryProvider alongside remote backends (replicate, nanobanana). Peer skill: airi-artistry-comfyui-widgets (widget/headless/autonomous routing layer on top).
+  Implement/debug ComfyUI generation protocol: workflow_api.json upload, exposedFields, {{PROMPT}}/{{IMAGE}} substitution, queue/history/view endpoints, health checks, browser fallback. Widget routing and headless orchestration use airi-artistry-comfyui-widgets.
 ---
 
 # ComfyUI Provider Bridge — Local Image Generation Backend

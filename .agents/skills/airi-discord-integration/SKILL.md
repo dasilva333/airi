@@ -1,7 +1,7 @@
 ---
 name: airi-discord-integration
 description: >-
-  Use when working with the AIRI Discord bot integration and multi-modal routing: Electron main-process gateway service in apps/stage-tamagotchi/src/main/services/airi/discord/index.ts, renderer orchestration store packages/stage-ui/src/stores/modules/discord.ts (slash-command COMMANDS_VERSION, visionEnabled toggle, sendImageToDiscord native IPC bypass), slash-command registration and sync, image attachment to vision/VLM routing via chatOrchestrator.ingest as base64 data-URL, tool-availability fallthrough where tools flow through chat store performSend and are stripped only on VLM turns, discordServiceRegisterCommands/SendMessage/ReplyInteraction/GetStatus IPC contracts, voice channel audio, docs/feat-discord-revamp.md and docs/design-discord-bot-integration.md.
+  Implement/debug Discord bot gateway, slash commands, registration sync, message/reply IPC, attachments, vision routing, voice channels, outbound formatting. Gemini Live session internals use airi-gemini-live-api; cloud webhooks use airi-cloud-relay-infrastructure.
 ---
 
 # AIRI Discord Integration

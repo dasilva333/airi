@@ -1,7 +1,7 @@
 ---
 name: airi-provider-ui-pages
 description: >-
-  Use when building Provider Settings UI Pages, Category Cards, Inline Configuration Panels, and Live connection testing Composables.
+  Build/debug provider settings UI: category cards, configuration forms, API-key entry, model selectors, inline panels, connection-test feedback. Instance persistence and validation state use airi-provider-store-instances.
 ---
 
 # AIRI Provider UI Pages & Settings Panels

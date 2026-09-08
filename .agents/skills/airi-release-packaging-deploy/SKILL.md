@@ -1,6 +1,7 @@
 ---
 name: airi-release-packaging-deploy
-description: Use when shipping AIRI artifacts or deploying services — stable-release workflow (version stamping, git tag, release notes, pnpm release:win / release:mac publish scripts), electron-builder packaging for Windows/macOS/Linux (exe/zip/dmg/deb/rpm/flatpak), the release-tamagotchi.yml CI matrix (nightly schedule, workflow_dispatch, SignPath code signing, Apple notarization via CSC_CONTENT/APPLE_ID, latest*.yml auto-update feeds), Android APK and iOS IPA packaging of apps/stage-pocket via Capacitor (cap sync, gradle assembleRelease, Xcode archive), Docker/OCI images of stage-web on ghcr.io, docs deployment to GitHub Pages, Cloudflare edge-worker deployment (apps/stage-edge), or gh CLI release-upload auth quirks.
+description: >-
+  Package/release/deploy AIRI: versioning, tags, release scripts, Electron installers, CI signing/notarization, auto-update feeds, Capacitor APK/IPA, Docker images, GitHub Pages, edge-worker publishing. Cloud relay implementation uses airi-cloud-relay-infrastructure.
 ---
 
 # AIRI Release, Packaging & Deploy

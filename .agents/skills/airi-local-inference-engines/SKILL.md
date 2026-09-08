@@ -1,7 +1,7 @@
 ---
 name: airi-local-inference-engines
 description: >-
-  Use when managing local WebGPU & WASM inference engines in AIRI (Kokoro TTS worker, Whisper STT worker, WebLLM worker, Web-RWKV worker), worker message protocols, load queues, or GpuResourceCoordinator VRAM pressure telemetry.
+  Load/debug local WebGPU/WASM inference workers: Kokoro, Whisper, WebLLM, Web-RWKV, worker protocols, model load queues, GpuResourceCoordinator, VRAM pressure. Provider definitions use airi-provider-core-registry.
 ---
 
 # AIRI Local Inference Engines (WebGPU & WASM)

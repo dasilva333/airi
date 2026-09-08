@@ -1,7 +1,7 @@
 ---
 name: airi-model-preview-caching
 description: >-
-  Use when generating, caching, framing, or refreshing 2D and 3D avatar display model preview thumbnails (VRM, Live2D, Spine, MMD), implementing offscreen renderer pipelines, applying framing/camera strategies per format, trimming transparent margins, settling animations, persisting compressed WebP previews to IndexedDB (localforage), batch reprocessing thumbnails, or synchronizing catalog metadata across windows.
+  Generate/debug avatar preview thumbnails: VRM/Live2D/Spine/MMD offscreen rendering, camera framing, transparent-margin trimming, animation settling, WebP caching, refresh/reprocessing, catalog sync. Live avatar rendering uses airi-character-rendering.
 ---
 
 # AIRI Model Preview Caching & Keyframing Engine

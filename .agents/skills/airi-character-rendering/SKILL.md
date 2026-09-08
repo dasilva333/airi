@@ -1,7 +1,7 @@
 ---
 name: airi-character-rendering
 description: >-
-  Use when rendering, loading, or debugging 3D & 2D avatar display models in AIRI (VRM, Live2D, Spine, MMD), Three.js rendering pipelines, ModelCustomizer capability exploration, expression mappings, parameter controls, motion triggers, displayModelsStore binary fetching, or display model schema definitions.
+  Load/render/debug VRM, Live2D, Spine, MMD avatars: display-model schemas, binary loading, Three.js pipelines, runtime expressions and motions. Mapping editor uses airi-model-customizer; thumbnail generation uses airi-model-preview-caching.
 ---
 
 # AIRI Character Rendering & Avatar Capabilities Engine

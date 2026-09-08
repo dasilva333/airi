@@ -1,6 +1,7 @@
 ---
 name: airi-provider-store-instances
-description: "Use when working with managing providersStore, multi-instance provider accounts, providersRepo IndexedDB persistence, data boundaries, or connection validation state (useProviderValidation)."
+description: >-
+  Manage/debug providersStore runtime state: multiple provider accounts, instance lifecycle, providersRepo persistence, configuration boundaries, connection validation state. Backend definitions use airi-provider-core-registry; settings forms use airi-provider-ui-pages.
 ---
 
 # Multi-Instance Provider Store

@@ -1,7 +1,7 @@
 ---
 name: airi-gateway-websocket-protocol
 description: >-
-  Use when working with the AIRI local WebSocket Gateway & channel server: main-process channel server in apps/stage-tamagotchi/src/main/services/airi/channel-server/index.ts, WebSocket port 6121 / SERVER_CHANNEL_PORT, cryptographic authToken handshake, localhost (127.0.0.1) loopback vs LAN (0.0.0.0) binding, mkcert TLS certificate generation, server-channel/config.json persistence, eventa IPC contracts electronGetServerChannelConfig/electronApplyServerChannelConfig, client pairing with stage-pocket mobile companion apps and external tools.
+  Implement/debug local WebSocket channel server: port 6121, authToken handshake, loopback/LAN binding, mkcert TLS, server-channel config, mobile companion pairing, external clients. Cloud relays use airi-cloud-relay-infrastructure.
 ---
 
 # AIRI Gateway & WebSocket Protocol

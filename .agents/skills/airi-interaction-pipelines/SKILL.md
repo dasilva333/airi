@@ -1,7 +1,7 @@
 ---
 name: airi-interaction-pipelines
 description: >-
-  Use when tracing, extending, or debugging end-to-end AIRI interaction flows: text chat (desktop chatbox, WhisperDock/bar, web landscape, mobile portrait), microphone STT → LLM, Discord classic voice → STT → LLM, Discord/in-app Gemini Live Bidi, proactivity heartbeats, streaming response processing (text-delta, reasoning-delta, in-band <think>/<thought>/<reasoning> tags, useLlmmarkerParser, createStreamingCategorizer), and the downstream hook → speech-runtime → TTS-playback chain. This is a map-of-maps skill: it owns the cross-pipeline overview, ingestion routing, hook/speech-runtime plumbing, reasoning normalization, and the stop/cancel-in-flight audit. Defers to airi-audio-pipeline (TTS/STT internals), airi-gemini-live-api (Bidi details), airi-proactivity-sensory-telemetry (heartbeat/sensor), airi-discord-integration (commands/gateway), airi-caption-subsystem (caption surfaces), airi-stage-ui-surfaces (host/window shell), airi-desktop-chatbox (chatbox UI), airi-prefix-cache-alignment (prompt layout). Cites arch-chat-stt-proactivity-pipelines.md as the ground-truth source for this surface.
+  Trace/debug end-to-end interaction routing: chat/voice ingestion, LLM streaming, reasoning normalization, response hooks, speech handoff, stop/cancel propagation. Use for failures spanning subsystems; chat UI uses airi-desktop-chatbox.
 ---
 
 # AIRI Interaction Pipelines

@@ -1,7 +1,7 @@
 ---
 name: airi-caption-subsystem
 description: >-
-  Use when working with AIRI captions/subtitles across all render surfaces: the standalone Electron caption window (main/windows/caption + renderer/pages/caption.vue), the DatingSim inline caption panel, the head-tethered comic-bubble plank (Live2D-only so far), the dormant Stage-Mate bubble bridge, and the shared BroadcastChannel ('airi-caption-overlay') segment/isActive streaming protocol. Also covers CaptionPanel segment highlighting, Live2D baked-in motion Text captions (hit zones → motion captions), the useSpeechCaptionPlayer Sentence-Sync TTS player, caption settings (stores/settings/captions.ts), and the control-strip/customizer captions-layout group (docking, follow-stage position/visibility, theme, opacity, layout mode, head-tether toggle). Consistently distinguishes desktop-only windowed features from shared in-scene behavior.
+  Build/debug captions and subtitles: Electron overlay, DatingSim panel, Live2D speech bubbles and motion captions, Sentence-Sync TTS highlighting, streaming segments, docking, themes, visibility. Caption behavior across surfaces, including Stage-Mate bridge.
 ---
 
 # AIRI Caption & Subtitle Subsystem

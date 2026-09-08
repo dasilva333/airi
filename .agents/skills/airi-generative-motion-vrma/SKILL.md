@@ -1,7 +1,7 @@
 ---
 name: airi-generative-motion-vrma
 description: >-
-  Use when developing, compiling, or debugging Text-to-VRMA / Text-to-Motion generation: the dual-engine Motion Module (Procedural LLM Keyframes vs FlowMDM Local WebGPU Neural Diffusion), the Settings > Modules > Text to Motion engine-card selector, the Settings > Providers > Motion (FlowMDM) playground, the generate_motion built-in tool, in-browser VRMA compilation via @pixiv/three-vrm-animation, Mixamo/HumanML3D skeletal retargeting, or <|ACT:motion="..."|> kinetic cues. Also covers the scripts/motion-export Python ONNX export lineage.
+  Generate/debug Text-to-Motion and Text-to-VRMA: procedural LLM keyframes, FlowMDM WebGPU diffusion, generate_motion, VRMA compilation, skeletal retargeting, ONNX exports, motion playground. Existing animation mappings use airi-model-customizer.
 ---
 
 # AIRI Generative Motion & Text-to-Motion Engine

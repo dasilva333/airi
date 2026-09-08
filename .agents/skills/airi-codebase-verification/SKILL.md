@@ -1,7 +1,7 @@
 ---
 name: airi-codebase-verification
 description: >-
-  Use when working with AIRI validation commands, verification workflows, typecheck/build selection, lint:fix discipline, or git status reporting. Trigger on choosing minimal verification for a change, running pnpm -F typecheck or a workspace build, deciding whether lint:fix is appropriate, or satisfying the git status / fork release-safety rules in AGENTS.md.
+  Choose/run AIRI validation: affected-workspace typecheck/build, minimal verification, lint:fix scope, git status reporting, fork release-safety checks. Use when deciding which checks a change needs.
 ---
 
 Choose the smallest validation that gives useful confidence; validation is not a ritual. Never cite `crates/` (legacy Tauri; current desktop is Electron `apps/stage-tamagotchi/`). This fork is developed directly on `main` and the remote is a release surface — never push untested changes.

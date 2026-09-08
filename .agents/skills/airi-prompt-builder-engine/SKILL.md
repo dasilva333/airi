@@ -1,16 +1,7 @@
 ---
 name: airi-prompt-builder-engine
 description: >-
-  Use when working with the AIRI system prompt builder, ACT marker pipeline, dating sim
-  engine, character card prompt composition, acting/artistry instructions, short-term and
-  lifetime memory injection, persona head/tail pruning, use-producer roleplay suggestions,
-  and bridged gateway tool-call construction. Key tech: Vue 3 Pinia stores, TypeScript,
-  streaming <|ACT:...|> marker parser, xsai tool calls, OpenAI-compatible gateways.
-  Paths: packages/stage-ui/src/stores/modules/airi-card.ts,
-  packages/stage-ui/src/stores/chat/session-store.ts,
-  packages/stage-ui/src/composables/llm-marker-parser.ts,
-  packages/stage-ui/src/stores/dating-sim.ts,
-  packages/stage-ui/src/composables/use-producer.ts.
+  Compose/debug system prompts: character persona, acting/artistry instructions, dating-sim context, memory injection, head/tail pruning, producer roleplay suggestions. Marker execution uses airi-acting-cue-act-tokens; request dispatch uses airi-llm-dispatch-gateway.
 ---
 
 # AIRI Prompt Builder Engine

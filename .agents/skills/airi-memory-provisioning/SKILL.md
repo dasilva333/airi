@@ -1,7 +1,7 @@
 ---
 name: airi-memory-provisioning
 description: >-
-  Use when working with AIRI memory pillar 8 — Provisioning Sessions: provisioning-session.repo (local:memory/provisioning-session/{characterId}), the resumable lifetime-artifact build state machine (phases idle → aggregating → chunking → synthesizing → distill_pass_1 → distill_pass_2 → success), chunk-summary checkpoint persistence, resume semantics, and its pairing with the memory-lifetime pipeline. Trigger on provisioning sessions, resumable builds, lifetime artifact generation state, or provision() debugging. Hub: airi-memory-systems; the synthesis itself lives in airi-memory-lifetime.
+  Persist/debug lifetime-memory build state: provisioning sessions, phase checkpoints, saved chunk summaries, interrupted-build resume, restart recovery. Artifact synthesis and incremental maintenance use airi-memory-lifetime.
 ---
 
 # Memory Pillar 8 — Provisioning Sessions

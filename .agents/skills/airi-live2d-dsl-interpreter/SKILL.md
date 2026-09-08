@@ -1,7 +1,7 @@
 ---
 name: airi-live2d-dsl-interpreter
 description: >-
-  Use when evaluating, extending, or debugging the Live2D Scripting DSL Virtual Machine, pixi-live2d-display instruction parser (start_mtn, clear_exp), VarFloats heap, zero-latency WebGL costume hot-swapping (change_cos), or Live2DStageManager delta ticking loop.
+  Extend/debug Live2D scripting VM: instruction parsing, start_mtn/clear_exp, VarFloats state, change_cos costume swaps, stage ticking. Script execution internals; card-level outfit selection uses airi-modular-outfits-system.
 ---
 
 # AIRI Live2D DSL Interpreter & Kinetic VM

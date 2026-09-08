@@ -1,7 +1,7 @@
 ---
 name: airi-attention-ecology-vision
 description: >-
-  Use when configuring, maintaining, or debugging continuous 24/7 background vision perception, Cascaded Salience Gate (pHash → CLIP vision embedding → WASM OCR / RWKV-7 gate → VLM forwarder), privacy app exclusion filters, or Vibe Island integration.
+  Configure/debug continuous background vision: screen perception, Cascaded Salience Gate, pHash, CLIP, OCR, RWKV gating, VLM forwarding, privacy app exclusions, Vibe Island. OS sensors and heartbeat decisions use airi-proactivity-sensory-telemetry.
 ---
 
 # AIRI Attention Ecology & Vision Perception

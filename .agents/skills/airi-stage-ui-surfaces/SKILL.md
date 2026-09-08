@@ -1,7 +1,7 @@
 ---
 name: airi-stage-ui-surfaces
 description: >-
-  Use when building, styling, or debugging the cross-app Control Strip (desktop `mode="desktop"` pill inside Electron, and the `mode="mobile"` integration in stage-web/stage-pocket with its own default buttons and mobile UX rules), ControlStripHost/WidgetStage, RendererStage, floating Electron overlay windows, control islands, the action dispatcher (useControlStripAction, BUTTONS_CATALOG_VERSION, CUSTOMIZER_CATALOG, broadcast/custom-event bus), tray/window orchestration, or interactive stage layout containers.
+  Build/debug stage shells and layout: desktop/mobile Control Strip, ControlStripHost, WidgetStage, RendererStage, control islands, action dispatch, tray/window coordination. Customizer window uses airi-controlstrip-customizer; desktop chat UI uses airi-desktop-chatbox.
 ---
 
 # AIRI Stage UI Surfaces & Control Strip

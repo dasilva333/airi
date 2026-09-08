@@ -1,7 +1,7 @@
 ---
 name: airi-mcp-integration
 description: >-
-  Use when working with Model Context Protocol (MCP) server integration in the Electron desktop app: stdio MCP service manager in apps/stage-tamagotchi/src/main/services/airi/mcp-servers/index.ts, mcp.json config in Electron userData/appData, eventa IPC contracts electronMcpListTools/electronMcpCallTool/electronMcpApplyAndRestart/electronMcpGetRuntimeStatus in apps/stage-tamagotchi/src/shared/eventa.ts, renderer bridge window.__AIRI_MCP_BRIDGE__ and setMcpToolBridge/getMcpToolBridge in packages/stage-ui/src/stores/mcp-tool-bridge.ts, settings store packages/stage-ui/src/stores/mcp.ts (serverCmd/serverArgs/connected), builtin meta-tools mcp_list_tools/mcp_call_tool in apps/stage-tamagotchi/src/renderer/stores/tools/builtin/mcp.ts, tool listing/invocation, server lifecycle, qualified tool names "server::tool", LLM tool calling with MCP.
+  Configure/debug desktop Model Context Protocol (MCP): mcp.json, stdio server lifecycle, renderer bridge, tool discovery/invocation, permissions, server::tool names, mcp_list_tools/mcp_call_tool. Built-in tool registration uses airi-tool-registry-builtin-tools.
 ---
 
 # AIRI MCP Integration

@@ -1,7 +1,7 @@
 ---
 name: airi-tool-registry-builtin-tools
 description: >-
-  Use when working with tool calling across AIRI surfaces — the builtinTools factory (apps/stage-tamagotchi/src/renderer/stores/tools/builtin/), the tool registry inside ProactivityStore (registerTools/resolveRegisteredTools), the chat orchestrator toolsResolver, the card-level allowedTools gate in llmStore.filterToolsByAllowedTools, and the per-surface availability matrix (desktop chatbox, secondary windows/WhisperDock relay, web-stage, pocket, proactivity heartbeats, Discord text/voice/steer, Gemini Live Bidi native function calls, VLM turns). Covers tool-call rendering in chat slices and Discord outbound formatting, authoring new builtin tools, and registration pitfalls. Peer skills: airi-mcp-integration (MCP meta-tools), airi-interaction-pipelines (routing), airi-llm-dispatch-gateway (gateway-side filtering), airi-discord-integration, airi-gemini-live-api, airi-artistry-comfyui-widgets (image_journal), airi-generative-motion-vrma (generate_motion). Cites docs/rosetta-stone.md and docs/arch-chat-stt-proactivity-pipelines.md.
+  Author/register/debug built-in tools, toolsResolver, allowedTools gates, per-surface availability, missing tool registration. MCP discovery uses airi-mcp-integration; model tool-compatibility failures use airi-llm-dispatch-gateway; tool-card UI uses airi-desktop-chatbox.
 ---
 
 # AIRI Tool Registry & Builtin Tools

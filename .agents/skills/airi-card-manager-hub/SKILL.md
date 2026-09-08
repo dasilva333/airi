@@ -1,7 +1,7 @@
 ---
 name: airi-card-manager-hub
 description: >-
-  Use when working with the AIRI Card Management Hub (settings/airi-card/index.vue), card grid layout (CardListItem.vue), avatar and media resolution priority chain (CharacterAvatar.vue, character-media-resolver.ts), card detail inspector (CardDetailDialog.vue), full card creation dialog (CardCreationDialog.vue), card import/export operations, skeleton loading strategies, or card performance and responsiveness optimizations. Key technologies: Vue 3, Pinia, unstorage, localforage, Valibot. File paths: packages/stage-pages/src/pages/settings/airi-card/, packages/stage-ui/src/stores/modules/airi-card.ts, packages/stage-ui/src/components/misc/CharacterAvatar.vue, packages/stage-ui/src/libs/character-media-resolver.ts, docs/data-catalog.md.
+  Build/debug character-card library: management hub, card grid, avatar/media resolution, detail inspector, creation dialog, import/export actions, loading performance. Editor tabs use airi-card-editor-wizard; card formats use airi-card-schema.
 ---
 
 # AIRI Character Card Gallery & Management Hub

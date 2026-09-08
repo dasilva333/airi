@@ -1,7 +1,7 @@
 ---
 name: airi-docs-site-maintenance
 description: >-
-  Use when developing, maintaining, or restructuring the AIRI documentation site: VitePress setup in docs/, canonical sidebar single-source-of-truth in docs/shared-sidebar.ts, content folders in docs/content/ (en, ja, zh-Hans), Markdown frontmatter rules (title, description, category, date, preview-cover), relative asset resolution (@assets rules, avoiding missing local mp4/gif imports), and separation between technical root docs (docs/*.md) and user-facing public guides (docs/content/en/docs/manual/).
+  Maintain VitePress documentation site: shared sidebar, localized guides, Markdown frontmatter, asset resolution, public manual versus technical docs. Application translation keys use airi-i18n-localization.
 ---
 
 # AIRI Docs Site Maintenance

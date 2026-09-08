@@ -1,7 +1,7 @@
 ---
 name: airi-memory-retrieval-engine
 description: >-
-  Use when working with AIRI memory retrieval and ranking — hybrid semantic search, Tiered Router, 5W extraction, concept normalization, multi-field candidate search, fused-signal reranking, and the docs/memory_lab specs (retrieval-and-ranking-spec, search-probe-harness-plan) plus packages/stage-ui/src/libs/search/layered-memory.ts.
+  Implement/evaluate memory search and ranking: hybrid semantic retrieval, Tiered Router, 5W extraction, concept normalization, candidate search, reranking, search probes. Memory consolidation uses airi-memory-consolidation-dreaming.
 ---
 
 ## Key Files/Locations

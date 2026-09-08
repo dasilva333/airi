@@ -1,6 +1,7 @@
 ---
 name: airi-app-entry-wiring
-description: "Use when working with initializing, configuring, or debugging application bootstrap, Electron window managers (Control Strip, Stage, Chat, Caption, Widgets, Settings), DI composition root (injeca), renderer routing via Vite, or web app entry."
+description: >-
+  Wire/debug application startup: Electron window creation, injeca dependency injection, renderer entry points, Vite routing, web bootstrap. Use for initialization order or missing windows; stage layout uses airi-stage-ui-surfaces.
 ---
 
 # AIRI App Entry Wiring & Bootstrap

@@ -1,7 +1,7 @@
 ---
 name: airi-controlstrip-customizer
 description: >-
-  Use when working with the AIRI Control Strip Customizer — the user-facing Customizer floating window (NOT the inline ModelCustomizer widget; see airi-model-customizer for that). Covers the floating customizer window (apps/stage-tamagotchi/src/main/windows/customizer/index.ts), customizer page (apps/stage-tamagotchi/src/renderer/pages/customizer.vue), customizer catalog (packages/stage-ui/src/constants/control-customizer.ts), eventa IPC contracts (electronCustomizerToggleVisibility, electronGetCustomizerWindowState), or live 3D/2D parameter tweaking across all Pinia stores.
+  Build/debug floating Control Strip Customizer window: settings catalog, visibility/state IPC, live stage parameter controls. Not embedded ModelCustomizer; use airi-model-customizer for per-model expression, motion, and wardrobe editing.
 ---
 
 # AIRI Control Strip Customizer

@@ -1,7 +1,7 @@
 ---
 name: airi-memory-echo-chips
 description: >-
-  Use when working with AIRI memory pillar 4 — Echo Chips: echo-chips.ts store (374 lines), echo-chips.repo (local:memory/echo-chips/{userId}), 3–5 semantic chips per character (types mood / flavor / journal_candidate), RWKV-7 0.1B salience gating (winner-take-2-of-3 Delta-h vote), LLM tag synthesis via generateObject, collectWindowMessages evidence windows, and chip display in the right-context panel. Trigger on echo chips, memory chips, emotional anchors, or chip salience/synthesis. Hub: airi-memory-systems.
+  Implement/debug Echo Chips: emotional anchors, mood/flavor/journal_candidate synthesis, RWKV salience gates, evidence windows, chip persistence and context-panel display. Chat bubble chip layout uses airi-desktop-chatbox.
 ---
 
 # Memory Pillar 4 — Echo Chips

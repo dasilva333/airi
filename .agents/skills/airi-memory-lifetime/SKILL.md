@@ -1,7 +1,7 @@
 ---
 name: airi-memory-lifetime
 description: >-
-  Use when working with AIRI memory pillar 5 — Lifetime Artifacts: memory-lifetime.ts store (~1360 lines), lifetime-memory.repo (local:memory/lifetime/{characterId}:{universeId} with one-way old-key migration), the 5-stage resumable provisioning pipeline (collect → chunk → base → distill_pass_1 → distill_pass_2 → success), collectSourceDocs, callJsonMode with retry/backoff, reprovisionFromChunks/restart, the [Lifetime Artifact] prompt injection, and the implemented incremental maintenance lifecycle (STMM-cadence trigger in App.vue, universe-scoped 24h raw-log input via collectWindowedDocs, full merged artifact + changelog diff output, per-universe lastConsumedDay watermark, zero-change path, capped audit chain). Trigger on lifetime memory, eternal thread, distilled artifact, provisioning synthesis, or lifetime maintenance. Hub: airi-memory-systems.
+  Build/debug Lifetime Artifacts/Eternal Thread: source aggregation, chunk summaries, distillation, retries, incremental maintenance, changelog and consumption watermarks. Saved build checkpoints and reload recovery use airi-memory-provisioning.
 ---
 
 # Memory Pillar 5 — Lifetime Artifacts

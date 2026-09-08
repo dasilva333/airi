@@ -1,6 +1,7 @@
 ---
 name: airi-byos-cloud-sync
-description: "Use when working with Bring Your Own Storage (BYOS) active state cloud backup, S3/R2/Google Drive storage adapters, unstorage outbox queues, IndexedDB sync reconciliations, or multi-device state synchronization."
+description: >-
+  Configure/debug Bring Your Own Storage (BYOS): cloud backup/restore, S3/R2/Google Drive adapters, outbox delivery, sync reconciliation, multi-device state. Local repositories and persistence boundaries use airi-data-persistence.
 ---
 
 # Overview & Surface Map

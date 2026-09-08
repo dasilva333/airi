@@ -1,7 +1,7 @@
 ---
 name: airi-prefix-cache-alignment
 description: >-
-  Use when working with AIRI LLM prefix-cache alignment, prompt-compilation optimization, or KV prefix-cache layout geometry for DeepSeek/OpenRouter/Gemini. Trigger on keeping static prefix segments ahead of volatile segments, protecting cache alignment across automated sub-loops (proactivity heartbeat, Destiny 2 OCR, producer/journal), reducing token cost/latency, or validating cache-hit behavior in the chat session store.
+  Optimize/debug LLM prompt prefix caching: static/dynamic segment order, KV cache reuse, cache misses, token cost/latency across chat and automated loops. DeepSeek/OpenRouter/Gemini alignment; general prompt composition uses airi-prompt-builder-engine.
 ---
 
 Stable prefix first, volatile tail last. The whole point is layout geometry: keep the immutable system-prompt prefix ahead of volatile telemetry/history slices so providers re-use KV prefix cache instead of re-tokenizing on every automated sub-loop. Never cite `crates/` (legacy Tauri; current desktop is Electron `apps/stage-tamagotchi/`).

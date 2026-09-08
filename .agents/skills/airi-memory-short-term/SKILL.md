@@ -1,7 +1,7 @@
 ---
 name: airi-memory-short-term
 description: >-
-  Use when working with AIRI memory pillar 3 — Short-Term Memory (STMM): memory-short-term.ts store (598 lines), short-term-memory.repo (local:memory/short-term/{userId}), one daily summary block per character per day, tokenBudgetPerDay (default 1000) and windowSize (default 3) card settings, rebuildFromHistory/rebuildToday/ensureYesterdayBlock flows, deleteBlock, deduplication, universe-scoped day buckets, and the prompt injection of recent blocks. Trigger on daily summaries, STMM, continuity blocks, or rebuilds. Hub: airi-memory-systems.
+  Build/debug Short-Term Memory (STMM): daily summaries, continuity blocks, token budgets, history windows, rebuilds, deduplication, universe-scoped day buckets. Raw chat history uses airi-memory-chat-sessions; lifetime distillation uses airi-memory-lifetime.
 ---
 
 # Memory Pillar 3 — Short-Term Memory (STMM)
