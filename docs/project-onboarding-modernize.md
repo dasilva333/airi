@@ -112,19 +112,93 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
 
 ## 4. Detailed Step Breakdown
 
-### Step 0: Welcome Landing & Language Selector
+### Step 0: Zen Welcome Landing & Language Selector
+- **Zen Welcome Philosophy**: Keeps the first screen uncluttered, spacious, and inviting without authentication forms.
 - **Phase 1 Language Selector**: Dropdown in top header allows immediate switching of application locale (`en`, `zh-CN`, `ja-JP`, `es-ES`, `de-DE`, `fr-FR`), synchronizing with `useI18n().locale.value` and `settings/general.yaml`.
 - **Hardware Check**: Runs `isWebGPUSupported()` early and stores the capability flag in memory.
-- **Companion Greeting**: *"Welcome to AIRI. Choose your language, configure your companion, or connect your personal zero-trust cloud relay."*
+- **Companion Greeting**: *"Don't worry, it's easier than it looks! We've pre-configured everything to run locally on your machine. No sign-ups, no API keys — just pick, download, and play."*
+- **Three Capability Pills**: `Local WebGPU Models`, `No API Keys Needed`, `Mix & Match Souls + Bodies`.
+- **Dual Launch CTAs**:
+  - `[ Let's Get Started → ]`: Advances to Step 0.5 (Path Triage).
+  - `[ ⚡ Quick Start: Jump Straight to Stage ]` (Use Case 1): Bypasses all setup; boots default `ReLU` companion on stage immediately.
+  - `[ Skip Permanently ]`: Skips onboarding flags for users who want to jump in and explore settings manually.
 
-### Step 0.5: Path Triage (`step-start-choice.vue`)
-- **Track A: "Sign In with Cloudflare" (`[ZERO-TRUST]`) (Cloud-Connected / Multi-Device Sync)**:
-  - Initiates OAuth 2.0 PKCE directly with Cloudflare.
-  - Automates personal Worker deployment (Edge CORS proxy + 24/7 Discord bot host) and R2 bucket connectivity for private zero-trust backups.
-  - **Existing Data Found**: Hydrates character cards, 3D VRM/2D Live2D models, and memory archives from S3/R2 into local IndexedDB $\rightarrow$ Drops to Victory Stage with active companion ready, or opens Wizard to add another companion.
-  - **New Cloudflare Account / Empty Sync**: Provisions the user's empty cloud bucket/worker upfront, then proceeds into the guided wizard so new companions are immediately cloud-backed and portable.
-- **Track B: "Local Companion (Offline)" (`[LOCAL-FIRST]`) (Local-First Wizard)**:
-  - Advances to Step 1 for 100% offline, private local companion creation without an account.
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│ [🌐 English ▼]                                                    [AIRI ✦] │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│                                    ✦                                       │
+│                             Welcome to AIRI                                │
+│        Your companion's stage — set up in minutes, 100% on your machine.   │
+│                                                                            │
+│       ┌─────────────────────────────────────────────────────────────┐      │
+│       │ 💬 "Don't worry, it's easier than it looks! We've           │      │
+│       │    pre-configured everything to run locally on your machine.│      │
+│       │    No sign-ups, no API keys — just pick, download, and play"│      │
+│       └─────────────────────────────────────────────────────────────┘      │
+│                                                                            │
+│     [ ⚙ Local WebGPU Models ]  [ 🔒 No API Keys Needed ]  [ 💃 Mix & Match ] │
+│                                                                            │
+│                    [ Let's Get Started → ]                                 │
+│                                                                            │
+│            [ ⚡ Quick Start: Jump Straight to Stage (ReLU) ]               │
+│                                                                            │
+│  [ Skip Permanently ]                                                      │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Step 0.5: Path Triage — The 5 Use Cases (Option B Architecture)
+
+Onboarding V3 cleanly isolates and handles all five real-world user intents:
+
+| # | User Intent | Primary Motivation | Onboarding Journey & Resolution |
+| :--- | :--- | :--- | :--- |
+| **1** | **The Explorer / Guest** | *"I don't care about anything, let me just try the app!"* | **Step 0 `[ ⚡ Quick Start ]`**: Bypasses the entire wizard. Loads the seeded `ReLU` companion with local WebGPU inference directly onto the stage. |
+| **2** | **The Local-First Creator** | Wants full companion customization with 100% privacy and zero accounts. | **Step 0.5 `[ 🏠 Local Companion ]`**: Proceeds to Step 1 (Experience Picker) to build their companion entirely on-device. |
+| **3** | **The Cloud-Backed Creator** | Wants to build a new companion that is automatically backed up to Cloudflare R2 from day 1. | **Step 0.5 `[ ☁️ Cloudflare ]`** $\rightarrow$ Authenticate $\rightarrow$ Remote storage is empty $\rightarrow$ Automatically advances to Step 1 (Experience Picker) to craft their cloud-backed companion. |
+| **4** | **The Returning Restorer** | Already has cards/models backed up on another machine and wants to pick up where they left off. | **Step 0.5 `[ ☁️ Cloudflare ]`** $\rightarrow$ Authenticate $\rightarrow$ Remote cards detected $\rightarrow$ `SelectiveSyncPanel` $\rightarrow$ **`[ 🚀 Launch Stage with Restored Cards ]`**. Setup complete in 30 seconds! |
+| **5** | **The Multi-Companion Power User** | Restores their existing cloud companions, but *also* wants to craft an additional companion today. | **Step 0.5 `[ ☁️ Cloudflare ]`** $\rightarrow$ Authenticate $\rightarrow$ `SelectiveSyncPanel` $\rightarrow$ User selects **`[ + Build Another Companion ]`** $\rightarrow$ Proceeds into Step 1 with cloud sync active. |
+
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│                            Choose Your Path                                │
+│                 How would you like to set up your stage?                   │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ 🏠 Local Companion (100% Offline)                       [LOCAL-FIRST]│  │
+│  │ Setup your companion directly on this device with WebGPU.            │  │
+│  │ Complete privacy — no accounts, no cloud dependencies.               │  │
+│  │ [ Select Local Setup ]                                               │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ ☁️ Cloud-Connected (Cloudflare Zero-Trust)               [ZERO-TRUST]│  │
+│  │ Sync existing companions or connect for automated private backup.    │  │
+│  │                                                                      │  │
+│  │ [ Auto Sign-in (PKCE) ]   [ API Token (Direct) ]   [ Browser OAuth ] │  │
+│  │                                                                      │  │
+│  │ ── When Authenticated with Existing Backups: ──────────────────────  │  │
+│  │  ✓ Connected to Cloudflare Account (ID: 3a9f...c81)                  │  │
+│  │  Found 2 companions and 4 avatar assets in R2 Cloud Storage.         │  │
+│  │  [ Selective Sync Panel Embed ]                                      │  │
+│  │                                                                      │  │
+│  │  [ 🚀 Launch Stage with Restored Companions ]  (Use Case 4)         │  │
+│  │  [ + Create an Additional Companion ]         (Use Case 5)         │  │
+│  │                                                                      │  │
+│  │ ── When Authenticated with Fresh/Empty Account: ───────────────────  │  │
+│  │  ✓ Connected! Edge vault and R2 bucket initialized.                  │  │
+│  │  [ Continue Setup (Cloud-Backed) > ]          (Use Case 3)         │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+│  < Back to Welcome                     [ Skip Permanently ]                │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ### Step 1: Choose Your Experience (4 Hero Bundles + Customizer Deck)
 - **4 Hero Archetype Cards**:
@@ -132,15 +206,73 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
   2. **🎙️ Talk & Listen** (5 steps): Adds Hearing (Whisper WebGPU / Web Speech) and Voice Studio (Kokoro / Pocket-TTS / Cloud).
   3. **👁️ Sentinel Companion** (7 steps): Adds OS sensory telemetry, active-window context, and idle AFK check-ins.
   4. **🎨 Artistic Companion** (6 steps): Adds Autonomous Artistry (ComfyUI / Pollinations) for generative art and selfies.
-- **Customize Your Journey Deck**:
-  - Live checkboxes allow tuning individual modules or selecting all.
-  - Spec'd future expansion capabilities are displayed with styled disabled/unclickable `[Coming Soon]` badges to showcase the full vision without breaking flow:
-    - `🎬 Generative Motion & VRMA`: FlowMDM WebGPU procedural text-to-motion dance cues.
-    - `📖 Lifetime Memory Matrix`: Sacred Journal & DRMM dreaming consolidation.
-    - `🎭 Marker Rehearsal Room`: `<|ACT:...|>` live token expression sandbox.
-    - `🎮 Dating Sim Mode & HUD`: Interactive storyline presets & intimacy meters.
-    - `🪟 Multi-Window Stage Island`: Detached overlay chat bubble.
-    - `☁️ 24/7 Cloud Relay & Bot`: Cloudflare edge daemon for Discord presence.
+
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│                    Choose Your Companion Experience                        │
+│   "Select an archetype to get started. You can tune any module below."     │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────┐  │
+│  │   💬 Chat Only       │  │  🎙️ Talk & Listen     │  │  👁️ Sentinel     │  │
+│  │  Pure text dialogue  │  │  Voice conversation  │  │  Proactive desk  │  │
+│  │  Zero audio friction │  │  Hear & speak freely │  │  companion       │  │
+│  │  [  Select Chat  ]   │  │  [ Selected ✓ ]      │  │  [ Select Sent. ]│  │
+│  └──────────────────────┘  └──────────────────────┘  └──────────────────┘  │
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │   🎨 Artistic Companion                                              │  │
+│  │  Creative collaborator for generative art, selfies, and visual lore │  │
+│  │  [ Select Artistic ]                                                 │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+│  ─────────────────── ⚙️ Customize Your Journey ──────────────────────────  │
+│                                                                            │
+│  Core Capabilities (Configured in Guided Flow):                            │
+│  [✓] 🧠 Consciousness (LLM)      — Required. Language model for dialogue.  │
+│  [✓] 🎭 Soul & Persona           — Required. Companion identity and lore.  │
+│  [✓] 💃 Physical Vessel          — Required. 3D VRM or 2D Live2D avatar.   │
+│  [✓] 👤 User Profile             — Required. Your name, callsign & lore.   │
+│  [✓] 🎙️ Hearing & Mic (STT)      — In-browser Whisper WebGPU / Web Speech. │
+│  [✓] 🔊 Voice Studio (TTS)       — Kokoro WebGPU / Pocket-TTS / Cloud.     │
+│                                                                            │
+│  Extended Capabilities (Active in V3 Engine):                              │
+│  [ ] 🎨 Autonomous Artistry      — ComfyUI node runner / Pollinations AI.  │
+│  [ ] 👁️ Sensory Proactivity      — OS window telemetry, AFK heartbeats.    │
+│                                                                            │
+│  Future Capabilities (Spec'd Layout — Unclickable / Coming Soon):         │
+│  [ ] 🎬 Generative Motion & VRMA — [Coming Soon] Real-time 3D dance cues.  │
+│  [ ] 📖 Lifetime Memory Matrix   — [Coming Soon] LTMM Orama & DRMM dreams. │
+│  [ ] 🎭 Marker Rehearsal Room    — [Coming Soon] <|ACT:...|> token tuner.  │
+│  [ ] 🎮 Dating Sim Mode & HUD    — [Coming Soon] Intimacy & branching lore.│
+│  [ ] 🪟 Multi-Window Stage Island — [Coming Soon] Transparent overlay bubble.│
+│  [ ] ☁️ 24/7 Cloud Relay & Bot   — [Coming Soon] Cloudflare Discord daemon.│
+│                                                                            │
+│  Estimated Journey: 5 Steps · ~2 Minutes Setup                             │
+│  [ Skip All (Direct to Stage) ]                      [ Continue Setup > ]  │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Detailed Capability Matrix & State Behavior
+
+| Capability Identifier | Category | UI State | Default in Hero Bundles | Step Screen / Behavior |
+| :--- | :--- | :--- | :--- | :--- |
+| `consciousness` | Core | Enabled (Locked) | All Bundles | Step 6: Consciousness (WebLLM / Cloud) |
+| `persona` | Core | Enabled (Locked) | All Bundles | Step 2: Soul & Persona (Trope / Card Import) |
+| `vessel` | Core | Enabled (Locked) | All Bundles | Step 3: Physical Vessel (DiscoverCarousel) |
+| `user_profile` | Core | Enabled (Locked) | All Bundles | Step 4: User Profile & Identity |
+| `hearing` | Core | Toggleable | Talk & Listen, Sentinel, Artistic | Step 5: Hearing & Mic (Whisper WebGPU / Web Speech) |
+| `speech` | Core | Toggleable | Talk & Listen, Sentinel, Artistic | Step 7: Voice Studio (Kokoro / Pocket-TTS / Cloud) |
+| `artistry` | Extended | Toggleable | Artistic Companion | Configures ComfyUI API / Pollinations provider |
+| `sensory` | Extended | Toggleable | Sentinel Companion | Prompts OS permission & enables AFK telemetry loops |
+| `generative_motion` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "FlowMDM WebGPU procedural text-to-motion". |
+| `memory_matrix` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "Lifetime Sacred Journal & DRMM dreaming consolidation". |
+| `rehearsal_room` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "<|ACT:...|> live emotion and motion cue testing sandbox". |
+| `dating_sim` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "Branching visual novel HUD, intimacy tracking, and scene sets". |
+| `multi_window` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "Detached desktop chat bubble and transparent stage overlay". |
+| `cloud_relay_bot` | Future Expansion | Disabled (`cursor-not-allowed`) | None | Badge: `[Coming Soon]`. Tooltip: "Cloudflare Edge Worker for 24/7 Discord bot and multi-device sync". |
+
+---
 
 ### Step 2: Soul & Persona (Emotional Payoff First!)
 - **Total Decoupling**: Purely handles personality cards and system prompts. Visual avatar bodies are chosen on Step 3.
@@ -155,6 +287,8 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
   - **Tier 3 (AI Guided Creator Wizard)**:
     - Displayed as a feature preview / coming soon card so it remains visible without bogging down the initial flow.
 
+---
+
 ### Step 3: Physical Vessel (DiscoverCarousel 3D Coverflow)
 - **Primary View: 3D Coverflow Carousel**:
   - Direct integration of `DiscoverCarousel.vue` (from `settings/models/explore.vue`).
@@ -162,6 +296,36 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
   - Format filter chips: `All Formats`, `VRM (3D)`, `Live2D (2D)`, `Spine`, `MMD`.
 - **Secondary View Toggle**: `[ 📂 Choose from Installed Library ]` toggles the full installed model grid for existing users.
 - **Ever-Present Dropzone**: Drag-and-drop support for custom `.vrm`, `.model3.json`, or `.zip` archives works instantly.
+
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│                             Physical Vessel                                │
+│        "Choose a starter body for your companion, or drop your own."       │
+│                                                                            │
+│   [ All Formats ]  [ VRM (3D) ]  [ Live2D (2D) ]  [ Spine ]  [ MMD ]       │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│            ┌───────────┐      ┌─────────────┐      ┌───────────┐           │
+│            │           │      │  ★ ACTIVE   │      │           │           │
+│            │  Avatar_A │ ◄─── │   Hiyori    │ ───► │  Avatar_B │           │
+│            │  3D VRM   │      │   Live2D    │      │  3D VRM   │           │
+│            └───────────┘      └─────────────┘      └───────────┘           │
+│                                      ▲                                     │
+│                         Drag / Swipe Carousel Deck                         │
+│                                                                            │
+│   Selected Body: Hiyori (Live2D Cubism) · Free Starter Avatar              │
+│                                                                            │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │ 📁 Drop or browse custom model (.vrm, .zip, .pmx, .skel)           │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│                                                                            │
+│   [ 📂 Choose from Installed Library (100+) ]   (Secondary View Toggle)    │
+│                                                                            │
+│   [ < Back to Persona ]                                   [ Next: Voice > ]│
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ### Step 4: User Profile & Identity Setup
 - **Source Ref**: [`packages/stage-pages/src/pages/settings/system/user-profile.vue`](packages/stage-pages/src/pages/settings/system/user-profile.vue)
@@ -230,15 +394,24 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
 ---
 
 ### Step Finale: Stage Calibration & Truthful Readiness Launch
+### Step Finale: Stage Calibration & Truthful Readiness Launch
 - **Readiness Honesty Matrix**:
-  - Replaces false "100% prepared" claims with granular, truthful status cards:
-    - `Verified Active` (🟢): Subsystem verified via live probe or local weights loaded.
-    - `Configured (Untested)` (🟡): API key entered, probe skipped.
-    - `Muted / Skipped` (⚪): Microphone input disabled or skipped.
-    - `Silent Mode` (⚪): Speech disabled (Chat Only mode).
+  - Replaces artificial "100% prepared" claims with granular, truthful status cards:
+
+| Subsystem | State | Visual Indicator | Status Label | Meaning |
+| :--- | :--- | :--- | :--- | :--- |
+| **Consciousness** | Probe Passed | 🟢 Green Check | `Verified Active` | Real LLM generation ping succeeded. |
+| **Consciousness** | Untested Cloud | 🟡 Yellow Dot | `Configured (Untested)` | API key present, probe skipped. |
+| **Hearing** | Mic Passed | 🟢 Green Check | `Calibrated` | Live audio transcription captured. |
+| **Hearing** | Deselected/Skipped| ⚪ Grey Dash | `Muted / Skipped` | Mic input disabled for this companion. |
+| **Speech** | Audio Previewed| 🟢 Green Check | `Voice Active` | Real audio synthesis played. |
+| **Speech** | Deselected/Skipped| ⚪ Grey Dash | `Silent Mode` | Text-only companion. |
+| **Artistry** | Connected | 🟢 Green Check | `Art Engine Ready` | ComfyUI or Pollinations verified. |
+| **Sensory** | Granted | 🟢 Green Check | `Sensory Active` | OS telemetry permissions granted. |
+
 - **Live First Spoken Greeting**:
   - Triggers an actual LLM completion with the companion's compiled persona, user profile, and starter prompt.
-  - If speech is enabled, streams the response through the chosen TTS voice so she speaks her real first words.
+  - If speech is enabled, streams the response through the chosen TTS voice so she speaks her real first words on the calibration screen.
   - Graceful fallback to offline starter text if network is unavailable.
 - **Instant Launch**: Tapping `[ 🚀 Enter AIRI Stage ]` transitions smoothly into the desktop stage with the new companion active.
 
@@ -249,6 +422,34 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
 - **Canonical Implementation**: Onboarding V3 evolves V2's robust component modularity by adding dynamic bundle routing, coverflow vessel selection, and persona-first ordering.
 - **Modal Mounting**: `OnboardingDialog` (`packages/stage-ui/src/components/scenarios/dialogs/onboarding/onboarding-dialog.vue`) hosts the onboarding flow across desktop `DialogRoot` and mobile `DrawerRoot`.
 - **State Isolation**: Transient choices reside in `useOnboardingV2Draft` (`onboarding/v2-draft`), guaranteeing that navigating or cancelling never leaves orphaned or corrupted records in IndexedDB.
+- **Single-Source Shared Faculty Architecture**:
+  - Rather than maintaining duplicate, diverging configuration engines, Onboarding steps embed and adapt the verified presentation components from `packages/stage-pages/src/pages/settings/modules/*`.
+
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│                    Shared Faculty Architecture Map                         │
+├────────────────────────────────────────────────────────────────────────────┤
+│   Faculty / Subsystem    │ Settings Module Surface │ Onboarding Step Seam  │
+├──────────────────────────┼─────────────────────────┼───────────────────────┤
+│ 🎙️ Hearing (STT)         │ /settings/modules/      │ Step 5: Hearing       │
+│                          │ hearing.vue             │ (Reuses LevelMeter &  │
+│                          │                         │  device switching)    │
+│ 🧠 Consciousness (LLM)   │ /settings/modules/      │ Step 6: Consciousness │
+│                          │ consciousness.vue       │ (Reuses ProviderGrid) │
+│ 🔊 Speech Studio (TTS)   │ /settings/modules/      │ Step 7: Voice Studio  │
+│                          │ speech.vue              │ (Reuses Audio Preview)│
+│ 🎨 Autonomous Artistry   │ /settings/modules/      │ Extended: Artistry    │
+│                          │ artistry.vue            │ (Reuses Provider/Node)│
+│ 💃 Physical Vessel       │ /settings/models/       │ Step 3: Vessel        │
+│                          │ explore.vue             │ (Reuses Discover-     │
+│                          │                         │  Carousel.vue)        │
+│ ☁️ Cloudflare & Sync     │ /settings/modules/      │ Step 0.5: Triage      │
+│                          │ cloudflare.vue / sync   │ (Reuses SelectiveSync)│
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+  - The newly refactored [`modules/artistry.vue`](packages/stage-pages/src/pages/settings/modules/artistry.vue) demonstrates this principle: it serves as both a global configuration surface / prompt playground and directly powers the Onboarding Artistry module.
+  - Any capability skipped or minimally configured during onboarding is permanently accessible and tuneable in `/settings/modules/*`.
 
 ---
 

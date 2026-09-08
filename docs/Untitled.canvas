@@ -218,7 +218,7 @@
 		{"id":"14c27a961112850d","x":1168,"y":24623,"width":400,"height":400,"type":"file","file":"docs/proposal-introspective-context-injection.md"},
 		{"id":"66f121559ffa1d12","x":1613,"y":24623,"width":400,"height":400,"type":"file","file":"docs/proposal-moss-tts-nano-provider-unified-webgpu.md"},
 		{"id":"45ad0976fc5d78e5","x":2058,"y":24623,"width":400,"height":400,"type":"file","file":"docs/proposal-novel-stage-concepts.md"},
-		{"id":"6b67f3ff647fd90a","x":2503,"y":24623,"width":400,"height":400,"type":"file","file":"docs/proposal-onboarding-overhaul.md"},
+		{"id":"6b67f3ff647fd90a","x":2503,"y":24623,"width":400,"height":400,"type":"file","file":"docs/archive/proposal-onboarding-overhaul.md"},
 		{"id":"001829ebdae26627","x":2948,"y":24623,"width":400,"height":400,"type":"file","file":"docs/proposal-peer-ingestion.md"},
 		{"id":"857a652a9d56bda8","x":3393,"y":24623,"width":400,"height":400,"type":"file","file":"docs/proposal-poc-attention-ecology-vibe-island.md"},
 		{"id":"586b4b692c504e00","x":3838,"y":24623,"width":400,"height":400,"type":"file","file":"docs/proposal-prefix-cache-alignment.md"},

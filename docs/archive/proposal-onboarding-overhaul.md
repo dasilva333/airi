@@ -1,5 +1,8 @@
 # AIRI Onboarding V3 Proposal: Intent-Driven Hero Bundles, Persona-First Flow & Unified Subsystems
 
+> [!NOTE]
+> **ARCHIVED & SUPERSEDED**: This proposal has been consolidated and unified into the canonical master specification at [`docs/project-onboarding-modernize.md`](../project-onboarding-modernize.md). It is preserved here for historical lineage and architectural reference.
+
 ---
 
 ## 1. Executive Summary & The Architectural Paradigm Shift
@@ -15,12 +18,31 @@ Users choose what they want their companion to do upfront via **4 Hero Archetype
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                    Onboarding V3 Journey Topology                          │
 ├────────────────────────────────────────────────────────────────────────────┤
-│  Step 0: Welcome Landing + Language Selector (Phase 1)                     │
-│     │                                                                      │
+│  Step 0: Zen Welcome Landing + Language Selector                           │
+│     │   - Mascot greeting, capability pills                                │
+│     │   - Dual CTAs: [ Let's Get Started → ] vs [ ⚡ Quick Start (Stage) ]  │
 │     ▼                                                                      │
-│  Step 0.5: Path Triage (New Companion vs. Cloudflare Zero-Trust Restore)   │
-│     │                                                                      │
-│     ▼                                                                      │
+│  Step 0.5: Intelligent Path Triage (Option B Architecture)                 │
+│     ├──────────────────────────────────────┬───────────────────────────────┤
+│     ▼                                      ▼                               │
+│  [ 🏠 100% Offline Local ]            [ ☁️ Cloudflare Connected ]           │
+│     │                                      │                               │
+│     │                                      ▼                               │
+│     │                                 Auth & Check Remote R2 Vault         │
+│     │                                 ├────────────────────────────┐       │
+│     │                                 ▼                            ▼       │
+│     │                      [ Remote Cards Found ]        [ Empty Account ] │
+│     │                                 │                            │       │
+│     │                                 ▼                            │       │
+│     │                       Selective Sync Panel                   │       │
+│     │                                 ├──────────────────┐         │       │
+│     │                                 ▼                  ▼         │       │
+│     │                        [ 🚀 Launch Stage ]   [ + Add Comp. ] │       │
+│     │                        (Use Case 4: DONE!)         │         │       │
+│     │                                                    │         │       │
+│     └────────────────────────────────────────────────────┴─────────┘       │
+│                                       │                                    │
+│                                       ▼                                    │
 │  Step 1: Choose Your Experience (4 Hero Bundles + Customizer Deck)         │
 │     │                                                                      │
 │     ├───────────────────┬───────────────────┬───────────────────┐          │
@@ -39,7 +61,8 @@ Users choose what they want their companion to do upfront via **4 Hero Archetype
 │             Step 4: User Profile & Identity                                │
 │                                   │                                        │
 │                                   ▼                                        │
-│             [Dynamic Tailored Modules: Brain, Voice, Sensory, Art]         │
+│             [Dynamic Shared Modules: Brain, Voice, Sensory, Art]           │
+│             (Directly powered by /settings/modules/* faculties)            │
 │                                   │                                        │
 │                                   ▼                                        │
 │             Step Finale: Stage Calibration (Readiness Honesty)             │
@@ -48,7 +71,98 @@ Users choose what they want their companion to do upfront via **4 Hero Archetype
 
 ---
 
-## 2. Two-Phase Internationalization Strategy
+## 2. The 5 Entry Use Cases & Dual-Step Zen Triage (Option B Architecture)
+
+### 2.1 The Architectural Root Problem in V2 Entry
+In current V2 onboarding, the transition from Step 1 (`step-0-welcome.vue`) to Step 2 (`step-start-choice.vue`) suffered from two critical flaws:
+1. **The "Returning User Hostage Loop"**: In [`onboarding-v2.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/onboarding-v2.vue), selecting the "returning" Cloudflare path routed through `cloud-restore` (Selective Sync), but **then unconditionally forced the user through Hearing, Consciousness, Profile, Persona, Vessel, and Speech anyway**. Existing users who just restored their complete companion were forced to build an unwanted new starter card from scratch!
+2. **Ambiguous Intent**: The initial screens failed to distinguish between a new user who wants cloud backup vs. an existing user who just wants their restored companion immediately.
+
+### 2.2 The 5 Distilled Entry Use Cases
+Onboarding V3 cleanly isolates and handles all five real-world user intents:
+
+| # | User Intent | Primary Motivation | Onboarding Journey & Resolution |
+| :--- | :--- | :--- | :--- |
+| **1** | **The Explorer / Guest** | *"I don't care about anything, let me just try the app!"* | **Step 0 `[ ⚡ Quick Start ]`**: Bypasses the entire wizard. Loads the seeded `ReLU` companion with local WebGPU inference directly onto the stage. |
+| **2** | **The Local-First Creator** | Wants full companion customization with 100% privacy and zero accounts. | **Step 0.5 `[ 🏠 Local Companion ]`**: Proceeds to Step 1 (Experience Picker) to build their companion entirely on-device. |
+| **3** | **The Cloud-Backed Creator** | Wants to build a new companion that is automatically backed up to Cloudflare R2 from day 1. | **Step 0.5 `[ ☁️ Cloudflare ]`** $\rightarrow$ Authenticate $\rightarrow$ Remote storage is empty $\rightarrow$ Automatically advances to Step 1 (Experience Picker) to craft their cloud-backed companion. |
+| **4** | **The Returning Restorer** | Already has cards/models backed up on another machine and wants to pick up where they left off. | **Step 0.5 `[ ☁️ Cloudflare ]`** $\rightarrow$ Authenticate $\rightarrow$ Remote cards detected $\rightarrow$ `SelectiveSyncPanel` $\rightarrow$ **`[ 🚀 Launch Stage with Restored Cards ]`**. Setup complete in 30 seconds! |
+| **5** | **The Multi-Companion Power User** | Restores their existing cloud companions, but *also* wants to craft an additional companion today. | **Step 0.5 `[ ☁️ Cloudflare ]`** $\rightarrow$ Authenticate $\rightarrow$ `SelectiveSyncPanel` $\rightarrow$ User selects **`[ + Build Another Companion ]`** $\rightarrow$ Proceeds into Step 1 with cloud sync active. |
+
+---
+
+### 2.3 Option B Layout Specifications
+
+#### Step 0: Zen Welcome Landing (Mascot First Impression)
+Preserves the clean, spacious, uncluttered first impression without overwhelming new visitors with authentication inputs:
+
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│ [🌐 English ▼]                                                    [AIRI ✦] │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│                                    ✦                                       │
+│                             Welcome to AIRI                                │
+│        Your companion's stage — set up in minutes, 100% on your machine.   │
+│                                                                            │
+│       ┌─────────────────────────────────────────────────────────────┐      │
+│       │ 💬 "Don't worry, it's easier than it looks! We've           │      │
+│       │    pre-configured everything to run locally on your machine.│      │
+│       │    No sign-ups, no API keys — just pick, download, and play"│      │
+│       └─────────────────────────────────────────────────────────────┘      │
+│                                                                            │
+│     [ ⚙ Local WebGPU Models ]  [ 🔒 No API Keys Needed ]  [ 💃 Mix & Match ] │
+│                                                                            │
+│                    [ Let's Get Started → ]                                 │
+│                                                                            │
+│            [ ⚡ Quick Start: Jump Straight to Stage (ReLU) ]               │
+│                                                                            │
+│  [ Skip Permanently ]                                                      │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Step 0.5: Choose Your Path (State-Aware Intelligent Triage)
+Replaces the broken binary cards with honest, state-aware path cards:
+
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│                            Choose Your Path                                │
+│                 How would you like to set up your stage?                   │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ 🏠 Local Companion (100% Offline)                       [LOCAL-FIRST]│  │
+│  │ Setup your companion directly on this device with WebGPU.            │  │
+│  │ Complete privacy — no accounts, no cloud dependencies.               │  │
+│  │ [ Select Local Setup ]                                               │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ ☁️ Cloud-Connected (Cloudflare Zero-Trust)               [ZERO-TRUST]│  │
+│  │ Sync existing companions or connect for automated private backup.    │  │
+│  │                                                                      │  │
+│  │ [ Auto Sign-in (PKCE) ]   [ API Token (Direct) ]   [ Browser OAuth ] │  │
+│  │                                                                      │  │
+│  │ ── When Authenticated with Existing Backups: ──────────────────────  │  │
+│  │  ✓ Connected to Cloudflare Account (ID: 3a9f...c81)                  │  │
+│  │  Found 2 companions and 4 avatar assets in R2 Cloud Storage.         │  │
+│  │  [ Selective Sync Panel Embed ]                                      │  │
+│  │                                                                      │  │
+│  │  [ 🚀 Launch Stage with Restored Companions ]  (Use Case 4)         │  │
+│  │  [ + Create an Additional Companion ]         (Use Case 5)         │  │
+│  │                                                                      │  │
+│  │ ── When Authenticated with Fresh/Empty Account: ───────────────────  │  │
+│  │  ✓ Connected! Edge vault and R2 bucket initialized.                  │  │
+│  │  [ Continue Setup (Cloud-Backed) > ]          (Use Case 3)         │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+│  < Back to Welcome                     [ Skip Permanently ]                │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. Two-Phase Internationalization Strategy
 
 Upstream's biggest usability strength is early language selection. Users should never have to navigate an entire English setup wizard just to find language preferences later.
 
@@ -64,7 +178,43 @@ Upstream's biggest usability strength is early language selection. Users should 
 
 ---
 
-## 3. Reordered Topology: Emotional Payoff First
+## 4. Consolidation & Shared Faculty Surface Architecture (Settings Modules Reuse)
+
+### 4.1 The Single-Source Configuration Surface Principle
+A critical architectural lesson in AIRI is avoiding duplicate, divergent configuration engines. Onboarding should not construct complex, bespoke sub-applications for every subsystem. Instead, **Onboarding steps and Settings Module pages share the exact same underlying faculty components**:
+
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│                    Shared Faculty Architecture Map                         │
+├────────────────────────────────────────────────────────────────────────────┤
+│   Faculty / Subsystem    │ Settings Module Surface │ Onboarding Step Seam  │
+├──────────────────────────┼─────────────────────────┼───────────────────────┤
+│ 🎙️ Hearing (STT)         │ /settings/modules/      │ Step 5: Hearing       │
+│                          │ hearing.vue             │ (Reuses LevelMeter &  │
+│                          │                         │  device switching)    │
+│ 🧠 Consciousness (LLM)   │ /settings/modules/      │ Step 6: Consciousness │
+│                          │ consciousness.vue       │ (Reuses ProviderGrid) │
+│ 🔊 Speech Studio (TTS)   │ /settings/modules/      │ Step 7: Voice Studio  │
+│                          │ speech.vue              │ (Reuses Audio Preview)│
+│ 🎨 Autonomous Artistry   │ /settings/modules/      │ Dynamic Artistry Step │
+│                          │ artistry.vue            │ (Reuses Provider/Node)│
+│ 💃 Physical Vessel       │ /settings/models/       │ Step 3: Vessel        │
+│                          │ explore.vue             │ (Reuses Discover-     │
+│                          │                         │  Carousel.vue)        │
+│ ☁️ Cloudflare & Sync     │ /settings/modules/      │ Step 0.5: Triage      │
+│                          │ cloudflare.vue / sync   │ (Reuses SelectiveSync)│
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.2 The `modules/artistry.vue` Precedent
+The newly refactored [`packages/stage-pages/src/pages/settings/modules/artistry.vue`](packages/stage-pages/src/pages/settings/modules/artistry.vue) serves as the gold standard for this pattern:
+- It functions simultaneously as a **global configuration layer** (Pollinations, ComfyUI, Replicate, Nano Banana) and an **interactive generation playground** (testing preset prompts, image dimensions, and headless eventa triggers).
+- The Onboarding Artistry step does not reinvent these selectors; it embeds the lightweight provider card list from `artistry.vue`, binding directly to `useArtistryStore`.
+- **Permanent Access for Skipped Capabilities**: If a user selects `Chat Only` or skips Artistry during onboarding, the capability is never lost. The user can navigate to `/settings/modules/artistry` at any time to enable and test it with zero friction.
+
+---
+
+## 5. Reordered Topology: Emotional Payoff First
 
 ### The Problem With Current V2 Ordering
 Current V2 calibrates hardware before identity:
@@ -85,7 +235,7 @@ Users are asked to test a microphone and configure AI providers for an abstract 
 
 ---
 
-## 4. Step 1: Choose Your Experience (The 4 Hero Bundles + Customizer)
+## 6. Step 1: Choose Your Experience (The 4 Hero Bundles + Customizer)
 
 ### 4.1 The 4 Hero Archetype Cards
 Users select one primary card that matches their immediate intent:
@@ -172,7 +322,7 @@ To provide a complete vision of AIRI's modular architecture, **all planned capab
 
 ---
 
-## 5. Physical Vessel (Step 3): DiscoverCarousel Overhaul
+## 7. Physical Vessel (Step 3): DiscoverCarousel Overhaul
 
 ### 5.1 The Friction in Current Vessel Selection
 In current V2 ([`step-5-vessel.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue)), clicking "Explore" opens an external links grid to third-party marketplaces (Hololive MMD, NicoNico, Reverse: 1999, etc.). Users are kicked out of the flow to download files manually.
@@ -215,7 +365,7 @@ Integrate the 3D coverflow carousel from [`packages/stage-pages/src/pages/settin
 
 ---
 
-## 6. Calibration Finale: Readiness Honesty & Live First Exchange
+## 8. Calibration Finale: Readiness Honesty & Live First Exchange
 
 ### 6.1 Truthful Subsystem Status Matrix
 Replace the artificial "Everything is 100% prepared" claim with honest, multi-state status cards:
@@ -240,7 +390,7 @@ Replace the artificial "Everything is 100% prepared" claim with honest, multi-st
 
 ---
 
-## 7. Technical Implementation Map
+## 9. Technical Implementation Map
 
 | Layer / Component | File Location | Responsibility |
 | :--- | :--- | :--- |
@@ -255,7 +405,7 @@ Replace the artificial "Everything is 100% prepared" claim with honest, multi-st
 
 ---
 
-## 8. Relevant Skills
+## 10. Relevant Skills
 
 - [[airi-onboarding-v2]] — First-run onboarding wizard architecture and draft contracts
 - [[airi-card-schema]] — AiriCard and CCv3 card assembly

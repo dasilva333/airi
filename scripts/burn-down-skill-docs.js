@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -304,8 +305,8 @@ const mapping = {
     { path: 'docs/design-nan0-integration-feedback.md', note: 'NAN0 integration feedback.' },
   ],
   'airi-onboarding-v2': [
-    { path: 'docs/project-onboarding-modernize.md', note: 'Onboarding modernization design doc (Core Principles, per-step behavior, Step 7 assembly).' },
-    { path: 'docs/proposal-onboarding-overhaul.md', note: 'Onboarding overhaul plan.' },
+    { path: 'docs/project-onboarding-modernize.md', note: 'Onboarding modernization design doc (Core Principles, 5 Entry Use Cases, per-step behavior, Step 7 assembly).' },
+    { path: 'docs/archive/proposal-onboarding-overhaul.md', note: 'Historical onboarding overhaul plan (archived, consolidated into project-onboarding-modernize.md).' },
     { path: 'docs/design-onboarding-character-selection.md', note: 'Onboarding character selection design.' },
     { path: 'docs/proposal-global-user-profile.md', note: 'Global user profile proposal.' },
   ],
@@ -367,7 +368,8 @@ function run() {
 
   for (const folder of folders) {
     const skillPath = path.join(skillsDir, folder, 'SKILL.md')
-    if (!fs.existsSync(skillPath)) continue
+    if (!fs.existsSync(skillPath))
+      continue
     let content = fs.readFileSync(skillPath, 'utf-8')
 
     const entries = mapping[folder]
@@ -386,7 +388,7 @@ function run() {
       'docs/design-captions-subsystem.md',
     ]
     for (const d of dangling) {
-      const re = new RegExp(`^.*${d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*$\\r?\\n?`, 'gmi')
+      const re = new RegExp(`^.*${d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*$\\r?\\n?`, 'gim')
       if (re.test(content)) {
         content = content.replace(re, '')
         danglingRemoved.push(`${folder}: ${d}`)
@@ -397,11 +399,11 @@ function run() {
     if (content.includes('### Authoritative Design & Architecture Documents')) {
       const sectionStart = content.indexOf('### Authoritative Design & Architecture Documents')
       const nextHeaderIdx = content.indexOf('\n## ', sectionStart + 1)
-      const insertAt = nextHeaderIdx === -1 ? content.length : nextHeaderIdx
+      const sectionEnd = nextHeaderIdx === -1 ? content.length : nextHeaderIdx
 
       // Determine which entries are missing (by relative path or basename)
-      const sectionContent = content.slice(sectionStart, insertAt)
-      const toAdd = entries.filter(e => {
+      const sectionContent = content.slice(sectionStart, sectionEnd)
+      const toAdd = entries.filter((e) => {
         const base = path.basename(e.path).toLowerCase()
         const stem = base.replace(/\.md$/, '')
         return !sectionContent.toLowerCase().includes(e.path.toLowerCase())
@@ -430,19 +432,19 @@ function run() {
         break
       }
 
-      content = content.slice(0, insertAt) + newLines + '\n' + content.slice(insertAt)
+      content = `${content.slice(0, insertAt) + newLines}\n${content.slice(insertAt)}`
       fs.writeFileSync(skillPath, content, 'utf-8')
       edited++
     }
     else {
       // Insert before Verification section if present, else append at end
-      const verIdx = content.search(/^##+ Verification/m)
+      const verIdx = content.search(/^#{2,} Verification/m)
       const section = buildSection(entries)
       if (verIdx !== -1) {
-        content = content.slice(0, verIdx) + section + '\n' + content.slice(verIdx)
+        content = `${content.slice(0, verIdx) + section}\n${content.slice(verIdx)}`
       }
       else {
-        content = content.replace(/\s*$/, '') + '\n' + section
+        content = `${content.replace(/\s*$/, '')}\n${section}`
       }
       fs.writeFileSync(skillPath, content, 'utf-8')
       edited++

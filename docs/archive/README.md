@@ -23,3 +23,4 @@ This directory contains historical handoffs, point-in-time model reviews, comple
 | `[[journal-the-reasoning-content-bug]]` | Resolved Bug Report | Resolved DeepSeek reasoning_content speech bug post-mortem. |
 | `[[linux-wayland-chat-cpu-spikes]]` | Resolved Bug Report | Resolved Linux Wayland CPU spike diagnostic memo. |
 | `[[pr-summary]]` | Historical Upstream Sync Log | Upstream PR snapshot (#1861-#1895). |
+| `[[proposal-onboarding-overhaul]]` | Superseded Proposal | Historical Post-V2 Advanced Setup Lab proposal superseded and unified into `[[project-onboarding-modernize]]`. |
