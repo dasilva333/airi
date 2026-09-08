@@ -1,6 +1,6 @@
 # Chat Orchestrator Decomposition: Behavior Contracts and Phased Execution Plan
 
-**Status:** In Progress · Phases 0, 1 & 2 Complete · Phase 3 Pending
+**Status:** In Progress · Phases 0, 1, 2 & 3 Complete · Phase 4 Pending
 **Repository:** `dasilva333/airi`
 **Domain:** `@proj-airi/stage-ui`, ordinary turn-based chat orchestration
 **Reviewed source baseline:** `326aeb054524b5c7979bae5cc6e838c9fbe63da1`
@@ -431,13 +431,14 @@ Test ordinary and `triggerOnly` request insertion separately, including minimal 
 - Cataloged suite in [`docs/project-testing-parity.md`](./project-testing-parity.md).
 - **Exit gate:** PASS (46/46 chat orchestrator tests passing across 7 suites, `@proj-airi/stage-ui` typecheck 0 errors).
 
-### Phase 3 — Extract intrusion computation
+### Phase 3 — Extract intrusion computation `[COMPLETED - 2026-09-08]`
 
-- Add typed formatting and climax helpers.
-- Keep asynchronous reads, context assembly, per-round staging consumption, and cognition in place.
-- Verify first-hop cognition remains gated to the first outer bridged round and retains its failure fallback.
-
-**Exit gate:** Pure intrusion fixtures and runtime tests for exact prompt insertion, disabled branches, consumption timing, failure after consumption, and multi-round behavior pass, together with affected workspace tests and typecheck.
+- Added [`intrusions.ts`](../packages/stage-ui/src/stores/chat/intrusions.ts) pure helpers (`formatClimaxPrompt`, `formatDreamPrompt`, `formatJournalPrompt`, `formatArtistryPrompt`) with zero Pinia/Vue dependencies.
+- Added unit tests in [`intrusions.test.ts`](../packages/stage-ui/src/stores/chat/intrusions.test.ts) (16 tests) covering climax victory/defeat/in-progress calculations, disabled/missing staging bypasses, template replacements (`{timeToDream}`, `{insertEchoChips}`, `{timeSinceJournal}`, `{journalEntryText}`, `{imagePrompt}`), and elapsed minute rounding.
+- Wired helpers into `packages/stage-ui/src/stores/chat.ts` (lines 1180–1252), replacing inline template interpolations and Dating Sim calculations.
+- Kept asynchronous store imports, two-hop cognition pipeline, staging reads, staging consumption, and card clear mutations strictly in `chat.ts`.
+- Cataloged suite in [`docs/project-testing-parity.md`](./project-testing-parity.md).
+- **Exit gate:** PASS (67/67 chat orchestrator tests passing across 9 suites, `@proj-airi/stage-ui` typecheck 0 errors).
 
 ### Phase 4 — Extract grounding formatting
 
@@ -527,6 +528,19 @@ Maintain one concise record per checkpoint:
 | **Deviations** | None. Zero changes to queue, provider loop, or execution timing. |
 | **Repository state** | `docs/architecture-chat-orchestrator-decomposition.md`, `docs/project-testing-parity.md`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/chat/tool-bridge.ts`, `packages/stage-ui/src/stores/chat/tool-bridge.test.ts`. |
 
+#### Checkpoint 3 — Phase 3 Intrusion Computation Extraction (2026-09-08)
+
+| Field | Content |
+| --- | --- |
+| **Source** | Baseline `eccd20561`, working tree on `main` |
+| **Scope** | Extracted `intrusions.ts` (`formatClimaxPrompt`, `formatDreamPrompt`, `formatJournalPrompt`, `formatArtistryPrompt`); wired into `stores/chat.ts` lines 1180–1252. |
+| **Evidence** | Climax score comparison and threshold resolution, template interpolation (`{timeToDream}`, `{insertEchoChips}`, `{timeSinceJournal}`, `{journalEntryText}`, `{imagePrompt}`), elapsed minute rounding, missing/disabled staging bypass. 16 tests in `intrusions.test.ts`. 67 tests across all 9 chat orchestrator test suites. |
+| **Runner facts** | `@proj-airi/stage-ui`: 62 test suites, 536 passing tests (0 failures, 1 model-gated skip). Typecheck: `vue-tsc --noEmit` passed with 0 errors. |
+| **Request parity** | Exact prompt string interpolations and Dating Sim climax calculations match baseline byte-for-byte. |
+| **Runtime limits** | Asynchronous store imports, two-hop cognition pipeline, staging reads, staging consumption, and card clear mutations remain in `chat.ts`. |
+| **Deviations** | Minimal effort isolation for Dating Sim climax calculation per alignment discussion. Zero prompt text or staging semantics altered. |
+| **Repository state** | `docs/architecture-chat-orchestrator-decomposition.md`, `docs/project-testing-parity.md`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/chat/intrusions.ts`, `packages/stage-ui/src/stores/chat/intrusions.test.ts`. |
+
 ### Stop conditions
 
 Stop the affected phase when:
@@ -542,10 +556,10 @@ Keep a failed phase isolated. Correct it within its bounded scope or return to t
 ### Completion checklist
 
 - [x] Baseline behavior tests were established before extraction (Phase 0 complete).
-- [x] Each extracted helper has a single stated computational responsibility and no runtime store/browser dependencies (Phase 1 `formatChatError`, Phase 2 `tool-bridge` complete).
-- [x] Existing runtime callers use the helpers; no duplicate legacy implementation remains (`chat.ts` error block and tool bridge wired).
+- [x] Each extracted helper has a single stated computational responsibility and no runtime store/browser dependencies (Phase 1 `formatChatError`, Phase 2 `tool-bridge`, Phase 3 `intrusions` complete).
+- [x] Existing runtime callers use the helpers; no duplicate legacy implementation remains (`chat.ts` error block, tool bridge, and intrusions wired).
 - [x] Phase 2: Tool syntax extraction (`tool-bridge.ts` complete).
-- [ ] Phase 3: Intrusion computation extraction (`intrusions.ts`).
+- [x] Phase 3: Intrusion computation extraction (`intrusions.ts` complete).
 - [ ] Phase 4: Grounding formatting extraction (`grounding-assembler.ts`).
 - [x] Queue settlement, session navigation, and generation invalidation remain distinct.
 - [x] Normal, stopped, silent, failed, and multi-round lifecycle paths retain their contracts.

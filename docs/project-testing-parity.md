@@ -23,7 +23,7 @@
 
 | Package / Workspace | Test Suites (Files) | Total Tests | Primary Subsystem Focus |
 |---|:---:|:---:|---|
-| [`packages/stage-ui`](../packages/stage-ui) | 61 | 520 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory |
+| [`packages/stage-ui`](../packages/stage-ui) | 62 | 536 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory |
 | [`packages/live2d-runtime`](../packages/live2d-runtime) | 5 | 79 | Live2D Scripting DSL VM, Command Parser, Selector, Template, VarStore |
 | [`packages/stage-pages`](../packages/stage-pages) | 2 | 34 | Settings Topology & Devtools Context Flow Formatters |
 | [`apps/stage-tamagotchi`](../apps/stage-tamagotchi) | 6 | 32 | Desktop Multi-Window, Display Bounds, Location, Widgets, Airi Plugins |
@@ -33,9 +33,9 @@
 | [`packages/cap-vite`](../packages/cap-vite) | 4 | 22 | Capacitor Vite Plugin, CLI Integration & Native Wrappers |
 | [`packages/plugin-sdk`](../packages/plugin-sdk) | 1 | 22 | Plugin SDK Host Core Lifecycle |
 | [`packages/server-runtime`](../packages/server-runtime) | 1 | 9 | Server Route Middleware |
-| **Monorepo Vitest Baseline** | **89 Suites** | **798 Tests** | **Automated Zero-Failure Headless Test Baseline** |
+| **Monorepo Vitest Baseline** | **90 Suites** | **814 Tests** | **Automated Zero-Failure Headless Test Baseline** |
 
-*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 93 total test files discovered).*
+*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 94 total test files discovered).*
 
 ---
 
@@ -60,8 +60,10 @@
 | **Lifecycle Hook Determinism** | [`packages/stage-ui/src/stores/chat/lifecycle-contracts.test.ts`](../packages/stage-ui/src/stores/chat/lifecycle-contracts.test.ts) | 5 | Node / Pinia | Blocking in CI | Deterministic hook trace sequences across ordinary, Stop, NO_REPLY, 401/403 failure, and triggerOnly branches. | Tests orchestrator lifecycle hook bus and error cards. |
 | **Error Presentation Formatting** | [`packages/stage-ui/src/stores/chat/error-formatter.test.ts`](../packages/stage-ui/src/stores/chat/error-formatter.test.ts) | 6 | Node / Pure TS | Blocking in CI | Formats Markdown error cards, extracts JSON technical details, identifies 401/403/unauthorized auth errors, and provides suggested fixes. | Pure helper unit tests; does not mount Pinia stores or invoke UI renders. |
 | **Tool Syntax Recognition & Argument Parsing** | [`packages/stage-ui/src/stores/chat/tool-bridge.test.ts`](../packages/stage-ui/src/stores/chat/tool-bridge.test.ts) | 19 | Node / Pure TS | Blocking in CI | Marker syntax recognition across 5 dialects (`<\|...\|>`, `[call_tool:...]`, `<tool_call>`), lenient JSON parsing recovery, argument key-value decoding, and truncation tolerance. | Pure helper unit tests; does not mount Pinia stores or execute tools. |
+| **Intrusion & Climax Prompt Formatting** | [`packages/stage-ui/src/stores/chat/intrusions.test.ts`](../packages/stage-ui/src/stores/chat/intrusions.test.ts) | 16 | Node / Pure TS | Blocking in CI | Pure evaluation of goal-driven Dating Sim victory/defeat climax prompts, elapsed-minute calculation, and dream, journal, and artistry prompt template interpolation. | Pure helper unit tests; does not mount Pinia stores or access staging refs. |
 | **Prompt & Grounding Assembly** | [`packages/stage-ui/src/stores/chat/prompt-contracts.test.ts`](../packages/stage-ui/src/stores/chat/prompt-contracts.test.ts) | 5 | Node / Pinia | Blocking in CI | P1-P4, Intrusions: VLM forward timing, image stripping on failure, exact 8-part grounding order, and intrusion staging consumption. | Tests prompt assembly and staging clear timing. |
 | **Bridged Tool Runtime Loop** | [`packages/stage-ui/src/stores/chat/tool-bridge-runtime.test.ts`](../packages/stage-ui/src/stores/chat/tool-bridge-runtime.test.ts) | 4 | Node / Pinia | Blocking in CI | Maximum 5-round outer bridged loop bound, early round-1 exit, multi-turn tool result association, and marker syntax dialects. | Tests outer bridged loop in performSend; does not test native provider loop in llm.ts. |
+
 
 | **Message Deduplication & Sync Merge** | [`packages/stage-ui/src/stores/chat/session-message-merge.test.ts`](../packages/stage-ui/src/stores/chat/session-message-merge.test.ts) | 5 | Node / Pure TS | Blocking in CI | Session message deduplication, timestamp sorting, and remote sync merge rules. | Tests pure merge algorithm; does not test remote HTTP sync transport. |
 | **Message Payload Sanitization** | [`packages/stage-ui/src/stores/llm.sanitize.test.ts`](../packages/stage-ui/src/stores/llm.sanitize.test.ts) | 5 | Node / Pure TS | Blocking in CI | Stripping images when vision is disabled, converting error roles to user messages, and flattening text parts. | Pure payload transformation unit tests. |

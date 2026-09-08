@@ -17,12 +17,6 @@ import { useAnalytics } from '../composables'
 import { createLlmJsonInterceptor } from '../composables/llm-json-interceptor'
 import { useLlmmarkerParser } from '../composables/llm-marker-parser'
 import { categorizeResponse, createStreamingCategorizer } from '../composables/response-categoriser'
-// Import Intrusion Prompts defaults
-import {
-  DEFAULT_ARTISTRY_INTRUSION_PROMPT,
-  DEFAULT_DREAM_INTRUSION_PROMPT,
-  DEFAULT_JOURNAL_INTRUSION_PROMPT,
-} from '../constants/prompts/character-defaults'
 import { appendActorAwareTextSlice, captureActorToken, createActorSliceState } from '../utils/chat-actor-slices'
 import { useCompactionStore } from './chat/compaction'
 import { createDatetimeContext, createEternalRecordContext, createExpressionsContext, createScenesContext, createStickersContext } from './chat/context-providers'
@@ -30,6 +24,12 @@ import { useChatContextStore } from './chat/context-store'
 import { formatChatError } from './chat/error-formatter'
 import { createChatHooks } from './chat/hooks'
 import { clearArtistryStaging, clearJournalStaging, pendingIntrusionStaging, stageArtistryIntrusion, stageJournalIntrusion } from './chat/intrusion-staging'
+import {
+  formatArtistryPrompt,
+  formatClimaxPrompt,
+  formatDreamPrompt,
+  formatJournalPrompt,
+} from './chat/intrusions'
 import { useChatSalienceStore } from './chat/salience'
 import { useChatSessionStore } from './chat/session-store'
 import { useChatStreamStore } from './chat/stream-store'
@@ -1183,23 +1183,15 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           const datingSim = (await import('@proj-airi/stage-ui/stores/dating-sim')).useDatingSimStore()
           const msgs = chatSession.messages || []
           const turns = msgs.filter((m: any) => m.role === 'assistant').length
-          if (datingSim.enabled && datingSim.settings.gameMode === 'goal_driven') {
-            const pos = datingSim.getVariable('positiveScore')
-            const neg = datingSim.getVariable('negativeScore')
-            const maxScore = datingSim.settings.maxScore
-            const maxTurns = datingSim.settings.maxTurns
-            const isWin = pos >= maxScore || ((turns + 1) >= maxTurns && pos > neg)
-            const isLoss = neg >= maxScore || ((turns + 1) >= maxTurns && neg >= pos)
-
-            if (isWin || isLoss) {
-              const climaxState = isWin ? 'VICTORY' : 'DEFEAT'
-              climaxPrompt = `[DATING SIM CLIMAX RESOLUTION]
-The Dating Sim session has ended. The user has achieved the climax state: ${climaxState}.
-Final metrics: Intimacy Connection: ${pos}/${maxScore}, Tension/Friction: ${neg}/${maxScore}, Turns Elapsed: ${turns + 1}/${maxTurns}.
-
-You must now react to this outcome and provide a rich, narrative-driven climax reaction to resolve this storyline/arc. Break standard reply length limits if necessary to provide a complete, satisfying story resolution. Do not generate choices, suggestions, or prompt instructions anymore.`
-            }
-          }
+          climaxPrompt = formatClimaxPrompt({
+            enabled: datingSim.enabled,
+            gameMode: datingSim.settings?.gameMode,
+            positiveScore: datingSim.getVariable?.('positiveScore'),
+            negativeScore: datingSim.getVariable?.('negativeScore'),
+            maxScore: datingSim.settings?.maxScore,
+            maxTurns: datingSim.settings?.maxTurns,
+            assistantTurnCount: turns,
+          })
         }
         catch (e) {
           debug('[ChatOrchestrator] Failed to evaluate Dating Sim climax state injection', e)
@@ -1223,32 +1215,28 @@ You must now react to this outcome and provide a rich, narrative-driven climax r
           pendingJournalContent: pendingJournal?.entryText?.substring(0, 50),
         })
 
-        let dreamPrompt = ''
-        if (dreamState?.injectDreamContext && dreamState?.pendingDreamChips && dreamState.pendingDreamChips.length > 0) {
-          const elapsedMinutes = Math.max(1, Math.round((Date.now() - (dreamState.pendingDreamTimestamp || Date.now())) / 60000))
-          const template = dreamState.dreamIntrusionPrompt || DEFAULT_DREAM_INTRUSION_PROMPT
-          const chipsText = dreamState.pendingDreamChips.join(', ')
-          dreamPrompt = template
-            .replace('{timeToDream}', String(elapsedMinutes))
-            .replace('{insertEchoChips}', chipsText)
-        }
+        const dreamPrompt = formatDreamPrompt({
+          injectDreamContext: dreamState?.injectDreamContext,
+          pendingDreamChips: dreamState?.pendingDreamChips,
+          pendingDreamTimestamp: dreamState?.pendingDreamTimestamp,
+          template: dreamState?.dreamIntrusionPrompt,
+        })
 
-        let journalPrompt = ''
         if (textJournal?.injectJournalContext && pendingJournal) {
           debug('[Journal Debug] Evaluating journal injection from staging:', pendingJournal)
-          const elapsedMinutes = Math.max(1, Math.round((Date.now() - pendingJournal.timestamp) / 60000))
-          const template = textJournal.journalIntrusionPrompt || DEFAULT_JOURNAL_INTRUSION_PROMPT
-          journalPrompt = template
-            .replace('{timeSinceJournal}', String(elapsedMinutes))
-            .replace('{journalEntryText}', pendingJournal.entryText)
         }
+        const journalPrompt = formatJournalPrompt({
+          injectJournalContext: textJournal?.injectJournalContext,
+          entryText: pendingJournal?.entryText,
+          timestamp: pendingJournal?.timestamp,
+          template: textJournal?.journalIntrusionPrompt,
+        })
 
-        let artistryPrompt = ''
-        if (artistry?.injectArtistryContext && pendingArtistry) {
-          const template = artistry.artistryIntrusionPrompt || DEFAULT_ARTISTRY_INTRUSION_PROMPT
-          artistryPrompt = template
-            .replace('{imagePrompt}', pendingArtistry.prompt)
-        }
+        const artistryPrompt = formatArtistryPrompt({
+          injectArtistryContext: artistry?.injectArtistryContext,
+          prompt: pendingArtistry?.prompt,
+          template: artistry?.artistryIntrusionPrompt,
+        })
 
         if (Object.keys(contextsSnapshot).length > 0 || sensorPayload || climaxPrompt || dreamPrompt || journalPrompt || artistryPrompt) {
           const system = newMessages.slice(0, 1)
