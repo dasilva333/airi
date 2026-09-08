@@ -1,7 +1,7 @@
 ---
 name: airi-memory-chat-sessions
 description: >-
-  Use when working with AIRI memory pillar 1 — Chat Sessions: the session store (packages/stage-ui/src/stores/chat/session-store.ts, 1529 lines), chat-sessions.repo (local:chat/*), per-character session index, fork/switch/invoice-turn flows, universe metadata on sessions, session-generation checkpoints, and the memory-context builders that inject STMM and lifetime artifacts into the prompt. Trigger on session lifecycle, persistence, multi-session/universe wiring, or "where do chat messages live". This skill covers only the session pillar — text journal, STMM, lifetime, etc. each have their own skill under the airi-memory-systems hub.
+  Implement/debug chat-session lifecycle: message persistence, character session index, create/fork/switch, universe metadata, generation checkpoints. Prompt assembly uses airi-prompt-builder-engine; daily memory summaries use airi-memory-short-term.
 ---
 
 # Memory Pillar 1 — Chat Sessions

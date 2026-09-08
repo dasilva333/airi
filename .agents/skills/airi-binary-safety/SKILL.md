@@ -1,7 +1,7 @@
 ---
 name: airi-binary-safety
 description: >-
-  Use when working with AIRI binary asset serialization, localforage/IndexedDB persistence, or Vue 3 reactive proxy handling of File/Blob/ArrayBuffer models. Trigger on model persistence, display-models store changes, storage.ts writes, or Rosetta Stone §16 binary-proxy / eager-watcher pitfalls. Enforce toRaw before setItem, lightweight metadata catalogs, and avoiding eager deep watchers in UI wrappers.
+  Prevent/debug File/Blob/ArrayBuffer corruption during Vue reactive-proxy serialization and IndexedDB/localforage writes. Covers toRaw, empty persisted models, lightweight asset catalogs, eager deep watchers. General repository design uses airi-data-persistence.
 ---
 
 Binary payloads die silently. Vue 3 reactive proxies plus `JSON.stringify()` will strip `File`/`Blob`/`ArrayBuffer` contents and persist an empty `{}`. Never cite `crates/` (legacy Tauri; current desktop is Electron `apps/stage-tamagotchi/`). Authoritative lessons live in Rosetta Stone §16.

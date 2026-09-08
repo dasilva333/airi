@@ -1,7 +1,7 @@
 ---
 name: airi-artistry-comfyui-widgets
 description: >-
-  Use when working with AIRI image-generation widgets, the ComfyUI bridge, the image_journal built-in tool, widget spawn modes (spawn/update/remove/clear/open and bg/inline/bg_widget routing), multi-backend art providers (comfyui/replicate/nanobanana), and the autonomous artistry director-note grading loop. Covers apps/stage-tamagotchi/src/renderer/stores/tools/builtin/widgets.ts and image-journal.ts, apps/stage-tamagotchi/src/main/services/airi/widgets/ (artistry-bridge.ts, index.ts, providers/), and packages/stage-ui/src/stores/modules/artistry.ts plus artistry-autonomous.ts. Triggers on adding a widget, wiring a new art backend, debugging headless generation, or touching director-note broadcast sync.
+  Build/debug image-generation orchestration: stage_widgets, image_journal display routing, headless jobs, art backend wiring, autonomous Director loop, director-note sync. ComfyUI protocol uses airi-comfyui-provider-bridge; durable image history uses airi-memory-image-journal.
 ---
 
 # AirI Artistry / ComfyUI Widgets

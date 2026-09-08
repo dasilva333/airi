@@ -1,7 +1,7 @@
 ---
 name: airi-broadcast-channels
 description: >-
-  Use when adding, consuming, or debugging cross-window BroadcastChannel relays: the live channel registry, control-strip dispatch ('airi-control-strip-actions'), caption overlay streaming ('airi-caption-overlay'), store-sync signals ('airi:*-sync'), the chat bus ('airi-chat-input-bridge', 'airi-chat-present', 'airi-speaking-state'), VueUse useBroadcastChannel lifecycle, or @moeru/eventa broadcast contexts. Trigger on cross-window state sync, window-to-window messaging, or channel payload typing.
+  Wire/debug window-to-window BroadcastChannel messaging: state sync, chat relay, caption streaming, channel registry, payload types, VueUse lifecycle, eventa broadcast contexts. Electron main/renderer IPC uses airi-ipc-eventa.
 ---
 
 # AIRI Broadcast Channels

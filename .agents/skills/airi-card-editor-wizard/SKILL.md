@@ -1,7 +1,7 @@
 ---
 name: airi-card-editor-wizard
 description: >-
-  Use when working with AIRI Card Editor, Character Creation Wizard guided flow, Card Import modal, guided tab navigation, schema-driven card editing, or the extensions.airi data slice in the settings/airi-card area. Key technologies: Vue 3, Pinia, Wizard tabs. File paths: packages/stage-pages/src/pages/settings/airi-card/, packages/stage-pages/src/pages/settings/airi-card/components/tabs/, packages/stage-ui/src/stores/modules/airi-card.ts, packages/stage-ui/src/types/card.schema.ts, packages/ccc/src/define/card.ts.
+  Build/debug character-card editing UI: editor tabs, guided navigation, import modal, schema-driven fields, extensions.airi bindings. AnimaDex synthesis uses airi-animadex-wizard; card library uses airi-card-manager-hub; format serialization uses airi-card-schema.
 ---
 
 # AIRI Card Editor & Creation Wizard

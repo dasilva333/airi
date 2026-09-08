@@ -1,6 +1,7 @@
 ---
 name: airi-memory-ui-pages
-description: "Use when working with working on Memory Settings Control Hub UI Surface, Short-Term/Long-Term Memory lanes, Lifetime Archives, and memory artifact preview cards."
+description: >-
+  Build/review memory settings UI: Short-Term/Long-Term lanes, Lifetime Archives, artifact previews, provisioning controls, Memory Settings Hub plans. Memory generation and persistence use dedicated memory skills.
 ---
 # Airi Memory UI Pages
 

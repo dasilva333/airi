@@ -1,7 +1,7 @@
 ---
 name: airi-dating-sim-engine
 description: >-
-  Use when working with the Dating Sim game engine, storyline presets, overlay UI (choices/subtitles/HUD), mood/intimacy state machine, Amagami-inspired mechanics, Amagami-style turn loops, per-card scenery routing, or the ephemeral dating-sim Pinia store. Key technologies: Vue 3, Pinia, localForage-backed persistence, BroadcastChannel ('dating-sim-sync'). File paths: packages/stage-ui/src/stores/dating-sim.ts, packages/stage-ui/src/components/scenes/DatingSimOverlay.vue, packages/stage-ui/src/components/scenes/StorySelectorModal.vue, packages/stage-ui/src/constants/dating-sim/storylines.ts.
+  Implement/debug Dating Sim gameplay: storyline presets, choices, mood/intimacy state, Amagami-style turns, HUD/overlay, per-card scenery routing, synchronized game state. Prompt composition uses airi-prompt-builder-engine; subtitle playback uses airi-caption-subsystem.
 ---
 
 # Dating Sim Engine

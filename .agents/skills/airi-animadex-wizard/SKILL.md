@@ -1,7 +1,7 @@
 ---
 name: airi-animadex-wizard
 description: >-
-  Use when working with the AnimaDex Wizard — the 4-step cast-to-card guided synthesis (guided.vue monolith): the animadex-catalog.json tuple dataset, custom characters (BLIP auto-tagging), the sticky character-bindings localStorage map + blacklist, model auto-linking (Jaccard tag matching), Step 2 roster binding + AutoVoiceConfigModal LLM voice/idle assignment, Step 3 story suggester + BrainModelPicker, Step 4 LLM synthesis payload, doCreateCard card assembly with ACTOR tokens, or cast expansion into live cards. Peer skill: airi-card-editor-wizard (editor breadth, no deep wizard internals).
+  Build/debug AnimaDex cast-to-card synthesis: character catalog, roster bindings, BLIP tags, model matching, auto voice assignment, story suggestions, card assembly, cast expansion. Deep guided-wizard internals; general card editing uses airi-card-editor-wizard.
 ---
 
 # AnimaDex Wizard — Cast Selection to Card Synthesis

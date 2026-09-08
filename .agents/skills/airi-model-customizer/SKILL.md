@@ -1,7 +1,7 @@
 ---
 name: airi-model-customizer
 description: >-
-  Use when working with the inline ModelCustomizer widget (ModelCustomizer.vue) — the embedded per-model capability editor for all four model formats (VRM/Live2D/Spine/MMD) in the model-settings panels and Rehearsal Room. Covers expression/motion exploration via getOrLoadModelCapabilities, ACT emotion & motion mapping, <|ACT:...|> insert-token contract, rename/visibility/favorite/idle-cycle toggles, and the mesh-part wardrobe builder (outfits + mesh names). NOT the floating Control Strip Customizer window — see airi-controlstrip-customizer.
+  Build/debug embedded ModelCustomizer: capability exploration, expression/motion mappings, ACT token insertion, favorites, visibility, idle cycles, mesh wardrobe authoring. Covers VRM/Live2D/Spine/MMD. Not floating Control Strip Customizer.
 ---
 
 # AIRI ModelCustomizer Widget

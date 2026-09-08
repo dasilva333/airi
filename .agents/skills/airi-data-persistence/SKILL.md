@@ -1,6 +1,7 @@
 ---
 name: airi-data-persistence
-description: "Use when working with writing or modifying database repositories, dual IndexedDB persistence layer (unstorage + localforage), sync engine outbox queues, or S3/ElectronFS reconciliations."
+description: >-
+  Design/debug local database repositories, unstorage/localforage boundaries, IndexedDB writes, outbox records, storage reconciliation. Cloud transport uses airi-byos-cloud-sync; binary corruption uses airi-binary-safety.
 ---
 
 # Overview & Architecture

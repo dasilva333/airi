@@ -1,7 +1,7 @@
 ---
 name: airi-modular-outfits-system
 description: >-
-  Use when working with Character outfits in AiriExtension schema, Live2D/VRM costume variants, visual-asset manifestations, and outfit switching in card and renderer.
+  Implement/debug card-level outfits, AiriExtension costume variants, visual-asset manifestations, Live2D/VRM outfit switching. Mesh wardrobe authoring uses airi-model-customizer; Live2D change_cos VM internals use airi-live2d-dsl-interpreter.
 ---
 
 # AIRI Modular Outfits & Costumes System

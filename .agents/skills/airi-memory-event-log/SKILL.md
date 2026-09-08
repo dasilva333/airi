@@ -1,7 +1,7 @@
 ---
 name: airi-memory-event-log
 description: >-
-  Use when working with AIRI memory pillar 7 — the Event Log ledger: event-log.ts store (144 lines), unstorage key local:event-log with 500-entry capacity, AiriSystemEvent records with seven categories (vision/tools/chat/proactivity/memory/stage/discord), appendEvent/clearLog/getRecentEventsText, heartbeat ledger injection into proactivity, and the Event Ledger UI pane. Trigger on event ledger, system events, appendEvent, or activity tracing. Hub: airi-memory-systems.
+  Implement/debug Event Log/Event Ledger: AiriSystemEvent records, appendEvent, clearLog, recent-event context, bounded activity history, proactivity ledger injection. System activity tracing; conversation messages use airi-memory-chat-sessions.
 ---
 
 # Memory Pillar 7 — Event Log

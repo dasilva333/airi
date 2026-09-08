@@ -1,7 +1,7 @@
 ---
 name: airi-i18n-localization
 description: >-
-  Use when working with AIRI monorepo i18n localization, translations, or locale YAML in packages/i18n. Trigger on adding translation keys, checking render/key completeness, per-locale updates, or any task touching settings.yaml, stage.yaml, or base.yaml. Always run scripts/yaml-manager.js per docs/settings-yaml.md instead of brute-force-searching locale files.
+  Add/update translations, locale YAML, missing keys, render completeness in packages/i18n: settings.yaml, stage.yaml, base.yaml. Use yaml-manager.js per docs/settings-yaml.md; no brute-force locale searches.
 ---
 
 LOCALE YAML IS MANAGED, NOT GREPPED. Before locating or editing any translation key, read `docs/settings-yaml.md` and drive the task through `scripts/yaml-manager.js`. Never brute-force search the locale tree or read the manager source, and never cite `crates/` (legacy Tauri; current desktop is Electron `apps/stage-tamagotchi/`).

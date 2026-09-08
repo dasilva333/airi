@@ -1,7 +1,7 @@
 ---
 name: airi-roadmap-upstream-research
 description: >-
-  Use when working with the AIRI project roadmap, proposal RFC analysis, fork research, or upstream sync planning. Trigger on triaging unbuilt roadmap features, reading architectural proposal docs, inspecting upstream repo changes or PRs, comparing divergent fork paths, or planning ports safely without scope creep. Never push/rebase/fetch the upstream remote unless the user explicitly authorizes it.
+  Review roadmap/RFCs, verify proposed versus shipped features, compare forks, plan selective upstream ports. Never inspect/fetch/rebase/push upstream without explicit authorization. Use for research and planning.
 ---
 
 Research first, port deliberately. This fork is highly divergent; the `upstream` remote is reference-only. Never push, rebase from, fetch, or otherwise inspect `upstream` unless the user explicitly authorizes it. Never cite `crates/` (legacy Tauri; current desktop is Electron `apps/stage-tamagotchi/`).

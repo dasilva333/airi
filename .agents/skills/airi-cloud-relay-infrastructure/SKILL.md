@@ -1,7 +1,7 @@
 ---
 name: airi-cloud-relay-infrastructure
 description: >-
-  Use when working with deploying, configuring, or maintaining Cloudflare Workers edge relay services ('Vercel for Characters'), Edge KV memory models, Discord interaction webhooks, CloudflareStageDeployer execution, or the CORS reverse-proxy worker.
+  Develop/debug Cloudflare Workers character relays: Edge KV memory, Discord interaction webhooks, CloudflareStageDeployer, CORS reverse proxy. Local WebSocket pairing uses airi-gateway-websocket-protocol; release packaging uses airi-release-packaging-deploy.
 ---
 
 # AIRI Cloud Relay & Edge Infrastructure

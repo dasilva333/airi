@@ -1,7 +1,7 @@
 ---
 name: airi-vrm-vhack-studio
 description: >-
-  Use when working with V-HACK DevTools — the hidden God MODE VRM binary modding panel inside Model Settings: HackerPanel.vue stage-map tree inspector + MToon material lab + Texture Forge + AI-Studio texture generation + surgical GLB export, vhack.ts state store, in-memory hotspot swap, or Unity-style mesh surgery UX. Also relevant to Live2D sibling (live2d-lhack/LHackerPanel.vue) and GLB binary manipulation pitfalls.
+  Modify/debug avatar assets with V-HACK/God MODE: VRM tree inspection, MToon materials, Texture Forge, AI textures, mesh surgery, GLB export. Includes Live2D L-HACK; expression/motion mapping uses airi-model-customizer.
 ---
 
 # AIRI V-HACK Studio — Native VRM Binary Modding Panel

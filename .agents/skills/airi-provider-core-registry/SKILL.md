@@ -1,7 +1,7 @@
 ---
 name: airi-provider-core-registry
 description: >-
-  Use when defining new LLM/TTS/STT/vision provider backends, writing defineProvider() metadata contracts, specifying capabilities (listModels, listVoices, loadModel, getSpeechCapabilities), registering Zod config validators, wiring providers into the central registry.ts, managing on-device model caches (OPFS, CacheStorage, ModelCacheManager), or localizing provider UI metadata via packages/i18n.
+  Define/register provider backends: defineProvider metadata, capabilities, model/voice discovery, config validators, registry wiring, model-cache contracts. Runtime accounts use airi-provider-store-instances; settings forms use airi-provider-ui-pages; inference workers use airi-local-inference-engines.
 ---
 
 # AIRI Provider Core Registry & Local Model Cache Architecture

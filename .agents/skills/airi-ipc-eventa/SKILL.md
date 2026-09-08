@@ -1,6 +1,7 @@
 ---
 name: airi-ipc-eventa
-description: "Use when working with defining, wiring, or debugging Electron typed IPC/RPC between main and renderer. Covers @moeru/eventa contracts, defineInvokeEventa, defineEventa, renderer invocations, main-process handlers, and cross-window BroadcastChannel relays."
+description: >-
+  Define/debug typed Electron main/renderer IPC and RPC: @moeru/eventa contracts, defineInvokeEventa, defineEventa, renderer calls, main handlers. Window-to-window BroadcastChannel relays use airi-broadcast-channels.
 ---
 
 # Overview & Surface Map

@@ -1,7 +1,7 @@
 ---
 name: airi-acting-cue-act-tokens
 description: >-
-  Use when working with the ACT token system — the orchestration-marker protocol that turns LLM text into avatar behavior (emotion, motion, speech delay, actor routing). Covers the two official ACT formats (Short Format `<|ACT:emotion="..."|>` / `<|ACT:motion="..."|>` and JSON Chaining Format `<|ACT:{"emotion":{...},"motion":"..."}|>`), the hidden/tolerated formats (legacy bare-`>` close whitelisted only for ACT/DELAY/LLM_in the marker parser, `|}` close normalization, `<{'|'}` escapes), the ACTOR multi-actor routing token and DELAY pause token, the rawContent-vs-content dual-key storage contract that prevents token-drift, the system-prompt teaching layer (DEFAULT_ACTING_* prompts, card acting fields, Acting tab, Field AI Generator templates), the downstream cue execution chain (marker parser → response-categoriser → chat hooks → ControlStripHost special-token queue → VRM/Live2D dispatch), and all user-facing facets: the Acting tab, the Rehearsal Room playground, the Model Customizer expression/motion mappings it feeds, Discord outbound stripping, and the planned Onboarding-V2 Advanced-Lab acting step. Trigger on ACT tokens, acting instructions, emotion/motion cue emission, ACTOR routing, DELAY tokens, or acting-prompt authoring. Peer skills: airi-prompt-builder-engine, airi-character-rendering, airi-model-customizer, airi-interaction-pipelines, airi-onboarding-v2.
+  Implement/debug ACT emotion and motion cues, ACTOR routing, DELAY pauses, acting prompts, marker parsing, rawContent/content preservation, avatar cue dispatch. Includes Acting tab and Rehearsal Room; model mappings use airi-model-customizer.
 ---
 
 # AIRI ACT Token System — The Acting Cue Keystone

@@ -1,6 +1,7 @@
 ---
 name: airi-stage-mate-unity
-description: Use when working with Stage-Mate, the Unity/VRM native sidecar of the AIRI Electron app (apps/stage-mate): the workspace-purity rule (never edit or reset mate-engine/ directly; all custom code lives in unity-src/ and is overlaid by scripts/setup.ts), the pinned upstream Mate-Engine commit in CANONICAL_MATE_ENGINE_COMMIT, the harness WebSocket mock on ws://localhost:6171, the stage:vrm wire protocol, the C# sidecar runtime under unity-src/Assets/StageMate/ (StageMateSocket, StageMateBridge, StageMateStateSync, VRM model drivers, companion/tactile systems, camera/viewport rig, shadow rig), upstream patches under unity-src/Patches/, Unity batch builds via scripts/build.ts and MateSidecarBuild, runtime logging (stagemate-runtime.log vs deep Player.log), and platform-specific UniWindowController transparency behavior (macOS hit-test vs Windows opacity thresholds).
+description: >-
+  Build/debug Stage-Mate Unity/VRM sidecar: stage:vrm WebSocket protocol, C# runtime, model drivers, tactile interactions, camera/shadows, transparency, batch builds, logs. Custom changes only in unity-src; never edit/reset mate-engine directly.
 ---
 
 # AIRI Stage-Mate (Unity Sidecar)

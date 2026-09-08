@@ -1,7 +1,7 @@
 ---
 name: airi-memory-consolidation-dreaming
 description: >-
-  Use when working with AIRI memory consolidation and dreaming — the triple-store model (STMM ephemeral / LTMM immutable / DRMM dynamic), Sacred Journal Rule, PCL contradiction handling with invalidation gates, Dreaming Worker, Emotional Exhaust deltas updating global MoodState, and docs/memory_lab spec files (design-prospective-rich-journal, memory-schema-and-lifecycle-spec, memory-lifecycle-and-features).
+  Design/debug memory consolidation and dreaming: STMM/LTMM/DRMM lifecycle, immutable journal rules, PCL contradictions, invalidation gates, Dreaming Worker, Emotional Exhaust, MoodState updates. Search/ranking uses airi-memory-retrieval-engine.
 ---
 
 ## Key Files/Locations

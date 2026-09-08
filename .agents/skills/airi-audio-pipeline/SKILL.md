@@ -1,7 +1,7 @@
 ---
 name: airi-audio-pipeline
 description: >-
-  Use when implementing, configuring, or debugging TTS speech output, STT hearing input, audio device switching, VAD detection, streaming transcription, VoiceProfiles, UST speech transformers, or PCM/WAV audio playback.
+  Implement/debug TTS synthesis, STT transcription, microphone/speaker switching, VAD, VoiceProfiles, UST speech transformers, PCM/WAV playback, audio stutter or silence. Gemini Live sessions use airi-gemini-live-api; inference workers use airi-local-inference-engines.
 ---
 
 # AIRI Audio Pipeline Engine

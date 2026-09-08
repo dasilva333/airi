@@ -1,7 +1,7 @@
 ---
 name: airi-desktop-chatbox
 description: >-
-  Use when working with the AIRI desktop (Electron stage-tamagotchi) chat window as a whole: the persistent hub window pages/chat.vue, its top-left hamburger Workspace Routes, the 9 workspace sub-surfaces (Chat View, Director's Monitor, World Bible, Studio, Media Library, Eternal Thread, Event Ledger, Notes, Rehearsal), the desktop InteractiveArea.vue composer host, chat message bubbles, tool-call blocks, the action-menu, journal/echo chips, the amber Pre-Flight Grounding panel, and shared stage-ui chat primitives (history.vue, bubbles, popovers) that web/pocket also build on. Covers apps/stage-tamagotchi/src/renderer/pages/chat.vue, apps/stage-tamagotchi/src/renderer/components/chat/, components/InteractiveArea.vue, and packages/stage-ui/src/components/scenarios/chat/. Triggers on editing desktop chat bubbles, the message context menu, composer state, workspace navigation, journal chips, or cross-window chat sync. Mobile/web portrait & landscape chatboxes are summarized in §1 — for their internals see packages/stage-layouts.
+  Build/debug Electron chat UI: composer, bubbles, tool cards, menus, journal/echo chips, Pre-Flight Grounding, workspace navigation. Includes Director's Monitor, World Bible, Studio, Media Library, Notes, Rehearsal; end-to-end routing uses airi-interaction-pipelines.
 ---
 
 # Airi Desktop Chatbox

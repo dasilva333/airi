@@ -1,15 +1,7 @@
 ---
 name: airi-proactivity-sensory-telemetry
 description: >-
-  Use when working with the AIRI proactivity heartbeats engine, OS sensor polling
-  (idle time, active window title, program/process name, AFK threshold, system volume,
-  local time, system load), rolling active-window history, environmental telemetry
-  sensorPayload, attention-ecology heuristic gating, NO_REPLY sentinel decision logic,
-  idle heartbeat loop, sensor compilation and registered-tool resolution in
-  ProactivityStore. Key tech: Electron main-process sensors via eventa invoke, Pinia,
-  useIntervalFn, useElectronEventaInvoke, xsai tools. Paths:
-  docs/design-proactivity-heartbeats-engine.md,
-  packages/stage-ui/src/stores/proactivity.ts.
+  Implement/debug proactive heartbeats: OS sensors, idle/AFK detection, active-window history, environmental telemetry, attention gates, NO_REPLY decisions, sensor compilation. Continuous screen perception uses airi-attention-ecology-vision.
 ---
 
 # AIRI Proactivity — Sensory Telemetry & Heartbeats

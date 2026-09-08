@@ -1,6 +1,7 @@
 ---
 name: airi-onboarding-v2
-description: Use when working with the AIRI Onboarding wizard (V2 architecture), the full step sequence (Welcome, Triage, Cloud Sync/Restore returning-track, Hearing, Consciousness, User Profile, Persona, Vessel, Speech, Calibration), gate.ts onboardingV2Gate contracts, draft-store.ts onboardingV2Draft transient composition (Principle 6), onboarding-v2.vue orchestrator, onboarding-dialog.vue modal wrapper, useOnboardingStore first-run flags (onboarding/completed, needsOnboarding, markSetupCompleted/Skipped), steps/ directory Vue components, in-context model-shard downloads (whisper-loader.ts, WebLLM/Kokoro adapters), Step 7 atomic card synthesis into airi-card/consciousness/hearing/speech stores, docs/project-onboarding-modernize.md, provider selection, character card assembly, or first-run setup flow lineage.
+description: >-
+  Build/debug first-run Onboarding V2: setup steps, returning-user restore, gate/draft contracts, completion flags, model downloads, provider selection, atomic starter-card assembly. Existing-card editing uses airi-card-editor-wizard.
 ---
 
 # AIRI Onboarding (V2 Architecture)

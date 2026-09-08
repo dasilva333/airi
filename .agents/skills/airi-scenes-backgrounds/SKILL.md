@@ -1,7 +1,7 @@
 ---
 name: airi-scenes-backgrounds
 description: >-
-  Use when working with Stage background layers, scene style galleries, background picker dialogs, or the background Pinia store (localforage, BroadcastChannel sync, per-card activeBackgroundId, or Vue 3 toRaw serialization of binary blobs). Key technologies: Vue 3, Pinia, localforage, canvas compositing, stage UI. File paths: packages/stage-ui/src/stores/background.ts, packages/stage-ui/src/components/scenes/RendererStage.vue, packages/stage-ui/src/components/scenarios/dialogs/stage-background-picker/, packages/stage-ui/src/components/scenarios/dialogs/background-picker/, packages/stage-pages/src/pages/settings/scene/index.vue.
+  Build/debug stage backgrounds: layer composition, scene galleries, picker dialogs, per-card background selection, background-store sync. Generated image history uses airi-memory-image-journal; art generation routing uses airi-artistry-comfyui-widgets.
 ---
 
 # AIRI Scenes & Backgrounds
