@@ -23,7 +23,7 @@
 
 | Package / Workspace | Test Suites (Files) | Total Tests | Primary Subsystem Focus |
 |---|:---:|:---:|---|
-| [`packages/stage-ui`](../packages/stage-ui) | 63 | 550 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory |
+| [`packages/stage-ui`](../packages/stage-ui) | 64 | 570 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory |
 | [`packages/live2d-runtime`](../packages/live2d-runtime) | 5 | 79 | Live2D Scripting DSL VM, Command Parser, Selector, Template, VarStore |
 | [`packages/stage-pages`](../packages/stage-pages) | 2 | 34 | Settings Topology & Devtools Context Flow Formatters |
 | [`apps/stage-tamagotchi`](../apps/stage-tamagotchi) | 6 | 32 | Desktop Multi-Window, Display Bounds, Location, Widgets, Airi Plugins |
@@ -33,9 +33,9 @@
 | [`packages/cap-vite`](../packages/cap-vite) | 4 | 22 | Capacitor Vite Plugin, CLI Integration & Native Wrappers |
 | [`packages/plugin-sdk`](../packages/plugin-sdk) | 1 | 22 | Plugin SDK Host Core Lifecycle |
 | [`packages/server-runtime`](../packages/server-runtime) | 1 | 9 | Server Route Middleware |
-| **Monorepo Vitest Baseline** | **91 Suites** | **828 Tests** | **Automated Zero-Failure Headless Test Baseline** |
+| **Monorepo Vitest Baseline** | **92 Suites** | **848 Tests** | **Automated Zero-Failure Headless Test Baseline** |
 
-*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 95 total test files discovered).*
+*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 96 total test files discovered).*
 
 ---
 
@@ -72,6 +72,7 @@
 | **Chat Bubble Virtual Keying** | [`packages/stage-ui/src/components/scenarios/chat/message-key.test.ts`](../packages/stage-ui/src/components/scenarios/chat/message-key.test.ts) | 4 | Node / Pure TS | Blocking in CI | Stable key resolution for virtualized chat transcript items with missing IDs or timestamps. | Pure key computation tests; does not mount Vue virtual scroller components. |
 | **Chat Scenarios Utility** | [`packages/stage-ui/src/components/scenarios/chat/utils.test.ts`](../packages/stage-ui/src/components/scenarios/chat/utils.test.ts) | 1 | Node / Pure TS | Blocking in CI | Helper functions for chat UI formatting. | Unit helper test. |
 | **Multi-Actor Turn Slices** | [`packages/stage-ui/src/utils/chat-actor-slices.test.ts`](../packages/stage-ui/src/utils/chat-actor-slices.test.ts) | 9 | Node / Pure TS | Blocking in CI | Parsing `<\|ACTOR:name\|>` markers, appending actor-aware slices, and demarcating dialogue turns. | Pure slice parsing tests; does not verify stage avatar voice assignment. |
+| **Discord Outbound Formatting & Inbound Seams** | [`packages/stage-ui/src/stores/modules/discord-outbound.test.ts`](../packages/stage-ui/src/stores/modules/discord-outbound.test.ts) | 16 | Node / Pure TS | Blocking in CI | Outbound Discord reply formatting (stripping ACT/DELAY tokens, mapping ACTOR prefixes, journal/tool results, error envelopes) and inbound/steer interruption formatting. | Pure transformation unit tests; does not mount Discord bot gateway or Electron IPC. |
 
 #### Data Persistence & BYOS Sync Engine
 | Invariant / Subsystem | Test Path | Tests | Runner / Env | CI Inclusion | What Assertions Directly Establish | Coverage Boundary & Known Limits |

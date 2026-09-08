@@ -37,6 +37,11 @@ import { useArtistryStore } from './artistry'
 import { useAutonomousArtistryStore } from './artistry-autonomous'
 import { useCloudflareStore } from './cloudflare'
 import { useConsciousnessStore } from './consciousness'
+import {
+  formatDiscordInboundMessage,
+  formatDiscordOutboundReply,
+  formatDiscordSteerInterruption,
+} from './discord-outbound'
 import { useHearingSpeechInputPipeline } from './hearing'
 import { useLiveSessionStore } from './live-session'
 import { useSpeechStore } from './speech'
@@ -707,7 +712,7 @@ export const useDiscordStore = defineStore('discord', () => {
       }
       eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), handoverEntry]
 
-      const formattedContent = `${msg.displayName} says:\n${msg.content}`
+      const formattedContent = formatDiscordInboundMessage(msg.displayName, msg.content)
 
       const attachments = visionEnabled.value
         ? (msg.attachments || []).map((att) => {
@@ -737,9 +742,7 @@ export const useDiscordStore = defineStore('discord', () => {
 
         chatSession.bumpSessionGeneration(chatSession.activeSessionId)
 
-        const steerContent = partialText
-          ? `You were saying: "${partialText}", but then ${msg.displayName} interrupted with:\n${msg.content}`
-          : formattedContent
+        const steerContent = formatDiscordSteerInterruption(partialText, msg.displayName, msg.content)
 
         setTimeout(() => {
           void chatOrchestrator.ingest(steerContent, {
@@ -790,25 +793,22 @@ export const useDiscordStore = defineStore('discord', () => {
         return
       }
 
-      const ttsText = chat.output.rawContent || chat.outputText || chat.output.content
-      const error = chat.output.error
+      const reply = formatDiscordOutboundReply(chat.output, chat.outputText)
+      if (!reply) {
+        debug('[DiscordStore] onChatTurnComplete: ttsText is empty/falsy, skipping.')
+        return
+      }
 
-      debug('[DiscordStore] onChatTurnComplete - raw ttsText:', JSON.stringify(ttsText))
-
-      if (error) {
-        debug('[DiscordStore] Relaying error back to Discord:', error)
-        // Notify Discord about the technical failure so the user isn't left hanging
-        const errorMsg = typeof error === 'string' ? error : (error.message || 'Unknown Error')
-        const technicalFeedback = `⚠️ **AIRI encountered a technical problem.**\n*(Error: ${errorMsg})*`
-
+      if (reply.isError) {
+        debug('[DiscordStore] Relaying error back to Discord:', reply.content)
         const errorLogEntry: DiscordEventLogEntry = {
           timestamp: Date.now(),
           type: 'ERROR_RELAY',
-          summary: `Relaying error to ${source.username}: ${errorMsg.substring(0, 50)}`,
+          summary: `Relaying error to ${source.username}: ${reply.content.substring(0, 50)}`,
         }
         eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), errorLogEntry]
 
-        await sendMessageToDiscord(source.channelId, technicalFeedback)
+        await sendMessageToDiscord(source.channelId, reply.content)
 
         if (typingHeartbeat) {
           debug('[DiscordStore] Turn complete (ERROR), clearing typing heartbeat.')
@@ -816,11 +816,6 @@ export const useDiscordStore = defineStore('discord', () => {
           typingHeartbeat = null
         }
 
-        return
-      }
-
-      if (!ttsText) {
-        debug('[DiscordStore] onChatTurnComplete: ttsText is empty/falsy, skipping.')
         return
       }
 
@@ -832,86 +827,8 @@ export const useDiscordStore = defineStore('discord', () => {
       }
       eventLog.value = [...eventLog.value.slice(-(MAX_EVENT_LOG_ENTRIES - 1)), logEntry]
 
-      // NOTICE: Strip orchestration tokens (<|ACTOR:|>, <|ACT:|>, etc.) before sending
-      // to Discord. The raw tokens are preserved in the DB for LLM context, but external
-      // consumers should never see them.
-      let rawText = typeof ttsText === 'string' ? ttsText : String(ttsText)
-      debug('[DiscordStore] text before ACTOR replacement:', JSON.stringify(rawText))
-
-      // Convert ACTOR tokens to bold bracketed format (e.g. <|ACTOR:actor_oshino_shinobu|> -> **[oshino_shinobu]**:)
-      rawText = rawText.replace(/<\|ACTOR:([^|>]+)(?:\|>|>)/gi, (_, captured) => {
-        let cleanName = captured.trim()
-        if (cleanName.toLowerCase().startsWith('actor_')) {
-          cleanName = cleanName.substring(6)
-        }
-        else if (cleanName.toLowerCase().startsWith('actress_')) {
-          cleanName = cleanName.substring(8)
-        }
-        return `**[${cleanName}]**: `
-      })
-      debug('[DiscordStore] text after ACTOR replacement:', JSON.stringify(rawText))
-
-      let cleanedText = stripMarkers(rawText)
-      debug('[DiscordStore] text after stripMarkers:', JSON.stringify(cleanedText))
-
-      const currentToolSlices = chat.output?.slices?.filter((s: any) => s.type === 'tool-call') || []
-      if (currentToolSlices.length > 0) {
-        const formattedCalls = currentToolSlices.map((slice: any) => {
-          const name = slice.toolCall?.toolName || slice.toolCall?.function?.name || 'unknown'
-          const rawArgs = slice.toolCall?.args || slice.toolCall?.function?.arguments
-
-          let parsedArgs: any = null
-          if (rawArgs) {
-            try {
-              parsedArgs = JSON.parse(rawArgs)
-            }
-            catch {}
-          }
-
-          if (name === 'text_journal') {
-            const action = parsedArgs?.action
-            if (action === 'create') {
-              const title = parsedArgs?.title || 'Untitled Entry'
-              const content = parsedArgs?.content || ''
-              return `\n\n### New Journal Entry: ${title}\n> ${content}`
-            }
-            if (action === 'search') {
-              const query = parsedArgs?.query || ''
-              const limit = parsedArgs?.limit || 3
-              return `\n\n🔍 Searching Journal: "${query}" (limit: ${limit})`
-            }
-          }
-          else if (name === 'image_journal') {
-            const action = parsedArgs?.action
-            if (action === 'create') {
-              const prompt = parsedArgs?.prompt || ''
-              const titleStr = parsedArgs?.title ? ` (title: "${parsedArgs.title}")` : ''
-              const modeStr = parsedArgs?.mode ? ` (mode: "${parsedArgs.mode}")` : ''
-              return `\n\n🎨 Generating Image: "${prompt}"${titleStr}${modeStr}`
-            }
-            if (action === 'apply' || action === 'set_as_background') {
-              const query = parsedArgs?.query || ''
-              return `\n\n🖼️ Applying Background: "${query}"`
-            }
-          }
-
-          // Fallback to raw JSON style
-          let argsStr = ''
-          if (rawArgs) {
-            try {
-              argsStr = JSON.stringify(parsedArgs || JSON.parse(rawArgs))
-            }
-            catch {
-              argsStr = rawArgs
-            }
-          }
-          return `\n🔧 \`${name}\` | \`${argsStr}\``
-        }).join('')
-        cleanedText += formattedCalls
-      }
-
-      debug('[DiscordStore] calling sendMessageToDiscord with content:', JSON.stringify(cleanedText))
-      await sendMessageToDiscord(source.channelId, cleanedText)
+      debug('[DiscordStore] calling sendMessageToDiscord with content:', JSON.stringify(reply.content))
+      await sendMessageToDiscord(source.channelId, reply.content)
     }
 
     const onStreamEnd = async () => {
