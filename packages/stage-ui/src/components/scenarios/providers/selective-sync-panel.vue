@@ -783,25 +783,29 @@ defineExpose({
         Select by Character Profile
       </div>
       <div class="flex items-center gap-2">
-        <div class="relative flex-1">
-          <input
-            v-model="searchCharQuery"
-            type="text"
-            placeholder="Type character name (e.g. Asuka, Kiana, Bronya)..."
-            class="w-full border border-neutral-200 rounded-lg bg-white px-3 py-1.5 text-xs text-neutral-800 outline-none transition-colors dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500"
-            @keydown.enter="handleSelectRelated"
-          >
-          <span v-if="searchMatchesMessage" class="absolute right-3 top-1/2 text-[10px] text-primary-500 font-semibold -translate-y-1/2 dark:text-primary-400">
-            {{ searchMatchesMessage }}
-          </span>
-        </div>
+        <input
+          v-model="searchCharQuery"
+          type="text"
+          placeholder="Type character name (e.g. Asuka, Kiana, Bronya)..."
+          class="flex-1 border border-neutral-200 rounded-lg bg-white px-3 py-1.5 text-xs text-neutral-800 outline-none transition-colors dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500"
+          @keydown.enter="handleSelectRelated"
+        >
         <button
-          class="rounded-lg bg-primary-500 px-3 py-1.5 text-xs text-white font-bold transition-all hover:bg-primary-600 disabled:opacity-50"
+          class="shrink-0 rounded-lg bg-primary-500 px-3 py-1.5 text-xs text-white font-bold transition-all hover:bg-primary-600 disabled:opacity-50"
           :disabled="!searchCharQuery"
           @click="handleSelectRelated"
         >
           Select All Related
         </button>
+      </div>
+
+      <!-- Match Results info row below input & button -->
+      <div
+        v-if="searchMatchesMessage"
+        class="mt-2 flex items-center gap-1.5 rounded-lg bg-primary-500/10 px-2.5 py-1 text-[11px] text-primary-600 font-semibold dark:bg-primary-500/20 dark:text-primary-400"
+      >
+        <div class="i-solar:magnifer-linear shrink-0 text-xs" />
+        <span class="truncate">{{ searchMatchesMessage }}</span>
       </div>
     </div>
 
@@ -843,9 +847,22 @@ defineExpose({
       </div>
 
       <template v-else>
-        <div class="mb-2 flex items-center justify-between border-b border-neutral-200 pb-2 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-          <span>Resource Directory</span>
-          <span class="text-primary-500 font-semibold dark:text-primary-400">Est. download size: {{ totalSelectedSize }}</span>
+        <div class="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-2 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+          <div class="flex items-center gap-2">
+            <span>Resource Directory</span>
+            <span class="text-[11px] text-primary-500 font-semibold dark:text-primary-400">({{ totalSelectedSize }})</span>
+          </div>
+
+          <!-- Top Save Filters & Sync Action Button -->
+          <button
+            v-if="props.showActions"
+            type="button"
+            class="shadow-xs flex items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-1 text-xs text-white font-bold transition-all active:scale-95 hover:bg-primary-600"
+            @click="handleSync"
+          >
+            <div class="i-solar:diskette-bold text-xs" />
+            <span>{{ props.actionLabel }}</span>
+          </button>
         </div>
 
         <div v-for="(parent, pIdx) in syncTree" :key="parent.id" class="flex flex-col gap-2">
