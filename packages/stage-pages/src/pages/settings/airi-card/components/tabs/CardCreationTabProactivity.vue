@@ -13,7 +13,7 @@ import {
   TooltipRoot,
   TooltipTrigger,
 } from 'reka-ui'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 const props = defineProps<{
   sensorPayload?: string
@@ -59,8 +59,7 @@ async function refreshTelemetry() {
   }
 }
 
-onMounted(async () => {
-  void refreshTelemetry()
+async function checkModelCaches() {
   try {
     const lightweightCached = await isModelCached('Xenova/clip-vit-base-patch32')
     const vlmCached = await isModelCached('Xenova/moondream2')
@@ -72,11 +71,29 @@ onMounted(async () => {
   catch {
     // Ignore cache probe failure
   }
-})
+}
 
 // Sub-Tab Navigation State
 type SubTabId = 'schedule' | 'heartbeats' | 'screen' | 'dream' | 'ledger' | 'short_term'
 const activeSubTab = ref<SubTabId>('schedule')
+
+watch(activeSubTab, (subTab) => {
+  if (subTab === 'screen') {
+    void checkModelCaches()
+  }
+  else if (subTab === 'ledger') {
+    void refreshTelemetry()
+  }
+})
+
+onMounted(() => {
+  if (activeSubTab.value === 'screen') {
+    void checkModelCaches()
+  }
+  else if (activeSubTab.value === 'ledger') {
+    void refreshTelemetry()
+  }
+})
 
 const subTabs = [
   { id: 'schedule' as const, label: 'Operating Schedule', icon: 'i-solar:clock-circle-bold-duotone', desc: 'Active hours & bedtime' },

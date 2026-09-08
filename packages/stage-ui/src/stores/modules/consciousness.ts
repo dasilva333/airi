@@ -79,11 +79,11 @@ export const useConsciousnessStore = defineStore('consciousness', () => {
   }
 
   // Watch for provider changes and load models
-  watch(activeProvider, async (newProvider) => {
-    if (newProvider) {
+  watch(activeProvider, async (newProvider, oldProvider) => {
+    if (newProvider && oldProvider !== undefined && newProvider !== oldProvider) {
       await loadModelsForProvider(newProvider)
     }
-  }, { immediate: true })
+  })
 
   // Proactively download on-device Apple Core AI models when selected
   watch([activeProvider, activeModel], async ([provider, model]) => {

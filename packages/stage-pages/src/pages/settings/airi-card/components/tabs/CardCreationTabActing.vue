@@ -20,29 +20,89 @@ import {
 import { FieldInput } from '@proj-airi/ui'
 import { computed, onMounted, ref, watch } from 'vue'
 
-const props = defineProps<{
-  actingModelEmotionOptions: string[]
-  actingModelMotionOptions: string[]
-  actingGroupedExpressionTags: { category: string, tags: { tag: string, description?: string }[] }[]
-  actingMannerismOptions: NonNullable<SpeechCapabilitiesInfo['mannerisms']>
-  actingSpeechCapabilitiesLoading: boolean
-  selectedSpeechProviderLabel: string
-  isVrmaExpression: (name: string) => boolean
-  isLive2d: boolean
-  insertModelEmotion: (name: string) => void
-  insertModelMotion: (name: string) => void
+import { useActingCapabilities } from '../../composables/useActingCapabilities'
+
+interface Props {
+  actingModelEmotionOptions?: string[]
+  actingModelMotionOptions?: string[]
+  actingGroupedExpressionTags?: { category: string, tags: { tag: string, description?: string }[] }[]
+  actingMannerismOptions?: NonNullable<SpeechCapabilitiesInfo['mannerisms']>
+  actingSpeechCapabilitiesLoading?: boolean
+  selectedSpeechProviderLabel?: string
+  isLive2d?: boolean
+  insertModelEmotion?: (name: string) => void
+  insertModelMotion?: (name: string) => void
   insertModelVfx?: (name: string) => void
-  insertSpeechTag: (tag: string, description?: string) => void
-  insertSpeechMannerism: (id: string) => void
-  actingIdleAnimationOptions: { label: string, value: string }[]
+  insertSpeechTag?: (tag: string, description?: string) => void
+  insertSpeechMannerism?: (id: string) => void
+  actingIdleAnimationOptions?: { label: string, value: string }[]
+  selectedDisplayModelId?: string
   selectedSpeechProvider?: string
   selectedSpeechModel?: string
   selectedSpeechVoiceId?: string
-}>()
+}
+
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'sparkle-click', fieldId: string): void
 }>()
+
+const capabilities = useActingCapabilities({
+  selectedDisplayModelId: () => props.selectedDisplayModelId,
+  selectedSpeechProvider: () => props.selectedSpeechProvider,
+})
+
+const actingModelEmotionOptions = computed(() => props.actingModelEmotionOptions ?? capabilities.actingModelEmotionOptions.value)
+const actingModelMotionOptions = computed(() => props.actingModelMotionOptions ?? capabilities.actingModelMotionOptions.value)
+const actingIdleAnimationOptions = computed(() => props.actingIdleAnimationOptions ?? capabilities.actingIdleAnimationOptions.value)
+const actingGroupedExpressionTags = computed(() => props.actingGroupedExpressionTags ?? capabilities.actingGroupedExpressionTags.value)
+const actingMannerismOptions = computed(() => props.actingMannerismOptions ?? capabilities.actingMannerismOptions.value)
+const actingSpeechCapabilitiesLoading = computed(() => props.actingSpeechCapabilitiesLoading ?? capabilities.actingSpeechCapabilitiesLoading.value)
+const isLive2d = computed(() => props.isLive2d ?? capabilities.isLive2d.value)
+const selectedSpeechProviderLabel = computed(() => props.selectedSpeechProviderLabel || props.selectedSpeechProvider || capabilities.defaultSpeechModel.value || 'none')
+
+function insertModelEmotion(name: string) {
+  if (props.insertModelEmotion) {
+    props.insertModelEmotion(name)
+  }
+  else {
+    capabilities.insertModelEmotion(selectedActingModelExpressionPrompt, name)
+  }
+}
+
+function insertModelMotion(name: string) {
+  if (props.insertModelMotion) {
+    props.insertModelMotion(name)
+  }
+  else {
+    capabilities.insertModelMotion(selectedActingModelExpressionPrompt, name)
+  }
+}
+
+function insertSpeechTag(tag: string, description?: string) {
+  if (props.insertSpeechTag) {
+    props.insertSpeechTag(tag, description)
+  }
+  else {
+    capabilities.insertSpeechTag(selectedActingSpeechExpressionPrompt, tag, description)
+  }
+}
+
+function insertSpeechMannerism(id: string) {
+  if (props.insertSpeechMannerism) {
+    props.insertSpeechMannerism(id)
+  }
+  else {
+    capabilities.insertSpeechMannerism(selectedActingSpeechMannerismPrompt, id)
+  }
+}
+
+watch(() => props.selectedSpeechProvider, (newProvider) => {
+  if (newProvider) {
+    void capabilities.loadActingSpeechCapabilities(newProvider)
+  }
+}, { immediate: true })
 
 // Existing Acting Models
 const selectedActingModelExpressionPrompt = defineModel<string>('selectedActingModelExpressionPrompt', { required: true })

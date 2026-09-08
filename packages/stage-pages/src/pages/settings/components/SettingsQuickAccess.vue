@@ -4,7 +4,6 @@ import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { toast } from 'vue-sonner'
 
 interface QuickAccessItem {
   id: string
@@ -29,7 +28,7 @@ const row1Items = computed<QuickAccessItem[]>(() => [
     id: 'character-config',
     title: 'Character Config',
     icon: 'i-solar:pen-bold-duotone',
-    to: '/settings/airi-card',
+    to: '/settings/airi-card/edit',
   },
   {
     id: 'character-wizard',
@@ -96,9 +95,7 @@ function navigate(target: string | QuickAccessItem) {
   if (typeof target === 'object') {
     if (target.id === 'character-config') {
       const targetId = activeCardId.value || 'default'
-      cardStore.requestEditCard(targetId)
-      toast.loading('Opening character configuration...', { id: 'character-config-opening', duration: 6000 })
-      router.push('/settings/airi-card')
+      router.push({ path: '/settings/airi-card/edit', query: { id: targetId } })
       return
     }
     router.push(target.to)

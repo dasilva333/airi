@@ -2,9 +2,6 @@
 import type { Card, ccv3 } from '@proj-airi/ccc'
 import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
 
-import { loadLive2DModelPreview } from '@proj-airi/stage-ui-live2d/utils/live2d-preview'
-import { useModelStore } from '@proj-airi/stage-ui-three'
-import { loadVrmModelPreview } from '@proj-airi/stage-ui-three/utils/vrm-preview'
 import { Alert } from '@proj-airi/stage-ui/components'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
@@ -27,7 +24,6 @@ import { toast } from 'vue-sonner'
 import cardExportFrameUrl from './card-export-frame.png?url'
 import CardListItem from './components/CardListItem.vue'
 
-const CardCreationDialog = defineAsyncComponent(() => import('./components/CardCreationDialog.vue'))
 const CardDetailDialog = defineAsyncComponent(() => import('./components/CardDetailDialog.vue'))
 const CardImportWizard = defineAsyncComponent(() => import('./components/CardImportWizard.vue'))
 const CreateModeSelectorDialog = defineAsyncComponent(() => import('./components/CreateModeSelectorDialog.vue'))
@@ -41,11 +37,9 @@ const syncEngineStore = useSyncEngineStore()
 const { addCard, removeCard } = cardStore
 const { cards, activeCardId, cardsLoading } = storeToRefs(cardStore)
 const { selectiveSyncEnabled } = storeToRefs(syncEngineStore)
-const modelStore = useModelStore()
 const stageModelStore = useSettingsStageModel()
 const backgroundStore = useBackgroundStore()
 const speechStore = useSpeechStore()
-const { activeExpressions } = storeToRefs(modelStore)
 const { stageModelSelected } = storeToRefs(stageModelStore)
 
 const route = useRoute()
@@ -61,11 +55,8 @@ const cardToSyncAndActivate = ref<string | null>(null)
 
 // Currently selected card ID (different from active card ID)
 const selectedCardId = ref<string>('')
-// Currently editing card ID
-const editingCardId = ref<string>('')
 // Dialog state
 const isCardDialogOpen = ref(false)
-const isCardCreationDialogOpen = ref(false)
 const isCreateModePromptOpen = ref(false)
 
 function getCardSyncStatus(cardId: string): 'synced' | 'cloud-only' | 'partial' | 'syncing' {
@@ -209,13 +200,7 @@ async function processOpenIntent() {
   if (cardStore.pendingEditCardId) {
     const targetId = cardStore.pendingEditCardId
     cardStore.pendingEditCardId = null
-
-    if (!cards.value.has(targetId) && typeof cardStore.initialize === 'function') {
-      await cardStore.initialize()
-    }
-
-    editingCardId.value = targetId
-    isCardCreationDialogOpen.value = true
+    void router.push({ path: '/settings/airi-card/edit', query: { id: targetId } })
     return
   }
 
@@ -247,8 +232,8 @@ async function processOpenIntent() {
 
   if (cards.value.has(cardId)) {
     if (edit === 'true') {
-      editingCardId.value = cardId
-      isCardCreationDialogOpen.value = true
+      void router.replace({ path: '/settings/airi-card/edit', query: { id: cardId } })
+      return
     }
     else {
       selectedCardId.value = cardId
@@ -734,25 +719,13 @@ function handleSelectCard(cardId: string) {
 }
 
 function handleEditCard(cardId: string) {
-  // Verify card exists before opening edit dialog
+  // Verify card exists before opening edit route
   if (!cards.value.has(cardId)) {
     console.error(`Card with id ${cardId} not found`)
     return
   }
   isCardDialogOpen.value = false
-  editingCardId.value = cardId
-  isCardCreationDialogOpen.value = true
-}
-
-function handleOpenStudio(cardId: string) {
-  if (!cards.value.has(cardId)) {
-    console.error(`Card with id ${cardId} not found`)
-    return
-  }
-  isCardCreationDialogOpen.value = false
-  selectedCardId.value = cardId
-  initialTab.value = 'studio'
-  isCardDialogOpen.value = true
+  router.push({ path: '/settings/airi-card/edit', query: { id: cardId } })
 }
 
 function handleCardCreationDialog() {
@@ -770,8 +743,8 @@ function handleGuidedMode() {
 }
 
 function handleAdvancedMode() {
-  editingCardId.value = '' // Clear editing state for new card creation
-  isCardCreationDialogOpen.value = true
+  isCreateModePromptOpen.value = false
+  router.push('/settings/airi-card/edit')
 }
 
 async function exportCard(cardId: string) {
@@ -1096,12 +1069,22 @@ async function exportCardPng(cardId: string) {
       const modelInput = previewModel.type === 'file' ? previewModel.file : (previewModel as any).url
 
       if (previewModel.format === DisplayModelFormat.VRM) {
-        const liveSnapshot = await loadVrmModelPreview(modelInput, activeExpressions.value)
+        const [{ loadVrmModelPreview }, { useModelStore }] = await Promise.all([
+          import('@proj-airi/stage-ui-three/utils/vrm-preview'),
+          import('@proj-airi/stage-ui-three'),
+        ])
+        const modelStore = useModelStore()
+        const liveSnapshot = await loadVrmModelPreview(modelInput, modelStore.activeExpressions)
         if (liveSnapshot)
           previewImage = liveSnapshot
       }
       else if (previewModel.format === DisplayModelFormat.Live2dZip) {
-        const liveSnapshot = await loadLive2DModelPreview(modelInput, activeExpressions.value)
+        const [{ loadLive2DModelPreview }, { useModelStore }] = await Promise.all([
+          import('@proj-airi/stage-ui-live2d/utils/live2d-preview'),
+          import('@proj-airi/stage-ui-three'),
+        ])
+        const modelStore = useModelStore()
+        const liveSnapshot = await loadLive2DModelPreview(modelInput, modelStore.activeExpressions)
         if (liveSnapshot)
           previewImage = liveSnapshot
       }
@@ -1135,14 +1118,6 @@ async function exportCardPng(cardId: string) {
   document.body.removeChild(anchor)
   URL.revokeObjectURL(url)
 }
-
-// Clear editing state when creation/edit dialog closes
-watch(isCardCreationDialogOpen, (isOpen) => {
-  if (!isOpen) {
-    editingCardId.value = ''
-    toast.dismiss('character-config-opening')
-  }
-})
 
 // Card version number
 function getVersionNumber(id: string) {
@@ -1403,14 +1378,6 @@ function getDisplayModelId(id: string) {
     :card-id="selectedCardId"
     :initial-tab="initialTab"
     @edit="handleEditCard"
-  />
-
-  <!-- Card creation/edit dialog -->
-  <CardCreationDialog
-    v-if="isCardCreationDialogOpen"
-    v-model="isCardCreationDialogOpen"
-    :card-id="editingCardId"
-    @studio="handleOpenStudio"
   />
 
   <!-- Mode Selector Dialog -->

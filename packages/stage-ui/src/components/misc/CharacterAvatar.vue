@@ -102,13 +102,21 @@ watch(
       dynamicBackground.value = null
     }
 
-    // Lazy migration for legacy models without authorIcon
+    // Lazy migration for legacy models without authorIcon: defer to idle time to avoid blocking initial render
     if (!model.authorIcon && (model.format === DisplayModelFormat.Live2dZip || model.format === DisplayModelFormat.SpineZip || model.format === DisplayModelFormat.PMXZip)) {
-      void extractModelIcon(id).then((url) => {
-        if (url) {
-          lazyExtractedIcon.value = url
-        }
-      })
+      const scheduleExtraction = () => {
+        void extractModelIcon(id).then((url) => {
+          if (url) {
+            lazyExtractedIcon.value = url
+          }
+        })
+      }
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(scheduleExtraction, { timeout: 4000 })
+      }
+      else {
+        setTimeout(scheduleExtraction, 1500)
+      }
     }
   },
   { immediate: true },

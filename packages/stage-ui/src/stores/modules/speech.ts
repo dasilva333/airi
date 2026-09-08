@@ -147,15 +147,15 @@ export const useSpeechStore = defineStore('speech', () => {
   }
 
   // Watch for provider changes and load voices/models
-  watch(activeSpeechProvider, async (newProvider) => {
-    if (newProvider) {
+  watch(activeSpeechProvider, async (newProvider, oldProvider) => {
+    if (newProvider && oldProvider !== undefined && newProvider !== oldProvider) {
       await Promise.all([
         loadVoicesForProvider(newProvider),
         providersStore.fetchModelsForProvider(newProvider),
       ])
       // Don't reset voice settings when changing providers to allow for persistence
     }
-  }, { immediate: true })
+  })
 
   // Self-healing: Reset active provider if it no longer exists
   const selfHealProvider = () => {

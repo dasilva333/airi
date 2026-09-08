@@ -473,7 +473,7 @@ function openSettingsRoute(route: string) {
 function handleEditActiveCard() {
   if (!activeCardId.value)
     return
-  openSettingsRoute(`/settings/airi-card?cardId=${activeCardId.value}&edit=true`)
+  openSettingsRoute(`/settings/airi-card/edit?id=${activeCardId.value}`)
   activePopover.value = null
 }
 
