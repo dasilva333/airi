@@ -474,7 +474,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | :--- | :--- |
 | `packages/stage-ui` | Core business logic, components, Pinia stores, database layer, inference |
 | `packages/stage-ui/src/stores/modules/` | All feature modules (consciousness, speech, hearing, vision, discord, artistry, etc.) |
-| `packages/stage-ui/src/stores/chat/` | Chat-specific stores — session, stream, context, orchestrator |
+| `packages/stage-ui/src/stores/chat/` | Chat-specific stores (session, stream, context, orchestrator) & decomposed pure helpers (error-formatter, tool-bridge, intrusions, grounding-assembler) |
 | `packages/stage-ui/src/stores/providers/` | Provider adapter helpers and converters |
 | `packages/stage-ui/src/database/` | `storage.ts` + `repos/` (persistence layer) |
 | `packages/stage-ui/src/libs/inference/` | Protocol, coordinator, GPU resource tracking, per-model adapters |
