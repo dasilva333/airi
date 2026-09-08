@@ -12,6 +12,21 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { useSyncEngineStore } from '../sync-engine'
+import {
+  base64UrlEncode,
+  buildCloudflareOAuthUrl,
+  CLOUDFLARE_EDGE_VAULT_KEY,
+  CLOUDFLARE_EDGE_VAULT_NAMESPACE,
+  CLOUDFLARE_OAUTH_CLIENT_ID,
+  CLOUDFLARE_TOKEN_ENDPOINT,
+  deriveCodeChallenge,
+  formatEdgeVaultPayload,
+  getCorsProxiedEndpoints,
+  parseEdgeVaultPayload,
+  parseOAuthCallbackInput,
+  resolveAccountId,
+  sanitizeWorkersSubdomain,
+} from './cloudflare-auth'
 
 export interface CloudflareOAuthTokens {
   accessToken: string
@@ -20,26 +35,13 @@ export interface CloudflareOAuthTokens {
   accountId?: string
 }
 
-const CLOUDFLARE_OAUTH_CLIENT_ID = '54d11594-84e4-41aa-b438-e81b8fa78ee7'
-const AUTH_ENDPOINT = 'https://dash.cloudflare.com/oauth2/auth'
-const TOKEN_ENDPOINT = 'https://dash.cloudflare.com/oauth2/token'
-
-function base64UrlEncode(buffer: Uint8Array): string {
-  let binary = ''
-  for (let i = 0; i < buffer.byteLength; i++) {
-    binary += String.fromCharCode(buffer[i])
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
+const TOKEN_ENDPOINT = CLOUDFLARE_TOKEN_ENDPOINT
 
 async function generateWebPkce(): Promise<{ codeVerifier: string, codeChallenge: string }> {
   const randomBytes = new Uint8Array(32)
   window.crypto.getRandomValues(randomBytes)
   const codeVerifier = base64UrlEncode(randomBytes)
-  const encoder = new TextEncoder()
-  const data = encoder.encode(codeVerifier)
-  const hash = await window.crypto.subtle.digest('SHA-256', data)
-  const codeChallenge = base64UrlEncode(new Uint8Array(hash))
+  const codeChallenge = await deriveCodeChallenge(codeVerifier, window.crypto.subtle)
   return { codeVerifier, codeChallenge }
 }
 
@@ -113,12 +115,6 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
   const invokeDeployCorsProxy = isElectron ? useElectronEventaInvoke(cloudflareServiceDeployCorsProxy) : null
 
   function getCorsProxiedUrls(rawUrl: string): string[] {
-    const urls: string[] = []
-    if (isElectron) {
-      urls.push(rawUrl)
-      return urls
-    }
-
     const isViteDev = Boolean(
       import.meta.env?.DEV
         && !isElectron
@@ -128,18 +124,11 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
         && window.location.port,
     )
 
-    if (isViteDev) {
-      if (rawUrl.startsWith('https://api.cloudflare.com/client/v4')) {
-        urls.push(rawUrl.replace('https://api.cloudflare.com/client/v4', '/api/cloudflare'))
-      }
-    }
-
-    if (cfSubdomain.value) {
-      urls.push(`https://airi-cors-proxy.${cfSubdomain.value}.workers.dev/cors-proxy?url=${encodeURIComponent(rawUrl)}`)
-    }
-    urls.push(`https://airi-cors-proxy.r1ch4rd.workers.dev/cors-proxy?url=${encodeURIComponent(rawUrl)}`)
-    urls.push(rawUrl)
-    return urls
+    return getCorsProxiedEndpoints(rawUrl, {
+      isElectron,
+      isViteDev,
+      cfSubdomain: cfSubdomain.value,
+    })
   }
 
   async function fetchWithCfProxy(rawUrl: string, init?: RequestInit): Promise<Response> {
@@ -275,7 +264,7 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
       throw lastError || new Error('Failed to exchange OAuth token with Cloudflare.')
     }
 
-    let accountId = tokenData.account_id || ''
+    let accountId = resolveAccountId(tokenData)
     if (!accountId) {
       try {
         const accRes = await fetch(`${getCfApiBaseUrl()}/accounts`, {
@@ -283,9 +272,7 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
         })
         if (accRes.ok) {
           const accData: any = await accRes.json()
-          if (accData.result?.[0]?.id) {
-            accountId = accData.result[0].id
-          }
+          accountId = resolveAccountId(tokenData, accData)
         }
       }
       catch (e) {
@@ -382,14 +369,11 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
       const randomState = base64UrlEncode(window.crypto.getRandomValues(new Uint8Array(16)))
       const redirectUri = 'http://localhost:8976/oauth/callback'
 
-      const authUrl = new URL(AUTH_ENDPOINT)
-      authUrl.searchParams.append('response_type', 'code')
-      authUrl.searchParams.append('client_id', CLOUDFLARE_OAUTH_CLIENT_ID)
-      authUrl.searchParams.append('redirect_uri', redirectUri)
-      authUrl.searchParams.append('scope', 'account:read user:read workers:write workers_kv:write workers_routes:write workers_scripts:write offline_access')
-      authUrl.searchParams.append('state', randomState)
-      authUrl.searchParams.append('code_challenge', codeChallenge)
-      authUrl.searchParams.append('code_challenge_method', 'S256')
+      const authUrl = buildCloudflareOAuthUrl({
+        redirectUri,
+        state: randomState,
+        codeChallenge,
+      })
 
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('cf_oauth_verifier', codeVerifier)
@@ -553,8 +537,10 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
     if (!apiToken)
       throw new Error('Cloudflare access token missing.')
 
+    const cleanSubdomain = sanitizeWorkersSubdomain(subdomain)
+
     if (isElectron && invokeSetSubdomain) {
-      const res = await invokeSetSubdomain({ apiToken, accountId, subdomain })
+      const res = await invokeSetSubdomain({ apiToken, accountId, subdomain: cleanSubdomain })
       if (!res.success || !res.subdomain) {
         throw new Error(res.error || 'Subdomain registration failed.')
       }
@@ -569,14 +555,14 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
         'Authorization': `Bearer ${apiToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ subdomain }),
+      body: JSON.stringify({ subdomain: cleanSubdomain }),
     })
     if (!res.ok) {
       const errData: any = await res.json().catch(() => ({}))
       throw new Error(errData.errors?.[0]?.message || 'Failed to claim workers.dev subdomain.')
     }
-    cfSubdomain.value = subdomain
-    return subdomain
+    cfSubdomain.value = cleanSubdomain
+    return cleanSubdomain
   }
 
   async function deployCorsProxy(): Promise<boolean> {
@@ -621,7 +607,7 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
       let nsId = ''
       if (listRes.ok) {
         const listData: any = await listRes.json()
-        const existing = listData.result?.find((n: any) => n.title === 'airi-edge-vault')
+        const existing = listData.result?.find((n: any) => n.title === CLOUDFLARE_EDGE_VAULT_NAMESPACE)
         if (existing?.id) {
           nsId = existing.id
         }
@@ -633,7 +619,7 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
             'Authorization': `Bearer ${apiToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ title: 'airi-edge-vault' }),
+          body: JSON.stringify({ title: CLOUDFLARE_EDGE_VAULT_NAMESPACE }),
         })
         if (createRes.ok) {
           const createData: any = await createRes.json()
@@ -641,13 +627,13 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
         }
       }
       if (nsId) {
-        await fetchWithCfProxy(`https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${nsId}/values/vault/credentials`, {
+        await fetchWithCfProxy(`https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${nsId}/values/${CLOUDFLARE_EDGE_VAULT_KEY}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${apiToken}`,
             'Content-Type': 'text/plain',
           },
-          body: JSON.stringify(vaultData),
+          body: formatEdgeVaultPayload(vaultData),
         })
       }
       return { success: true }
@@ -681,19 +667,14 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
       })
       if (listRes.ok) {
         const listData: any = await listRes.json()
-        const vaultNs = listData.result?.find((n: any) => n.title === 'airi-edge-vault')
+        const vaultNs = listData.result?.find((n: any) => n.title === CLOUDFLARE_EDGE_VAULT_NAMESPACE)
         if (vaultNs?.id) {
-          const valRes = await fetchWithCfProxy(`https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${vaultNs.id}/values/vault/credentials`, {
+          const valRes = await fetchWithCfProxy(`https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${vaultNs.id}/values/${CLOUDFLARE_EDGE_VAULT_KEY}`, {
             headers: { Authorization: `Bearer ${apiToken}` },
           })
           if (valRes.ok) {
             const raw = await valRes.text()
-            try {
-              return JSON.parse(raw)
-            }
-            catch {
-              return raw as any
-            }
+            return parseEdgeVaultPayload(raw)
           }
         }
       }
@@ -770,24 +751,7 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
   }
 
   async function handleManualCallbackInput(input: string, customVerifier?: string): Promise<CloudflareOAuthTokens | null> {
-    const raw = input.trim()
-    if (!raw) {
-      throw new Error('Please enter the authorization code or redirect URL.')
-    }
-
-    let code = raw
-    if (raw.includes('code=')) {
-      try {
-        const url = new URL(raw.startsWith('http') ? raw : `http://${raw}`)
-        code = url.searchParams.get('code') || raw
-      }
-      catch {
-        const match = raw.match(/code=([^&]+)/)
-        if (match)
-          code = match[1]
-      }
-    }
-
+    const code = parseOAuthCallbackInput(input)
     const tokens = await exchangeAuthCode(code, customVerifier)
     isAuthenticating.value = false
     return tokens

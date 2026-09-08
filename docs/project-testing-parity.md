@@ -23,19 +23,20 @@
 
 | Package / Workspace | Test Suites (Files) | Total Tests | Primary Subsystem Focus |
 |---|:---:|:---:|---|
-| [`packages/stage-ui`](../packages/stage-ui) | 67 | 619 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory, Artistry, Proactivity, MCP |
+| [`packages/stage-ui`](../packages/stage-ui) | 68 | 640 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory, Artistry, Proactivity, MCP, Cloudflare OAuth |
 | [`packages/live2d-runtime`](../packages/live2d-runtime) | 5 | 79 | Live2D Scripting DSL VM, Command Parser, Selector, Template, VarStore |
 | [`packages/stage-pages`](../packages/stage-pages) | 2 | 34 | Settings Topology & Devtools Context Flow Formatters |
 | [`apps/stage-tamagotchi`](../apps/stage-tamagotchi) | 6 | 32 | Desktop Multi-Window, Display Bounds, Location, Widgets, Airi Plugins |
 | [`apps/server`](../apps/server) | 4 | 29 | Server Character & Provider API Endpoints / Services |
 | [`packages/pipelines-audio`](../packages/pipelines-audio) | 4 | 27 | Audio Speech Pipeline, Lead Coordinator, Pause Aligner, TTS Chunker |
+| [`apps/stage-edge`](../apps/stage-edge) | 4 | 24 | Cloud Relay Edge Worker, Discord Ed25519, KV Rolling Memory, Discord ACL Matrix |
 | [`packages/stage-shared`](../packages/stage-shared) | 1 | 24 | Caption Sentiment Scoring & Shared Stage Utilities |
 | [`packages/cap-vite`](../packages/cap-vite) | 4 | 22 | Capacitor Vite Plugin, CLI Integration & Native Wrappers |
 | [`packages/plugin-sdk`](../packages/plugin-sdk) | 1 | 22 | Plugin SDK Host Core Lifecycle |
 | [`packages/server-runtime`](../packages/server-runtime) | 1 | 9 | Server Route Middleware |
-| **Monorepo Vitest Baseline** | **95 Suites** | **897 Tests** | **Automated Zero-Failure Headless Test Baseline** |
+| **Monorepo Vitest Baseline** | **100 Suites** | **942 Tests** | **Automated Zero-Failure Headless Test Baseline** |
 
-*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 99 total test files discovered).*
+*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 104 total test files discovered).*
 
 ---
 
@@ -82,6 +83,7 @@
 | **Character Store Lifecycle** | [`packages/stage-ui/src/stores/character.test.ts`](../packages/stage-ui/src/stores/character.test.ts) | 5 | Node / Pinia | Blocking in CI | Character card selection, active character ID switching, and card metadata reactivity. | Pinia store state tests; does not test filesystem card import/export. |
 | **Character Orchestrator** | [`packages/stage-ui/src/stores/character/orchestrator/index.test.ts`](../packages/stage-ui/src/stores/character/orchestrator/index.test.ts) | 2 | Node / Pinia | Blocking in CI | Character orchestrator initialization and teardown. | Store lifecycle test. |
 | **Long-Term Text Journal** | [`packages/stage-ui/src/stores/memory-text-journal.test.ts`](../packages/stage-ui/src/stores/memory-text-journal.test.ts) | 18 | Node / Memory DB | Blocking in CI | Sacred Journal entry creation, searching, keyword/token ranking, and local heuristic search fallback when worker is unavailable. | In-memory storage tests; does not test IndexedDB persistence across browser restarts. |
+| **Cloudflare OAuth PKCE & Edge Vault Seams** | [`packages/stage-ui/src/stores/modules/cloudflare-auth.test.ts`](../packages/stage-ui/src/stores/modules/cloudflare-auth.test.ts) | 21 | Node / Pure TS | Blocking in CI | PKCE SHA-256 challenge calculation, OAuth 2.0 authorization URL construction, callback input parsing (clean codes, query params, hash routes), subdomain normalization/sanitization, account ID resolution, Edge Vault JSON credential serialization/deserialization, and CORS proxy fallback list generation. | Pure transformation unit tests; does not initiate browser popup or make real Cloudflare REST API network calls. |
 
 #### Local Inference, WebGPU & Audio Processing Workers
 | Invariant / Subsystem | Test Path | Tests | Runner / Env | CI Inclusion | What Assertions Directly Establish | Coverage Boundary & Known Limits |
@@ -143,6 +145,14 @@
 | **Artistry ComfyUI Template & Concept Stacks** | [`packages/stage-ui/src/stores/modules/artistry-template.test.ts`](../packages/stage-ui/src/stores/modules/artistry-template.test.ts) | 16 | Node / Pure TS | Blocking in CI | Workflow template parsing, prompt injection, exposed fields whitelist security boundary, seed auto-randomization, recursive placeholder replacement (`{{PROMPT}}`, `{{IMAGE}}`), and Autonomous Director "Keep Base, Refresh Modifiers" concept stack resolution. | Pure graph and stack transformations; does not execute live ComfyUI REST endpoints or WebGPU generation. |
 | **Proactivity, Telemetry & Gating** | [`packages/stage-ui/src/stores/proactivity.test.ts`](../packages/stage-ui/src/stores/proactivity.test.ts) | 20 | Node / Pure TS | Blocking in CI | Busy-pipe mutex check (suppressing proactive evaluation during active speech/stream/dream/typing), sensor payload formatting (idle, window history, load, volume, metrics), NO_REPLY control sentinel recognition, and prefix-cache aligned tail directive framing. | Pure telemetry and state evaluation tests; does not poll real OS sensors. |
 | **MCP Tool Bridge & Titration** | [`packages/stage-ui/src/stores/mcp-tool-bridge.test.ts`](../packages/stage-ui/src/stores/mcp-tool-bridge.test.ts) | 13 | Node / Pure TS | Blocking in CI | MCP tool bridge registration and `window.__AIRI_MCP_BRIDGE__` exposure, automatic `mcp.json` config reconciliation for allowed tools (`web_search`, `filesystem`), background `applyAndRestart` execution, and per-card tool titration rules. | Tests bridge contracts and config reconciliation; does not spawn physical MCP child processes. |
+
+#### Cloud Relay & Edge Infrastructure (`apps/stage-edge`)
+| Invariant / Subsystem | Test Path | Tests | Runner / Env | CI Inclusion | What Assertions Directly Establish | Coverage Boundary & Known Limits |
+|---|---|:---:|:---:|:---:|---|---|
+| **Discord Webhook Ed25519 Cryptography** | [`apps/stage-edge/src/crypto/ed25519.test.ts`](../apps/stage-edge/src/crypto/ed25519.test.ts) | 6 | Node / Web Crypto | Blocking in CI | Hex to Uint8Array buffer conversion, Web Crypto Ed25519 signature verification against Discord public key, rejection of tampered body/timestamp, and missing header guard. | Verifies cryptographic verification algorithm; does not test network ingress. |
+| **Discord Relay Access Control Matrix** | [`apps/stage-edge/src/discord/acl.test.ts`](../apps/stage-edge/src/discord/acl.test.ts) | 6 | Node / Pure TS | Blocking in CI | User role resolution (`OWNER`, `DESIGNATED`, `VISITOR`) and interaction gate allowing only owner or designated users. | Pure access control matrix unit tests. |
+| **Edge KV Rolling Memory Store** | [`apps/stage-edge/src/memory/kv.test.ts`](../apps/stage-edge/src/memory/kv.test.ts) | 4 | Node / Mock KV | Blocking in CI | Transactional turn persistence (`history_{userId}_turn_{timestamp}_{turnId}`), fixed window slicing (latest N turns), unlimited conversation retrieval, and empty state safety. | Verifies KV memory adapter with in-memory KVNamespace; does not connect to Cloudflare KV servers. |
+| **Edge Relay Worker Routing & Discord Webhook Handler** | [`apps/stage-edge/src/index.test.ts`](../apps/stage-edge/src/index.test.ts) | 8 | Node / Mocks | Blocking in CI | OPTIONS CORS preflight (204), `/health` status check, `/cors-proxy` header stripping and forwarding, POST `/discord` Ed25519 verification (401 on bad signature), Type 1 PING/PONG, and Type 2 deferred command execution with `ctx.waitUntil`. | Verifies HTTP fetch event routing and isolate handler; mocks upstream Discord and LLM network requests. |
 
 #### Desktop Shell & Electron Integration
 | Invariant / Subsystem | Test Path | Tests | Runner / Env | CI Inclusion | What Assertions Directly Establish | Coverage Boundary & Known Limits |
