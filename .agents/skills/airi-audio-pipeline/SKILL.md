@@ -1,69 +1,52 @@
 ---
 name: airi-audio-pipeline
 description: >-
-  Implement/debug TTS synthesis, STT transcription, microphone/speaker switching, VAD, VoiceProfiles, UST speech transformers, PCM/WAV playback, audio stutter or silence. Gemini Live sessions use airi-gemini-live-api; inference workers use airi-local-inference-engines.
+  Implement/debug TTS synthesis, STT transcription, microphone/speaker switching, VAD, VoiceProfiles, UST speech transformers, PCM/WAV playback, audio stutter or silence. Intent scheduling uses airi-speech-runtime; Gemini sessions use airi-gemini-live-api.
 ---
 
-# AIRI Audio Pipeline Engine
+# Audio Pipeline
 
-This skill provides comprehensive technical guidelines and exact code paths for managing TTS speech synthesis output, STT microphone input, VAD voice activity detection, and streaming audio playback across AIRI.
+Own voice configuration, text-to-audio synthesis, transcription, and physical audio formats/devices. Intent lifecycle belongs to [speech runtime](../airi-speech-runtime/SKILL.md); filler budgets/cache belong to [pacing](../airi-conversational-pacing/SKILL.md); worker execution belongs to [local inference](../airi-local-inference-engines/SKILL.md).
 
-## 1. Overview & Surface Map
+## Source map
 
-AIRI's audio infrastructure consists of 2 primary real-time pipelines:
-- **Speech Pipeline (TTS Output)**: Text → VoiceProfile → UST Speech Transformers → Provider Synthesis (Kokoro, ElevenLabs, Azure, OpenAI) → Web Audio API / PCM Audio Playback.
-- **Hearing Pipeline (STT Input)**: Microphone Input Device → Web Audio API VAD Node → Audio Chunking → Transcription Provider (Whisper WASM worker, Deepgram, Groq) → Text Ingestion into Chat.
+Repository-relative paths:
 
-## 2. Key Code Paths
+| Responsibility | Source |
+| --- | --- |
+| TTS settings, saved profiles, speech transformation | `packages/stage-ui/src/stores/modules/speech.ts` |
+| STT provider/model, detection mode, auto-send settings | `packages/stage-ui/src/stores/modules/hearing.ts` |
+| AudioContext unlock and microphone selection | `packages/stage-ui/src/stores/audio.ts`: `useAudioContext`, `useAudioDevice` |
+| VoiceProfile / UST editor | `packages/stage-ui/src/components/scenarios/settings/model-settings/audio-studio.vue` |
+| Synthesis integration and playback | `packages/stage-ui/src/components/scenes/ControlStripHost.vue` |
+| Segmentation / scheduling | `packages/pipelines-audio/src/speech-pipeline.ts` |
+| Streaming transcription transport | `packages/audio-pipelines-transcribe/src/` |
+| Whisper adapter and worker | `packages/stage-ui/src/libs/inference/adapters/whisper.ts`, `packages/stage-ui/src/libs/workers/worker.ts` |
 
-### Pinia Stores
-- `packages/stage-ui/src/stores/modules/speech.ts` — `speechStore`. Manages active TTS provider, voice selection (`voice_id`), pitch/rate, and TTS synthesis dispatch.
-- `packages/stage-ui/src/stores/modules/hearing.ts` — `hearingStore`. Manages active STT provider, microphone device ID, VAD sensitivity threshold, and transcription state.
-- `packages/stage-ui/src/stores/audio.ts` — `audioStore`. Manages global Web Audio API `AudioContext`, volume gain nodes, and PCM/WAV buffer playback queues.
+## Synthesis and profiles
 
-### Runtime Pipelines & Audio Packages
-- `packages/stage-ui/src/services/speech/pipeline-runtime.ts` — Speech pipeline execution runtime. Handles text chunking, UST transformers, and audio queueing.
-- `packages/audio-pipelines-transcribe/src/` — Package for real-time STT streaming transcription, PCM encoding, and WebSocket audio streaming.
-- `packages/stage-ui/src/libs/workers/whisper/` — Local Whisper WASM/WebGPU STT inference worker.
+1. Trace selected profile to a physical provider, model, and voice. A virtual Audio Studio profile is a configuration wrapper, not a synthesis endpoint. Preserve saved-profile and card-profile resolution; fail clearly when unresolved.
+2. Use `transformTextForSpeech(text, providerId, voiceProfileId?)` and existing UST behavior. Preserve configured bracket/expression handling and transform order. Do not strip all parenthetical text unconditionally.
+3. Treat transformed-empty text as no speech; do not enqueue an empty synthesis job. Keep raw assistant text and rendering separate from transformed spoken text.
+4. Check provider capability and output format before decode. PCM needs correct sample rate, channel count, and sample representation; encoded WAV/MP3 is not raw PCM.
+5. Resolve actor speech overrides without changing the visible actor ahead of playback. See `airi-director-orchestration` and `airi-speech-runtime`.
 
-### Related Specs
-- `docs/feat-audio-studio.md` — Specification document for VoiceProfiles and Universal Speech Transformers (UST).
+For a new provider, use `airi-provider-core-registry` and inspect existing capability registration. Do not assume adding a switch in `speech.ts` completes registry, configuration, and provider UI wiring.
 
-## 3. Core SOPs & Guidelines
+## Hearing and physical playback
 
-### 1. Adding a New TTS Provider
-1. Define the provider in `packages/stage-ui/src/libs/providers/providers/` implementing `SpeechCapabilitiesInfo`.
-2. Add provider registration in `speech.ts` and UI panel in `packages/stage-pages/src/pages/settings/providers/speech/`.
-3. Support audio playback output formats (`audio/wav`, `audio/mp3`, `audio/pcm`).
+Follow the actual detection-mode caller from microphone acquisition through VAD or manual recording, transcription, and final ingestion. VAD tuning belongs at the detector implementation; hearing settings are not proof that a particular threshold field exists.
 
-### 2. Tuning STT & VAD Sensitivity
-1. Adjust VAD parameters in `hearingStore` (`vadThreshold`, `silenceDurationMs`).
-2. Verify audio input stream handling in `packages/audio-pipelines-transcribe/`.
+Preserve permission errors, device disappearance/reselection, old stream-track cleanup, and auto-send debouncing. STT partials must not become duplicate user turns. Follow provider-specific streaming/final-result semantics.
 
-## 4. Known Pitfalls & Failure Modes
+For silence, distinguish suspended AudioContext, empty transformed text, synthesis failure, decode failure, cancelled intent, and wrong output route. `useAudioContext` unlocks on interaction; do not invent an `ensureContext` API. For stutter, inspect actual scheduling and PCM conversion at the host/transport; the cross-window runtime is not a PCM underrun buffer.
 
-- **AudioContext Autoplay Gating**: Browsers block Web Audio `AudioContext` until the user interacts with the page. Ensure `audioStore.ensureContext()` resumes context on first click/interaction.
-- **PCM Buffer Underruns**: When streaming audio chunks over IPC or WebSockets, ensure the PCM queue in `pipeline-runtime.ts` maintains a smooth buffer queue to prevent stuttering.
+## Verification
 
-## 5. Verification Workflows
+Run relevant existing tests such as `pnpm exec vitest run packages/stage-ui/src/stores/modules/speech.test.ts` for transformation changes. Typecheck the affected workspace with `pnpm -F <workspace> typecheck`.
 
-- **Typecheck**: `pnpm -F @proj-airi/stage-ui typecheck`
-- **Audio Package Typecheck**: `pnpm -F @proj-airi/audio-pipelines-transcribe typecheck`
+Check direct and virtual voices, actor overrides, transformed-empty input, provider/decode errors, and supported audio formats. For hearing changes, test permission denial, microphone switching, silence, one recording, and streaming transcription. Playback claims require listening on the affected app/output route.
 
-### Authoritative Design & Architecture Documents
+## Design context
 
-- [docs/feat-audio-studio.md](docs/feat-audio-studio.md) — Audio studio feature spec (VoiceProfiles, UST).
-- [docs/design-openai-compatible-tts.md](docs/design-openai-compatible-tts.md) — OpenAI-compatible TTS.
-- [docs/blueprint-tts-universal-speech-transformer.md](docs/blueprint-tts-universal-speech-transformer.md) — TTS universal speech transformer blueprint.
-- [docs/blueprint-aws-polly-integration.md](docs/blueprint-aws-polly-integration.md) — AWS Polly integration blueprint.
-- [docs/analysis-pocket-tts-viability.md](docs/analysis-pocket-tts-viability.md) — Pocket TTS viability analysis.
-- [docs/analysis-gpt-sovits-onnx-webgpu-viability.md](docs/analysis-gpt-sovits-onnx-webgpu-viability.md) — GPT-SoVITS ONNX WebGPU viability analysis.
-- [docs/proposal-higgs-audio-v3-tts-integration.md](docs/proposal-higgs-audio-v3-tts-integration.md) — Higgs Audio V3 TTS integration proposal.
-- [docs/proposal-moss-tts-nano-provider-unified-webgpu.md](docs/proposal-moss-tts-nano-provider-unified-webgpu.md) — MOSS TTS nano provider unified WebGPU proposal.
-- [docs/project-multimodal-audio-transport.md](docs/project-multimodal-audio-transport.md) — Multimodal audio transport project.
-- [docs/tts.md](docs/tts.md) — TTS research reference.
-- [docs/lipsync.md](docs/lipsync.md) — Lipsync research reference.
-
-## Related Skills & References
-
-- **Key Documents**: [[feat-audio-studio]], [[design-openai-compatible-tts]], [[blueprint-tts-universal-speech-transformer]], [[blueprint-aws-polly-integration]], [[analysis-pocket-tts-viability]], [[analysis-gpt-sovits-onnx-webgpu-viability]], [[proposal-higgs-audio-v3-tts-integration]], [[proposal-moss-tts-nano-provider-unified-webgpu]], [[project-multimodal-audio-transport]], [[tts]], [[lipsync]]
+Read `docs/feat-audio-studio.md`, `docs/blueprint-tts-universal-speech-transformer.md`, and `docs/design-openai-compatible-tts.md` for the relevant task. They explain intent; executable provider and transformation code determine current support.

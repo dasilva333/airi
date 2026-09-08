@@ -1,63 +1,60 @@
-# Project Specialized Skills Master Plan & Skill Catalog
+# Project Specialized Skills: Authoring Rules and Catalog
 
-This document outlines the strategic blueprint, architecture, and comprehensive sitemap catalog for building purpose-built AIRI Agent Skills under `.agents/skills/<skill_name>/SKILL.md`.
+Skills under `.agents/skills/<skill-name>/SKILL.md` provide domain procedures, source anchors, pitfalls, and verification. Use [Rosetta Stone](./rosetta-stone.md) to locate a subsystem and this catalog to select its guide.
 
-The goal is to equip AI agents and pair-programming assistants with modular, domain-specific Standard Operating Procedures (SOPs), code locations, and technical guidelines covering **every architectural domain** in AIRI as cataloged by [`docs/rosetta-stone.md`](./rosetta-stone.md).
+## 1. Authoring and semantic routing
 
----
+### Description contract
 
-## 1. Skill Architecture & Matching Mechanism
+Descriptions are routing metadata. Write compact task verbs, domain nouns, concrete failure symptoms, and identifiers users actually mention. Fragments and omitted articles are fine when meaning survives. Preserve negation, ownership, and technical names. Do not invent abbreviations or mangle grammar when it saves nothing.
 
-### What is an AIRI Skill?
-An **AIRI Skill** is a purpose-built directory under `.agents/skills/<skill_name>/` containing a required `SKILL.md` entry point. It provides concise, high-density instructions, key code paths, pitfalls, and verification steps for a specific domain.
+- Name the skill's owned task first. Add distinguishing technologies only when they help selection.
+- Add a short exclusion or peer redirect for a real overlapping scope. Avoid listing every neighbor.
+- Remove generic phrases such as “comprehensive guidelines,” “use when working with,” and repeated claims of expertise. No mandatory opening formula.
+- Aim for roughly 20–50 words where useful, not a minimum or a fixed compression quota. Keep necessary discriminators even when longer.
+- Use valid YAML and folded `description: >-` for descriptions containing colons or multiple lines. Match `name` to the directory.
+- Keep body procedures and path inventories out of the description unless a path is itself a useful query term.
 
-```text
-.agents/skills/<skill-name>/
-├── SKILL.md                 # Required: Entry point with YAML frontmatter
-├── scripts/                 # Optional: Helper scripts & CLI tools
-├── examples/                # Optional: Reference code & implementation patterns
-└── references/              # Optional: Domain documentation & specs
-```
+Example:
 
-### The Matching Mechanism (`description` trigger)
-Skill selection relies on semantic triggering via the YAML frontmatter `description`:
 ```yaml
 ---
-name: airi-ipc-eventa
+name: airi-speech-runtime
 description: >-
-  Use when defining, wiring, or debugging Electron typed IPC/RPC between main
-  and renderer: `@moeru/eventa` contracts in `shared/eventa.ts`, `defineInvokeEventa`
-  / `defineEventa`, renderer invocations, main-process handlers, and cross-window
-  `BroadcastChannel` relays (e.g. `airi:cards-sync`, `airi:director-notes-sync`).
-  Trigger for work on Electron IPC, eventa context serialization, or multi-window
-  event/state synchronization.
+  Trace/debug speech intents, host registration, playback ordering, cross-window
+  replay, cancellation and cleanup. Voice synthesis uses airi-audio-pipeline;
+  fillers use airi-conversational-pacing.
 ---
 ```
-At session startup, the agent sitemap indexes these `description` triggers. When a task matches a skill's description, the agent automatically reads that skill's `SKILL.md` via `view_file` to follow its instructions.
 
----
+Harnesses differ in discovery, semantic matching, and loading. A description supports selection; it does not guarantee automatic loading or a particular tool such as `view_file`.
 
-## 2. 5-Phase Rollout & Batch Execution Strategy
+### Body contract
 
-To build this comprehensive library without context fragmentation, skills will be authored in **5 phased execution batches**:
+1. Inspect current source and relevant docs before authoring. Record exact repository-relative paths and stable symbol anchors; avoid line numbers as the only locator.
+2. Define owned behavior and overlap boundaries. Link peers for their procedures instead of duplicating them.
+3. Explain load-bearing invariants: identity/scope, ordering, persistence, cancellation, failure handling, or resource cleanup where relevant. Include observed pitfalls, not generic warnings.
+4. Distinguish implemented behavior from proposals, historical failure logs, and planned UI. When they disagree, source wins; document the mismatch rather than prescribing obsolete behavior.
+5. Give task-relevant verification with real existing commands/tests and observable outcomes. Do not claim runtime behavior was tested by validating Markdown.
+6. Keep entry points concise. For dense surfaces, add task-specific `references/*.md` and a selector table; load only relevant references. Link references directly from SKILL.md.
+7. Create another discoverable skill only for an independently useful query scope. File length alone does not justify competing top-level skills.
+8. Follow repository AGENTS.md and existing user authorization. Do not manufacture extra approval steps or mandatory delegation in skill instructions.
 
-```mermaid
-flowchart TD
-    P1["Phase 1: Core Plumbing & Infrastructure"] --> P2["Phase 2: Character, Stage, Motion & Sensing"]
-    P2 --> P3["Phase 3: Module Systems, Cognition & Memory"]
-    P3 --> P4["Phase 4: Operational SOPs & Upstream Research"]
-    P1 & P2 & P3 --> P5["Phase 5: Feature-Dense UI Surfaces"]
-```
+### Review before publishing
 
----
+- Validate frontmatter, directory/name agreement, local reference links, and referenced source paths.
+- Compare neighboring descriptions against realistic queries, including ambiguous and negative cases. Record expected ownership; do not report a model-routing benchmark unless actually run.
+- Verify the body supports its description. An excluded task must not remain a primary SOP inside the skill.
+- Update this catalog and the relevant Rosetta entry when adding/renaming skills. The directories are the authoritative inventory; keep the catalog one-to-one.
+- Review the diff for unrelated behavioral prescriptions and stale duplicated procedures.
 
-## 3. Comprehensive Domain Skill Sitemap Catalog
+## 2. Domain groups
 
-Below is the complete, categorized sitemap of all 58 specialized skills mapped against AIRI's architectural domains in [`docs/rosetta-stone.md`](./rosetta-stone.md).
+The five groups below organize navigation. Historical “Phase” labels do not prescribe execution order, parallel agents, or a requirement to rebuild the library. Add or update only the scopes authorized by the task.
 
-> **Authoring requirement for worker agents.** Every authored `SKILL.md` **must** include a keyword-rich `description:` frontmatter trigger of the form `Use when working with …`, explicitly naming the domain, the key technologies (e.g. `eventa`, `unstorage`, `localforage`, `defineProvider`, `BroadcastChannel`), and the kinds of tasks it applies to. Model it on the example in §1.
+## 3. Domain skill catalog
 
----
+The catalog contains 65 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
 
 ### 🟢 Phase 1: Core Plumbing & Infrastructure
 
@@ -113,11 +110,11 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 #### 2.2 `airi-audio-pipeline`
 - **Target Domain**: TTS Speech Output, STT Hearing Input, Audio Studio & UST.
 - **Key Paths**: `packages/stage-ui/src/stores/modules/speech.ts`, `hearing.ts`, `stores/audio.ts`, `packages/audio-pipelines-transcribe/`.
-- **Content**: TTS output flow (VoiceProfile, UST speech transformers, PCM/WAV playback), STT input flow (microphone device switching, VAD detection, streaming transcription). Note: "Audio Studio" refers to the voice-profile / UST feature spec (`docs/feat-audio-studio.md`).
+- **Content**: Physical synthesis and transcription, VoiceProfile resolution, UST transformations, empty-input handling, format/decode/device failures, permission and stream cleanup. Speech intents belong to airi-speech-runtime; filler preparation belongs to airi-conversational-pacing.
 
 #### 2.3 `airi-local-inference-engines`
 - **Target Domain**: Local WebGPU & WASM Inference (Kokoro TTS, Whisper STT, WebLLM, Web-RWKV).
-- **Key Paths**: `packages/stage-ui/src/libs/inference/` (protocol/coordinator/`gpu-resource-coordinator`, `adapters/`), `packages/stage-ui/src/workers/kokoro/`, `packages/stage-ui/src/libs/workers/whisper/`. Note: WebLLM/Web-RWKV run as workers under `packages/stage-ui/src/workers/`.
+- **Key Paths**: `packages/stage-ui/src/libs/inference/` (protocol/coordinator/`gpu-resource-coordinator`, `adapters/`), `packages/stage-ui/src/workers/kokoro/`, `packages/stage-ui/src/libs/workers/worker.ts`. Note: WebLLM/Web-RWKV run as workers under `packages/stage-ui/src/workers/`.
 - **Content**: Message protocol (`load-model`, `run-inference`, `progress`), serialized load queues, `GpuResourceCoordinator` VRAM pressure telemetry, and WebGPU detection.
 
 #### 2.4 `airi-stage-ui-surfaces`
@@ -160,6 +157,21 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 - **Key Paths**: `apps/stage-mate/unity-src/Assets/StageMate/`, `apps/stage-mate/unity-src/Patches/`, `apps/stage-mate/scripts/setup.ts` / `build.ts`, `apps/stage-mate/CANONICAL_MATE_ENGINE_COMMIT`.
 - **Content**: The never-edit-`mate-engine/` rule and overlay sync, `ws://localhost:6171` mock harness + `stage:vrm` wire protocol, StageMateSocket/Bridge/StateSync C# runtime, VRM model drivers, camera/viewport/shadow rigs, runtime log split (stagemate-runtime.log vs Player.log), and platform-specific UniWindowController transparency. Peer skill: `airi-character-rendering`.
 
+#### 2.12 `airi-model-preview-caching`
+- **Target Domain**: Offscreen avatar preview thumbnails and cache lifecycle (existing skill, previously missing from catalog).
+- **Key Paths**: `.agents/skills/airi-model-preview-caching/SKILL.md`.
+- **Content**: Per-format framing, transparent trimming, animation settling, WebP caching, refresh/reprocessing and catalog synchronization. Live rendering belongs to airi-character-rendering.
+
+#### 2.13 `airi-speech-runtime`
+- **Target Domain**: Speech intent lifecycle and audible playback ordering.
+- **Key Paths**: `packages/stage-ui/src/services/speech/pipeline-runtime.ts`, `packages/pipelines-audio/src/speech-pipeline.ts`, `packages/stage-ui/src/components/scenes/ControlStripHost.vue`.
+- **Content**: Local/remote intents, host registration, flush/end/cancel distinction, bus limits, actor timing, cleanup and verification.
+
+#### 2.14 `airi-conversational-pacing`
+- **Target Domain**: Thinking fillers and dynamic spoken asides.
+- **Key Paths**: `packages/stage-ui/src/libs/pacing/`, `packages/stage-ui/src/composables/use-turn-pacing.ts`.
+- **Content**: Turn/attempt accounting, category selection, prewarm/cache, bounded fallback synthesis, cancellation and answer handoff. Separates implemented policy from proposal text.
+
 ---
 
 ### 🟣 Phase 3: Module Systems, Cognition & Memory
@@ -185,9 +197,9 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 - **Content**: Deliberately thin map-of-maps: locates each of the eight pillars (chat sessions, text journal, short-term, echo chips, lifetime, image journal, event log, provisioning) with store → repo → namespace key → universe tagging → prompt-injection point, then defers depth to the eight dedicated pillar skills (3.13–3.20) plus retrieval (3.8), consolidation (3.9), and Memory UI (5.10). Owns the `local:*` vs `localforage` storage boundary, the session-store injection spine, and the flat-`universeId` isolation rules.
 
 #### 3.5 `airi-prompt-builder-engine`
-- **Target Domain**: System Prompt Builder, ACT Pipeline & Dating Sim Engine.
-- **Key Paths**: `packages/stage-ui/src/stores/modules/airi-card.ts` (`buildSystemPrompt`), `packages/stage-ui/src/stores/chat/session-store.ts` (`refreshActiveSystemMessage`, `buildShortTermMemoryContext`), `packages/stage-ui/src/composables/llm-marker-parser.ts`, `packages/stage-ui/src/stores/dating-sim.ts`.
-- **Content**: Composing character card fields, acting prompts, artistry instructions, and runtime overlays (dating sim storylines). ACT token parsing (`<|ACT:...|>`), kinetic manifestation triggers, and response formatting.
+- **Target Domain**: System prompt composition, session context and Producer suggestions.
+- **Key Paths**: `packages/stage-ui/src/stores/modules/airi-card.ts` (`buildSystemPrompt`), `packages/stage-ui/src/stores/chat/session-store.ts` (`refreshActiveSystemMessage`, `buildShortTermMemoryContext`), `packages/stage-ui/src/composables/use-producer.ts`, `packages/stage-ui/src/stores/dating-sim.ts`.
+- **Content**: Composing persona, acting and gated artistry/journal instructions; Dating Sim scenario replacement, session memory injection, head/tail pruning, and Producer user-reply suggestions. Marker execution belongs to airi-acting-cue-act-tokens; streaming normalization belongs to airi-interaction-pipelines.
 
 #### 3.6 `airi-gemini-live-api`
 - **Target Domain**: Real-Time Bidirectional Multimodal WebSocket Streaming (`google-genai`).
@@ -212,7 +224,7 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 #### 3.10 `airi-interaction-pipelines`
 - **Target Domain**: End-to-end Interaction & Voice Pipelines (Cross-Cutting Map-of-Maps).
 - **Key Paths**: `docs/arch-chat-stt-proactivity-pipelines.md`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/modules/live-session.ts`, `packages/stage-ui/src/services/speech/`, `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts`.
-- **Content**: The seven input→hub→output routes (typed text × 4 surfaces, app mic STT, Discord classic voice → STT, proactivity heartbeats, Discord gemini voice, in-app Gemini Live mic, typed-text-mid-call short-circuit), the module-level hooks bus (HMR lesson, `chat.ts:96`), the six-layer TTS chain (`emitTokenLiteralHooks` → host intent → speech runtime → UST pipeline → playback), `performSend` generation-gated checkpoints (`bumpSessionGeneration` as the canonical mid-flight lever, Discord steer mode as the working precedent), the stop/cancel-in-flight audit (decorative stop button at `WhisperComposerBar.vue:233`, propose-first stop recipe), and a current-status reconciliation of the arch-doc Failure Log. Peer skills: `airi-audio-pipeline`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-discord-integration`. Phase 3 foundation referenced by Phase 5 `airi-desktop-chatbox`.
+- **Content**: Task-selected references for input routes, streaming/hooks, and cancellation. Covers ordinary versus Gemini Live dispatch, normalized reasoning, module-level hooks, implemented stopCurrentGeneration ordering, partial-reply persistence, provider abort, and speech handoff. Intent scheduling belongs to airi-speech-runtime; fillers belong to airi-conversational-pacing.
 
 #### 3.11 `airi-llm-dispatch-gateway`
 - **Target Domain**: LLM Request Dispatch Gateway (`useLLM` store).
@@ -269,6 +281,11 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 - **Key Paths**: `packages/stage-ui/src/composables/llm-marker-parser.ts`, `packages/stage-ui/src/composables/response-categoriser.ts`, `packages/stage-ui/src/constants/prompts/character-defaults.ts`, `packages/stage-ui/src/types/chat.ts` (`rawContent`/`content`), `packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabActing.vue`, `FieldAiGeneratorModal.vue`, `apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue`, `packages/stage-ui/src/components/scenes/ControlStripHost.vue`.
 - **Content**: The two official ACT formats (Short Format, JSON Chaining Format), hidden/tolerated forms (legacy bare-`>` close whitelisted for ACT/DELAY/LLM_, `|}` normalization, escapes), DELAY and ACTOR tokens, rawContent-vs-content dual-key drift contract, teaching layer (DEFAULT_ACTING_* prompts, `AiriExtension.acting`, Acting tab, Field AI Generator templates), cue-execution chain (parser → categoriser → hooks → special-token queue → VRM/Live2D), Rehearsal Room playground, Model Customizer mapping nexus, Discord outbound stripping, and the planned Onboarding-V2 Advanced-Lab acting step. Peer skills: `airi-prompt-builder-engine`, `airi-model-customizer`, `airi-character-rendering`, `airi-interaction-pipelines`, `airi-onboarding-v2`.
 
+#### 3.22 `airi-director-orchestration`
+- **Target Domain**: Autonomous Director and Studio concept decisions.
+- **Key Paths**: `packages/stage-ui/src/stores/modules/artistry-autonomous.ts`, `docs/content/en/docs/manual/config/studio.md`.
+- **Content**: Base/Layer stack resolution, Setups A/B/C ownership, actor manifestations, pure speech override resolution, scratchpad/note persistence, and asynchronous target identity. Image transport stays in artistry widgets.
+
 ---
 
 ### 🟡 Phase 4: Operational SOPs & Upstream Research
@@ -310,7 +327,7 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 #### 5.1 `airi-desktop-chatbox`
 - **Target Domain**: The desktop (stage-tamagotchi Electron) chat window as a whole: the `pages/chat.vue` hub, its hamburger Workspace Routes and the 9 sub-views (Chat View, Director's Monitor, World Bible, Studio, Media Library, Eternal Thread, Event Ledger, Notes, Rehearsal), the desktop composer host, chat message bubbles, toolbar strips, context menus, journal chips, grounding panel, ACT/Director-note bubbles — plus a concise map of the three (+1) distinct chatboxes (desktop, web/pocket portrait `MobileWhisperSheet`, web/pocket landscape `Layouts/InteractiveArea`, and WhisperDock as input-dock-only).
 - **Key Paths**: `apps/stage-tamagotchi/src/renderer/pages/chat.vue`, `apps/stage-tamagotchi/src/renderer/components/chat/` (`chat_messages.vue`, `chat_director.vue`, `chat_world.vue`, `chat_studio.vue`, `chat_media.vue`, `chat_lifetime.vue`, `chat_event_log.vue`, `chat_notes.vue`, `chat_rehearsal.vue`), `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue`, `packages/stage-ui/src/components/scenarios/chat/` (`history.vue`, `assistant-item.vue`, `user-item.vue`, `response-part.vue`, `tool-call-block.vue`, `DirectorNoteBubble.vue`, `WhisperDock.vue`, `WhisperComposerBar.vue`, `components/action-menu/index.vue`), `packages/stage-layouts/src/components/Widgets/ChatArea.vue`.
-- **Content**: Desktop chatbox maintenance — Workspace Route/sub-view wiring (both duplicated inline arrays in `chat.vue`), text-vs-edit bubble rendering, Reka action-menu (copy/delete/edit/retry/fork/journal moment), image drag-and-drop, journal preview vs. moment modal, mood strip, Act token rendering, and which ingestion path each of the four surfaces uses. Pitfalls: per-window broadcast sync, `healMozibake` Unicode repair, eager `{ deep: true }` watchers on store data (Rosetta §16), `index: 0` tool-call field for bridged gateways, the `INVOKE_CHARACTER_FIRST` sentinel path.
+- **Content**: Task-selected references for workspace navigation, composer, and transcript rendering. Covers both route arrays, wrapper refs, draft/attachment lifecycle, implemented Stop, suggestions, action-menu wiring, grounding, journal previews, actor-free rendering, and streaming performance. Domain execution stays in peer skills.
 
 #### 5.2 `airi-card-editor-wizard`
 - **Target Domain**: AIRI Card Editor, Character Creation Wizard (9-tab guided flow suite: Identity, Cognition, Generation, Acting, Artistry, Modules, Proactivity, Tools, ProductionStudio), Card Import modal.
@@ -353,9 +370,9 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 - **Content**: In-memory Three.js VRM material inspector (`_RimWidth`, `_ShadeShift`), Texture Deck hot-swapper, glTF JSON / GLB byte-level repacker, and AI UV map generation via Artistry.
 
 #### 5.10 `airi-memory-ui-pages`
-- **Target Domain**: Memory Settings Control Hub UI Surface.
-- **Key Paths**: `docs/memory_lab/memory-settings-home-page-plan.md`, `packages/stage-pages/src/pages/settings/modules/memory-short-term.vue`.
-- **Content**: Maintaining `Settings > Memory` 4-lane control hub (Short-Term Memory, Long-Term Memory, Lifetime Archive, Chips/LTMM Artifacts), top contract status strips, lane budget controls, manual session rebuild triggers, and memory artifact preview cards.
+- **Target Domain**: Memory settings pages and job controls.
+- **Key Paths**: `packages/stage-pages/src/pages/settings/modules/` (`memory-short-term.vue`, `memory-long-term.vue`, `memory-lifetime.vue`, `memory-signals.vue`, `components/LifetimeProvisioningModal.vue`, `components/LifetimeHistoryModal.vue`).
+- **Content**: Current Short-Term, Long-Term, Lifetime and Signals pages; provisioning/history dialogs; loading/error/progress, character filters, resume versus restart, and close versus cancellation. Documents the current hardcoded global lifetime scope. The four-lane Hub remains a plan, not an implementation claim.
 
 #### 5.11 `airi-animadex-wizard`
 - **Target Domain**: The AnimaDex Wizard — 4-step cast-to-card guided synthesis (bundled 36k-character tuple catalog, sticky character-bindings localStorage map, model auto-linking, LLM voice/story/synthesis pipelines, multi-actor card assembly).
@@ -384,20 +401,28 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 
 ---
 
-## 4. Execution Roadmap Summary
+## 4. Inventory and routing review
 
-| Phase | Target Scope | Output Skills | Count |
-|---|---|---|---|
-| **Phase 1** | Core Plumbing, IPC, Data Persistence, Providers, Cards, Cloud Relay, BYOS Sync, Gateway | `airi-app-entry-wiring`, `airi-ipc-eventa`, `airi-data-persistence`, `airi-provider-core-registry`, `airi-provider-store-instances`, `airi-card-schema`, `airi-cloud-relay-infrastructure`, `airi-byos-cloud-sync`, `airi-gateway-websocket-protocol` | 9 |
-| **Phase 2** | Character Rendering (VRM/Live2D/Spine/MMD), Audio, Local Inference, Motion, Sensing, Model/Control-Strip Customizers, Captions, Stage-Mate | `airi-character-rendering`, `airi-audio-pipeline`, `airi-local-inference-engines`, `airi-stage-ui-surfaces`, `airi-live2d-dsl-interpreter`, `airi-generative-motion-vrma`, `airi-attention-ecology-vision`, `airi-model-customizer`, `airi-controlstrip-customizer`, `airi-caption-subsystem`, `airi-stage-mate-unity` | 11 |
-| **Phase 3** | Onboarding V2, MCP, Discord, Memory Engine, Gemini Live, Proactivity, Interaction Pipelines, Memory Pillars, ACT Tokens | `airi-onboarding-v2`, `airi-mcp-integration`, `airi-discord-integration`, `airi-memory-systems`, `airi-prompt-builder-engine`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`, `airi-tool-registry-builtin-tools`, `airi-memory-chat-sessions`, `airi-memory-text-journal`, `airi-memory-short-term`, `airi-memory-echo-chips`, `airi-memory-lifetime`, `airi-memory-image-journal`, `airi-memory-event-log`, `airi-memory-provisioning`, `airi-acting-cue-act-tokens` | 21 |
-| **Phase 4** | i18n Localization, Binary Safety, Verification SOPs, Prefix Cache, Upstream Research, Release & Deploy, Docs Site | `airi-i18n-localization`, `airi-binary-safety`, `airi-codebase-verification`, `airi-prefix-cache-alignment`, `airi-roadmap-upstream-research`, `airi-release-packaging-deploy`, `airi-docs-site-maintenance` | 7 |
-| **Phase 5** | Feature-Dense UI Surfaces (Chatbox, Wizard, Scenes, Dating Sim, Memory UI, V-HACK, AnimaDex, Card Manager) | `airi-desktop-chatbox`, `airi-card-editor-wizard`, `airi-scenes-backgrounds`, `airi-dating-sim-engine`, `airi-artistry-comfyui-widgets`, `airi-comfyui-provider-bridge`, `airi-broadcast-channels`, `airi-modular-outfits-system`, `airi-provider-ui-pages`, `airi-vrm-vhack-studio`, `airi-memory-ui-pages`, `airi-animadex-wizard`, `airi-card-manager-hub` | 13 |
-| | **TOTAL** | | **61** |
+| Group | Discoverable skills |
+| --- | ---: |
+| Core plumbing and infrastructure | 8 |
+| Character, stage, motion and sensing | 14 |
+| Modules, cognition and memory | 22 |
+| Operational SOPs and research | 6 |
+| UI surfaces and adjacent services | 15 |
+| **Total** | **65** |
 
-> **Phasing note.** Phases 1–4 remain the dependency-ordered build sequence (plumbing → rendering → modules → SOPs). **Phase 5 skills depend on Phases 1–3** (they reference the card schema, rendering engines, and provider/memory stores) and should be authored **after** the foundations they link to are stable, so their "Surface Map / State & Store Map" sections can accurately deep-link the underlying skills. Interleave them: author Phase 5 entries in parallel with, or immediately after, their Phase 1–3 dependencies rather than as a strictly serial fifth batch.
+The counts follow the catalog groups above, not a separate historical rollout table.
 
-## Relevant Skills
+Use these examples when reviewing overlapping descriptions. They are expected ownership examples, not measured harness accuracy.
 
-- [[airi-codebase-verification]]
-- [[airi-roadmap-upstream-research]]
+| Query | Primary skill | Boundary |
+| --- | --- | --- |
+| Filler cache miss prevents the next thinking phrase | airi-conversational-pacing | Retry policy and preparation |
+| Speech continues after Stop in another window | airi-interaction-pipelines | Trace cancellation; then speech-runtime for intent cleanup |
+| Next actor appears before previous voice finishes | airi-speech-runtime | Playback timing; Director for concept activation |
+| Director steals a Layer actor's model | airi-director-orchestration | Base/Layer ownership |
+| VoiceProfile bracket rules remove all speech | airi-audio-pipeline | Transformation and empty synthesis |
+| Add a desktop workspace route | airi-desktop-chatbox | Workspace reference only |
+| Resume a lifetime job from its dialog | airi-memory-ui-pages | Controls; provisioning skill for job engine |
+| Persona refresh deletes environmental context | airi-prompt-builder-engine | Context classification and pruning |
