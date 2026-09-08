@@ -1,6 +1,7 @@
 import type { HybridSearchResult, MemoryLayer, SearchDocumentMeta } from './hybrid-scorer'
 
 import indexedDbDriver from 'unstorage/drivers/indexedb'
+import memoryDriver from 'unstorage/drivers/memory'
 
 import { createStorage } from 'unstorage'
 
@@ -13,7 +14,7 @@ import {
 } from './hybrid-scorer'
 
 const indexStorage = createStorage({
-  driver: indexedDbDriver({ base: 'airi-search-index' }),
+  driver: typeof indexedDB !== 'undefined' ? indexedDbDriver({ base: 'airi-search-index' }) : memoryDriver(),
 })
 
 export interface LayeredSearchResult extends HybridSearchResult {}

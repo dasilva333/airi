@@ -7,9 +7,10 @@ import { describe, expect, it } from 'vitest'
 
 import { HeadlessDslTestHarness } from '../src/testing/harness'
 
-const SCRATCH_TMP_DIR = 'C:\\Users\\h4rdc\\.gemini\\antigravity\\brain\\a6542fd4-a559-4ed0-a056-40186f03eee7\\scratch\\tmp'
+const SCRATCH_TMP_DIR = process.env.AIRI_LIVE2D_SCRATCH_DIR || ''
+const hasScratchModels = Boolean(SCRATCH_TMP_DIR && fs.existsSync(SCRATCH_TMP_DIR))
 
-describe('headless Live2D DSL Model Automated Scenario Runner', () => {
+describe.skipIf(!hasScratchModels)('headless Live2D DSL Model Automated Scenario Runner', () => {
   it('should load model live2d_2883004043 headlessly and run automated scenario sequence', () => {
     const manifestPath = path.join(SCRATCH_TMP_DIR, 'live2d_2883004043', '2883004043.model3.json')
     expect(fs.existsSync(manifestPath)).toBe(true)

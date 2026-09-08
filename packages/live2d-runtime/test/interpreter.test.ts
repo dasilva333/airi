@@ -31,7 +31,13 @@ function makeHost(initIntimacy = 0) {
       onIntimacyChanged: vi.fn(),
     },
   }
-  return { host, intimacyStore, get intimacy() { return intimacy } }
+  return {
+    host,
+    intimacyStore,
+    get intimacy() {
+      return intimacy
+    },
+  }
 }
 
 describe('dSLVirutalMachine — guard/filtered dispatch & mutation', () => {
@@ -177,8 +183,8 @@ describe('dSLVirtualMachine — choices menu + selectChoice', () => {
     vm.vars.set('KeepMe', 7)
     vm.dispatch('Tapchange')
     vm.selectChoice(0) // -> Next:cos
-    expect(host.events!.onCostumeWillSwap).toHaveBeenCalledWith('model1.json')
-    expect(host.costume!.changeCostume).toHaveBeenCalledWith('model1.json')
+    expect(host.events!.onCostumeWillSwap).toHaveBeenCalledWith('model1.json', undefined)
+    expect(host.costume!.changeCostume).toHaveBeenCalledWith('model1.json', undefined)
     // change_cos must NOT wipe the VarFloats heap.
     expect(vm.vars.get('KeepMe')).toBe(7)
     expect(vm.hasPendingChoices()).toBe(false)

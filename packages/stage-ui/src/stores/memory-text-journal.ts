@@ -101,7 +101,12 @@ export const useTextJournalStore = defineStore('text-journal', () => {
       entries.value = normalizeEntries(await textJournalRepo.getAll(currentUserId) ?? [])
 
       // Initialize layered memory index
-      await layeredMemory.init()
+      try {
+        await layeredMemory.init()
+      }
+      catch (err) {
+        console.warn('text_journal: layeredMemory.init skipped or failed:', err)
+      }
 
       initializedForUserId.value = currentUserId
 
@@ -405,37 +410,71 @@ export const useTextJournalStore = defineStore('text-journal', () => {
       return []
 
     const targetCharacterId = input.characterId ?? activeCardId.value
-    const results = await layeredMemory.search(query, input.limit ?? 3, targetCharacterId)
+    let results: Awaited<ReturnType<typeof layeredMemory.search>> = []
+    try {
+      results = await layeredMemory.search(query, input.limit ?? 3, targetCharacterId)
+    }
+    catch (err) {
+      console.warn('[TextJournal:Search] layeredMemory.search failed, using local ranking fallback:', err)
+    }
 
-    // Log search results for developer review
-    console.log(`[TextJournal:Search] Query: "${query}" | Results:`, results)
+    if (results.length > 0) {
+      // Log search results for developer review
+      console.info(`[TextJournal:Search] Query: "${query}" | Results:`, results)
 
-    // For now, map layered results back to the most relevant TextJournalEntry if it exists,
-    // or provide surrogate entries for STMM/Raw.
-    return results.map((res) => {
-      const existing = entries.value.find(e => e.id === res.id)
-      if (existing) {
-        return {
-          ...existing,
-          kind: res.kind,
+      // Map layered results back to the most relevant TextJournalEntry if it exists,
+      // or provide surrogate entries for STMM/Raw.
+      return results.map((res) => {
+        const existing = entries.value.find(e => e.id === res.id)
+        if (existing) {
+          return {
+            ...existing,
+            kind: res.kind,
+          }
         }
-      }
 
-      // Surrogate entry for STMM/Raw context
-      return {
-        id: res.id,
-        userId: getCurrentUserId(),
-        characterId: input.characterId ?? activeCardId.value ?? '',
-        characterName: activeCard.value?.name ?? 'Unknown',
-        title: `[${res.kind.toUpperCase()}] Memory`,
-        content: res.content,
-        kind: res.kind,
-        source: res.source ?? 'tool',
-        type: 'message',
-        createdAt: new Date(res.timestamp).getTime(),
-        updatedAt: new Date(res.timestamp).getTime(),
-      } as TextJournalEntry & { kind: string }
-    })
+        // Surrogate entry for STMM/Raw context
+        return {
+          id: res.id,
+          userId: getCurrentUserId(),
+          characterId: input.characterId ?? activeCardId.value ?? '',
+          characterName: activeCard.value?.name ?? 'Unknown',
+          title: `[${res.kind.toUpperCase()}] Memory`,
+          content: res.content,
+          kind: res.kind,
+          source: res.source ?? 'tool',
+          type: 'message',
+          createdAt: new Date(res.timestamp).getTime(),
+          updatedAt: new Date(res.timestamp).getTime(),
+        } as TextJournalEntry & { kind: string }
+      })
+    }
+
+    // Fallback: local heuristic ranking on loaded entries (offline / headless fallback)
+    const normalizedQuery = query.toLowerCase()
+    const scopedEntries = entries.value.filter(entry => !targetCharacterId || entry.characterId === targetCharacterId)
+    const ranked = scopedEntries
+      .map((entry) => {
+        const title = entry.title.toLowerCase()
+        const content = entry.content.toLowerCase()
+        const characterName = entry.characterName.toLowerCase()
+
+        let score = 0
+        if (title.includes(normalizedQuery))
+          score += 4
+        if (content.includes(normalizedQuery))
+          score += 2
+        if (characterName.includes(normalizedQuery))
+          score += 1
+
+        return { entry, score }
+      })
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(({ entry }) => ({ ...entry, kind: 'ltmm' as string }))
+
+    const limit = Math.max(1, Math.min(input.limit ?? 10, 10))
+    return ranked.slice(0, limit)
   }
 
   watch(incomingStreamEvent, (event) => {
@@ -457,7 +496,7 @@ export const useTextJournalStore = defineStore('text-journal', () => {
     modelId: string
     providerId: string
   }) {
-    console.log('[JournalMoment] Starting creation...', {
+    console.info('[JournalMoment] Starting creation...', {
       messageCount: input.messages.length,
       modelId: input.modelId,
       providerId: input.providerId,
@@ -565,7 +604,7 @@ ${input.instructions ? `\nAdditional Instructions: ${input.instructions}\n` : ''
       { role: 'user', content: instructionSuffix },
     ]
 
-    console.log('[JournalMoment] Calling LLM generateObject with cache-aligned context...', {
+    console.info('[JournalMoment] Calling LLM generateObject with cache-aligned context...', {
       messagesCount: inputMessages.length,
     })
     try {
@@ -581,7 +620,7 @@ ${input.instructions ? `\nAdditional Instructions: ${input.instructions}\n` : ''
         },
       )
       const object = res as unknown as { title: string, content: string }
-      console.log('[JournalMoment] LLM returned object:', object)
+      console.info('[JournalMoment] LLM returned object:', object)
 
       return await createEntry({
         title: object.title,

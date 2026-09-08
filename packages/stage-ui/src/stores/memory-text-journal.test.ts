@@ -52,6 +52,16 @@ vi.mock('./modules/airi-card', async () => {
   return { useAiriCardStore: () => store }
 })
 
+vi.mock('./chat/session-store', async () => {
+  return {
+    useChatSessionStore: () => ({
+      activeSessionId: 'test-session',
+      getCharacterIndex: vi.fn(() => ({ activeSessionId: 'test-session' })),
+      getSessionMeta: vi.fn(() => ({ universe: 'default' })),
+    }),
+  }
+})
+
 // Import the repo AFTER mocks are registered to get the mocked version
 const { textJournalRepo } = await import('../database/repos/text-journal.repo')
 

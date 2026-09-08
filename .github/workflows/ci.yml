@@ -86,6 +86,24 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
 
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    if: ${{ !(github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.label, 'moeru-ai:i18n/')) }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # Node.js
+      - uses: pnpm/action-setup@v3
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build:packages
+      - run: pnpm run test:run
+
   check-provenance:
     name: Check Provenance
     runs-on: ubuntu-latest
