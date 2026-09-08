@@ -1,6 +1,6 @@
 # Chat Orchestrator Decomposition: Behavior Contracts and Phased Execution Plan
 
-**Status:** In Progress · Phase 0 (Baseline Suites) & Phase 1 (Error Presentation) Complete · Phase 2 Pending
+**Status:** In Progress · Phases 0, 1 & 2 Complete · Phase 3 Pending
 **Repository:** `dasilva333/airi`
 **Domain:** `@proj-airi/stage-ui`, ordinary turn-based chat orchestration
 **Reviewed source baseline:** `326aeb054524b5c7979bae5cc6e838c9fbe63da1`
@@ -422,13 +422,14 @@ Test ordinary and `triggerOnly` request insertion separately, including minimal 
 - Cataloged suite in [`docs/project-testing-parity.md`](./project-testing-parity.md).
 - **Exit gate:** PASS (27/27 chat orchestrator tests passing across 6 suites, `@proj-airi/stage-ui` typecheck 0 errors).
 
-### Phase 2 — Extract tool syntax
+### Phase 2 — Extract tool syntax `[COMPLETED - 2026-09-08]`
 
-- Add recognition and argument helpers with characterized success/failure fixtures.
-- Keep the runtime bridge wrapper and execution queue in `chat.ts`.
-- Wire helpers immediately without changing parser, resolver, or marker-consumption policy.
-
-**Exit gate:** Pure parsing tests, real parser/bridge runtime tests, outer-round-bound tests, cancellation-during-tools characterization, existing marker/categorizer/actor tests, affected workspace tests, and typecheck pass.
+- Added [`tool-bridge.ts`](../packages/stage-ui/src/stores/chat/tool-bridge.ts) pure helpers (`recognizeToolMarker`, `parseBridgeArguments`, `tryParseLenientJson`) with zero Pinia/Vue dependencies.
+- Added unit tests in [`tool-bridge.test.ts`](../packages/stage-ui/src/stores/chat/tool-bridge.test.ts) (19 tests) covering all 5 syntax dialects, JSON recovery, key-value decoding, and truncation tolerance.
+- Wired helpers into `packages/stage-ui/src/stores/chat.ts` (lines 903–1058 and line 975), replacing ~120 lines of inline parsing.
+- Kept tool resolution, availability check, ID generation, queue insertion, execution, and outer 5-round bounds in `chat.ts`.
+- Cataloged suite in [`docs/project-testing-parity.md`](./project-testing-parity.md).
+- **Exit gate:** PASS (46/46 chat orchestrator tests passing across 7 suites, `@proj-airi/stage-ui` typecheck 0 errors).
 
 ### Phase 3 — Extract intrusion computation
 
@@ -513,6 +514,19 @@ Maintain one concise record per checkpoint:
 | **Deviations** | None. Zero changes to queue, persistence format, provider loop, or hook payloads. |
 | **Repository state** | `docs/architecture-chat-orchestrator-decomposition.md`, `docs/project-testing-parity.md`, `packages/stage-ui/src/stores/chat.ts`, plus 7 untracked test/helper files. |
 
+#### Checkpoint 2 — Phase 2 Tool Syntax Extraction (2026-09-08)
+
+| Field | Content |
+| --- | --- |
+| **Source** | Baseline `933612156`, working tree on `main` |
+| **Scope** | Extracted `tool-bridge.ts` (`recognizeToolMarker`, `parseBridgeArguments`, `tryParseLenientJson`); wired into `stores/chat.ts` lines 903–1058 and line 975. |
+| **Evidence** | Marker syntax recognition (5 dialects), lenient JSON parsing recovery, argument key-value decoding, truncation tolerance, 5-round loop bounds, early round-1 exit, multi-turn tool association. 23 tests across `tool-bridge.test.ts` and `tool-bridge-runtime.test.ts`. 46 tests across all 7 chat suites. |
+| **Runner facts** | `@proj-airi/stage-ui`: 61 test suites, 520 passing tests (0 failures, 1 model-gated skip). Typecheck: `vue-tsc --noEmit` passed with 0 errors. |
+| **Request parity** | Marker matching regex precedence, unclosed quote tolerance, delimiter balancing, and tool call payload structure match baseline. |
+| **Runtime limits** | Asynchronous tool resolution, executability checks, ID allocation, execution queue, and outer loop bounds remain in `chat.ts`. |
+| **Deviations** | None. Zero changes to queue, provider loop, or execution timing. |
+| **Repository state** | `docs/architecture-chat-orchestrator-decomposition.md`, `docs/project-testing-parity.md`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/chat/tool-bridge.ts`, `packages/stage-ui/src/stores/chat/tool-bridge.test.ts`. |
+
 ### Stop conditions
 
 Stop the affected phase when:
@@ -528,9 +542,9 @@ Keep a failed phase isolated. Correct it within its bounded scope or return to t
 ### Completion checklist
 
 - [x] Baseline behavior tests were established before extraction (Phase 0 complete).
-- [x] Each extracted helper has a single stated computational responsibility and no runtime store/browser dependencies (Phase 1 `formatChatError` complete).
-- [x] Existing runtime callers use the helpers; no duplicate legacy implementation remains (`chat.ts` error block wired).
-- [ ] Phase 2: Tool syntax extraction (`tool-bridge.ts`).
+- [x] Each extracted helper has a single stated computational responsibility and no runtime store/browser dependencies (Phase 1 `formatChatError`, Phase 2 `tool-bridge` complete).
+- [x] Existing runtime callers use the helpers; no duplicate legacy implementation remains (`chat.ts` error block and tool bridge wired).
+- [x] Phase 2: Tool syntax extraction (`tool-bridge.ts` complete).
 - [ ] Phase 3: Intrusion computation extraction (`intrusions.ts`).
 - [ ] Phase 4: Grounding formatting extraction (`grounding-assembler.ts`).
 - [x] Queue settlement, session navigation, and generation invalidation remain distinct.
@@ -541,6 +555,7 @@ Keep a failed phase isolated. Correct it within its bounded scope or return to t
 - [ ] Desktop/host-consumer evidence is complete or explicitly pending; no unsupported end-to-end claim is made.
 - [x] Test catalog and canonical entry-point references reflect the actual result.
 - [x] Every behavior deviation or intersecting baseline defect has a separate explicit disposition.
+
 
 Completion means four clearer computational boundaries with demonstrated preservation of their surrounding behavior. Future runtime extraction can build on that evidence; it is not a prerequisite or hidden extension of this task.
 
