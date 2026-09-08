@@ -191,4 +191,43 @@ export function getMcpToolBridge(): McpToolBridge {
 
   return resolvedBridge
 }
-// FORCE CACHE REFRESH: Refined non-fatal bridge export confirmed.
+
+/**
+ * Filters discovered MCP tools against the allowed tools configuration of a character card.
+ *
+ * Rules:
+ * - Returns empty array when allowedTools is undefined or empty.
+ * - If allowedTools includes 'mcp', all tools are permitted.
+ * - If allowedTools includes 'web_search' or 'mcp_web_search', servers matching 'websearch', 'web-search', or 'search' are permitted.
+ * - If allowedTools includes 'filesystem' or 'mcp_filesystem', servers matching 'filesystem' are permitted.
+ * - Explicit tool names or qualified server::tool names also pass.
+ */
+export function filterMcpToolsForCard(
+  rawTools: McpToolDescriptor[],
+  allowedTools: string[] | undefined,
+): McpToolDescriptor[] {
+  if (!allowedTools || !allowedTools.length) {
+    return []
+  }
+  if (allowedTools.includes('mcp')) {
+    return rawTools
+  }
+  return rawTools.filter((t) => {
+    // Explicit tool name match
+    if (allowedTools.includes(t.name) || allowedTools.includes(t.toolName)) {
+      return true
+    }
+
+    const sName = t.serverName.toLowerCase()
+    const isWebSearch = sName.includes('websearch') || sName.includes('web-search') || sName.includes('search')
+    const isFilesystem = sName.includes('filesystem')
+
+    if (isWebSearch && (allowedTools.includes('web_search') || allowedTools.includes('mcp_web_search'))) {
+      return true
+    }
+    if (isFilesystem && (allowedTools.includes('filesystem') || allowedTools.includes('mcp_filesystem'))) {
+      return true
+    }
+    return false
+  })
+}

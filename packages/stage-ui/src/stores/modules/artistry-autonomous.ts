@@ -19,6 +19,7 @@ import { useProvidersStore } from '../providers'
 import { useStageWidgetsStore } from '../stage-widgets'
 import { useAiriCardStore } from './airi-card'
 import { useArtistryStore } from './artistry'
+import { resolveConceptStack } from './artistry-template'
 import { useConsciousnessStore } from './consciousness'
 import { useLiveSessionStore } from './live-session'
 import { useSpeechStore } from './speech'
@@ -144,47 +145,6 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       directorNotes.value = []
     }
   }, { immediate: true })
-
-  /**
-   * Resolve the next concept stack based on the Director's new selections.
-   * Implements the "Keep Base, Refresh Modifiers" rule:
-   * - If the Director selects a new Base concept, the stack is wiped and rebuilt.
-   * - If the Director selects only Layer concepts, the current Base is preserved
-   *   and all other modifiers are replaced by the Director's new choices.
-   */
-  function resolveConceptStack(
-    currentStack: string[],
-    directorPicks: string[],
-    visualAssets: Record<string, any>,
-  ): string[] {
-    const isVisual = (asset: any) => asset?.prompt?.trim() || (asset?.artistry?.provider && !['none', 'inherit'].includes(asset.artistry.provider))
-
-    const validPicks = directorPicks.filter(id => !!visualAssets[id])
-    if (validPicks.length === 0)
-      return currentStack
-
-    // Identify non-visual concepts that the Director shouldn't be managing (Identity layers, etc)
-    const nonVisualLayers = currentStack.filter(id => !isVisual(visualAssets[id]))
-
-    // Separate Director's picks into bases and layers
-    const newBases = validPicks.filter(id => visualAssets[id]?.isBase)
-    const newLayers = validPicks.filter(id => !visualAssets[id]?.isBase)
-
-    if (newBases.length > 0) {
-      // Director picked a new Base: wipe visual stack, preserve non-visual identity layers
-      const primaryBase = newBases[newBases.length - 1]
-      artistLog('Stack Resolve: New Base detected, preserving identity layers.', { primaryBase, identity: nonVisualLayers, layers: newLayers })
-      return Array.from(new Set([primaryBase, ...nonVisualLayers, ...newLayers]))
-    }
-
-    // Director picked only Layers: preserve existing Base and non-visual identity layers, clear old modifiers
-    const currentBase = currentStack.find(id => visualAssets[id]?.isBase)
-    const nextStack = currentBase ? [currentBase] : []
-    nextStack.push(...nonVisualLayers)
-    nextStack.push(...newLayers)
-    artistLog('Stack Resolve: Refreshing modifiers, keeping base and identity.', { currentBase, identity: nonVisualLayers, layers: newLayers })
-    return Array.from(new Set(nextStack))
-  }
 
   /**
    * Fold the active concept stack into resolved artistry and manifestation values.

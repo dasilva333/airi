@@ -36,6 +36,12 @@ import { useAiriCardStore } from './modules/airi-card'
 import { useConsciousnessStore } from './modules/consciousness'
 import { useLiveSessionStore } from './modules/live-session'
 import { useVisionStore } from './modules/vision'
+import {
+  checkIsPipeBusy,
+  formatProactiveTailEnvelope,
+  formatSensorPayload,
+  isNoReplySentinel,
+} from './proactivity-telemetry'
 import { useProvidersStore } from './providers'
 
 export const useProactivityStore = defineStore('proactivity', () => {
@@ -58,13 +64,13 @@ export const useProactivityStore = defineStore('proactivity', () => {
   debug('[Proactivity] Proactivity Store initialized.')
 
   const isPipeBusy = computed(() => {
-    return (
-      Boolean(chatOrchestrator.sending)
-      || Boolean(chatOrchestrator.activeSpokenText)
-      || isHeartbeatEvaluating.value
-      || isDreamStateEvaluating.value
-      || Boolean(chatOrchestrator.isUserTyping)
-    )
+    return checkIsPipeBusy({
+      sending: Boolean(chatOrchestrator.sending),
+      activeSpokenText: chatOrchestrator.activeSpokenText,
+      isHeartbeatEvaluating: isHeartbeatEvaluating.value,
+      isDreamStateEvaluating: isDreamStateEvaluating.value,
+      isUserTyping: Boolean(chatOrchestrator.isUserTyping),
+    })
   })
 
   const registeredTools = ref<(any | (() => Promise<any[] | undefined>))[]>([])
@@ -296,72 +302,23 @@ export const useProactivityStore = defineStore('proactivity', () => {
       ? (backgroundStore.entries.get(activeBackgroundId)?.title ?? 'unknown')
       : 'none'
 
-    let payload = '[Sensor Data]\n'
-
-    payload += `User Idle: ${idleTimeSec.value !== undefined ? `${idleTimeSec.value}s` : 'unknown'}\n`
-
-    if (config?.contextOptions?.windowHistory !== false) {
-      if (winHistory.value.length > 0) {
-        const history = winHistory.value.slice(-6)
-        const active = history.pop()
-
-        if (active) {
-          if (active.window.processName && active.window.processName !== 'Unknown') {
-            payload += `Active Program: ${active.window.processName}\n`
-          }
-          payload += `Active Window Title: ${active.window.title}\n`
-        }
-
-        if (history.length > 0) {
-          payload += '\n[ Previous History ]\n'
-          history.reverse().forEach((entry) => {
-            const start = new Date(entry.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-            const end = new Date(entry.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-            const durationSec = Math.floor(entry.durationMs / 1000)
-            const durationStr = durationSec < 60 ? `${durationSec}s` : `${Math.floor(durationSec / 60)}m`
-
-            const name = (entry.window.processName && entry.window.processName !== 'Unknown')
-              ? `${entry.window.processName} | `
-              : ''
-            payload += `[ ${name}${entry.window.title} ] [ ${durationStr} ] [ ${start} - ${end} ]\n`
-          })
-        }
-      }
-    }
-    else {
-      payload += 'Window History: [DISABLED]\n'
-    }
-
-    if (config?.contextOptions?.systemLoad !== false) {
-      if (sysLoad.value) {
-        payload += `CPU Load (1/5/15): ${sysLoad.value.cpu[0].toFixed(2)} | ${sysLoad.value.cpu[1].toFixed(2)} | ${sysLoad.value.cpu[2].toFixed(2)}\n`
-        payload += `GPU Load (Avg): ${sysLoad.value.gpuAvg.toFixed(2)}\n`
-      }
-    }
-    else {
-      payload += 'System Load: [DISABLED]\n'
-    }
-
-    const volStr = volLevel.value !== undefined ? `${volLevel.value}%` : 'unknown'
-    payload += `Volume Level: ${volStr}\n`
-    payload += `Current Local Time: ${locTime.value || 'unknown'}\n`
-    payload += `Active Character Default Background: ${resolvedDefaultBackgroundName}\n`
-
-    if (config?.contextOptions?.usageMetrics !== false) {
-      const turnCount = chatSession.messages.length
-
-      payload += '\n[Usage Metrics (Last Hr)]\n'
-      payload += `TTS (Last Hr): ${recentTtsCount.value}\n`
-      payload += `STT (Last Hr): ${recentSttCount.value}\n`
-      payload += `Chat (Last Hr): ${recentChatCount.value}\n`
-      payload += `Journal Entries (Last Hr): ${recentJournalEntryCount.value}\n`
-      payload += `Turn Count: ${turnCount} (Next Target: ${nextMilestone.value})\n`
-    }
-    else {
-      payload += '\n[Metrics]: [DISABLED]\n'
-    }
-
-    return payload
+    return formatSensorPayload({
+      idleTimeSec: idleTimeSec.value,
+      winHistory: winHistory.value,
+      sysLoad: sysLoad.value,
+      volLevel: volLevel.value,
+      locTime: locTime.value,
+      resolvedDefaultBackgroundName,
+      contextOptions: config?.contextOptions,
+      metrics: {
+        recentTtsCount: recentTtsCount.value,
+        recentSttCount: recentSttCount.value,
+        recentChatCount: recentChatCount.value,
+        recentJournalEntryCount: recentJournalEntryCount.value,
+        turnCount: chatSession.messages.length,
+        nextMilestone: nextMilestone.value,
+      },
+    })
   })
 
   function getTodayKey() {
@@ -678,30 +635,17 @@ export const useProactivityStore = defineStore('proactivity', () => {
         }
 
         // 4. Ephemeral Tail Envelope (Strategy A: Volatile data at prompt tail)
-        let tailDirective = ''
         const sensorPayloadRaw = config?.injectIntoPrompt ? sensorPayload.value : ''
-
-        if (sensorPayloadRaw) {
-          tailDirective += `[ENVIRONMENTAL AWARENESS]\n`
-            + `The following telemetry describes your current environmental context. `
-            + `Use it to stay grounded in the user's reality and inform your response. `
-            + `You may reference specific values (like time or active applications) if relevant `
-            + `to the conversation, but avoid a dry, technical recitation of the data.\n`
-            + `---\n`
-            + `${sensorPayloadRaw}\n\n`
-        }
-
         const recentLedgerEvents = eventLogStore.getRecentEventsText(6)
-        if (recentLedgerEvents) {
-          tailDirective += `[UNIFIED EVENT STREAM]\n`
-            + `Recent activity across the environment:\n`
-            + `${recentLedgerEvents}\n\n`
-        }
+        const promptText = config?.prompt
 
-        const promptText = config?.prompt || 'Review situational context. Comment on user progress if natural, or output NO_REPLY to remain silent.'
-        tailDirective += `[FOCUS DIRECTIVE]\n${promptText}`
+        const tailDirective = formatProactiveTailEnvelope({
+          sensorPayloadRaw,
+          recentLedgerEvents,
+          promptText,
+        })
 
-        messages.push({ role: 'user', content: tailDirective.trim() })
+        messages.push({ role: 'user', content: tailDirective })
 
         const activeProviderId = consciousnessStore.activeProvider
         const activeModel = consciousnessStore.activeModel
@@ -741,7 +685,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
         // NOTICE: `NO_REPLY` is a control sentinel for proactive heartbeats, not user-facing content.
         // If the model returns it exactly, we must stop here so it never reaches chat history, stage
         // replay, captions, or TTS.
-        if ((rawReply || '').trim() === 'NO_REPLY') {
+        if (isNoReplySentinel(rawReply)) {
           debug('[Proactivity] AI decided to remain silent via NO_REPLY sentinel.')
           await eventLogStore.appendEvent({
             category: 'proactivity',

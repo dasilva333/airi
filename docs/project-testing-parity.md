@@ -23,7 +23,7 @@
 
 | Package / Workspace | Test Suites (Files) | Total Tests | Primary Subsystem Focus |
 |---|:---:|:---:|---|
-| [`packages/stage-ui`](../packages/stage-ui) | 64 | 570 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory |
+| [`packages/stage-ui`](../packages/stage-ui) | 67 | 619 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory, Artistry, Proactivity, MCP |
 | [`packages/live2d-runtime`](../packages/live2d-runtime) | 5 | 79 | Live2D Scripting DSL VM, Command Parser, Selector, Template, VarStore |
 | [`packages/stage-pages`](../packages/stage-pages) | 2 | 34 | Settings Topology & Devtools Context Flow Formatters |
 | [`apps/stage-tamagotchi`](../apps/stage-tamagotchi) | 6 | 32 | Desktop Multi-Window, Display Bounds, Location, Widgets, Airi Plugins |
@@ -33,9 +33,9 @@
 | [`packages/cap-vite`](../packages/cap-vite) | 4 | 22 | Capacitor Vite Plugin, CLI Integration & Native Wrappers |
 | [`packages/plugin-sdk`](../packages/plugin-sdk) | 1 | 22 | Plugin SDK Host Core Lifecycle |
 | [`packages/server-runtime`](../packages/server-runtime) | 1 | 9 | Server Route Middleware |
-| **Monorepo Vitest Baseline** | **92 Suites** | **848 Tests** | **Automated Zero-Failure Headless Test Baseline** |
+| **Monorepo Vitest Baseline** | **95 Suites** | **897 Tests** | **Automated Zero-Failure Headless Test Baseline** |
 
-*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 96 total test files discovered).*
+*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 99 total test files discovered).*
 
 ---
 
@@ -136,6 +136,13 @@
 | **Playback Lead Coordinator** | [`packages/pipelines-audio/src/processors/lead-coordinator.test.ts`](../packages/pipelines-audio/src/processors/lead-coordinator.test.ts) | 7 | Node / Pure TS | Blocking in CI | Audio playback queue sequencing, jitter buffer, and token ordering. | Queue timing logic; mocks audio hardware sinks. |
 | **Speech Store Pitch/Rate Helpers** | [`packages/stage-ui/src/stores/modules/speech.test.ts`](../packages/stage-ui/src/stores/modules/speech.test.ts) | 3 | Node / Pure TS | Blocking in CI | Positive/negative percentage formatting and zero-guarding. | Pure formatting helpers. |
 | **End-to-End Speech Pipeline** | [`packages/pipelines-audio/src/speech-pipeline.test.ts`](../packages/pipelines-audio/src/speech-pipeline.test.ts) | 2 | Node / Pure TS | Blocking in CI | Processor chaining, lifecycle initialization, and teardown. | Pipeline architecture test with mock processors. |
+
+#### Autonomous Systems, Artistry, Proactivity & Tool Hub
+| Invariant / Subsystem | Test Path | Tests | Runner / Env | CI Inclusion | What Assertions Directly Establish | Coverage Boundary & Known Limits |
+|---|---|:---:|:---:|:---:|---|---|
+| **Artistry ComfyUI Template & Concept Stacks** | [`packages/stage-ui/src/stores/modules/artistry-template.test.ts`](../packages/stage-ui/src/stores/modules/artistry-template.test.ts) | 16 | Node / Pure TS | Blocking in CI | Workflow template parsing, prompt injection, exposed fields whitelist security boundary, seed auto-randomization, recursive placeholder replacement (`{{PROMPT}}`, `{{IMAGE}}`), and Autonomous Director "Keep Base, Refresh Modifiers" concept stack resolution. | Pure graph and stack transformations; does not execute live ComfyUI REST endpoints or WebGPU generation. |
+| **Proactivity, Telemetry & Gating** | [`packages/stage-ui/src/stores/proactivity.test.ts`](../packages/stage-ui/src/stores/proactivity.test.ts) | 20 | Node / Pure TS | Blocking in CI | Busy-pipe mutex check (suppressing proactive evaluation during active speech/stream/dream/typing), sensor payload formatting (idle, window history, load, volume, metrics), NO_REPLY control sentinel recognition, and prefix-cache aligned tail directive framing. | Pure telemetry and state evaluation tests; does not poll real OS sensors. |
+| **MCP Tool Bridge & Titration** | [`packages/stage-ui/src/stores/mcp-tool-bridge.test.ts`](../packages/stage-ui/src/stores/mcp-tool-bridge.test.ts) | 13 | Node / Pure TS | Blocking in CI | MCP tool bridge registration and `window.__AIRI_MCP_BRIDGE__` exposure, automatic `mcp.json` config reconciliation for allowed tools (`web_search`, `filesystem`), background `applyAndRestart` execution, and per-card tool titration rules. | Tests bridge contracts and config reconciliation; does not spawn physical MCP child processes. |
 
 #### Desktop Shell & Electron Integration
 | Invariant / Subsystem | Test Path | Tests | Runner / Env | CI Inclusion | What Assertions Directly Establish | Coverage Boundary & Known Limits |
