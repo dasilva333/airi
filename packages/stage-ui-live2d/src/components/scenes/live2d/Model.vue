@@ -373,6 +373,10 @@ function setScaleAndPosition() {
   if (!model.value)
     return
 
+  // Guard against unmeasured 0x0 viewport dimensions so we never squash the model to 1e-6
+  if (props.width <= 0 || props.height <= 0 || !initialModelHeight.value || !initialModelWidth.value)
+    return
+
   let offsetFactor = 1.0
   if (isMobile.value) {
     offsetFactor = 1.0
@@ -1520,7 +1524,15 @@ function updateDropShadowFilter() {
 
 const handleResize = useDebounceFn(setScaleAndPosition, 100)
 
-watch([() => props.width, () => props.height], handleResize)
+watch([() => props.width, () => props.height], (newVal, oldVal) => {
+  // If transitioning from unmeasured (<= 0) to positive dimensions, apply immediately without debounce
+  if ((!oldVal || oldVal[0] <= 0 || oldVal[1] <= 0) && newVal[0] > 0 && newVal[1] > 0) {
+    setScaleAndPosition()
+  }
+  else {
+    handleResize()
+  }
+})
 watch([modelSrcRef, () => props.modelId, () => props.modelFile], async () => await loadModel(), { immediate: true })
 watch(dark, updateDropShadowFilter, { immediate: true })
 watch([model, themeColorsHue], updateDropShadowFilter)

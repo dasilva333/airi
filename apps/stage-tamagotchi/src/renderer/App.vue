@@ -243,6 +243,7 @@ onMounted(async () => {
   logStep('Loading short-term memory')
   await shortTermMemoryStore.load()
   if (isMainWindow.value) {
+    cardStore.isModelSyncPrevented = false
     logStep('Checking yesterday short-term block')
     await ensureYesterdayShortTermBlockForActiveCharacter()
 

@@ -59,9 +59,12 @@ async function initLive2DPixiStage(parent: HTMLDivElement) {
   // We handle the interactions (e.g., mouse-based focusing at) manually
   // extensions.add(InteractionManager)
 
+  const initialWidth = Math.max(1, (props.width || 800) * props.resolution)
+  const initialHeight = Math.max(1, (props.height || 600) * props.resolution)
+
   pixiApp.value = new Application({
-    width: props.width * props.resolution,
-    height: props.height * props.resolution,
+    width: initialWidth,
+    height: initialHeight,
     backgroundAlpha: 0,
     preserveDrawingBuffer: true,
     autoDensity: false,
@@ -87,7 +90,7 @@ async function initLive2DPixiStage(parent: HTMLDivElement) {
 }
 
 function handleResize() {
-  if (pixiApp.value) {
+  if (pixiApp.value && props.width > 0 && props.height > 0) {
     // Update the internal rendering resolution
     pixiApp.value.renderer.resize(props.width * props.resolution, props.height * props.resolution)
     pixiApp.value.stage.scale.set(props.resolution)

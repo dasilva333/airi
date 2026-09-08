@@ -8,7 +8,7 @@ import { ThreeScene } from '@proj-airi/stage-ui-three'
 import { Button, Callout } from '@proj-airi/ui'
 import { useLocalStorage, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import LHackerPanel from './live2d-lhack/LHackerPanel.vue'
@@ -109,6 +109,19 @@ const modelSupportCalloutDismissed = useLocalStorage('airi-model-support-callout
 const live2dRef = ref<InstanceType<typeof Live2D>>()
 const threeSceneRef = ref<InstanceType<typeof ThreeScene>>()
 const isStageExpanded = ref(false)
+
+onMounted(async () => {
+  if (!stageModelSelected.value) {
+    const cardModelId = activeCard.value?.extensions?.airi?.active_state?.displayModelId
+      ?? activeCard.value?.extensions?.airi?.modules?.displayModelId
+    if (cardModelId) {
+      stageModelSelected.value = cardModelId
+    }
+  }
+  if (!stageModelRenderer.value || !stageModelSelectedDisplayModel.value || !stageModelSelectedUrl.value) {
+    await settingsStore.updateStageModel('model-settings mounted')
+  }
+})
 
 defineExpose({
   openModelSelector,

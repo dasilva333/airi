@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ModelSettings } from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { Vibrant } from 'node-vibrant/browser'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const cardStore = useAiriCardStore()
+const settingsStore = useSettings()
 const modelSettingsRef = ref<InstanceType<typeof ModelSettings>>()
 const route = useRoute()
 const router = useRouter()
@@ -55,7 +57,19 @@ watch(
   { immediate: true },
 )
 
-onMounted(() => {
+onMounted(async () => {
+  // Ensure the stage model is loaded for this window before preventing card sync.
+  // Secondary windows (like Settings) do not initialize stage models at boot.
+  if (!settingsStore.stageModelRenderer || !settingsStore.stageModelSelectedDisplayModel || !settingsStore.stageModelSelectedUrl) {
+    if (!settingsStore.stageModelSelected) {
+      const cardModelId = cardStore.activeCard?.extensions?.airi?.active_state?.displayModelId
+        ?? cardStore.activeCard?.extensions?.airi?.modules?.displayModelId
+      if (cardModelId) {
+        settingsStore.stageModelSelected = cardModelId
+      }
+    }
+    await settingsStore.updateStageModel('models page mounted')
+  }
   cardStore.isModelSyncPrevented = true
 })
 

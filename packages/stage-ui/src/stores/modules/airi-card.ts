@@ -776,10 +776,10 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     // or by the Director for Base-sourced outfit swaps). Card activation never needs
     // force here because it clears isModelSyncPrevented first, so a genuinely different
     // model applies via `modelChanged`. See docs/design-fix-actor-stage-desync.md (v4, Leg 2a).
-    if (!isModelSyncPrevented.value) {
+    const rendererUninitialized = !stageModelStore.stageModelRenderer || !stageModelStore.stageModelSelectedDisplayModel
+    if (!isModelSyncPrevented.value || rendererUninitialized) {
       const newModelId = extension.active_state?.displayModelId ?? extension.modules?.displayModelId
       const modelChanged = newModelId && newModelId !== stageModelStore.stageModelSelected
-      const rendererUninitialized = !stageModelStore.stageModelRenderer || !stageModelStore.stageModelSelectedDisplayModel
 
       if (newModelId && (modelChanged || force || rendererUninitialized)) {
         stageModelStore.stageModelSelected = newModelId
