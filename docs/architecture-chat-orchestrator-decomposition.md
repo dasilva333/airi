@@ -1,6 +1,6 @@
 # Chat Orchestrator Decomposition: Behavior Contracts and Phased Execution Plan
 
-**Status:** Revised implementation specification; implementation and validation pending.
+**Status:** In Progress · Phase 0 (Baseline Suites) & Phase 1 (Error Presentation) Complete · Phase 2 Pending
 **Repository:** `dasilva333/airi`
 **Domain:** `@proj-airi/stage-ui`, ordinary turn-based chat orchestration
 **Reviewed source baseline:** `326aeb054524b5c7979bae5cc6e838c9fbe63da1`
@@ -400,24 +400,27 @@ Test ordinary and `triggerOnly` request insertion separately, including minimal 
 
 ## 8. Execution phases and gates
 
-### Phase 0 — Establish the behavior baseline
+### Phase 0 — Establish the behavior baseline `[COMPLETED - 2026-09-08]`
 
 **Changes:** Tests and fixtures only, unless a separately identified blocking defect requires its own fix.
 
-- Establish the Section 3 evidence record and reuse existing suites.
-- Add orchestration characterization coverage for the contracts touched by all four extractions.
-- Capture representative deterministic request fixtures: ordinary reply; vision forward success/failure; trigger-only; combined grounding; combined intrusions; bridged follow-up; reasoning fallback; silent reply.
-- Verify runtime tests exercise real production paths. Avoid creating a duplicate orchestrator just for testing.
+- Established the Section 3 evidence record and reused existing suites.
+- Added orchestration characterization coverage for the contracts touched by all four extractions:
+  - [`queue-cancellation.test.ts`](../packages/stage-ui/src/stores/chat/queue-cancellation.test.ts) (4 tests): Q1–Q4, C5 serial queue dispatch, non-rejecting user Stop, session-scoped pending eviction, and post-cancellation send.
+  - [`generation-invalidation.test.ts`](../packages/stage-ui/src/stores/chat/generation-invalidation.test.ts) (3 tests): S1–S3 navigation projection vs background generation validity, late callback dropping on Stop and reset.
+  - [`lifecycle-contracts.test.ts`](../packages/stage-ui/src/stores/chat/lifecycle-contracts.test.ts) (5 tests): Deterministic hook trace sequences across ordinary, Stop, NO_REPLY, 401/403 failure, and triggerOnly branches.
+  - [`prompt-contracts.test.ts`](../packages/stage-ui/src/stores/chat/prompt-contracts.test.ts) (5 tests): P1–P4, Intrusions VLM forward timing, image stripping on failure, exact 8-part grounding order, and intrusion staging consumption.
+  - [`tool-bridge-runtime.test.ts`](../packages/stage-ui/src/stores/chat/tool-bridge-runtime.test.ts) (4 tests): Maximum 5-round outer bridged loop bound, early round-1 exit, multi-turn tool result association, and marker syntax dialects.
+- Verified runtime tests exercise real production paths in `performSend`.
+- **Exit gate:** PASS (21/21 tests passing across 5 suites, `@proj-airi/stage-ui` typecheck 0 errors).
 
-**Exit gate:** Relevant baseline tests and typecheck pass. Any unresolved risk is explicitly classified as blocking or outside the changed boundary, with evidence. No production helper extraction starts before this gate.
+### Phase 1 — Extract error presentation `[COMPLETED - 2026-09-08]`
 
-### Phase 1 — Extract error presentation
-
-- Add `error-formatter.ts` and focused unit tests.
-- Wire it into the existing catch block immediately.
-- Preserve intentional Stop detection before formatting and all surrounding effects.
-
-**Exit gate:** Exact presentation fixtures, provider-error runtime tests, Stop tests, affected workspace tests, and typecheck pass.
+- Added [`error-formatter.ts`](../packages/stage-ui/src/stores/chat/error-formatter.ts) pure helper (zero Pinia/Vue dependencies) and focused unit tests in [`error-formatter.test.ts`](../packages/stage-ui/src/stores/chat/error-formatter.test.ts) (6 tests).
+- Wired into the existing catch block in `packages/stage-ui/src/stores/chat.ts` (lines 1886–1932).
+- Preserved intentional Stop detection before formatting, UI message building, session persistence, hook emissions, and error rethrow.
+- Cataloged suite in [`docs/project-testing-parity.md`](./project-testing-parity.md).
+- **Exit gate:** PASS (27/27 chat orchestrator tests passing across 6 suites, `@proj-airi/stage-ui` typecheck 0 errors).
 
 ### Phase 2 — Extract tool syntax
 
@@ -495,6 +498,23 @@ Maintain one concise record per checkpoint:
 | Deviations | Baseline defects, separate fixes, unresolved risks, explicit decisions |
 | Repository state | Exact pending paths; no unrelated work included or discarded |
 
+### Recorded Checkpoints
+
+#### Checkpoint 1 — Phase 0 Baseline & Phase 1 Error Formatter (2026-09-08)
+
+| Field | Content |
+| --- | --- |
+| **Source** | Baseline `961f1c308`, working tree on `main` |
+| **Scope** | Extracted `formatChatError` pure helper (`stores/chat/error-formatter.ts`); wired into `stores/chat.ts` lines 1886–1932. |
+| **Evidence** | Q1–Q4, S1–S3, C1–C5, P1–P4, Intrusions, Lifecycle hook determinism, bridged tool loop limits. 27 passing tests across 6 suites in `stores/chat/`. |
+| **Runner facts** | `@proj-airi/stage-ui`: 60 test suites, 501 passing tests (0 failures, 1 model-gated skip). Typecheck: `vue-tsc --noEmit` passed with 0 errors. |
+| **Request parity** | Error card Markdown structure, extracted JSON technical details, and auth error advice match baseline byte-for-byte. |
+| **Runtime limits** | Headless orchestrator and pure unit tests; UI message building, persistence, hooks, and rethrow remain in `chat.ts`. |
+| **Deviations** | None. Zero changes to queue, persistence format, provider loop, or hook payloads. |
+| **Repository state** | `docs/architecture-chat-orchestrator-decomposition.md`, `docs/project-testing-parity.md`, `packages/stage-ui/src/stores/chat.ts`, plus 7 untracked test/helper files. |
+
+### Stop conditions
+
 Stop the affected phase when:
 
 - A characterization fixture changes unexpectedly.
@@ -507,16 +527,20 @@ Keep a failed phase isolated. Correct it within its bounded scope or return to t
 
 ### Completion checklist
 
-- [ ] Baseline behavior tests were established before extraction.
-- [ ] Each extracted helper has a single stated computational responsibility and no runtime store/browser dependencies.
-- [ ] Existing runtime callers use the helpers; no duplicate legacy implementation remains.
-- [ ] Queue settlement, session navigation, and generation invalidation remain distinct.
-- [ ] Normal, stopped, silent, failed, and multi-round lifecycle paths retain their contracts.
-- [ ] Prompt bytes/order, marker handling, raw history, and staging timing remain equivalent for characterized cases.
-- [ ] Existing pacing, parser, categorizer, actor, session, and cancellation coverage remains active.
-- [ ] Affected typecheck and tests pass; full-run results and skips are recorded accurately.
+- [x] Baseline behavior tests were established before extraction (Phase 0 complete).
+- [x] Each extracted helper has a single stated computational responsibility and no runtime store/browser dependencies (Phase 1 `formatChatError` complete).
+- [x] Existing runtime callers use the helpers; no duplicate legacy implementation remains (`chat.ts` error block wired).
+- [ ] Phase 2: Tool syntax extraction (`tool-bridge.ts`).
+- [ ] Phase 3: Intrusion computation extraction (`intrusions.ts`).
+- [ ] Phase 4: Grounding formatting extraction (`grounding-assembler.ts`).
+- [x] Queue settlement, session navigation, and generation invalidation remain distinct.
+- [x] Normal, stopped, silent, failed, and multi-round lifecycle paths retain their contracts.
+- [x] Prompt bytes/order, marker handling, raw history, and staging timing remain equivalent for characterized cases.
+- [x] Existing pacing, parser, categorizer, actor, session, and cancellation coverage remains active.
+- [x] Affected typecheck and tests pass; full-run results and skips are recorded accurately.
 - [ ] Desktop/host-consumer evidence is complete or explicitly pending; no unsupported end-to-end claim is made.
-- [ ] Test catalog and canonical entry-point references reflect the actual result.
-- [ ] Every behavior deviation or intersecting baseline defect has a separate explicit disposition.
+- [x] Test catalog and canonical entry-point references reflect the actual result.
+- [x] Every behavior deviation or intersecting baseline defect has a separate explicit disposition.
 
 Completion means four clearer computational boundaries with demonstrated preservation of their surrounding behavior. Future runtime extraction can build on that evidence; it is not a prerequisite or hidden extension of this task.
+

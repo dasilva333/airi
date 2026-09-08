@@ -27,6 +27,7 @@ import { appendActorAwareTextSlice, captureActorToken, createActorSliceState } f
 import { useCompactionStore } from './chat/compaction'
 import { createDatetimeContext, createEternalRecordContext, createExpressionsContext, createScenesContext, createStickersContext } from './chat/context-providers'
 import { useChatContextStore } from './chat/context-store'
+import { formatChatError } from './chat/error-formatter'
 import { createChatHooks } from './chat/hooks'
 import { clearArtistryStaging, clearJournalStaging, pendingIntrusionStaging, stageArtistryIntrusion, stageJournalIntrusion } from './chat/intrusion-staging'
 import { useChatSalienceStore } from './chat/salience'
@@ -1882,52 +1883,13 @@ Format your output as a raw thought log.`
 
       console.error('Error sending message:', { sessionId, generation, error })
 
-      let errorMessage = 'An unknown error occurred.'
-      let technicalDetail = ''
-
-      if (error && typeof error === 'object') {
-        errorMessage = error.message || 'An object error occurred.'
-
-        // Handle XSAIError or similar with response/data info
-        try {
-          const detail = error.response || error.data || error.body || (error.cause as any)?.response
-          if (detail) {
-            technicalDetail = typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2)
-          }
-
-          // Best effort: if message itself contains JSON (common in 429s), extract it
-          if (errorMessage.includes('{') && errorMessage.includes('}')) {
-            const potentialJson = errorMessage.substring(errorMessage.indexOf('{'), errorMessage.lastIndexOf('}') + 1)
-            try {
-              const parsed = JSON.parse(potentialJson)
-              technicalDetail = JSON.stringify(parsed, null, 2)
-              // Strip the JSON from the main message for cleaner display
-              errorMessage = errorMessage.replace(potentialJson, '').trim()
-            }
-            catch {}
-          }
-        }
-        catch {}
-      }
-      else {
-        errorMessage = String(error)
-      }
-
-      const activeModelName = effectiveModel || 'Default'
-      const activeProviderName = effectiveProviderId || 'Default'
-      const isAuthError = errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('api key')
-
-      let fullErrorDisplay = `⚠️ **Chat Generation Failed**\n\n`
-      fullErrorDisplay += `**Configured Model**: \`${activeModelName}\` *(Provider: \`${activeProviderName}\`)*\n\n`
-      fullErrorDisplay += `**Error**: ${errorMessage}\n\n`
-      fullErrorDisplay += `💡 **Suggested Fix**:\n`
-      fullErrorDisplay += `👉 Click the **Brain Picker** (🧠 icon) in the top-right corner of this window to double-check or switch the model configured for this character.`
-      if (isAuthError) {
-        fullErrorDisplay += `\n*If switching models doesn't help, verify your API key in **Settings > Providers**.*`
-      }
-      if (technicalDetail) {
-        fullErrorDisplay += `\n\n<details>\n<summary>🔍 Technical Details</summary>\n\n\`\`\`json\n${technicalDetail}\n\`\`\`\n</details>`
-      }
+      const formatted = formatChatError(error, {
+        model: effectiveModel,
+        provider: effectiveProviderId,
+      })
+      const fullErrorDisplay = formatted.markdown
+      const errorMessage = formatted.message
+      const technicalDetail = formatted.technicalDetail
 
       // Display in UI: Update content for history AND slices for immediate rendering
       buildingMessage.content += `${buildingMessage.content ? '\n\n' : ''}${fullErrorDisplay}`
