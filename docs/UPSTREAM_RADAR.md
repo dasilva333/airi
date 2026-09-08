@@ -6,6 +6,108 @@
 
 ---
 
+## [2026-09-08] Upstream Delta: `52a9f429..f679616c` (6 commits, 41 files, 15 PR update(s))
+
+### 🎯 Executive Highlights
+* **Active Focus**: Upstream merged 6 commits spanning configurable LLM sampling parameters (temperature, top_p in #2200), character card global settings inheritance (#2332), onboarding dialog suppression when provider credentials exist (#1900), and Electron onboarding sign-in window retention (#2482). On PR radar, upstream is working on bilingual subtitles (#2485, #2487), Live2D lip-sync preservation during MAGIC motion (#2481), account context injection (#2488), and OpenPanel analytics (#2480 [Draft]).
+* **Cherry-Pick Candidates**:
+  - ⭐ **PR #2200 / Commit `e293b71ab` (`feat: add support for temperature, top_p to be configurable`)**: High value feature adding temperature and top_p controls to Consciousness settings. Recommended for surgical port into `useConsciousnessStore`, `consciousness.vue`, and `chat.ts` -> `llm.ts` (adapting to our fork's `useLLM` rather than upstream's `core-agent`).
+  - ⭐ **PR #2481 (`fix(stage-ui-live2d): preserve lip sync during MAGIC motion`) [Open PR]**: High-value Live2D fix preventing motion sequences from freezing lip sync during speech playback.
+  - ⭐ **PR #2414 (`fix(pipelines-audio): preserve multi-code-unit grapheme clusters in TTS chunking`) [Discussion]**: Critical text segmentation fix preventing surrogate pair / emoji corruption in TTS streams.
+  - 🔍 **PR #1900 / Commit `332883d42` (`fix(stage-ui): onboarding repeat prompt when provider credentials exist`)**: Useful startup provider credential snapshot pattern to prevent accidental onboarding re-triggers.
+* **Divergence / Collision Warnings**:
+  - 🚨 **PR #2332 / Commit `ef9f122d5` (`airi-card.ts` & Card Editors)**: Massive refactor (+1086/-365) in `packages/stage-ui/src/stores/modules/airi-card.ts`. Direct merge would clobber our fork's custom companion mounting, dream turns, proactivity gating, voice profile merging by ID, and navigation logic. Requires manual surgical adoption if card inheritance is desired.
+  - 🚨 **PR #2200 / Commit `e293b71ab` (`packages/core-agent`)**: Upstream continues building on `packages/core-agent`, which is absent in `dasilva333/airi`. Our fork dispatches via `packages/stage-ui/src/stores/llm.ts`. Do not import `core-agent` dependencies.
+  - ⚠️ **PR #2482 / Commit `f679616c3` (`apps/stage-tamagotchi/.../onboarding.vue`)**: Upstream patched their legacy onboarding page for browser OAuth callbacks. Our fork uses the custom `OnboardingV2` component tree; this change is inapplicable.
+  - ⚪ **PR #2480 (`feat(analytics): route product events to OpenPanel`)**: OpenPanel telemetry is explicitly rejected under our fork's privacy principles (`⚪ ignore / rejected in fork`).
+
+### 📋 Upstream Commits
+- `f679616c3` fix(stage-tamagotchi): allow sign-in on the first attempt (#2482) [#2482](https://github.com/moeru-ai/airi/pull/2482) _(Lovehsigure_520, 2026-09-08)_
+- `ef9f122d5` fix(stage-ui): inherit global settings for default card (#2332) [#2332](https://github.com/moeru-ai/airi/pull/2332) _(RainbowBird, 2026-09-08)_
+- `9a4e1da5a` test(stage-ui): fix tests  _(Makito, 2026-09-08)_
+- `332883d42` fix(stage-ui): onboarding repeat prompt when provider credentials exist (#1900) [#1900](https://github.com/moeru-ai/airi/pull/1900) _(Sho Jikumaru, 2026-09-07)_
+- `e293b71ab` feat: add support for temperature, top_p to be configurable (#2200) [#2200](https://github.com/moeru-ai/airi/pull/2200) _(Vikranth Kumar Bala, 2026-09-07)_
+- `66c6aa9b5` chore: ignore .worktrees  _(RainbowBird, 2026-09-04)_
+
+### 🔬 Subsystem Breakdown
+#### Other / Uncategorized (`🔍 inspect`) — 20 file(s) (+970/-184)
+- `.gitignore` *(+1/-0)*
+- `packages/provider-inference/src/providers/cloud/amazon-bedrock/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/libs/providers/providers/official/constants.ts` *(+6/-0)*
+- `packages/stage-ui/src/libs/providers/providers/official/index.ts` *(+2/-5)*
+- `packages/stage-ui/src/services/airi-card-editor.test.ts` *(+51/-1)*
+- `packages/stage-ui/src/services/airi-card-editor.ts` *(+43/-0)*
+- `packages/stage-ui/src/services/airi-card-modules.ts` *(+18/-0)*
+- `packages/stage-ui/src/stores/mods/api/context-bridge.ts` *(+3/-1)*
+- `packages/stage-ui/src/stores/modules/airi-card-inheritance.browser.test.ts` *(+112/-0)*
+- `packages/stage-ui/src/stores/modules/airi-card-inheritance.test.ts` *(+298/-0)*
+- `packages/stage-ui/src/stores/modules/airi-card.test.ts` *(+71/-34)*
+- `packages/stage-ui/src/stores/modules/airi-card.ts` *(+223/-115)*
+- `packages/stage-ui/src/stores/modules/consciousness.ts` *(+16/-0)*
+- `packages/stage-ui/src/stores/modules/default.ts` *(+1/-1)*
+- `packages/stage-ui/src/stores/onboarding.test.ts` *(+48/-1)*
+- `packages/stage-ui/src/stores/onboarding.ts` *(+7/-0)*
+- `packages/stage-ui/src/types/character.ts` *(+5/-0)*
+- `server/apps/api/src/routes/characters/schema.ts` *(+8/-15)*
+- `server/apps/api/src/services/domain/characters.ts` *(+55/-11)*
+- `server/apps/api/src/types/character-capability.ts` *(+1/-0)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 5 file(s) (+35/-21)
+- `apps/stage-pocket/src/App.vue` *(+2/-5)*
+- `apps/stage-pocket/src/pages/index.vue` *(+7/-2)*
+- `apps/stage-web/src/App.vue` *(+2/-5)*
+- `apps/stage-web/src/pages/index.vue` *(+7/-2)*
+- `apps/stage-web/src/pages/settings/characters/components/CharacterDialog.vue` *(+17/-7)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 4 file(s) (+161/-40)
+- `apps/stage-tamagotchi/src/renderer/App.vue` *(+2/-5)*
+- `apps/stage-tamagotchi/src/renderer/composables/use-onboarding-authentication.test.ts` *(+87/-0)*
+- `apps/stage-tamagotchi/src/renderer/composables/use-onboarding-authentication.ts` *(+63/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/onboarding.vue` *(+9/-35)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 3 file(s) (+19/-0)
+- `packages/core-agent/src/runtime/chat-orchestrator-runtime.ts` *(+6/-0)*
+- `packages/core-agent/src/runtime/llm-service.ts` *(+2/-0)*
+- `packages/core-agent/src/types/llm.ts` *(+11/-0)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 2 file(s) (+14/-3)
+- `packages/i18n/src/locales/en/settings.yaml` *(+7/-2)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+7/-1)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 5 file(s) (+250/-192)
+- `packages/stage-pages/src/pages/settings/airi-card/components/CardCreationDialog.vue` *(+159/-109)*
+- `packages/stage-pages/src/pages/settings/airi-card/components/CardDetailDialog.vue` *(+11/-22)*
+- `packages/stage-pages/src/pages/settings/modules/consciousness.vue` *(+37/-11)*
+- `packages/stage-pages/src/pages/settings/modules/speech.vue` *(+26/-35)*
+- `packages/stage-pages/src/pages/settings/modules/vision.vue` *(+17/-15)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 1 file(s) (+25/-0)
+- `packages/stage-ui/README.md` *(+25/-0)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 1 file(s) (+6/-0)
+- `packages/stage-ui/src/stores/chat.ts` *(+6/-0)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (12)
+- [#2488](https://github.com/moeru-ai/airi/pull/2488) `feat(stage-ui): add signed-in nickname context to chat prompts` by **@luoling8192** *(2 comments)*
+- [#2487](https://github.com/moeru-ai/airi/pull/2487) `feat(stage): add bilingual subtitles` by **@phx3334** *(0 comments)*
+- [#2486](https://github.com/moeru-ai/airi/pull/2486) `feat(stage-ui): confirm sign-out with keep or wipe options` by **@lulu0119** *(1 comments)*
+- [#2485](https://github.com/moeru-ai/airi/pull/2485) `feat(stage): user-configurable bilingual subtitles (speak one languag…` by **@phx3334** *(0 comments)*
+- [#2484](https://github.com/moeru-ai/airi/pull/2484) `feat(stage-ui): show Cloud announcements on Web and Electron` by **@luoling8192** *(2 comments)*
+- [#2483](https://github.com/moeru-ai/airi/pull/2483) `fix(auth): discard stale authentication requests` by **@luoling8192** *(2 comments)*
+- [#2480](https://github.com/moeru-ai/airi/pull/2480) `feat(analytics): route product events to OpenPanel` by **@luoling8192** *(Draft)* *(1 comments)*
+- [#2482](https://github.com/moeru-ai/airi/pull/2482) `fix(stage-tamagotchi): allow sign-in on the first attempt` by **@Neko-233** *(2 comments)*
+- [#2332](https://github.com/moeru-ai/airi/pull/2332) `fix(stage-ui): inherit global settings for default card` by **@luoling8192** *(2 comments)*
+- [#2481](https://github.com/moeru-ai/airi/pull/2481) `fix(stage-ui-live2d): preserve lip sync during MAGIC motion` by **@Arata1202** *(2 comments)*
+- [#1900](https://github.com/moeru-ai/airi/pull/1900) `fix(stage-ui): onboarding repeat prompt when provider credentials exist` by **@shojikumaru** *(3 comments)*
+- [#2200](https://github.com/moeru-ai/airi/pull/2200) `feat: add support for temperature, top_p to be configurable` by **@VikranthBala** *(7 comments)*
+
+#### 💬 Discussion Activity (3)
+- [#2474](https://github.com/moeru-ai/airi/pull/2474) `fix(stage-tamagotchi): prevent controls island overflow in small windows with scroll` — *+3 comments (2 ➔ 5 total)*
+- [#2414](https://github.com/moeru-ai/airi/pull/2414) `fix(pipelines-audio): preserve multi-code-unit grapheme clusters in TTS chunking` — *+1 comments (3 ➔ 4 total)*
+- [#2415](https://github.com/moeru-ai/airi/pull/2415) `fix(stage-ui): deliver sends issued during the transport prepare phase` — *+1 comments (2 ➔ 3 total)*
+
+---
 ## [2026-09-07] Upstream Delta: `f166736a..52a9f429` (6 commits, 63 files, 13 PR update(s))
 
 ### 🎯 Executive Highlights

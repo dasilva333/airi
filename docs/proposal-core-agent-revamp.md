@@ -1,5 +1,8 @@
 # Proposal: Core-Agent Revamp & Apeira Integration
 
+> [!NOTE]
+> **Active Implementation Specification:** Full package replacement with Apeira has been formally deferred due to upstream instability and upcoming persistence redesigns. The active architectural roadmap for core agent modularity is the surgical decomposition plan documented in [`docs/architecture-chat-orchestrator-decomposition.md`](./architecture-chat-orchestrator-decomposition.md).
+
 This document outlines the design considerations, community feedback, technical capabilities, and potential migration path for replacing the custom `@proj-airi/core-agent` orchestrator in this fork with **Apeira** as the core LLM execution runtime.
 
 ---
