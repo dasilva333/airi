@@ -4,6 +4,7 @@ import type { CommonContentPart, Message, ToolMessage } from '@xsai/shared-chat'
 
 import type { ChatAssistantMessage, ChatSlices, ChatStreamEventContext } from '../types/chat'
 import type { PacingMetrics } from '../types/pacing'
+import type { ChatInputBridgePayload } from './chat/input-bridge'
 import type { StreamEvent, StreamOptions } from './llm'
 
 import { debug, healMozibake, isStageTamagotchi } from '@proj-airi/stage-shared'
@@ -33,6 +34,17 @@ import {
   formatVlmBlock,
 } from './chat/grounding-assembler'
 import { createChatHooks } from './chat/hooks'
+import {
+  buildBridgeMessagePayload,
+  buildBridgeStopPayload,
+  CHAT_INPUT_BRIDGE_CHANNEL,
+
+  evaluateBridgeInboundAction,
+  INGESTION_TIMEOUT_MS,
+  matchesClientEcho,
+  serializeBridgePayload,
+  shouldBypassVerificationLoop,
+} from './chat/input-bridge'
 import { clearArtistryStaging, clearJournalStaging, pendingIntrusionStaging, stageArtistryIntrusion, stageJournalIntrusion } from './chat/intrusion-staging'
 import {
   formatArtistryPrompt,
@@ -149,19 +161,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   const shouldListenToCaptions = isMainWindow || isChatWindow
 
   const { data: broadcastedInput, post: postInput } = useBroadcastChannel<
-    {
-      type?: 'stop'
-      sendingMessage?: string
-      options?: any
-      targetSessionId?: string
-    },
-    {
-      type?: 'stop'
-      sendingMessage?: string
-      options?: any
-      targetSessionId?: string
-    }
-  >({ name: 'airi-chat-input-bridge' })
+    ChatInputBridgePayload,
+    ChatInputBridgePayload
+  >({ name: CHAT_INPUT_BRIDGE_CHANNEL })
 
   // Cross-window intrusion staging channel
   const { data: intrusionBroadcast } = useBroadcastChannel<
@@ -237,26 +239,31 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       if (payload) {
         chatLog('Received broadcasted chat input from secondary window:', payload)
 
+        const action = evaluateBridgeInboundAction(payload, chatSession.activeSessionId)
+
         // Stop requests from secondary windows (chat window, actor stage) ask the main
         // window — the only process that runs performSend — to cancel the in-flight turn.
-        if (payload.type === 'stop') {
-          void stopCurrentGeneration(payload.targetSessionId)
+        if (action.action === 'stop') {
+          void stopCurrentGeneration(action.targetSessionId)
           return
         }
 
-        if (!payload.sendingMessage && !payload.options?.triggerOnly && !payload.options?.attachments?.length)
+        if (action.action === 'ignore') {
           return
+        }
 
         // NOTICE: Align the main window's active session to the sender's target so that in-band
         // tool executions and memory/context resolution resolve against the user's intended
         // timeline, not whichever snapshot this process last cached. setActiveSession short-
         // circuits when the session is already active, preventing broadcast loops.
-        if (payload.targetSessionId && payload.targetSessionId !== chatSession.activeSessionId)
-          chatSession.setActiveSession(payload.targetSessionId)
-        ingest(payload.sendingMessage || '', {
-          ...payload.options,
+        if (action.shouldSwitchSession && action.targetSessionId) {
+          chatSession.setActiveSession(action.targetSessionId)
+        }
+
+        ingest(action.sendingMessage, {
+          ...action.options,
           tools: toolsResolver.value,
-        }, payload.targetSessionId)
+        }, action.targetSessionId)
       }
     })
 
@@ -1794,23 +1801,8 @@ Format your output as a raw thought log.`
     }
   }
 
-  function postInputBridgePayload(payload: {
-    sendingMessage: string
-    options?: Record<string, unknown>
-    targetSessionId?: string
-  }) {
-    let cloneable: {
-      sendingMessage: string
-      options?: Record<string, unknown>
-      targetSessionId?: string
-    }
-    try {
-      cloneable = JSON.parse(JSON.stringify(payload)) as typeof cloneable
-    }
-    catch (err) {
-      console.error('[IngestDebug] Failed to serialize chat-input-bridge payload:', err)
-      throw new Error('Failed to prepare message for the main window (payload not serializable).')
-    }
+  function postInputBridgePayload(payload: ChatInputBridgePayload) {
+    const cloneable = serializeBridgePayload(payload)
     postInput(cloneable)
   }
 
@@ -1827,23 +1819,14 @@ Format your output as a raw thought log.`
     chatLog('Ingesting message:', { sendingMessage, sessionId, sending: sending.value })
 
     if (!isMainWindow) {
-      if (options.triggerOnly) {
+      if (shouldBypassVerificationLoop(options)) {
         debug(`[IngestDebug] Secondary window ingesting with triggerOnly. Bypassing verification loop.`)
-        postInputBridgePayload({
-          sendingMessage,
-          options: {
-            ...options,
-            chatProvider: typeof options.chatProvider === 'string' ? options.chatProvider : undefined,
-            tools: undefined,
-          },
-          targetSessionId: sessionId,
-        })
+        postInputBridgePayload(buildBridgeMessagePayload(sendingMessage, options, sessionId))
         return Promise.resolve()
       }
 
       const clientMessageId = nanoid()
       debug(`[IngestDebug] Secondary window ingesting. clientMessageId: ${clientMessageId}. Target session: ${sessionId}`)
-      const metadata = { ...options.metadata, clientMessageId }
 
       return new Promise<void>((resolve, reject) => {
         let timeoutId: ReturnType<typeof setTimeout> | null = null
@@ -1860,12 +1843,12 @@ Format your output as a raw thought log.`
           }
         }
 
-        // Wait up to 5 seconds for the message to be sync-broadcasted back
+        // Wait up to INGESTION_TIMEOUT_MS for the message to be sync-broadcasted back
         timeoutId = setTimeout(() => {
           cleanup()
           console.error(`[IngestDebug] TIMEOUT waiting for clientMessageId: ${clientMessageId}`)
           reject(new Error('Ingestion timeout: main process did not acknowledge the message.'))
-        }, 5000)
+        }, INGESTION_TIMEOUT_MS)
 
         stopWatch = watch(
           () => {
@@ -1876,9 +1859,8 @@ Format your output as a raw thought log.`
           (messages) => {
             debug(`[IngestDebug] Watcher callback triggered. Messages length: ${messages.length}`)
             const found = messages.some((m) => {
-              const clientMsgId = (m as any).clientMessageId || (m as any).metadata?.clientMessageId
-              const matched = clientMsgId === clientMessageId
-              debug(`[IngestDebug] Checking msg in history:`, { id: m.id, role: m.role, clientMsgId, matched })
+              const matched = matchesClientEcho(m, clientMessageId)
+              debug(`[IngestDebug] Checking msg in history:`, { id: m.id, role: m.role, matched })
               return matched
             })
             if (found) {
@@ -1890,16 +1872,7 @@ Format your output as a raw thought log.`
           { immediate: true, deep: true },
         )
 
-        postInputBridgePayload({
-          sendingMessage,
-          options: {
-            ...options,
-            chatProvider: typeof options.chatProvider === 'string' ? options.chatProvider : undefined,
-            tools: undefined,
-            metadata,
-          },
-          targetSessionId: sessionId,
-        })
+        postInputBridgePayload(buildBridgeMessagePayload(sendingMessage, options, sessionId, clientMessageId))
       })
     }
 
@@ -1980,7 +1953,7 @@ Format your output as a raw thought log.`
 
     if (!isMainWindow) {
       chatLog('stopCurrentGeneration: relaying stop request to main window', { sessionId })
-      postInput({ type: 'stop', targetSessionId: sessionId })
+      postInput(buildBridgeStopPayload(sessionId))
       return
     }
 
