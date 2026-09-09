@@ -1,5 +1,6 @@
 import type { I18n } from '../../libs/i18n'
 import type { ServerChannel } from '../../services/airi/channel-server'
+import type { WidgetsWindowManager } from '../widgets'
 
 import { join, resolve } from 'node:path'
 
@@ -12,6 +13,7 @@ import icon from '../../../../resources/icon.png?asset'
 import { electronOnboardingClose, electronOnboardingCompleted, electronOnboardingSkipped } from '../../../shared/eventa'
 import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
 import { createReusableWindow } from '../../libs/electron/window-manager'
+import { createWidgetsService } from '../../services/airi/widgets'
 import { toggleWindowShow } from '../shared'
 import { setupBaseWindowElectronInvokes } from '../shared/window'
 
@@ -24,6 +26,7 @@ export interface OnboardingWindowManager {
 export function setupOnboardingWindowManager(params: {
   serverChannel: ServerChannel
   i18n: I18n
+  widgetsManager: WidgetsWindowManager
 }): OnboardingWindowManager {
   const rendererBase = baseUrl(resolve(getElectronMainDirname(), '..', 'renderer'))
 
@@ -73,6 +76,7 @@ export function setupOnboardingWindowManager(params: {
     defineInvokeHandler(context, electronOnboardingSkipped, async () => newWindow.close())
 
     await setupBaseWindowElectronInvokes({ context, window: newWindow, i18n: params.i18n, serverChannel: params.serverChannel })
+    createWidgetsService({ context, widgetsManager: params.widgetsManager, window: newWindow })
 
     await load(newWindow, withHashRoute(rendererBase, '/onboarding'))
 

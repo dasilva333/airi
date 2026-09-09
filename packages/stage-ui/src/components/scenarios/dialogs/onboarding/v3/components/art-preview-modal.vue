@@ -73,12 +73,17 @@ async function runGeneration() {
     if (generateInvoke) {
       generationStatus.value = `Synthesizing via ${props.provider.toUpperCase()}...`
       try {
-        const res = await generateInvoke({
-          prompt: props.prompt,
-          model: props.model,
-          provider: props.provider,
-          options: { width: 1024, height: 1024 },
-        })
+        const res = await Promise.race([
+          generateInvoke({
+            prompt: props.prompt,
+            model: props.model,
+            provider: props.provider,
+            options: { width: 1024, height: 1024 },
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout waiting for Electron generation response')), 35000),
+          ),
+        ])
         if (res?.error) {
           if (props.provider === 'pollinations') {
             console.warn('[ArtPreviewModal] Main process error, falling back to CORS proxy:', res.error)
@@ -99,7 +104,7 @@ async function runGeneration() {
       }
       catch (ipcErr: any) {
         if (props.provider === 'pollinations') {
-          console.warn('[ArtPreviewModal] IPC throw, falling back to CORS proxy:', ipcErr)
+          console.warn('[ArtPreviewModal] IPC throw or timeout, falling back to CORS proxy:', ipcErr)
           resultUrl = await fetchDirectPollinations(props.prompt, props.model)
         }
         else {

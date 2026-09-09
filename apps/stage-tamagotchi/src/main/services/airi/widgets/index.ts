@@ -18,11 +18,13 @@ function isFromWindow(options: InvokeOptions | undefined, window: BrowserWindow)
   if (!sender)
     return false
 
-  if (sender.id !== window.webContents.id) {
-    console.warn(`[WidgetsService] Window mismatch detected. Sender: ${sender.id}, Target Window: ${window.webContents.id}. Allowing anyway for dev tools support.`)
-  }
+  if (sender.id === window.webContents.id)
+    return true
 
-  return true
+  if (window.webContents.devToolsWebContents && sender.id === window.webContents.devToolsWebContents.id)
+    return true
+
+  return false
 }
 
 export function createWidgetsService(params: { context: ReturnType<typeof createContext>['context'], widgetsManager: WidgetsWindowManager, window: BrowserWindow }) {
@@ -90,7 +92,9 @@ export function createWidgetsService(params: { context: ReturnType<typeof create
         return { error: error.message }
       }
     },
-    artistryComfyHealthCheck: async (payload: { url: string }) => {
+    artistryComfyHealthCheck: async (payload: { url: string }, options) => {
+      if (!isFromWindow(options as InvokeOptions, params.window))
+        throw new Error('Unauthorized window')
       const url = payload?.url
       if (!url)
         throw new Error('Missing URL')

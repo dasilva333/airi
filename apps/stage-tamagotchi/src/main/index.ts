@@ -320,18 +320,18 @@ app.whenReady().then(async () => {
   const beatSync = injeca.provide('windows:beat-sync', () => setupBeatSync())
   const devtoolsMarkdownStressWindow = injeca.provide('windows:devtools:markdown-stress', () => setupDevtoolsWindow())
 
-  const onboardingWindowManager = injeca.provide('windows:onboarding', {
+  const widgetsManager = injeca.provide('windows:widgets', {
     dependsOn: { serverChannel, i18n },
+    build: ({ dependsOn }) => setupWidgetsWindowManager(dependsOn),
+  })
+
+  const onboardingWindowManager = injeca.provide('windows:onboarding', {
+    dependsOn: { serverChannel, i18n, widgetsManager },
     build: ({ dependsOn }) => setupOnboardingWindowManager(dependsOn),
   })
   const noticeWindow = injeca.provide('windows:notice', {
     dependsOn: { i18n, serverChannel },
     build: ({ dependsOn }) => setupNoticeWindowManager(dependsOn),
-  })
-
-  const widgetsManager = injeca.provide('windows:widgets', {
-    dependsOn: { serverChannel, i18n },
-    build: ({ dependsOn }) => setupWidgetsWindowManager(dependsOn),
   })
 
   const aboutWindow = injeca.provide('windows:about', {
