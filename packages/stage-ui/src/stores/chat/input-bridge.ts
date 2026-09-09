@@ -55,11 +55,17 @@ export function buildBridgeMessagePayload(
     ...(clientMessageId ? { clientMessageId } : {}),
   }
 
+  // NOTICE: Intentional normalization behavior: In addition to string-valued chatProvider,
+  // we also extract and forward .id from provider account objects if and only if .id is a non-empty string.
+  // Missing, numeric, boolean, or object-valued IDs are normalized to undefined.
   const cleanOptions: Record<string, any> = {
     ...options,
     chatProvider: typeof options.chatProvider === 'string'
       ? options.chatProvider
-      : (typeof options.chatProvider === 'object' && options.chatProvider !== null && 'id' in (options.chatProvider as any))
+      : (typeof options.chatProvider === 'object'
+        && options.chatProvider !== null
+        && typeof (options.chatProvider as any).id === 'string'
+        && (options.chatProvider as any).id.trim().length > 0)
           ? (options.chatProvider as any).id
           : undefined,
     tools: undefined, // Tools cannot be serialized across BroadcastChannel and are resolved in main window
@@ -78,7 +84,7 @@ export function buildBridgeMessagePayload(
 
 /**
  * Evaluates whether a session message corresponds to the client-generated message ID echo.
- * Checks both direct top-level property and nested metadata.
+ * Top-level clientMessageId takes strict precedence over nested metadata.clientMessageId.
  */
 export function matchesClientEcho(message: unknown, clientMessageId: string): boolean {
   if (!message || typeof message !== 'object' || !clientMessageId) {
@@ -86,10 +92,91 @@ export function matchesClientEcho(message: unknown, clientMessageId: string): bo
   }
 
   const msg = message as Record<string, any>
-  const directId = msg.clientMessageId
-  const metadataId = msg.metadata?.clientMessageId
+  const effectiveId = msg.clientMessageId || msg.metadata?.clientMessageId
 
-  return directId === clientMessageId || metadataId === clientMessageId
+  return effectiveId === clientMessageId
+}
+
+export interface BridgedAcknowledgmentOptions {
+  clientMessageId: string
+  timeoutMs?: number
+  getSessionMessages: () => unknown[]
+  watchMessages: (getter: () => unknown[], callback: (messages: unknown[]) => void) => () => void
+  postPayload: () => void
+}
+
+/**
+ * Coordinates the secondary-window ingestion acknowledgment lifecycle:
+ * 1. Sets a timeout (default INGESTION_TIMEOUT_MS) to reject if the main window never acknowledges.
+ * 2. Watches session messages for an echo matching clientMessageId.
+ * 3. Immediately cleans up (clearing timer and unwatching) upon successful echo.
+ * 4. Wraps postPayload in try/catch to guarantee immediate cleanup and rejection if serialization or transport fails.
+ */
+export function createBridgedIngestionAcknowledgment(options: BridgedAcknowledgmentOptions): Promise<void> {
+  const {
+    clientMessageId,
+    timeoutMs = INGESTION_TIMEOUT_MS,
+    getSessionMessages,
+    watchMessages,
+    postPayload,
+  } = options
+
+  return new Promise<void>((resolve, reject) => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let stopWatch: (() => void) | null = null
+    let isSettled = false
+
+    const cleanup = () => {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+      if (stopWatch !== null) {
+        stopWatch()
+        stopWatch = null
+      }
+    }
+
+    timeoutId = setTimeout(() => {
+      if (isSettled) {
+        return
+      }
+      isSettled = true
+      cleanup()
+      console.error(`[IngestDebug] TIMEOUT waiting for clientMessageId: ${clientMessageId}`)
+      reject(new Error('Ingestion timeout: main process did not acknowledge the message.'))
+    }, timeoutMs)
+
+    const unwatch = watchMessages(
+      () => getSessionMessages(),
+      (messages) => {
+        if (isSettled || !Array.isArray(messages)) {
+          return
+        }
+        const found = messages.some(m => matchesClientEcho(m, clientMessageId))
+        if (found) {
+          isSettled = true
+          cleanup()
+          resolve()
+        }
+      },
+    )
+    stopWatch = unwatch
+    if (isSettled) {
+      cleanup()
+    }
+
+    try {
+      postPayload()
+    }
+    catch (err) {
+      if (!isSettled) {
+        isSettled = true
+        cleanup()
+        reject(err)
+      }
+    }
+  })
 }
 
 /**

@@ -38,10 +38,9 @@ import {
   buildBridgeMessagePayload,
   buildBridgeStopPayload,
   CHAT_INPUT_BRIDGE_CHANNEL,
-
+  createBridgedIngestionAcknowledgment,
   evaluateBridgeInboundAction,
   INGESTION_TIMEOUT_MS,
-  matchesClientEcho,
   serializeBridgePayload,
   shouldBypassVerificationLoop,
 } from './chat/input-bridge'
@@ -1828,51 +1827,14 @@ Format your output as a raw thought log.`
       const clientMessageId = nanoid()
       debug(`[IngestDebug] Secondary window ingesting. clientMessageId: ${clientMessageId}. Target session: ${sessionId}`)
 
-      return new Promise<void>((resolve, reject) => {
-        let timeoutId: ReturnType<typeof setTimeout> | null = null
-        let stopWatch: (() => void) | null = null
-
-        const cleanup = () => {
-          if (timeoutId) {
-            clearTimeout(timeoutId)
-            timeoutId = null
-          }
-          if (stopWatch) {
-            stopWatch()
-            stopWatch = null
-          }
-        }
-
-        // Wait up to INGESTION_TIMEOUT_MS for the message to be sync-broadcasted back
-        timeoutId = setTimeout(() => {
-          cleanup()
-          console.error(`[IngestDebug] TIMEOUT waiting for clientMessageId: ${clientMessageId}`)
-          reject(new Error('Ingestion timeout: main process did not acknowledge the message.'))
-        }, INGESTION_TIMEOUT_MS)
-
-        stopWatch = watch(
-          () => {
-            const msgs = chatSession.getSessionMessages(sessionId)
-            debug(`[IngestDebug] Watcher getter ran. Target messages count: ${msgs.length}`)
-            return msgs
-          },
-          (messages) => {
-            debug(`[IngestDebug] Watcher callback triggered. Messages length: ${messages.length}`)
-            const found = messages.some((m) => {
-              const matched = matchesClientEcho(m, clientMessageId)
-              debug(`[IngestDebug] Checking msg in history:`, { id: m.id, role: m.role, matched })
-              return matched
-            })
-            if (found) {
-              debug(`[IngestDebug] Found matching clientMessageId: ${clientMessageId}! Resolving promise.`)
-              cleanup()
-              resolve()
-            }
-          },
-          { immediate: true, deep: true },
-        )
-
-        postInputBridgePayload(buildBridgeMessagePayload(sendingMessage, options, sessionId, clientMessageId))
+      return createBridgedIngestionAcknowledgment({
+        clientMessageId,
+        timeoutMs: INGESTION_TIMEOUT_MS,
+        getSessionMessages: () => chatSession.getSessionMessages(sessionId),
+        watchMessages: (getter, cb) => watch(getter, cb, { immediate: true, deep: true }),
+        postPayload: () => {
+          postInputBridgePayload(buildBridgeMessagePayload(sendingMessage, options, sessionId, clientMessageId))
+        },
       })
     }
 

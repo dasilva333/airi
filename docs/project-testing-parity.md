@@ -23,7 +23,7 @@
 
 | Package / Workspace | Test Suites (Files) | Total Tests | Primary Subsystem Focus |
 |---|:---:|:---:|---|
-| [`packages/stage-ui`](../packages/stage-ui) | 70 | 711 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory, Artistry, Proactivity, MCP, Cloudflare OAuth, Gemini Live Bidi, Chat Input Bridge |
+| [`packages/stage-ui`](../packages/stage-ui) | 71 | 725 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory, Artistry, Proactivity, MCP, Cloudflare OAuth, Gemini Live Bidi, Chat Input Bridge |
 | [`packages/live2d-runtime`](../packages/live2d-runtime) | 5 | 79 | Live2D Scripting DSL VM, Command Parser, Selector, Template, VarStore |
 | [`packages/stage-pages`](../packages/stage-pages) | 2 | 34 | Settings Topology & Devtools Context Flow Formatters |
 | [`apps/stage-tamagotchi`](../apps/stage-tamagotchi) | 6 | 32 | Desktop Multi-Window, Display Bounds, Location, Widgets, Airi Plugins |
@@ -34,9 +34,9 @@
 | [`packages/cap-vite`](../packages/cap-vite) | 4 | 22 | Capacitor Vite Plugin, CLI Integration & Native Wrappers |
 | [`packages/plugin-sdk`](../packages/plugin-sdk) | 1 | 22 | Plugin SDK Host Core Lifecycle |
 | [`packages/server-runtime`](../packages/server-runtime) | 1 | 9 | Server Route Middleware |
-| **Monorepo Vitest Baseline** | **102 Suites** | **1,013 Tests** | **Automated Zero-Failure Headless Test Baseline** |
+| **Monorepo Vitest Baseline** | **103 Suites** | **1,027 Tests** | **Automated Zero-Failure Headless Test Baseline** |
 
-*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 106 total test files discovered).*
+*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 107 total test files discovered).*
 
 ---
 
@@ -75,7 +75,8 @@
 | **Multi-Actor Turn Slices** | [`packages/stage-ui/src/utils/chat-actor-slices.test.ts`](../packages/stage-ui/src/utils/chat-actor-slices.test.ts) | 9 | Node / Pure TS | Blocking in CI | Parsing `<\|ACTOR:name\|>` markers, appending actor-aware slices, and demarcating dialogue turns. | Pure slice parsing tests; does not verify stage avatar voice assignment. |
 | **Discord Outbound Formatting & Inbound Seams** | [`packages/stage-ui/src/stores/modules/discord-outbound.test.ts`](../packages/stage-ui/src/stores/modules/discord-outbound.test.ts) | 16 | Node / Pure TS | Blocking in CI | Outbound Discord reply formatting (stripping ACT/DELAY tokens, mapping ACTOR prefixes, journal/tool results, error envelopes) and inbound/steer interruption formatting. | Pure transformation unit tests; does not mount Discord bot gateway or Electron IPC. |
 | **Gemini Live Multimodal Bidi API Seams** | [`packages/stage-ui/src/stores/modules/gemini-live-seams.test.ts`](../packages/stage-ui/src/stores/modules/gemini-live-seams.test.ts) | 45 | Node / Pure TS | Blocking in CI | Gemini function declaration schema purification ($schema, additionalProperties, anyOf/oneOf nullables, required adjustments), token count integer sanitation, multi-format usage extraction, WebSocket setup message framing with mandatory AUDIO and grounding toggle, 4 marker parsing dialects without regex argument mangling, wire response formatting, turn tool rate limiting, and 16-bit PCM little-endian audio decoding. | Pure protocol transformation and decoder tests; does not connect live WebSocket or stream live microphone audio. |
-| **Chat Input Bridge & Secondary Window Relay** | [`packages/stage-ui/src/stores/chat/input-bridge.test.ts`](../packages/stage-ui/src/stores/chat/input-bridge.test.ts) | 26 | Node / Pure TS | Blocking in CI | Serialization of broadcast payloads, stripping non-serializable objects and circular references, clientMessageId echo matching, triggerOnly verification bypass, and inbound action dispatch with cross-session auto-switch. | Pure seam unit tests; does not mount BroadcastChannel or DOM APIs. |
+| **Chat Input Bridge Seams** | [`packages/stage-ui/src/stores/chat/input-bridge.test.ts`](../packages/stage-ui/src/stores/chat/input-bridge.test.ts) | 34 | Node / Pure TS | Blocking in CI | Serialization of broadcast payloads, stripping non-serializable functions and rejecting circular references, chatProvider string ID normalization, clientMessageId echo matching with top-level precedence over nested metadata, triggerOnly verification bypass, inbound action dispatch with cross-session auto-switch, and acknowledgment coordinator lifecycle. | Pure seam unit tests; does not mount Pinia stores, BroadcastChannel, or DOM APIs. |
+| **Chat Input Bridge Runtime Relay** | [`packages/stage-ui/src/stores/chat/input-bridge-runtime.test.ts`](../packages/stage-ui/src/stores/chat/input-bridge-runtime.test.ts) | 6 | Node / Pinia & Fake Timers | Blocking in CI | Headless Pinia store runtime relay contracts: secondary-window successful echo resolution, 5000ms timeout rejection and timer/watcher cleanup, transport/serialization failure immediate cleanup, triggerOnly bypass without timer, main window inbound session alignment before ingest and local tool injection into LLM stream, and stop broadcast session cancellation. | Headless Pinia orchestrator test with controlled transport and fake timers; does not mount Electron BrowserWindow or physical WebSocket relays. |
 
 #### Data Persistence & BYOS Sync Engine
 | Invariant / Subsystem | Test Path | Tests | Runner / Env | CI Inclusion | What Assertions Directly Establish | Coverage Boundary & Known Limits |

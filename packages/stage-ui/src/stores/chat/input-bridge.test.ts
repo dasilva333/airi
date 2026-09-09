@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildBridgeMessagePayload,
   buildBridgeStopPayload,
   CHAT_INPUT_BRIDGE_CHANNEL,
+  createBridgedIngestionAcknowledgment,
   evaluateBridgeInboundAction,
   INGESTION_TIMEOUT_MS,
   matchesClientEcho,
@@ -109,12 +110,26 @@ describe('chat input-bridge seams', () => {
       expect(payload.options?.model).toBe('claude-3-5-sonnet')
     })
 
-    it('maps object chatProvider with id property to string provider ID', () => {
+    it('maps object chatProvider with string id property to string provider ID', () => {
       const options = {
         chatProvider: { id: 'anthropic-provider', client: {} },
       }
       const payload = buildBridgeMessagePayload('Hello', options, 'sess-1')
       expect(payload.options?.chatProvider).toBe('anthropic-provider')
+    })
+
+    it('normalizes non-string or missing chatProvider IDs to undefined', () => {
+      // Numeric id
+      expect(buildBridgeMessagePayload('Hello', { chatProvider: { id: 123 } }).options?.chatProvider).toBeUndefined()
+      // Object-valued id
+      expect(buildBridgeMessagePayload('Hello', { chatProvider: { id: { name: 'nested' } } }).options?.chatProvider).toBeUndefined()
+      // Whitespace or empty string id
+      expect(buildBridgeMessagePayload('Hello', { chatProvider: { id: '   ' } }).options?.chatProvider).toBeUndefined()
+      // Missing id
+      expect(buildBridgeMessagePayload('Hello', { chatProvider: { name: 'no-id' } }).options?.chatProvider).toBeUndefined()
+      // Null / boolean provider
+      expect(buildBridgeMessagePayload('Hello', { chatProvider: null }).options?.chatProvider).toBeUndefined()
+      expect(buildBridgeMessagePayload('Hello', { chatProvider: true }).options?.chatProvider).toBeUndefined()
     })
 
     it('preserves string chatProvider', () => {
@@ -137,7 +152,7 @@ describe('chat input-bridge seams', () => {
       expect(matchesClientEcho(message, 'cmid-abc-123')).toBe(true)
     })
 
-    it('matches when clientMessageId is nested within metadata', () => {
+    it('matches when clientMessageId is nested within metadata and top-level is absent', () => {
       const message = {
         id: 'msg-2',
         role: 'user',
@@ -147,6 +162,22 @@ describe('chat input-bridge seams', () => {
         },
       }
       expect(matchesClientEcho(message, 'cmid-xyz-789')).toBe(true)
+    })
+
+    it('enforces top-level precedence over nested metadata when IDs conflict', () => {
+      const message = {
+        id: 'msg-conflict',
+        role: 'user',
+        content: 'Conflict test',
+        clientMessageId: 'top-priority-id',
+        metadata: {
+          clientMessageId: 'nested-secondary-id',
+        },
+      }
+      // Top-level must match
+      expect(matchesClientEcho(message, 'top-priority-id')).toBe(true)
+      // Nested metadata must NOT match because top-level takes strict precedence
+      expect(matchesClientEcho(message, 'nested-secondary-id')).toBe(false)
     })
 
     it('returns false when clientMessageId does not match', () => {
@@ -279,6 +310,161 @@ describe('chat input-bridge seams', () => {
       }
       const result = evaluateBridgeInboundAction(payload, 'sess-1')
       expect(result.action).toBe('ingest')
+    })
+  })
+
+  describe('createBridgedIngestionAcknowledgment', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+      vi.useRealTimers()
+    })
+
+    it('resolves and cleans up watcher and timer when matching echo is detected', async () => {
+      let watcherCb: ((msgs: unknown[]) => void) | null = null
+      const unwatchSpy = vi.fn()
+      const postSpy = vi.fn()
+
+      const ackPromise = createBridgedIngestionAcknowledgment({
+        clientMessageId: 'cmid-target',
+        getSessionMessages: () => [],
+        watchMessages: (_getter, cb) => {
+          watcherCb = cb
+          return unwatchSpy
+        },
+        postPayload: postSpy,
+      })
+
+      expect(postSpy).toHaveBeenCalledOnce()
+      expect(unwatchSpy).not.toHaveBeenCalled()
+
+      // Simulate matching message appearing in history
+      watcherCb!([{ id: 'msg-1', clientMessageId: 'cmid-target', role: 'user' }])
+
+      await expect(ackPromise).resolves.toBeUndefined()
+      expect(unwatchSpy).toHaveBeenCalledOnce()
+
+      // Advancing timer past 5s should not trigger timeout or error
+      vi.advanceTimersByTime(6000)
+    })
+
+    it('resolves immediately and cleans up if matching echo is present on initial watch trigger', async () => {
+      const unwatchSpy = vi.fn()
+      const postSpy = vi.fn()
+
+      const ackPromise = createBridgedIngestionAcknowledgment({
+        clientMessageId: 'cmid-existing',
+        getSessionMessages: () => [{ id: 'msg-existing', clientMessageId: 'cmid-existing', role: 'user' }],
+        watchMessages: (getter, cb) => {
+          // Immediately trigger callback like watch with { immediate: true }
+          cb(getter())
+          return unwatchSpy
+        },
+        postPayload: postSpy,
+      })
+
+      await expect(ackPromise).resolves.toBeUndefined()
+      expect(unwatchSpy).toHaveBeenCalledOnce()
+      expect(postSpy).toHaveBeenCalledOnce()
+    })
+
+    it('rejects with timeout error and cleans up both watcher and timer after timeoutMs', async () => {
+      const unwatchSpy = vi.fn()
+      const postSpy = vi.fn()
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const ackPromise = createBridgedIngestionAcknowledgment({
+        clientMessageId: 'cmid-lost',
+        timeoutMs: 5000,
+        getSessionMessages: () => [],
+        watchMessages: (_getter, _cb) => unwatchSpy,
+        postPayload: postSpy,
+      })
+
+      expect(postSpy).toHaveBeenCalledOnce()
+      expect(unwatchSpy).not.toHaveBeenCalled()
+
+      // Advance time to trigger timeout
+      vi.advanceTimersByTime(5000)
+
+      await expect(ackPromise).rejects.toThrow('Ingestion timeout: main process did not acknowledge the message.')
+      expect(unwatchSpy).toHaveBeenCalledOnce()
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('cmid-lost'))
+    })
+
+    it('immediately cleans up watcher and timer and rejects with original error when postPayload throws', async () => {
+      const unwatchSpy = vi.fn()
+      const postError = new Error('Payload not serializable')
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const ackPromise = createBridgedIngestionAcknowledgment({
+        clientMessageId: 'cmid-fail',
+        timeoutMs: 5000,
+        getSessionMessages: () => [],
+        watchMessages: (_getter, _cb) => unwatchSpy,
+        postPayload: () => {
+          throw postError
+        },
+      })
+
+      // Must reject immediately with the original error
+      await expect(ackPromise).rejects.toThrow('Payload not serializable')
+      // Watcher must be cleaned up immediately
+      expect(unwatchSpy).toHaveBeenCalledOnce()
+
+      // Advancing timer must NOT trigger secondary timeout
+      vi.advanceTimersByTime(6000)
+      expect(consoleErrorSpy).not.toHaveBeenCalled()
+    })
+
+    it('cleans up immediately when transport throws a network error', async () => {
+      const unwatchSpy = vi.fn()
+      const transportError = new Error('BroadcastChannel closed')
+
+      const ackPromise = createBridgedIngestionAcknowledgment({
+        clientMessageId: 'cmid-channel-closed',
+        timeoutMs: 5000,
+        getSessionMessages: () => [],
+        watchMessages: (_getter, _cb) => unwatchSpy,
+        postPayload: () => {
+          throw transportError
+        },
+      })
+
+      await expect(ackPromise).rejects.toThrow('BroadcastChannel closed')
+      expect(unwatchSpy).toHaveBeenCalledOnce()
+    })
+
+    it('ignores non-matching messages and keeps waiting until match or timeout', async () => {
+      let watcherCb: ((msgs: unknown[]) => void) | null = null
+      const unwatchSpy = vi.fn()
+
+      const ackPromise = createBridgedIngestionAcknowledgment({
+        clientMessageId: 'cmid-target',
+        timeoutMs: 5000,
+        getSessionMessages: () => [],
+        watchMessages: (_getter, cb) => {
+          watcherCb = cb
+          return unwatchSpy
+        },
+        postPayload: vi.fn(),
+      })
+
+      // Send unrelated message
+      watcherCb!([{ id: 'msg-other', clientMessageId: 'cmid-unrelated', role: 'user' }])
+      expect(unwatchSpy).not.toHaveBeenCalled()
+
+      // Now send matching message
+      watcherCb!([
+        { id: 'msg-other', clientMessageId: 'cmid-unrelated', role: 'user' },
+        { id: 'msg-matched', metadata: { clientMessageId: 'cmid-target' }, role: 'user' },
+      ])
+
+      await expect(ackPromise).resolves.toBeUndefined()
+      expect(unwatchSpy).toHaveBeenCalledOnce()
     })
   })
 })
