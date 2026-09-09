@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AIRI Onboarding V3 - Interactive Flow Prototype</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    .coverflow-item {
+      transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .card-glow-active {
+      box-shadow: 0 0 20px rgba(0, 192, 240, 0.3), inset 0 0 10px rgba(0, 192, 240, 0.1);
+      border-color: #00c0f0 !important;
+    }
+    .card-glow-kira {
+      box-shadow: 0 0 20px rgba(244, 63, 94, 0.35), inset 0 0 10px rgba(244, 63, 94, 0.15);
+      border-color: #f43f5e !important;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-[#08080f] text-[#e2e8f0] font-sans antialiased min-h-screen p-3 flex flex-col items-center justify-center">
+
+  <!-- Desktop App Frame -->
+  <div class="w-full max-w-5xl bg-[#0e0e17] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[840px]">
+    
+    <!-- Window Bar & 5-Item Sliding Window Stepper -->
+    <header class="h-12 bg-[#090910] border-b border-white/5 px-4 flex items-center justify-between select-none">
+      <div class="flex items-center space-x-2">
+        <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+        <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+        <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+        <span class="ml-3 text-xs font-semibold tracking-wider text-cyan-400 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 19.5h20L12 2zm0 4.5l6.5 11.5H5.5L12 6.5z"/></svg>
+          AIRI ONBOARDING V3
+        </span>
+      </div>
+
+      <!-- 5-Item Dynamic Sliding Window Breadcrumb -->
+      <div class="flex items-center space-x-1.5 bg-white/5 px-2.5 py-1 rounded-full border border-white/5 text-xs">
+        <span id="window-left-indicator" class="text-slate-600 text-[10px] hidden font-mono">···</span>
+        <div id="breadcrumb-container" class="flex items-center space-x-1">
+          <!-- Dynamically populated via renderBreadcrumbs() -->
+        </div>
+        <span id="window-right-indicator" class="text-slate-600 text-[10px] font-mono">···</span>
+      </div>
+
+      <div class="flex items-center gap-3 text-xs text-slate-400">
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Pipeline Verified</span>
+      </div>
+    </header>
+
+    <!-- Content Workspace -->
+    <main class="flex-1 relative overflow-hidden flex flex-col justify-between p-6">
+
+      <!-- ========================================================================= -->
+      <!-- STEP 0: WELCOME -->
+      <!-- ========================================================================= -->
+      <div id="step-0-view" class="step-view hidden flex-col items-center justify-center flex-1 max-w-2xl mx-auto text-center space-y-6 animate-fadeIn">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 text-xs font-medium">
+          ✨ Welcome to your private companion studio
+        </div>
+        <div class="relative bg-gradient-to-b from-[#161626] to-[#0e0e18] border border-cyan-500/20 rounded-2xl p-6 shadow-xl w-full">
+          <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-gradient-to-tr from-cyan-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-cyan-500/25 ring-4 ring-cyan-500/20">
+            <span class="text-2xl">🌱</span>
+          </div>
+          <h1 class="text-3xl font-bold tracking-tight text-white mb-2">Welcome to AIRI</h1>
+          <p class="text-slate-300 text-sm leading-relaxed max-w-lg mx-auto">
+            "Hello! I’m your autonomous digital companion. Whether you want voice conversation, creative stage performances, or a quiet desktop presence, I’m ready to adapt to your world."
+          </p>
+        </div>
+        <div class="flex gap-3 w-full justify-center pt-2">
+          <button onclick="goToStep(1)" class="flex-1 py-3 px-6 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-sm shadow-lg shadow-cyan-600/30 transition-all flex items-center justify-center gap-2">
+            Let's Get Started →
+          </button>
+          <button onclick="goToStep(14)" class="flex-1 py-3 px-5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 font-medium text-sm transition-all flex items-center justify-center gap-2">
+            <span>⚡ Quick Start (Jump to Finale)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 1: TRIAGE -->
+      <!-- ========================================================================= -->
+      <div id="step-1-view" class="step-view hidden flex-col items-center justify-center flex-1 max-w-4xl mx-auto space-y-6 animate-fadeIn">
+        <div class="text-center space-y-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-cyan-400">Architecture Choice</span>
+          <h2 class="text-2xl font-bold text-white">Choose Your Setup Path</h2>
+          <p class="text-slate-400 text-xs">Select how AIRI runs and synchronizes companions and memory.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-6 w-full pt-2">
+          <div class="card-glow-active bg-gradient-to-b from-[#141b2b] to-[#0d121c] border-2 border-cyan-500 rounded-2xl p-6 flex flex-col justify-between h-[320px]">
+            <div class="space-y-3">
+              <div class="text-3xl">🏠</div>
+              <h3 class="text-lg font-bold text-white">Local Companion (100% Offline)</h3>
+              <p class="text-xs text-slate-300">Run WebGPU models and store memory locally in IndexedDB. Zero telemetry.</p>
+            </div>
+            <button onclick="goToStep(2)" class="w-full py-2.5 rounded-xl bg-cyan-600 text-white text-xs font-semibold">Select Local Setup →</button>
+          </div>
+          <div class="bg-white/[0.02] border border-white/10 rounded-2xl p-6 flex flex-col justify-between h-[320px]">
+            <div class="space-y-3">
+              <div class="text-3xl">☁️</div>
+              <h3 class="text-lg font-bold text-white">Cloud Relay (Cloudflare Zero-Trust)</h3>
+              <p class="text-xs text-slate-400">Private Cloudflare Edge KV sync and multi-device companion restore.</p>
+            </div>
+            <button onclick="goToStep(2)" class="w-full py-2.5 rounded-xl bg-white/5 text-slate-300 text-xs border border-white/10">Configure Cloudflare</button>
+          </div>
+        </div>
+        <div class="flex justify-between w-full">
+          <button onclick="goToStep(0)" class="text-xs text-slate-400 hover:text-white">← Back</button>
+          <button onclick="goToStep(2)" class="text-xs text-cyan-400 hover:text-cyan-300">Next: Experience →</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 2: EXPERIENCE -->
+      <!-- ========================================================================= -->
+      <div id="step-2-view" class="step-view hidden flex-col justify-between flex-1 max-w-5xl mx-auto space-y-4 animate-fadeIn">
+        <div class="text-center space-y-1">
+          <span class="text-xs font-semibold uppercase tracking-wider text-cyan-400">Experience Archetypes</span>
+          <h2 class="text-2xl font-bold text-white">Choose How You Want to Interact</h2>
+          <p class="text-slate-400 text-xs">Curated capability presets with modular toggles.</p>
+        </div>
+        <div class="grid grid-cols-4 gap-3.5 pt-2">
+          <div class="p-4 rounded-xl bg-white/[0.02] border border-white/10 flex flex-col justify-between h-[280px]">
+            <div>
+              <div class="text-xl mb-2">💬</div>
+              <h4 class="text-sm font-bold text-white">The Quiet Observer</h4>
+              <p class="text-xs text-slate-400 mt-2">Text & desktop presence. Zero audio overhead.</p>
+            </div>
+          </div>
+          <div class="card-glow-active p-4 rounded-xl bg-gradient-to-b from-[#141d2c] to-[#0c121e] border-2 border-cyan-500 flex flex-col justify-between h-[280px] relative">
+            <span class="absolute -top-2.5 right-3 bg-cyan-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">Selected</span>
+            <div>
+              <div class="text-xl mb-2">🎙️</div>
+              <h4 class="text-sm font-bold text-white">The Casual Companion</h4>
+              <p class="text-xs text-slate-300 mt-2">Natural voice dialogue, thinking pacing, emotional speech.</p>
+            </div>
+          </div>
+          <div class="p-4 rounded-xl bg-white/[0.02] border border-white/10 flex flex-col justify-between h-[280px]">
+            <div>
+              <div class="text-xl mb-2">💼</div>
+              <h4 class="text-sm font-bold text-white">The Executive Copilot</h4>
+              <p class="text-xs text-slate-400 mt-2">Voice + System Automation, Web Search, Filesystem MCP tools.</p>
+            </div>
+          </div>
+          <div class="p-4 rounded-xl bg-white/[0.02] border border-white/10 flex flex-col justify-between h-[280px]">
+            <div>
+              <div class="text-xl mb-2">✨</div>
+              <h4 class="text-sm font-bold text-white">The Dynamic Performer</h4>
+              <p class="text-xs text-slate-400 mt-2">Autonomous artistry, expressions, stage motion cues.</p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-between w-full">
+          <button onclick="goToStep(1)" class="text-xs text-slate-400 hover:text-white">← Back</button>
+          <button onclick="goToStep(3)" class="py-2.5 px-6 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold">Next: Soul & Persona →</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 3: SOUL & PERSONA -->
+      <!-- ========================================================================= -->
+      <div id="step-3-view" class="step-view hidden flex-col justify-between flex-1 max-w-5xl mx-auto space-y-3 animate-fadeIn">
+        <div>
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span class="text-cyan-400 font-medium">Personality Core</span>
+            <span>Soul & Persona</span>
+          </div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Soul & Persona</h2>
+          <p class="text-slate-400 text-xs mt-0.5">Pure personality — bodies come next, and any soul pairs with any form.</p>
+        </div>
+        <div class="flex items-center bg-[#131320] p-1 rounded-xl border border-white/5 text-xs font-medium">
+          <button class="flex-1 py-1.5 rounded-lg bg-white/10 text-white shadow">✨ Starter Cards</button>
+          <button class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white">🪐 Community Hub</button>
+          <button class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white">🪄 AI Creator</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5 overflow-y-auto max-h-[360px] pr-1 custom-scrollbar">
+          <div onclick="selectPersonaItem('relu')" id="card-relu" class="cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] border border-white/10 rounded-xl p-3 flex items-center justify-between">
+            <div class="flex items-start gap-3">
+              <div class="text-xl">🌸</div>
+              <div>
+                <div class="flex items-center gap-2"><span class="text-xs font-bold text-white">ReLU</span><span class="text-[10px] bg-white/5 text-slate-300 px-2 py-0.5 rounded-full">Empathetic</span></div>
+                <p class="text-[11px] text-slate-400 mt-1">Neko Ayaka's experimental virtual AI vtuber companion.</p>
+              </div>
+            </div>
+            <div id="radio-relu" class="w-4 h-4 rounded-full border border-slate-600"></div>
+          </div>
+          <div onclick="selectPersonaItem('kira')" id="card-kira" class="cursor-pointer card-glow-kira bg-[#181119] border-2 border-rose-500 rounded-xl p-3 flex items-center justify-between">
+            <div class="flex items-start gap-3">
+              <div class="text-xl">⚡</div>
+              <div>
+                <div class="flex items-center gap-2"><span class="text-xs font-bold text-white">Kira</span><span class="text-[10px] bg-rose-950/60 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full">Tsundere</span></div>
+                <p class="text-[11px] text-slate-300 mt-1">Combative and easily flustered, but fiercely loyal.</p>
+              </div>
+            </div>
+            <div id="radio-kira" class="w-4 h-4 rounded-full border-2 border-rose-500 flex items-center justify-center bg-rose-500/20"><div class="w-2 h-2 rounded-full bg-rose-500"></div></div>
+          </div>
+        </div>
+        <div class="flex justify-between w-full pt-2 border-t border-white/5">
+          <button onclick="goToStep(2)" class="text-xs text-slate-400 hover:text-white">‹ Back</button>
+          <button onclick="goToStep(4)" class="py-2 px-6 rounded-lg bg-[#00b4d8] hover:bg-[#0096c7] text-white text-xs font-semibold">Next ›</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 4: PHYSICAL VESSEL -->
+      <!-- ========================================================================= -->
+      <div id="step-4-view" class="step-view hidden flex-col justify-between flex-1 max-w-5xl mx-auto space-y-3 animate-fadeIn">
+        <div>
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight">Physical Vessel</h2>
+              <p class="text-slate-400 text-xs mt-0.5">Mount your soul onto a body — or drop your own.</p>
+            </div>
+            <span class="px-3 py-1.5 rounded-lg bg-white/5 text-xs text-slate-300 border border-white/10">👤 3 Installed Avatars</span>
+          </div>
+        </div>
+        <div class="flex justify-between items-center px-1">
+          <div class="flex items-center gap-1.5 bg-black/40 p-1 rounded-full border border-white/5">
+            <button onclick="setSourceFilter('all')" id="sfilter-all" class="px-3 py-0.5 rounded-full text-xs font-medium bg-cyan-600 text-white shadow">All Sources (6)</button>
+            <button onclick="setSourceFilter('installed')" id="sfilter-installed" class="px-3 py-0.5 rounded-full text-xs font-medium text-slate-400">✓ Installed (3)</button>
+            <button onclick="setSourceFilter('free')" id="sfilter-free" class="px-3 py-0.5 rounded-full text-xs font-medium text-slate-400">🌐 Free Downloads (3)</button>
+          </div>
+        </div>
+        <div class="relative w-full h-[225px] flex items-center justify-center overflow-hidden my-auto">
+          <button onclick="prevCoverflow()" class="absolute left-2 z-30 w-8 h-8 rounded-full bg-black/60 text-white border border-white/20 flex items-center justify-center">‹</button>
+          <div id="coverflow-reel" class="flex items-center justify-center gap-4 transition-all duration-300"></div>
+          <button onclick="nextCoverflow()" class="absolute right-2 z-30 w-8 h-8 rounded-full bg-black/60 text-white border border-white/20 flex items-center justify-center">›</button>
+        </div>
+        <div class="flex justify-between w-full pt-2 border-t border-white/5">
+          <button onclick="goToStep(3)" class="text-xs text-slate-400 hover:text-white">‹ Back</button>
+          <button onclick="goToStep(5)" class="py-2 px-6 rounded-lg bg-[#00b4d8] hover:bg-[#0096c7] text-white text-xs font-semibold">Next: User Profile ›</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 5: USER PROFILE -->
+      <!-- ========================================================================= -->
+      <div id="step-5-view" class="step-view hidden flex-col justify-between flex-1 max-w-3xl mx-auto space-y-4 animate-fadeIn">
+        <div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Your Identity & Profile</h2>
+          <p class="text-slate-400 text-xs mt-0.5">How should your companion address you during conversations?</p>
+        </div>
+        <div class="bg-white/[0.02] border border-white/10 rounded-2xl p-6 space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Your Name</label>
+            <input type="text" value="Richard" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Companion's Honorific for You</label>
+            <input type="text" value="Master / Senpai" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none">
+          </div>
+        </div>
+        <div class="flex justify-between w-full pt-4 border-t border-white/5">
+          <button onclick="goToStep(4)" class="text-xs text-slate-400 hover:text-white">‹ Back</button>
+          <button onclick="goToStep(6)" class="py-2 px-6 rounded-lg bg-[#00b4d8] hover:bg-[#0096c7] text-white text-xs font-semibold">Next: Hearing ›</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 6: HEARING (STT) -->
+      <!-- ========================================================================= -->
+      <div id="step-6-view" class="step-view hidden flex-col justify-between flex-1 max-w-3xl mx-auto space-y-4 animate-fadeIn">
+        <div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Hearing & Voice Transcription</h2>
+          <p class="text-slate-400 text-xs mt-0.5">Configure microphone input and Speech-to-Text provider.</p>
+        </div>
+        <div class="bg-white/[0.02] border border-white/10 rounded-2xl p-6 space-y-4">
+          <div class="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/10">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">🎙️</span>
+              <div>
+                <div class="text-sm font-bold text-white">Default Microphone (MacBook Pro)</div>
+                <div class="text-xs text-emerald-400">● Mic Active · VAD Listening</div>
+              </div>
+            </div>
+            <button class="px-3 py-1 rounded-lg bg-white/10 text-xs text-slate-300">Test Input</button>
+          </div>
+        </div>
+        <div class="flex justify-between w-full pt-4 border-t border-white/5">
+          <button onclick="goToStep(5)" class="text-xs text-slate-400 hover:text-white">‹ Back</button>
+          <button onclick="goToStep(7)" class="py-2 px-6 rounded-lg bg-[#00b4d8] hover:bg-[#0096c7] text-white text-xs font-semibold">Next: Consciousness ›</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 7: CONSCIOUSNESS (LLM) -->
+      <!-- ========================================================================= -->
+      <div id="step-7-view" class="step-view hidden flex-col justify-between flex-1 max-w-3xl mx-auto space-y-4 animate-fadeIn">
+        <div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Consciousness & Reasoning Engine</h2>
+          <p class="text-slate-400 text-xs mt-0.5">Select the intelligence provider powering your companion's thoughts.</p>
+        </div>
+        <div class="bg-white/[0.02] border border-white/10 rounded-2xl p-6 space-y-3">
+          <div class="p-3 bg-black/40 rounded-xl border-2 border-cyan-500 flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-white flex items-center gap-2">WebLLM / Qwen-2.5 (Local WebGPU) <span class="text-[9px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">Offline Ready</span></div>
+              <div class="text-[11px] text-slate-400 mt-1">Zero latency, completely offline on Apple Silicon / GPU.</div>
+            </div>
+            <span class="text-cyan-400 text-xs font-bold">✓ Selected</span>
+          </div>
+        </div>
+        <div class="flex justify-between w-full pt-4 border-t border-white/5">
+          <button onclick="goToStep(6)" class="text-xs text-slate-400 hover:text-white">‹ Back</button>
+          <button onclick="goToStep(8)" class="py-2 px-6 rounded-lg bg-[#00b4d8] hover:bg-[#0096c7] text-white text-xs font-semibold">Next: Thinking ›</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 8: THINKING -->
+      <!-- ========================================================================= -->
+      <div id="step-8-view" class="step-view hidden flex-col justify-between flex-1 max-w-4xl mx-auto space-y-3 animate-fadeIn">
+        <div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Thinking & Conversational Pacing</h2>
+          <p class="text-slate-400 text-xs mt-0.5">How does she talk while thinking? Bridges reasoning pauses with audible fillers and subconscious asides.</p>
+        </div>
+        <div class="space-y-3 overflow-y-auto max-h-[500px] pr-1 custom-scrollbar">
+          <div class="bg-white/[0.02] border border-white/10 rounded-xl p-4 space-y-3">
+            <div class="p-3 rounded-xl card-glow-active bg-[#101726] border-2 border-cyan-400">
+              <div class="flex items-center justify-between font-bold text-xs text-white">
+                <span>💠 Deep CoT Explorer (Extended 40–90s CoT)</span>
+                <span class="text-cyan-400">✓ Active</span>
+              </div>
+              <p class="text-[11px] text-slate-300 mt-1">Heavy chain-of-thought models (Kimi k3, DeepSeek R1, Glyph Deep CoT).</p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-between w-full pt-2 border-t border-white/5">
+          <button onclick="goToStep(7)" class="text-xs text-slate-400 hover:text-white">‹ Back</button>
+          <button onclick="goToStep(9)" class="py-2 px-6 rounded-lg bg-[#00b4d8] hover:bg-[#0096c7] text-white text-xs font-semibold">Next: Speech ›</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 9: SPEECH -->
+      <!-- ========================================================================= -->
+      <div id="step-9-view" class="step-view hidden flex-col justify-between flex-1 max-w-3xl mx-auto space-y-4 animate-fadeIn">
+        <div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Voice & Speech Synthesis</h2>
+          <p class="text-slate-400 text-xs mt-0.5">Choose how your companion's voice sounds on stage.</p>
+        </div>
+        <div class="bg-white/[0.02] border border-white/10 rounded-2xl p-6 space-y-4">
+          <div class="p-4 bg-black/40 rounded-xl border-2 border-cyan-500 flex items-center justify-between">
+            <div>
+              <div class="text-sm font-bold text-white flex items-center gap-2">
+                Kokoro Local TTS (WebGPU)
+                <span class="text-[9px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">On-Device</span>
+              </div>
+              <div class="text-xs text-slate-400 mt-1">Voice: <strong>af_heart</strong> • Emotional Japanese & English synthesis.</div>
+            </div>
+            <button class="px-3 py-1 rounded-lg bg-cyan-600 text-xs text-white">▶ Test Voice</button>
+          </div>
+        </div>
+        <div class="flex justify-between w-full pt-4 border-t border-white/5">
+          <button onclick="goToStep(8)" class="text-xs text-slate-400 hover:text-white">‹ Back to Thinking</button>
+          <button onclick="goToStep(10)" class="py-2 px-6 rounded-lg bg-[#00b4d8] hover:bg-[#0096c7] text-white text-xs font-semibold">Next: Emotions ›</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 10: EMOTIONS -->
+      <!-- ========================================================================= -->
+      <div id="step-10-view" class="step-view hidden flex-col justify-between flex-1 max-w-4xl mx-auto space-y-3 animate-fadeIn">
+        <div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Emotions & Stage Expressions</h2>
+          <p class="text-slate-400 text-xs mt-0.5">Bridge what the avatar model can physically express with how your companion acts and feels.</p>
+        </div>
+        <div class="bg-gradient-to-r from-[#141e30] to-[#0f1724] border border-cyan-500/30 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <div class="font-bold text-white text-sm flex items-center gap-2">🪄 2-Pass AI Expression Curation</div>
+            <p class="text-xs text-slate-400 mt-1">Maps raw vessel morphs to standardized ACT tokens and creates prompt acting directives.</p>
+          </div>
+          <button class="px-4 py-2 rounded-xl bg-cyan-600 text-white text-xs font-bold">Auto-Curate (AI)</button>
+        </div>
+        <div class="flex justify-between w-full pt-2 border-t border-white/5">
+          <button onclick="goToStep(9)" class="text-xs text-slate-400 hover:text-white">‹ Back</button>
+          <button onclick="goToStep(11)" class="py-2 px-6 rounded-lg bg-[#00b4d8] hover:bg-[#0096c7] text-white text-xs font-semibold">Next: Artistry ›</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 11: ARTISTRY & VISUAL SYNTHESIS (DUAL PROVIDER & CHARACTER SETUP) -->
+      <!-- ========================================================================= -->
+      <div id="step-11-view" class="step-view flex flex-col justify-between flex-1 max-w-4xl mx-auto space-y-3 animate-fadeIn">
+        <div>
+          <div class="flex items-center gap-2 text-xs text-slate-400 mb-0.5">
+            <span class="text-cyan-400 font-medium">Visual Creative Studio</span>
+            <span>· Provider Engine & Appearance Blueprint</span>
+          </div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Artistry & Visual Synthesis</h2>
+          <p class="text-slate-400 text-xs mt-0.5">Configure your image generation engine, character appearance prefix, and autonomous scene director.</p>
+        </div>
+
+        <div class="space-y-3 overflow-y-auto max-h-[500px] pr-1 custom-scrollbar">
+
+          <!-- 1. IMAGE GENERATION BACKEND & QUICK PICK (from media_1788911629613.png & media_1788911829760.png) -->
+          <div class="bg-white/[0.02] border border-cyan-500/30 rounded-2xl p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-white flex items-center gap-2">
+                <span>🎨</span> Image Generation Backend & Model
+              </span>
+              <span class="text-[10px] bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded font-semibold border border-cyan-500/30">Free / Zero-Config</span>
+            </div>
+
+            <!-- Provider Selector Tabs -->
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <!-- Pollinations (Active) -->
+              <div onclick="selectArtProvider('pollinations')" id="artp-pollinations" class="cursor-pointer p-3 rounded-xl card-glow-active bg-[#121c2c] border-2 border-cyan-400">
+                <div class="flex items-center justify-between font-bold text-white">
+                  <span>🌸 Pollinations AI</span>
+                  <span class="text-[9px] bg-emerald-950 text-emerald-300 px-1.5 py-0.2 rounded">100% Free</span>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-1">Instant cloud image rendering without API keys or accounts.</p>
+              </div>
+
+              <!-- ComfyUI Local -->
+              <div onclick="selectArtProvider('comfyui')" id="artp-comfyui" class="cursor-pointer p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/10">
+                <div class="flex items-center justify-between font-bold text-white">
+                  <span>🖥️ ComfyUI (Local)</span>
+                  <span class="text-[9px] bg-purple-950 text-purple-300 px-1.5 py-0.2 rounded">Local Node</span>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-1">Connects to localhost:8188 for private, offline image rendering.</p>
+              </div>
+
+              <!-- Disabled -->
+              <div onclick="selectArtProvider('disabled')" id="artp-disabled" class="cursor-pointer p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/10 opacity-70">
+                <div class="flex items-center justify-between font-bold text-white">
+                  <span>🚫 None</span>
+                  <span class="text-[9px] bg-white/5 text-slate-400 px-1.5 py-0.2 rounded">Disabled</span>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-1">Bypass image generation capabilities completely.</p>
+              </div>
+            </div>
+
+            <!-- Quick Pick Models -->
+            <div id="art-quick-picks" class="pt-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Pollinations Quick Pick</span>
+              <div class="grid grid-cols-3 gap-2 text-xs">
+                <button class="p-2 rounded-lg bg-cyan-950/60 border border-cyan-500/40 text-left font-medium text-cyan-300">
+                  <div class="font-bold">Free Router (Auto)</div>
+                  <div class="text-[9px] text-slate-400">Adaptive zero-cost queue</div>
+                </button>
+                <button class="p-2 rounded-lg bg-white/5 border border-white/10 text-left text-slate-300 hover:text-white">
+                  <div class="font-bold">FLUX.2 Flex</div>
+                  <div class="text-[9px] text-slate-400">High fidelity photoreal & anime</div>
+                </button>
+                <button class="p-2 rounded-lg bg-white/5 border border-white/10 text-left text-slate-300 hover:text-white">
+                  <div class="font-bold">Z-Image Turbo</div>
+                  <div class="text-[9px] text-slate-400">Sub-second generation</div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. CHARACTER VISUAL STYLE & LORA PREFIX (from media_1788911671959.png) -->
+          <div class="bg-white/[0.02] border border-white/10 rounded-2xl p-4 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-white flex items-center gap-2">
+                <span>👗</span> Character Visual Style & Appearance Prompt
+              </span>
+              <span id="vessel-badge-label" class="text-[10px] bg-purple-950/80 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30 flex items-center gap-1">
+                <span>✨</span> Auto-injected from Hiyori Vessel
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-400">
+              Pre-pended to every image generation prompt for consistent visual appearance, hair, eye color, and art aesthetic across all selfies.
+            </p>
+
+            <!-- Visual Style Textarea with Auto-Injected Vessel Descriptors -->
+            <div class="relative">
+              <textarea id="character-visual-style" rows="3" class="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-xs text-slate-200 font-mono focus:border-cyan-500 focus:outline-none leading-relaxed pr-36">masterpiece, best quality, 1girl, hiyori, brown twin tails with blue hair ribbons, brown hair, gentle blue eyes, anime school uniform with blue ribbon tie, clean lineart, soft watercolor anime style,</textarea>
+              <div class="absolute bottom-2.5 right-2.5 flex items-center gap-1.5">
+                <button onclick="resetStylePrompt()" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[10px] text-slate-300 transition-colors cursor-pointer">Reset</button>
+                <button onclick="openArtPreviewModal()" id="btn-art-preview" class="px-3 py-1 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-[10px] text-white font-semibold flex items-center gap-1 shadow-md shadow-cyan-500/20 transition-all cursor-pointer">
+                  <span>🎨</span> <span>Preview</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Loading Preview Modal (Non-disruptive Overlay) -->
+            <div id="art-preview-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 animate-fadeIn">
+              <div class="bg-[#0e1726] border border-cyan-500/50 rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-3.5 relative">
+                <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider">Visual Style Preview</h3>
+                  </div>
+                  <button onclick="closeArtPreviewModal()" class="text-slate-400 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">✕</button>
+                </div>
+
+                <!-- Image Display / Spinner Box -->
+                <div class="relative w-full aspect-square rounded-xl overflow-hidden bg-black/60 border border-white/10 flex items-center justify-center shadow-inner">
+                  <div id="modal-preview-spinner" class="flex flex-col items-center justify-center gap-2 text-center p-4">
+                    <div class="w-8 h-8 border-3 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                    <span class="text-xs text-cyan-300 font-medium">Synthesizing with Pollinations AI...</span>
+                    <span class="text-[10px] text-slate-500">Generating character portrait</span>
+                  </div>
+                  <img id="modal-preview-image" src="" alt="Character Preview" class="w-full h-full object-cover hidden transition-all duration-500">
+                  <div id="modal-preview-svg" class="w-full h-full hidden flex items-center justify-center"></div>
+                </div>
+
+                <!-- Metadata & Controls -->
+                <div class="space-y-1.5 text-xs">
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-slate-400">Provider: <strong id="modal-preview-provider" class="text-cyan-300 font-medium">Pollinations AI (Free)</strong></span>
+                    <span id="modal-preview-latency" class="text-emerald-400 font-mono">1.1s</span>
+                  </div>
+                  <p id="modal-preview-prompt-echo" class="text-[10px] text-slate-300 font-mono line-clamp-2 bg-black/40 p-2 rounded-lg border border-white/5 leading-relaxed">
+                    masterpiece, best quality, 1girl, hiyori...
+                  </p>
+                </div>
+
+                <div class="flex gap-2 pt-2 border-t border-white/5">
+                  <button onclick="generateArtPreviewModal()" class="flex-1 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium border border-white/10 transition-colors">
+                    🔄 Re-roll
+                  </button>
+                  <button onclick="closeArtPreviewModal()" class="flex-1 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-md shadow-cyan-600/30 transition-colors">
+                    Done / Close
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Preset Inspiration Chips (Tapping appends to the box!) -->
+            <div class="flex items-center gap-1.5 flex-wrap pt-1 text-[10px]">
+              <span class="text-slate-400">Add Style Aesthetic:</span>
+              <button onclick="appendStyle('Studio Ghibli meadow lighting,')" class="px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">+ Ghibli Meadow</button>
+              <button onclick="appendStyle('Cyberpunk neon rim lighting, night rain,')" class="px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">+ Cyberpunk Neon</button>
+              <button onclick="appendStyle('Makoto Shinkai volumetric clouds, radiant sky,')" class="px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">+ Shinkai Sky</button>
+              <button onclick="appendStyle('Cozy warm cafe interior, soft bokeh,')" class="px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">+ Cozy Cafe</button>
+            </div>
+          </div>
+
+          <!-- 3. CINEMATIC AUTONOMY (AUTONOMOUS DIRECTOR from media_1788911760149.png - SINGLE TOGGLE ONLY!) -->
+          <div class="bg-white/[0.02] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
+            <div class="flex items-start gap-3">
+              <span class="text-2xl text-cyan-400 mt-0.5">🎬</span>
+              <div>
+                <div class="text-xs font-bold text-white flex items-center gap-2">
+                  Cinematic Autonomy (Autonomous Director)
+                  <span class="text-[9px] bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/30">Background Loop</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5 max-w-xl leading-normal">
+                  A parallel 2nd-LLM evaluator that analyzes ongoing conversation and autonomously synthesizes background imagery and selfies during emotional story climaxes.
+                </p>
+              </div>
+            </div>
+            <div class="ml-4 flex-shrink-0">
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="flex justify-between w-full pt-2 border-t border-white/5">
+          <button onclick="goToStep(10)" class="text-xs text-slate-400 hover:text-white">‹ Back to Emotions</button>
+          <button onclick="goToStep(12)" class="py-2 px-6 rounded-lg bg-[#00b4d8] hover:bg-[#0096c7] text-white text-xs font-semibold">Next: Sensory & Proactivity ›</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 12: SENSORY & PROACTIVITY -->
+      <!-- ========================================================================= -->
+      <div id="step-12-view" class="step-view hidden flex-col justify-between flex-1 max-w-4xl mx-auto space-y-3 animate-fadeIn">
+        <div>
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight">Sensory & Proactivity</h2>
+              <p class="text-slate-400 text-xs mt-0.5">Give your companion awareness of your workspace, ambient check-ins, and bedtime rhythms.</p>
+            </div>
+            <span class="text-[10px] bg-emerald-950 text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-500/30">CURRENTLY AWAKE</span>
+          </div>
+        </div>
+        <div class="space-y-3 overflow-y-auto max-h-[500px] pr-1 custom-scrollbar">
+          <div class="bg-white/[0.02] border border-cyan-500/30 rounded-2xl p-4">
+            <span class="text-xs font-bold text-white block mb-1">Screen Watching & Reaction Mode</span>
+            <p class="text-[11px] text-slate-400 mb-2">Evaluates frames for visual changes and OCR context.</p>
+            <div class="grid grid-cols-4 gap-2 text-center text-xs">
+              <div class="p-2 rounded-lg card-glow-active bg-[#121c2c] border-2 border-cyan-400 text-white font-bold">Voice & Bubble</div>
+              <div class="p-2 rounded-lg bg-white/5 text-slate-400">Bubble Only</div>
+              <div class="p-2 rounded-lg bg-white/5 text-slate-400">Voice Only</div>
+              <div class="p-2 rounded-lg bg-white/5 text-slate-400">Muted</div>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-between w-full pt-2 border-t border-white/5">
+          <button onclick="goToStep(11)" class="text-xs text-slate-400 hover:text-white">‹ Back</button>
+          <button onclick="goToStep(13)" class="py-2 px-6 rounded-lg bg-[#00b4d8] hover:bg-[#0096c7] text-white text-xs font-semibold">Next: Tools & Skills ›</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 13: TOOLS & SKILLS -->
+      <!-- ========================================================================= -->
+      <div id="step-13-view" class="step-view hidden flex-col justify-between flex-1 max-w-4xl mx-auto space-y-3 animate-fadeIn">
+        <div>
+          <div class="flex items-center gap-2 text-xs text-slate-400 mb-0.5">
+            <span class="text-cyan-400 font-medium">Autonomous Capabilities</span>
+            <span>· Real-World Actions & Memory Hierarchy</span>
+          </div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Tools & Autonomous Skills</h2>
+          <p class="text-slate-400 text-xs mt-0.5">What can your companion actually do? Configure autonomous memory systems, web search, and tools.</p>
+        </div>
+
+        <div class="space-y-2.5 overflow-y-auto max-h-[500px] pr-1 custom-scrollbar">
+          <div class="p-3.5 bg-gradient-to-r from-cyan-950/40 to-blue-950/30 border-2 border-cyan-500/50 rounded-xl flex items-center justify-between card-glow-active">
+            <div class="flex items-start gap-3">
+              <span class="text-2xl text-cyan-400 mt-0.5">📅</span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-white">24-Hour Short-Term Memory Consolidation (STMM)</span>
+                  <span class="text-[9px] bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/30 font-semibold">Daily Summaries</span>
+                </div>
+                <div class="text-[11px] text-slate-300 mt-1 leading-snug">
+                  Proactively summarizes each 24-hour conversational block into daily memory chunks injected directly into the system prompt.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-between w-full pt-2 border-t border-white/5">
+          <button onclick="goToStep(12)" class="text-xs text-slate-400 hover:text-white">‹ Back to Sensory</button>
+          <button onclick="goToStep(14)" class="py-2 px-6 rounded-lg bg-[#00b4d8] hover:bg-[#0096c7] text-white text-xs font-semibold">Next: Stage Finale ›</button>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- STEP 14: STAGE FINALE -->
+      <!-- ========================================================================= -->
+      <div id="step-14-view" class="step-view hidden flex-col justify-between flex-1 max-w-4xl mx-auto space-y-3 animate-fadeIn">
+        <div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Stage Finale & Pre-Flight Verification</h2>
+          <p class="text-slate-400 text-xs mt-0.5">Your companion is assembled! Verifying hardware readiness before entering Stage.</p>
+        </div>
+        <div class="grid grid-cols-4 gap-3">
+          <div class="p-3 bg-black/40 border border-emerald-500/40 rounded-xl text-center">
+            <div class="text-xl mb-1">🎙️</div>
+            <div class="text-xs font-bold text-white">Audio Input</div>
+            <div class="text-[10px] text-emerald-400 mt-1">Mic & VAD Ready</div>
+          </div>
+          <div class="p-3 bg-black/40 border border-emerald-500/40 rounded-xl text-center">
+            <div class="text-xl mb-1">🧠</div>
+            <div class="text-xs font-bold text-white">Reasoning Core</div>
+            <div class="text-[10px] text-emerald-400 mt-1">WebGPU Active</div>
+          </div>
+          <div class="p-3 bg-black/40 border border-emerald-500/40 rounded-xl text-center">
+            <div class="text-xl mb-1">🔊</div>
+            <div class="text-xs font-bold text-white">Voice Synthesis</div>
+            <div class="text-[10px] text-emerald-400 mt-1">Kokoro Local TTS</div>
+          </div>
+          <div class="p-3 bg-black/40 border border-emerald-500/40 rounded-xl text-center">
+            <div class="text-xl mb-1">🎭</div>
+            <div class="text-xs font-bold text-white">Avatar Stage</div>
+            <div class="text-[10px] text-emerald-400 mt-1">Live2D Mounted</div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between pt-2 border-t border-white/5">
+          <button onclick="goToStep(13)" class="text-xs text-slate-400 hover:text-white">‹ Back to Tools</button>
+          <button onclick="alert('🚀 Entering Stage!')" class="py-2.5 px-8 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 text-white text-xs font-bold shadow-xl">
+            <span>🚀 Enter Stage</span>
+          </button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    const allSteps = [
+      'Welcome',
+      'Triage',
+      'Experience',
+      'Soul & Persona',
+      'Physical Vessel',
+      'User Profile',
+      'Hearing',
+      'Consciousness',
+      'Thinking',
+      'Speech',
+      'Emotions',
+      'Artistry',
+      'Sensory',
+      'Tools & Skills',
+      'Stage Finale'
+    ];
+
+    let currentStepIndex = 11; // Open on Step 11: Artistry!
+    let activeSourceFilter = 'all';
+    let currentVesselIndex = 0;
+    let activeArtProvider = 'pollinations';
+
+    const allVesselData = [
+      {
+        id: 0,
+        name: 'Hiyori (Student)',
+        file: 'nizima_143628.zip',
+        tag: 'live2d-zip',
+        format: 'live2d',
+        isInstalled: true,
+        icon: '🎀',
+        desc: 'Live2D Cubism 4 • Full eye gaze physics, blink sync, and natural breathing.',
+        prompt: 'masterpiece, best quality, 1girl, hiyori, brown twin tails with blue hair ribbons, brown hair, gentle blue eyes, anime school uniform with blue ribbon tie, clean lineart, soft watercolor anime style,',
+        theme: 'from-cyan-500/20 to-blue-600/20',
+        borderColor: 'border-cyan-400'
+      },
+      {
+        id: 1,
+        name: 'Koharu (Casual)',
+        file: 'koharu_v2.zip',
+        tag: 'live2d-zip',
+        format: 'live2d',
+        isInstalled: true,
+        icon: '👧',
+        desc: 'Live2D Cubism 4 • Casual street clothes with hair physics.',
+        prompt: 'masterpiece, best quality, 1girl, koharu, short messy brown bob hair, warm amber eyes, casual oversized yellow hoodie with white cords, relaxed everyday street fashion, warm pastel anime aesthetic,',
+        theme: 'from-amber-500/20 to-orange-600/20',
+        borderColor: 'border-amber-400'
+      },
+      {
+        id: 2,
+        name: 'Seed Girl (VRM)',
+        file: 'AvatarSample_B.vrm',
+        tag: 'vrm-3d',
+        format: 'vrm',
+        isInstalled: true,
+        icon: '💃',
+        desc: 'VRM 1.0 3D Humanoid • Blendshape facial expressions and full body IK.',
+        prompt: 'masterpiece, best quality, 1girl, seed girl, long dual-tone silvery-blue hair with white highlights, glowing cyan iris, futuristic idol bodysuit with neon accents, cel-shaded 3D anime aesthetic,',
+        theme: 'from-purple-500/20 to-indigo-600/20',
+        borderColor: 'border-purple-400'
+      },
+      {
+        id: 3,
+        name: 'Neko Ayaka',
+        file: 'ayaka_v1.zip',
+        tag: 'live2d-zip',
+        format: 'live2d',
+        isInstalled: false,
+        icon: '🐾',
+        desc: 'Live2D Cubism 4 • Cat girl maid with dynamic ear twitches and paw gestures.',
+        prompt: 'masterpiece, best quality, 1girl, neko ayaka, black cat ears, twin tails, deep violet eyes, gothic lolita maid dress with white apron, golden bell collar, high quality anime illustration,',
+        theme: 'from-rose-500/20 to-pink-600/20',
+        borderColor: 'border-rose-400'
+      },
+      {
+        id: 4,
+        name: 'Shizuku (Winter)',
+        file: 'shizuku.vrm',
+        tag: 'vrm-3d',
+        format: 'vrm',
+        isInstalled: false,
+        icon: '❄️',
+        desc: 'VRM 1.0 3D Humanoid • Winter scarf and coat with soft cloth physics.',
+        prompt: 'masterpiece, best quality, 1girl, shizuku, long silver straight hair, red ribbon hairclip, crimson eyes, navy blue winter coat with knitted scarf, elegant graceful anime style,',
+        theme: 'from-sky-500/20 to-blue-600/20',
+        borderColor: 'border-sky-400'
+      },
+      {
+        id: 5,
+        name: 'Cyber Sam',
+        file: 'cyber_sam.vrm',
+        tag: 'vrm-3d',
+        format: 'vrm',
+        isInstalled: false,
+        icon: '⚡',
+        desc: 'VRM 1.0 3D Humanoid • Cyberpunk street runner with holographic visor shaders.',
+        prompt: 'masterpiece, best quality, 1girl, cyber sam, neon green high ponytail, tech visor on forehead, dark cyberpunk bomber jacket with glowing circuit patches, vibrant night city aesthetic,',
+        theme: 'from-emerald-500/20 to-teal-600/20',
+        borderColor: 'border-emerald-400'
+      }
+    ];
+
+    function renderBreadcrumbs() {
+      const windowSize = 5;
+      const half = Math.floor(windowSize / 2);
+      
+      let start = currentStepIndex - half;
+      if (start < 0) start = 0;
+      if (start + windowSize > allSteps.length) {
+        start = Math.max(0, allSteps.length - windowSize);
+      }
+      const end = Math.min(start + windowSize, allSteps.length);
+
+      const leftIndicator = document.getElementById('window-left-indicator');
+      const rightIndicator = document.getElementById('window-right-indicator');
+      
+      if (start > 0) {
+        leftIndicator.classList.remove('hidden');
+      } else {
+        leftIndicator.classList.add('hidden');
+      }
+
+      if (end < allSteps.length) {
+        rightIndicator.classList.remove('hidden');
+      } else {
+        rightIndicator.classList.add('hidden');
+      }
+
+      const container = document.getElementById('breadcrumb-container');
+      container.innerHTML = '';
+
+      for (let i = start; i < end; i++) {
+        const stepName = allSteps[i];
+        const btn = document.createElement('button');
+        btn.onclick = () => goToStep(i);
+        btn.innerText = stepName;
+
+        if (i === currentStepIndex) {
+          btn.className = "px-3 py-1 rounded-full font-semibold transition-all bg-cyan-600 text-white shadow-md text-xs whitespace-nowrap";
+        } else {
+          btn.className = "px-3 py-1 rounded-full font-medium transition-all text-slate-400 hover:text-white text-xs whitespace-nowrap";
+        }
+        container.appendChild(btn);
+      }
+    }
+
+    function goToStep(stepIndex) {
+      currentStepIndex = stepIndex;
+      renderBreadcrumbs();
+
+      for (let i = 0; i < allSteps.length; i++) {
+        const view = document.getElementById(`step-${i}-view`);
+        if (!view) continue;
+        if (i === stepIndex) {
+          view.classList.remove('hidden');
+          view.classList.add('flex');
+        } else {
+          view.classList.add('hidden');
+          view.classList.remove('flex');
+        }
+      }
+
+      if (stepIndex === 4) {
+        renderCoverflow();
+      }
+    }
+
+    function selectArtProvider(provider) {
+      activeArtProvider = provider;
+      ['pollinations', 'comfyui', 'disabled'].forEach(p => {
+        const el = document.getElementById(`artp-${p}`);
+        if (!el) return;
+        if (p === provider) {
+          el.className = "cursor-pointer p-3 rounded-xl card-glow-active bg-[#121c2c] border-2 border-cyan-400";
+        } else {
+          el.className = "cursor-pointer p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/10";
+        }
+      });
+      const providerLabel = document.getElementById('modal-preview-provider');
+      if (providerLabel) {
+        if (provider === 'pollinations') providerLabel.innerText = 'Pollinations AI (Free)';
+        else if (provider === 'comfyui') providerLabel.innerText = 'ComfyUI (Local:8188)';
+        else providerLabel.innerText = 'Offline Simulated Canvas';
+      }
+    }
+
+    function appendStyle(tag) {
+      const box = document.getElementById('character-visual-style');
+      box.value = box.value.trim() + ' ' + tag + ' ';
+    }
+
+    function resetStylePrompt() {
+      const vessel = allVesselData[currentVesselIndex] || allVesselData[0];
+      document.getElementById('character-visual-style').value = vessel.prompt;
+      const label = document.getElementById('vessel-badge-label');
+      if (label) {
+        label.innerHTML = `<span>✨</span> Auto-injected from ${vessel.name} Vessel`;
+      }
+    }
+
+    // Modal Preview Controls
+    function openArtPreviewModal() {
+      const modal = document.getElementById('art-preview-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      generateArtPreviewModal();
+    }
+
+    function closeArtPreviewModal() {
+      const modal = document.getElementById('art-preview-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function generateArtPreviewModal() {
+      const spinner = document.getElementById('modal-preview-spinner');
+      const img = document.getElementById('modal-preview-image');
+      const svg = document.getElementById('modal-preview-svg');
+      const latencyEl = document.getElementById('modal-preview-latency');
+      const echoEl = document.getElementById('modal-preview-prompt-echo');
+      const promptText = document.getElementById('character-visual-style').value.trim();
+
+      spinner.classList.remove('hidden');
+      img.classList.add('hidden');
+      svg.classList.add('hidden');
+      if (echoEl) echoEl.innerText = promptText;
+
+      const vessel = allVesselData[currentVesselIndex] || allVesselData[0];
+      const startTime = performance.now();
+
+      // Fast, lightweight anime SVG generator for 100% offline preview reliability
+      const svgGraphic = `
+        <svg viewBox="0 0 300 300" class="w-full h-full bg-[#0d1522]" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#1e293b"/>
+              <stop offset="100%" stop-color="#090d16"/>
+            </radialGradient>
+            <linearGradient id="hairGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="${vessel.id === 2 ? '#67e8f9' : vessel.id === 4 ? '#e2e8f0' : vessel.id === 5 ? '#34d399' : '#b45309'}"/>
+              <stop offset="100%" stop-color="${vessel.id === 2 ? '#3b82f6' : vessel.id === 4 ? '#94a3b8' : vessel.id === 5 ? '#059669' : '#78350f'}"/>
+            </linearGradient>
+          </defs>
+          <rect width="300" height="300" fill="url(#bgGrad)"/>
+          <circle cx="150" cy="140" r="65" fill="#fed7aa"/>
+          <!-- Hair Base -->
+          <path d="M 85 140 Q 90 60 150 60 Q 210 60 215 140 Q 220 200 200 230 Q 185 240 180 170 Q 150 180 120 170 Q 115 240 100 230 Z" fill="url(#hairGrad)"/>
+          <!-- Anime Eyes -->
+          <ellipse cx="125" cy="140" rx="10" ry="14" fill="#0f172a"/>
+          <ellipse cx="175" cy="140" rx="10" ry="14" fill="#0f172a"/>
+          <circle cx="123" cy="136" r="4" fill="#ffffff"/>
+          <circle cx="173" cy="136" r="4" fill="#ffffff"/>
+          <!-- Blush -->
+          <ellipse cx="110" cy="155" rx="8" ry="4" fill="#fda4af" opacity="0.6"/>
+          <ellipse cx="190" cy="155" rx="8" ry="4" fill="#fda4af" opacity="0.6"/>
+          <!-- Smile -->
+          <path d="M 142 165 Q 150 172 158 165" stroke="#f43f5e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- Badge Watermark -->
+          <rect x="10" y="10" width="100" height="24" rx="12" fill="rgba(0,0,0,0.5)"/>
+          <text x="60" y="26" fill="#38bdf8" font-size="10" font-family="sans-serif" font-weight="bold" text-anchor="middle">${vessel.name.split(' ')[0]}</text>
+        </svg>
+      `;
+
+      setTimeout(() => {
+        spinner.classList.add('hidden');
+        svg.innerHTML = svgGraphic;
+        svg.classList.remove('hidden');
+        const durationSec = ((performance.now() - startTime) / 1000).toFixed(1);
+        if (latencyEl) latencyEl.innerText = `${durationSec}s`;
+      }, 750);
+    }
+
+    // Coverflow Logic for Step 4
+    function setSourceFilter(filter) {
+      activeSourceFilter = filter;
+      ['all', 'installed', 'free'].forEach(f => {
+        const el = document.getElementById(`sfilter-${f}`);
+        if (!el) return;
+        if (f === filter) {
+          el.className = "px-3 py-0.5 rounded-full text-xs font-medium bg-cyan-600 text-white shadow";
+        } else {
+          el.className = "px-3 py-0.5 rounded-full text-xs font-medium text-slate-400 hover:text-white";
+        }
+      });
+      renderCoverflow();
+    }
+
+    function selectVessel(vesselId) {
+      currentVesselIndex = vesselId;
+      renderCoverflow();
+      // Sync prompt box in Step 11
+      const vessel = allVesselData[vesselId];
+      if (vessel) {
+        const box = document.getElementById('character-visual-style');
+        if (box) box.value = vessel.prompt;
+        const badge = document.getElementById('vessel-badge-label');
+        if (badge) badge.innerHTML = `<span>✨</span> Auto-injected from ${vessel.name} Vessel`;
+      }
+    }
+
+    function prevCoverflow() {
+      if (currentVesselIndex > 0) {
+        selectVessel(currentVesselIndex - 1);
+      }
+    }
+
+    function nextCoverflow() {
+      if (currentVesselIndex < allVesselData.length - 1) {
+        selectVessel(currentVesselIndex + 1);
+      }
+    }
+
+    function renderCoverflow() {
+      const reel = document.getElementById('coverflow-reel');
+      if (!reel) return;
+      reel.innerHTML = '';
+
+      const filtered = allVesselData.filter(v => {
+        if (activeSourceFilter === 'installed') return v.isInstalled;
+        if (activeSourceFilter === 'free') return !v.isInstalled;
+        return true;
+      });
+
+      filtered.forEach(v => {
+        const isSelected = v.id === currentVesselIndex;
+        const card = document.createElement('div');
+        card.onclick = () => selectVessel(v.id);
+        
+        let cardStyle = "w-52 h-44 rounded-2xl p-4 flex flex-col justify-between cursor-pointer transition-all duration-300 ";
+        if (isSelected) {
+          cardStyle += `bg-gradient-to-b ${v.theme} border-2 ${v.borderColor} scale-105 shadow-2xl z-20`;
+        } else {
+          cardStyle += "bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 opacity-70 scale-95 z-10";
+        }
+        card.className = cardStyle;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="text-2xl">${v.icon}</span>
+            <span class="text-[9px] px-2 py-0.5 rounded-full font-semibold ${v.isInstalled ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30' : 'bg-blue-950 text-blue-300 border border-blue-500/30'}">
+              ${v.isInstalled ? '✓ Installed' : '🌐 Free Download'}
+            </span>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-white">${v.name}</div>
+            <p class="text-[10px] text-slate-300 mt-1 line-clamp-2">${v.desc}</p>
+          </div>
+          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[9px] text-slate-400">
+            <span>${v.format.toUpperCase()}</span>
+            <span>${isSelected ? '● Selected' : 'Click to Mount'}</span>
+          </div>
+        `;
+        reel.appendChild(card);
+      });
+    }
+
+    // Init: Start on Step 11 (Artistry)
+    goToStep(11);
+  </script>
+</body>
+</html>
