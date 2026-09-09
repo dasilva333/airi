@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { POLLINATIONS_DEFAULT_MODELS, REPLICATE_IMAGEGEN_PRESETS } from '@proj-airi/stage-shared'
+import { formatCorsProxyUrl, POLLINATIONS_DEFAULT_MODELS, REPLICATE_IMAGEGEN_PRESETS } from '@proj-airi/stage-shared'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
@@ -216,7 +216,8 @@ function applyPresetPrompt(promptText: string) {
 async function fetchDirectPollinations(prompt: string, model: string, width: number, height: number) {
   const modelParam = model ? `&model=${encodeURIComponent(model)}` : ''
   const seed = Math.floor(Math.random() * 1000000)
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}${modelParam}&nologo=true`
+  const rawUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}${modelParam}&nologo=true`
+  const url = formatCorsProxyUrl(rawUrl)
 
   const headers: Record<string, string> = {}
   if (pollinationsApiKey.value) {

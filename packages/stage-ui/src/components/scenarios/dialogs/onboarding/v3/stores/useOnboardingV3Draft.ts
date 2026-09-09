@@ -48,9 +48,14 @@ export interface OnboardingV3DraftState {
   ttsVoiceId?: string
   ttsPitch?: number
   ttsRate?: number
-  artistryProvider?: 'pollinations' | 'comfyui' | 'none'
+  artistryProvider?: 'pollinations' | 'comfyui' | 'nanobanana' | 'replicate' | 'none'
+  artistryModel?: string
+  artistryApiKey?: string
+  artistryComfyServerUrl?: string
+  artistryComfyWorkflow?: string
   artistryVisualPrompt?: string
   artistryDirectorEnabled?: boolean
+  artistryDirectorTarget?: 'assistant' | 'user'
   screenWatcherEnabled?: boolean
   screenWatcherMode?: 'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'
   memoryShortTermEnabled?: boolean
@@ -120,7 +125,9 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     pacingPreset: 'balanced',
     subconsciousAsides: true,
     artistryProvider: 'pollinations',
+    artistryModel: '',
     artistryDirectorEnabled: true,
+    artistryDirectorTarget: 'assistant',
     screenWatcherEnabled: true,
     screenWatcherMode: 'voice-and-bubble',
     memoryShortTermEnabled: true,
@@ -276,6 +283,34 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.customProse = thinking.customProse
   }
 
+  function setArtistry(artistry: {
+    provider?: 'pollinations' | 'comfyui' | 'nanobanana' | 'replicate' | 'none'
+    model?: string
+    apiKey?: string
+    comfyServerUrl?: string
+    comfyWorkflow?: string
+    visualPrompt?: string
+    directorEnabled?: boolean
+    directorTarget?: 'assistant' | 'user'
+  }) {
+    if (artistry.provider !== undefined)
+      state.value.artistryProvider = artistry.provider
+    if (artistry.model !== undefined)
+      state.value.artistryModel = artistry.model
+    if (artistry.apiKey !== undefined)
+      state.value.artistryApiKey = artistry.apiKey
+    if (artistry.comfyServerUrl !== undefined)
+      state.value.artistryComfyServerUrl = artistry.comfyServerUrl
+    if (artistry.comfyWorkflow !== undefined)
+      state.value.artistryComfyWorkflow = artistry.comfyWorkflow
+    if (artistry.visualPrompt !== undefined)
+      state.value.artistryVisualPrompt = artistry.visualPrompt
+    if (artistry.directorEnabled !== undefined)
+      state.value.artistryDirectorEnabled = artistry.directorEnabled
+    if (artistry.directorTarget !== undefined)
+      state.value.artistryDirectorTarget = artistry.directorTarget
+  }
+
   function reset() {
     state.reset()
   }
@@ -292,6 +327,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     setConsciousness,
     setSpeech,
     setThinking,
+    setArtistry,
     reset,
   }
 })

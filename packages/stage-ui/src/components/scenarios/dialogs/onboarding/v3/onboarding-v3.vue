@@ -3,6 +3,7 @@ import { ref } from 'vue'
 
 import SlidingStepper from './components/sliding-stepper.vue'
 import StepAppearance from './steps/step-appearance.vue'
+import StepArtistry from './steps/step-artistry.vue'
 import StepConsciousness from './steps/step-consciousness.vue'
 import StepExperience from './steps/step-experience.vue'
 import StepHearing from './steps/step-hearing.vue'
@@ -158,6 +159,13 @@ function handleSkip() {
       <!-- Step 10: Thinking (Conversational Pacing & Subconscious Asides) -->
       <StepThinking
         v-else-if="currentIndex === 10"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 12: Artistry (Visual Creative Studio & Autonomous Director) -->
+      <StepArtistry
+        v-else-if="currentIndex === 12"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />

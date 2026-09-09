@@ -134,6 +134,9 @@ watch(selectedProfile, (val) => {
   }
   else if (val === 'deep') {
     overrideLimits.value = false
+    tier1Enabled.value = true
+    tier2Enabled.value = true
+    tier3Enabled.value = true
   }
   else {
     tier1Enabled.value = true
@@ -205,9 +208,9 @@ function handleContinue() {
   draftStore.setThinking({
     pacingPreset: selectedProfile.value,
     subconsciousAsides: selectedProfile.value !== 'disabled',
-    subconsciousTier1: tier1Enabled.value,
-    subconsciousTier2: tier2Enabled.value,
-    subconsciousTier3: tier3Enabled.value,
+    subconsciousTier1: selectedProfile.value !== 'disabled' ? tier1Enabled.value : false,
+    subconsciousTier2: selectedProfile.value !== 'disabled' ? tier2Enabled.value : false,
+    subconsciousTier3: selectedProfile.value !== 'disabled' ? tier3Enabled.value : false,
     overrideLimits: overrideLimits.value,
     contextWidth: contextWidth.value,
     maxTokens: maxTokens.value,
@@ -234,14 +237,14 @@ function handleContinue() {
               Step 10
             </span>
           </div>
-          <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
-            Calibrate dynamic thinking fillers, subconscious aside extraction, and token constraints.
+          <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
+            Calibrate spoken thinking fillers, natural reasoning asides, and response length. Presets match your model's thinking speed so AIRI can fill the silence with speech while waiting — AIRI never cuts off or imposes timeouts on model reasoning.
           </p>
         </div>
       </div>
 
       <!-- Active Status Badge -->
-      <div :class="['flex items-center gap-2']">
+      <div :class="['flex items-center gap-2 flex-shrink-0']">
         <span
           :class="[
             'text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full font-mono border flex items-center gap-1.5',
@@ -251,7 +254,7 @@ function handleContinue() {
           ]"
         >
           <span :class="['w-1.5 h-1.5 rounded-full', selectedProfile === 'disabled' ? 'bg-neutral-400' : 'bg-primary-500 animate-pulse']" />
-          <span>{{ selectedProfile === 'disabled' ? 'PACING INACTIVE' : 'PRESET ACTIVE' }}</span>
+          <span>{{ selectedProfile === 'disabled' ? 'SILENT • 0 MB VRAM' : 'PACING ACTIVE' }}</span>
         </span>
       </div>
     </div>
@@ -263,8 +266,8 @@ function handleContinue() {
           <div :class="['w-2 h-4 rounded bg-primary-500']" />
           <span>Pacing Profile Presets</span>
         </div>
-        <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1']">
-          Select a calibrated profile to tune timing deadlines, audio duration ceilings, and dynamic aside budgets for your model's thinking speed.
+        <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
+          Select a cadence profile matching your model's reasoning latency. These settings tune when and how often thinking fillers are spoken while waiting for a response — they are conversational pacing expectations, not abort timeouts.
         </p>
       </div>
 
@@ -285,8 +288,8 @@ function handleContinue() {
               <div :class="['w-7 h-7 rounded-xl bg-neutral-200/70 dark:bg-white/10 flex items-center justify-center text-sm text-neutral-500 dark:text-neutral-400']">
                 <div :class="['i-solar:forbidden-circle-bold-duotone w-4 h-4']" />
               </div>
-              <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-neutral-200/60 dark:bg-white/10 text-neutral-500 dark:text-neutral-400 uppercase font-mono']">
-                SILENT
+              <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 uppercase font-mono']">
+                0 MB VRAM
               </span>
             </div>
             <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
@@ -296,15 +299,15 @@ function handleContinue() {
               Pure Direct Output
             </span>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              Complete silence during generation. No thinking fillers, audio pauses, or spoken asides.
+              Complete silence during generation. No thinking fillers, audio pauses, or background models loaded. Zero background VRAM overhead.
             </p>
           </div>
-          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center gap-1.5 text-[9px] font-mono text-neutral-400']">
-            <span>Max: 0s</span>
+          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-400']">
+            <span>0 MB VRAM</span>
             <span>·</span>
-            <span>Int: Off</span>
+            <span>Zero Overhead</span>
             <span>·</span>
-            <span>Budget: 0ms</span>
+            <span>Silent</span>
           </div>
         </div>
 
@@ -330,16 +333,19 @@ function handleContinue() {
             <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
               Snappy Chat
             </h4>
+            <span :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mt-0.5']">
+              Fast Conversational
+            </span>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              Standard chat models, fast banter (Gemini Flash, Haiku, small local LLMs).
+              Standard chat models with fast initial response (Gemini Flash, Claude Haiku, small local LLMs). Quick short fillers.
             </p>
           </div>
-          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center gap-1.5 text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
-            <span>Max: ≤1.8s</span>
+          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
+            <span>Filler: ≤1.8s</span>
             <span>·</span>
-            <span>Int: 8s</span>
+            <span>Every: 8s</span>
             <span>·</span>
-            <span>Budget: 2000ms</span>
+            <span>Budget: 2s</span>
           </div>
         </div>
 
@@ -365,16 +371,19 @@ function handleContinue() {
             <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
               Balanced
             </h4>
+            <span :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mt-0.5']">
+              Everyday Reasoning
+            </span>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              Everyday reasoning models (DeepSeek 4 Pro, GPT-4o, Sonnet 3.5, Gemini Pro).
+              Everyday reasoning models (DeepSeek 4 Pro, GPT-4o, Claude 3.5 Sonnet, Gemini Pro). Natural spoken asides.
             </p>
           </div>
-          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center gap-1.5 text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
-            <span>Max: ≤3.0s</span>
+          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
+            <span>Filler: ≤3.0s</span>
             <span>·</span>
-            <span>Int: 15s</span>
+            <span>Every: 15s</span>
             <span>·</span>
-            <span>Budget: 3200ms</span>
+            <span>Budget: 3.2s</span>
           </div>
         </div>
 
@@ -394,50 +403,77 @@ function handleContinue() {
                 <div :class="['i-solar:atom-bold-duotone w-4 h-4']" />
               </div>
               <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 uppercase font-mono']">
-                EXTENDED 40–90s
+                EXTENDED 40–90s+
               </span>
             </div>
             <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
               Deep CoT Explorer
             </h4>
+            <span :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mt-0.5']">
+              Extended Deliberation
+            </span>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              Heavy chain-of-thought models (Kimi k3, DeepSeek R1, Glyph Deep CoT).
+              Heavy chain-of-thought models (Kimi k3, DeepSeek R1, Glyph Deep CoT). Longer deliberate thinking asides.
             </p>
           </div>
-          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center gap-1.5 text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
-            <span>Max: ≤4.8s</span>
+          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
+            <span>Filler: ≤4.8s</span>
             <span>·</span>
-            <span>Int: 18s</span>
+            <span>Every: 18s</span>
             <span>·</span>
-            <span>Budget: 5000ms</span>
+            <span>Budget: 5s</span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Section 2: 3-Tier Aside Extraction Cascade -->
+    <!-- Section 2: Thinking Voice Sources (formerly 3-Tier Aside Extraction Cascade) -->
+    <!-- When Disabled / None is selected: Reassuring zero-overhead banner -->
     <div
-      :class="[
-        'p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col gap-3 transition-opacity',
-        selectedProfile === 'disabled' ? 'opacity-40 pointer-events-none' : '',
-      ]"
+      v-if="selectedProfile === 'disabled'"
+      :class="['p-4 rounded-2xl border border-emerald-500/20 dark:border-emerald-500/10 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.02] flex items-center justify-between gap-4 animate-fadeIn']"
+    >
+      <div :class="['flex items-start gap-3']">
+        <div :class="['w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg flex-shrink-0 mt-0.5']">
+          <div :class="['i-solar:shield-check-bold w-5 h-5 text-emerald-500']" />
+        </div>
+        <div>
+          <div :class="['flex items-center gap-2']">
+            <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+              Thinking Voice Sources & Fillers Disabled
+            </h4>
+            <span :class="['text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20']">
+              0 MB VRAM · 0% Background Overhead
+            </span>
+          </div>
+          <p :class="['text-[11px] text-neutral-600 dark:text-neutral-300 mt-0.5 leading-relaxed']">
+            Complete silence is guaranteed while reasoning. No background neural SLMs, audio caches, or extraction models are loaded into memory. Your companion responds directly once output finishes.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- When Active: Thinking Voice Sources Pipeline -->
+    <div
+      v-else
+      :class="['p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col gap-3 transition-all animate-fadeIn']"
     >
       <div :class="['flex items-center justify-between border-b border-neutral-200/40 dark:border-white/5 pb-2']">
         <div :class="['flex items-center gap-2']">
-          <div :class="['i-solar:layers-minimalistic-bold-duotone text-primary-500 w-4 h-4']" />
+          <div :class="['i-solar:microphone-3-bold-duotone text-primary-500 w-4 h-4']" />
           <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
-            3-Tier Aside Extraction Cascade
+            Thinking Voice Sources
           </span>
         </div>
         <span :class="['text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono']">
-          ACTIVE
+          {{ [tier1Enabled, tier2Enabled, tier3Enabled].filter(Boolean).length }} ACTIVE
         </span>
       </div>
-      <p :class="['text-xs text-neutral-500 dark:text-neutral-400 -mt-1']">
-        Multi-tier pipeline that extracts spoken thinking asides and vocalizations during deep reasoning.
+      <p :class="['text-xs text-neutral-500 dark:text-neutral-400 -mt-1 leading-relaxed']">
+        Choose where AIRI sources spoken words and vocalizations during model deliberation.
       </p>
 
-      <!-- Tier 1 -->
+      <!-- Source 1 -->
       <label :class="['flex items-start gap-3 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/40 cursor-pointer hover:border-neutral-300 dark:hover:border-white/10 transition-colors']">
         <input
           v-model="tier1Enabled"
@@ -447,19 +483,19 @@ function handleContinue() {
         <div :class="['flex-1 min-w-0']">
           <div :class="['flex items-center justify-between gap-2']">
             <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              Tier 1: Explicit Intent Markers (&lt;think_aloud&gt;)
+              Natural In-Character Thoughts (&lt;think_aloud&gt;)
             </span>
             <span :class="['text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono flex-shrink-0']">
-              Zero Ambiguity
+              Prompt Directives
             </span>
           </div>
           <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            Synthesizes on-the-fly vocalizations when the model emits intentional &lt;think_aloud&gt; markers during deep reasoning.
+            Synthesizes in-character thoughts when the model emits intentional &lt;think_aloud&gt; markers during reasoning.
           </p>
         </div>
       </label>
 
-      <!-- Tier 2 -->
+      <!-- Source 2 -->
       <label :class="['flex items-start gap-3 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/40 cursor-pointer hover:border-neutral-300 dark:hover:border-white/10 transition-colors']">
         <input
           v-model="tier2Enabled"
@@ -469,14 +505,14 @@ function handleContinue() {
         <div :class="['flex-1 min-w-0']">
           <div :class="['flex items-center justify-between gap-2']">
             <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              Tier 2: Semantic Extractor (Needle 2 Subconscious Runtime)
+              Smart Reasoning Extractor (Needle 45M SLM)
             </span>
             <span :class="['text-[9px] font-bold px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 font-mono flex-shrink-0']">
-              WASM Neural Gate
+              Lightweight SLM (14 MB)
             </span>
           </div>
           <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            Runs on-device lightweight WebAssembly classifier to detect natural aside boundaries and internal deliberation shifts without requiring special tags.
+            Runs an ultra-lightweight on-device model to extract genuine moments of realization and deliberation shifts directly from raw reasoning tokens without requiring special tags.
           </p>
           <div :class="['mt-2 flex items-center justify-between text-[10px] bg-neutral-50 dark:bg-neutral-800/40 p-1.5 rounded-lg border border-neutral-200/40 dark:border-white/5']">
             <span :class="['flex items-center gap-1.5 font-medium text-neutral-600 dark:text-neutral-300']">
@@ -485,13 +521,13 @@ function handleContinue() {
             </span>
             <span :class="['text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-bold flex items-center gap-1']">
               <div :class="['i-solar:check-circle-bold w-3 h-3']" />
-              <span>Pre-warmed in Cache</span>
+              <span>Zero Cloud Cost · Pre-warmed</span>
             </span>
           </div>
         </div>
       </label>
 
-      <!-- Tier 3 -->
+      <!-- Source 3 -->
       <label :class="['flex items-start gap-3 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/40 cursor-pointer hover:border-neutral-300 dark:hover:border-white/10 transition-colors']">
         <input
           v-model="tier3Enabled"
@@ -501,14 +537,14 @@ function handleContinue() {
         <div :class="['flex-1 min-w-0']">
           <div :class="['flex items-center justify-between gap-2']">
             <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              Tier 3: Heuristic Pattern Matching & Organic Pivots
+              Casual Spoken Fillers (Organic Reactions & Audio Clips)
             </span>
             <span :class="['text-[9px] font-bold px-1.5 py-0.2 rounded bg-neutral-200/60 dark:bg-white/10 text-neutral-600 dark:text-neutral-400 font-mono flex-shrink-0']">
-              Regex / Keywords
+              Natural Transitions
             </span>
           </div>
           <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            Detects organic thinking pivot sentences in raw CoT reasoning ("Wait, actually...", "Hmm, let me re-evaluate...") via pattern rules when higher tiers do not trigger.
+            Speaks short vocal reactions and organic transitions ("Wait...", "Hmm, let me see...") when the model takes time to reason.
           </p>
         </div>
       </label>
