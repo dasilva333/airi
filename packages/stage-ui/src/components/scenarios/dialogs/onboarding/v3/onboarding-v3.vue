@@ -3,10 +3,13 @@ import { ref } from 'vue'
 
 import SlidingStepper from './components/sliding-stepper.vue'
 import StepAppearance from './steps/step-appearance.vue'
+import StepConsciousness from './steps/step-consciousness.vue'
 import StepExperience from './steps/step-experience.vue'
 import StepHearing from './steps/step-hearing.vue'
 import StepPersona from './steps/step-persona.vue'
 import StepProfile from './steps/step-profile.vue'
+import StepSpeech from './steps/step-speech.vue'
+import StepThinking from './steps/step-thinking.vue'
 import StepTriage from './steps/step-triage.vue'
 import StepVessel from './steps/step-vessel.vue'
 import StepWelcome from './steps/step-welcome.vue'
@@ -81,7 +84,7 @@ function handleSkip() {
     </header>
 
     <!-- Main Edgeless Workspace (Centered & Clean) -->
-    <main :class="['flex-1 min-h-0 overflow-y-auto px-6 py-4 flex flex-col items-center justify-center']">
+    <main :class="['flex-1 min-h-0 overflow-y-auto px-6 py-4 flex flex-col items-center justify-start']">
       <!-- Step 0: Welcome -->
       <StepWelcome
         v-if="currentIndex === 0"
@@ -134,6 +137,27 @@ function handleSkip() {
       <!-- Step 7: Hearing & Mic Playground (Voice Transcription STT) -->
       <StepHearing
         v-else-if="currentIndex === 7"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 8: Consciousness (Reasoning Engine LLM) -->
+      <StepConsciousness
+        v-else-if="currentIndex === 8"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 9: Speech (Neural Voice Studio TTS) -->
+      <StepSpeech
+        v-else-if="currentIndex === 9"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 10: Thinking (Conversational Pacing & Subconscious Asides) -->
+      <StepThinking
+        v-else-if="currentIndex === 10"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />

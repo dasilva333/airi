@@ -8,8 +8,8 @@ export type OnboardingV3Step
     | 'persona'
     | 'hearing'
     | 'consciousness'
-    | 'thinking'
     | 'speech'
+    | 'thinking'
     | 'emotions'
     | 'artistry'
     | 'sensory'
@@ -33,8 +33,8 @@ export const ONBOARDING_V3_STEPS: OnboardingV3StepDef[] = [
   { id: 'persona', label: 'Soul & Persona', subtitle: 'Personality Core', index: 6 },
   { id: 'hearing', label: 'Hearing', subtitle: 'Voice Transcription (STT)', index: 7 },
   { id: 'consciousness', label: 'Consciousness', subtitle: 'Reasoning Engine (LLM)', index: 8 },
-  { id: 'thinking', label: 'Thinking', subtitle: 'Pacing & Subconscious Asides', index: 9 },
-  { id: 'speech', label: 'Speech', subtitle: 'Neural Voice (TTS)', index: 10 },
+  { id: 'speech', label: 'Speech', subtitle: 'Neural Voice Studio (TTS)', index: 9 },
+  { id: 'thinking', label: 'Thinking', subtitle: 'Pacing & Subconscious Asides', index: 10 },
   { id: 'emotions', label: 'Emotions', subtitle: '2-Pass ACT Expression Bridge', index: 11 },
   { id: 'artistry', label: 'Artistry', subtitle: 'Visuals & Autonomous Director', index: 12 },
   { id: 'sensory', label: 'Sensory', subtitle: 'Screen Watching & Heartbeats', index: 13 },

@@ -34,10 +34,20 @@ export interface OnboardingV3DraftState {
   sttTriggerKey?: string
   llmProvider?: string
   llmModel?: string
-  pacingPreset?: 'snappy' | 'balanced' | 'deep'
+  pacingPreset?: 'disabled' | 'snappy' | 'balanced' | 'deep'
   subconsciousAsides?: boolean
+  subconsciousTier1?: boolean
+  subconsciousTier2?: boolean
+  subconsciousTier3?: boolean
+  overrideLimits?: boolean
+  contextWidth?: number
+  maxTokens?: number
+  customProse?: string
   ttsProvider?: string
+  ttsModel?: string
   ttsVoiceId?: string
+  ttsPitch?: number
+  ttsRate?: number
   artistryProvider?: 'pollinations' | 'comfyui' | 'none'
   artistryVisualPrompt?: string
   artistryDirectorEnabled?: boolean
@@ -206,6 +216,66 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.sttTriggerKey = hearing.triggerKey
   }
 
+  function setConsciousness(consciousness: {
+    provider?: string
+    model?: string
+  }) {
+    if (consciousness.provider !== undefined)
+      state.value.llmProvider = consciousness.provider
+    if (consciousness.model !== undefined)
+      state.value.llmModel = consciousness.model
+  }
+
+  function setSpeech(speech: {
+    provider?: string
+    model?: string
+    voiceId?: string
+    pitch?: number
+    rate?: number
+  }) {
+    if (speech.provider !== undefined)
+      state.value.ttsProvider = speech.provider
+    if (speech.model !== undefined)
+      state.value.ttsModel = speech.model
+    if (speech.voiceId !== undefined)
+      state.value.ttsVoiceId = speech.voiceId
+    if (speech.pitch !== undefined)
+      state.value.ttsPitch = speech.pitch
+    if (speech.rate !== undefined)
+      state.value.ttsRate = speech.rate
+  }
+
+  function setThinking(thinking: {
+    pacingPreset?: 'disabled' | 'snappy' | 'balanced' | 'deep'
+    subconsciousAsides?: boolean
+    subconsciousTier1?: boolean
+    subconsciousTier2?: boolean
+    subconsciousTier3?: boolean
+    overrideLimits?: boolean
+    contextWidth?: number
+    maxTokens?: number
+    customProse?: string
+  }) {
+    if (thinking.pacingPreset !== undefined)
+      state.value.pacingPreset = thinking.pacingPreset
+    if (thinking.subconsciousAsides !== undefined)
+      state.value.subconsciousAsides = thinking.subconsciousAsides
+    if (thinking.subconsciousTier1 !== undefined)
+      state.value.subconsciousTier1 = thinking.subconsciousTier1
+    if (thinking.subconsciousTier2 !== undefined)
+      state.value.subconsciousTier2 = thinking.subconsciousTier2
+    if (thinking.subconsciousTier3 !== undefined)
+      state.value.subconsciousTier3 = thinking.subconsciousTier3
+    if (thinking.overrideLimits !== undefined)
+      state.value.overrideLimits = thinking.overrideLimits
+    if (thinking.contextWidth !== undefined)
+      state.value.contextWidth = thinking.contextWidth
+    if (thinking.maxTokens !== undefined)
+      state.value.maxTokens = thinking.maxTokens
+    if (thinking.customProse !== undefined)
+      state.value.customProse = thinking.customProse
+  }
+
   function reset() {
     state.reset()
   }
@@ -219,6 +289,9 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     setVessel,
     setPersona,
     setHearing,
+    setConsciousness,
+    setSpeech,
+    setThinking,
     reset,
   }
 })
