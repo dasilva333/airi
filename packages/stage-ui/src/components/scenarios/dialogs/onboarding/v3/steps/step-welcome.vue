@@ -4,6 +4,7 @@ import { ref } from 'vue'
 
 const props = defineProps<{
   onNext: () => void
+  onQuickStart?: () => void
   onSkip?: () => void
 }>()
 
@@ -118,8 +119,21 @@ function confirmCloseToTray() {
       :enter="{ opacity: 1, y: 0 }"
       :duration="400"
       :delay="400"
-      :class="['flex items-center justify-center gap-4 pt-3']"
+      :class="['flex flex-wrap items-center justify-center gap-3 pt-3']"
     >
+      <button
+        v-if="props.onQuickStart"
+        type="button"
+        :class="[
+          'flex items-center gap-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 px-5 py-2.5',
+          'text-sm font-semibold text-cyan-600 dark:text-cyan-300 shadow-md shadow-cyan-500/10 transition-all active:scale-95 cursor-pointer',
+        ]"
+        @click="props.onQuickStart"
+      >
+        <div :class="['i-solar:bolt-bold text-cyan-400 h-4 w-4']" />
+        <span>Quick Start (60s)</span>
+      </button>
+
       <Button
         variant="primary"
         size="lg"
@@ -129,7 +143,7 @@ function confirmCloseToTray() {
         ]"
         @click="props.onNext"
       >
-        <span>Let's Get Started</span>
+        <span>Guided Setup</span>
         <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
       </Button>
 

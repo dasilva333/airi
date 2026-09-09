@@ -66,15 +66,15 @@ function handleNextBatch() {
     style="-webkit-app-region: no-drag;"
     :class="['flex items-center space-x-1.5 bg-black/5 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-white/5 rounded-full px-2 py-1 text-xs select-none']"
   >
-    <!-- Left Overflow Indicator / Clickable Skip Back -->
+    <!-- Left Overflow Chevron / Clickable Skip Back -->
     <button
       v-if="windowRange.hasLeftOverflow"
       type="button"
-      :class="['text-neutral-400 hover:text-primary-500 dark:text-neutral-500 dark:hover:text-primary-400 font-mono text-[10px] px-1 tracking-tighter cursor-pointer transition-colors']"
+      :class="['p-0.5 rounded-full text-neutral-400 hover:text-primary-500 dark:text-neutral-500 dark:hover:text-primary-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors flex items-center justify-center']"
       title="Previous step"
       @click="handlePrevBatch"
     >
-      ···
+      <div :class="['i-solar:alt-arrow-left-linear w-3.5 h-3.5']" />
     </button>
 
     <!-- 5-Item Sliding Window Items -->
@@ -95,15 +95,15 @@ function handleNextBatch() {
       </button>
     </div>
 
-    <!-- Right Overflow Indicator / Clickable Skip Forward -->
+    <!-- Right Overflow Chevron / Clickable Skip Forward -->
     <button
       v-if="windowRange.hasRightOverflow"
       type="button"
-      :class="['text-neutral-400 hover:text-primary-500 dark:text-neutral-500 dark:hover:text-primary-400 font-mono text-[10px] px-1 tracking-tighter cursor-pointer transition-colors']"
+      :class="['p-0.5 rounded-full text-neutral-400 hover:text-primary-500 dark:text-neutral-500 dark:hover:text-primary-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors flex items-center justify-center']"
       title="Next step"
       @click="handleNextBatch"
     >
-      ···
+      <div :class="['i-solar:alt-arrow-right-linear w-3.5 h-3.5']" />
     </button>
 
     <!-- All-Steps Quick Jump Popover Menu -->
@@ -112,11 +112,11 @@ function handleNextBatch() {
         <button
           type="button"
           :class="[
-            'ml-0.5 p-1 rounded-full text-neutral-400 hover:text-neutral-800 dark:hover:text-white transition-colors cursor-pointer flex items-center justify-center',
+            'ml-0.5 p-1 rounded-full text-neutral-400 hover:text-neutral-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer flex items-center justify-center',
           ]"
           title="Jump to any step"
         >
-          <div :class="['i-solar:menu-dots-bold h-3 w-3']" />
+          <div :class="['i-solar:list-linear w-3.5 h-3.5']" />
         </button>
       </PopoverTrigger>
       <PopoverPortal>

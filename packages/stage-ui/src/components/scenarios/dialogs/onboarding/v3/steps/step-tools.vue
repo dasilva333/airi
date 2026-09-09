@@ -36,8 +36,6 @@ const activeToolCount = computed(() => {
     count++
   if (draftStore.state.toolMotionGeneratorEnabled)
     count++
-  if (draftStore.state.modules.artistry)
-    count++
   return count
 })
 </script>
@@ -231,46 +229,6 @@ const activeToolCount = computed(() => {
           </div>
         </div>
       </div>
-
-      <!-- 4. Visual Artistry & Image Journal Status Card -->
-      <div
-        :class="[
-          'rounded-2xl border p-4 flex items-center justify-between',
-          draftStore.state.modules.artistry
-            ? 'border-purple-500/30 bg-purple-500/5 dark:bg-purple-950/10'
-            : 'border-neutral-200/70 bg-neutral-100/40 dark:border-neutral-800/70 dark:bg-neutral-900/30',
-        ]"
-      >
-        <div :class="['flex items-center gap-3']">
-          <div :class="['h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-purple-500/15 text-purple-500']">
-            <div :class="['i-solar:palette-bold-duotone text-lg']" />
-          </div>
-          <div :class="['flex flex-col']">
-            <div :class="['flex items-center gap-2']">
-              <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-                Visual Artistry & Backdrops
-              </span>
-              <span :class="['text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/15 text-purple-600 dark:text-purple-300 font-semibold']">
-                image_journal
-              </span>
-            </div>
-            <span :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
-              {{ draftStore.state.modules.artistry ? `Configured via ${(draftStore.state.artistryProvider || 'pollinations').toUpperCase()} in Step 12` : 'Disabled in Experience Archetype' }}
-            </span>
-          </div>
-        </div>
-
-        <span
-          :class="[
-            'text-[10px] font-semibold px-2.5 py-1 rounded-full',
-            draftStore.state.modules.artistry
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-              : 'bg-neutral-200/60 dark:bg-neutral-800 text-neutral-500',
-          ]"
-        >
-          {{ draftStore.state.modules.artistry ? 'Active in Pipeline' : 'Inactive' }}
-        </span>
-      </div>
     </div>
 
     <!-- Active Tool Arsenal Summary -->
@@ -306,13 +264,6 @@ const activeToolCount = computed(() => {
         >
           <div :class="['i-solar:running-2-bold text-rose-500']" />
           generate_motion (3D VRMA)
-        </span>
-        <span
-          v-if="draftStore.state.modules.artistry"
-          :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 flex items-center gap-1.5']"
-        >
-          <div :class="['i-solar:palette-bold text-purple-500']" />
-          image_journal (Visual Artistry)
         </span>
         <span
           v-if="activeToolCount === 0"

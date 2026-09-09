@@ -17,7 +17,7 @@ This document serves as the **canonical technical architecture specification**, 
 | Architectural Pillar | Legacy V2 Overhaul Plan (`project-onboarding-modernize.md`) | Canonical V3 Architecture (This Specification) |
 | :--- | :--- | :--- |
 | **File & Step Naming** | Monolithic numbered steps (`0:welcome.vue`, `1:experience.vue`, `3:voice.vue`). Step numbers became meaningless and brittle when steps were reordered or conditionally omitted. | **Domain-driven semantic names** (`welcome.vue`, `experience.vue`, `thinking.vue`, `emotions.vue`, `artistry.vue`, `sensory.vue`, `memory.vue`, `tools.vue`). No leading numbers. |
-| **Breadcrumb Stepper** | Monolithic list of 15 buttons stretching across the window header, causing horizontal overflow, truncated labels, and cognitive clutter. | **5-Item Sliding-Window Stepper**: Dynamic centered window showing `[current - 2]` to `[current + 2]` with subtle `···` overflow anchors. Constant width, zero layout shift. |
+| **Breadcrumb Stepper** | Monolithic list of 15 buttons stretching across the window header, causing horizontal overflow, truncated labels, and cognitive clutter. | **5-Item Sliding-Window Stepper**: Dynamic centered window showing `[current - 2]` to `[current + 2]` with sleek chevron navigation anchors (`<` / `>`) and quick-jump step catalog popover. Constant width, zero layout shift. |
 | **Step Navigation** | Rigid hardcoded numeric index (0..15). Disabling a module left awkward empty placeholders or required manual index skipping. | **Dynamic Step Pruning & Semantic IDs**: Steps are identified by semantic IDs (`currentStepId: OnboardingV3Step`). `activeSteps` is computed reactively from `draftStore.state.modules`. Inactive steps are completely excised from the stepper and navigation path. |
 | **Physical Avatar Selection** | Segregated into installed models vs. a secondary modal dialog triggered by a "Find Free Bodies" top-right button. | **Unified Vessel Coverflow**: Local avatars (`✓ Installed`) and downloadable models (`🌐 Free Download`) presented side-by-side in a single 3D coverflow carousel with source and format filters. |
 | **Cognition & Acting Division** | Combined "Acting & Calibration" into a single overloaded tab conflating conversational fillers, Live2D/VRM morph mapping, and motion delays. | **Cleanly Unbundled into Thinking vs. Emotions**: <br>• **Thinking**: Cognitive latency, 3 conversational pacing presets (*Snappy*, *Balanced*, *Deep CoT*), and 3-tier subconscious aside extraction (Needle 2 WASM).<br>• **Emotions**: The ACT Bridge. 2-pass AI Expression Curation (Pass 1: raw morph normalization to `<|ACT:*|>` tokens; Pass 2: prompt directives teaching character how to express them). |
@@ -65,8 +65,11 @@ The wizard does not force users through irrelevant steps. Selecting an Archetype
 | :--- | :--- | :---: | :--- |
 | **The Quiet Observer**<br>*(Text & Ambient Presence)* | `emotions`, `thinking`, `memory` | **12 Steps**<br>*(Skips STT, TTS, Artistry, Sensory, Tools)* | Fast, lightweight text companion. Avatar emotes on screen, has inner thoughts and deep memory, with zero audio, vision, or filesystem overhead. |
 | **The Casual Companion**<br>*(Voice Dialogue & Soul)* | `hearing`, `speech`, `thinking`, `emotions`, `memory` | **14 Steps**<br>*(Skips Artistry, Sensory, Tools)* | The quintessential voice friend. Natural speech transcription (STT), emotional voice (TTS), natural pacing, and long-term memory. |
-| **The Executive Copilot**<br>*(Voice + System Automation)* | `hearing`, `speech`, `thinking`, `sensory`, `memory`, `tools` | **15 Steps**<br>*(Skips Artistry)* | Focused productivity. Voice conversation, screen awareness, active window history, desktop filesystem MCP tools, and web search. |
+| **The Executive Copilot**<br>*(Voice + System Automation)* | `hearing`, `speech`, `thinking`, `sensory`, `memory`, `tools` | **15 Steps**<br>*(Skips Emotions and Artistry)* | Focused productivity. Voice conversation, screen awareness, active window history, desktop filesystem MCP tools, and web search. |
 | **The Dynamic Performer**<br>*(Full Autonomous Multimodal)* | **All 8 Modules Active** | **17 Steps**<br>*(Complete master journey)* | Full multimodal studio: autonomous visuals, ComfyUI/Pollinations, 3D motion generation, vision, and MCP tools. |
+
+> [!NOTE]
+> The **12–17 step range** describes the 4 curated Archetype presets. Users who customize individual modules in the "Advanced: Customize Modules" drawer can prune all 8 optional modules, reaching a streamlined minimum configuration of **9 foundation steps** (Welcome, Appearance, Triage, Experience, Profile, Vessel, Persona, Consciousness, and Finale).
 
 ---
 
@@ -240,6 +243,9 @@ Below is the comprehensive field-by-field and control breakdown for every page i
   - Non-disruptive modal preview button (`[🎨 Preview]`) rendering rapid offline SVG or API mockups.
 - **Autonomous Director**:
   - Single master toggle enabling autonomous 2nd-LLM background painting and selfie synthesis during narrative climaxes.
+- **In-Character Generation Tool (`image_journal`)**:
+  - Dedicated toggle allowing the companion to actively call `image_journal` on request.
+  - **Decoupled Architecture**: Users can run the Director loop alone (keeping character prompt context pristine without tool schema pollution), enable the in-character tool alone, enable both, or disable both.
 
 ---
 
@@ -299,9 +305,7 @@ Below is the comprehensive field-by-field and control breakdown for every page i
      - Master toggle: `3D Kinetic Motion Generator` (`generate_motion`).
      - Badges: `FlowMDM WebGPU`, `Procedural VRMA`.
      - Autonomously authors and compiles custom 3D animations in real time for VRM models.
-  4. **Visual Artistry Status Card**:
-     - Reflects status of `image_journal` tool linked to Step 12 Artistry.
-- **Active Desktop Toolbelt Summary**: Real-time badge overview of granted tool permissions.
+- **Active Desktop Toolbelt Summary**: Real-time badge overview of granted external tool permissions.
 
 ---
 
@@ -314,7 +318,7 @@ Below is the comprehensive field-by-field and control breakdown for every page i
 - **Turn 0 Greeting Continuity**:
   - Live character speech bubble displaying the companion's first greeting.
 - **Launch to Stage CTA**:
-  - Compiles transient draft store into target `AiriCard` and `AiriExtension`.
+  - Compiles localStorage-persisted draft store (`useLocalStorageManualReset`) into target `AiriCard` and `AiriExtension`.
   - Atomically saves to IndexedDB (`local:*`).
   - Closes setup and smoothly transitions live companion runtime into Stage.
 
@@ -324,14 +328,15 @@ Below is the comprehensive field-by-field and control breakdown for every page i
 
 ```
 packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/
-├── onboarding-v3.vue                  # Host dialog, window chrome, dynamic sliding stepper router
+├── onboarding-v3.vue                  # Host dialog, window chrome, dynamic sliding stepper router & fast-track coordinator
+├── quick-start.vue                    # 1-Page Fast Track Cockpit (2x2 grid, starter bundles, shared draft)
 ├── components/
-│   ├── sliding-stepper.vue            # 5-item sliding-window breadcrumb stepper with overflow anchors
+│   ├── sliding-stepper.vue            # 5-item sliding-window breadcrumb stepper with chevron anchors & jump menu
 │   ├── vessel-coverflow.vue           # 3D Coverflow carousel for avatar bodies
 │   ├── persona-card-grid.vue          # 2-column character card selector
 │   └── art-preview-modal.vue          # Non-disruptive visual style preview modal
 ├── steps/
-│   ├── step-welcome.vue               # Step 0: Welcome, companion bubble, setup later modal
+│   ├── step-welcome.vue               # Step 0: Welcome, companion bubble, Quick Start & Guided Setup CTAs
 │   ├── step-appearance.vue            # Step 1: Language (8 locales), theme mode, 24-color accent
 │   ├── step-triage.vue                # Step 2: Local-first vs Cloudflare sync
 │   ├── step-experience.vue            # Step 3: 4 Archetypes & dynamic module pruning coordinator
@@ -349,7 +354,7 @@ packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/
 │   ├── step-tools.vue                 # Step 15: Web search, Desktop MCP filesystem & 3D motions
 │   └── step-finale.vue                # Step 16: 4-pillar readiness honesty matrix & stage launch
 ├── stores/
-│   └── useOnboardingV3Draft.ts        # Transient Pinia draft store (zero dirty writes to DB)
+│   └── useOnboardingV3Draft.ts        # LocalStorage-persisted draft store via useLocalStorageManualReset (survives refreshes; zero dirty DB writes)
 └── types.ts                           # Canonical 17-step TypeScript definitions & module mappings
 ```
 
@@ -364,12 +369,12 @@ packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/
 - [x] Streamline Artistry: Pollinations vs ComfyUI vs None, visual style prompt, non-disruptive preview modal.
 - [x] Consolidate Sensory: Screen watching delivery modes, salience gating, ambient heartbeats, bedtime quiet hours, and full raw telemetry dump.
 - [x] Split Memory & Tools: Dedicated Memory Hierarchy step (STMM, LTMM, Lifetime, Dreams) alongside dedicated Automation & Tools step (Web search, Filesystem MCP, Motions).
-- [x] Implement Dynamic Step Pruning: Experience coordinator pruned paths (12 to 17 steps).
+- [x] Implement Dynamic Step Pruning: Experience coordinator pruned paths (12 to 17 steps, 9-step custom minimum).
 
 ### Phase 2: Core Contracts, Types & Stepper Host Shell
 - [x] Implement `types.ts` with 17-step master topology and `moduleKey` bindings.
-- [x] Implement `useOnboardingV3Draft.ts` (transient Pinia draft store with memory tiers and tool fields).
-- [x] Implement `sliding-stepper.vue` (5-item dynamic sliding window with `···` anchors, light/dark theme adaptive, dynamic primary color).
+- [x] Implement `useOnboardingV3Draft.ts` (localStorage draft store with memory tiers and tool fields).
+- [x] Implement `sliding-stepper.vue` (5-item dynamic sliding window with chevron navigation anchors `<` / `>`, quick-jump catalog popover, light/dark adaptive, dynamic primary color).
 - [x] Implement `onboarding-v3.vue` (dynamic `activeSteps` pruning, semantic step ID navigation, traffic light clearance `pl-22`).
 - [x] Wire electron system tray entry (`Companion Setup & Sign-In (V3)`) and renderer route `/onboarding-v3`.
 

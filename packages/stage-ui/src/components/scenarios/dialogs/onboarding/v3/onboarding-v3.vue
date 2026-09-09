@@ -4,6 +4,7 @@ import type { OnboardingV3Step, OnboardingV3StepDef } from './types'
 import { computed, ref, watch } from 'vue'
 
 import SlidingStepper from './components/sliding-stepper.vue'
+import QuickStart from './quick-start.vue'
 import StepAppearance from './steps/step-appearance.vue'
 import StepArtistry from './steps/step-artistry.vue'
 import StepConsciousness from './steps/step-consciousness.vue'
@@ -29,6 +30,7 @@ const emit = defineEmits<{
 }>()
 
 const draftStore = useOnboardingV3Draft()
+const isQuickStartMode = ref(false)
 const currentStepId = ref<OnboardingV3Step>('welcome')
 
 const activeSteps = computed<OnboardingV3StepDef[]>(() => {
@@ -53,7 +55,18 @@ const activeIndex = computed(() => {
 watch(activeSteps, (newSteps) => {
   const exists = newSteps.some(s => s.id === currentStepId.value)
   if (!exists && newSteps.length > 0) {
-    currentStepId.value = newSteps[Math.min(activeIndex.value, newSteps.length - 1)].id
+    const canonicalIdx = ONBOARDING_V3_STEPS.findIndex(s => s.id === currentStepId.value)
+    let closestStep = newSteps[0]
+    let minDistance = Infinity
+    for (const step of newSteps) {
+      const stepCanonIdx = ONBOARDING_V3_STEPS.findIndex(s => s.id === step.id)
+      const dist = Math.abs(stepCanonIdx - canonicalIdx)
+      if (dist < minDistance) {
+        minDistance = dist
+        closestStep = step
+      }
+    }
+    currentStepId.value = closestStep.id
   }
 })
 
@@ -90,11 +103,11 @@ function handleSkip() {
       <!-- Left: Brand Title -->
       <div :class="['flex items-center space-x-2 text-xs font-semibold tracking-wider text-primary-500 select-none pointer-events-none']">
         <div :class="['i-solar:shield-star-bold-duotone w-4 h-4']" />
-        <span>AIRI ONBOARDING V3</span>
+        <span>{{ isQuickStartMode ? 'AIRI QUICK START' : 'AIRI ONBOARDING V3' }}</span>
       </div>
 
-      <!-- Center: 5-Item Dynamic Sliding Window Stepper -->
-      <div :class="['flex-shrink-0']" style="-webkit-app-region: no-drag;">
+      <!-- Center: 5-Item Dynamic Sliding Window Stepper (Visible in Guided Wizard) -->
+      <div v-if="!isQuickStartMode" :class="['flex-shrink-0']" style="-webkit-app-region: no-drag;">
         <SlidingStepper
           :steps="activeSteps"
           :current-index="activeIndex"
@@ -121,10 +134,18 @@ function handleSkip() {
 
     <!-- Main Edgeless Workspace (Centered & Clean) -->
     <main :class="['flex-1 min-h-0 overflow-y-auto px-6 py-4 flex flex-col items-center justify-start']">
+      <!-- Alternate Fast Track: Quick Start 1-Page Cockpit -->
+      <QuickStart
+        v-if="isQuickStartMode"
+        :on-continue-full-setup="() => { isQuickStartMode = false; currentStepId = 'appearance' }"
+        :on-complete="() => emit('finish')"
+      />
+
       <!-- Step 0: Welcome -->
       <StepWelcome
-        v-if="currentStepId === 'welcome'"
+        v-else-if="currentStepId === 'welcome'"
         :on-next="handleNext"
+        :on-quick-start="() => isQuickStartMode = true"
         :on-skip="handleSkip"
       />
 

@@ -33,6 +33,7 @@ const comfyServerUrl = ref<string>(draft.state.artistryComfyServerUrl || artistr
 const visualPrompt = ref<string>(draft.state.artistryVisualPrompt || '')
 const directorEnabled = ref<boolean>(draft.state.artistryDirectorEnabled !== false)
 const directorTarget = ref<'assistant' | 'user'>(draft.state.artistryDirectorTarget || 'assistant')
+const imageJournalToolEnabled = ref<boolean>(draft.state.artistryImageJournalToolEnabled || false)
 
 // --- Active Vessel Context & Auto-Injection ---
 const activeVesselName = computed(() => {
@@ -285,6 +286,7 @@ function syncDraft() {
     visualPrompt: visualPrompt.value,
     directorEnabled: directorEnabled.value,
     directorTarget: directorTarget.value,
+    imageJournalToolEnabled: imageJournalToolEnabled.value,
   })
 }
 
@@ -624,6 +626,46 @@ function handleNext() {
               </p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- 4. IN-CHARACTER GENERATION TOOL (IMAGE_JOURNAL) -->
+      <div :class="['rounded-2xl border border-neutral-200 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] p-4.5 space-y-3 shadow-sm']">
+        <div :class="['flex items-start justify-between gap-4']">
+          <div :class="['flex items-start gap-3']">
+            <span :class="['text-2xl mt-0.5']">🖌️</span>
+            <div>
+              <div :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
+                <span>In-Character Generation Tool</span>
+                <span :class="['text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/15 text-purple-600 dark:text-purple-300 font-semibold']">
+                  image_journal
+                </span>
+                <span :class="['text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20 font-medium']">
+                  Direct Tool Call
+                </span>
+              </div>
+              <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 max-w-xl leading-normal']">
+                Equips your companion with the direct <code>image_journal</code> tool schema so they can actively paint illustrations or take selfies on request. When disabled, the autonomous Director can still paint background scenes, but the companion's prompt context remains completely pristine without tool schema pollution.
+              </p>
+            </div>
+          </div>
+
+          <!-- Switch Toggle -->
+          <button
+            type="button"
+            :class="[
+              'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none mt-1',
+              imageJournalToolEnabled ? 'bg-purple-600' : 'bg-neutral-200 dark:bg-neutral-700',
+            ]"
+            @click="imageJournalToolEnabled = !imageJournalToolEnabled; syncDraft()"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                imageJournalToolEnabled ? 'translate-x-5' : 'translate-x-0',
+              ]"
+            />
+          </button>
         </div>
       </div>
     </div>

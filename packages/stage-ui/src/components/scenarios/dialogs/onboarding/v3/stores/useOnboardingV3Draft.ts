@@ -28,12 +28,15 @@ export interface OnboardingV3DraftState {
   userDescription?: string
   userPrompt?: string
   selectedUserArchetypeId?: string
+  companionName?: string
   companionHonorific?: string
   sttProvider?: string
   sttModel?: string
   sttTriggerKey?: string
   llmProvider?: string
   llmModel?: string
+  llmApiKey?: string
+  llmBaseUrl?: string
   pacingPreset?: 'disabled' | 'snappy' | 'balanced' | 'deep'
   subconsciousAsides?: boolean
   subconsciousTier1?: boolean
@@ -56,6 +59,7 @@ export interface OnboardingV3DraftState {
   artistryVisualPrompt?: string
   artistryDirectorEnabled?: boolean
   artistryDirectorTarget?: 'assistant' | 'user'
+  artistryImageJournalToolEnabled?: boolean
   screenWatcherEnabled?: boolean
   screenWatcherMode?: 'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'
   screenWatcherTier?: 'lightweight' | 'moondream'
@@ -181,6 +185,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     mcpWebSearchEnabled: false,
     mcpFilesystemEnabled: false,
     toolMotionGeneratorEnabled: false,
+    artistryImageJournalToolEnabled: false,
     personaCardId: 'default',
     personaSource: 'preset',
     sttProvider: 'browser-web-speech-api',
@@ -227,18 +232,27 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
 
   function setUserProfile(profile: {
     name?: string
+    userName?: string
     description?: string
     prompt?: string
     archetypeId?: string
+    companionName?: string
+    companionHonorific?: string
   }) {
     if (profile.name !== undefined)
       state.value.userName = profile.name
+    if (profile.userName !== undefined)
+      state.value.userName = profile.userName
     if (profile.description !== undefined)
       state.value.userDescription = profile.description
     if (profile.prompt !== undefined)
       state.value.userPrompt = profile.prompt
     if (profile.archetypeId !== undefined)
       state.value.selectedUserArchetypeId = profile.archetypeId
+    if (profile.companionName !== undefined)
+      state.value.companionName = profile.companionName
+    if (profile.companionHonorific !== undefined)
+      state.value.companionHonorific = profile.companionHonorific
   }
 
   function setVessel(displayModelId: string, visualPrompt?: string) {
@@ -272,11 +286,17 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
   function setConsciousness(consciousness: {
     provider?: string
     model?: string
+    apiKey?: string
+    baseUrl?: string
   }) {
     if (consciousness.provider !== undefined)
       state.value.llmProvider = consciousness.provider
     if (consciousness.model !== undefined)
       state.value.llmModel = consciousness.model
+    if (consciousness.apiKey !== undefined)
+      state.value.llmApiKey = consciousness.apiKey
+    if (consciousness.baseUrl !== undefined)
+      state.value.llmBaseUrl = consciousness.baseUrl
   }
 
   function setSpeech(speech: {
@@ -338,6 +358,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     visualPrompt?: string
     directorEnabled?: boolean
     directorTarget?: 'assistant' | 'user'
+    imageJournalToolEnabled?: boolean
   }) {
     if (artistry.provider !== undefined)
       state.value.artistryProvider = artistry.provider
@@ -355,6 +376,8 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.artistryDirectorEnabled = artistry.directorEnabled
     if (artistry.directorTarget !== undefined)
       state.value.artistryDirectorTarget = artistry.directorTarget
+    if (artistry.imageJournalToolEnabled !== undefined)
+      state.value.artistryImageJournalToolEnabled = artistry.imageJournalToolEnabled
   }
 
   function setSensory(sensory: {
