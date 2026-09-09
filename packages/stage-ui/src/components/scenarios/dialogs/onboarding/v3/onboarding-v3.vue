@@ -6,6 +6,7 @@ import StepAppearance from './steps/step-appearance.vue'
 import StepExperience from './steps/step-experience.vue'
 import StepProfile from './steps/step-profile.vue'
 import StepTriage from './steps/step-triage.vue'
+import StepVessel from './steps/step-vessel.vue'
 import StepWelcome from './steps/step-welcome.vue'
 
 import { ONBOARDING_V3_STEPS } from './types'
@@ -110,6 +111,13 @@ function handleSkip() {
       <!-- Step 4: User Profile (Who Are You?) -->
       <StepProfile
         v-else-if="currentIndex === 4"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 5: Physical Vessel (Live2D / VRM Avatar Body) -->
+      <StepVessel
+        v-else-if="currentIndex === 5"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />

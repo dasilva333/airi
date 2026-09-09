@@ -73,12 +73,33 @@ const USER_ARCHETYPES: UserArchetype[] = [
 
 const selectedArchetypeId = ref<string | null>(draft.state.selectedUserArchetypeId || null)
 
+function applyUserProfileToDraft(profile: {
+  name?: string
+  description?: string
+  prompt?: string
+  archetypeId?: string
+}) {
+  if (typeof (draft as any).setUserProfile === 'function') {
+    draft.setUserProfile(profile)
+  }
+  else if (draft.state) {
+    if (profile.name !== undefined)
+      draft.state.userName = profile.name
+    if (profile.description !== undefined)
+      draft.state.userDescription = profile.description
+    if (profile.prompt !== undefined)
+      draft.state.userPrompt = profile.prompt
+    if (profile.archetypeId !== undefined)
+      draft.state.selectedUserArchetypeId = profile.archetypeId
+  }
+}
+
 function applyArchetype(archetype: UserArchetype) {
   selectedArchetypeId.value = archetype.id
   userProfileStore.name = archetype.name
   userProfileStore.description = archetype.description
   userProfileStore.prompt = archetype.prompt
-  draft.setUserProfile({
+  applyUserProfileToDraft({
     name: archetype.name,
     description: archetype.description,
     prompt: archetype.prompt,
@@ -90,7 +111,7 @@ function applyArchetype(archetype: UserArchetype) {
 watch(
   [() => userProfileStore.name, () => userProfileStore.description, () => userProfileStore.prompt],
   ([name, description, prompt]) => {
-    draft.setUserProfile({ name, description, prompt })
+    applyUserProfileToDraft({ name, description, prompt })
   },
   { immediate: true },
 )
@@ -288,7 +309,7 @@ watch(
         ]"
         @click="props.onNext"
       >
-        <span>Next: Soul & Persona</span>
+        <span>Next: Physical Vessel</span>
         <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
       </Button>
     </div>

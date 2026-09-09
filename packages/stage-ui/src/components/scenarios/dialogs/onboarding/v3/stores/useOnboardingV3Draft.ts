@@ -160,6 +160,12 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.selectedUserArchetypeId = profile.archetypeId
   }
 
+  function setVessel(displayModelId: string, visualPrompt?: string) {
+    state.value.vesselDisplayModelId = displayModelId
+    if (visualPrompt !== undefined)
+      state.value.artistryVisualPrompt = visualPrompt
+  }
+
   function reset() {
     state.reset()
   }
@@ -170,6 +176,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     setExperienceArchetype,
     toggleModule,
     setUserProfile,
+    setVessel,
     reset,
   }
 })

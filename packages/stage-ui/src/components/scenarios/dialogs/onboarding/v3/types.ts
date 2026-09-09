@@ -4,8 +4,8 @@ export type OnboardingV3Step
     | 'triage'
     | 'experience'
     | 'profile'
-    | 'persona'
     | 'vessel'
+    | 'persona'
     | 'hearing'
     | 'consciousness'
     | 'thinking'
@@ -29,8 +29,8 @@ export const ONBOARDING_V3_STEPS: OnboardingV3StepDef[] = [
   { id: 'triage', label: 'Triage', subtitle: 'Architecture Choice', index: 2 },
   { id: 'experience', label: 'Experience', subtitle: 'Interaction Archetype', index: 3 },
   { id: 'profile', label: 'User Profile', subtitle: 'Who Are You?', index: 4 },
-  { id: 'persona', label: 'Soul & Persona', subtitle: 'Personality Core', index: 5 },
-  { id: 'vessel', label: 'Physical Vessel', subtitle: 'Live2D / VRM Body', index: 6 },
+  { id: 'vessel', label: 'Physical Vessel', subtitle: 'Live2D / VRM Avatar Body', index: 5 },
+  { id: 'persona', label: 'Soul & Persona', subtitle: 'Personality Core', index: 6 },
   { id: 'hearing', label: 'Hearing', subtitle: 'Voice Transcription (STT)', index: 7 },
   { id: 'consciousness', label: 'Consciousness', subtitle: 'Reasoning Engine (LLM)', index: 8 },
   { id: 'thinking', label: 'Thinking', subtitle: 'Pacing & Subconscious Asides', index: 9 },

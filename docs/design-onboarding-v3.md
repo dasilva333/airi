@@ -34,7 +34,7 @@ This document serves as the **canonical technical architecture specification**, 
                                                                         │
    ┌────────────────────────────────────────────────────────────────────┘
    ▼
-[ 4. User Profile ] ──▶ [ 5. Soul & Persona ] ──▶ [ 6. Physical Vessel ]
+[ 4. User Profile ] ──▶ [ 5. Physical Vessel ] ──▶ [ 6. Soul & Persona ]
                                                               │
    ┌──────────────────────────────────────────────────────────┘
    ▼
@@ -118,8 +118,8 @@ packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/
 - [x] Implement `step-triage.vue` (Local-first vs Cloudflare sync, 1-click OAuth PKCE, API token auth, and Edge Vault restoration).
 - [x] Implement `step-experience.vue` (4 Hero Archetype cards, custom module configuration drawer, dynamic CTA).
 - [x] Implement `step-profile.vue` (Exact V2 parity: 4 User Archetypes Richie/Dave/Maya/Elena, User Display Name, Narrative Description, Visual Prompt Tags).
+- [x] Implement `step-vessel.vue` & `vessel-coverflow.vue` (3D Coverflow carousel, mixed installed & free downloadable community models, custom model upload seam, visual style auto-injection).
 - [ ] Implement `step-persona.vue` & `persona-card-grid.vue`.
-- [ ] Implement `step-vessel.vue` & `vessel-coverflow.vue` (Installed + Community models).
 
 ### Phase 5: Voice & Cognitive Steps
 - [ ] Implement `StepHearing.vue` (Mic test, Whisper WebGPU / Web Speech).
