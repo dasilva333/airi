@@ -103,7 +103,15 @@ export interface StorageClient {
   - **Local Store:** Backgrounds are stored as raw high-res PNG blobs in `localforage` for instant, full-quality UI rendering (`URL.createObjectURL()`).
   - **IPC Upload Intercept (`byos-fs:write-file`):** When uploading `assets/backgrounds/*.png`, the Electron main process uses `sharp` (if installed) to re-encode the buffer to `AVIF` (quality 72, effort 4) and writes `.avif` to the remote target, yielding ~93% remote storage savings (~50-100 KB vs ~1.7 MB).
   - **Multi-Format Reconciliation:** The `SyncEngine` remote asset parser matches `.avif`, `.webp`, and `.png` extensions, reading the remote image extension and setting the proper MIME type (`image/avif`) when downloading back into `localforage`.
-* **Mergeable Keys:** For cumulative tables like `airi-cards`, `short-term-memory`, `text-journal`, `echo-chips`, and `character-bindings` *(planned)*, the sync engine downloads the remote JSON, reads the local state, merges the items by ID (using LWW per item), and writes the merged result back to both remote and local databases.
+* **Mergeable Keys:** For cumulative tables like `airi-cards`, `short-term-memory`, `text-journal`, `echo-chips`, `available-motions`, and `voice-profiles`, the engine checks whether remote `mtime <= localTime` (or ETags match) and outbox is clean before downloading. When updates exist, it downloads the remote JSON, reads local state, merges items by ID (using LWW per item), and writes the merged result back to both remote and local databases.
+* **Index-Driven Selective Sync for Sessions:**
+  - Rather than downloading remote session JSON files to inspect `meta.characterId`, the reconciliation loop reconciles the lightweight `ChatSessionsIndex` (`local:chat/index/*`) upfront.
+  - Allowed session IDs are pre-computed in memory (`extractAllowedSessionIds`).
+  - Remote chat sessions (`db/chat/sessions/*`) and director notes (`db/director/sessions/*`) that do not belong to selected characters are skipped instantly in memory without initiating HTTP/CORS requests.
+* **Zero-Read / ETag Comparison Safeguard (No Download-to-Compare):**
+  - Remote file reads are never triggered merely to test `JSON.stringify(local) === JSON.stringify(remote)`.
+  - The S3 client captures `<ETag>` headers from `ListObjectsV2` responses and stores them in `local:sync-metadata/etags/*`.
+  - When local is newer (Case C), if the outbox has no pending mutations and sizes or ETags match, timestamps are aligned without remote reads. If real changes exist, local is uploaded directly.
 * **Display Model Manifest Metadata Fields:** The `assets/models/manifest.json` reconciliation applies field-specific strategies:
   - `groups`, `tags`: **Union merge** — combined set from both local and remote.
   - `nsfw`: **Source-wins** — whichever side has a value defined wins; `true` OR-s with `false`.

@@ -10,11 +10,11 @@ import { toast } from 'vue-sonner'
 
 import { storage, storageState } from '../database/storage'
 import { SERVER_URL } from '../libs/auth'
-import { mergeVoiceProfiles } from './sync-engine-merge'
+import { extractAllowedSessionIds, mergeVoiceProfiles, shouldSkipMergeableKey } from './sync-engine-merge'
 
 export interface StorageClient {
   validate: () => Promise<{ success: boolean, error?: string }>
-  listFiles: () => Promise<{ success: boolean, files?: Array<{ relPath: string, mtime: number, size: number }>, error?: string }>
+  listFiles: () => Promise<{ success: boolean, files?: Array<{ relPath: string, mtime: number, size: number, etag?: string }>, error?: string }>
   readFile: (relPath: string, encoding?: 'utf-8' | 'base64') => Promise<{ success: boolean, content?: string, error?: string }>
   writeFile: (relPath: string, content: string | Blob | Uint8Array, encoding?: 'utf-8' | 'base64', append?: boolean) => Promise<{ success: boolean, mtime?: number, error?: string }>
   deleteFile: (relPath: string) => Promise<{ success: boolean, error?: string }>
@@ -143,13 +143,13 @@ export class S3StorageClient implements StorageClient {
     }
   }
 
-  async listFiles(): Promise<{ success: boolean, files?: Array<{ relPath: string, mtime: number, size: number }>, error?: string }> {
+  async listFiles(): Promise<{ success: boolean, files?: Array<{ relPath: string, mtime: number, size: number, etag?: string }>, error?: string }> {
     if (!this.endpoint || !this.bucket) {
       return { success: false, error: 'S3 storage is not configured (endpoint or bucket missing).' }
     }
     try {
       let continuationToken: string | null = null
-      const files: Array<{ relPath: string, mtime: number, size: number }> = []
+      const files: Array<{ relPath: string, mtime: number, size: number, etag?: string }> = []
       do {
         let url = `${this.getS3Url('')}?list-type=2`
         if (continuationToken) {
@@ -167,11 +167,14 @@ export class S3StorageClient implements StorageClient {
           const key = node.getElementsByTagName('Key')[0]?.textContent || ''
           const lastModified = node.getElementsByTagName('LastModified')[0]?.textContent || ''
           const size = Number(node.getElementsByTagName('Size')[0]?.textContent || '0')
+          const rawEtag = node.getElementsByTagName('ETag')[0]?.textContent || ''
+          const etag = rawEtag.replace(/"/g, '').trim() || undefined
           if (key) {
             files.push({
               relPath: key,
               mtime: new Date(lastModified).getTime(),
               size,
+              etag,
             })
           }
         }
@@ -336,6 +339,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
   const selectiveSyncEnabled = useLocalStorageManualReset<boolean>('settings/sync/selective-enabled', false)
   const selectiveCheckedIds = useLocalStorageManualReset<string[]>('settings/sync/selective-checked-ids', [])
+  const perDeviceAppearance = useLocalStorageManualReset<boolean>('settings/sync/per-device-appearance', false)
 
   // S3 Configuration State
   const s3Endpoint = useLocalStorageManualReset<string>('settings/sync/s3-endpoint', '')
@@ -2439,102 +2443,66 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     return { safe: true }
   }
 
+  let inFlightReconcile: Promise<boolean> | null = null
+
   // Run full two-way reconciliation (LWW)
   async function reconcile(opts?: { skipBinaryAssets?: boolean }): Promise<boolean> {
-    const client = getActiveClient()
-    const pathValidation = await client.validate()
-    if (!pathValidation.success) {
-      debug('[SyncEngine] Sync storage target is invalid or inaccessible, skipping reconciliation:', pathValidation.error)
-      return false
+    if (inFlightReconcile) {
+      debug('[SyncEngine] Reconciliation already in flight, joining existing promise.')
+      return inFlightReconcile
     }
 
-    // NOTICE: We do NOT block the entire reconcile() on quota here.
-    // The upload half (local→remote) does not consume local storage.
-    // The download half is guarded per-key inside the loop below (mode='download').
-
-    debug('[SyncEngine] Starting reconciliation...')
-    try {
-      const listRes = await client.listFiles()
-      if (!listRes.success) {
-        throw new Error(listRes.error || 'Failed to list remote files')
+    inFlightReconcile = (async () => {
+      const client = getActiveClient()
+      const pathValidation = await client.validate()
+      if (!pathValidation.success) {
+        debug('[SyncEngine] Sync storage target is invalid or inaccessible, skipping reconciliation:', pathValidation.error)
+        return false
       }
 
-      const remoteFiles = (listRes.files || []) as Array<{ relPath: string, mtime: number, size: number }>
-      const remoteFileMap = new Map(remoteFiles.map(f => [getKeyForRelPath(f.relPath), f]))
+      // NOTICE: We do NOT block the entire reconcile() on quota here.
+      // The upload half (local→remote) does not consume local storage.
+      // The download half is guarded per-key inside the loop below (mode='download').
 
-      const rawLocalKeys = await storage.getKeys('local')
-      const localKeys = rawLocalKeys.map(normalizeStorageKey).filter((k): k is string => k !== null)
-      const localTimestamps = new Map<string, number>()
-
-      for (const fullKey of localKeys) {
-        if (fullKey.startsWith('local:sync-metadata/timestamps/')) {
-          const actualKey = `local:${fullKey.replace('local:sync-metadata/timestamps/', '')}`
-          const t = await storage.getItemRaw<number>(fullKey)
-          if (t) {
-            localTimestamps.set(actualKey, t)
-          }
-        }
-      }
-
-      storageState.isImportingRemoteData = true
-
-      const remoteEntries = Array.from(remoteFileMap.entries())
-      await parallelLimit(remoteEntries, 15, async ([localKey, remoteFile]) => {
-        if (!localKey)
-          return
-
-        if (localKey.startsWith('local:localstorage/')) {
-          const key = localKey.substring('local:localstorage/'.length)
-          if (shouldExcludeLocalStorageKey(key))
-            return
+      debug('[SyncEngine] Starting reconciliation...')
+      try {
+        const listRes = await client.listFiles()
+        if (!listRes.success) {
+          throw new Error(listRes.error || 'Failed to list remote files')
         }
 
-        // Guard downloads-only: writing remote data into local IndexedDB consumes local quota.
-        const loopQuotaCheck = await checkQuotaLimit('download')
-        if (!loopQuotaCheck.safe) {
-          debug('[SyncEngine] Quota limit hit mid-sync. Aborting download of key:', localKey)
-          return
-        }
+        const remoteFiles = (listRes.files || []) as Array<{ relPath: string, mtime: number, size: number, etag?: string }>
+        const remoteFileMap = new Map(remoteFiles.map(f => [getKeyForRelPath(f.relPath), f]))
 
-        if (selectiveSyncEnabled.value && localKey.startsWith('local:chat/sessions/')) {
-          let charId: string | null = null
-          const localVal = await storage.getItemRaw<any>(localKey)
-          if (localVal && localVal.meta?.characterId) {
-            charId = localVal.meta.characterId
-          }
-          else {
-            const readRes = await client.readFile(remoteFile.relPath)
-            if (readRes.success && readRes.content) {
-              try {
-                const remoteVal = JSON.parse(readRes.content)
-                charId = remoteVal.meta?.characterId || null
-              }
-              catch (e) {}
-            }
-          }
-          if (charId) {
-            const chatNodeId = `chat-${charId}`
-            if (!selectiveCheckedIds.value.includes(chatNodeId)) {
-              await logDebug(`Skipping reconcile of chat session ${localKey} because character chat ${chatNodeId} is not selected.`)
-              return
+        const rawLocalKeys = await storage.getKeys('local')
+        const localKeys = rawLocalKeys.map(normalizeStorageKey).filter((k): k is string => k !== null)
+        const localTimestamps = new Map<string, number>()
+
+        for (const fullKey of localKeys) {
+          if (fullKey.startsWith('local:sync-metadata/timestamps/')) {
+            const actualKey = `local:${fullKey.replace('local:sync-metadata/timestamps/', '')}`
+            const t = await storage.getItemRaw<number>(fullKey)
+            if (t) {
+              localTimestamps.set(actualKey, t)
             }
           }
         }
 
-        const localTime = localTimestamps.get(localKey)
-        await logDebug(`Reconciling key: ${localKey}, localTime=${localTime}, remoteMtime=${remoteFile.mtime}, remoteSize=${remoteFile.size}`)
+        storageState.isImportingRemoteData = true
 
-        const isMergeableKey = [
-          'local:memory/short-term/local',
-          'local:memory/text-journal/local',
-          'local:memory/echo-chips/local',
-          'local:airi-cards',
-          'local:localstorage/settings/live2d/available-motions',
-          'local:localstorage/settings/speech/voice-profiles',
-        ].includes(localKey) || localKey.startsWith('local:chat/index/')
+        // 1. Reconcile chat indices upfront so allowedSessionIds can be resolved without querying remote session files
+        const remoteIndexEntries = Array.from(remoteFileMap.entries()).filter(([k]) => k && k.startsWith('local:chat/index/'))
+        for (const [localKey, remoteFile] of remoteIndexEntries) {
+          const queueKey = `outbox:queue/${localKey.replace('local:', '')}`
+          const hasPendingOutbox = await storage.getItemRaw(queueKey).then(val => val !== null && val !== undefined)
+          const localTime = localTimestamps.get(localKey)
+          const storedEtag = await storage.getItemRaw<string>(`local:sync-metadata/etags/${localKey.replace('local:', '')}`)
 
-        if (isMergeableKey) {
-          debug(`[SyncEngine] Key ${localKey} is mergeable. Executing merge...`)
+          if (shouldSkipMergeableKey(localTime, remoteFile.mtime, hasPendingOutbox, storedEtag, remoteFile.etag)) {
+            await logDebug(`[SyncEngine] Chat index ${localKey} is up-to-date. Skipping upfront download.`)
+            continue
+          }
+
           let remoteVal: any = null
           const readRes = await client.readFile(remoteFile.relPath)
           if (readRes.success && readRes.content) {
@@ -2542,258 +2510,397 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
               remoteVal = JSON.parse(readRes.content)
             }
             catch (e) {
-              console.error(`[SyncEngine] Failed to parse remote data for mergeable key ${localKey}:`, e)
+              console.error(`[SyncEngine] Failed to parse remote chat index ${localKey}:`, e)
             }
           }
 
           const localVal = await storage.getItemRaw<any>(localKey)
-          let mergedVal: any = null
-
-          if (localKey === 'local:airi-cards') {
-            mergedVal = mergeAiriCards(localVal, remoteVal)
-          }
-          else if (localKey.startsWith('local:chat/index/')) {
-            mergedVal = mergeChatIndices(localVal, remoteVal)
-          }
-          else if (localKey === 'local:localstorage/settings/live2d/available-motions') {
-            mergedVal = mergeAvailableMotions(localVal, remoteVal)
-          }
-          else if (localKey === 'local:localstorage/settings/speech/voice-profiles') {
-            mergedVal = mergeVoiceProfiles(localVal, remoteVal)
-          }
-          else {
-            let localArr = localVal || []
-            let remoteArr = remoteVal || []
-            if (!Array.isArray(localArr))
-              localArr = []
-            if (!Array.isArray(remoteArr))
-              remoteArr = []
-            mergedVal = mergeArraysById(localArr, remoteArr)
-          }
-
+          const mergedVal = mergeChatIndices(localVal, remoteVal)
           await storage.setItemRaw(localKey, mergedVal)
-
           const writeRes = await client.writeFile(remoteFile.relPath, JSON.stringify(mergedVal, null, 2))
           if (writeRes.success && writeRes.mtime) {
             await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, writeRes.mtime)
+            if (remoteFile.etag) {
+              await storage.setItemRaw(`local:sync-metadata/etags/${localKey.replace('local:', '')}`, remoteFile.etag)
+            }
           }
           localTimestamps.delete(localKey)
-          return
         }
 
-        if (localTime === undefined) {
-          const queueKey = `outbox:queue/${localKey.replace('local:', '')}`
-          const hasPendingOutbox = await storage.getItemRaw(queueKey).then(val => val !== null && val !== undefined)
-          if (hasPendingOutbox) {
-            await logDebug(`[SyncEngine] Skipping download for ${localKey} because it has pending local changes in the outbox.`)
+        // 2. Resolve allowed session IDs for selective sync
+        let allowedSessionIds: Set<string> | null = null
+        if (selectiveSyncEnabled.value) {
+          const allChatIndices: any[] = []
+          const latestLocalKeys = (await storage.getKeys('local')).map(normalizeStorageKey).filter((k): k is string => k !== null)
+          for (const fullKey of latestLocalKeys) {
+            if (fullKey.startsWith('local:chat/index/')) {
+              const idx = await storage.getItemRaw<any>(fullKey)
+              if (idx) {
+                allChatIndices.push(idx)
+              }
+            }
+          }
+          allowedSessionIds = extractAllowedSessionIds(allChatIndices, selectiveCheckedIds.value || [])
+
+          // Also resolve character bindings for any local sessions already stored
+          for (const fullKey of latestLocalKeys) {
+            if (fullKey.startsWith('local:chat/sessions/')) {
+              const sId = fullKey.substring('local:chat/sessions/'.length)
+              if (!allowedSessionIds.has(sId)) {
+                let localVal = await storage.getItemRaw<any>(fullKey)
+                if (typeof localVal === 'string') {
+                  try { localVal = JSON.parse(localVal) }
+                  catch {}
+                }
+                const charId = localVal?.meta?.characterId
+                if (charId && selectiveCheckedIds.value.includes(`chat-${charId}`)) {
+                  allowedSessionIds.add(sId)
+                }
+              }
+            }
+          }
+          await logDebug(`[SyncEngine] Selective sync active. Allowed session count: ${allowedSessionIds.size}`)
+        }
+
+        const remoteEntries = Array.from(remoteFileMap.entries())
+        await parallelLimit(remoteEntries, 15, async ([localKey, remoteFile]) => {
+          if (!localKey)
+            return
+
+          // Chat indices already reconciled upfront
+          if (localKey.startsWith('local:chat/index/'))
+            return
+
+          if (localKey.startsWith('local:localstorage/')) {
+            const key = localKey.substring('local:localstorage/'.length)
+            if (shouldExcludeLocalStorageKey(key))
+              return
+          }
+
+          // Guard downloads-only: writing remote data into local IndexedDB consumes local quota.
+          const loopQuotaCheck = await checkQuotaLimit('download')
+          if (!loopQuotaCheck.safe) {
+            debug('[SyncEngine] Quota limit hit mid-sync. Aborting download of key:', localKey)
             return
           }
 
-          const localVal = await storage.getItemRaw(localKey)
-          if (localVal !== undefined && localVal !== null) {
-            const localSerialized = typeof localVal === 'string' ? localVal : JSON.stringify(localVal, null, 2)
-            const localSize = new TextEncoder().encode(localSerialized).byteLength
+          // Fast in-memory selective sync check for chat and director sessions
+          if (selectiveSyncEnabled.value && allowedSessionIds) {
+            let sessionId: string | null = null
+            if (localKey.startsWith('local:chat/sessions/')) {
+              sessionId = localKey.substring('local:chat/sessions/'.length)
+            }
+            else if (localKey.startsWith('local:director/sessions/')) {
+              sessionId = localKey.substring('local:director/sessions/'.length)
+            }
 
-            if (localSize === remoteFile.size) {
-              // First check: if the remote file has identical contents, just align the local timestamp
-              const readRes = await client.readFile(remoteFile.relPath)
-              if (readRes.success && readRes.content) {
-                try {
-                  const remoteVal = JSON.parse(readRes.content)
-                  if (JSON.stringify(localVal) === JSON.stringify(remoteVal)) {
-                    await logDebug(`[SyncEngine] Case A content identical for ${localKey}. Aligning timestamp to remote ${remoteFile.mtime} (skipped download).`)
-                    await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
-                    return
-                  }
-                }
-                catch (e) {}
+            if (sessionId && !allowedSessionIds.has(sessionId)) {
+              await logDebug(`[SyncEngine] Skipping unselected session ${localKey} (sessionId: ${sessionId}) without remote read.`)
+              return
+            }
+          }
+
+          const localTime = localTimestamps.get(localKey)
+          await logDebug(`Reconciling key: ${localKey}, localTime=${localTime}, remoteMtime=${remoteFile.mtime}, remoteSize=${remoteFile.size}`)
+
+          const isMergeableKey = [
+            'local:memory/short-term/local',
+            'local:memory/text-journal/local',
+            'local:memory/echo-chips/local',
+            'local:airi-cards',
+            'local:localstorage/settings/live2d/available-motions',
+            'local:localstorage/settings/speech/voice-profiles',
+          ].includes(localKey)
+
+          if (isMergeableKey) {
+            const queueKey = `outbox:queue/${localKey.replace('local:', '')}`
+            const hasPendingOutbox = await storage.getItemRaw(queueKey).then(val => val !== null && val !== undefined)
+            const storedEtag = await storage.getItemRaw<string>(`local:sync-metadata/etags/${localKey.replace('local:', '')}`)
+
+            if (shouldSkipMergeableKey(localTime, remoteFile.mtime, hasPendingOutbox, storedEtag, remoteFile.etag)) {
+              await logDebug(`[SyncEngine] Mergeable key ${localKey} is up-to-date (localTime=${localTime}, remoteMtime=${remoteFile.mtime}). Skipping merge download.`)
+              return
+            }
+
+            debug(`[SyncEngine] Key ${localKey} is mergeable and has updates. Executing merge...`)
+            let remoteVal: any = null
+            const readRes = await client.readFile(remoteFile.relPath)
+            if (readRes.success && readRes.content) {
+              try {
+                remoteVal = JSON.parse(readRes.content)
+              }
+              catch (e) {
+                console.error(`[SyncEngine] Failed to parse remote data for mergeable key ${localKey}:`, e)
               }
             }
+
+            const localVal = await storage.getItemRaw<any>(localKey)
+            let mergedVal: any = null
+
+            if (localKey === 'local:airi-cards') {
+              mergedVal = mergeAiriCards(localVal, remoteVal)
+            }
+            else if (localKey === 'local:localstorage/settings/live2d/available-motions') {
+              mergedVal = mergeAvailableMotions(localVal, remoteVal)
+            }
+            else if (localKey === 'local:localstorage/settings/speech/voice-profiles') {
+              mergedVal = mergeVoiceProfiles(localVal, remoteVal)
+            }
             else {
-              await logDebug(`[SyncEngine] Case A size mismatch for ${localKey} (local size: ${localSize}, remote size: ${remoteFile.size}). Skipping remote read for content comparison.`)
+              let localArr = localVal || []
+              let remoteArr = remoteVal || []
+              if (!Array.isArray(localArr))
+                localArr = []
+              if (!Array.isArray(remoteArr))
+                remoteArr = []
+              mergedVal = mergeArraysById(localArr, remoteArr)
             }
 
+            await storage.setItemRaw(localKey, mergedVal)
+
+            const writeRes = await client.writeFile(remoteFile.relPath, JSON.stringify(mergedVal, null, 2))
+            if (writeRes.success && writeRes.mtime) {
+              await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, writeRes.mtime)
+              if (remoteFile.etag) {
+                await storage.setItemRaw(`local:sync-metadata/etags/${localKey.replace('local:', '')}`, remoteFile.etag)
+              }
+            }
+            localTimestamps.delete(localKey)
+            return
+          }
+
+          if (localTime === undefined) {
+            const queueKey = `outbox:queue/${localKey.replace('local:', '')}`
+            const hasPendingOutbox = await storage.getItemRaw(queueKey).then(val => val !== null && val !== undefined)
+            if (hasPendingOutbox) {
+              await logDebug(`[SyncEngine] Skipping download for ${localKey} because it has pending local changes in the outbox.`)
+              return
+            }
+
+            const localVal = await storage.getItemRaw(localKey)
+            if (localVal !== undefined && localVal !== null) {
+              const storedEtag = await storage.getItemRaw<string>(`local:sync-metadata/etags/${localKey.replace('local:', '')}`)
+              if (storedEtag && remoteFile.etag && storedEtag === remoteFile.etag) {
+                await logDebug(`[SyncEngine] Case A ETag match for ${localKey}. Aligning timestamp to remote ${remoteFile.mtime}.`)
+                await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
+                return
+              }
+
+              const localSerialized = typeof localVal === 'string' ? localVal : JSON.stringify(localVal, null, 2)
+              const localSize = new TextEncoder().encode(localSerialized).byteLength
+              if (localSize === remoteFile.size) {
+                await logDebug(`[SyncEngine] Case A size match (${localSize} bytes) for ${localKey}. Aligning timestamp to remote ${remoteFile.mtime}.`)
+                await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
+                if (remoteFile.etag) {
+                  await storage.setItemRaw(`local:sync-metadata/etags/${localKey.replace('local:', '')}`, remoteFile.etag)
+                }
+                return
+              }
+
+              if (conflictStrategy.value === 'local-wins') {
+                debug(`[SyncEngine] Uploading (local-wins/Case A): ${localKey} -> remote (${remoteFile.relPath})`)
+                const writeRes = await client.writeFile(remoteFile.relPath, JSON.stringify(localVal, null, 2))
+                if (writeRes.success && writeRes.mtime) {
+                  await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, writeRes.mtime)
+                  if (remoteFile.etag) {
+                    await storage.setItemRaw(`local:sync-metadata/etags/${localKey.replace('local:', '')}`, remoteFile.etag)
+                  }
+                }
+                return
+              }
+
+              await logDebug(`[Case A] Local key ${localKey} exists but localTime is undefined. Running safety check.`)
+              const isConflict = conflictStrategy.value === 'remote-wins' ? false : await checkSyncConflict(localKey, 0, remoteFile, 'remote-newer')
+              if (isConflict) {
+                await logDebug(`[WARNING] Safety conflict registered for ${localKey} (Case A - local data exists). Overwrite blocked.`)
+                return
+              }
+            }
+
+            debug(`[SyncEngine] Downloading (missing local): remote (${remoteFile.relPath}) -> ${localKey}`)
+            const readRes = await client.readFile(remoteFile.relPath)
+            if (readRes.success && readRes.content) {
+              const data = JSON.parse(readRes.content)
+              await storage.setItemRaw(localKey, data)
+              await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
+              if (remoteFile.etag) {
+                await storage.setItemRaw(`local:sync-metadata/etags/${localKey.replace('local:', '')}`, remoteFile.etag)
+              }
+            }
+          }
+          else if (remoteFile.mtime > localTime || conflictStrategy.value === 'remote-wins') {
+            const queueKey = `outbox:queue/${localKey.replace('local:', '')}`
+            const hasPendingOutbox = await storage.getItemRaw(queueKey).then(val => val !== null && val !== undefined)
+            if (hasPendingOutbox) {
+              await logDebug(`[SyncEngine] Skipping overwrite for ${localKey} because it has pending local changes in the outbox.`)
+              return
+            }
+
+            const storedEtag = await storage.getItemRaw<string>(`local:sync-metadata/etags/${localKey.replace('local:', '')}`)
+            if (storedEtag && remoteFile.etag && storedEtag === remoteFile.etag) {
+              await logDebug(`[SyncEngine] Case B ETag match for ${localKey}. Aligning timestamp to remote ${remoteFile.mtime}.`)
+              await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
+              return
+            }
+
+            const localVal = await storage.getItemRaw(localKey)
+            if (!hasPendingOutbox && localVal) {
+              const localSerialized = typeof localVal === 'string' ? localVal : JSON.stringify(localVal, null, 2)
+              const localSize = new TextEncoder().encode(localSerialized).byteLength
+              if (localSize === remoteFile.size) {
+                await logDebug(`[SyncEngine] Case B size match and clean outbox for ${localKey}. Aligning timestamp to remote ${remoteFile.mtime}.`)
+                await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
+                if (remoteFile.etag) {
+                  await storage.setItemRaw(`local:sync-metadata/etags/${localKey.replace('local:', '')}`, remoteFile.etag)
+                }
+                return
+              }
+            }
             if (conflictStrategy.value === 'local-wins') {
-              debug(`[SyncEngine] Uploading (local-wins/Case A): ${localKey} -> remote (${remoteFile.relPath})`)
-              const writeRes = await client.writeFile(remoteFile.relPath, JSON.stringify(localVal, null, 2))
-              if (writeRes.success && writeRes.mtime) {
-                await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, writeRes.mtime)
-              }
-              return
-            }
-
-            await logDebug(`[Case A] Local key ${localKey} exists but localTime is undefined. Running safety check.`)
-            const isConflict = conflictStrategy.value === 'remote-wins' ? false : await checkSyncConflict(localKey, 0, remoteFile, 'remote-newer')
-            if (isConflict) {
-              await logDebug(`[WARNING] Safety conflict registered for ${localKey} (Case A - local data exists). Overwrite blocked.`)
-              return
-            }
-          }
-
-          debug(`[SyncEngine] Downloading (missing local): remote (${remoteFile.relPath}) -> ${localKey}`)
-          const readRes = await client.readFile(remoteFile.relPath)
-          if (readRes.success && readRes.content) {
-            const data = JSON.parse(readRes.content)
-            await storage.setItemRaw(localKey, data)
-            await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
-          }
-        }
-        else if (remoteFile.mtime > localTime || conflictStrategy.value === 'remote-wins') {
-          const queueKey = `outbox:queue/${localKey.replace('local:', '')}`
-          const hasPendingOutbox = await storage.getItemRaw(queueKey).then(val => val !== null && val !== undefined)
-          if (hasPendingOutbox) {
-            await logDebug(`[SyncEngine] Skipping overwrite for ${localKey} because it has pending local changes in the outbox.`)
-            return
-          }
-
-          const localVal = await storage.getItemRaw(localKey)
-          if (localVal) {
-            const localSerialized = typeof localVal === 'string' ? localVal : JSON.stringify(localVal, null, 2)
-            const localSize = new TextEncoder().encode(localSerialized).byteLength
-
-            if (localSize === remoteFile.size) {
-              // First check: if the remote file has identical contents, just align the local timestamp
-              const readRes = await client.readFile(remoteFile.relPath)
-              if (readRes.success && readRes.content) {
-                try {
-                  const remoteVal = JSON.parse(readRes.content)
-                  if (JSON.stringify(localVal) === JSON.stringify(remoteVal)) {
-                    await logDebug(`[SyncEngine] Case B content identical for ${localKey}. Aligning timestamp to remote ${remoteFile.mtime} (skipped download).`)
-                    await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
-                    return
+              debug(`[SyncEngine] Uploading (local-wins/Case B): ${localKey} -> remote (${remoteFile.relPath})`)
+              if (localVal) {
+                const writeRes = await client.writeFile(remoteFile.relPath, JSON.stringify(localVal, null, 2))
+                if (writeRes.success && writeRes.mtime) {
+                  await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, writeRes.mtime)
+                  if (remoteFile.etag) {
+                    await storage.setItemRaw(`local:sync-metadata/etags/${localKey.replace('local:', '')}`, remoteFile.etag)
                   }
                 }
-                catch (e) {}
+              }
+              return
+            }
+
+            // Case B: Remote file is newer OR strategy is remote-wins -> Download and overwrite local
+            const isConflict = conflictStrategy.value === 'remote-wins' ? false : await checkSyncConflict(localKey, localTime, remoteFile, 'remote-newer')
+            if (isConflict) {
+              debug(`[SyncEngine] Conflict safety guard blocked auto-overwrite of local key ${localKey}`)
+              return
+            }
+
+            debug(`[SyncEngine] Downloading (remote newer/Case B): remote (${remoteFile.relPath}) -> ${localKey}`)
+            const readRes = await client.readFile(remoteFile.relPath)
+            if (readRes.success && readRes.content) {
+              const data = JSON.parse(readRes.content)
+              await storage.setItemRaw(localKey, data)
+              await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
+              if (remoteFile.etag) {
+                await storage.setItemRaw(`local:sync-metadata/etags/${localKey.replace('local:', '')}`, remoteFile.etag)
               }
             }
-            else {
-              await logDebug(`[SyncEngine] Case B size mismatch for ${localKey} (local size: ${localSize}, remote size: ${remoteFile.size}). Skipping remote read for content comparison.`)
-            }
           }
+          else if (localTime > remoteFile.mtime) {
+            const localVal = await storage.getItemRaw(localKey)
+            const queueKey = `outbox:queue/${localKey.replace('local:', '')}`
+            const hasPendingOutbox = await storage.getItemRaw(queueKey).then(val => val !== null && val !== undefined)
+            const storedEtag = await storage.getItemRaw<string>(`local:sync-metadata/etags/${localKey.replace('local:', '')}`)
 
-          if (conflictStrategy.value === 'local-wins') {
-            debug(`[SyncEngine] Uploading (local-wins/Case B): ${localKey} -> remote (${remoteFile.relPath})`)
+            // If local has no pending outbox mutations, and either ETags match or local size matches remote size:
+            // it was simply touched locally without content changes. Align timestamp without downloading remote!
+            if (!hasPendingOutbox) {
+              if (storedEtag && remoteFile.etag && storedEtag === remoteFile.etag) {
+                await logDebug(`[SyncEngine] Case C ETag match for ${localKey}. Aligning timestamp to remote ${remoteFile.mtime} (skipped upload).`)
+                await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
+                return
+              }
+
+              if (localVal) {
+                const localSerialized = typeof localVal === 'string' ? localVal : JSON.stringify(localVal, null, 2)
+                const localSize = new TextEncoder().encode(localSerialized).byteLength
+                if (localSize === remoteFile.size) {
+                  await logDebug(`[SyncEngine] Case C size match and clean outbox for ${localKey}. Aligning timestamp to remote ${remoteFile.mtime} (skipped upload/download).`)
+                  await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
+                  if (remoteFile.etag) {
+                    await storage.setItemRaw(`local:sync-metadata/etags/${localKey.replace('local:', '')}`, remoteFile.etag)
+                  }
+                  return
+                }
+              }
+            }
+
+            const isConflict = await checkSyncConflict(localKey, localTime, remoteFile, 'local-newer')
+            if (isConflict) {
+              debug(`[SyncEngine] Conflict safety guard blocked auto-overwrite of remote file for key ${localKey}`)
+              return
+            }
+
+            debug(`[SyncEngine] Uploading (local newer/Case C): ${localKey} -> remote (${remoteFile.relPath})`)
             if (localVal) {
               const writeRes = await client.writeFile(remoteFile.relPath, JSON.stringify(localVal, null, 2))
-              if (writeRes.success && writeRes.mtime) {
+              if (!writeRes.success) {
+                console.error(`[SyncEngine] Failed to write remote file for ${localKey}:`, writeRes.error)
+              }
+              else if (writeRes.mtime) {
                 await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, writeRes.mtime)
-              }
-            }
-            return
-          }
-
-          // Case B: Remote file is newer OR strategy is remote-wins -> Download and overwrite local
-          const isConflict = conflictStrategy.value === 'remote-wins' ? false : await checkSyncConflict(localKey, localTime, remoteFile, 'remote-newer')
-          if (isConflict) {
-            debug(`[SyncEngine] Conflict safety guard blocked auto-overwrite of local key ${localKey}`)
-            return
-          }
-
-          debug(`[SyncEngine] Downloading (remote newer/Case B): remote (${remoteFile.relPath}) -> ${localKey}`)
-          const readRes = await client.readFile(remoteFile.relPath)
-          if (readRes.success && readRes.content) {
-            const data = JSON.parse(readRes.content)
-            await storage.setItemRaw(localKey, data)
-            await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
-          }
-        }
-        else if (localTime > remoteFile.mtime) {
-          const localVal = await storage.getItemRaw(localKey)
-          if (localVal) {
-            const localSerialized = typeof localVal === 'string' ? localVal : JSON.stringify(localVal, null, 2)
-            const localSize = new TextEncoder().encode(localSerialized).byteLength
-
-            if (localSize === remoteFile.size) {
-              // Check: if remote file has identical contents despite older timestamp, just align local timestamp
-              const readRes = await client.readFile(remoteFile.relPath)
-              if (readRes.success && readRes.content) {
-                try {
-                  const remoteVal = JSON.parse(readRes.content)
-                  if (JSON.stringify(localVal) === JSON.stringify(remoteVal)) {
-                    await logDebug(`[SyncEngine] Case C content identical for ${localKey}. Aligning timestamp to remote ${remoteFile.mtime} (skipped upload).`)
-                    await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, remoteFile.mtime)
-                    return
-                  }
+                if (remoteFile.etag) {
+                  await storage.setItemRaw(`local:sync-metadata/etags/${localKey.replace('local:', '')}`, remoteFile.etag)
                 }
-                catch (e) {}
               }
             }
-            else {
-              await logDebug(`[SyncEngine] Case C size mismatch for ${localKey} (local size: ${localSize}, remote size: ${remoteFile.size}). Skipping remote read for content comparison.`)
+          }
+        })
+
+        const localKeysToUpload = localKeys.filter((fullKey) => {
+          if (fullKey.startsWith('local:sync-metadata/') || fullKey === 'local:sync-metadata')
+            return false
+          return !remoteFileMap.has(fullKey)
+        })
+
+        await parallelLimit(localKeysToUpload, 15, async (fullKey) => {
+          if (selectiveSyncEnabled.value && allowedSessionIds) {
+            let sessionId: string | null = null
+            if (fullKey.startsWith('local:chat/sessions/')) {
+              sessionId = fullKey.substring('local:chat/sessions/'.length)
             }
-          }
-
-          const isConflict = await checkSyncConflict(localKey, localTime, remoteFile, 'local-newer')
-          if (isConflict) {
-            debug(`[SyncEngine] Conflict safety guard blocked auto-overwrite of remote file for key ${localKey}`)
-            return
-          }
-
-          debug(`[SyncEngine] Uploading (local newer/Case C): ${localKey} -> remote (${remoteFile.relPath})`)
-          if (localVal) {
-            const writeRes = await client.writeFile(remoteFile.relPath, JSON.stringify(localVal, null, 2))
-            if (!writeRes.success) {
-              console.error(`[SyncEngine] Failed to write remote file for ${localKey}:`, writeRes.error)
+            else if (fullKey.startsWith('local:director/sessions/')) {
+              sessionId = fullKey.substring('local:director/sessions/'.length)
             }
-          }
-        }
-      })
-
-      const localKeysToUpload = localKeys.filter((fullKey) => {
-        if (fullKey.startsWith('local:sync-metadata/') || fullKey === 'local:sync-metadata')
-          return false
-        return !remoteFileMap.has(fullKey)
-      })
-
-      await parallelLimit(localKeysToUpload, 15, async (fullKey) => {
-        if (selectiveSyncEnabled.value && fullKey.startsWith('local:chat/sessions/')) {
-          const localVal = await storage.getItemRaw<any>(fullKey)
-          const charId = localVal?.meta?.characterId
-          if (charId) {
-            const chatNodeId = `chat-${charId}`
-            if (!selectiveCheckedIds.value.includes(chatNodeId)) {
-              await logDebug(`Skipping local-only upload of chat session ${fullKey} because character chat ${chatNodeId} is not selected.`)
+            if (sessionId && !allowedSessionIds.has(sessionId)) {
+              await logDebug(`Skipping local-only upload of session ${fullKey} because character is not selected.`)
               return
             }
           }
-        }
-        const relPath = getRelPathForKey(fullKey)
-        debug(`[SyncEngine] Uploading (local only): ${fullKey} -> remote (${relPath})`)
+          const relPath = getRelPathForKey(fullKey)
+          debug(`[SyncEngine] Uploading (local only): ${fullKey} -> remote (${relPath})`)
 
-        const localValRaw = await storage.getItemRaw(fullKey)
-        const localVal = await storage.getItem(fullKey)
-        const valToUse = localVal ?? localValRaw
-        if (valToUse !== undefined && valToUse !== null) {
-          const writeRes = await client.writeFile(relPath, typeof valToUse === 'string' ? valToUse : JSON.stringify(valToUse, null, 2))
-          if (!writeRes.success) {
-            console.error(`[SyncEngine] Failed to write remote file for ${fullKey}:`, writeRes.error)
-            return
+          const localValRaw = await storage.getItemRaw(fullKey)
+          const localVal = await storage.getItem(fullKey)
+          const valToUse = localVal ?? localValRaw
+          if (valToUse !== undefined && valToUse !== null) {
+            const writeRes = await client.writeFile(relPath, typeof valToUse === 'string' ? valToUse : JSON.stringify(valToUse, null, 2))
+            if (!writeRes.success) {
+              console.error(`[SyncEngine] Failed to write remote file for ${fullKey}:`, writeRes.error)
+              return
+            }
+            if (writeRes.mtime) {
+              await storage.setItemRaw(`local:sync-metadata/timestamps/${fullKey.replace('local:', '')}`, writeRes.mtime)
+            }
           }
-          if (writeRes.mtime) {
-            await storage.setItemRaw(`local:sync-metadata/timestamps/${fullKey.replace('local:', '')}`, writeRes.mtime)
-          }
+        })
+
+        if (!opts?.skipBinaryAssets) {
+          await reconcileBackgrounds()
+          await reconcileModels()
+          await reconcileMmdMotions()
+          await reconcileVrmaAnimations()
+          await reconcileVoiceProfiles()
         }
-      })
+        else {
+          debug('[SyncEngine] Skipping binary asset reconciliation (startup mode).')
+        }
 
-      if (!opts?.skipBinaryAssets) {
-        await reconcileBackgrounds()
-        await reconcileModels()
-        await reconcileMmdMotions()
-        await reconcileVrmaAnimations()
-        await reconcileVoiceProfiles()
+        storageState.isImportingRemoteData = false
+        return true
       }
-      else {
-        debug('[SyncEngine] Skipping binary asset reconciliation (startup mode).')
+      catch (err) {
+        storageState.isImportingRemoteData = false
+        console.error('[SyncEngine] Reconciliation error:', err)
+        return false
       }
+    })().finally(() => {
+      inFlightReconcile = null
+    })
 
-      storageState.isImportingRemoteData = false
-      return true
-    }
-    catch (err) {
-      storageState.isImportingRemoteData = false
-      console.error('[SyncEngine] Reconciliation error:', err)
-      return false
-    }
+    return inFlightReconcile
   }
 
   // Process the pending mutations in the outbox queue
@@ -2820,13 +2927,21 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           return
         }
 
-        if (selectiveSyncEnabled.value && item.key.startsWith('local:chat/sessions/')) {
-          const localVal = await storage.getItemRaw<any>(item.key)
-          const charId = localVal?.meta?.characterId
+        if (selectiveSyncEnabled.value && (item.key.startsWith('local:chat/sessions/') || item.key.startsWith('local:director/sessions/'))) {
+          let charId: string | null = null
+          if (item.key.startsWith('local:chat/sessions/')) {
+            const localVal = await storage.getItemRaw<any>(item.key)
+            charId = localVal?.meta?.characterId
+          }
+          else if (item.key.startsWith('local:director/sessions/')) {
+            const sId = item.key.substring('local:director/sessions/'.length)
+            const chatVal = await storage.getItemRaw<any>(`local:chat/sessions/${sId}`)
+            charId = chatVal?.meta?.characterId
+          }
           if (charId) {
             const chatNodeId = `chat-${charId}`
             if (!selectiveCheckedIds.value.includes(chatNodeId)) {
-              await logDebug(`Skipping outbox processing for chat session ${item.key} because character chat ${chatNodeId} is not selected.`)
+              await logDebug(`Skipping outbox processing for session ${item.key} because character chat ${chatNodeId} is not selected.`)
               await storage.removeItem(fullQueueKey)
               return
             }
@@ -2941,6 +3056,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     if (key.startsWith('settings/sync/'))
       return true
     if (key === 'settings/discord/enabled')
+      return true
+    if (perDeviceAppearance.value && (key.startsWith('settings/theme/') || key === 'settings/general/language'))
       return true
     return false
   }
@@ -3603,6 +3720,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
     validatePath,
     validateConnection,
+    reconcile,
     triggerSync,
     processOutbox,
     getRemoteCatalog,
@@ -3617,6 +3735,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     restoreSettingsFromRemote,
     selectiveSyncEnabled,
     selectiveCheckedIds,
+    perDeviceAppearance,
     getCardSyncStatus,
     syncCard,
     fetchGDriveManifest,

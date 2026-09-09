@@ -36,13 +36,16 @@ Provides privacy-preserving multi-device sync using standard S3/R2/Google Drive 
 1. **Loop Prevention (`isImportingRemoteData`)**: Ensure `storageState.isImportingRemoteData` is strictly respected in outbox interceptors; imported remote data must not re-enqueue into `outbox:queue/*`.
 2. **Binary Asset Handling**: `localforage` (blob storage for wallpapers/models) converts backgrounds to AVIF on upload to save bandwidth, tracking deletions in `sync-metadata`.
 3. **Anti-Contraction Safeguard**: The sync engine blocks operations that replace a large dataset (>10KB) with a tiny one (<2KB) to prevent accidental remote data erasure.
-4. **Selective Restore**: onboarding Cloud Restore embeds `SelectiveSyncPanel` — metadata (settings, character cards JSON, short-term memory) is **required**; heavy blobs (models, backgrounds, chat sessions, custom motions) are opt-in per category. Do not force-download model binaries at restore time.
-5. **Quota Gates for Downloads**: any remote pull path (including voice-profile reconciliation) must pass `checkQuotaLimit('download')` before enumerating/transferring files; abort cleanly when unsafe.
+4. **Selective Restore & Index-Driven Filtering**: onboarding Cloud Restore embeds `SelectiveSyncPanel` — metadata (settings, character cards JSON, short-term memory) is **required**; heavy blobs (models, backgrounds, chat sessions, custom motions) are opt-in per category. For chat and director sessions, resolve allowed session IDs upfront from `ChatSessionsIndex` (`local:chat/index/*`); **never** issue remote `readFile` requests just to inspect `meta.characterId`. Unselected sessions must be skipped immediately in memory.
+5. **Zero-Read / ETag Checksums (No Download-to-Compare)**: Never download a remote file over HTTP to test `JSON.stringify(local) === JSON.stringify(remote)` to decide if an upload can be avoided. Use S3 ETags (`local:sync-metadata/etags/*`) and timestamps.
+6. **Mergeable Key Gates**: Cumulative tables (`airi-cards`, `memory/*`, `voice-profiles`) must pass `shouldSkipMergeableKey`: skip remote download if remote `mtime <= localTime` (or ETags match) and outbox is clean.
+7. **Quota Gates for Downloads**: any remote pull path (including voice-profile reconciliation) must pass `checkQuotaLimit('download')` before enumerating/transferring files; abort cleanly when unsafe.
 
 # Known Pitfalls & Failure Modes
 - **Infinite Sync Loops**: Forgetting to check `isImportingRemoteData` during remote data ingestion will trigger infinite re-upload cascades.
 - **S3 mtime Translations**: S3 objects do not support custom file modification time writes. AIRI relies on the native `LastModified` timestamp returned by `ListObjectsV2`, requiring precise sequence tracking to avoid redundant downloads.
 - **Contraction Triggers**: Replacing a database with an empty array triggers an anti-contraction error requiring manual conflict resolution.
+- **CORS Preflight Flooding**: In browser dev environments (`http://localhost:5173`), every S3 `readFile` triggers an `OPTIONS 204` preflight followed by a `GET 200`. Unbounded remote reads create thousands of requests and can exhaust network bandwidth or trigger Cloudflare rate limits. Index-driven filtering and zero-read comparisons prevent this.
 
 ## Related Skills & References
 

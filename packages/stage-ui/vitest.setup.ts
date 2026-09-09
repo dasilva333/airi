@@ -82,3 +82,16 @@ if (!globalThis.window.location) {
     href: 'http://localhost/',
   }
 }
+
+// DOMParser polyfill for XML parsing in Node test runner
+if (typeof (globalThis as any).DOMParser === 'undefined') {
+  try {
+    const { JSDOM } = await import('jsdom')
+    const dom = new JSDOM()
+    ;(globalThis as any).DOMParser = dom.window.DOMParser
+    if (globalThis.window) {
+      ;(globalThis.window as any).DOMParser = dom.window.DOMParser
+    }
+  }
+  catch {}
+}
