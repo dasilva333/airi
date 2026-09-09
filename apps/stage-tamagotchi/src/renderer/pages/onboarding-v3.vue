@@ -28,7 +28,7 @@ async function handleCloseV3() {
 
 <template>
   <div :class="['onboarding-root h-screen w-screen overflow-hidden select-none', bgClass]">
-    <OnboardingV3 @close="handleCloseV3" />
+    <OnboardingV3 @close="handleCloseV3" @finish="handleCloseV3" />
   </div>
 </template>
 

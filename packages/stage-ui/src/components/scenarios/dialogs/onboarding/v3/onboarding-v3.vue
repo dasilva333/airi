@@ -8,6 +8,7 @@ import QuickStart from './quick-start.vue'
 import StepAppearance from './steps/step-appearance.vue'
 import StepArtistry from './steps/step-artistry.vue'
 import StepConsciousness from './steps/step-consciousness.vue'
+import StepEmotions from './steps/step-emotions.vue'
 import StepExperience from './steps/step-experience.vue'
 import StepHearing from './steps/step-hearing.vue'
 import StepMemory from './steps/step-memory.vue'
@@ -215,6 +216,13 @@ function handleSkip() {
       <!-- Step 10: Thinking (Conversational Pacing & Subconscious Asides) -->
       <StepThinking
         v-else-if="currentStepId === 'thinking'"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 11: Emotions (2-Pass ACT Expression Bridge) -->
+      <StepEmotions
+        v-else-if="currentStepId === 'emotions'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />

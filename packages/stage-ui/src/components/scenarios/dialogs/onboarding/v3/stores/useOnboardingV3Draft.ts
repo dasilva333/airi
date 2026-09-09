@@ -90,6 +90,10 @@ export interface OnboardingV3DraftState {
   mcpWebSearchEnabled?: boolean
   mcpFilesystemEnabled?: boolean
   toolMotionGeneratorEnabled?: boolean
+  emotionsCurated?: boolean
+  expressionMappings?: Record<string, string>
+  actingModelExpressionPrompt?: string
+  previewStrength?: number
 }
 
 export const ARCHETYPE_MODULE_PRESETS: Record<ExperienceArchetypeId, ModuleBundleConfig> = {
@@ -490,6 +494,22 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.toolMotionGeneratorEnabled = tools.toolMotionGeneratorEnabled
   }
 
+  function setEmotions(emotions: {
+    emotionsCurated?: boolean
+    expressionMappings?: Record<string, string>
+    actingModelExpressionPrompt?: string
+    previewStrength?: number
+  }) {
+    if (emotions.emotionsCurated !== undefined)
+      state.value.emotionsCurated = emotions.emotionsCurated
+    if (emotions.expressionMappings !== undefined)
+      state.value.expressionMappings = emotions.expressionMappings
+    if (emotions.actingModelExpressionPrompt !== undefined)
+      state.value.actingModelExpressionPrompt = emotions.actingModelExpressionPrompt
+    if (emotions.previewStrength !== undefined)
+      state.value.previewStrength = emotions.previewStrength
+  }
+
   function reset() {
     state.reset()
   }
@@ -506,6 +526,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     setConsciousness,
     setSpeech,
     setThinking,
+    setEmotions,
     setArtistry,
     setSensory,
     setMemory,

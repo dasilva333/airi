@@ -1,12 +1,23 @@
 <script setup lang="ts">
 import { isApplePlatform } from '@proj-airi/stage-shared'
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { toast } from 'vue-sonner'
 
+import { DEFAULT_POST_HISTORY_INSTRUCTIONS, getStarterCharacter } from '../../../../../constants/prompts/character-defaults'
+import { getKokoroAdapter } from '../../../../../libs/inference/adapters/kokoro'
+import { WEB_LLM_MODELS } from '../../../../../libs/inference/constants'
 import { NativeAI } from '../../../../../libs/native-ai'
+import { useAiriCardStore } from '../../../../../stores/modules/airi-card'
 import { useSpeechStore } from '../../../../../stores/modules/speech'
+import { useOnboardingStore } from '../../../../../stores/onboarding'
 import { useProvidersStore } from '../../../../../stores/providers'
 import { DEFAULT_APPLE_CORE_AI_MODEL } from '../../../../../stores/providers/apple-core-ai'
+import { getMossAdapterInstance } from '../../../../../stores/providers/moss-audio-utils'
+import { getPocketTtsAdapterInstance } from '../../../../../stores/providers/pocket-audio-utils'
 import { useSettingsAudioDevice } from '../../../../../stores/settings'
+import { useSettingsUserProfile } from '../../../../../stores/settings/user-profile'
+import { KOKORO_MODELS } from '../../../../../workers/kokoro/constants'
+import { ensureWhisperLoaded } from '../v2/whisper-loader'
 import { useOnboardingV3Draft } from './stores/useOnboardingV3Draft'
 
 const props = defineProps<{
@@ -18,6 +29,9 @@ const draftStore = useOnboardingV3Draft()
 const providersStore = useProvidersStore()
 const speechStore = useSpeechStore()
 const audioDevice = useSettingsAudioDevice()
+const cardStore = useAiriCardStore()
+const userProfileStore = useSettingsUserProfile()
+const onboardingStore = useOnboardingStore()
 
 // ==========================================
 // 1. Top Identity Inputs
@@ -629,22 +643,280 @@ async function handleStartChatting() {
   isPreparingModalOpen.value = true
   preparationProgress.value = 5
 
-  prepSteps.value[3].desc = `Seeding ${companionName.value}'s memory & persona context...`
+  const charName = companionName.value || activeCompanion.value.name
+  const charRawVoice = ttsVoice.value || getCompanionVoice(activeCompanion.value, ttsEngine.value)
+  const normSpeechId = normalizeSpeechProviderId(ttsEngine.value)
+  const profileId = `voice_profile_${charName.toLowerCase().replace(/\s+/g, '_')}`
 
-  for (let i = 0; i < prepSteps.value.length; i++) {
-    prepSteps.value[i].status = 'active'
+  try {
+    // ----------------------------------------------------
+    // Step 0: Consciousness Core (LLM Brain)
+    // ----------------------------------------------------
+    prepSteps.value[0].status = 'active'
+    if (llmProvider.value === 'web-llm') {
+      prepSteps.value[0].desc = 'Checking on-device WebLLM model cache...'
+      try {
+        const { getWebLlmAdapter } = await import('../../../../../libs/inference/adapters/web-llm')
+        const adapter = await getWebLlmAdapter()
+        if (adapter.state !== 'ready' || adapter.manifest?.modelId !== llmModel.value) {
+          prepSteps.value[0].desc = 'Downloading WebLLM model weights...'
+          const curated = WEB_LLM_MODELS.find(m => m.id === llmModel.value)
+          await adapter.loadModel(
+            { modelId: llmModel.value, vramMB: curated?.vramMB },
+            {
+              onProgress: (p: any) => {
+                const percent = typeof p?.percent === 'number' && p.percent >= 0
+                  ? p.percent
+                  : (p && p.loaded && p.total ? (p.loaded / p.total) * 100 : 0)
+                prepSteps.value[0].desc = `Downloading WebLLM (${Math.round(percent)}%)...`
+                preparationProgress.value = Math.max(5, Math.min(24, Math.round(5 + (percent * 0.2))))
+              },
+            },
+          )
+        }
+      }
+      catch (err) {
+        console.warn('[QuickStart] WebLLM initialization notice:', err)
+      }
+    }
+    else {
+      prepSteps.value[0].desc = `Configuring ${llmProvider.value} provider...`
+      if (apiKey.value) {
+        providersStore.providers[llmProvider.value] = {
+          ...providersStore.providers[llmProvider.value],
+          apiKey: apiKey.value,
+          model: llmModel.value,
+        }
+        providersStore.markProviderAdded(llmProvider.value)
+      }
+      await new Promise(resolve => setTimeout(resolve, 280))
+    }
+    prepSteps.value[0].desc = 'Consciousness Core calibrated'
+    prepSteps.value[0].status = 'done'
+    preparationProgress.value = 25
 
-    // Smooth, realistic step progression
-    const stepDuration = 320 + Math.random() * 180
-    await new Promise(resolve => setTimeout(resolve, stepDuration))
+    // ----------------------------------------------------
+    // Step 1: Hearing Acoustics (STT)
+    // ----------------------------------------------------
+    prepSteps.value[1].status = 'active'
+    if (isHearingEnabled.value) {
+      if (sttEngine.value === 'whisper-local') {
+        prepSteps.value[1].desc = 'Verifying Whisper Local weights...'
+        try {
+          await ensureWhisperLoaded({
+            model: sttModel.value,
+            onProgress: (p: any) => {
+              if (p.phase === 'warmup') {
+                prepSteps.value[1].desc = 'Compiling WebGPU shaders & warming up...'
+              }
+              else if (typeof p.percent === 'number' && p.percent >= 0) {
+                prepSteps.value[1].desc = `Downloading Whisper (${Math.round(p.percent)}%)...`
+                preparationProgress.value = Math.max(25, Math.min(49, Math.round(25 + (p.percent * 0.25))))
+              }
+            },
+          })
+          prepSteps.value[1].desc = 'Whisper Local acoustic engine ready'
+        }
+        catch (err) {
+          console.warn('[QuickStart] Whisper initialization notice:', err)
+        }
+      }
+      else {
+        prepSteps.value[1].desc = 'Microphone acoustics configured'
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+    }
+    else {
+      prepSteps.value[1].desc = 'Hearing disabled (muted)'
+      await new Promise(resolve => setTimeout(resolve, 150))
+    }
+    prepSteps.value[1].status = 'done'
+    preparationProgress.value = 50
 
-    prepSteps.value[i].status = 'done'
-    preparationProgress.value = Math.round(((i + 1) / prepSteps.value.length) * 100)
+    // ----------------------------------------------------
+    // Step 2: Vocal Synthesis (TTS)
+    // ----------------------------------------------------
+    prepSteps.value[2].status = 'active'
+    if (isVoiceEnabled.value) {
+      if (normSpeechId === 'kokoro-local') {
+        prepSteps.value[2].desc = 'Synthesizing Kokoro 82M voice weights...'
+        try {
+          const adapter = await getKokoroAdapter()
+          const modelDef = KOKORO_MODELS.find(m => m.id === ttsModel.value) || KOKORO_MODELS.find(m => m.id === 'q4') || KOKORO_MODELS[0]
+          await adapter.loadModel(modelDef.quantization, modelDef.platform, {
+            onProgress: (p: any) => {
+              const percent = Math.round(p.percent ?? (p.loaded && p.total ? (p.loaded / p.total) * 100 : 0))
+              prepSteps.value[2].desc = `Loading Kokoro weights (${percent}%)...`
+              preparationProgress.value = Math.max(50, Math.min(74, Math.round(50 + (percent * 0.24))))
+            },
+          })
+          prepSteps.value[2].desc = `Kokoro 82M ready with voice "${charRawVoice}"`
+        }
+        catch (err) {
+          console.warn('[QuickStart] Kokoro weights loading notice:', err)
+        }
+      }
+      else if (normSpeechId === 'pocket-tts-local') {
+        prepSteps.value[2].desc = 'Loading Pocket-TTS weights...'
+        try {
+          const adapter = await getPocketTtsAdapterInstance()
+          await adapter.loadModel({ language: ttsModel.value || 'english_2026-04' })
+        }
+        catch (err) {
+          console.warn('[QuickStart] Pocket-TTS notice:', err)
+        }
+      }
+      else if (normSpeechId === 'moss-nano-local') {
+        try {
+          const adapter = await getMossAdapterInstance()
+          await adapter.loadModel()
+        }
+        catch (err) {
+          console.warn('[QuickStart] Moss notice:', err)
+        }
+      }
+      else {
+        prepSteps.value[2].desc = `Connected ${normSpeechId} speech provider`
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+
+      // Save character voice profile into speechStore
+      try {
+        speechStore.saveVoiceProfile({
+          id: profileId,
+          name: `${charName}'s Voice`,
+          baseProvider: normSpeechId,
+          baseModel: ttsModel.value,
+          baseVoice: charRawVoice,
+          effects: {
+            pitch: 1.0,
+            rate: 1.0,
+            volume: 1.0,
+            asmr: 0,
+            radio: 0,
+            robot: 0,
+            reverb: 0,
+            spatial: 0,
+          },
+          ust: {
+            enabled: true,
+            mode: 'mute' as any,
+            customStripChars: '*_[]()<>"\'',
+            stripEmojis: true,
+            tildeReplacement: '',
+            autoLowercaseCapsThreshold: 2,
+            autoLowercaseCapsExclude: [],
+            convertBracketsToTokenFormat: true,
+            customReplacements: [],
+          },
+        } as any)
+        speechStore.activeSpeechProvider = normSpeechId
+        speechStore.activeSpeechModel = ttsModel.value
+        speechStore.activeSpeechVoiceId = profileId
+      }
+      catch (err) {
+        console.warn('[QuickStart] Voice profile save notice:', err)
+      }
+    }
+    else {
+      prepSteps.value[2].desc = 'Vocal synthesis muted'
+      await new Promise(resolve => setTimeout(resolve, 150))
+    }
+    prepSteps.value[2].status = 'done'
+    preparationProgress.value = 75
+
+    // ----------------------------------------------------
+    // Step 3: Soul Manifestation (Card & Stage Seeding)
+    // ----------------------------------------------------
+    prepSteps.value[3].status = 'active'
+    prepSteps.value[3].desc = `Seeding ${charName}'s soul & stage card...`
+
+    // 1. User Profile
+    userProfileStore.name = userName.value
+
+    // 2. Build Card Payload
+    const starter = getStarterCharacter(selectedCompanionId.value)
+    const USER_TOKEN_REGEX = /(?<!\{)\{user\}(?!\})/g
+    const greetings = (starter.greetings || []).map(g => g.replace(USER_TOKEN_REGEX, userName.value))
+    const cardPayload = {
+      spec: 'chara_card_v3' as const,
+      spec_version: '3.0' as const,
+      data: {
+        name: charName,
+        nickname: charName,
+        creator: 'AIRI',
+        creator_notes: 'Created via Quick Start Cockpit (Onboarding V3)',
+        character_version: '1.0.0',
+        description: starter.description,
+        personality: starter.personality,
+        scenario: starter.scenario.replace(USER_TOKEN_REGEX, userName.value),
+        system_prompt: starter.systemPrompt.replace(USER_TOKEN_REGEX, userName.value),
+        post_history_instructions: DEFAULT_POST_HISTORY_INSTRUCTIONS,
+        first_mes: greetings[0] || `Hello ${userName.value}! Everything is ready — let's step onto the stage.`,
+        alternate_greetings: greetings.slice(1),
+        group_only_greetings: [],
+        mes_example: (starter.messageExample || [])
+          .map(([uMsg, cMsg]) => `${uMsg.replace(USER_TOKEN_REGEX, userName.value)}\n${cMsg.replace(USER_TOKEN_REGEX, userName.value)}`)
+          .join('\n<START>\n'),
+        tags: ['onboarding-v3', 'quick-start', selectedCompanionId.value],
+        extensions: {
+          airi: {
+            agents: {},
+            artistry: {
+              enabled: isArtistryToolEnabled.value,
+              widgetInstruction: starter.artistryPromptPrefix || '',
+              spawnMode: 'bg' as const,
+              autonomousEnabled: false,
+              autonomousThreshold: 49,
+              autonomousTarget: 'assistant' as const,
+              autonomousMonitorEnabled: true,
+              autonomousMonitorDiscordEnabled: false,
+              autonomousHistoryDepth: 3,
+            },
+            modules: {
+              displayModelId: activeCompanion.value.vesselModelId || 'preset-live2d-2',
+              consciousness: {
+                provider: llmProvider.value,
+                model: llmModel.value,
+              },
+              speech: {
+                provider: normSpeechId,
+                model: ttsModel.value,
+                voice_id: profileId,
+              },
+            },
+          },
+        },
+      },
+    }
+
+    try {
+      const createdCardId = await cardStore.addCard(cardPayload)
+      if (createdCardId) {
+        await cardStore.activateCard(createdCardId, true)
+      }
+    }
+    catch (err) {
+      console.warn('[QuickStart] Card creation/activation notice:', err)
+    }
+
+    // 3. Mark setup complete & clear draft
+    onboardingStore.markSetupCompleted()
+    draftStore.reset()
+
+    prepSteps.value[3].desc = `${charName} is alive and ready on Stage!`
+    prepSteps.value[3].status = 'done'
+    preparationProgress.value = 100
+
+    await new Promise(resolve => setTimeout(resolve, 450))
+    props.onComplete()
   }
-
-  // Smooth completion transition
-  await new Promise(resolve => setTimeout(resolve, 400))
-  props.onComplete()
+  catch (err: any) {
+    console.error('[QuickStart] Pre-flight preparation error:', err)
+    toast.error('Setup encountered an issue, but you can continue into Stage.')
+    await new Promise(resolve => setTimeout(resolve, 500))
+    props.onComplete()
+  }
 }
 </script>
 
