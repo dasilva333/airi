@@ -9,6 +9,7 @@ import StepExperience from './steps/step-experience.vue'
 import StepHearing from './steps/step-hearing.vue'
 import StepPersona from './steps/step-persona.vue'
 import StepProfile from './steps/step-profile.vue'
+import StepSensory from './steps/step-sensory.vue'
 import StepSpeech from './steps/step-speech.vue'
 import StepThinking from './steps/step-thinking.vue'
 import StepTriage from './steps/step-triage.vue'
@@ -166,6 +167,13 @@ function handleSkip() {
       <!-- Step 12: Artistry (Visual Creative Studio & Autonomous Director) -->
       <StepArtistry
         v-else-if="currentIndex === 12"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 13: Sensory (Screen Watching & Heartbeats) -->
+      <StepSensory
+        v-else-if="currentIndex === 13"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />

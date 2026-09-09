@@ -959,6 +959,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
     winHistory,
     sysLoad,
     locTime,
+    volLevel,
     lastHeartbeatTime,
     isHeartbeatEvaluating,
     isDreamStateEvaluating,

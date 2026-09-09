@@ -58,6 +58,24 @@ export interface OnboardingV3DraftState {
   artistryDirectorTarget?: 'assistant' | 'user'
   screenWatcherEnabled?: boolean
   screenWatcherMode?: 'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'
+  screenWatcherTier?: 'lightweight' | 'moondream'
+  screenWatcherInterval?: number
+  heartbeatsEnabled?: boolean
+  heartbeatsInterval?: number
+  operatingScheduleEnabled?: boolean
+  wakeUpTime?: string
+  bedTime?: string
+  pauseOnAfk?: boolean
+  afkMinutes?: number
+  sensorGroundingEnabled?: boolean
+  salienceGatingEnabled?: boolean
+  heartbeatsContextWindowHistory?: boolean
+  heartbeatsContextSystemLoad?: boolean
+  heartbeatsContextUsageMetrics?: boolean
+  eventLedgerEnabled?: boolean
+  eventLedgerSampleDepth?: number
+  eventLedgerDomains?: string[]
+  smartSilenceDirectiveEnabled?: boolean
   memoryShortTermEnabled?: boolean
   memoryLongTermJournalEnabled?: boolean
   memoryDreamStateEnabled?: boolean
@@ -130,6 +148,24 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     artistryDirectorTarget: 'assistant',
     screenWatcherEnabled: true,
     screenWatcherMode: 'voice-and-bubble',
+    screenWatcherTier: 'lightweight',
+    screenWatcherInterval: 2000,
+    heartbeatsEnabled: true,
+    heartbeatsInterval: 5,
+    operatingScheduleEnabled: true,
+    wakeUpTime: '09:00',
+    bedTime: '22:00',
+    pauseOnAfk: true,
+    afkMinutes: 5,
+    sensorGroundingEnabled: true,
+    salienceGatingEnabled: true,
+    heartbeatsContextWindowHistory: true,
+    heartbeatsContextSystemLoad: true,
+    heartbeatsContextUsageMetrics: true,
+    eventLedgerEnabled: true,
+    eventLedgerSampleDepth: 6,
+    eventLedgerDomains: ['vision', 'tools', 'chat', 'memory', 'discord'],
+    smartSilenceDirectiveEnabled: true,
     memoryShortTermEnabled: true,
     memoryLongTermJournalEnabled: true,
     memoryDreamStateEnabled: true,
@@ -311,6 +347,70 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.artistryDirectorTarget = artistry.directorTarget
   }
 
+  function setSensory(sensory: {
+    screenWatcherEnabled?: boolean
+    screenWatcherMode?: 'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'
+    screenWatcherTier?: 'lightweight' | 'moondream'
+    screenWatcherInterval?: number
+    heartbeatsEnabled?: boolean
+    heartbeatsInterval?: number
+    operatingScheduleEnabled?: boolean
+    wakeUpTime?: string
+    bedTime?: string
+    pauseOnAfk?: boolean
+    afkMinutes?: number
+    sensorGroundingEnabled?: boolean
+    salienceGatingEnabled?: boolean
+    heartbeatsContextWindowHistory?: boolean
+    heartbeatsContextSystemLoad?: boolean
+    heartbeatsContextUsageMetrics?: boolean
+    eventLedgerEnabled?: boolean
+    eventLedgerSampleDepth?: number
+    eventLedgerDomains?: string[]
+    smartSilenceDirectiveEnabled?: boolean
+  }) {
+    if (sensory.screenWatcherEnabled !== undefined)
+      state.value.screenWatcherEnabled = sensory.screenWatcherEnabled
+    if (sensory.screenWatcherMode !== undefined)
+      state.value.screenWatcherMode = sensory.screenWatcherMode
+    if (sensory.screenWatcherTier !== undefined)
+      state.value.screenWatcherTier = sensory.screenWatcherTier
+    if (sensory.screenWatcherInterval !== undefined)
+      state.value.screenWatcherInterval = sensory.screenWatcherInterval
+    if (sensory.heartbeatsEnabled !== undefined)
+      state.value.heartbeatsEnabled = sensory.heartbeatsEnabled
+    if (sensory.heartbeatsInterval !== undefined)
+      state.value.heartbeatsInterval = sensory.heartbeatsInterval
+    if (sensory.operatingScheduleEnabled !== undefined)
+      state.value.operatingScheduleEnabled = sensory.operatingScheduleEnabled
+    if (sensory.wakeUpTime !== undefined)
+      state.value.wakeUpTime = sensory.wakeUpTime
+    if (sensory.bedTime !== undefined)
+      state.value.bedTime = sensory.bedTime
+    if (sensory.pauseOnAfk !== undefined)
+      state.value.pauseOnAfk = sensory.pauseOnAfk
+    if (sensory.afkMinutes !== undefined)
+      state.value.afkMinutes = sensory.afkMinutes
+    if (sensory.sensorGroundingEnabled !== undefined)
+      state.value.sensorGroundingEnabled = sensory.sensorGroundingEnabled
+    if (sensory.salienceGatingEnabled !== undefined)
+      state.value.salienceGatingEnabled = sensory.salienceGatingEnabled
+    if (sensory.heartbeatsContextWindowHistory !== undefined)
+      state.value.heartbeatsContextWindowHistory = sensory.heartbeatsContextWindowHistory
+    if (sensory.heartbeatsContextSystemLoad !== undefined)
+      state.value.heartbeatsContextSystemLoad = sensory.heartbeatsContextSystemLoad
+    if (sensory.heartbeatsContextUsageMetrics !== undefined)
+      state.value.heartbeatsContextUsageMetrics = sensory.heartbeatsContextUsageMetrics
+    if (sensory.eventLedgerEnabled !== undefined)
+      state.value.eventLedgerEnabled = sensory.eventLedgerEnabled
+    if (sensory.eventLedgerSampleDepth !== undefined)
+      state.value.eventLedgerSampleDepth = sensory.eventLedgerSampleDepth
+    if (sensory.eventLedgerDomains !== undefined)
+      state.value.eventLedgerDomains = sensory.eventLedgerDomains
+    if (sensory.smartSilenceDirectiveEnabled !== undefined)
+      state.value.smartSilenceDirectiveEnabled = sensory.smartSilenceDirectiveEnabled
+  }
+
   function reset() {
     state.reset()
   }
@@ -328,6 +428,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     setSpeech,
     setThinking,
     setArtistry,
+    setSensory,
     reset,
   }
 })

@@ -12,6 +12,7 @@ import { isMacOS } from 'std-env'
 import { electronWindowSetTitle } from '../../../shared/eventa'
 import { createI18nService } from '../../services/airi/i18n'
 import { createAppService, createScreenService, createWindowService } from '../../services/electron'
+import { createSensorsService } from '../../services/sensors'
 
 export function toggleWindowShow(window?: BrowserWindow | null): void {
   console.log(`[Main Process] [toggleWindowShow] Triggered. Window instance exists: ${!!window}`)
@@ -138,6 +139,7 @@ export async function setupBaseWindowElectronInvokes(params: {
   createWindowService({ context: params.context, window: params.window })
   createAppService({ context: params.context, window: params.window })
   await createI18nService({ context: params.context, window: params.window, i18n: params.i18n })
+  createSensorsService({ context: params.context })
 
   // Renderer reports its canonical document.title; keep the native window chrome
   // in sync as in-page routes change. The initial BrowserWindow `title` option is
