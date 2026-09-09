@@ -392,7 +392,7 @@ packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/
 - [ ] Implement `step-consciousness.vue` (WebLLM / OpenAI-compatible / Cloud).
 - [ ] Implement `step-thinking.vue` (Pacing presets, Needle 2 subconscious asides).
 - [ ] Implement `step-speech.vue` (Kokoro WebGPU / Edge TTS / Pocket-TTS).
-- [ ] Implement `step-emotions.vue` (2-pass ACT expression curation bridge).
+- [x] Implement `step-emotions.vue` (2-pass ACT expression curation bridge).
 
 ### Phase 5: Autonomous World & Memory Steps
 - [x] Implement `step-artistry.vue` & `ArtPreviewModal.vue` (Visual style prompt, preview modal, Director toggle).
@@ -401,6 +401,6 @@ packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/
 - [x] Implement `step-tools.vue` (Web search 0-key, Desktop Filesystem MCP, 3D motion generator).
 
 ### Phase 6: Stage Finale & Atomic Synthesis
-- [ ] Implement `step-finale.vue` (4-pillar honesty readiness verification matrix).
-- [ ] Implement atomic card synthesis (compile draft store into target `AiriCard` and `AiriExtension`).
-- [ ] Implement Turn 0 continuity transition into live stage runtime.
+- [x] Implement `step-finale.vue` (4-pillar honesty readiness verification matrix).
+- [x] Implement atomic card synthesis (compile draft store into target `AiriCard` and `AiriExtension`).
+- [x] Implement Turn 0 continuity transition into live stage runtime.

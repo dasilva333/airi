@@ -10,6 +10,7 @@ import StepArtistry from './steps/step-artistry.vue'
 import StepConsciousness from './steps/step-consciousness.vue'
 import StepEmotions from './steps/step-emotions.vue'
 import StepExperience from './steps/step-experience.vue'
+import StepFinale from './steps/step-finale.vue'
 import StepHearing from './steps/step-hearing.vue'
 import StepMemory from './steps/step-memory.vue'
 import StepPersona from './steps/step-persona.vue'
@@ -253,6 +254,13 @@ function handleSkip() {
         v-else-if="currentStepId === 'tools'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
+      />
+
+      <!-- Step 16: Stage Finale (Pre-Flight Honesty Matrix & Launch) -->
+      <StepFinale
+        v-else-if="currentStepId === 'finale'"
+        :on-previous="handlePrevious"
+        :on-finish="() => emit('finish')"
       />
 
       <!-- Placeholder View for Subsequent Steps during Incremental Assembly -->
