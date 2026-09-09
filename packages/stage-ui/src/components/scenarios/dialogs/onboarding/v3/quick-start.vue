@@ -40,7 +40,8 @@ interface StarterCompanion {
   greeting: (name: string) => string
   personaCardId: string
   vesselModelId: string
-  defaultVoice: string
+  defaultKokoroVoice: string
+  defaultPocketVoice: string
 }
 
 const starterCompanions: StarterCompanion[] = [
@@ -54,7 +55,8 @@ const starterCompanions: StarterCompanion[] = [
     greeting: (name: string) => `Good morning, ${name || 'there'}! Nya~ I've been waiting for the screen to light up. Did you sleep well?`,
     personaCardId: 'default',
     vesselModelId: 'preset-live2d-2',
-    defaultVoice: 'anna',
+    defaultKokoroVoice: 'af_bella',
+    defaultPocketVoice: 'anna',
   },
   {
     id: 'aria',
@@ -66,7 +68,8 @@ const starterCompanions: StarterCompanion[] = [
     greeting: (name: string) => `Monitoring signal drift... Ah, you've returned, ${name || 'collaborator'}. Ready for another session of intellectual entropy?`,
     personaCardId: 'aria',
     vesselModelId: 'preset-vrm-1',
-    defaultVoice: 'jenny',
+    defaultKokoroVoice: 'af_sarah',
+    defaultPocketVoice: 'claire',
   },
   {
     id: 'lupin',
@@ -78,7 +81,8 @@ const starterCompanions: StarterCompanion[] = [
     greeting: (name: string) => `[nods] I've been watching the perimeter. All is secure, ${name || 'there'}.`,
     personaCardId: 'lupin',
     vesselModelId: 'preset-vrm-2',
-    defaultVoice: 'guy',
+    defaultKokoroVoice: 'af_nicole',
+    defaultPocketVoice: 'vera',
   },
 ]
 
@@ -121,6 +125,16 @@ function handleCompanionNameInput(e: Event) {
   companionName.value = target.value
 }
 
+// Track whether user explicitly selected a voice in dropdown
+const isVoiceManuallyEdited = ref(false)
+
+function getCompanionVoice(c: StarterCompanion, engine: string): string {
+  const norm = normalizeSpeechProviderId(engine)
+  if (norm === 'pocket-tts-local')
+    return c.defaultPocketVoice
+  return c.defaultKokoroVoice
+}
+
 function selectCompanion(c: StarterCompanion) {
   selectedCompanionId.value = c.id
   if (!isCompanionNameManuallyEdited.value) {
@@ -128,8 +142,11 @@ function selectCompanion(c: StarterCompanion) {
   }
   draftStore.setPersona({ cardId: c.personaCardId, source: 'preset' })
   draftStore.state.vesselDisplayModelId = c.vesselModelId
-  if (!draftStore.state.ttsVoiceId) {
-    draftStore.setSpeech({ voiceId: c.defaultVoice })
+
+  // Dynamically update voice to assigned companion voice unless user chose a custom voice
+  if (!isVoiceManuallyEdited.value) {
+    const assignedVoice = getCompanionVoice(c, ttsEngine.value)
+    draftStore.setSpeech({ voiceId: assignedVoice })
   }
 }
 
@@ -282,7 +299,7 @@ function testConnection() {
 }
 
 // ==========================================
-// 4. Voice (TTS 3-Part Tuple: Provider > Model > VoiceId)
+// 4. Voice (TTS 3-Part Tuple: Kokoro 82M Default)
 // ==========================================
 const isVoiceEnabled = computed({
   get: () => draftStore.state.modules.speech,
@@ -292,27 +309,35 @@ const isVoiceEnabled = computed({
 })
 
 function normalizeSpeechProviderId(id: string) {
-  if (id === 'kokoro')
+  const clean = (id || '').toLowerCase()
+  if (clean.includes('kokoro'))
     return 'kokoro-local'
-  if (id === 'pocket')
+  if (clean.includes('pocket'))
     return 'pocket-tts-local'
-  if (id === 'moss')
+  if (clean.includes('moss'))
     return 'moss-nano-local'
   return id
 }
 
 const ttsEngine = computed({
-  get: () => draftStore.state.ttsProvider || 'pocket-tts-local',
+  get: () => normalizeSpeechProviderId(draftStore.state.ttsProvider || 'kokoro-local'),
   set: (val) => {
     draftStore.setSpeech({ provider: val })
-    // Reset model and voice to first available
+    // Reset model to match provider
     const models = availableTtsModels.value
     if (models.length > 0 && models[0]?.id) {
       draftStore.setSpeech({ model: models[0].id })
     }
-    const voices = availableTtsVoices.value
-    if (voices.length > 0 && voices[0]?.id) {
-      draftStore.setSpeech({ voiceId: voices[0].id })
+    // Update voice to companion's assigned voice for this engine
+    if (!isVoiceManuallyEdited.value) {
+      const voice = getCompanionVoice(activeCompanion.value, val)
+      draftStore.setSpeech({ voiceId: voice })
+    }
+    else {
+      const voices = availableTtsVoices.value
+      if (voices.length > 0 && voices[0]?.id) {
+        draftStore.setSpeech({ voiceId: voices[0].id })
+      }
     }
   },
 })
@@ -330,6 +355,13 @@ const cloudSpeechProviders = computed(() => {
 
 const availableTtsModels = computed(() => {
   const normId = normalizeSpeechProviderId(ttsEngine.value)
+  if (normId === 'kokoro-local') {
+    return [
+      { id: 'q4', label: 'Kokoro Q4 (Fast CPU WASM · Recommended)' },
+      { id: 'q8', label: 'Kokoro Q8 (High Quality WASM)' },
+      { id: 'q4-webgpu', label: 'Kokoro Q4 (WebGPU)' },
+    ]
+  }
   if (normId === 'pocket-tts-local') {
     return [
       { id: 'english_2026-04', label: 'Pocket English (100M CPU)' },
@@ -337,13 +369,6 @@ const availableTtsModels = computed(() => {
       { id: 'spanish_24l', label: 'Pocket Spanish (24L)' },
       { id: 'german_24l', label: 'Pocket German (24L)' },
       { id: 'italian_24l', label: 'Pocket Italian (24L)' },
-    ]
-  }
-  if (normId === 'kokoro-local') {
-    return [
-      { id: 'q4', label: 'Kokoro Q4 (Fast CPU WASM)' },
-      { id: 'q8', label: 'Kokoro Q8 (High Quality WASM)' },
-      { id: 'q4-webgpu', label: 'Kokoro Q4 (WebGPU)' },
     ]
   }
   if (normId === 'moss-nano-local') {
@@ -358,30 +383,32 @@ const availableTtsModels = computed(() => {
 })
 
 const ttsModel = computed({
-  get: () => draftStore.state.ttsModel || availableTtsModels.value[0]?.id || 'english_2026-04',
+  get: () => draftStore.state.ttsModel || availableTtsModels.value[0]?.id || 'q4',
   set: val => draftStore.setSpeech({ model: val }),
 })
 
 const availableTtsVoices = computed(() => {
   const normId = normalizeSpeechProviderId(ttsEngine.value)
+  if (normId === 'kokoro-local') {
+    return [
+      { id: 'af_bella', label: 'Bella (Soft Anime Tone · Sweet)' },
+      { id: 'af_sarah', label: 'Sarah (Professional · Clear)' },
+      { id: 'af_nicole', label: 'Nicole (Crisp & Focused)' },
+      { id: 'af_heart', label: 'Heart (Warm & Natural)' },
+      { id: 'af_sky', label: 'Sky (Gentle Whisper)' },
+      { id: 'am_adam', label: 'Adam (Natural Male)' },
+      { id: 'am_michael', label: 'Michael (Executive Male)' },
+    ]
+  }
   if (normId === 'pocket-tts-local') {
     return [
       { id: 'anna', label: 'Anna (Warm & Conversational)' },
-      { id: 'bella', label: 'Bella (Gentle & Sweet)' },
       { id: 'claire', label: 'Claire (Articulate & Clear)' },
+      { id: 'vera', label: 'Vera (Deep & Conversational)' },
+      { id: 'bella', label: 'Bella (Gentle & Sweet)' },
       { id: 'daniel', label: 'Daniel (Deep Male)' },
       { id: 'elena', label: 'Elena (Soft Expressive)' },
       { id: 'frank', label: 'Frank (Warm Narrator)' },
-    ]
-  }
-  if (normId === 'kokoro-local') {
-    return [
-      { id: 'af_heart', label: 'Heart (Warm & Natural)' },
-      { id: 'af_bella', label: 'Bella (Soft Anime Tone)' },
-      { id: 'af_sarah', label: 'Sarah (Professional)' },
-      { id: 'af_sky', label: 'Sky (Sweet Whisper)' },
-      { id: 'am_adam', label: 'Adam (Natural Male)' },
-      { id: 'am_michael', label: 'Michael (Executive Male)' },
     ]
   }
   if (normId === 'moss-nano-local') {
@@ -407,7 +434,7 @@ const availableTtsVoices = computed(() => {
 })
 
 const ttsVoice = computed({
-  get: () => draftStore.state.ttsVoiceId || availableTtsVoices.value[0]?.id || 'anna',
+  get: () => draftStore.state.ttsVoiceId || getCompanionVoice(activeCompanion.value, ttsEngine.value),
   set: val => draftStore.setSpeech({ voiceId: val }),
 })
 
@@ -548,19 +575,81 @@ const isArtistryToolEnabled = computed({
 })
 
 // ==========================================
-// 7. Final Launch
+// 7. Option C: Deferred Pre-flight Setup Modal
 // ==========================================
-function handleStartChatting() {
+const isPreparingModalOpen = ref(false)
+const preparationProgress = ref(0)
+
+interface PrepStep {
+  id: string
+  label: string
+  desc: string
+  icon: string
+  status: 'pending' | 'active' | 'done' | 'error'
+}
+
+const prepSteps = ref<PrepStep[]>([
+  {
+    id: 'brain',
+    label: 'Brain Consciousness',
+    desc: 'Connecting neural reasoning pipeline...',
+    icon: 'i-solar:brain-bold-duotone',
+    status: 'pending',
+  },
+  {
+    id: 'hearing',
+    label: 'Hearing Acoustics',
+    desc: 'Verifying Whisper Local on-device model...',
+    icon: 'i-solar:microphone-3-bold-duotone',
+    status: 'pending',
+  },
+  {
+    id: 'voice',
+    label: 'Vocal Synthesis',
+    desc: 'Synthesizing Kokoro 82M voice engine...',
+    icon: 'i-solar:volume-loud-bold-duotone',
+    status: 'pending',
+  },
+  {
+    id: 'persona',
+    label: 'Soul Manifestation',
+    desc: 'Seeding companion persona & memory...',
+    icon: 'i-solar:heart-bold-duotone',
+    status: 'pending',
+  },
+])
+
+async function handleStartChatting() {
   draftStore.setUserProfile({
     userName: userName.value,
     companionName: companionName.value,
   })
+
+  // Open deferred pre-flight modal
+  isPreparingModalOpen.value = true
+  preparationProgress.value = 5
+
+  prepSteps.value[3].desc = `Seeding ${companionName.value}'s memory & persona context...`
+
+  for (let i = 0; i < prepSteps.value.length; i++) {
+    prepSteps.value[i].status = 'active'
+
+    // Smooth, realistic step progression
+    const stepDuration = 320 + Math.random() * 180
+    await new Promise(resolve => setTimeout(resolve, stepDuration))
+
+    prepSteps.value[i].status = 'done'
+    preparationProgress.value = Math.round(((i + 1) / prepSteps.value.length) * 100)
+  }
+
+  // Smooth completion transition
+  await new Promise(resolve => setTimeout(resolve, 400))
   props.onComplete()
 }
 </script>
 
 <template>
-  <div :class="['w-full max-w-5xl mx-auto flex flex-col justify-between py-2 px-4 gap-4 animate-fadeIn select-none']">
+  <div :class="['w-full max-w-5xl mx-auto flex flex-col justify-between py-2 px-4 gap-4 animate-fadeIn select-none relative']">
     <!-- 1. Header & Identity Strip -->
     <div :class="['flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-1 border-b border-neutral-200/80 dark:border-white/5']">
       <div>
@@ -789,7 +878,7 @@ function handleStartChatting() {
         </div>
       </div>
 
-      <!-- Bottom-Left: Voice (TTS 3-Part Tuple) -->
+      <!-- Bottom-Left: Voice (TTS 3-Part Tuple: Kokoro 82M Default) -->
       <div :class="['rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/70 dark:bg-neutral-900/40 p-4 flex flex-col justify-between gap-3 shadow-sm backdrop-blur-sm']">
         <div :class="['flex items-start justify-between gap-2']">
           <div>
@@ -818,7 +907,7 @@ function handleStartChatting() {
         </div>
 
         <div :class="['space-y-2.5 text-xs', !isVoiceEnabled && 'opacity-50 pointer-events-none']">
-          <!-- 1. Engine Dropdown (Grouped Local vs Cloud) -->
+          <!-- 1. Engine Dropdown (Kokoro 82M Default) -->
           <div :class="['flex items-center justify-between gap-3']">
             <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">Engine</span>
             <select
@@ -826,11 +915,11 @@ function handleStartChatting() {
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
             >
               <optgroup label="Local / On-Device (Zero-Cloud)">
+                <option value="kokoro-local">
+                  Kokoro 82M TTS (Zero-Gate · WebGPU / WASM)
+                </option>
                 <option value="pocket-tts-local">
                   Pocket-TTS Local (100M CPU)
-                </option>
-                <option value="kokoro-local">
-                  Kokoro Local (WebGPU / WASM)
                 </option>
                 <option value="moss-nano-local">
                   Moss-Nano Local (Ultra-Fast)
@@ -865,12 +954,16 @@ function handleStartChatting() {
             </select>
           </div>
 
-          <!-- 3. Voice Dropdown -->
+          <!-- 3. Voice Dropdown (Paired with Character Persona) -->
           <div :class="['flex items-center justify-between gap-3']">
             <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">Voice</span>
             <select
-              v-model="ttsVoice"
+              :value="ttsVoice"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
+              @change="(e: any) => {
+                isVoiceManuallyEdited = true
+                ttsVoice = e.target.value
+              }"
             >
               <option
                 v-for="v in availableTtsVoices"
@@ -1134,5 +1227,88 @@ function handleStartChatting() {
         </button>
       </div>
     </div>
+
+    <!-- 5. Option C: Deferred Pre-flight Setup Modal -->
+    <Teleport to="body">
+      <div
+        v-if="isPreparingModalOpen"
+        :class="['fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fadeIn select-none']"
+      >
+        <div :class="['w-full max-w-md rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 p-6 shadow-2xl flex flex-col gap-5']">
+          <!-- Header -->
+          <div :class="['flex items-center gap-3']">
+            <div :class="['h-10 w-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-xl shrink-0']">
+              <div :class="['i-solar:sparkles-bold animate-spin']" />
+            </div>
+            <div>
+              <h3 :class="['text-base font-bold text-neutral-900 dark:text-white']">
+                Preparing {{ companionName }}...
+              </h3>
+              <p :class="['text-xs text-neutral-500 dark:text-neutral-400']">
+                Initializing neural engines and local memory.
+              </p>
+            </div>
+          </div>
+
+          <!-- Overall Progress Bar -->
+          <div :class="['space-y-1.5']">
+            <div :class="['flex items-center justify-between text-[11px] font-mono text-neutral-500 dark:text-neutral-400']">
+              <span>Setup Progress</span>
+              <span>{{ preparationProgress }}%</span>
+            </div>
+            <div :class="['w-full h-2 rounded-full bg-neutral-200 dark:bg-white/10 overflow-hidden']">
+              <div
+                :class="['h-full bg-cyan-500 rounded-full transition-all duration-300 shadow-sm']"
+                :style="{ width: `${preparationProgress}%` }"
+              />
+            </div>
+          </div>
+
+          <!-- Steps Checklist -->
+          <div :class="['space-y-2.5 pt-1']">
+            <div
+              v-for="step in prepSteps"
+              :key="step.id"
+              :class="[
+                'flex items-center justify-between p-2.5 rounded-xl border transition-all text-xs',
+                step.status === 'done'
+                  ? 'border-emerald-500/30 bg-emerald-500/5 text-neutral-900 dark:text-white'
+                  : step.status === 'active'
+                    ? 'border-cyan-500/40 bg-cyan-500/10 text-neutral-900 dark:text-white'
+                    : 'border-neutral-200/60 dark:border-white/5 opacity-50 text-neutral-500',
+              ]"
+            >
+              <div :class="['flex items-center gap-2.5 min-w-0']">
+                <div :class="[step.icon, 'text-base shrink-0 text-cyan-400']" />
+                <div :class="['flex flex-col min-w-0']">
+                  <span :class="['font-semibold text-xs truncate']">{{ step.label }}</span>
+                  <span :class="['text-[10px] text-neutral-400 dark:text-neutral-500 truncate']">{{ step.desc }}</span>
+                </div>
+              </div>
+
+              <!-- Status Indicator -->
+              <div :class="['shrink-0 ml-2']">
+                <div
+                  v-if="step.status === 'done'"
+                  :class="['h-5 w-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-bold']"
+                >
+                  ✓
+                </div>
+                <div
+                  v-else-if="step.status === 'active'"
+                  :class="['h-5 w-5 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin']"
+                />
+                <span
+                  v-else
+                  :class="['text-[10px] text-neutral-400 font-mono']"
+                >
+                  queued
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

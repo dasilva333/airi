@@ -188,9 +188,12 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     artistryImageJournalToolEnabled: false,
     personaCardId: 'default',
     personaSource: 'preset',
-    sttProvider: 'browser-web-speech-api',
+    sttProvider: 'whisper-local',
     sttModel: 'onnx-community/whisper-tiny',
     sttTriggerKey: 'Caps',
+    ttsProvider: 'kokoro-local',
+    ttsModel: 'q4',
+    ttsVoiceId: 'af_bella',
   })
 
   // Ensure backwards compatibility and fallback for existing localStorage drafts
@@ -207,9 +210,14 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     state.value.personaSource = 'preset'
   }
   if (!state.value.sttProvider) {
-    state.value.sttProvider = 'browser-web-speech-api'
+    state.value.sttProvider = 'whisper-local'
     state.value.sttModel = 'onnx-community/whisper-tiny'
     state.value.sttTriggerKey = 'Caps'
+  }
+  if (!state.value.ttsProvider) {
+    state.value.ttsProvider = 'kokoro-local'
+    state.value.ttsModel = 'q4'
+    state.value.ttsVoiceId = 'af_bella'
   }
 
   function setArchitecture(architecture: OnboardingArchitecture) {
