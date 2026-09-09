@@ -515,18 +515,25 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     sampleRate?: number
     providerOptions?: Record<string, unknown>
     idleTimeoutMs?: number
+    providerId?: string
+    model?: string
     onSentenceEnd?: (delta: string) => void
     onSpeechEnd?: (text: string) => void
     onError?: (error: string) => void
   }) {
+    const providerId = options?.providerId ?? activeTranscriptionProvider.value
+    const isStreamSupported = providerId === 'browser-web-speech-api'
+      ? (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window))
+      : (providerId ? providersStore.getTranscriptionFeatures(providerId).supportsStreamInput : supportsStreamInput.value)
+
     console.info('[Hearing Pipeline] transcribeForMediaStream called', {
-      supportsStreamInput: supportsStreamInput.value,
+      supportsStreamInput: isStreamSupported,
       hasStream: !!stream,
-      providerId: activeTranscriptionProvider.value,
+      providerId,
       hasCallbacks: !!(options?.onSentenceEnd || options?.onSpeechEnd),
     })
 
-    if (!supportsStreamInput.value) {
+    if (!isStreamSupported) {
       console.warn('[Hearing Pipeline] Stream input not supported')
       return
     }
@@ -616,7 +623,6 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         return
       }
 
-      const providerId = activeTranscriptionProvider.value
       if (!providerId) {
         error.value = 'No transcription provider selected'
         console.error('[Hearing Pipeline] No transcription provider selected')
@@ -672,16 +678,23 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         }
 
         // Auto-select default model if not selected
-        if (!activeTranscriptionModel.value) {
+        let targetModel = options?.model ?? activeTranscriptionModel.value
+        if (!targetModel) {
           // Try to get models for the provider and select the first one
           const models = await providersStore.getModelsForProvider(providerId)
           if (models.length > 0) {
-            activeTranscriptionModel.value = models[0].id
+            targetModel = models[0].id
+            if (!options?.model) {
+              activeTranscriptionModel.value = models[0].id
+            }
             console.info('Auto-selected Web Speech API model:', models[0].id)
           }
           else {
             // Fallback to default model ID
-            activeTranscriptionModel.value = 'web-speech-api'
+            targetModel = 'web-speech-api'
+            if (!options?.model) {
+              activeTranscriptionModel.value = 'web-speech-api'
+            }
             console.info('Auto-selected Web Speech API default model')
           }
         }
@@ -838,7 +851,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
       bumpIdle()
 
-      const model = activeTranscriptionModel.value
+      const model = options?.model ?? activeTranscriptionModel.value
       const result = await hearingStore.transcription(
         providerId,
         provider,
@@ -921,7 +934,10 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     }
   }
 
-  async function transcribeForRecording(recording: Blob | null | undefined) {
+  async function transcribeForRecording(recording: Blob | null | undefined, options?: {
+    providerId?: string
+    model?: string
+  }) {
     if (hearingStore.isTranscribing) {
       console.warn('[Hearing Pipeline] Transcription already in progress, skipping recording transcription')
       return
@@ -935,13 +951,13 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     try {
       hearingStore.isTranscribing = true
       if (recording && recording.size > 0) {
-        const providerId = activeTranscriptionProvider.value
+        const providerId = options?.providerId ?? activeTranscriptionProvider.value
         const provider = await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, any>>(providerId)
         if (!provider) {
           throw new Error('Failed to initialize speech provider')
         }
 
-        const model = activeTranscriptionModel.value
+        const model = options?.model ?? activeTranscriptionModel.value
         console.info('[Hearing Pipeline] Triggering hearingStore.transcription', {
           providerId,
           model,

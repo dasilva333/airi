@@ -30,6 +30,8 @@ export interface OnboardingV3DraftState {
   selectedUserArchetypeId?: string
   companionHonorific?: string
   sttProvider?: string
+  sttModel?: string
+  sttTriggerKey?: string
   llmProvider?: string
   llmModel?: string
   pacingPreset?: 'snappy' | 'balanced' | 'deep'
@@ -118,6 +120,9 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     mcpFilesystemEnabled: false,
     personaCardId: 'default',
     personaSource: 'preset',
+    sttProvider: 'browser-web-speech-api',
+    sttModel: 'onnx-community/whisper-tiny',
+    sttTriggerKey: 'Caps',
   })
 
   // Ensure backwards compatibility and fallback for existing localStorage drafts
@@ -132,6 +137,11 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
   if (!state.value.personaCardId) {
     state.value.personaCardId = 'default'
     state.value.personaSource = 'preset'
+  }
+  if (!state.value.sttProvider) {
+    state.value.sttProvider = 'browser-web-speech-api'
+    state.value.sttModel = 'onnx-community/whisper-tiny'
+    state.value.sttTriggerKey = 'Caps'
   }
 
   function setArchitecture(architecture: OnboardingArchitecture) {
@@ -183,6 +193,19 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.importedCardDraft = persona.importedCardDraft
   }
 
+  function setHearing(hearing: {
+    provider?: string
+    model?: string
+    triggerKey?: string
+  }) {
+    if (hearing.provider !== undefined)
+      state.value.sttProvider = hearing.provider
+    if (hearing.model !== undefined)
+      state.value.sttModel = hearing.model
+    if (hearing.triggerKey !== undefined)
+      state.value.sttTriggerKey = hearing.triggerKey
+  }
+
   function reset() {
     state.reset()
   }
@@ -195,6 +218,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     setUserProfile,
     setVessel,
     setPersona,
+    setHearing,
     reset,
   }
 })

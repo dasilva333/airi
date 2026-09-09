@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import SlidingStepper from './components/sliding-stepper.vue'
 import StepAppearance from './steps/step-appearance.vue'
 import StepExperience from './steps/step-experience.vue'
+import StepHearing from './steps/step-hearing.vue'
 import StepPersona from './steps/step-persona.vue'
 import StepProfile from './steps/step-profile.vue'
 import StepTriage from './steps/step-triage.vue'
@@ -54,7 +55,7 @@ function handleSkip() {
       </div>
 
       <!-- Center: 5-Item Dynamic Sliding Window Stepper -->
-      <div :class="['flex-shrink-0']">
+      <div :class="['flex-shrink-0']" style="-webkit-app-region: no-drag;">
         <SlidingStepper
           :steps="ONBOARDING_V3_STEPS"
           :current-index="currentIndex"
@@ -63,7 +64,7 @@ function handleSkip() {
       </div>
 
       <!-- Right: Status / Close Button -->
-      <div :class="['flex items-center gap-3 text-xs text-neutral-400']">
+      <div :class="['flex items-center gap-3 text-xs text-neutral-400']" style="-webkit-app-region: no-drag;">
         <span :class="['hidden sm:flex items-center gap-1.5 text-[11px] text-emerald-500 dark:text-emerald-400 font-mono']">
           <span :class="['w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse']" />
           <span>Stage Ready</span>
@@ -126,6 +127,13 @@ function handleSkip() {
       <!-- Step 6: Soul & Persona (Personality Core) -->
       <StepPersona
         v-else-if="currentIndex === 6"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 7: Hearing & Mic Playground (Voice Transcription STT) -->
+      <StepHearing
+        v-else-if="currentIndex === 7"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
