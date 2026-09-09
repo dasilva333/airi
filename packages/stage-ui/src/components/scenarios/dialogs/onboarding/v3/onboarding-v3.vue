@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import SlidingStepper from './components/sliding-stepper.vue'
 import StepAppearance from './steps/step-appearance.vue'
 import StepExperience from './steps/step-experience.vue'
+import StepPersona from './steps/step-persona.vue'
 import StepProfile from './steps/step-profile.vue'
 import StepTriage from './steps/step-triage.vue'
 import StepVessel from './steps/step-vessel.vue'
@@ -118,6 +119,13 @@ function handleSkip() {
       <!-- Step 5: Physical Vessel (Live2D / VRM Avatar Body) -->
       <StepVessel
         v-else-if="currentIndex === 5"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 6: Soul & Persona (Personality Core) -->
+      <StepPersona
+        v-else-if="currentIndex === 6"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />

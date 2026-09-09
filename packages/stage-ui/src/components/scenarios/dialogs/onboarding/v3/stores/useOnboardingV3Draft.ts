@@ -21,6 +21,8 @@ export interface OnboardingV3DraftState {
   experienceArchetype: ExperienceArchetypeId
   modules: ModuleBundleConfig
   personaCardId?: string
+  personaSource?: 'preset' | 'import'
+  importedCardDraft?: any
   vesselDisplayModelId?: string
   userName?: string
   userDescription?: string
@@ -114,6 +116,8 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     memoryDreamStateEnabled: true,
     mcpWebSearchEnabled: false,
     mcpFilesystemEnabled: false,
+    personaCardId: 'default',
+    personaSource: 'preset',
   })
 
   // Ensure backwards compatibility and fallback for existing localStorage drafts
@@ -124,6 +128,10 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     state.value.modules = {
       ...ARCHETYPE_MODULE_PRESETS[state.value.experienceArchetype],
     }
+  }
+  if (!state.value.personaCardId) {
+    state.value.personaCardId = 'default'
+    state.value.personaSource = 'preset'
   }
 
   function setArchitecture(architecture: OnboardingArchitecture) {
@@ -166,6 +174,15 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.artistryVisualPrompt = visualPrompt
   }
 
+  function setPersona(persona: { cardId?: string, source?: 'preset' | 'import', importedCardDraft?: any }) {
+    if (persona.cardId !== undefined)
+      state.value.personaCardId = persona.cardId
+    if (persona.source !== undefined)
+      state.value.personaSource = persona.source
+    if (persona.importedCardDraft !== undefined)
+      state.value.importedCardDraft = persona.importedCardDraft
+  }
+
   function reset() {
     state.reset()
   }
@@ -177,6 +194,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     toggleModule,
     setUserProfile,
     setVessel,
+    setPersona,
     reset,
   }
 })
