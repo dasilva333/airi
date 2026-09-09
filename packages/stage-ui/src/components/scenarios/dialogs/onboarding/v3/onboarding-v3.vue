@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import type { OnboardingV3Step, OnboardingV3StepDef } from './types'
+
+import { computed, ref, watch } from 'vue'
 
 import SlidingStepper from './components/sliding-stepper.vue'
 import StepAppearance from './steps/step-appearance.vue'
@@ -7,15 +9,18 @@ import StepArtistry from './steps/step-artistry.vue'
 import StepConsciousness from './steps/step-consciousness.vue'
 import StepExperience from './steps/step-experience.vue'
 import StepHearing from './steps/step-hearing.vue'
+import StepMemory from './steps/step-memory.vue'
 import StepPersona from './steps/step-persona.vue'
 import StepProfile from './steps/step-profile.vue'
 import StepSensory from './steps/step-sensory.vue'
 import StepSpeech from './steps/step-speech.vue'
 import StepThinking from './steps/step-thinking.vue'
+import StepTools from './steps/step-tools.vue'
 import StepTriage from './steps/step-triage.vue'
 import StepVessel from './steps/step-vessel.vue'
 import StepWelcome from './steps/step-welcome.vue'
 
+import { useOnboardingV3Draft } from './stores/useOnboardingV3Draft'
 import { ONBOARDING_V3_STEPS } from './types'
 
 const emit = defineEmits<{
@@ -23,22 +28,51 @@ const emit = defineEmits<{
   (e: 'finish'): void
 }>()
 
-const currentIndex = ref(0)
+const draftStore = useOnboardingV3Draft()
+const currentStepId = ref<OnboardingV3Step>('welcome')
+
+const activeSteps = computed<OnboardingV3StepDef[]>(() => {
+  const modules = draftStore.state.modules
+  return ONBOARDING_V3_STEPS
+    .filter((step) => {
+      if (!step.moduleKey)
+        return true
+      return Boolean(modules[step.moduleKey])
+    })
+    .map((step, idx) => ({
+      ...step,
+      index: idx,
+    }))
+})
+
+const activeIndex = computed(() => {
+  const idx = activeSteps.value.findIndex(s => s.id === currentStepId.value)
+  return idx >= 0 ? idx : 0
+})
+
+watch(activeSteps, (newSteps) => {
+  const exists = newSteps.some(s => s.id === currentStepId.value)
+  if (!exists && newSteps.length > 0) {
+    currentStepId.value = newSteps[Math.min(activeIndex.value, newSteps.length - 1)].id
+  }
+})
 
 function handleNext() {
-  if (currentIndex.value < ONBOARDING_V3_STEPS.length - 1) {
-    currentIndex.value++
+  if (activeIndex.value < activeSteps.value.length - 1) {
+    currentStepId.value = activeSteps.value[activeIndex.value + 1].id
   }
 }
 
 function handlePrevious() {
-  if (currentIndex.value > 0) {
-    currentIndex.value--
+  if (activeIndex.value > 0) {
+    currentStepId.value = activeSteps.value[activeIndex.value - 1].id
   }
 }
 
 function handleSelectStep(index: number) {
-  currentIndex.value = index
+  if (index >= 0 && index < activeSteps.value.length) {
+    currentStepId.value = activeSteps.value[index].id
+  }
 }
 
 function handleSkip() {
@@ -62,8 +96,8 @@ function handleSkip() {
       <!-- Center: 5-Item Dynamic Sliding Window Stepper -->
       <div :class="['flex-shrink-0']" style="-webkit-app-region: no-drag;">
         <SlidingStepper
-          :steps="ONBOARDING_V3_STEPS"
-          :current-index="currentIndex"
+          :steps="activeSteps"
+          :current-index="activeIndex"
           @select="handleSelectStep"
         />
       </div>
@@ -89,91 +123,105 @@ function handleSkip() {
     <main :class="['flex-1 min-h-0 overflow-y-auto px-6 py-4 flex flex-col items-center justify-start']">
       <!-- Step 0: Welcome -->
       <StepWelcome
-        v-if="currentIndex === 0"
+        v-if="currentStepId === 'welcome'"
         :on-next="handleNext"
         :on-skip="handleSkip"
       />
 
       <!-- Step 1: Appearance (Language, Theme Mode & Accent Color) -->
       <StepAppearance
-        v-else-if="currentIndex === 1"
+        v-else-if="currentStepId === 'appearance'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
       <!-- Step 2: Triage (Architecture Choice: Local-First vs Cloudflare Relay) -->
       <StepTriage
-        v-else-if="currentIndex === 2"
+        v-else-if="currentStepId === 'triage'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
       <!-- Step 3: Experience (Interaction Archetype Choice & Module Customization) -->
       <StepExperience
-        v-else-if="currentIndex === 3"
+        v-else-if="currentStepId === 'experience'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
       <!-- Step 4: User Profile (Who Are You?) -->
       <StepProfile
-        v-else-if="currentIndex === 4"
+        v-else-if="currentStepId === 'profile'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
       <!-- Step 5: Physical Vessel (Live2D / VRM Avatar Body) -->
       <StepVessel
-        v-else-if="currentIndex === 5"
+        v-else-if="currentStepId === 'vessel'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
       <!-- Step 6: Soul & Persona (Personality Core) -->
       <StepPersona
-        v-else-if="currentIndex === 6"
+        v-else-if="currentStepId === 'persona'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
       <!-- Step 7: Hearing & Mic Playground (Voice Transcription STT) -->
       <StepHearing
-        v-else-if="currentIndex === 7"
+        v-else-if="currentStepId === 'hearing'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
       <!-- Step 8: Consciousness (Reasoning Engine LLM) -->
       <StepConsciousness
-        v-else-if="currentIndex === 8"
+        v-else-if="currentStepId === 'consciousness'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
       <!-- Step 9: Speech (Neural Voice Studio TTS) -->
       <StepSpeech
-        v-else-if="currentIndex === 9"
+        v-else-if="currentStepId === 'speech'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
       <!-- Step 10: Thinking (Conversational Pacing & Subconscious Asides) -->
       <StepThinking
-        v-else-if="currentIndex === 10"
+        v-else-if="currentStepId === 'thinking'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
       <!-- Step 12: Artistry (Visual Creative Studio & Autonomous Director) -->
       <StepArtistry
-        v-else-if="currentIndex === 12"
+        v-else-if="currentStepId === 'artistry'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
       <!-- Step 13: Sensory (Screen Watching & Heartbeats) -->
       <StepSensory
-        v-else-if="currentIndex === 13"
+        v-else-if="currentStepId === 'sensory'"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 14: Memory (4 Temporal Quadrants) -->
+      <StepMemory
+        v-else-if="currentStepId === 'memory'"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 15: Tools (Automation & MCP Tools) -->
+      <StepTools
+        v-else-if="currentStepId === 'tools'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
@@ -188,10 +236,10 @@ function handleSkip() {
         </div>
         <div>
           <h2 :class="['text-xl font-bold text-neutral-900 dark:text-white']">
-            {{ ONBOARDING_V3_STEPS[currentIndex]?.label }} (Step {{ currentIndex + 1 }}/{{ ONBOARDING_V3_STEPS.length }})
+            {{ activeSteps[activeIndex]?.label }} (Step {{ activeIndex + 1 }}/{{ activeSteps.length }})
           </h2>
           <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1']">
-            {{ ONBOARDING_V3_STEPS[currentIndex]?.subtitle }}
+            {{ activeSteps[activeIndex]?.subtitle }}
           </p>
         </div>
         <p :class="['text-xs text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-white/5 p-3 rounded-xl border border-neutral-200 dark:border-white/10 max-w-md']">

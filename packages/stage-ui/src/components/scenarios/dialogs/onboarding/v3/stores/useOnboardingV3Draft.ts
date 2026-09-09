@@ -77,18 +77,23 @@ export interface OnboardingV3DraftState {
   eventLedgerDomains?: string[]
   smartSilenceDirectiveEnabled?: boolean
   memoryShortTermEnabled?: boolean
+  memoryShortTermWindowSize?: number
+  memoryShortTermTokenBudget?: number
   memoryLongTermJournalEnabled?: boolean
+  memoryLifetimeEnabled?: boolean
+  memoryLifetimeTier?: 'lightweight' | 'relational' | 'deep'
   memoryDreamStateEnabled?: boolean
   mcpWebSearchEnabled?: boolean
   mcpFilesystemEnabled?: boolean
+  toolMotionGeneratorEnabled?: boolean
 }
 
 export const ARCHETYPE_MODULE_PRESETS: Record<ExperienceArchetypeId, ModuleBundleConfig> = {
   quiet: {
     hearing: false,
     speech: false,
-    thinking: false,
-    emotions: false,
+    thinking: true,
+    emotions: true,
     artistry: false,
     sensory: false,
     memory: true,
@@ -167,10 +172,15 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     eventLedgerDomains: ['vision', 'tools', 'chat', 'memory', 'discord'],
     smartSilenceDirectiveEnabled: true,
     memoryShortTermEnabled: true,
+    memoryShortTermWindowSize: 3,
+    memoryShortTermTokenBudget: 1000,
     memoryLongTermJournalEnabled: true,
+    memoryLifetimeEnabled: true,
+    memoryLifetimeTier: 'relational',
     memoryDreamStateEnabled: true,
     mcpWebSearchEnabled: false,
     mcpFilesystemEnabled: false,
+    toolMotionGeneratorEnabled: false,
     personaCardId: 'default',
     personaSource: 'preset',
     sttProvider: 'browser-web-speech-api',
@@ -411,6 +421,44 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.smartSilenceDirectiveEnabled = sensory.smartSilenceDirectiveEnabled
   }
 
+  function setMemory(memory: {
+    shortTermEnabled?: boolean
+    shortTermWindowSize?: number
+    shortTermTokenBudget?: number
+    longTermJournalEnabled?: boolean
+    lifetimeEnabled?: boolean
+    lifetimeTier?: 'lightweight' | 'relational' | 'deep'
+    dreamStateEnabled?: boolean
+  }) {
+    if (memory.shortTermEnabled !== undefined)
+      state.value.memoryShortTermEnabled = memory.shortTermEnabled
+    if (memory.shortTermWindowSize !== undefined)
+      state.value.memoryShortTermWindowSize = memory.shortTermWindowSize
+    if (memory.shortTermTokenBudget !== undefined)
+      state.value.memoryShortTermTokenBudget = memory.shortTermTokenBudget
+    if (memory.longTermJournalEnabled !== undefined)
+      state.value.memoryLongTermJournalEnabled = memory.longTermJournalEnabled
+    if (memory.lifetimeEnabled !== undefined)
+      state.value.memoryLifetimeEnabled = memory.lifetimeEnabled
+    if (memory.lifetimeTier !== undefined)
+      state.value.memoryLifetimeTier = memory.lifetimeTier
+    if (memory.dreamStateEnabled !== undefined)
+      state.value.memoryDreamStateEnabled = memory.dreamStateEnabled
+  }
+
+  function setTools(tools: {
+    mcpWebSearchEnabled?: boolean
+    mcpFilesystemEnabled?: boolean
+    toolMotionGeneratorEnabled?: boolean
+  }) {
+    if (tools.mcpWebSearchEnabled !== undefined)
+      state.value.mcpWebSearchEnabled = tools.mcpWebSearchEnabled
+    if (tools.mcpFilesystemEnabled !== undefined)
+      state.value.mcpFilesystemEnabled = tools.mcpFilesystemEnabled
+    if (tools.toolMotionGeneratorEnabled !== undefined)
+      state.value.toolMotionGeneratorEnabled = tools.toolMotionGeneratorEnabled
+  }
+
   function reset() {
     state.reset()
   }
@@ -429,6 +477,8 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     setThinking,
     setArtistry,
     setSensory,
+    setMemory,
+    setTools,
     reset,
   }
 })

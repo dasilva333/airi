@@ -5,7 +5,7 @@ import { Button } from '@proj-airi/ui'
 import { computed, ref } from 'vue'
 
 import {
-
+  ARCHETYPE_MODULE_PRESETS,
   useOnboardingV3Draft,
 } from '../stores/useOnboardingV3Draft'
 
@@ -38,8 +38,8 @@ const archetypes: ArchetypeCard[] = [
   {
     id: 'quiet',
     title: 'The Quiet Observer',
-    subtitle: 'Text & Ambient Presence',
-    description: 'Zero audio overhead, lightweight memory, focused on text interaction.',
+    subtitle: 'Text, Expressions & Memory',
+    description: 'Zero audio overhead, avatar emotions, thinking pacing, and long-term memory.',
     icon: 'i-solar:chat-round-line-bold-duotone',
     colorTheme: {
       activeBorder: 'border-slate-400 dark:border-slate-300',
@@ -54,8 +54,8 @@ const archetypes: ArchetypeCard[] = [
   {
     id: 'casual',
     title: 'The Casual Companion',
-    subtitle: 'Voice Dialogue & Audio',
-    description: 'Live speech transcription (STT), emotional voice (TTS), natural pacing.',
+    subtitle: 'Voice Dialogue & Soul',
+    description: 'Live speech transcription (STT), emotional voice (TTS), natural pacing, and memory.',
     icon: 'i-solar:microphone-3-bold-duotone',
     colorTheme: {
       activeBorder: 'border-purple-500',
@@ -71,7 +71,7 @@ const archetypes: ArchetypeCard[] = [
     id: 'copilot',
     title: 'The Executive Copilot',
     subtitle: 'Voice + System Automation',
-    description: 'Local tools, clipboard vision, filesystem MCP tools, proactive help.',
+    description: 'Voice dialogue, screen perception, desktop filesystem MCP tools, and web search.',
     icon: 'i-solar:case-round-bold-duotone',
     colorTheme: {
       activeBorder: 'border-teal-500',
@@ -86,7 +86,7 @@ const archetypes: ArchetypeCard[] = [
   {
     id: 'performer',
     title: 'The Dynamic Performer',
-    subtitle: 'Full Autonomous Stage',
+    subtitle: 'Full Autonomous Multimodal',
     description: 'Autonomous artistry, dynamic expressions, stage motion cues, multimodal.',
     icon: 'i-solar:magic-stick-3-bold-duotone',
     colorTheme: {
@@ -322,7 +322,7 @@ function resetToPresetDefaults() {
         <!-- Card Footer (Active Indicator bar) -->
         <div :class="['pt-3 mt-3 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-[11px]']">
           <span :class="['text-neutral-500 dark:text-neutral-400 font-medium']">
-            {{ archetype.id === 'performer' ? '8 Capabilities' : archetype.id === 'copilot' ? '7 Capabilities' : archetype.id === 'casual' ? '6 Capabilities' : '3 Capabilities' }}
+            {{ Object.values(ARCHETYPE_MODULE_PRESETS[archetype.id]).filter(Boolean).length }} Capabilities
           </span>
           <span
             :class="[

@@ -1,3 +1,5 @@
+import type { ModuleBundleConfig } from './stores/useOnboardingV3Draft'
+
 export type OnboardingV3Step
   = | 'welcome'
     | 'appearance'
@@ -13,6 +15,7 @@ export type OnboardingV3Step
     | 'emotions'
     | 'artistry'
     | 'sensory'
+    | 'memory'
     | 'tools'
     | 'finale'
 
@@ -21,6 +24,7 @@ export interface OnboardingV3StepDef {
   label: string
   subtitle?: string
   index: number
+  moduleKey?: keyof ModuleBundleConfig
 }
 
 export const ONBOARDING_V3_STEPS: OnboardingV3StepDef[] = [
@@ -31,13 +35,14 @@ export const ONBOARDING_V3_STEPS: OnboardingV3StepDef[] = [
   { id: 'profile', label: 'User Profile', subtitle: 'Who Are You?', index: 4 },
   { id: 'vessel', label: 'Physical Vessel', subtitle: 'Live2D / VRM Avatar Body', index: 5 },
   { id: 'persona', label: 'Soul & Persona', subtitle: 'Personality Core', index: 6 },
-  { id: 'hearing', label: 'Hearing', subtitle: 'Voice Transcription (STT)', index: 7 },
+  { id: 'hearing', label: 'Hearing', subtitle: 'Voice Transcription (STT)', index: 7, moduleKey: 'hearing' },
   { id: 'consciousness', label: 'Consciousness', subtitle: 'Reasoning Engine (LLM)', index: 8 },
-  { id: 'speech', label: 'Speech', subtitle: 'Neural Voice Studio (TTS)', index: 9 },
-  { id: 'thinking', label: 'Thinking', subtitle: 'Pacing & Subconscious Asides', index: 10 },
-  { id: 'emotions', label: 'Emotions', subtitle: '2-Pass ACT Expression Bridge', index: 11 },
-  { id: 'artistry', label: 'Artistry', subtitle: 'Visuals & Autonomous Director', index: 12 },
-  { id: 'sensory', label: 'Sensory', subtitle: 'Screen Watching & Heartbeats', index: 13 },
-  { id: 'tools', label: 'Tools & Skills', subtitle: 'Memory Hierarchy & Actions', index: 14 },
-  { id: 'finale', label: 'Stage Finale', subtitle: 'Pre-Flight Readiness & Launch', index: 15 },
+  { id: 'speech', label: 'Speech', subtitle: 'Neural Voice Studio (TTS)', index: 9, moduleKey: 'speech' },
+  { id: 'thinking', label: 'Thinking', subtitle: 'Pacing & Subconscious Asides', index: 10, moduleKey: 'thinking' },
+  { id: 'emotions', label: 'Emotions', subtitle: '2-Pass ACT Expression Bridge', index: 11, moduleKey: 'emotions' },
+  { id: 'artistry', label: 'Artistry', subtitle: 'Visuals & Autonomous Director', index: 12, moduleKey: 'artistry' },
+  { id: 'sensory', label: 'Sensory', subtitle: 'Screen Watching & Heartbeats', index: 13, moduleKey: 'sensory' },
+  { id: 'memory', label: 'Memory', subtitle: 'Cognitive Memory Hierarchy', index: 14, moduleKey: 'memory' },
+  { id: 'tools', label: 'Tools', subtitle: 'Automation & Desktop MCP', index: 15, moduleKey: 'tools' },
+  { id: 'finale', label: 'Stage Finale', subtitle: 'Pre-Flight Readiness & Launch', index: 16 },
 ]
