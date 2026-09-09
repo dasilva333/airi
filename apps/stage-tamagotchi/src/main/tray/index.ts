@@ -77,6 +77,7 @@ export function setupTray(params: {
         { type: 'separator' },
         { label: 'Control Strip Settings', click: () => void params.customizerWindow.toggleVisibility() },
         { label: 'Companion Wizard', click: () => void params.onboardingWindow.openWindow('/onboarding') },
+        { label: 'Companion Setup & Sign-In (V3)', click: () => void params.onboardingWindow.openWindow('/onboarding-v3') },
         { label: 'AnimaDex Wizard', click: () => void params.settingsWindow.openWindow('/settings/airi-card/guided').catch(err => console.error('[Tray] Failed to open AnimaDex wizard:', err)) },
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.settings'), click: () => void params.settingsWindow.openWindow('/settings').catch(err => console.error('[Tray] Failed to open settings window:', err)) },
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.about'), click: () => params.aboutWindow().then(window => toggleWindowShow(window)) },

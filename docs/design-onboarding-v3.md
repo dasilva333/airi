@@ -27,34 +27,34 @@ This document serves as the **canonical technical architecture specification**, 
 
 ---
 
-## 3. Canonical 15-Step Journey Topology
+### 3. Canonical 16-Step Journey Topology
 
 ```
-[ 0. Welcome ] ──▶ [ 1. Triage ] ──▶ [ 2. Experience Archetypes ]
-                                                 │
-   ┌─────────────────────────────────────────────┘
+[ 0. Welcome ] ──▶ [ 1. Appearance ] ──▶ [ 2. Triage ] ──▶ [ 3. Experience Archetypes ]
+                                                                        │
+   ┌────────────────────────────────────────────────────────────────────┘
    ▼
-[ 3. Soul & Persona ] ──▶ [ 4. Physical Vessel ] ──▶ [ 5. User Profile ]
-                                                             │
-   ┌─────────────────────────────────────────────────────────┘
+[ 4. User Profile ] ──▶ [ 5. Soul & Persona ] ──▶ [ 6. Physical Vessel ]
+                                                              │
+   ┌──────────────────────────────────────────────────────────┘
    ▼
-[ 6. Hearing (STT) ] ──▶ [ 7. Consciousness (LLM) ] ──▶ [ 8. Thinking (Pacing & Asides) ]
-                                                                     │
-   ┌─────────────────────────────────────────────────────────────────┘
+[ 7. Hearing (STT) ] ──▶ [ 8. Consciousness (LLM) ] ──▶ [ 9. Thinking (Pacing & Asides) ]
+                                                                      │
+   ┌──────────────────────────────────────────────────────────────────┘
    ▼
-[ 9. Speech (TTS) ] ──▶ [ 10. Emotions (ACT Bridge) ] ──▶ [ 11. Artistry & Visuals ]
-                                                                     │
-   ┌─────────────────────────────────────────────────────────────────┘
+[ 10. Speech (TTS) ] ──▶ [ 11. Emotions (ACT Bridge) ] ──▶ [ 12. Artistry & Visuals ]
+                                                                      │
+   ┌──────────────────────────────────────────────────────────────────┘
    ▼
-[ 12. Sensory & Proactivity ] ──▶ [ 13. Tools & Skills ] ──▶ [ 14. Stage Finale ]
+[ 13. Sensory & Proactivity ] ──▶ [ 14. Tools & Skills ] ──▶ [ 15. Stage Finale ]
 ```
 
 ### Dynamic Step Pruning by Archetype
-While 15 steps exist globally, the wizard reactively prunes steps based on the user's selected archetype in Step 2:
+While 16 steps exist globally, the wizard reactively prunes steps based on the user's selected archetype in Step 3:
 - **The Quiet Observer (Text Only)**: Skips Hearing, Speech, Thinking, and Artistry (4-step streamlined path).
 - **The Casual Companion (Voice & Soul)**: Full audio, reasoning, and emotions; defaults Artistry and Proactivity to zero-overhead presets.
 - **The Executive Copilot (Productivity)**: Prioritizes Consciousness, Screen Watching, Web Search, and Filesystem MCP.
-- **The Dynamic Performer (Full Multimodal)**: Traverses the complete 15-step pipeline with all visual and acting modules active.
+- **The Dynamic Performer (Full Multimodal)**: Traverses the complete 16-step pipeline with all visual and acting modules active.
 
 ---
 
@@ -64,32 +64,32 @@ To prevent maintaining a fragile, monolithic file, Onboarding V3 is structured i
 
 ```
 packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/
-├── OnboardingV3Dialog.vue             # Host dialog, window chrome, step router
+├── onboarding-v3.vue                  # Host dialog, window chrome, sliding stepper router
 ├── components/
-│   ├── SlidingStepper.vue             # 5-item sliding-window breadcrumb stepper
-│   ├── VesselCoverflow.vue            # 3D Coverflow carousel for avatar bodies
-│   ├── PersonaCardGrid.vue            # 2-column character card selector
-│   └── ArtPreviewModal.vue            # Non-disruptive visual style preview modal
+│   ├── sliding-stepper.vue            # 5-item sliding-window breadcrumb stepper with overflow anchors
+│   ├── vessel-coverflow.vue           # 3D Coverflow carousel for avatar bodies
+│   ├── persona-card-grid.vue          # 2-column character card selector
+│   └── art-preview-modal.vue          # Non-disruptive visual style preview modal
 ├── steps/
-│   ├── StepWelcome.vue                # Step 0: Welcome & initial language selector
-│   ├── StepTriage.vue                 # Step 1: Local-first vs Cloudflare sync
-│   ├── StepExperience.vue             # Step 2: 4 Hero Archetype cards
-│   ├── StepPersona.vue                # Step 3: Soul & Persona selection / creation
-│   ├── StepVessel.vue                 # Step 4: Physical Vessel selection / import
-│   ├── StepProfile.vue                # Step 5: User name & companion honorific
-│   ├── StepHearing.vue                # Step 6: Mic selection, VAD, and STT engine
-│   ├── StepConsciousness.vue          # Step 7: Local WebGPU / Cloud LLM provider
-│   ├── StepThinking.vue               # Step 8: Conversational pacing & subconscious asides
-│   ├── StepSpeech.vue                 # Step 9: Neural TTS provider & voice timbre
-│   ├── StepEmotions.vue               # Step 10: 2-Pass AI Expression Curation & ACT tokens
-│   ├── StepArtistry.vue               # Step 11: Pollinations/ComfyUI, visual prompt & director
-│   ├── StepSensory.vue                # Step 12: Screen watching, salience gate & quiet hours
-│   ├── StepTools.vue                  # Step 13: 24h STMM, LTMM, Dream State, MCP tools
-│   └── StepFinale.vue                 # Step 14: 4-pillar readiness honesty matrix & launch
+│   ├── step-welcome.vue               # Step 0: Welcome, companion bubble, setup later modal
+│   ├── step-appearance.vue            # Step 1: Interface language, theme mode (dark/light), 24-color accent
+│   ├── step-triage.vue                # Step 2: Local-first vs Cloudflare sync
+│   ├── step-experience.vue            # Step 3: 4 Hero Archetype cards
+│   ├── step-persona.vue               # Step 4: Soul & Persona selection / creation
+│   ├── step-vessel.vue                # Step 5: Physical Vessel selection / import
+│   ├── step-profile.vue               # Step 6: User name & companion honorific
+│   ├── step-hearing.vue               # Step 7: Mic selection, VAD, and STT engine
+│   ├── step-consciousness.vue         # Step 8: Local WebGPU / Cloud LLM provider
+│   ├── step-thinking.vue              # Step 9: Conversational pacing & subconscious asides
+│   ├── step-speech.vue                # Step 10: Neural TTS provider & voice timbre
+│   ├── step-emotions.vue              # Step 11: 2-Pass AI Expression Curation & ACT tokens
+│   ├── step-artistry.vue              # Step 12: Pollinations/ComfyUI, visual prompt & director
+│   ├── step-sensory.vue               # Step 13: Screen watching, salience gate & quiet hours
+│   ├── step-tools.vue                 # Step 14: 24h STMM, LTMM, Dream State, MCP tools
+│   └── step-finale.vue                # Step 15: 4-pillar readiness honesty matrix & launch
 ├── stores/
 │   └── useOnboardingV3Draft.ts        # Transient Pinia state store (zero dirty writes to DB)
-└── types/
-    └── onboarding-v3.ts               # Canonical TypeScript interfaces & archetype contracts
+└── types.ts                           # Canonical TypeScript interfaces & step definitions
 ```
 
 ---
@@ -103,23 +103,23 @@ packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/
 - [x] Streamline Artistry: Pollinations vs ComfyUI vs None, character visual style prompt with auto-injected vessel descriptors, bottom-right `[🎨 Preview]` button opening quick loading modal, and single toggle for Autonomous Director.
 - [x] Consolidate Sensory: Screen watching delivery modes, salience gating, ambient heartbeats, bedtime schedule.
 - [x] Consolidate Tools & Skills: 24h Short-Term Memory (STMM) right above Long-Term Text Journal (LTMM), Image Journal, Dream State single checkbox, and MCP tool switches.
-- [x] Validate full 15-step interactive prototype (`tmp/onboarding_v3_flow_prototype.html` & `docs/prototypes/onboarding_v3_flow_prototype.html`).
+- [x] Validate full interactive prototype (`tmp/onboarding_v3_flow_prototype.html` & `docs/prototypes/onboarding_v3_flow_prototype.html`).
 
-### Phase 2: Core Contracts, Types & Transient Draft Store
-- [ ] Implement `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/types/onboarding-v3.ts`.
-- [ ] Implement `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/stores/useOnboardingV3Draft.ts`.
-- [ ] Wire hardware detection seam (`isWebGPUSupported()`, audio input stream check).
+### Phase 2: Core Contracts, Types & Stepper Host Shell
+- [x] Implement `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/types.ts` (16-step topology).
+- [x] Implement `useOnboardingV3Draft.ts` (transient Pinia draft store, zero dirty writes to DB).
+- [x] Implement `sliding-stepper.vue` (5-item dynamic sliding window with `···` anchors, light/dark theme adaptive, dynamic primary color).
+- [x] Implement `onboarding-v3.vue` (edgeless full-bleed window chrome, traffic light clearance `pl-22`, step routing).
+- [x] Wire electron system tray entry (`Companion Setup & Sign-In (V3)`) and renderer route `/onboarding-v3`.
 
-### Phase 3: Stepper & Host Shell
-- [ ] Implement `SlidingStepper.vue` (5-item dynamic sliding window with `···` anchors).
-- [ ] Implement `OnboardingV3Dialog.vue` (shell layout, route navigation, archetype step pruning).
-
-### Phase 4: Personality & Form Steps
-- [ ] Implement `StepWelcome.vue` & `StepTriage.vue`.
-- [ ] Implement `StepExperience.vue` (Hero Archetypes).
-- [ ] Implement `StepPersona.vue` & `PersonaCardGrid.vue`.
-- [ ] Implement `StepVessel.vue` & `VesselCoverflow.vue` (Installed + Community models).
-- [ ] Implement `StepProfile.vue` (User name & companion honorific).
+### Phase 3: Setup & Identity Steps
+- [x] Implement `step-welcome.vue` (radiant icon orb, companion speech bubble, feature pills, setup later modal).
+- [x] Implement `step-appearance.vue` (interface language selector with 8 locales, dark/light theme toggle, 24-color spectrum accent palette with Settings header widget parity).
+- [x] Implement `step-triage.vue` (Local-first vs Cloudflare sync, 1-click OAuth PKCE, API token auth, and Edge Vault restoration).
+- [x] Implement `step-experience.vue` (4 Hero Archetype cards, custom module configuration drawer, dynamic CTA).
+- [x] Implement `step-profile.vue` (Exact V2 parity: 4 User Archetypes Richie/Dave/Maya/Elena, User Display Name, Narrative Description, Visual Prompt Tags).
+- [ ] Implement `step-persona.vue` & `persona-card-grid.vue`.
+- [ ] Implement `step-vessel.vue` & `vessel-coverflow.vue` (Installed + Community models).
 
 ### Phase 5: Voice & Cognitive Steps
 - [ ] Implement `StepHearing.vue` (Mic test, Whisper WebGPU / Web Speech).
