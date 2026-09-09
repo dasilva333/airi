@@ -6,6 +6,159 @@
 
 ---
 
+## [2026-09-09] Upstream Delta: `f679616c..3e94ea81` (6 commits, 86 files, 18 PR update(s))
+
+### 🎯 Executive Highlights
+* **Active Focus**: Upstream merged 6 commits (`f679616c..3e94ea81`) covering small-window overflow scrolling for the Controls Island & Profile Switcher (#2474), signed-in nickname injection into chat prompts (#2488), telemetry migration from PostHog to OpenPanel (#2480), browser test fixture cleanup (#2492), and Nix hashes (#2495, #2496). On the PR radar, upstream is actively prototyping Live2D pseudo-3D ambient lighting with normal maps (#2498 [Draft]), fixing speech provider persistence (#2497), resolving post-login TTS initialization race conditions (#2490), adding swipe-to-reply chat gestures (#2489), and chat-round TTS billing (#2491).
+* **Cherry-Pick Candidates**:
+  - ⭐ **PR #2497 (`fix(stage-ui): persist speech provider settings`) [Open PR]**: High-value bug fix addressing a critical flaw where entering credentials on fresh speech provider forms (e.g. OpenAI Compatible, Comet, VOICEVOX) fails to persist due to `initializeProvider` inspecting derived configs. Highly recommended for forward-porting (`provider.ts`, `config.ts`, `speech-provider-settings.vue`).
+  - ⭐ **PR #2474 / Commit `5e78b64e3` (`profile-switcher-popover.vue` portion)**: Excellent UX bug fix for `packages/stage-ui/src/components/misc/profile-switcher-popover.vue` that teleports the "Save as new" profile creation popup to `<body>` and calculates viewport-clamped positioning to prevent truncation on small or narrow windows.
+  - 🔍 **PR #2490 (`fix(stage-ui): restore TTS after first login`) [Open PR]**: Important fix resolving race conditions where initial tokenless voice catalog requests cache empty results. Inspect closely once merged to determine applicability to our fork's speech store.
+* **Divergence / Collision Warnings**:
+  - 🚨 **PR #2498 (`WIP live2d ambient light with normal map and pseudo-3d light remodel`) [Draft PR]**: Massive upcoming Live2D overhaul (+5,000 LOC, touching `Model.vue`, `Live2D.vue`, shaders, and display sampling). Conflicts fundamentally with our fork's Live2D Scripting DSL interpreter, VarFloats heap, and costume swapping. Do NOT merge directly; monitor for isolated shader/lighting techniques.
+  - ⚠️ **PR #2488 / Commit `097202cd3` (`packages/stage-ui/src/stores/chat.ts`)**: Upstream added `createUserAccountContext` into `chat.ts` context snapshotting. Our fork has significantly diverged `chat.ts` and prompt builder pipelines; upstream account context injection should not be pulled directly.
+  - ⚠️ **PR #2489 (`feat(stage-ui): add swipe to reply for chat messages`) [Open PR]**: Relies heavily on upstream's `packages/core-agent` orchestrator runtime and modified `InteractiveArea.vue`, which differs from our desktop chatbox architecture.
+  - ⚪ **PR #2480 / Commit `66f0d4502` (`OpenPanel telemetry`) & PR #2491 (`TTS billing grouping`)**: Cloud telemetry and commercial billing features remain strictly rejected under fork policy (`⚪ ignore / rejected in fork`).
+
+### 📋 Upstream Commits
+- `3e94ea816` chore(nix): update pnpmDeps hash (#2496) [#2496](https://github.com/moeru-ai/airi/pull/2496) _(Weathercold, 2026-09-09)_
+- `94873f851` chore(nix): update assets hash (#2495) [#2495](https://github.com/moeru-ai/airi/pull/2495) _(Weathercold, 2026-09-09)_
+- `66f0d4502` refactor(analytics): replace PostHog with OpenPanel (#2480) [#2480](https://github.com/moeru-ai/airi/pull/2480) _(RainbowBird, 2026-09-09)_
+- `5e78b64e3` fix(stage-tamagotchi): prevent controls island overflow in small windows with scroll (#2474) [#2474](https://github.com/moeru-ai/airi/pull/2474) _(Younsang Na, 2026-09-09)_
+- `7bcd8e527` test(stage-ui): fix browser fixtures and cleanup (#2492) [#2492](https://github.com/moeru-ai/airi/pull/2492) _(leafyy, 2026-09-09)_
+- `097202cd3` feat(stage-ui): add signed-in nickname context to chat prompts (#2488) [#2488](https://github.com/moeru-ai/airi/pull/2488) _(RainbowBird, 2026-09-08)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 13 file(s) (+116/-38)
+- `.github/workflows/deploy-cloudflare-auth-ui.yml` *(+1/-9)*
+- `.github/workflows/deploy-cloudflare-workers.yml` *(+1/-9)*
+- `.github/workflows/deploy-huggingface-spaces.yml` *(+1/-1)*
+- `.github/workflows/release-docker.yaml` *(+1/-1)*
+- `.github/workflows/release-pocket-android.yml` *(+1/-1)*
+- `.github/workflows/release-pocket-ios.yml` *(+1/-1)*
+- `.github/workflows/release-tamagotchi-steam.yml` *(+1/-1)*
+- `.github/workflows/release-tamagotchi.yml` *(+1/-1)*
+- `deploy/openpanel/README.md` *(+83/-0)*
+- `docs/.vitepress/modules/openpanel.ts` *(+23/-0)*
+- `docs/.vitepress/modules/posthog.ts` *(+0/-12)*
+- `docs/.vitepress/theme/index.ts` *(+1/-1)*
+- `docs/package.json` *(+1/-1)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 7 file(s) (+8/-10)
+- `apps/stage-pocket/package.json` *(+0/-1)*
+- `apps/stage-pocket/src/main.ts` *(+2/-2)*
+- `apps/stage-web/Dockerfile` *(+2/-2)*
+- `apps/stage-web/package.json` *(+0/-1)*
+- `apps/stage-web/src/main.ts` *(+2/-2)*
+- `apps/stage-web/src/pages/settings/characters/components/CharacterDialog.vue` *(+1/-1)*
+- `apps/stage-web/vite.config.ts` *(+1/-1)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 11 file(s) (+1015/-266)
+- `apps/stage-tamagotchi/package.json` *(+0/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/control-button-tooltip.vue` *(+23/-16)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-auth-button.test.ts` *(+41/-8)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-auth-button.vue` *(+13/-8)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-overflow.browser.test.ts` *(+523/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-profile-picker.vue` *(+5/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-stop-speaking.test.ts` *(+1/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/index.vue` *(+313/-226)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/use-controls-island-layout.ts` *(+89/-0)*
+- `apps/stage-tamagotchi/src/renderer/main.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/renderer/pages/index.vue` *(+5/-5)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 6 file(s) (+89/-117)
+- `apps/ui-server-auth/package.json` *(+1/-1)*
+- `package.json` *(+0/-1)*
+- `packages/stage-shared/package.json` *(+1/-2)*
+- `packages/stage-ui/package.json` *(+1/-1)*
+- `pnpm-lock.yaml` *(+85/-111)*
+- `server/apps/api/package.json` *(+1/-1)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 33 file(s) (+615/-907)
+- `apps/ui-server-auth/src/main.ts` *(+3/-3)*
+- `apps/ui-server-auth/vite.config.ts` *(+1/-1)*
+- `nix/assets-hash.txt` *(+1/-1)*
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/stage-ui/src/components/misc/character-switcher-drawer.browser.test.ts` *(+28/-3)*
+- `packages/stage-ui/src/components/misc/profile-switcher-popover.vue` *(+113/-60)*
+- `packages/stage-ui/src/libs/auth-fetch.test.ts` *(+13/-13)*
+- `packages/stage-ui/src/libs/auth-fetch.ts` *(+6/-6)*
+- `packages/stage-ui/src/libs/product-signals/client.ts` *(+1/-1)*
+- `packages/stage-ui/src/libs/product-signals/events/chat/events/generation.ts` *(+0/-13)*
+- `packages/stage-ui/src/libs/product-signals/events/chat/events/index.ts` *(+0/-1)*
+- `packages/stage-ui/src/libs/product-signals/events/chat/runtime.test.ts` *(+12/-22)*
+- `packages/stage-ui/src/libs/product-signals/events/chat/runtime.ts` *(+0/-19)*
+- `packages/stage-ui/src/libs/product-signals/openpanel.browser.test.ts` *(+65/-0)*
+- `packages/stage-ui/src/libs/product-signals/openpanel.ts` *(+116/-0)*
+- `packages/stage-ui/src/libs/product-signals/posthog.test.ts` *(+0/-52)*
+- `packages/stage-ui/src/libs/product-signals/posthog.ts` *(+0/-79)*
+- `packages/stage-ui/src/stores/mods/api/context-bridge.contract.browser.test.ts` *(+34/-42)*
+- `pnpm-workspace.yaml` *(+2/-2)*
+- `server/apps/api/src/app.test.ts` *(+0/-1)*
+- `server/apps/api/src/app.ts` *(+10/-16)*
+- `server/apps/api/src/libs/env.ts` *(+3/-7)*
+- `server/apps/api/src/routes/openai/v1/operations/chat-completions/index.ts` *(+2/-91)*
+- `server/apps/api/src/routes/openai/v1/route.test.ts` *(+3/-84)*
+- `server/apps/api/src/routes/stripe/operations/checkout.ts` *(+9/-9)*
+- `server/apps/api/src/routes/stripe/operations/webhook.ts` *(+7/-4)*
+- `server/apps/api/src/routes/stripe/route.test.ts` *(+16/-12)*
+- `server/apps/api/src/services/adapters/openpanel.test.ts` *(+58/-0)*
+- `server/apps/api/src/services/adapters/openpanel.ts` *(+53/-0)*
+- `server/apps/api/src/services/adapters/posthog.ts` *(+0/-81)*
+- `server/apps/api/src/services/domain/product-events.test.ts` *(+34/-148)*
+- `server/apps/api/src/services/domain/product-events.ts` *(+23/-133)*
+- `vite-env.d.ts` *(+1/-2)*
+
+#### Telemetry & Analytics (`⚪ ignore / rejected in fork`) — 8 file(s) (+127/-255)
+- `apps/ui-server-auth/src/modules/analytics-adapters/openpanel.ts` *(+34/-0)*
+- `apps/ui-server-auth/src/modules/analytics-adapters/posthog.ts` *(+0/-28)*
+- `apps/ui-server-auth/src/modules/analytics.test.ts` *(+1/-1)*
+- `packages/stage-shared/src/analytics/openpanel.ts` *(+5/-0)*
+- `packages/stage-shared/src/analytics/posthog.ts` *(+0/-25)*
+- `packages/stage-ui/src/composables/use-analytics.test.ts` *(+75/-144)*
+- `packages/stage-ui/src/composables/use-analytics.ts` *(+5/-49)*
+- `server/apps/api/src/routes/openai/v1/analytics.ts` *(+7/-8)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 1 file(s) (+0/-1)
+- `packages/stage-layouts/package.json` *(+0/-1)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 2 file(s) (+5/-7)
+- `packages/stage-pages/package.json` *(+0/-1)*
+- `packages/stage-pages/src/pages/settings/flux.vue` *(+5/-6)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 5 file(s) (+159/-17)
+- `packages/stage-ui/src/stores/chat.contract.test.ts` *(+44/-15)*
+- `packages/stage-ui/src/stores/chat.ts` *(+12/-2)*
+- `packages/stage-ui/src/stores/chat/context-providers/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/stores/chat/context-providers/user-account.browser.test.ts` *(+69/-0)*
+- `packages/stage-ui/src/stores/chat/context-providers/user-account.ts` *(+33/-0)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (9)
+- [#2490](https://github.com/moeru-ai/airi/pull/2490) `fix(stage-ui): restore TTS after first login` by **@Neko-233** *(2 comments)*
+- [#2489](https://github.com/moeru-ai/airi/pull/2489) `feat(stage-ui): add swipe to reply for chat messages` by **@nekomeowww** *(2 comments)*
+- [#2497](https://github.com/moeru-ai/airi/pull/2497) `fix(stage-ui): persist speech provider settings` by **@leaft** *(2 comments)*
+- [#2498](https://github.com/moeru-ai/airi/pull/2498) `WIP live2d ambient light with normal map and pseudo-3d light remodel` by **@shinohara-rin** *(Draft)* *(1 comments)*
+- [#2496](https://github.com/moeru-ai/airi/pull/2496) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(1 comments)*
+- [#2494](https://github.com/moeru-ai/airi/pull/2494) `fix(computer-use-mcp): fix type errors at serivce/computer-use-mcp` by **@nayounsang** *(1 comments)*
+- [#2495](https://github.com/moeru-ai/airi/pull/2495) `chore(nix): update assets hash` by **@Weathercold** *(1 comments)*
+- [#2492](https://github.com/moeru-ai/airi/pull/2492) `test(stage-ui): fix browser fixtures and cleanup` by **@leaft** *(2 comments)*
+- [#2491](https://github.com/moeru-ai/airi/pull/2491) `feat(stage-pages): group TTS billing by chat round` by **@luoling8192** *(2 comments)*
+
+#### 🔄 PR Status & Lifecycle Changes (6)
+- [#2480](https://github.com/moeru-ai/airi/pull/2480) `refactor(analytics): replace PostHog with OpenPanel` — `OPEN` ➔ `MERGED`, `Draft` ➔ `Ready`
+- [#2441](https://github.com/moeru-ai/airi/pull/2441) `feat(stage): add Whiteboard as a extension` — `OPEN` ➔ `CLOSED`
+- [#2474](https://github.com/moeru-ai/airi/pull/2474) `fix(stage-tamagotchi): prevent controls island overflow in small windows with scroll` — `OPEN` ➔ `MERGED`
+- [#2486](https://github.com/moeru-ai/airi/pull/2486) `feat(stage-ui): confirm sign-out with keep or wipe options` — ➔ `Draft`
+- [#2471](https://github.com/moeru-ai/airi/pull/2471) `feat(stage-ui): sync user providers to a cloud replica` — ➔ `Draft`
+- [#2488](https://github.com/moeru-ai/airi/pull/2488) `feat(stage-ui): add signed-in nickname context to chat prompts` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (3)
+- [#2480](https://github.com/moeru-ai/airi/pull/2480) `refactor(analytics): replace PostHog with OpenPanel` — *+1 comments (1 ➔ 2 total)*
+- [#2441](https://github.com/moeru-ai/airi/pull/2441) `feat(stage): add Whiteboard as a extension` — *+1 comments (2 ➔ 3 total)*
+- [#2474](https://github.com/moeru-ai/airi/pull/2474) `fix(stage-tamagotchi): prevent controls island overflow in small windows with scroll` — *+1 comments (5 ➔ 6 total)*
+
+---
 ## [2026-09-08] Upstream Delta: `52a9f429..f679616c` (6 commits, 41 files, 15 PR update(s))
 
 ### 🎯 Executive Highlights

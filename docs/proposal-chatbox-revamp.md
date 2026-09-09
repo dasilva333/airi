@@ -32,7 +32,7 @@ The core principle driving this redesign:
   * Pending: Token capacity progress bar indicator
 
 * **Phase 4 (Extended System Layer)**
-  Input preprocessing pipeline, enriched attachments, Director’s Monitor surface, token visualization refinement, expanded attachment system.
+  Input preprocessing pipeline, contextual bubble reply & attention grounding (bubble context menu + composer quote banner + model provenance anchor), enriched attachments, Director’s Monitor surface, token visualization refinement, expanded attachment system.
   *(Future)*
 
 ---
@@ -149,6 +149,7 @@ The composer is strictly for **message creation**.
 * **`[✨]` Suggest Response**
 * **Textarea**
 * **Send / Greet Button**
+* **Reply Target Banner (Phase 4)**: Expandable drawer docked directly above the composer row when a bubble reply is active (`Replying to <Author>: "<snippet>" [✕]`).
 
 ---
 
@@ -514,6 +515,51 @@ Future enhancements:
 
 ---
 
+### 10.6 Contextual Bubble Reply & Provenance Anchoring ("Reply to Bubble")
+
+Enables users to circle back to earlier conversation turns and reply directly to a specific historical bubble, providing both visual provenance in the session timeline and explicit attention grounding for the LLM.
+
+#### Intent & Problem Solved
+In extended 1-on-1 conversations with an AI companion, discussions often drift across various topics. If a user wishes to answer a question or address a point the character made 15 turns ago, replying sequentially often fails: the LLM suffers from recency bias, falsely assuming the user's reply attaches to the immediately preceding turn.
+
+Contextual bubble replying solves this without requiring awkward prompt phrasing (e.g. *"Regarding what you said earlier about coffee..."*).
+
+#### Entry Point: Bubble Context Menu (Desktop-First, No Swipe)
+* **Explicitly Rejects Swipe Gestures**: Rejects mobile-style swipe-to-reply mechanics (`swipeable`, touch/wheel event interception, scroll deadzones, or trackpad gesture hijacking).
+* **Context Menu Integration**: Placed directly inside the bubble's contextual menu (tap / right-click) positioned near the top **adjacent to Retry** (e.g. `[Reply]` next to `[Retry]`, `[Copy]`).
+* Tapping **Reply** captures that turn as the active `replyTarget` in the composer without modifying message history.
+
+#### Composer Quote Banner
+* When a reply target is active, an expandable, dismissible quote drawer docks directly above the composer row:
+  ```
+  ┌──────────────────────────────────────────────────────────────┐
+  │ ↩ Replying to Airi: "Do you want to grab coffee later?"  [✕] │
+  └──────────────────────────────────────────────────────────────┘
+  [+] · [✨] · [textarea: Yeah, let's do it!] · [✈]
+  ```
+* Shows the author's label, truncated quote snippet (capped at 160 characters), and a cancel `[✕]` button that clears the reply target while preserving any text the user has already typed.
+
+#### Visual History Provenance (Inline Quote Box)
+* Once sent, the resulting message bubble renders an inline quote header pinned to the top of the bubble:
+  ```
+  ┌──────────────────────────────────────────────┐
+  │ ↩ Replying to Airi: Do you want to grab...   │
+  │ Yeah, let's do it!                           │
+  └──────────────────────────────────────────────┘
+  ```
+* Preserves a clean visual trail of conversation forks and callbacks in the chat log. Clicking the quote can optionally scroll the viewport to and momentarily highlight the original ancestor bubble.
+
+#### Cognitive Pipeline & Prompt Anchoring
+* Under the hood, the prompt builder (`usePrompt` / runtime context assembler) injects an explicit, lightweight model anchor prefixed to the outgoing user turn:
+  ```text
+  [Replying to: "Do you want to grab coffee later?"]
+  Yeah, let's do it!
+  ```
+* Bounded by a character limit (e.g. 480 characters) to identify the turn without bloating token consumption or corrupting prefix cache alignment.
+* Forces the LLM's attention mechanism to bind the response to that historical turn, overcoming conversational drift.
+
+---
+
 ## 11. Component & Data Store References
 
 ### UI Components
@@ -534,12 +580,13 @@ Future enhancements:
 
 Everything in the UI must map cleanly to one of these:
 
-| Domain          | Surface                    |
-| --------------- | -------------------------- |
-| Message Content | Composer (`[+]`)           |
-| System Behavior | Ellipsis                   |
-| Navigation      | Left Panel                 |
-| Context         | Right Panel / Context Band |
+| Domain              | Surface                                                |
+| ------------------- | ------------------------------------------------------ |
+| Message Content     | Composer (`[+]`)                                       |
+| Message Provenance  | Bubble Context Menu (`[Reply]`) / Composer Quote Banner |
+| System Behavior     | Ellipsis                                               |
+| Navigation          | Left Panel                                             |
+| Context             | Right Panel / Context Band                             |
 
 If something does not fit one of these, it does not belong in the current model.
 

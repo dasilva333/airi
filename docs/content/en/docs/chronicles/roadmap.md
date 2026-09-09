@@ -109,6 +109,12 @@ This document tracks all active pending items, architectural roadmaps, and featu
     *   Physical Model Tracking (click/mouse coordinates mapped to VRM bones / Live2D hit areas).
     *   Media Now Playing comments & Temporal/Day Tropes.
 
+### Chatbox Conversational Anchoring & Contextual Bubble Reply
+*Reference: [proposal-chatbox-revamp.md](../../../../proposal-chatbox-revamp.md)*
+*   **Message-Level Provenance & Attention Anchoring**: Enable users to circle back to older conversation turns without semantic confusion. Contextually replying to an earlier bubble prefixes a model-only attention anchor (`[Replying to: <text>]`) to the outgoing prompt turn, overcoming recency bias and binding the LLM's response directly to the cited topic across conversational drift.
+*   **Bubble Context Menu Integration (No Swipe)**: Provide a clean desktop-first entry point via the bubble contextual menu positioned near the top next to "Retry". Explicitly bypasses mobile gesture/swipe capture bloat while offering instant access to reply targeting.
+*   **Composer Quote Drawer & Inline Bubble Attribution**: Display an expandable, dismissible reply preview banner above the composer input (`Replying to <Speaker>: "<text>" [✕]`) and render an inline quote header inside the sent bubble to preserve visual provenance in the session timeline with click-to-ancestor jumping.
+
 ---
 
 ## Memory & Grounding RAG
