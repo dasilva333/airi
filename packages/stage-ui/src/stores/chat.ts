@@ -44,7 +44,13 @@ import {
   serializeBridgePayload,
   shouldBypassVerificationLoop,
 } from './chat/input-bridge'
-import { clearArtistryStaging, clearJournalStaging, pendingIntrusionStaging, stageArtistryIntrusion, stageJournalIntrusion } from './chat/intrusion-staging'
+import {
+  commitIntrusions,
+  leaseIntrusions,
+  rollbackIntrusions,
+  stageArtistryIntrusion,
+  stageJournalIntrusion,
+} from './chat/intrusion-staging'
 import {
   formatArtistryPrompt,
   formatClimaxPrompt,
@@ -580,6 +586,10 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     // Hoisted so the catch block can tell a user-initiated stop (abort AFTER a
     // generation bump) apart from genuine stream failures or idle-timeout aborts.
     let activeAbortController: AbortController | undefined
+
+    const turnLeaseId = `${sessionId}:${generation}:${Date.now()}`
+    let hasDreamLease = false
+    let intrusionLease: ReturnType<typeof leaseIntrusions> | undefined
 
     let fullText = ''
     let rawFullText = ''
@@ -1192,9 +1202,16 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         const textJournal = activeCard.value?.extensions?.airi?.textJournal
         const artistry = activeCard.value?.extensions?.airi?.artistry
 
-        // Read pending intrusion data from module-level staging (populated via BroadcastChannel or local call)
-        const pendingJournal = pendingIntrusionStaging.journal ? toRaw(pendingIntrusionStaging.journal) : undefined
-        const pendingArtistry = pendingIntrusionStaging.artistry ? toRaw(pendingIntrusionStaging.artistry) : undefined
+        // Lease pending intrusion data for this turn attempt on initial hop
+        if (bridgedSteps === 1) {
+          intrusionLease = leaseIntrusions(turnLeaseId, {
+            leaseJournal: Boolean(textJournal?.injectJournalContext),
+            leaseArtistry: Boolean(artistry?.injectArtistryContext),
+          })
+        }
+
+        const pendingJournal = intrusionLease?.journal ? toRaw(intrusionLease.journal) : undefined
+        const pendingArtistry = intrusionLease?.artistry ? toRaw(intrusionLease.artistry) : undefined
 
         debug('[Chat Debug] performSend evaluation:', {
           activeCardId: activeCardId.value,
@@ -1213,6 +1230,10 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           template: dreamState?.dreamIntrusionPrompt,
           nowMs: now,
         })
+
+        if (bridgedSteps === 1) {
+          hasDreamLease = Boolean(activeCard.value && dreamPrompt && dreamState?.pendingDreamChips?.length)
+        }
 
         if (textJournal?.injectJournalContext && pendingJournal) {
           debug('[Journal Debug] Evaluating journal injection from staging:', pendingJournal)
@@ -1285,31 +1306,6 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
             },
             ...afterSystem,
           ]
-
-          // Clear pending states immediately so they only trigger for this turn
-          if (journalPrompt) {
-            clearJournalStaging()
-          }
-          if (artistryPrompt) {
-            clearArtistryStaging()
-          }
-
-          if (activeCard.value && dreamPrompt && dreamState) {
-            void airiCardStore.updateCard((activeCard.value as any).id, {
-              ...toRaw(activeCard.value),
-              extensions: {
-                ...activeCard.value.extensions,
-                airi: {
-                  ...activeCard.value.extensions?.airi,
-                  dreamState: {
-                    ...dreamState,
-                    pendingDreamChips: undefined,
-                    pendingDreamTimestamp: undefined,
-                  },
-                },
-              },
-            })
-          }
         }
 
         // Evaluate Decoupled Two-Hop Cognition Pipeline
@@ -1652,6 +1648,7 @@ Format your output as a raw thought log.`
       // If the model explicitly chose to remain silent, we abort downstream processing.
       if ((rawFullText || '').trim() === 'NO_REPLY' || (rawFullText || '').trim() === '[NO_REPLY]') {
         chatLog('[ChatDebug] AI decided to remain silent via NO_REPLY sentinel. Aborting turn completion hooks.')
+        rollbackIntrusions(turnLeaseId)
 
         if (!isStaleGeneration()) {
           const currentMessages = chatSession.getSessionMessages(sessionId)
@@ -1698,6 +1695,27 @@ Format your output as a raw thought log.`
         const currentMessages = chatSession.getSessionMessages(sessionId)
         chatSession.setSessionMessages(sessionId, [...currentMessages, toRaw(buildingMessage)])
 
+        // Commit leased intrusions upon successful message persistence
+        commitIntrusions(turnLeaseId)
+
+        if (hasDreamLease && activeCard.value) {
+          const currentDreamState = activeCard.value.extensions?.airi?.dreamState
+          void airiCardStore.updateCard((activeCard.value as any).id, {
+            ...toRaw(activeCard.value),
+            extensions: {
+              ...activeCard.value.extensions,
+              airi: {
+                ...activeCard.value.extensions?.airi,
+                dreamState: {
+                  ...currentDreamState,
+                  pendingDreamChips: undefined,
+                  pendingDreamTimestamp: undefined,
+                },
+              },
+            },
+          })
+        }
+
         // Record live system event in Event Ledger
         const responseText = typeof buildingMessage.content === 'string' ? buildingMessage.content.trim() : ''
         if (responseText) {
@@ -1718,6 +1736,9 @@ Format your output as a raw thought log.`
             inspectable: true,
           })
         }
+      }
+      else {
+        rollbackIntrusions(turnLeaseId)
       }
 
       // Finalize hooks and analytics
@@ -1744,13 +1765,45 @@ Format your output as a raw thought log.`
     }
     catch (error: any) {
       // User-initiated stop: stopCurrentGeneration() already bumped the session generation and
-      // aborted the stream controller, persisted the partial reply, and emitted the finalize hooks.
+      // aborted the stream controller, persisted the partial reply (if hadContent), and emitted the finalize hooks.
       // Exit cleanly — no error bubble, no rethrow (a rethrow would reject the queued send's promise
       // and trick the composer into restoring the already-sent draft).
       if (isStaleGeneration() && activeAbortController?.signal.aborted) {
+        const hadContent = (typeof buildingMessage.content === 'string' && buildingMessage.content.trim().length > 0)
+          || buildingMessage.slices.length > 0
+          || !!rawFullText?.trim()
+
+        if (hadContent) {
+          // If partial reply was already generated and persisted by stopCurrentGeneration, commit the lease
+          // so the model does not duplicate the dream or journal intrusion on the subsequent turn.
+          commitIntrusions(turnLeaseId)
+          if (hasDreamLease && activeCard.value) {
+            const currentDreamState = activeCard.value.extensions?.airi?.dreamState
+            void airiCardStore.updateCard((activeCard.value as any).id, {
+              ...toRaw(activeCard.value),
+              extensions: {
+                ...activeCard.value.extensions,
+                airi: {
+                  ...activeCard.value.extensions?.airi,
+                  dreamState: {
+                    ...currentDreamState,
+                    pendingDreamChips: undefined,
+                    pendingDreamTimestamp: undefined,
+                  },
+                },
+              },
+            })
+          }
+        }
+        else {
+          rollbackIntrusions(turnLeaseId)
+        }
+
         chatLog('performSend terminated by stopCurrentGeneration; skipping error path', { sessionId })
         return
       }
+
+      rollbackIntrusions(turnLeaseId)
 
       console.error('Error sending message:', { sessionId, generation, error })
 
@@ -1793,6 +1846,7 @@ Format your output as a raw thought log.`
       throw error
     }
     finally {
+      rollbackIntrusions(turnLeaseId)
       if (streamIdleTimeout)
         clearTimeout(streamIdleTimeout)
       activeSendHandles.delete(sessionId)

@@ -1,5 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
+import {
+  activeIntrusionLeases,
+  commitIntrusions,
+  leaseIntrusions,
+  pendingIntrusionStaging,
+  resetIntrusionStaging,
+  rollbackIntrusions,
+  stageArtistryIntrusion,
+  stageJournalIntrusion,
+} from './intrusion-staging'
 import {
   formatArtistryPrompt,
   formatClimaxPrompt,
@@ -103,6 +113,8 @@ describe('intrusions pure computational seams', () => {
       expect(prompt).toContain('5 minutes ago')
       expect(prompt).toContain('midnight ocean, shooting star')
       expect(prompt).toContain('had a dream about:')
+      expect(prompt).toContain('[TRANSIENT SUBJECTIVE EXPERIENCE]')
+      expect(prompt).toContain('This is an internal subjective dream reflection, not evidence that the dream events occurred in physical reality.')
     })
 
     it('enforces minimum 1 elapsed minute for immediate dreams', () => {
@@ -157,6 +169,8 @@ describe('intrusions pure computational seams', () => {
       expect(prompt).toContain('10 minutes ago')
       expect(prompt).toContain('"Today was quiet and reflective."')
       expect(prompt).toContain('find a natural way to reflect on this action')
+      expect(prompt).toContain('[INSPECTIVE JOURNAL REFLECTION]')
+      expect(prompt).toContain('This reflects your private thoughts at the time.')
     })
 
     it('supports custom journal template substitution', () => {
@@ -205,5 +219,85 @@ describe('intrusions pure computational seams', () => {
       })
       expect(prompt).toBe('Art generated: Sunset over mountains')
     })
+  })
+})
+
+describe('intrusion staging lease lifecycle', () => {
+  beforeEach(() => {
+    resetIntrusionStaging()
+  })
+
+  it('leases pending staging atomically and clears pending slots', () => {
+    stageJournalIntrusion({ entryText: 'Staged entry', timestamp: 1000 }, true)
+    stageArtistryIntrusion({ prompt: 'Staged painting', timestamp: 2000 }, true)
+
+    expect(pendingIntrusionStaging.journal).toBeDefined()
+    expect(pendingIntrusionStaging.artistry).toBeDefined()
+
+    const lease = leaseIntrusions('lease-1')
+
+    expect(lease.leaseId).toBe('lease-1')
+    expect(lease.journal?.entryText).toBe('Staged entry')
+    expect(lease.artistry?.prompt).toBe('Staged painting')
+    expect(activeIntrusionLeases.has('lease-1')).toBe(true)
+
+    // Pending staging is cleared immediately
+    expect(pendingIntrusionStaging.journal).toBeUndefined()
+    expect(pendingIntrusionStaging.artistry).toBeUndefined()
+  })
+
+  it('commits a lease, permanently removing it from active leases without restoring to pending', () => {
+    stageJournalIntrusion({ entryText: 'Commit me', timestamp: 1000 }, true)
+    leaseIntrusions('lease-commit')
+
+    expect(activeIntrusionLeases.has('lease-commit')).toBe(true)
+    commitIntrusions('lease-commit')
+
+    expect(activeIntrusionLeases.has('lease-commit')).toBe(false)
+    expect(pendingIntrusionStaging.journal).toBeUndefined()
+  })
+
+  it('rolls back a lease, restoring items to pending staging on failure or abort', () => {
+    stageJournalIntrusion({ entryText: 'Rollback me', timestamp: 1000 }, true)
+    stageArtistryIntrusion({ prompt: 'Rollback painting', timestamp: 2000 }, true)
+
+    leaseIntrusions('lease-rollback')
+    expect(pendingIntrusionStaging.journal).toBeUndefined()
+    expect(pendingIntrusionStaging.artistry).toBeUndefined()
+
+    rollbackIntrusions('lease-rollback')
+
+    expect(activeIntrusionLeases.has('lease-rollback')).toBe(false)
+    expect(pendingIntrusionStaging.journal?.entryText).toBe('Rollback me')
+    expect(pendingIntrusionStaging.artistry?.prompt).toBe('Rollback painting')
+  })
+
+  it('does not overwrite newer staged entries upon rollback', () => {
+    stageJournalIntrusion({ entryText: 'Old entry', timestamp: 1000 }, true)
+    leaseIntrusions('lease-old')
+
+    // A newer entry is staged while the turn was in-flight
+    stageJournalIntrusion({ entryText: 'Newer entry', timestamp: 2000 }, true)
+
+    rollbackIntrusions('lease-old')
+
+    // Newer entry is preserved, not overwritten by old leased entry
+    expect(pendingIntrusionStaging.journal?.entryText).toBe('Newer entry')
+    expect(pendingIntrusionStaging.journal?.timestamp).toBe(2000)
+  })
+
+  it('supports selective leasing via options', () => {
+    stageJournalIntrusion({ entryText: 'Journal entry', timestamp: 1000 }, true)
+    stageArtistryIntrusion({ prompt: 'Art prompt', timestamp: 2000 }, true)
+
+    // Lease only artistry, not journal
+    const lease = leaseIntrusions('lease-selective', { leaseJournal: false, leaseArtistry: true })
+
+    expect(lease.journal).toBeUndefined()
+    expect(lease.artistry?.prompt).toBe('Art prompt')
+
+    // Journal remains in pending staging, artistry was leased
+    expect(pendingIntrusionStaging.journal?.entryText).toBe('Journal entry')
+    expect(pendingIntrusionStaging.artistry).toBeUndefined()
   })
 })

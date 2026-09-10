@@ -5,7 +5,7 @@ import { ref } from 'vue'
 
 import { useChatOrchestratorStore } from '../chat'
 import { useLLM } from '../llm'
-import { pendingIntrusionStaging, stageJournalIntrusion } from './intrusion-staging'
+import { pendingIntrusionStaging, resetIntrusionStaging, stageArtistryIntrusion, stageJournalIntrusion } from './intrusion-staging'
 import { useChatSessionStore } from './session-store'
 
 vi.mock('vue-i18n', () => ({
@@ -15,6 +15,7 @@ vi.mock('vue-i18n', () => ({
 }))
 
 const activeCardRef = ref<any>({
+  id: 'card-airi',
   name: 'Airi',
   extensions: {
     airi: {
@@ -28,20 +29,27 @@ const activeCardRef = ref<any>({
         injectJournalContext: false,
         journalIntrusionPrompt: 'Reflect on: {journalEntryText}',
       },
+      artistry: {
+        injectArtistryContext: false,
+        artistryIntrusionPrompt: 'Art generated: {imagePrompt}',
+      },
     },
   },
 })
 
-vi.mock('../modules/airi-card', () => ({
-  useAiriCardStore: () => ({
-    activeCard: activeCardRef,
-    activeCardId: ref('card-airi'),
-    systemPrompt: ref(''),
-    isModelSyncPrevented: false,
-    getCard: vi.fn(() => activeCardRef.value),
-    updateCard: vi.fn(),
-  }),
-}))
+vi.mock('../modules/airi-card', () => {
+  const updateCard = vi.fn()
+  return {
+    useAiriCardStore: () => ({
+      activeCard: activeCardRef,
+      activeCardId: ref('card-airi'),
+      systemPrompt: ref(''),
+      isModelSyncPrevented: false,
+      getCard: vi.fn(() => activeCardRef.value),
+      updateCard,
+    }),
+  }
+})
 
 vi.mock('../providers', () => ({
   useProvidersStore: () => ({
@@ -115,6 +123,7 @@ describe('chat orchestrator prompt & grounding contracts (P1-P4, Intrusions)', (
   beforeEach(() => {
     pinia = createTestingPinia({ createSpy: vi.fn, stubActions: false })
     setActivePinia(pinia)
+    resetIntrusionStaging()
 
     // Reset card extensions
     activeCardRef.value.extensions.airi = {
@@ -127,6 +136,10 @@ describe('chat orchestrator prompt & grounding contracts (P1-P4, Intrusions)', (
       textJournal: {
         injectJournalContext: false,
         journalIntrusionPrompt: 'Reflect on: {journalEntryText}',
+      },
+      artistry: {
+        injectArtistryContext: false,
+        artistryIntrusionPrompt: 'Art generated: {imagePrompt}',
       },
     }
   })
@@ -447,5 +460,358 @@ describe('chat orchestrator prompt & grounding contracts (P1-P4, Intrusions)', (
       (m: any) => m.role === 'system' && m.content?.includes('Reflect empty:'),
     )
     expect(journalBlock).toBeDefined()
+  })
+
+  it('rolls back leased journal intrusion if model inference fails', async () => {
+    const chatStore = useChatOrchestratorStore(pinia)
+    const chatSession = useChatSessionStore(pinia)
+    const llmStore = useLLM(pinia)
+
+    const sessionId = 'session-intrusions-rollback'
+    chatSession.activeSessionId = sessionId
+    chatSession.setSessionMessages(sessionId, [])
+
+    activeCardRef.value.extensions.airi.textJournal = {
+      injectJournalContext: true,
+      journalIntrusionPrompt: 'Reflect: {journalEntryText}',
+    }
+
+    stageJournalIntrusion({
+      entryText: 'Important thought to retain on failure',
+      timestamp: 1234567,
+    })
+
+    expect(pendingIntrusionStaging.journal).toBeDefined()
+
+    // Simulate model inference failing with a provider error
+    llmStore.stream = vi.fn(async () => {
+      throw new Error('503 Service Unavailable: Model overloaded')
+    })
+
+    await expect(chatStore.ingest('Hello?', { triggerOnly: false }, sessionId)).rejects.toThrow('503 Service Unavailable')
+
+    // ASSERT: Staging was restored to pending staging on failure
+    expect(pendingIntrusionStaging.journal).toBeDefined()
+    expect(pendingIntrusionStaging.journal?.entryText).toBe('Important thought to retain on failure')
+  })
+
+  it('commits and permanently clears leased journal intrusion after successful model response', async () => {
+    const chatStore = useChatOrchestratorStore(pinia)
+    const chatSession = useChatSessionStore(pinia)
+    const llmStore = useLLM(pinia)
+
+    const sessionId = 'session-intrusions-commit'
+    chatSession.activeSessionId = sessionId
+    chatSession.setSessionMessages(sessionId, [])
+
+    activeCardRef.value.extensions.airi.textJournal = {
+      injectJournalContext: true,
+      journalIntrusionPrompt: 'Reflect: {journalEntryText}',
+    }
+
+    stageJournalIntrusion({
+      entryText: 'Delivered journal entry',
+      timestamp: 1234567,
+    })
+
+    expect(pendingIntrusionStaging.journal).toBeDefined()
+
+    llmStore.stream = vi.fn(async (_model, _provider, _msgs, options) => {
+      await options.onStreamEvent({
+        type: 'text-delta',
+        text: 'I read your journal and I understand.',
+      })
+    })
+
+    await chatStore.ingest('Hello', { triggerOnly: false }, sessionId)
+
+    // ASSERT: After successful stream, lease is committed and staging is permanently consumed
+    expect(pendingIntrusionStaging.journal).toBeUndefined()
+  })
+
+  it('preserves card dreamState when model inference fails and clears it on success', async () => {
+    const chatStore = useChatOrchestratorStore(pinia)
+    const chatSession = useChatSessionStore(pinia)
+    const llmStore = useLLM(pinia)
+    const { useAiriCardStore } = await import('../modules/airi-card')
+    const cardStore = useAiriCardStore()
+
+    const sessionId = 'session-dream-preservation'
+    chatSession.activeSessionId = sessionId
+    chatSession.setSessionMessages(sessionId, [])
+
+    activeCardRef.value.extensions.airi.dreamState = {
+      injectDreamContext: true,
+      dreamIntrusionPrompt: 'Dreaming of: {insertEchoChips}',
+      pendingDreamChips: ['cosmic nebula', 'floating city'],
+      pendingDreamTimestamp: Date.now() - 60000,
+    }
+
+    // 1. Turn fails -> dreamState should NOT be cleared from card
+    llmStore.stream = vi.fn(async () => {
+      throw new Error('Inference connection reset')
+    })
+
+    await expect(chatStore.ingest('Wake up', { triggerOnly: false }, sessionId)).rejects.toThrow('Inference connection reset')
+
+    // Assert updateCard was NOT called to clear dream chips on failure
+    expect(cardStore.updateCard).not.toHaveBeenCalled()
+    expect(activeCardRef.value.extensions.airi.dreamState.pendingDreamChips).toEqual(['cosmic nebula', 'floating city'])
+
+    // 2. Turn succeeds -> dreamState is cleared via cardStore.updateCard
+    llmStore.stream = vi.fn(async (_model, _provider, _msgs, options) => {
+      await options.onStreamEvent({
+        type: 'text-delta',
+        text: 'I woke up remembering the cosmic nebula.',
+      })
+    })
+
+    await chatStore.ingest('Wake up now', { triggerOnly: false }, sessionId)
+
+    expect(cardStore.updateCard).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        extensions: expect.objectContaining({
+          airi: expect.objectContaining({
+            dreamState: expect.objectContaining({
+              pendingDreamChips: undefined,
+              pendingDreamTimestamp: undefined,
+            }),
+          }),
+        }),
+      }),
+    )
+  })
+
+  it('rolls back artistry intrusion on stream failure and commits on stream success', async () => {
+    const chatStore = useChatOrchestratorStore(pinia)
+    const chatSession = useChatSessionStore(pinia)
+    const llmStore = useLLM(pinia)
+
+    const sessionId = 'session-artistry-lifecycle'
+    chatSession.activeSessionId = sessionId
+    chatSession.setSessionMessages(sessionId, [])
+
+    activeCardRef.value.extensions.airi.artistry = {
+      injectArtistryContext: true,
+      artistryIntrusionPrompt: 'Artwork reaction: {imagePrompt}',
+    }
+
+    stageArtistryIntrusion({
+      prompt: 'Neon cybernetic cityscape at twilight',
+      timestamp: Date.now(),
+    })
+
+    expect(pendingIntrusionStaging.artistry).toBeDefined()
+
+    // 1. First attempt fails
+    llmStore.stream = vi.fn(async () => {
+      throw new Error('503 Overloaded')
+    })
+
+    await expect(chatStore.ingest('Look at my art', { triggerOnly: false }, sessionId)).rejects.toThrow('503 Overloaded')
+
+    // Staging was restored to pending
+    expect(pendingIntrusionStaging.artistry).toBeDefined()
+    expect(pendingIntrusionStaging.artistry?.prompt).toBe('Neon cybernetic cityscape at twilight')
+
+    // 2. Second attempt succeeds
+    let injectedPrompt = ''
+    llmStore.stream = vi.fn(async (_model, _provider, msgs, options) => {
+      const sys = msgs.find((m: any) => m.role === 'system' && m.content?.includes('Artwork reaction: Neon cybernetic cityscape at twilight'))
+      injectedPrompt = sys?.content || ''
+      await options.onStreamEvent({
+        type: 'text-delta',
+        text: 'The cybernetic cityscape looks incredible!',
+      })
+    })
+
+    await chatStore.ingest('Look at my art retry', { triggerOnly: false }, sessionId)
+
+    expect(injectedPrompt).toContain('Artwork reaction: Neon cybernetic cityscape at twilight')
+    expect(pendingIntrusionStaging.artistry).toBeUndefined()
+  })
+
+  it('hands off restored intrusion to the next queued message when first message fails', async () => {
+    const chatStore = useChatOrchestratorStore(pinia)
+    const chatSession = useChatSessionStore(pinia)
+    const llmStore = useLLM(pinia)
+
+    const sessionId = 'session-queue-handoff'
+    chatSession.activeSessionId = sessionId
+    chatSession.setSessionMessages(sessionId, [])
+
+    activeCardRef.value.extensions.airi.textJournal = {
+      injectJournalContext: true,
+      journalIntrusionPrompt: 'Reflect: {journalEntryText}',
+    }
+
+    stageJournalIntrusion({
+      entryText: 'Handoff to next send on error',
+      timestamp: Date.now(),
+    })
+
+    let callCount = 0
+    let secondCallSystemPrompt = ''
+
+    llmStore.stream = vi.fn(async (_model, _provider, msgs, options) => {
+      callCount++
+      if (callCount === 1) {
+        throw new Error('500 Internal Server Error')
+      }
+      const sysMsg = msgs.find((m: any) => m.role === 'system' && m.content?.includes('Handoff to next send on error'))
+      secondCallSystemPrompt = sysMsg?.content || ''
+      await options.onStreamEvent({
+        type: 'text-delta',
+        text: 'Recovered on second turn!',
+      })
+    })
+
+    // Queue first send (will fail)
+    const p1 = chatStore.ingest('First message', { triggerOnly: false }, sessionId)
+    // Queue second send (queued behind first)
+    const p2 = chatStore.ingest('Second message', { triggerOnly: false }, sessionId)
+
+    await expect(p1).rejects.toThrow('500 Internal Server Error')
+    await p2
+
+    expect(secondCallSystemPrompt).toContain('Handoff to next send on error')
+    expect(pendingIntrusionStaging.journal).toBeUndefined()
+  })
+
+  it('rolls back intrusion when user stops generation before any tokens stream', async () => {
+    const chatStore = useChatOrchestratorStore(pinia)
+    const chatSession = useChatSessionStore(pinia)
+    const llmStore = useLLM(pinia)
+
+    const sessionId = 'session-stop-empty'
+    chatSession.activeSessionId = sessionId
+    chatSession.setSessionMessages(sessionId, [])
+
+    activeCardRef.value.extensions.airi.textJournal = {
+      injectJournalContext: true,
+      journalIntrusionPrompt: 'Reflect: {journalEntryText}',
+    }
+
+    stageJournalIntrusion({
+      entryText: 'Keep this on empty stop',
+      timestamp: Date.now(),
+    })
+
+    llmStore.stream = vi.fn(async () => {
+      // User clicks stop before any tokens arrive
+      await chatStore.stopCurrentGeneration(sessionId)
+      const err = new Error('Generation stopped by user')
+      err.name = 'AbortError'
+      throw err
+    })
+
+    await chatStore.ingest('Hi', { triggerOnly: false }, sessionId)
+
+    // Staging was rolled back because no tokens were emitted
+    expect(pendingIntrusionStaging.journal).toBeDefined()
+    expect(pendingIntrusionStaging.journal?.entryText).toBe('Keep this on empty stop')
+  })
+
+  it('commits intrusion when user stops generation after partial tokens stream', async () => {
+    const chatStore = useChatOrchestratorStore(pinia)
+    const chatSession = useChatSessionStore(pinia)
+    const llmStore = useLLM(pinia)
+
+    const sessionId = 'session-stop-partial'
+    chatSession.activeSessionId = sessionId
+    chatSession.setSessionMessages(sessionId, [])
+
+    activeCardRef.value.extensions.airi.textJournal = {
+      injectJournalContext: true,
+      journalIntrusionPrompt: 'Reflect: {journalEntryText}',
+    }
+
+    stageJournalIntrusion({
+      entryText: 'Consumed because partial text was spoken',
+      timestamp: Date.now(),
+    })
+
+    llmStore.stream = vi.fn(async (_model, _provider, _msgs, options) => {
+      // Stream partial token first
+      await options.onStreamEvent({
+        type: 'text-delta',
+        text: 'I read your journal and started thinking...',
+      })
+      // User clicks stop after receiving partial text
+      await chatStore.stopCurrentGeneration(sessionId)
+      const err = new Error('Generation stopped by user')
+      err.name = 'AbortError'
+      throw err
+    })
+
+    await chatStore.ingest('Hi', { triggerOnly: false }, sessionId)
+
+    // Staging was committed because partial text was persisted
+    expect(pendingIntrusionStaging.journal).toBeUndefined()
+  })
+
+  it('retains intrusion context across multi-hop bridged steps and commits only after final step', async () => {
+    const chatStore = useChatOrchestratorStore(pinia)
+    const chatSession = useChatSessionStore(pinia)
+    const llmStore = useLLM(pinia)
+
+    const sessionId = 'session-multihop-intrusion'
+    chatSession.activeSessionId = sessionId
+    chatSession.setSessionMessages(sessionId, [])
+
+    activeCardRef.value.extensions.airi.textJournal = {
+      injectJournalContext: true,
+      journalIntrusionPrompt: 'Reflect: {journalEntryText}',
+    }
+
+    stageJournalIntrusion({
+      entryText: 'Multi-hop journal memory',
+      timestamp: Date.now(),
+    })
+
+    const dummyTool = {
+      type: 'function' as const,
+      function: {
+        name: 'search_notes',
+        description: 'Search personal notes',
+        parameters: { type: 'object', properties: {} },
+      },
+      execute: async () => 'Found 1 note about walking',
+    }
+
+    let hopCount = 0
+    const hopPrompts: string[] = []
+
+    llmStore.stream = vi.fn(async (_model, _provider, msgs, options) => {
+      hopCount++
+      const sys = msgs.find((m: any) => m.role === 'system' && m.content?.includes('Multi-hop journal memory'))
+      hopPrompts.push(sys?.content || '')
+
+      if (hopCount === 1) {
+        // Step 1: LLM outputs a bridged tool marker with arguments to trigger step 2
+        await options.onStreamEvent({
+          type: 'text-delta',
+          text: '[call_tool:search_notes, query: "walking"]',
+        })
+      }
+      else {
+        // Step 2: Final response text
+        await options.onStreamEvent({
+          type: 'text-delta',
+          text: 'Found the note and reflected on our walk.',
+        })
+      }
+    })
+
+    await chatStore.ingest('Find notes', { triggerOnly: false, tools: [dummyTool] }, sessionId)
+
+    // Verify both hops received the intrusion context
+    expect(hopCount).toBe(2)
+    expect(hopPrompts[0]).toContain('Multi-hop journal memory')
+    expect(hopPrompts[1]).toContain('Multi-hop journal memory')
+
+    // Staging is committed only after the whole turn completes
+    expect(pendingIntrusionStaging.journal).toBeUndefined()
   })
 })
