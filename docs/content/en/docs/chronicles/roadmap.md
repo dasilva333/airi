@@ -64,17 +64,11 @@ This document tracks all active pending items, architectural roadmaps, and featu
     *   **Engine B (RWKV-7 WebGPU + S0 State Cartridge)**: Dedicated offline on-device neural model running with pre-conditioned `p5-watercolor-1.5b.state` (12.19 MB).
 *   **UI & Pipeline Integration**: Connect settings panel (`packages/stage-pages/src/pages/settings/providers/artistry/code-painter.vue`), switchboard (`artistry.vue`), and execution runtime in `artistry.ts` / `artistry-autonomous.ts`.
 
-### Computer Use, Capability Packs & Ambient Group Bot Dynamics
+### Desktop Computer-Use MCP Architecture & Ambient Group Bot Dynamics
 *References: [project-selective-upstream-sync-shortlist.md](../../../../../project-selective-upstream-sync-shortlist.md) | [design-conversational-group-bot.md](../../../../../design-conversational-group-bot.md)*
-*   **Desktop Observation & Upstream Cherry-Pick Candidate**: Upstream Moeru implementation is maturing; marked for potential cherry-pick review for `computer-use-mcp` service + ghost pointer UX overlays.
-*   **AiriCard Capability Packs Architecture (`CardCreationTabTools.vue`)**:
-    *   Replace flat tool toggles with progressive disclosure **Capability Packs**:
-        *   🌐 **Web & Research Pack**: `fetch_url` (instant Markdown RAG) + `web_search`.
-        *   📁 **Local Workspace Pack (Desktop Electron Only)**: Turnkey `@modelcontextprotocol/server-filesystem` MCP with 1-click native folder picker.
-        *   🎨 **Visual Artistry Pack**: `image_journal` + `generate_motion`.
-        *   🧠 **Sacred Memory Pack**: `text_journal` LTMM entries.
-        *   ⚙️ **Custom Developer MCP**: Raw `mcp.json` stdio server manager.
-    *   Enforce tri-platform tool capability gating (Desktop Electron vs. Web Browser vs. Mobile Companion).
+*   **Desktop Computer-Use MCP Integration (`@proj-airi/computer-use-mcp`) [Deferred]**:
+    *   Technical evaluation completed for upstream's macOS orchestration service `services/computer-use-mcp` as an architectural addition.
+    *   **Scope & Deferred Rationale**: Provides native desktop actions (Quartz clicking/typing/hotkeys), browser DOM bridge (`ws://127.0.0.1:8765`), and terminal runner. Deferred due to non-trivial configuration footprint: requires macOS Accessibility/Screen Recording permissions, interactive action-approval dialogs, application whitelisting, and Chrome extension pairing.
 *   **Character Card Density & Compliance Model (`CardCreationTabGeneration.vue`)**:
     *   Introduce paired physical execution bounds (`maxTokens`, `maxBubblesPerTurn`, `maxLinesPerTarget`) coupled with dynamic system prompt compliance prose teaching models how to naturally chunk dialogue without performative cadence.
 *   **Discord Group Dynamics & Ambient Tuning (`MessagingDiscord.vue` `'group'` Tab)**:

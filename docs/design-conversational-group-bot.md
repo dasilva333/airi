@@ -478,75 +478,9 @@ Rather than treating response density and multi-bubble pacing purely as a Discor
     1. **Physical Execution Bounds:** `generation.known.maxTokens`, `maxBubblesPerTurn`, `maxLinesPerTarget`.
     2. **Prompt Compliance Directive:** Automatically compiled system instructions that teach the model *how* to chunk thoughts, when to emit afterthoughts, and how to avoid performative/scripted timing.
 
----
-
-### 5.7. First-Party Native Tools & Turnkey Filesystem MCP (Platform-Gated)
-
-As observed with Nanori's instant markdown link ingestion, everyday conversational tools perform best when built natively into the engine, while mature external tools (like local filesystem access) should be turnkey presets:
-
-#### 1. Turnkey Filesystem MCP Preset (`@modelcontextprotocol/server-filesystem`)
-* The official `@modelcontextprotocol/server-filesystem` is a mature, high-star MCP package requiring only a target root directory.
-* **1-Click Turnkey Configuration in `CardCreationTabTools.vue`:**
-  * Rather than forcing users to manually author JSON blocks in `mcp.json`, the UI presents a simple checkbox: `[X] Enable Local File System Access` paired with a **Native Folder Picker** button.
-  * When a folder is selected via Electron's `dialog.showOpenDialog`, the main process automatically registers the server into `mcp.json`:
-    ```json
-    {
-      "mcpServers": {
-        "filesystem": {
-          "command": "npx",
-          "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/username/Projects"],
-          "enabled": true
-        }
-      }
-    }
-    ```
-
-#### 2. Tri-Platform Tool Gating Matrix (`stage-tamagotchi` vs `stage-web` vs `stage-pocket`)
-To prevent broken UI controls on sandboxed platforms, tools are strictly gated by runtime capabilities:
-
-| Tool / Capability | Desktop Electron (`stage-tamagotchi`) | Web Browser (`stage-web`) | Mobile Companion (`stage-pocket`) |
-| :--- | :--- | :--- | :--- |
-| **`fetch_url` / `read_url`** | Full Native HTTP / Cheerio | CORS Reverse-Proxy Worker (`apps/stage-edge`) | Native Capacitor HTTP Plugin |
-| **`web_search`** | Full API / DuckDuckGo Provider | Edge Worker Relay Provider | Edge Worker Relay Provider |
-| **`filesystem` MCP** | Full Stdio Subprocess (`npx`) | **Hidden / Unsupported** (Sandbox) | **Hidden / Unsupported** (Sandbox) |
-| **Custom Stdio MCP** | Full Stdio Subprocess (`mcp.json`)| **Hidden / Unsupported** | **Hidden / Unsupported** |
-| **`text_journal` / `image_journal`** | IndexedDB + LocalForage | IndexedDB + LocalForage | IndexedDB + Capacitor SQLite |
-
-#### 3. Capability Packs Architecture (Progressive Disclosure Tool Bundles)
-To solve the dual UX pitfalls identified during community testing—avoiding both the opaque *"Single Mega-Switch"* (which dumps 25 unneeded tools into prompt context) and the *"Hundred Toggles from Hell"* (which causes configuration fatigue)—AIRI organizes all conversational and external tools into **Curated Capability Packs**:
-
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                   AiriCard Tools: Capability Packs                       │
-├───────────────────────────────┬──────────────────────────────────────────┤
-│ Pack Name                     │ Included Tools & Native Functions        │
-├───────────────────────────────┼──────────────────────────────────────────┤
-│ 🌐 Web & Research Pack        │ • fetch_url (instant Markdown/text RAG) │
-│                               │ • web_search (live duckduckgo search)    │
-├───────────────────────────────┼──────────────────────────────────────────┤
-│ 📁 Local Workspace Pack       │ • @modelcontextprotocol/server-filesystem│
-│    (Desktop Electron Only)    │ • Turnkey Native Folder Picker           │
-├───────────────────────────────┼──────────────────────────────────────────┤
-│ 🎨 Visual Artistry Pack       │ • image_journal (scene & selfie art)     │
-│                               │ • generate_motion (kinetic avatar cues)  │
-├───────────────────────────────┼──────────────────────────────────────────┤
-│ 🧠 Sacred Memory Pack         │ • text_journal (immutable LTMM entries)  │
-├───────────────────────────────┼──────────────────────────────────────────┤
-│ ⚙️ Custom Developer MCP        │ • mcp.json raw stdio server manager      │
-│    (Collapsible / Advanced)   │ • Third-party database & API bridges     │
-└───────────────────────────────┴──────────────────────────────────────────┘
-```
-
-* **Progressive Disclosure UX:**
-  * **Top-Level:** Each pack has a single clean master card with an active toggle (`[X] Enabled`) and a concise 1-line description.
-  * **Expandable Drawer:** Clicking the card's chevron discloses sub-tool granular toggles (e.g. enabling `fetch_url` while disabling `web_search`) and tool-specific prompt instructions for power users.
-  * **Horizontal Scalability:** As new tools are authored, they are added inside existing packs rather than growing the main tools tab vertically.
-
----
-
 ## 6. UI Specification: "Group Dynamics & Ambient Tuning" Tab
 
-In `packages/stage-ui/src/components/modules/MessagingDiscord.vue`, a new dedicated tab **`'group'`** is added alongside `'bot'`, `'relay'`, and `'acl'`. It grounds itself in AIRI's existing `/chatmode` engine, character profile cadence settings, and first-party tool capability packs:
+In `packages/stage-ui/src/components/modules/MessagingDiscord.vue`, a new dedicated tab **`'group'`** is added alongside `'bot'`, `'relay'`, and `'acl'`. It grounds itself in AIRI's existing `/chatmode` engine and character profile cadence settings:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -575,12 +509,6 @@ In `packages/stage-ui/src/components/modules/MessagingDiscord.vue`, a new dedica
 │    ( ) Reserved: Speaks only when explicitly addressed or directly asked │
 │    (●) Natural Conversationalist: Participates smoothly in room banter   │
 │    ( ) Hyper-Enthusiastic (Sarah Mode): Quips on micro-messages & banter │
-│                                                                          │
-│ 4. Active Capability Packs                                               │
-│    [X] 🌐 Web & Research Pack (fetch_url + web_search)            [ ▼ ]   │
-│    [X] 📁 Local Workspace Pack (Filesystem MCP + Folder Picker)   [ ▼ ]   │
-│    [X] 🎨 Visual Artistry Pack (image_journal + generate_motion)  [ ▼ ]   │
-│    [X] 🧠 Sacred Memory Pack (text_journal LTMM)                  [ ▼ ]   │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 

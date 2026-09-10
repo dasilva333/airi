@@ -6,6 +6,210 @@
 
 ---
 
+## [2026-09-10] Upstream Delta: `3e94ea81..2904b795` (12 commits, 126 files, 20 PR update(s))
+
+### 🎯 Executive Highlights
+* **Active Focus**: Upstream merged 12 commits (`3e94ea81..2904b795`) focusing heavily on chat swipe-to-reply interactions and touch gestures (#2489, #2508, #2514), speech provider persistence and initial TTS login catalog restoration (#2497, #2490), Turbo-powered typecheck optimization (#2499), and browser test stabilization (#2510). Active PR radar includes Live2D ambient lighting (#2498 [Draft]), folder-based plugin imports (#2506 [Draft]), provider cloud replica sync (#2471), and security reports (#2511, #2512).
+* **Cherry-Pick Candidates**:
+  - ⭐ **PR #2497 (`fix(stage-ui): persist speech provider settings`) [Merged]**: High-value bug fix addressing Issue #2449 where newly entered speech credentials fail to persist due to computed configs masking uninitialized providers. Forward-port `patchProviderConfig` and the existence check in `packages/stage-ui/src/stores/providers/` (`provider.ts`, `config.ts`).
+  - ⭐ **PR #2499 (`chore: optimize typecheck execution`) [Merged]**: Monorepo speedup configuring `turbo run typecheck` with input hashing in `turbo.json` and updating root `package.json`, dramatically speeding up typecheck passes.
+  - 🔍 **PR #2490 (`fix(stage-ui): restore TTS after first login`) [Merged]**: Important fix preventing unauthenticated/tokenless requests from caching empty voice catalogs. Inspect selectively; adapt the cache-guard pattern without pulling upstream's full leader/follower store rewrite.
+* **Divergence / Collision Warnings**:
+  - 🚨 **PR #2489 / #2508 / #2514 (`feat(stage-ui): add swipe to reply for chat messages`) [Merged]**: Massive touch/reply overhaul (+3,646 LOC across 57 files). Deeply conflicts with our fork's custom desktop chatbox, message frame, and interaction pipeline. Do NOT merge directly; quote/reply UI should be ported as a standalone component if desired.
+  - ⚠️ **PR #2490 (`packages/stage-ui/src/stores/modules/speech.ts`)**: Rewrites speech store synchronization around leader/follower Pinia context (+333 lines). High conflict potential with our fork's audio pipeline and speech runtime.
+  - ⚪ **PR #2494 (`services/computer-use-mcp`) & PR #2513 (`Cloudflare preview origins`)**: Upstream-specific services and hosted web auth infrastructure; ignore for desktop fork.
+
+### 📋 Upstream Commits
+- `2904b795dd` fix(stage-ui): keep mobile swipe attached to touch (#2514) [#2514](https://github.com/moeru-ai/airi/pull/2514) _(Neko, 2026-09-10)_
+- `9a76eaec32` fix(server): trust moeru-ai Cloudflare Workers preview origins (#2513) [#2513](https://github.com/moeru-ai/airi/pull/2513) _(Lulu, 2026-09-10)_
+- `3c9e60907c` test(stage-tamagotchi): stabilize interactive area browser fixtures (#2510) [#2510](https://github.com/moeru-ai/airi/pull/2510) _(leafyy, 2026-09-10)_
+- `21d0e9d3a7` fix(stage-ui): use touch events for mobile swipe (#2508) [#2508](https://github.com/moeru-ai/airi/pull/2508) _(Neko, 2026-09-10)_
+- `13ae708541` chore(nix): update assets hash (#2501) [#2501](https://github.com/moeru-ai/airi/pull/2501) _(Weathercold, 2026-09-10)_
+- `b2a7dc252c` fix(stage-ui): center mobile user message text (#2505) [#2505](https://github.com/moeru-ai/airi/pull/2505) _(Neko, 2026-09-10)_
+- `dfc6951a55` chore(nix): update pnpmDeps hash (#2500) [#2500](https://github.com/moeru-ai/airi/pull/2500) _(Weathercold, 2026-09-09)_
+- `d7f38783f7` fix(stage-ui): persist speech provider settings (#2497) [#2497](https://github.com/moeru-ai/airi/pull/2497) _(leafyy, 2026-09-10)_
+- `352a9e389b` fix(stage-ui): restore TTS after first login (#2490) [#2490](https://github.com/moeru-ai/airi/pull/2490) _(Lovehsigure_520, 2026-09-10)_
+- `41f9fb616b` fix(computer-use-mcp): fix type errors at serivce/computer-use-mcp (#2494) [#2494](https://github.com/moeru-ai/airi/pull/2494) _(Younsang Na, 2026-09-10)_
+- `db2f8e3064` chore: optimize typecheck execution  (#2499) [#2499](https://github.com/moeru-ai/airi/pull/2499) _(Younsang Na, 2026-09-10)_
+- `0d7b5e9a60` feat(stage-ui): add swipe to reply for chat messages (#2489) [#2489](https://github.com/moeru-ai/airi/pull/2489) _(Neko, 2026-09-10)_
+
+### 🔬 Subsystem Breakdown
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 4 file(s) (+2/-6)
+- `apps/stage-pocket/package.json` *(+0/-1)*
+- `apps/stage-pocket/tsconfig.json` *(+1/-2)*
+- `apps/stage-web/package.json` *(+0/-1)*
+- `apps/stage-web/tsconfig.json` *(+1/-2)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 9 file(s) (+683/-119)
+- `apps/stage-tamagotchi/package.json` *(+0/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.browser.test.ts` *(+316/-12)*
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` *(+97/-93)*
+- `apps/stage-tamagotchi/src/renderer/components/chat-image-attachment-preview.browser.test.ts` *(+32/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/chat-image-attachment-preview.vue` *(+32/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/chat-viewport-layout.browser.test.ts` *(+148/-7)*
+- `apps/stage-tamagotchi/src/renderer/components/chat-viewport-layout.vue` *(+33/-3)*
+- `apps/stage-tamagotchi/tsconfig.json` *(+1/-2)*
+- `apps/stage-tamagotchi/vitest.config.ts` *(+24/-1)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 7 file(s) (+40/-36)
+- `apps/ui-server-auth/package.json` *(+0/-1)*
+- `apps/ui-server-auth/tsconfig.json` *(+1/-2)*
+- `package.json` *(+3/-2)*
+- `packages/stage-ui/package.json` *(+2/-1)*
+- `packages/stage-ui/tsconfig.json` *(+1/-2)*
+- `pnpm-lock.yaml` *(+29/-28)*
+- `turbo.json` *(+4/-0)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 79 file(s) (+4905/-362)
+- `nix/assets-hash.txt` *(+1/-1)*
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/provider-inference/src/providers/cloud/elevenlabs/index.ts` *(+1/-0)*
+- `packages/provider-inference/src/providers/cloud/google-gemini-audio-speech/index.ts` *(+1/-0)*
+- `packages/provider-inference/src/providers/cloud/mimo-audio/index.ts` *(+1/-0)*
+- `packages/provider-inference/src/providers/cloud/minimax-speech/index.ts` *(+1/-0)*
+- `packages/provider-inference/src/providers/cloud/openai-audio/index.ts` *(+2/-0)*
+- `packages/provider-inference/src/providers/cloud/openrouter-audio-speech/index.ts` *(+1/-0)*
+- `packages/provider-inference/src/providers/cloud/unspeech/index.ts` *(+4/-0)*
+- `packages/provider-inference/src/providers/local/index-tts-vllm/index.ts` *(+1/-0)*
+- `packages/provider-inference/src/providers/local/player2-speech/index.ts` *(+1/-0)*
+- `packages/provider-inference/src/providers/local/speech-noop/index.ts` *(+1/-0)*
+- `packages/provider-inference/src/providers/local/voicevox/define.ts` *(+1/-0)*
+- `packages/provider-inference/src/types.ts` *(+12/-1)*
+- `packages/scenarios-stage-tamagotchi-electron/src/context.test.ts` *(+1/-0)*
+- `packages/scenarios-stage-tamagotchi-electron/src/context.ts` *(+9/-0)*
+- `packages/scenarios-stage-tamagotchi-electron/src/index.ts` *(+2/-0)*
+- `packages/scenarios-stage-tamagotchi-electron/src/runtime/gestures.test.ts` *(+215/-0)*
+- `packages/scenarios-stage-tamagotchi-electron/src/runtime/gestures.ts` *(+144/-0)*
+- `packages/stage-ui/src/components/gestures/index.ts` *(+4/-0)*
+- `packages/stage-ui/src/components/gestures/swipeable.ts` *(+31/-0)*
+- `packages/stage-ui/src/components/gestures/swipeable.vue` *(+306/-0)*
+- `packages/stage-ui/src/components/gestures/use-swipe-gesture.browser.test.ts` *(+81/-0)*
+- `packages/stage-ui/src/components/gestures/use-swipe-gesture.ts` *(+55/-0)*
+- `packages/stage-ui/src/components/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/action-menu/index.test.ts` *(+7/-43)*
+- `packages/stage-ui/src/components/scenarios/chat/components/action-menu/index.vue` *(+59/-59)*
+- `packages/stage-ui/src/components/scenarios/chat/components/action-menu/menu-items.ts` *(+11/-2)*
+- `packages/stage-ui/src/components/scenarios/chat/components/assistant-item.vue` *(+10/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/history-message-frame.vue` *(+61/-2)*
+- `packages/stage-ui/src/components/scenarios/chat/components/history.browser.test.ts` *(+1215/-1)*
+- `packages/stage-ui/src/components/scenarios/chat/components/history.vue` *(+59/-2)*
+- `packages/stage-ui/src/components/scenarios/chat/components/reply-preview.vue` *(+83/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/reply-quote.vue` *(+40/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/user-item.vue` *(+12/-1)*
+- `packages/stage-ui/src/components/scenarios/chat/composables/use-chat-composer.test.ts` *(+88/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/composables/use-chat-composer.ts` *(+152/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/composables/use-chat-history-scroll.browser.test.ts` *(+49/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/composables/use-chat-history-scroll.ts` *(+4/-1)*
+- `packages/stage-ui/src/components/scenarios/chat/composables/use-virtualizer-scroll.ts` *(+15/-3)*
+- `packages/stage-ui/src/components/scenarios/chat/index.ts` *(+5/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/reply.test.ts` *(+31/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/reply.ts` *(+45/-0)*
+- `packages/stage-ui/src/components/scenarios/providers/speech-provider-settings.vue` *(+3/-4)*
+- `packages/stage-ui/src/components/scenarios/providers/voicevox-family-settings.browser.test.ts` *(+38/-2)*
+- `packages/stage-ui/src/composables/use-data-maintenance.browser.test.ts` *(+102/-0)*
+- `packages/stage-ui/src/composables/use-data-maintenance.ts` *(+19/-10)*
+- `packages/stage-ui/src/database/repos/chat-sessions.repo.ts` *(+1/-0)*
+- `packages/stage-ui/src/libs/chat-sync/wire-message.test.ts` *(+16/-0)*
+- `packages/stage-ui/src/libs/chat-sync/wire-message.ts` *(+5/-0)*
+- `packages/stage-ui/src/libs/pinia/setup-synced.ts` *(+6/-15)*
+- `packages/stage-ui/src/libs/pinia/synced-context.ts` *(+15/-0)*
+- `packages/stage-ui/src/libs/providers/providers/kokoro-local/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/libs/providers/providers/official/index.ts` *(+72/-90)*
+- `packages/stage-ui/src/stores/modules/airi-card-inheritance.test.ts` *(+128/-0)*
+- `packages/stage-ui/src/stores/modules/airi-card.test.ts` *(+5/-14)*
+- `packages/stage-ui/src/stores/modules/airi-card.ts` *(+43/-18)*
+- `packages/stage-ui/src/stores/modules/speech-card-preview.browser.test.ts` *(+97/-0)*
+- `packages/stage-ui/src/stores/modules/speech-settings.browser.test.ts` *(+173/-0)*
+- `packages/stage-ui/src/stores/modules/speech.browser.test.ts` *(+668/-0)*
+- `packages/stage-ui/src/stores/modules/speech.test.ts` *(+309/-23)*
+- `packages/stage-ui/src/stores/modules/speech.ts` *(+288/-45)*
+- `packages/stage-ui/vitest.config.ts` *(+8/-0)*
+- `pnpm-workspace.yaml` *(+1/-1)*
+- `server/apps/api/src/routes/chat-ws/v1/rpc.contract.test.ts` *(+20/-0)*
+- `server/apps/api/src/services/domain/chats.test.ts` *(+31/-0)*
+- `server/apps/api/src/services/domain/chats.ts` *(+5/-7)*
+- `server/apps/api/src/utils/origin.ts` *(+1/-1)*
+- `server/apps/auth/src/origin.ts` *(+1/-1)*
+- `server/apps/auth/src/tests/auth.test.ts` *(+2/-2)*
+- `server/packages/server-sdk-shared/src/chat.ts` *(+2/-0)*
+- `services/computer-use-mcp/src/bin/smoke-workflow.ts` *(+1/-1)*
+- `services/computer-use-mcp/src/browser-dom/extension-bridge.test.ts` *(+2/-2)*
+- `services/computer-use-mcp/src/chrome-session-manager.test.ts` *(+8/-3)*
+- `services/computer-use-mcp/src/chrome-session-manager.ts` *(+1/-1)*
+- `services/computer-use-mcp/src/policy.ts` *(+1/-1)*
+- `services/computer-use-mcp/src/server/action-executor.ts` *(+4/-4)*
+- `services/computer-use-mcp/src/server/register-chrome-session.test.ts` *(+2/-0)*
+- `services/computer-use-mcp/src/types.ts` *(+2/-0)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 3 file(s) (+232/-3)
+- `packages/core-agent/src/runtime/chat-orchestrator-runtime.test.ts` *(+150/-0)*
+- `packages/core-agent/src/runtime/chat-orchestrator-runtime.ts` *(+80/-3)*
+- `packages/core-agent/src/types/chat.ts` *(+2/-0)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 2 file(s) (+12/-0)
+- `packages/i18n/src/locales/en/stage.yaml` *(+6/-0)*
+- `packages/i18n/src/locales/zh-Hans/stage.yaml` *(+6/-0)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 1 file(s) (+24/-1)
+- `packages/scenarios-stage-tamagotchi-electron/README.md` *(+24/-1)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 5 file(s) (+106/-81)
+- `packages/stage-layouts/package.json` *(+0/-1)*
+- `packages/stage-layouts/src/components/Layouts/InteractiveArea.vue` *(+18/-5)*
+- `packages/stage-layouts/src/components/Layouts/MobileInteractiveArea.vue` *(+51/-37)*
+- `packages/stage-layouts/src/components/Widgets/ChatArea.vue` *(+36/-36)*
+- `packages/stage-layouts/tsconfig.json` *(+1/-2)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 8 file(s) (+288/-85)
+- `packages/stage-pages/package.json` *(+7/-1)*
+- `packages/stage-pages/src/pages/settings/airi-card/components/CardCreationDialog.vue` *(+33/-8)*
+- `packages/stage-pages/src/pages/settings/modules/speech.vue` *(+76/-72)*
+- `packages/stage-pages/src/pages/settings/providers/speech/google-gemini-audio-speech.vue` *(+1/-1)*
+- `packages/stage-pages/src/pages/settings/providers/speech/mimo-audio-speech.vue` *(+1/-1)*
+- `packages/stage-pages/src/pages/settings/providers/speech/provider-config-persistence.browser.test.ts` *(+122/-0)*
+- `packages/stage-pages/tsconfig.json` *(+1/-2)*
+- `packages/stage-pages/vitest.config.ts` *(+47/-0)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 1 file(s) (+1/-1)
+- `packages/stage-ui-live2d/src/composables/live2d/animation.ts` *(+1/-1)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 3 file(s) (+32/-3)
+- `packages/stage-ui/src/stores/chat.contract.test.ts` *(+22/-0)*
+- `packages/stage-ui/src/stores/chat.ts` *(+5/-0)*
+- `packages/stage-ui/src/stores/chat/session-store.ts` *(+5/-3)*
+
+#### Provider & Model Integrations (`📦 import / inspect`) — 4 file(s) (+380/-30)
+- `packages/stage-ui/src/stores/providers/config.test.ts` *(+21/-0)*
+- `packages/stage-ui/src/stores/providers/config.ts` *(+19/-0)*
+- `packages/stage-ui/src/stores/providers/provider.test.ts` *(+211/-17)*
+- `packages/stage-ui/src/stores/providers/provider.ts` *(+129/-13)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (15)
+- [#2514](https://github.com/moeru-ai/airi/pull/2514) `fix(stage-ui): keep mobile swipe attached to touch` by **@nekomeowww** *(2 comments)*
+- [#2506](https://github.com/moeru-ai/airi/pull/2506) `feat(plugin-host): import extensions from folders` by **@leaft** *(Draft)* *(1 comments)*
+- [#2513](https://github.com/moeru-ai/airi/pull/2513) `fix(server): trust moeru-ai Cloudflare Workers preview origins` by **@lulu0119** *(3 comments)*
+- [#2512](https://github.com/moeru-ai/airi/pull/2512) `fix: fix security issue in artistry.ts` by **@anupamme** *(0 comments)*
+- [#2511](https://github.com/moeru-ai/airi/pull/2511) `fix: upgrade gh-pages to 5.0.0 (CVE-2022-37611)` by **@anupamme** *(0 comments)*
+- [#2510](https://github.com/moeru-ai/airi/pull/2510) `test(stage-tamagotchi): stabilize interactive area browser fixtures` by **@leaft** *(2 comments)*
+- [#2509](https://github.com/moeru-ai/airi/pull/2509) `fix(stage-tamagotchi): restore macOS Steam signing` by **@Neko-233** *(2 comments)*
+- [#2508](https://github.com/moeru-ai/airi/pull/2508) `fix(stage-ui): use touch events for mobile swipe` by **@nekomeowww** *(2 comments)*
+- [#2502](https://github.com/moeru-ai/airi/pull/2502) `test(stage-tamagotchi): cover Fade on Hover interaction recovery` by **@lorenzozanee** *(1 comments)*
+- [#2501](https://github.com/moeru-ai/airi/pull/2501) `chore(nix): update assets hash` by **@Weathercold** *(1 comments)*
+- [#2503](https://github.com/moeru-ai/airi/pull/2503) `docs(contributing): align setup guides with pinned tooling` by **@S-FRANK88** *(1 comments)*
+- [#2505](https://github.com/moeru-ai/airi/pull/2505) `fix(stage-ui): center mobile user message text` by **@nekomeowww** *(2 comments)*
+- [#2504](https://github.com/moeru-ai/airi/pull/2504) `feat: custom Fish/OpenRouter TTS voices and OpenAI-compatible images` by **@lino22808108-stack** *(0 comments)*
+- [#2500](https://github.com/moeru-ai/airi/pull/2500) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(1 comments)*
+- [#2499](https://github.com/moeru-ai/airi/pull/2499) `chore: optimize typecheck execution ` by **@nayounsang** *(1 comments)*
+
+#### 🔄 PR Status & Lifecycle Changes (5)
+- [#2471](https://github.com/moeru-ai/airi/pull/2471) `feat(stage-ui): sync user providers to a cloud replica` — `Draft` ➔ `Ready`
+- [#2497](https://github.com/moeru-ai/airi/pull/2497) `fix(stage-ui): persist speech provider settings` — `OPEN` ➔ `MERGED`
+- [#2490](https://github.com/moeru-ai/airi/pull/2490) `fix(stage-ui): restore TTS after first login` — `OPEN` ➔ `MERGED`
+- [#2494](https://github.com/moeru-ai/airi/pull/2494) `fix(computer-use-mcp): fix type errors at serivce/computer-use-mcp` — `OPEN` ➔ `MERGED`
+- [#2489](https://github.com/moeru-ai/airi/pull/2489) `feat(stage-ui): add swipe to reply for chat messages` — `OPEN` ➔ `MERGED`
+
+---
 ## [2026-09-09] Upstream Delta: `f679616c..3e94ea81` (6 commits, 86 files, 18 PR update(s))
 
 ### 🎯 Executive Highlights
