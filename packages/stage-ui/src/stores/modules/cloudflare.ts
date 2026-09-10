@@ -46,42 +46,108 @@ async function generateWebPkce(): Promise<{ codeVerifier: string, codeChallenge:
 }
 
 export const useCloudflareStore = defineStore('cloudflare', () => {
-  // Fallback migration from legacy settings/discord/... keys if present
+  // Fallback migration from legacy settings/discord/... keys and cleanup of corrupted tokens
   let initialTokens: CloudflareOAuthTokens | null = null
   let initialAccountId = ''
   let initialApiToken = ''
 
   if (typeof localStorage !== 'undefined') {
+    // 1. Primary key check and corruption cleanup
+    const primaryRaw = localStorage.getItem('settings/cloudflare/cfOAuthTokens')
+    if (primaryRaw) {
+      if (primaryRaw === '[object Object]' || primaryRaw.startsWith('[object')) {
+        localStorage.removeItem('settings/cloudflare/cfOAuthTokens')
+      }
+      else {
+        try {
+          const parsed = JSON.parse(primaryRaw)
+          if (parsed && typeof parsed === 'object' && parsed.accessToken) {
+            initialTokens = parsed
+          }
+        }
+        catch {
+          localStorage.removeItem('settings/cloudflare/cfOAuthTokens')
+        }
+      }
+    }
+
+    // 2. Legacy fallback check
     const rawTokens = localStorage.getItem('settings/discord/cfOAuthTokens')
     if (rawTokens) {
-      try {
-        initialTokens = JSON.parse(rawTokens)
+      if (rawTokens === '[object Object]' || rawTokens.startsWith('[object')) {
+        localStorage.removeItem('settings/discord/cfOAuthTokens')
       }
-      catch {}
+      else if (!initialTokens) {
+        try {
+          const parsed = JSON.parse(rawTokens)
+          if (parsed && typeof parsed === 'object' && parsed.accessToken) {
+            initialTokens = parsed
+          }
+        }
+        catch {
+          localStorage.removeItem('settings/discord/cfOAuthTokens')
+        }
+      }
     }
-    const rawAccountId = localStorage.getItem('settings/discord/cfAccountId')
+
+    const rawAccountId = localStorage.getItem('settings/cloudflare/cfAccountId') || localStorage.getItem('settings/discord/cfAccountId')
     if (rawAccountId) {
-      try {
-        initialAccountId = JSON.parse(rawAccountId)
+      if (rawAccountId === '[object Object]' || rawAccountId.startsWith('[object')) {
+        localStorage.removeItem('settings/cloudflare/cfAccountId')
+        localStorage.removeItem('settings/discord/cfAccountId')
       }
-      catch {
-        initialAccountId = rawAccountId
+      else {
+        try {
+          initialAccountId = JSON.parse(rawAccountId)
+        }
+        catch {
+          initialAccountId = rawAccountId
+        }
       }
     }
-    const rawApiToken = localStorage.getItem('settings/discord/cfApiToken')
+
+    const rawApiToken = localStorage.getItem('settings/cloudflare/cfApiToken') || localStorage.getItem('settings/discord/cfApiToken')
     if (rawApiToken) {
-      try {
-        initialApiToken = JSON.parse(rawApiToken)
+      if (rawApiToken === '[object Object]' || rawApiToken.startsWith('[object')) {
+        localStorage.removeItem('settings/cloudflare/cfApiToken')
+        localStorage.removeItem('settings/discord/cfApiToken')
       }
-      catch {
-        initialApiToken = rawApiToken
+      else {
+        try {
+          initialApiToken = JSON.parse(rawApiToken)
+        }
+        catch {
+          initialApiToken = rawApiToken
+        }
       }
     }
+  }
+
+  const cfOAuthTokensSerializer = {
+    read: (raw: string): CloudflareOAuthTokens | null => {
+      if (!raw || raw === '[object Object]' || raw.startsWith('[object')) {
+        return null
+      }
+      try {
+        const parsed = JSON.parse(raw)
+        return parsed && typeof parsed === 'object' && parsed.accessToken ? parsed : null
+      }
+      catch {
+        return null
+      }
+    },
+    write: (val: CloudflareOAuthTokens | null): string => {
+      if (!val || typeof val !== 'object') {
+        return ''
+      }
+      return JSON.stringify(val)
+    },
   }
 
   const cfOAuthTokens = useLocalStorageManualReset<CloudflareOAuthTokens | null>(
     'settings/cloudflare/cfOAuthTokens',
     initialTokens,
+    { serializer: cfOAuthTokensSerializer },
   )
   const cfAccountId = useLocalStorageManualReset<string>(
     'settings/cloudflare/cfAccountId',
@@ -349,14 +415,30 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
       if (isElectron && invokeCloudflareOAuth) {
         const res = await invokeCloudflareOAuth()
         if (res) {
+          let resolvedAccountId = res.accountId
+          if (!resolvedAccountId && res.accessToken) {
+            try {
+              const accRes = await fetch(`${getCfApiBaseUrl()}/accounts`, {
+                headers: { Authorization: `Bearer ${res.accessToken}` },
+              })
+              if (accRes.ok) {
+                const accData: any = await accRes.json()
+                resolvedAccountId = resolveAccountId(undefined, accData)
+              }
+            }
+            catch (e) {
+              console.warn('[useCloudflareStore] Failed to auto-fetch account ID in Electron:', e)
+            }
+          }
+
           cfOAuthTokens.value = {
             accessToken: res.accessToken,
             refreshToken: res.refreshToken,
             expiresIn: res.expiresIn,
-            accountId: res.accountId,
+            accountId: resolvedAccountId,
           }
-          if (res.accountId) {
-            cfAccountId.value = res.accountId
+          if (resolvedAccountId) {
+            cfAccountId.value = resolvedAccountId
           }
           void getCloudflareSubdomain().catch(() => {})
           void autoRestoreEdgeVault().catch(() => {})

@@ -568,7 +568,7 @@ interface SyncConflict {
 | **File** | `packages/stage-ui/src/stores/sync-engine.ts` |
 | **Type** | `{ value: string }` — wraps the raw localStorage value |
 | **Description** | Selected localStorage keys are mirrored into IndexedDB so they can be synced across devices. Written by `dumpLocalStorageToIndexedDb()`, restored by `restoreLocalStorageFromIndexedDb()`. |
-| **Exclusions** | `airi-cards`, `scene/backgrounds`, `airi_cc_*`, `settings/sync/*` |
+| **Exclusions** | `airi-cards`, `scene/backgrounds`, `airi_cc_*`, `settings/sync/*`, `settings/cloudflare/*` |
 | **Sync** | Full LWW |
 
 ---
@@ -932,6 +932,15 @@ interface VoiceProfile {
 | `settings/sync/s3-secret-access-key` | `string` | `''` | `stores/sync-engine.ts` |
 | `settings/sync/last-time` | `number` | `0` | `stores/sync-engine.ts` |
 | `settings/sync/per-device-appearance` | `boolean` | `false` | `stores/sync-engine.ts` |
+
+### 4.9.1 Cloudflare (Device-Local)
+
+| Key | Type | Default | File |
+| :--- | :--- | :--- | :--- |
+| `settings/cloudflare/cfOAuthTokens` | `CloudflareOAuthTokens \| null` | `null` | `stores/modules/cloudflare.ts` |
+| `settings/cloudflare/cfAccountId` | `string` | `''` | `stores/modules/cloudflare.ts` |
+| `settings/cloudflare/cfApiToken` | `string` | `''` | `stores/modules/cloudflare.ts` |
+| `settings/cloudflare/cfSubdomain` | `string` | `''` | `stores/modules/cloudflare.ts` |
 
 ### 4.10 Chat
 

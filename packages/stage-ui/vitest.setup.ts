@@ -41,19 +41,49 @@ function createStorageMock() {
   }
 }
 
-if (!globalThis.localStorage) {
+let needsStorageMock = false
+try {
+  if (!globalThis.localStorage) {
+    needsStorageMock = true
+  }
+  else {
+    globalThis.localStorage.setItem('__test__', '1')
+    globalThis.localStorage.removeItem('__test__')
+  }
+}
+catch {
+  needsStorageMock = true
+}
+
+if (needsStorageMock) {
   const storage = createStorageMock()
+  try {
+    delete (globalThis as any).localStorage
+  }
+  catch {}
   Object.defineProperty(globalThis, 'localStorage', {
     value: storage,
     writable: true,
+    configurable: true,
   })
   if (globalThis.window) {
+    try {
+      delete (globalThis.window as any).localStorage
+    }
+    catch {}
     Object.defineProperty(globalThis.window, 'localStorage', {
       value: storage,
       writable: true,
+      configurable: true,
     })
   }
 }
+
+try {
+  const { setSSRHandler } = await import('@vueuse/core')
+  setSSRHandler('getDefaultStorage', () => globalThis.localStorage)
+}
+catch {}
 
 if (!globalThis.sessionStorage) {
   const storage = createStorageMock()
