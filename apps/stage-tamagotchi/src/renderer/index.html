@@ -18,7 +18,9 @@
     /> -->
     <script src="./assets/js/CubismSdkForWeb-5-r.3/Core/live2dcubismcore.min.js"></script>
     <script>
-      if (location.hash && location.hash !== '#/' && location.hash !== '#') {
+      const transparentRoutes = new Set(['', '#', '#/', '#/actor', '#/actor/', '#/caption', '#/caption/', '#/customizer', '#/customizer/', '#/widgets', '#/widgets/'])
+      const routeHash = (location.hash || '').split('?')[0]
+      if (routeHash && !transparentRoutes.has(routeHash)) {
         document.documentElement.classList.add('airi-solid-window')
       }
     </script>
