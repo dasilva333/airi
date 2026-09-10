@@ -6,6 +6,7 @@ import JSZip from 'jszip'
 import localforage from 'localforage'
 
 import { debug } from '@proj-airi/stage-shared'
+import { decodeCp437Mojibake, isMojibakeMatch } from '@proj-airi/stage-ui-live2d/utils/live2d-cp437'
 import { loadLive2DModelPreview as generateLive2DPreview } from '@proj-airi/stage-ui-live2d/utils/live2d-preview'
 import { loadMMDModelPreview as generateMmdPreview } from '@proj-airi/stage-ui-mmd/utils/mmd-preview'
 import { loadSpineModelPreview as generateSpinePreview } from '@proj-airi/stage-ui-spine/utils/spine-preview'
@@ -813,10 +814,18 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             }
           }
 
-          if (needsManifestRename || needsMotionInjection) {
+          // Check if any referenced assets require healing (mojibake filenames, loose subdirs, or sole moc)
+          const manifestDir = model.manifestPath.split(/[\\/]/).slice(0, -1).join('/')
+          const rawRefs = findLive2dReferences(model.data)
+          const needsAssetHealing = rawRefs.some((ref) => {
+            const originalZipPath = resolvePosixPath(manifestDir, ref)
+            return !getEntryCaseInsensitive(zipInstance, originalZipPath)
+          })
+
+          if (needsManifestRename || needsMotionInjection || needsAssetHealing) {
             needsCleansing = true
             modelsToProcess.push(model)
-            debug(`[DisplayModels] Single-model Live2D ZIP needs self-healing: needsManifestRename=${needsManifestRename}, needsMotionInjection=${needsMotionInjection}. Compiler running...`)
+            debug(`[DisplayModels] Single-model Live2D ZIP needs self-healing: needsManifestRename=${needsManifestRename}, needsMotionInjection=${needsMotionInjection}, needsAssetHealing=${needsAssetHealing}. Compiler running...`)
           }
         }
 
@@ -852,7 +861,8 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
           let index = 1
           for (const model of modelsToProcess) {
             const manifestBasename = model.manifestPath.split(/[\\/]/).pop()!
-            const modelName = manifestBasename.replace(/\.model3\.json$/i, '').replace(/\.json$/i, '')
+            const decodedManifest = decodeCp437Mojibake(manifestBasename) || manifestBasename
+            const modelName = decodedManifest.replace(/\.model3\.json$/i, '').replace(/\.json$/i, '')
 
             // Auto-discover loose motion files for this model in the original ZIP
             let modelIndex = null
@@ -1008,8 +1018,9 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             })
 
             // Add manifest at the root. Ensure it ends in .model3.json so standard ZipLoader recognizes it
-            const finalManifestName = manifestBasename.toLowerCase().endsWith('.model3.json')
-              ? manifestBasename
+            const decodedBasename = decodeCp437Mojibake(manifestBasename) || manifestBasename
+            const finalManifestName = decodedBasename.toLowerCase().endsWith('.model3.json')
+              ? decodedBasename
               : `${modelName}.model3.json`
             const manifestString = JSON.stringify(model.data, null, 4)
             subZip.file(finalManifestName, manifestString)
@@ -1017,28 +1028,58 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             // Add referenced assets
             for (const ref of uniqueRefs) {
               const originalZipPath = resolvePosixPath(manifestDir, ref)
-              const assetEntry = getEntryCaseInsensitive(zipInstance, originalZipPath)
+              let assetEntry = getEntryCaseInsensitive(zipInstance, originalZipPath)
+
+              // 1. CP437 mojibake check
+              if (!assetEntry) {
+                const mojibakeKey = Object.keys(zipInstance.files).find(p =>
+                  !zipInstance.files[p].dir && isMojibakeMatch(p, originalZipPath),
+                )
+                if (mojibakeKey) {
+                  assetEntry = zipInstance.file(mojibakeKey)
+                  debug(`[DisplayModels] Self-healed mojibake asset ref: "${ref}" (found at "${mojibakeKey}")`)
+                }
+              }
+
+              // 2. Fallback: search subdirectories for file with matching basename.
+              // Many models reference files (expressions, motions) without subdirectory prefix.
+              if (!assetEntry) {
+                const basename = ref.split(/[\\/]/).pop()!
+                const subdirKey = Object.keys(zipInstance.files).find(p =>
+                  !zipInstance.files[p].dir && p.toLowerCase().endsWith(`/${basename.toLowerCase()}`),
+                )
+                if (subdirKey) {
+                  assetEntry = zipInstance.file(subdirKey)
+                  debug(`[DisplayModels] Self-healed subdir asset ref: "${ref}" (found at "${subdirKey}")`)
+                }
+              }
+
+              // 3. Fallback: sole MOC3 or CDI3 in zip
+              if (!assetEntry) {
+                const refLower = ref.toLowerCase()
+                if (refLower.endsWith('.moc3')) {
+                  const mocs = Object.keys(zipInstance.files).filter(p => !zipInstance.files[p].dir && p.toLowerCase().endsWith('.moc3'))
+                  if (mocs.length === 1) {
+                    assetEntry = zipInstance.file(mocs[0])
+                    debug(`[DisplayModels] Self-healed sole MOC asset ref: "${ref}" (bound to "${mocs[0]}")`)
+                  }
+                }
+                else if (refLower.endsWith('.cdi3.json')) {
+                  const cdis = Object.keys(zipInstance.files).filter(p => !zipInstance.files[p].dir && p.toLowerCase().endsWith('.cdi3.json'))
+                  if (cdis.length === 1) {
+                    assetEntry = zipInstance.file(cdis[0])
+                    debug(`[DisplayModels] Self-healed sole CDI asset ref: "${ref}" (bound to "${cdis[0]}")`)
+                  }
+                }
+              }
+
               if (assetEntry) {
                 const assetData = await assetEntry.async('uint8array')
                 const destPath = ref.replace(/\\/g, '/')
                 subZip.file(destPath, assetData)
               }
               else {
-                // Fallback: search subdirectories for file with matching basename.
-                // Many models reference files (expressions, motions) without subdirectory prefix.
-                const basename = ref.split(/[\\/]/).pop()!
-                const subdirKey = Object.keys(zipInstance.files).find(p =>
-                  !zipInstance.files[p].dir && p.toLowerCase().endsWith(`/${basename.toLowerCase()}`),
-                )
-                if (subdirKey) {
-                  const assetData = await zipInstance.file(subdirKey)!.async('uint8array')
-                  const destPath = ref.replace(/\\/g, '/')
-                  subZip.file(destPath, assetData)
-                  debug(`[DisplayModels] Self-healed asset ref: "${ref}" (found at "${subdirKey}")`)
-                }
-                else {
-                  debug(`[DisplayModels] Referenced asset not found in source zip: ${ref} (resolved: ${originalZipPath})`)
-                }
+                debug(`[DisplayModels] Referenced asset not found in source zip: ${ref} (resolved: ${originalZipPath})`)
               }
             }
 

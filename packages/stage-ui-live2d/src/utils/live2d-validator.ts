@@ -1,5 +1,6 @@
 import JSZip from 'jszip'
 
+import { isMojibakeMatch } from './live2d-cp437'
 import { isMacOSJunk } from './live2d-zip-loader'
 
 export interface Live2DValidationReport {
@@ -130,21 +131,44 @@ export async function validateLive2DZip(file: File | Blob): Promise<Live2DValida
           const fuzzy = allPaths.find(p => p.toLowerCase() === full.toLowerCase())
           if (fuzzy) {
             report.errors.push(`CASE SENSITIVITY MISMATCH: "${rel}" expects "${full}" but ZIP contains "${fuzzy}". Browsers are case-sensitive.`)
+            return
           }
-          else {
-            // Check if the file exists in a subdirectory (common issue with expression/motion files)
-            const basename = rel.split(/[\\/]/).pop()!
-            const subdirMatch = allPaths.find((p) => {
-              const lower = p.toLowerCase()
-              return !p.endsWith('/') && (lower.endsWith(`/${basename.toLowerCase()}`) || lower === basename.toLowerCase())
-            })
-            if (subdirMatch) {
-              report.warnings.push(`SUBDIRECTORY MISMATCH: "${rel}" expected at "${full}" but found at "${subdirMatch}". Import pipeline will self-heal this.`)
-            }
-            else {
-              report.errors.push(`MISSING REFERENCE: ${type} "${rel}" (expected at "${full}") not found in ZIP.`)
+
+          // Check for CP437 mojibake match (e.g. Japanese Windows ZIP encoding mismatch)
+          const mojibakeMatch = allPaths.find(p => !zip.files[p].dir && isMojibakeMatch(p, full))
+          if (mojibakeMatch) {
+            report.warnings.push(`MOJIBAKE RECOVERED: ${type} "${rel}" matches CP437-encoded file "${mojibakeMatch}". Import pipeline will normalize this.`)
+            return
+          }
+
+          // Check for sole MOC3 or CDI3 fallback
+          if (type === 'MOC' || rel.toLowerCase().endsWith('.moc3')) {
+            const mocFiles = allPaths.filter(p => !zip.files[p].dir && p.toLowerCase().endsWith('.moc3'))
+            if (mocFiles.length === 1) {
+              report.warnings.push(`HEURISTIC MOC MATCH: ${type} "${rel}" not found by exact name, but sole MOC file "${mocFiles[0]}" exists. Import pipeline will auto-bind this.`)
+              return
             }
           }
+          if (type === 'DisplayInfo' || rel.toLowerCase().endsWith('.cdi3.json')) {
+            const cdiFiles = allPaths.filter(p => !zip.files[p].dir && p.toLowerCase().endsWith('.cdi3.json'))
+            if (cdiFiles.length === 1) {
+              report.warnings.push(`HEURISTIC CDI MATCH: DisplayInfo "${rel}" not found by exact name, but sole CDI file "${cdiFiles[0]}" exists. Import pipeline will auto-bind this.`)
+              return
+            }
+          }
+
+          // Check if the file exists in a subdirectory (common issue with expression/motion files)
+          const basename = rel.split(/[\\/]/).pop()!
+          const subdirMatch = allPaths.find((p) => {
+            const lower = p.toLowerCase()
+            return !p.endsWith('/') && (lower.endsWith(`/${basename.toLowerCase()}`) || lower === basename.toLowerCase())
+          })
+          if (subdirMatch) {
+            report.warnings.push(`SUBDIRECTORY MISMATCH: "${rel}" expected at "${full}" but found at "${subdirMatch}". Import pipeline will self-heal this.`)
+            return
+          }
+
+          report.errors.push(`MISSING REFERENCE: ${type} "${rel}" (expected at "${full}") not found in ZIP.`)
         }
       }
 
@@ -159,6 +183,8 @@ export async function validateLive2DZip(file: File | Blob): Promise<Live2DValida
       }
       if (refs.Physics)
         checkRef(refs.Physics, 'Physics')
+      if (refs.DisplayInfo)
+        checkRef(refs.DisplayInfo, 'DisplayInfo')
       if (Array.isArray(refs.Expressions)) {
         refs.Expressions.forEach((e: any) => checkRef(typeof e === 'string' ? e : e.File, 'Expression'))
       }

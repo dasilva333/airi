@@ -5,6 +5,7 @@ import JSZip from 'jszip'
 import { Cubism4ModelSettings, ZipLoader } from 'pixi-live2d-display/cubism4'
 
 import { registerDslGroupsFromManifest } from '../runtime/dsl-capture'
+import { isMojibakeMatch } from './live2d-cp437'
 
 /**
  * Returns true for macOS AppleDouble resource-fork artifacts that appear in
@@ -33,16 +34,63 @@ ZipLoader.getFilePaths = async (reader: JSZip) => {
   return Object.keys(reader.files).filter(p => !isMacOSJunk(p))
 }
 
+function findZipEntry(reader: JSZip, path: string): JSZip.JSZipObject | null {
+  const direct = reader.file(path)
+  if (direct)
+    return direct
+
+  const allKeys = Object.keys(reader.files).filter(k => !isMacOSJunk(k) && !reader.files[k].dir)
+
+  // 1. Case-insensitive
+  const lower = path.toLowerCase()
+  const caseMatch = allKeys.find(k => k.toLowerCase() === lower)
+  if (caseMatch)
+    return reader.file(caseMatch)
+
+  // 2. CP437 Mojibake match
+  const mojibakeMatch = allKeys.find(k => isMojibakeMatch(k, path))
+  if (mojibakeMatch)
+    return reader.file(mojibakeMatch)
+
+  // 3. Subdirectory match by basename
+  const base = basename(path).toLowerCase()
+  const subdirMatch = allKeys.find(k => k.toLowerCase().endsWith(`/${base}`) || k.toLowerCase() === base)
+  if (subdirMatch)
+    return reader.file(subdirMatch)
+
+  // 4. Sole MOC3 / CDI3 fallback
+  if (path.toLowerCase().endsWith('.moc3')) {
+    const mocs = allKeys.filter(k => k.toLowerCase().endsWith('.moc3'))
+    if (mocs.length === 1)
+      return reader.file(mocs[0])
+  }
+  if (path.toLowerCase().endsWith('.cdi3.json')) {
+    const cdis = allKeys.filter(k => k.toLowerCase().endsWith('.cdi3.json'))
+    if (cdis.length === 1)
+      return reader.file(cdis[0])
+  }
+
+  return null
+}
+
 ZipLoader.getFiles = (async (reader: JSZip, paths: string[], type?: any) => {
   const targetType = type || 'blob'
   return Promise.all(paths.map(async (path) => {
-    const blob = await reader.file(path)!.async(targetType as any)
+    const entry = findZipEntry(reader, path)
+    if (!entry) {
+      throw new Error(`[ZipLoader] Missing file in zip archive: "${path}"`)
+    }
+    const blob = await entry.async(targetType as any)
     return new File([blob], basename(path))
   }))
 }) as any
 
 ZipLoader.readText = async (reader: JSZip, path: string) => {
-  return reader.file(path)!.async('text')
+  const entry = findZipEntry(reader, path)
+  if (!entry) {
+    throw new Error(`[ZipLoader] Missing text file in zip archive: "${path}"`)
+  }
+  return entry.async('text')
 }
 
 const defaultCreateSettings = ZipLoader.createSettings
