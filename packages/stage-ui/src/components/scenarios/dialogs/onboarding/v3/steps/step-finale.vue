@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import type { ChatHistoryItem } from '../../../../../../types/chat'
-
-import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
 import {
   DialogContent,
@@ -15,20 +12,12 @@ import { toast } from 'vue-sonner'
 
 import RendererStage from '../../../../../scenes/RendererStage.vue'
 
-import {
-  DEFAULT_HEARTBEATS_PROMPT,
-  DEFAULT_POST_HISTORY_INSTRUCTIONS,
-  getStarterCharacter,
-  STARTER_CHARACTERS,
-} from '../../../../../../constants/prompts/character-defaults'
-import { useChatSessionStore } from '../../../../../../stores/chat/session-store'
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../../../stores/display-models'
-import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
-import { useOnboardingStore } from '../../../../../../stores/onboarding'
 import { useProvidersStore } from '../../../../../../stores/providers'
 import { useSettings } from '../../../../../../stores/settings'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
+import { useStarterCardCommit } from '../composables/useStarterCardCommit'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
 
 const props = defineProps<{
@@ -46,12 +35,9 @@ const emit = defineEmits<{
 const draft = useOnboardingV3Draft()
 const settingsStore = useSettings()
 const userProfileStore = useSettingsUserProfile()
-const cardStore = useAiriCardStore()
 const speechStore = useSpeechStore()
 const providersStore = useProvidersStore()
-const onboardingStore = useOnboardingStore()
 const displayModelsStore = useDisplayModelsStore()
-const chatSessionStore = useChatSessionStore()
 
 const { stageModelRenderer } = storeToRefs(settingsStore)
 
@@ -138,82 +124,10 @@ onMounted(() => {
 
 // --- 2. Persona & Greeting Resolution ---
 const userName = computed(() => draft.state.userName || userProfileStore.name || 'Master')
-const USER_TOKEN_REGEX = /(?<!\{)\{user\}(?!\})/g
+const { resolvePersona, compileCardPayload, commitStarterCompanion } = useStarterCardCommit()
 
-const resolvedPersona = computed(() => {
-  const personaCardId = draft.state.personaCardId || 'default'
-  const imported = draft.state.importedCardDraft
-
-  if (imported) {
-    const rawData = imported as any
-    const data = rawData.data || rawData
-    return {
-      name: data.nickname || data.name || 'AI Companion',
-      description: data.description || 'Your private AI companion on stage.',
-      personality: data.personality || 'Friendly, caring, and bright assistant.',
-      scenario: data.scenario || '',
-      systemPrompt: data.system_prompt || data.systemPrompt || '',
-      postHistoryInstructions: data.post_history_instructions || data.postHistoryInstructions || DEFAULT_POST_HISTORY_INSTRUCTIONS,
-      greetings: (data.greetings || (data.first_mes ? [data.first_mes, ...(data.alternate_greetings || [])] : [])) as string[],
-      messageExample: (data.message_example || data.messageExample || []) as [string, string][],
-    }
-  }
-
-  if (STARTER_CHARACTERS[personaCardId]) {
-    const p = getStarterCharacter(personaCardId)
-    return {
-      name: p.name,
-      description: p.description,
-      personality: p.personality,
-      scenario: p.scenario.replace(USER_TOKEN_REGEX, userName.value),
-      systemPrompt: p.systemPrompt.replace(USER_TOKEN_REGEX, userName.value),
-      postHistoryInstructions: DEFAULT_POST_HISTORY_INSTRUCTIONS,
-      greetings: p.greetings.map(g => g.replace(USER_TOKEN_REGEX, userName.value)),
-      messageExample: (p.messageExample || []).map(([uMsg, cMsg]) => [
-        uMsg.replace(USER_TOKEN_REGEX, userName.value),
-        cMsg.replace(USER_TOKEN_REGEX, userName.value),
-      ]) as [string, string][],
-    }
-  }
-
-  const installedCard = cardStore.getCard(personaCardId) as any
-  if (installedCard) {
-    const data = installedCard.data || installedCard
-    return {
-      name: data.nickname || data.name || 'AI Companion',
-      description: data.description || 'Your private AI companion on stage.',
-      personality: data.personality || 'Friendly, caring, and bright assistant.',
-      scenario: data.scenario || '',
-      systemPrompt: data.system_prompt || data.systemPrompt || '',
-      postHistoryInstructions: data.post_history_instructions || data.postHistoryInstructions || DEFAULT_POST_HISTORY_INSTRUCTIONS,
-      greetings: (data.greetings || (data.first_mes ? [data.first_mes, ...(data.alternate_greetings || [])] : [])) as string[],
-      messageExample: (data.message_example || data.messageExample || []) as [string, string][],
-    }
-  }
-
-  const d = STARTER_CHARACTERS.default
-  return {
-    name: d.name,
-    description: d.description,
-    personality: d.personality,
-    scenario: d.scenario.replace(USER_TOKEN_REGEX, userName.value),
-    systemPrompt: d.systemPrompt.replace(USER_TOKEN_REGEX, userName.value),
-    postHistoryInstructions: DEFAULT_POST_HISTORY_INSTRUCTIONS,
-    greetings: d.greetings.map(g => g.replace(USER_TOKEN_REGEX, userName.value)),
-    messageExample: (d.messageExample || []).map(([uMsg, cMsg]) => [
-      uMsg.replace(USER_TOKEN_REGEX, userName.value),
-      cMsg.replace(USER_TOKEN_REGEX, userName.value),
-    ]) as [string, string][],
-  }
-})
-
-const fullGreeting = computed(() => {
-  const g = resolvedPersona.value.greetings?.[0]
-  if (g) {
-    return g.replace(USER_TOKEN_REGEX, userName.value).replace(/\{\{user\}\}/gi, userName.value)
-  }
-  return `Hello ${userName.value}! Everything is calibrated and ready to go. Let's step onto the stage together!`
-})
+const resolvedPersona = computed(() => resolvePersona(draft.state, userName.value))
+const fullGreeting = computed(() => resolvedPersona.value.firstGreeting)
 
 // --- 3. Typewriter Effect ---
 const typedGreeting = ref('')
@@ -476,151 +390,7 @@ const honestyMatrix = computed<HonestyItem[]>(() => {
 
 // --- 6. Compiled Card Payload ---
 const isPayloadModalOpen = ref(false)
-
-const compiledCardPayload = computed(() => {
-  const d = draft.state
-  const greetings = resolvedPersona.value.greetings || []
-  const firstGreeting = fullGreeting.value || greetings[0] || ''
-  const alternateGreetings = greetings.slice(1)
-
-  const activeTools: string[] = []
-  if (d.mcpWebSearchEnabled)
-    activeTools.push('web_search', 'fetch_content')
-  if (d.mcpFilesystemEnabled)
-    activeTools.push('read_file', 'list_directory', 'directory_tree', 'search_files')
-  if (d.toolMotionGeneratorEnabled)
-    activeTools.push('generate_motion')
-  if (d.artistryImageJournalToolEnabled)
-    activeTools.push('image_journal')
-  if (d.memoryLongTermJournalEnabled)
-    activeTools.push('text_journal')
-
-  return {
-    spec: 'chara_card_v3' as const,
-    spec_version: '3.0' as const,
-    data: {
-      name: resolvedPersona.value.name,
-      nickname: d.companionName || resolvedPersona.value.name,
-      creator: 'AIRI',
-      creator_notes: 'Created via Onboarding V3',
-      character_version: '1.0.0',
-      description: resolvedPersona.value.description,
-      personality: resolvedPersona.value.personality,
-      scenario: resolvedPersona.value.scenario,
-      system_prompt: resolvedPersona.value.systemPrompt,
-      post_history_instructions: resolvedPersona.value.postHistoryInstructions || DEFAULT_POST_HISTORY_INSTRUCTIONS,
-      first_mes: firstGreeting,
-      alternate_greetings: alternateGreetings,
-      group_only_greetings: [],
-      mes_example: (resolvedPersona.value.messageExample || [])
-        .map(pair => pair.filter(Boolean).join('\n'))
-        .filter(block => block.trim().length > 0)
-        .join('\n<START>\n'),
-      tags: ['onboarding-v3', d.experienceArchetype],
-      extensions: {
-        airi: {
-          agents: {},
-          modules: {
-            displayModelId: activeModelId.value,
-            consciousness: {
-              provider: d.llmProvider || 'openai',
-              model: d.llmModel || 'gpt-4o',
-            },
-            speech: {
-              provider: d.modules.speech ? (d.ttsProvider || 'kokoro-local') : 'speech-noop',
-              model: d.modules.speech ? (d.ttsModel || 'q4') : '',
-              voice_id: d.modules.speech ? (d.ttsVoiceId || 'af_bella') : '',
-              pitch: d.ttsPitch ?? 1.0,
-              rate: d.ttsRate ?? 1.0,
-            },
-          },
-          acting: {
-            modelExpressionPrompt: d.actingModelExpressionPrompt || '',
-            speechExpressionPrompt: '',
-            speechMannerismPrompt: '',
-            pacing: d.pacingPreset,
-          },
-          artistry: d.modules.artistry
-            ? {
-                provider: d.artistryProvider || 'pollinations',
-                model: d.artistryModel || '',
-                promptPrefix: d.artistryVisualPrompt || '',
-                autonomousEnabled: Boolean(d.artistryDirectorEnabled),
-                autonomousTarget: d.artistryDirectorTarget || 'assistant',
-              }
-            : undefined,
-          screenWatching: d.modules.sensory
-            ? {
-                enabled: Boolean(d.screenWatcherEnabled),
-                deliveryMode: d.screenWatcherMode === 'voice-and-bubble' ? 'both' : d.screenWatcherMode === 'bubble-only' ? 'bubble_only' : d.screenWatcherMode === 'voice-only' ? 'tts_only' : 'off',
-                sourceType: 'displays',
-                sourceId: 'primary',
-                captureIntervalMs: d.screenWatcherInterval || 2000,
-                downscalePercent: 50,
-                workload: d.screenWatcherTier === 'moondream' ? 'screen:interpret' : 'screen:ocr',
-                publishToContext: true,
-                interestTags: [],
-                deferWhileSpeaking: true,
-                maxPerHour: 12,
-                hysteresisMinutes: 5,
-                respectSchedule: Boolean(d.operatingScheduleEnabled),
-                pauseWhenAfk: Boolean(d.pauseOnAfk),
-                afkThresholdMinutes: d.afkMinutes || 5,
-              }
-            : undefined,
-          heartbeats: d.modules.sensory
-            ? {
-                enabled: Boolean(d.heartbeatsEnabled),
-                intervalMinutes: d.heartbeatsInterval || 5,
-                prompt: DEFAULT_HEARTBEATS_PROMPT,
-                injectIntoPrompt: true,
-                useAsLocalGate: true,
-                contextOptions: {
-                  windowHistory: Boolean(d.heartbeatsContextWindowHistory),
-                  systemLoad: Boolean(d.heartbeatsContextSystemLoad),
-                  usageMetrics: Boolean(d.heartbeatsContextUsageMetrics),
-                },
-                schedule: {
-                  start: d.wakeUpTime || '09:00',
-                  end: d.bedTime || '22:00',
-                },
-                respectSchedule: Boolean(d.operatingScheduleEnabled),
-                pauseWhenAfk: Boolean(d.pauseOnAfk),
-                afkThresholdMinutes: d.afkMinutes || 5,
-                prefixCacheOptimized: true,
-              }
-            : undefined,
-          shortTermMemory: d.modules.memory
-            ? {
-                enabled: Boolean(d.memoryShortTermEnabled),
-                windowSize: d.memoryShortTermWindowSize || 3,
-                tokenBudgetPerDay: d.memoryShortTermTokenBudget || 1000,
-              }
-            : undefined,
-          dreamState: d.modules.memory
-            ? {
-                enabled: Boolean(d.memoryDreamStateEnabled),
-                strictAfkGating: true,
-              }
-            : undefined,
-          textJournal: d.modules.memory
-            ? {
-                injectJournalContext: Boolean(d.memoryLongTermJournalEnabled),
-              }
-            : undefined,
-          generation: {
-            enabled: true,
-            provider: d.llmProvider || 'openai',
-            model: d.llmModel || 'gpt-4o',
-            known: {
-              allowedTools: activeTools,
-            },
-          },
-        },
-      },
-    },
-  }
-})
+const compiledCardPayload = computed(() => compileCardPayload(draft.state, resolvedPersona.value))
 
 function copyPayload() {
   navigator.clipboard.writeText(JSON.stringify(compiledCardPayload.value, null, 2))
@@ -638,147 +408,17 @@ async function handleLaunch() {
   let createdCardId: string | null = null
 
   try {
-    const d = draft.state
-
-    // 1. Persist User Profile
-    try {
-      if (d.userName)
-        userProfileStore.name = d.userName
-      if (d.userDescription)
-        userProfileStore.description = d.userDescription
-      if (d.userPrompt)
-        userProfileStore.prompt = d.userPrompt
-    }
-    catch (err) {
-      console.warn('[StepFinale] User profile persistence warning:', err)
-    }
-
-    // 2. Persist Voice Profile if speech enabled
-    let charProfileId = d.ttsVoiceId || 'af_bella'
-    if (d.modules.speech) {
-      try {
-        const charName = resolvedPersona.value.name || 'Companion'
-        const charBaseProvider = d.ttsProvider || 'kokoro-local'
-        const charBaseModel = d.ttsModel || 'q4'
-        const charRawVoice = d.ttsVoiceId || 'af_bella'
-        charProfileId = `voice_profile_${charName.toLowerCase().replace(/\s+/g, '_')}`
-
-        const charVoiceProfile = {
-          id: charProfileId,
-          name: `${charName}'s Voice`,
-          baseProvider: charBaseProvider,
-          baseModel: charBaseModel,
-          baseVoice: charRawVoice,
-          effects: {
-            pitch: d.ttsPitch ?? 1.0,
-            rate: d.ttsRate ?? 1.0,
-            volume: 1.0,
-            asmr: 0,
-            radio: 0,
-            robot: 0,
-            reverb: 0,
-            spatial: 0,
-          },
-          ust: {
-            enabled: true,
-            mode: 'mute' as any,
-            customStripChars: '*_[]()<>"\'',
-            stripEmojis: true,
-            tildeReplacement: '',
-            autoLowercaseCapsThreshold: 2,
-            autoLowercaseCapsExclude: [],
-            convertBracketsToTokenFormat: true,
-            customReplacements: [],
-          },
-        }
-
-        speechStore.saveVoiceProfile(charVoiceProfile as any)
-        speechStore.activeSpeechProvider = charBaseProvider
-        speechStore.activeSpeechModel = charBaseModel
-        speechStore.activeSpeechVoiceId = charProfileId
-      }
-      catch (err) {
-        console.warn('[StepFinale] Voice profile persistence warning:', err)
-      }
-    }
-
-    // 3. Update Display Model Mappings if curated
-    if (d.expressionMappings && Object.keys(d.expressionMappings).length > 0 && activeModelId.value) {
-      try {
-        await displayModelsStore.updateDisplayModelMappings(activeModelId.value, {
-          emotionMappings: d.expressionMappings,
-        })
-      }
-      catch (err) {
-        console.warn('[StepFinale] Display model mappings update warning:', err)
-      }
-    }
-
-    // 4. Synthesize & Persist AiriCard
-    try {
-      const payload = JSON.parse(JSON.stringify(compiledCardPayload.value))
-      if (d.modules.speech && payload.data?.extensions?.airi?.modules?.speech) {
-        payload.data.extensions.airi.modules.speech.voice_id = charProfileId
-      }
-      createdCardId = await cardStore.addCard(payload)
-    }
-    catch (err) {
-      console.error('[StepFinale] Failed to add companion card:', err)
-      const msg = err instanceof Error ? err.message : String(err)
-      toast.error(`Failed to create companion card: ${msg}`)
-      return
-    }
-
-    // 5. Activate Card on Stage
-    if (createdCardId) {
-      try {
-        await cardStore.activateCard(createdCardId, true)
-      }
-      catch (err) {
-        console.warn('[StepFinale] Card stage activation warning:', err)
-      }
-
-      // 6. Commit Turn 0 to chat session store
-      try {
-        const sysMessage: ChatHistoryItem = {
-          id: nanoid(),
-          role: 'system',
-          content: resolvedPersona.value.systemPrompt || '',
-          createdAt: Date.now(),
-        }
-        const greetingItem: ChatHistoryItem = {
-          id: nanoid(),
-          role: 'assistant',
-          content: fullGreeting.value,
-          slices: [{ type: 'text', text: fullGreeting.value }],
-          tool_results: [],
-          createdAt: Date.now(),
-        }
-        await chatSessionStore.createSession(createdCardId, {
-          setActive: true,
-          messages: [sysMessage, greetingItem],
-          title: 'Initial Conversation',
-        })
-      }
-      catch (err) {
-        console.warn('[StepFinale] Failed to commit Turn 0 greeting:', err)
-      }
-    }
-
-    // 7. Mark onboarding completed
-    try {
-      onboardingStore.markSetupCompleted()
-    }
-    catch (err) {
-      console.warn('[StepFinale] Failed to update onboarding completed flag:', err)
-    }
-
+    createdCardId = await commitStarterCompanion(draft.state)
     toast.success('Companion ready on stage!')
+  }
+  catch (err) {
+    console.error('[StepFinale] Failed to launch companion:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    toast.error(`Failed to create companion card: ${msg}`)
   }
   finally {
     isSubmitting.value = false
     if (createdCardId) {
-      draft.reset()
       emit('finish')
       props.onFinish?.()
     }

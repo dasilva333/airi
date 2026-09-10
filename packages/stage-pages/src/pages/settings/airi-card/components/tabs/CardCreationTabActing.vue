@@ -3,6 +3,7 @@ import type { PrewarmProgressEvent } from '@proj-airi/stage-ui/libs/pacing'
 import type { SpeechCapabilitiesInfo } from '@proj-airi/stage-ui/stores/providers'
 import type { PacingProfileId, ThinkingCategory, ThinkingFillerPhrase } from '@proj-airi/stage-ui/types/pacing'
 
+import { DEFAULT_THINK_ALOUD_PROMPT } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { isNeedleModelCached, needleClient } from '@proj-airi/stage-ui/libs/inference'
 import {
   clearThinkingAudioCache,
@@ -142,9 +143,7 @@ const subTabs = [
   { id: 'pacing' as const, label: 'Pacing & Fillers', icon: 'i-solar:hourglass-bold-duotone', desc: 'Thinking fillers, live asides & pacing' },
 ]
 
-const THINK_ALOUD_TEMPLATE = `During deep deliberation and complex reasoning steps, you may speak brief, listener-facing asides to the user using:
-<think_aloud>your brief spoken comment here</think_aloud>
-Keep asides concise (under 12 words), conversational, and natural. Do not expose private calculations or internal monologue.`
+const THINK_ALOUD_TEMPLATE = DEFAULT_THINK_ALOUD_PROMPT
 
 const PACING_STYLE_TEMPLATE = `When working through complex questions, feel free to use natural conversational acknowledgments and thinking pauses before providing your complete detailed answer.`
 

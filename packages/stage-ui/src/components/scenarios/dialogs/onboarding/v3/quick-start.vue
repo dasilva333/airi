@@ -3,21 +3,19 @@ import { isApplePlatform } from '@proj-airi/stage-shared'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { toast } from 'vue-sonner'
 
-import { DEFAULT_POST_HISTORY_INSTRUCTIONS, getStarterCharacter } from '../../../../../constants/prompts/character-defaults'
+import { getStarterCharacter } from '../../../../../constants/prompts/character-defaults'
 import { getKokoroAdapter } from '../../../../../libs/inference/adapters/kokoro'
 import { WEB_LLM_MODELS } from '../../../../../libs/inference/constants'
 import { NativeAI } from '../../../../../libs/native-ai'
-import { useAiriCardStore } from '../../../../../stores/modules/airi-card'
 import { useSpeechStore } from '../../../../../stores/modules/speech'
-import { useOnboardingStore } from '../../../../../stores/onboarding'
 import { useProvidersStore } from '../../../../../stores/providers'
 import { DEFAULT_APPLE_CORE_AI_MODEL } from '../../../../../stores/providers/apple-core-ai'
 import { getMossAdapterInstance } from '../../../../../stores/providers/moss-audio-utils'
 import { getPocketTtsAdapterInstance } from '../../../../../stores/providers/pocket-audio-utils'
 import { useSettingsAudioDevice } from '../../../../../stores/settings'
-import { useSettingsUserProfile } from '../../../../../stores/settings/user-profile'
 import { KOKORO_MODELS } from '../../../../../workers/kokoro/constants'
 import { ensureWhisperLoaded } from '../v2/whisper-loader'
+import { useStarterCardCommit } from './composables/useStarterCardCommit'
 import { useOnboardingV3Draft } from './stores/useOnboardingV3Draft'
 
 const props = defineProps<{
@@ -29,9 +27,7 @@ const draftStore = useOnboardingV3Draft()
 const providersStore = useProvidersStore()
 const speechStore = useSpeechStore()
 const audioDevice = useSettingsAudioDevice()
-const cardStore = useAiriCardStore()
-const userProfileStore = useSettingsUserProfile()
-const onboardingStore = useOnboardingStore()
+const { commitStarterCompanion } = useStarterCardCommit()
 
 // ==========================================
 // 1. Top Identity Inputs
@@ -831,78 +827,39 @@ async function handleStartChatting() {
     prepSteps.value[3].status = 'active'
     prepSteps.value[3].desc = `Seeding ${charName}'s soul & stage card...`
 
-    // 1. User Profile
-    userProfileStore.name = userName.value
-
-    // 2. Build Card Payload
     const starter = getStarterCharacter(selectedCompanionId.value)
-    const USER_TOKEN_REGEX = /(?<!\{)\{user\}(?!\})/g
-    const greetings = (starter.greetings || []).map(g => g.replace(USER_TOKEN_REGEX, userName.value))
-    const cardPayload = {
-      spec: 'chara_card_v3' as const,
-      spec_version: '3.0' as const,
-      data: {
-        name: charName,
-        nickname: charName,
-        creator: 'AIRI',
-        creator_notes: 'Created via Quick Start Cockpit (Onboarding V3)',
-        character_version: '1.0.0',
-        description: starter.description,
-        personality: starter.personality,
-        scenario: starter.scenario.replace(USER_TOKEN_REGEX, userName.value),
-        system_prompt: starter.systemPrompt.replace(USER_TOKEN_REGEX, userName.value),
-        post_history_instructions: DEFAULT_POST_HISTORY_INSTRUCTIONS,
-        first_mes: greetings[0] || `Hello ${userName.value}! Everything is ready — let's step onto the stage.`,
-        alternate_greetings: greetings.slice(1),
-        group_only_greetings: [],
-        mes_example: (starter.messageExample || [])
-          .map(([uMsg, cMsg]) => `${uMsg.replace(USER_TOKEN_REGEX, userName.value)}\n${cMsg.replace(USER_TOKEN_REGEX, userName.value)}`)
-          .join('\n<START>\n'),
-        tags: ['onboarding-v3', 'quick-start', selectedCompanionId.value],
-        extensions: {
-          airi: {
-            agents: {},
-            artistry: {
-              enabled: isArtistryToolEnabled.value,
-              widgetInstruction: starter.artistryPromptPrefix || '',
-              spawnMode: 'bg' as const,
-              autonomousEnabled: false,
-              autonomousThreshold: 49,
-              autonomousTarget: 'assistant' as const,
-              autonomousMonitorEnabled: true,
-              autonomousMonitorDiscordEnabled: false,
-              autonomousHistoryDepth: 3,
-            },
-            modules: {
-              displayModelId: activeCompanion.value.vesselModelId || 'preset-live2d-2',
-              consciousness: {
-                provider: llmProvider.value,
-                model: llmModel.value,
-              },
-              speech: {
-                provider: normSpeechId,
-                model: ttsModel.value,
-                voice_id: profileId,
-              },
-            },
-          },
-        },
-      },
-    }
+
+    // Sync transient draft state before atomic commit
+    draftStore.state.userName = userName.value
+    draftStore.state.companionName = charName
+    draftStore.state.personaCardId = selectedCompanionId.value
+    draftStore.state.vesselDisplayModelId = activeCompanion.value.vesselModelId || 'preset-live2d-2'
+    draftStore.state.llmProvider = llmProvider.value
+    draftStore.state.llmModel = llmModel.value
+    draftStore.state.ttsProvider = normSpeechId
+    draftStore.state.ttsModel = ttsModel.value
+    draftStore.state.ttsVoiceId = charRawVoice
+    draftStore.state.modules.hearing = isHearingEnabled.value
+    draftStore.state.modules.speech = isVoiceEnabled.value
+    draftStore.state.modules.artistry = isArtistryToolEnabled.value
+    draftStore.state.artistryImageJournalToolEnabled = isArtistryToolEnabled.value
+    draftStore.state.artistryVisualPrompt = starter.artistryPromptPrefix || ''
+    draftStore.state.modules.memory = isMemoryEnabled.value
+    draftStore.state.memoryLongTermJournalEnabled = isMemoryEnabled.value
+    draftStore.state.modules.tools = true
+    draftStore.state.mcpWebSearchEnabled = isWebSearchEnabled.value
+    draftStore.state.mcpFilesystemEnabled = isFilesystemMcpEnabled.value
+    draftStore.state.pacingPreset = calibratedPacing.value.preset
+    draftStore.state.subconsciousAsides = calibratedPacing.value.preset !== 'disabled'
+    draftStore.state.subconsciousTier1 = calibratedPacing.value.preset !== 'disabled'
+    draftStore.state.subconsciousTier2 = calibratedPacing.value.preset !== 'disabled'
 
     try {
-      const createdCardId = await cardStore.addCard(cardPayload)
-      if (createdCardId) {
-        await cardStore.activateCard(createdCardId, true)
-      }
+      await commitStarterCompanion(draftStore.state)
     }
     catch (err) {
-      console.warn('[QuickStart] Card creation/activation notice:', err)
+      console.warn('[QuickStart] Companion commit notice:', err)
     }
-
-    // 3. Mark setup complete & clear draft
-    onboardingStore.markSetupCompleted()
-    draftStore.reset()
 
     prepSteps.value[3].desc = `${charName} is alive and ready on Stage!`
     prepSteps.value[3].status = 'done'

@@ -103,9 +103,9 @@ function handleSkip() {
       :class="['h-14 pl-22 pr-6 pt-2 pb-1 flex items-center justify-between select-none flex-shrink-0 border-b border-neutral-200/80 dark:border-white/5']"
     >
       <!-- Left: Brand Title -->
-      <div :class="['flex items-center space-x-2 text-xs font-semibold tracking-wider text-primary-500 select-none pointer-events-none']">
-        <div :class="['i-solar:shield-star-bold-duotone w-4 h-4']" />
-        <span>{{ isQuickStartMode ? 'AIRI QUICK START' : 'AIRI ONBOARDING V3' }}</span>
+      <div :class="['flex items-center space-x-2 text-xs font-semibold tracking-wider text-primary-500 select-none pointer-events-none whitespace-nowrap shrink-0']">
+        <div :class="['i-solar:shield-star-bold-duotone w-4 h-4 shrink-0']" />
+        <span>AIRI</span>
       </div>
 
       <!-- Center: 5-Item Dynamic Sliding Window Stepper (Visible in Guided Wizard) -->

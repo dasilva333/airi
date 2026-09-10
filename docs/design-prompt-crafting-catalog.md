@@ -290,6 +290,31 @@ We will provide configurations matching the guidelines defined in the **Prompt C
 * Enable `sparkle` prop on the Artistry `selectedArtistryPromptPrefix` input.
 * Listen to `@sparkle-click` and trigger visual DNA prompt prefix generation using the character description and personality as context.
 
+---
+
+## 🧩 Onboarding Checkbox-to-Prompt Directives Intent Matrix
+
+In Onboarding V3 (and Quick Start), prompt crafting settings are presented as high-level intent toggles and pacing presets rather than raw markdown text areas. When the user completes onboarding, the unified `useStarterCardCommit` composable (`resolvePromptDirectives`) resolves each checkbox to its canonical target field on the CCv3 character card payload (`card.data` / `card.data.extensions.airi`), reusing consolidated constants from `packages/stage-ui/src/constants/prompts/character-defaults.ts` to avoid prompt drift and duplication.
+
+| Directive | UI Toggle / Checkbox Source | Target Card Field | Canonical Prompt Constant | Description & Behavior |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Think Aloud** | `subconsciousTier1` / `subconsciousAsides` | `extensions.airi.acting.speechMannerismPrompt` | `DEFAULT_THINK_ALOUD_PROMPT` | Guides model to emit `<think_aloud>...</think_aloud>` monologue before verbal output. Drives Live2D/VRM thinking animations and spoken asides without leaking into chat bubbles. |
+| **2. Cadence / Max Tokens** | `overrideLimits`, `customProse`, `maxTokens` | `generation.known.maxTokens` & `card.data.system_prompt` (`## Conversational Cadence`) | Custom user prose (e.g. terse vs expressive) | Sets numeric generation limit and injects cadence rules into `system_prompt`. **Crucial Architectural Invariant**: Never injected into `post_history_instructions` (compaction boundary only). Bypassed when `pacingPreset === 'deep'` to protect reasoning token streams. |
+| **3. Smart Silence** | `smartSilenceDirectiveEnabled` (default `true`) | `extensions.airi.heartbeats.prompt` & `card.data.system_prompt` (`## Interaction Directive: Smart Silence`) | `DEFAULT_SMART_SILENCE_DIRECTIVE` & `DEFAULT_HEARTBEATS_PROMPT` | Teaches the companion that emitting `NO_REPLY` is a valid, expected response when no action is required, eliminating unnecessary chitchat in ambient sensory ticks and conversational turns. |
+| **4. Artistry Image Journal** | `modules.artistry` && `artistryImageJournalToolEnabled` | `extensions.airi.artistry.widgetInstruction` & `generation.known.allowedTools` (`image_journal`) | `DEFAULT_ARTISTRY_WIDGET_INSTRUCTION` | Instructs the model how and when to call `image_journal` for spontaneous drawings, selfies, and visual memories. Adds tool to card permissions. |
+| **5. Sacred Text Journal** | `modules.memory` && `memoryLongTermJournalEnabled` | `extensions.airi.textJournal.widgetInstruction` & `generation.known.allowedTools` (`text_journal`) | `DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION` | Enforces the Sacred Journal Rule for episodic memory creation via the `text_journal` tool. Adds tool to card permissions. |
+
+### Architectural Invariants:
+1. **Single Source of Truth**: All standard prompt templates are defined in `character-defaults.ts` and re-exported where necessary. Card creation forms (e.g. `CardCreationTabActing.vue`) and onboarding (`useStarterCardCommit.ts`) import the identical constants.
+2. **`post_history_instructions` Boundary**: `post_history_instructions` is reserved exclusively for compaction boundaries and final persona anchoring during context compression; per-turn behavioral modifiers and cadence instructions must live in `card.data.system_prompt` or domain extensions.
+3. **Deep CoT Protection**: Deep reasoning models (e.g., DeepSeek R1, o1/o3-mini) must not have strict token cutoffs prematurely truncate their internal reasoning blocks (`overrideLimits` is suppressed when `pacingPreset === 'deep'`).
+
+---
+
 ## Relevant Skills
 
 - [[airi-prompt-builder-engine]]
+- [[airi-onboarding-v2]]
+- [[airi-card-editor-wizard]]
+- [[airi-card-schema]]
+
