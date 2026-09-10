@@ -6,6 +6,8 @@ import { useI18n } from 'vue-i18n'
 
 import SettingsThemeHeaderWidget from '../../../../../widgets/SettingsThemeHeaderWidget.vue'
 
+import { useSyncEngineStore } from '../../../../../../stores/sync-engine'
+
 const props = defineProps<{
   onNext: () => void
   onPrevious: () => void
@@ -14,6 +16,7 @@ const props = defineProps<{
 const { isDark } = useTheme()
 const settingsGeneral = useSettingsGeneral()
 const settingsTheme = useSettingsTheme()
+const syncStore = useSyncEngineStore()
 const { locale } = useI18n()
 
 interface LanguageItem {
@@ -124,7 +127,7 @@ const activeColorName = computed(() => {
       >
         <div :class="['inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary-500/20 bg-primary-500/10 text-primary-400 text-xs font-semibold mb-1']">
           <div :class="['i-solar:palette-round-bold-duotone h-3.5 w-3.5']" />
-          <span>Step 2 of 16 · Environment Setup</span>
+          <span>Step 3 of 17 · Environment Setup</span>
         </div>
         <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
           Language & Appearance
@@ -409,6 +412,43 @@ const activeColorName = computed(() => {
       </div>
     </div>
 
+    <!-- Per-Device Appearance Isolation Toggle -->
+    <div
+      v-motion
+      :initial="{ opacity: 0, y: 10 }"
+      :enter="{ opacity: 1, y: 0 }"
+      :duration="350"
+      :delay="200"
+      :class="['flex items-center justify-between p-3 rounded-xl border border-neutral-200/80 dark:border-white/5 bg-white/50 dark:bg-neutral-900/40 backdrop-blur-sm text-xs']"
+    >
+      <div :class="['flex items-center gap-2.5 min-w-0']">
+        <div :class="['i-solar:laptop-minimalistic-bold-duotone text-base text-primary-500 shrink-0']" />
+        <div :class="['min-w-0']">
+          <div :class="['font-semibold text-neutral-800 dark:text-neutral-200']">
+            Keep appearance local to this device
+          </div>
+          <div :class="['text-[11px] text-neutral-400 truncate']">
+            Prevents remote cloud sync from overwriting this machine's language and theme preferences.
+          </div>
+        </div>
+      </div>
+
+      <!-- Toggle Switch -->
+      <label :class="['relative inline-flex items-center cursor-pointer shrink-0 ml-3']">
+        <input
+          v-model="syncStore.perDeviceAppearance"
+          type="checkbox"
+          :class="['sr-only peer']"
+        >
+        <div
+          :class="[
+            'w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer dark:bg-neutral-700',
+            'peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[\'\'] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-neutral-600 peer-checked:bg-primary-500',
+          ]"
+        />
+      </label>
+    </div>
+
     <!-- Navigation Action Bar -->
     <div
       v-motion
@@ -424,11 +464,11 @@ const activeColorName = computed(() => {
         @click="props.onPrevious"
       >
         <div :class="['i-solar:alt-arrow-left-line-duotone h-4 w-4']" />
-        <span>Back to Welcome</span>
+        <span>Back to Account</span>
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        Environment configured · Ready for architecture
+        Environment configured · Ready for experience archetypes
       </div>
 
       <Button
@@ -440,7 +480,7 @@ const activeColorName = computed(() => {
         ]"
         @click="props.onNext"
       >
-        <span>Continue to Triage</span>
+        <span>Continue to Experience Archetypes</span>
         <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
       </Button>
     </div>

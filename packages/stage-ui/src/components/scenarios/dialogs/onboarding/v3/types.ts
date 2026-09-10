@@ -2,8 +2,8 @@ import type { ModuleBundleConfig } from './stores/useOnboardingV3Draft'
 
 export type OnboardingV3Step
   = | 'welcome'
-    | 'appearance'
     | 'triage'
+    | 'appearance'
     | 'experience'
     | 'profile'
     | 'vessel'
@@ -29,8 +29,8 @@ export interface OnboardingV3StepDef {
 
 export const ONBOARDING_V3_STEPS: OnboardingV3StepDef[] = [
   { id: 'welcome', label: 'Welcome', subtitle: 'Private Companion Studio', index: 0 },
-  { id: 'appearance', label: 'Appearance', subtitle: 'Language, Theme & Accent', index: 1 },
-  { id: 'triage', label: 'Triage', subtitle: 'Architecture Choice', index: 2 },
+  { id: 'triage', label: 'Account', subtitle: 'Account Sign-In & Architecture', index: 1 },
+  { id: 'appearance', label: 'Appearance', subtitle: 'Language, Theme & Accent', index: 2 },
   { id: 'experience', label: 'Experience', subtitle: 'Interaction Archetype', index: 3 },
   { id: 'profile', label: 'User Profile', subtitle: 'Who Are You?', index: 4 },
   { id: 'vessel', label: 'Physical Vessel', subtitle: 'Live2D / VRM Avatar Body', index: 5 },

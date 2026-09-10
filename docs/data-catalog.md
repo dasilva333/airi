@@ -931,6 +931,7 @@ interface VoiceProfile {
 | `settings/sync/s3-access-key-id` | `string` | `''` | `stores/sync-engine.ts` |
 | `settings/sync/s3-secret-access-key` | `string` | `''` | `stores/sync-engine.ts` |
 | `settings/sync/last-time` | `number` | `0` | `stores/sync-engine.ts` |
+| `settings/sync/per-device-appearance` | `boolean` | `false` | `stores/sync-engine.ts` |
 
 ### 4.10 Chat
 

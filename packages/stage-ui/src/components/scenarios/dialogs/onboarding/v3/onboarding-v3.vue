@@ -139,7 +139,7 @@ function handleSkip() {
       <!-- Alternate Fast Track: Quick Start 1-Page Cockpit -->
       <QuickStart
         v-if="isQuickStartMode"
-        :on-continue-full-setup="() => { isQuickStartMode = false; currentStepId = 'appearance' }"
+        :on-continue-full-setup="() => { isQuickStartMode = false; currentStepId = 'triage' }"
         :on-complete="() => emit('finish')"
       />
 
@@ -151,16 +151,18 @@ function handleSkip() {
         :on-skip="handleSkip"
       />
 
-      <!-- Step 1: Appearance (Language, Theme Mode & Accent Color) -->
-      <StepAppearance
-        v-else-if="currentStepId === 'appearance'"
-        :on-next="handleNext"
-        :on-previous="handlePrevious"
-      />
-
-      <!-- Step 2: Triage (Architecture Choice: Local-First vs Cloudflare Relay) -->
+      <!-- Step 1: Account (Account Sign-In & Architecture) -->
       <StepTriage
         v-else-if="currentStepId === 'triage'"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+        :on-finish="() => emit('finish')"
+        @finish="emit('finish')"
+      />
+
+      <!-- Step 2: Appearance (Language, Theme Mode & Accent Color) -->
+      <StepAppearance
+        v-else-if="currentStepId === 'appearance'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />

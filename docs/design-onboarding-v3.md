@@ -84,8 +84,8 @@ Below is the comprehensive field-by-field and control breakdown for every page i
 │ #  │ Step ID            │ Component Name          │ Primary Focus                 │
 ├────┼────────────────────┼─────────────────────────┼───────────────────────────────┤
 │ 0  │ welcome            │ step-welcome.vue        │ Studio Introduction & Bubble  │
-│ 1  │ appearance         │ step-appearance.vue     │ Language, Theme & 24 Colors   │
-│ 2  │ triage             │ step-triage.vue         │ Local-First vs Cloudflare     │
+│ 1  │ triage             │ step-triage.vue         │ Account Sign-In & Restore     │
+│ 2  │ appearance         │ step-appearance.vue     │ Language, Theme & 24 Colors   │
 │ 3  │ experience         │ step-experience.vue     │ Archetype & Step Pruning      │
 │ 4  │ profile            │ step-profile.vue        │ User Persona & Callout Name   │
 │ 5  │ vessel             │ step-vessel.vue         │ 3D Vessel Coverflow (Avatar)  │
@@ -112,7 +112,29 @@ Below is the comprehensive field-by-field and control breakdown for every page i
   - `Private by Design`: Local storage, zero corporate data harvesting.
   - `Multimodal Presence`: Live2D/VRM avatars, neural voice, vision, and memory.
   - `Extensible Core`: MCP server support, custom character cards, and open engines.
-- **Navigation Controls**: Primary `Start Setup →` button and secondary `Set Up Later (Skip)` dialog.
+- **Navigation Controls**: `Quick Start (60s)`, `Guided Setup` (which immediately opens Step 1: Account Sign-In for both returning and new users), and `Setup Later (Close to Tray)` dialog.
+
+---
+
+### Step 1: Account Sign-In & Architecture (`step-triage.vue`)
+- **Honest Branding**: Labeled simply **`Account Sign-In (Cloudflare)`** with a clean **`Zero-Trust`** badge (purging redundant "Cloud Relay" and repetitive zero-trust callouts down to exactly one technical badge).
+- **Option 1: Local Companion (Air-Gapped)**: 100% offline, on-device execution, IndexedDB local storage, zero telemetry.
+- **Option 2: Account Sign-In (Cloudflare)**: 1-click OAuth PKCE or API Token authentication with automatic Edge Key Vault restoration.
+- **Remote Manifest Probe**: Automatically queries `syncStore.fetchRemoteSyncManifestCatalog()` on connect.
+- **Route 3 (Fresh Cloud Account)**: Displays connected account ID and advances to Step 2 with cloud sync enabled.
+- **Routes 4 & 5 (Existing Backups Found)**:
+  - Displays summary: `Found {N} companions in Cloudflare R2`.
+  - Embeds full `<SelectiveSyncPanel :show-actions="false" />` with character search, asset directory tree, and checkboxes.
+  - **Route 4 (The Returning Restorer)**: `[ 🚀 Restore & Launch Stage (~30s) ]` — triggers sync, activates restored companion card, marks onboarding complete, and immediately launches Stage.
+  - **Route 5 (The Multi-Companion Power User)**: `[ + Restore & Build Another Companion ]` — triggers sync to download remote companions/models, then advances to Step 2 (Appearance) to craft an additional companion while syncing remains active.
+
+---
+
+### Step 2: Language & Appearance (`step-appearance.vue`)
+- **Display Language**: 8 localized language cards (EN, JA, ZH-Hans, ZH-Hant, ES, FR, RU, VI).
+- **Theme Mode**: Dark mode and Light mode cards with instant reactive theme switching.
+- **Signature Accent Palette**: 24-color spectrum preset grid across 4 tonal rows with `SettingsThemeHeaderWidget` parity.
+- **Per-Device Appearance Toggle**: `"Keep appearance local to this device"` (`syncStore.perDeviceAppearance`), ensuring remote cloud sync never overwrites this machine's language and theme preferences.
 
 ---
 
@@ -382,6 +404,7 @@ packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/
 - [x] Implement `step-welcome.vue` (radiant icon orb, companion speech bubble, feature pills, setup later modal).
 - [x] Implement `step-appearance.vue` (interface language selector with 8 locales, dark/light theme toggle, 24-color spectrum accent palette).
 - [x] Implement `step-triage.vue` (Local-first vs Cloudflare sync, 1-click OAuth PKCE, API token auth, and Edge Vault restoration).
+- [x] Implement Routes 4 & 5 (Account Sign-In promoted to Step 1, SelectiveSyncPanel embedding, instant restore & launch Stage, restore & build another companion, and per-device appearance sync isolation).
 - [x] Implement `step-experience.vue` (4 Hero Archetype cards, custom module drawer with 8 switches, dynamic capability counts).
 - [x] Implement `step-profile.vue` (User Display Name, Honorific, Narrative Description, Visual Prompt Tags).
 - [x] Implement `step-vessel.vue` & `vessel-coverflow.vue` (3D Coverflow carousel, mixed installed & free downloadable community models, visual style auto-injection).

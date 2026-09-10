@@ -1,26 +1,45 @@
 <script setup lang="ts">
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
+import SelectiveSyncPanel from '../../../../providers/selective-sync-panel.vue'
+
+import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
 import { useCloudflareStore } from '../../../../../../stores/modules/cloudflare'
+import { useOnboardingStore } from '../../../../../../stores/onboarding'
 import { useSyncEngineStore } from '../../../../../../stores/sync-engine'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
 
 const props = defineProps<{
   onNext: () => void
   onPrevious: () => void
+  onFinish?: () => void
+}>()
+
+const emit = defineEmits<{
+  (e: 'previous'): void
+  (e: 'next'): void
+  (e: 'finish'): void
 }>()
 
 const draftStore = useOnboardingV3Draft()
 const cloudflareStore = useCloudflareStore()
 const syncStore = useSyncEngineStore()
+const cardStore = useAiriCardStore()
+const onboardingStore = useOnboardingStore()
+
 const { cfOAuthTokens, cfAccountId, isAuthenticating, isAuthenticated } = storeToRefs(cloudflareStore)
 
 const authMethod = ref<'auto' | 'token'>('auto')
 const tokenInput = ref('')
 const isValidatingToken = ref(false)
+const isLoadingCatalog = ref(false)
+const hasCheckedRemote = ref(false)
+const remoteCardsCount = ref(0)
+const isRestoring = ref(false)
+const selectiveSyncPanelRef = ref<InstanceType<typeof SelectiveSyncPanel> | null>(null)
 
 const selectedPath = computed<'local' | 'cloud'>({
   get: () => draftStore.state.architecture || 'local',
@@ -29,12 +48,46 @@ const selectedPath = computed<'local' | 'cloud'>({
   },
 })
 
-// Auto-switch to cloud if user is already authenticated
-watch(isAuthenticated, (authed) => {
-  if (authed && selectedPath.value !== 'cloud') {
-    selectedPath.value = 'cloud'
+// Auto-switch to cloud and probe catalog if user is authenticated
+watch(isAuthenticated, async (authed) => {
+  if (authed) {
+    if (selectedPath.value !== 'cloud') {
+      selectedPath.value = 'cloud'
+    }
+    await restoreVaultCredentials()
+    await probeRemoteCatalog()
   }
 }, { immediate: true })
+
+async function probeRemoteCatalog() {
+  if (!isAuthenticated.value) {
+    remoteCardsCount.value = 0
+    return
+  }
+  isLoadingCatalog.value = true
+  try {
+    if (syncStore.activeProvider === 's3' && !syncStore.s3Bucket && cloudflareStore.isAuthenticated) {
+      await cloudflareStore.autoRestoreEdgeVault()
+    }
+    const res = await syncStore.fetchRemoteSyncManifestCatalog()
+    if (res && res.success) {
+      remoteCardsCount.value = (res.cards || []).length
+    }
+  }
+  catch (e) {
+    console.warn('[StepTriage] Failed to probe remote catalog:', e)
+  }
+  finally {
+    isLoadingCatalog.value = false
+    hasCheckedRemote.value = true
+  }
+}
+
+onMounted(() => {
+  if (isAuthenticated.value) {
+    void probeRemoteCatalog()
+  }
+})
 
 async function restoreVaultCredentials() {
   if (!syncStore.s3Endpoint || !syncStore.s3Bucket) {
@@ -63,6 +116,7 @@ async function handleStartOAuth() {
     selectedPath.value = 'cloud'
     toast.success('Successfully connected to Cloudflare!')
     await restoreVaultCredentials()
+    await probeRemoteCatalog()
   }
   catch (err: any) {
     toast.error(err?.message || 'Cloudflare authentication failed')
@@ -82,6 +136,7 @@ async function handleConnectApiToken() {
     toast.success('Successfully connected Cloudflare API Token!')
     tokenInput.value = ''
     await restoreVaultCredentials()
+    await probeRemoteCatalog()
   }
   catch (err: any) {
     toast.error(err?.message || 'Failed to verify Cloudflare API token')
@@ -95,6 +150,7 @@ function handleDisconnect(e: Event) {
   e.stopPropagation()
   cloudflareStore.logout()
   selectedPath.value = 'local'
+  remoteCardsCount.value = 0
   toast.info('Disconnected from Cloudflare')
 }
 
@@ -106,6 +162,82 @@ function chooseCloud() {
   selectedPath.value = 'cloud'
   if (isAuthenticated.value) {
     void restoreVaultCredentials()
+    void probeRemoteCatalog()
+  }
+}
+
+// Route 4: The Returning Restorer
+async function handleRestoreAndLaunch() {
+  if (isRestoring.value)
+    return
+  isRestoring.value = true
+  try {
+    syncStore.syncEnabled = true
+    syncStore.activeProvider = 's3'
+
+    if (selectiveSyncPanelRef.value) {
+      const checkedIds = selectiveSyncPanelRef.value.getSelectedCheckedIds()
+      if (checkedIds && checkedIds.length > 0) {
+        syncStore.selectiveSyncEnabled = true
+        syncStore.selectiveCheckedIds = checkedIds
+      }
+    }
+
+    toast.info('Synchronizing companions and assets from Cloudflare R2...')
+    await syncStore.triggerSync()
+
+    await cardStore.loadCards()
+
+    const availableCards = Array.from(cardStore.cards.keys())
+    const cardToActivate = availableCards.find(id => id !== 'default') || availableCards[0] || 'default'
+    if (cardToActivate && cardStore.cards.has(cardToActivate)) {
+      await cardStore.activateCard(cardToActivate, true)
+    }
+
+    onboardingStore.markSetupCompleted()
+    toast.success('Companion restored and stage ready!')
+    emit('finish')
+    props.onFinish?.()
+  }
+  catch (err: any) {
+    console.error('[StepTriage] Restore and launch failed:', err)
+    toast.error(err?.message || 'Failed to restore companions')
+  }
+  finally {
+    isRestoring.value = false
+  }
+}
+
+// Route 5: The Multi-Companion Power User
+async function handleRestoreAndBuildAnother() {
+  if (isRestoring.value)
+    return
+  isRestoring.value = true
+  try {
+    syncStore.syncEnabled = true
+    syncStore.activeProvider = 's3'
+
+    if (selectiveSyncPanelRef.value) {
+      const checkedIds = selectiveSyncPanelRef.value.getSelectedCheckedIds()
+      if (checkedIds && checkedIds.length > 0) {
+        syncStore.selectiveSyncEnabled = true
+        syncStore.selectiveCheckedIds = checkedIds
+      }
+    }
+
+    toast.info('Synchronizing companions and assets from Cloudflare R2...')
+    await syncStore.triggerSync()
+    await cardStore.loadCards()
+
+    toast.success('Companions restored! Proceeding to create your new companion.')
+    props.onNext()
+  }
+  catch (err: any) {
+    console.error('[StepTriage] Restore failed:', err)
+    toast.error(err?.message || 'Failed to restore companions')
+  }
+  finally {
+    isRestoring.value = false
   }
 }
 </script>
@@ -124,7 +256,7 @@ function chooseCloud() {
       >
         <div :class="['inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary-500/20 bg-primary-500/10 text-primary-400 text-xs font-semibold mb-1']">
           <div :class="['i-solar:server-square-bold-duotone h-3.5 w-3.5']" />
-          <span>Step 3 of 16 · Architecture Choice</span>
+          <span>Step 2 of 17 · Account & Architecture</span>
         </div>
         <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
           Choose Your Setup Path
@@ -158,7 +290,7 @@ function chooseCloud() {
             'bg-primary-500/5 dark:bg-primary-950/20 shadow-sm',
           ]"
         >
-          "Whether you keep everything 100% offline on your device or enable encrypted Cloudflare Zero-Trust relays across devices, you remain in complete control."
+          "Whether you keep everything 100% offline on your device or sign in with Cloudflare for encrypted multi-device backups, you remain in complete control."
         </div>
       </div>
     </div>
@@ -254,7 +386,7 @@ function chooseCloud() {
         </div>
       </div>
 
-      <!-- Option 2: Cloud Relay (Cloudflare Zero-Trust) -->
+      <!-- Option 2: Account Sign-In (Cloudflare) -->
       <div
         :class="[
           'relative flex flex-col justify-between overflow-hidden rounded-2xl p-5 border-2 transition-all duration-200 cursor-pointer min-h-[340px]',
@@ -290,7 +422,7 @@ function chooseCloud() {
                     : 'bg-primary-500/15 text-primary-600 dark:text-primary-400',
                 ]"
               >
-                {{ isAuthenticated ? 'Connected' : 'Zero-Trust Relay' }}
+                {{ isAuthenticated ? 'Connected' : 'Zero-Trust' }}
               </span>
             </div>
 
@@ -316,10 +448,10 @@ function chooseCloud() {
           <!-- Title & Description -->
           <div>
             <h2 :class="['text-base font-bold text-neutral-900 dark:text-white']">
-              Cloud Relay (Cloudflare Zero-Trust)
+              Account Sign-In (Cloudflare)
             </h2>
             <p :class="['text-xs text-neutral-600 dark:text-neutral-400 mt-1.5 leading-relaxed']">
-              Private Cloudflare Edge KV sync and multi-device companion restore. Encrypts and backs up companions, memories, and cards across devices.
+              Private Cloudflare sync and multi-device companion restore. Encrypts and backs up companions, memories, and cards across devices.
             </p>
           </div>
 
@@ -443,7 +575,7 @@ function chooseCloud() {
             </div>
             <div :class="['flex items-center gap-2 text-neutral-700 dark:text-neutral-300']">
               <div :class="['i-solar:check-circle-bold text-sm text-primary-500 shrink-0']" />
-              <span>Private zero-trust Cloudflare edge infrastructure</span>
+              <span>Private Cloudflare edge infrastructure</span>
             </div>
           </div>
         </div>
@@ -460,10 +592,127 @@ function chooseCloud() {
                 : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700',
             ]"
           >
-            <span>{{ selectedPath === 'cloud' ? (isAuthenticated ? '✓ Cloudflare Connected' : '✓ Selected Cloud Relay') : 'Configure Cloudflare →' }}</span>
+            <span>{{ selectedPath === 'cloud' ? (isAuthenticated ? '✓ Cloudflare Connected' : '✓ Selected Cloudflare') : 'Sign In with Cloudflare →' }}</span>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Remote Companions Found / Selective Restore View (Routes 4 & 5) -->
+    <div
+      v-if="selectedPath === 'cloud' && isAuthenticated && remoteCardsCount > 0"
+      v-motion
+      :initial="{ opacity: 0, y: 10 }"
+      :enter="{ opacity: 1, y: 0 }"
+      :duration="400"
+      :class="['flex flex-col gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/20 p-4 shadow-sm']"
+    >
+      <div :class="['flex items-center justify-between pb-2 border-b border-emerald-500/20']">
+        <div :class="['flex items-center gap-2.5']">
+          <div :class="['h-8 w-8 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0']">
+            <div :class="['i-solar:cloud-check-bold-duotone text-lg']" />
+          </div>
+          <div>
+            <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
+              <span>Found {{ remoteCardsCount }} Companion{{ remoteCardsCount === 1 ? '' : 's' }} in Cloudflare R2</span>
+              <span :class="['px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400']">
+                Ready to Restore
+              </span>
+            </h3>
+            <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+              Select which companions and asset libraries to sync down to this device.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          :class="['text-[11px] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors']"
+          @click="probeRemoteCatalog"
+        >
+          <div :class="['i-solar:refresh-linear text-xs', isLoadingCatalog ? 'animate-spin' : '']" />
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      <!-- Embedded Full Selective Sync Tree -->
+      <div :class="['max-h-[300px] overflow-y-auto rounded-xl border border-neutral-200/80 dark:border-white/5 bg-white/60 dark:bg-neutral-900/60 p-2']">
+        <SelectiveSyncPanel
+          ref="selectiveSyncPanelRef"
+          :show-actions="false"
+        />
+      </div>
+
+      <!-- Route 4 & 5 Action Bar -->
+      <div :class="['flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-emerald-500/20']">
+        <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+          Restoring pulls active state into your local vault.
+        </div>
+
+        <div :class="['flex items-center gap-2.5']">
+          <!-- Route 5: Multi-Companion Power User -->
+          <button
+            type="button"
+            :disabled="isRestoring"
+            :class="[
+              'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold',
+              'border border-primary-500/30 bg-primary-500/10 hover:bg-primary-500/20 text-primary-600 dark:text-primary-300 transition-all active:scale-95 disabled:opacity-50 cursor-pointer',
+            ]"
+            @click="handleRestoreAndBuildAnother"
+          >
+            <div v-if="isRestoring" :class="['i-solar:refresh-line-duotone text-xs animate-spin']" />
+            <div v-else :class="['i-solar:add-circle-bold text-xs text-primary-500']" />
+            <span>+ Restore & Build Another Companion</span>
+          </button>
+
+          <!-- Route 4: Returning Restorer -->
+          <Button
+            variant="primary"
+            size="md"
+            :disabled="isRestoring"
+            :class="[
+              'flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-2',
+              'text-xs font-semibold text-white shadow-md shadow-emerald-600/25 transition-all active:scale-95 disabled:opacity-50 cursor-pointer',
+            ]"
+            @click="handleRestoreAndLaunch"
+          >
+            <div v-if="isRestoring" :class="['i-solar:refresh-line-duotone text-xs animate-spin']" />
+            <div v-else :class="['i-solar:rocket-bold-duotone text-xs']" />
+            <span>🚀 Restore & Launch Stage (~30s)</span>
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connected Cloud Account (Fresh / Zero Backups) -->
+    <div
+      v-else-if="selectedPath === 'cloud' && isAuthenticated && !isLoadingCatalog"
+      v-motion
+      :initial="{ opacity: 0, y: 10 }"
+      :enter="{ opacity: 1, y: 0 }"
+      :duration="350"
+      :class="['p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between']"
+    >
+      <div :class="['flex items-center gap-2']">
+        <div :class="['i-solar:check-circle-bold-duotone text-base text-emerald-500 shrink-0']" />
+        <span>Connected to Cloudflare! No existing companion backups found in Cloudflare R2. Your new companion will automatically sync to your cloud vault.</span>
+      </div>
+      <button
+        type="button"
+        :class="['px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs cursor-pointer transition-colors shrink-0 ml-2']"
+        @click="props.onNext"
+      >
+        Continue Setup (Cloud-Backed) →
+      </button>
+    </div>
+
+    <!-- Catalog Scanning Indicator -->
+    <div
+      v-else-if="selectedPath === 'cloud' && isAuthenticated && isLoadingCatalog"
+      :class="['p-3 rounded-xl border border-neutral-200 dark:border-white/5 bg-neutral-50 dark:bg-white/5 text-xs text-neutral-500 flex items-center justify-center gap-2 animate-pulse']"
+    >
+      <div :class="['i-solar:refresh-line-duotone animate-spin text-sm']" />
+      <span>Checking Cloudflare R2 for companion backups...</span>
     </div>
 
     <!-- Navigation Action Bar -->
@@ -481,11 +730,11 @@ function chooseCloud() {
         @click="props.onPrevious"
       >
         <div :class="['i-solar:alt-arrow-left-line-duotone h-4 w-4']" />
-        <span>Back to Appearance</span>
+        <span>Back to Welcome</span>
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        Path: <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ selectedPath === 'local' ? 'Local Companion (Offline)' : 'Cloud Relay (Cloudflare)' }}</span>
+        Path: <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ selectedPath === 'local' ? 'Local Companion (Air-Gapped)' : 'Account Sign-In (Cloudflare)' }}</span>
       </div>
 
       <Button
@@ -497,7 +746,7 @@ function chooseCloud() {
         ]"
         @click="props.onNext"
       >
-        <span>Next: Experience Archetypes</span>
+        <span>Continue to Appearance</span>
         <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
       </Button>
     </div>

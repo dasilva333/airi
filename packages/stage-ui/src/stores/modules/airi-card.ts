@@ -1359,6 +1359,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     setAutonomousArtistry,
     getCardDisplayModelId,
     resetState,
+    loadCards,
     initialize,
     seedDefaults,
     isModelSyncPrevented,
