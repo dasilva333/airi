@@ -168,49 +168,82 @@ export const useModelStore = defineStore('modelStore', () => {
       return
 
     const gltfNodes = activeVrmParser.value?.json?.nodes
+
+    // Check if targeting a specific primitive submesh, e.g. 'body_top_1'
+    const primMatch = meshName.match(/^(.+)_(\d+)$/)
+    const targetBaseName = primMatch ? primMatch[1] : meshName
+    const targetPrimIndex = primMatch ? Number.parseInt(primMatch[2], 10) : -1
+
     let targetNodeIndex = -1
     let targetMeshIndex = -1
 
     if (Array.isArray(gltfNodes)) {
-      targetNodeIndex = gltfNodes.findIndex((n: any) => n.name === meshName)
+      targetNodeIndex = gltfNodes.findIndex((n: any) => n.name === targetBaseName)
       if (targetNodeIndex !== -1 && gltfNodes[targetNodeIndex]?.mesh !== undefined) {
         targetMeshIndex = gltfNodes[targetNodeIndex].mesh
       }
     }
 
     const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
-    const stripSuffix = (s: string) => s.replace(/\.baked(_\d+)?$/i, '').replace(/baked(_\d+)?$/i, '').replace(/(_\d+)$/, '')
-    const normTarget = normalize(stripSuffix(meshName))
+    const normTarget = normalize(meshName)
+    const normTargetBase = normalize(targetBaseName)
 
     activeVrm.value.scene.traverse((node: any) => {
       if (node.isMesh || node.isSkinnedMesh) {
         let isMatch = false
 
-        // Match by glTF parser association (node index or mesh index)
-        if (activeVrmParser.value?.associations) {
+        // 1. Direct cleanName match (tagged during buildMeshHierarchy)
+        if (node.userData?.cleanName && node.userData.cleanName === meshName) {
+          isMatch = true
+        }
+
+        // 2. Match by glTF parser association
+        if (!isMatch && activeVrmParser.value?.associations) {
           const assoc = activeVrmParser.value.associations.get(node)
           if (assoc) {
-            if (targetNodeIndex !== -1 && assoc.nodes === targetNodeIndex) {
-              isMatch = true
+            if (targetPrimIndex !== -1) {
+              // Targeted a specific primitive submesh
+              if (targetMeshIndex !== -1 && assoc.meshes === targetMeshIndex && assoc.primitives === targetPrimIndex) {
+                isMatch = true
+              }
             }
-            else if (targetMeshIndex !== -1 && assoc.meshes === targetMeshIndex) {
-              isMatch = true
+            else {
+              // Targeted a whole node or whole mesh container
+              if (targetNodeIndex !== -1 && assoc.nodes === targetNodeIndex) {
+                isMatch = true
+              }
+              else if (targetMeshIndex !== -1 && assoc.meshes === targetMeshIndex) {
+                isMatch = true
+              }
             }
           }
         }
 
-        // Fallback match by normalized name or ancestor container name
+        // 3. Fallback name matching
         if (!isMatch) {
-          let curr: any = node
-          while (curr && curr !== activeVrm.value?.scene) {
-            if (curr.name) {
-              const normCurr = normalize(stripSuffix(curr.name))
-              if (normCurr === normTarget) {
-                isMatch = true
-                break
+          const normNodeName = normalize(node.name || '')
+          if (targetPrimIndex !== -1) {
+            // Must match base name AND primitive suffix, never match parent container
+            const normSuffix = `${normTargetBase}${targetPrimIndex}`
+            if (normNodeName === normTarget || normNodeName === normSuffix) {
+              isMatch = true
+            }
+          }
+          else {
+            // Whole container match: exact name or ancestor container name
+            if (normNodeName === normTarget) {
+              isMatch = true
+            }
+            else {
+              let curr: any = node.parent
+              while (curr && curr !== activeVrm.value?.scene) {
+                if (curr.name && normalize(curr.name) === normTarget) {
+                  isMatch = true
+                  break
+                }
+                curr = curr.parent
               }
             }
-            curr = curr.parent
           }
         }
 

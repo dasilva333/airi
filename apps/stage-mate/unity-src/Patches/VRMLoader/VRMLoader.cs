@@ -254,6 +254,9 @@ public class VRMLoader : MonoBehaviour
         AssignAnimatorController(currentModel);
         InjectComponentsFromPrefab(componentTemplatePrefab, currentModel);
 
+        // Split multi-submesh SkinnedMeshRenderers into indexed child GameObjects for fine-grained wardrobe control
+        SplitMultiSubmeshRenderers(currentModel);
+
         // NOTICE: Dynamically inject MEClothes if a sidecar .outfits.json exists for this VRM model
         TryInjectDynamicOutfitEntries(currentModel, path);
 
@@ -337,9 +340,109 @@ public class VRMLoader : MonoBehaviour
         }
     }
 
+    private static void SplitMultiSubmeshRenderers(GameObject model)
+    {
+        if (model == null) return;
+
+        var smrs = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        foreach (var smr in smrs)
+        {
+            if (smr == null || smr.sharedMesh == null) continue;
+
+            // Skip already split child meshes or helpers
+            if (smr.gameObject.name.Contains("_submesh_") || (smr.transform.parent != null && smr.transform.parent.name.StartsWith(smr.gameObject.name)))
+                continue;
+
+            int subMeshCount = smr.sharedMesh.subMeshCount;
+            if (subMeshCount <= 1) continue;
+
+            // Avoid re-splitting if child meshes already exist
+            if (smr.transform.Find($"{smr.gameObject.name}_0") != null)
+                continue;
+
+            Debug.Log($"[VRMLoader:OUTFITS] Splitting multi-submesh SkinnedMeshRenderer '{smr.gameObject.name}' ({subMeshCount} submeshes)...");
+
+            var origMesh = smr.sharedMesh;
+            var origMaterials = smr.sharedMaterials;
+
+            for (int i = 0; i < subMeshCount; i++)
+            {
+                var childGO = new GameObject($"{smr.gameObject.name}_{i}");
+                childGO.transform.SetParent(smr.transform, false);
+                childGO.transform.localPosition = Vector3.zero;
+                childGO.transform.localRotation = Quaternion.identity;
+                childGO.transform.localScale = Vector3.one;
+
+                var subMesh = new Mesh
+                {
+                    name = $"{origMesh.name}_{i}",
+                    indexFormat = origMesh.indexFormat,
+                    vertices = origMesh.vertices,
+                    normals = origMesh.normals,
+                    tangents = origMesh.tangents,
+                    uv = origMesh.uv,
+                    boneWeights = origMesh.boneWeights,
+                    bindposes = origMesh.bindposes
+                };
+
+                if (origMesh.colors != null && origMesh.colors.Length > 0) subMesh.colors = origMesh.colors;
+                if (origMesh.uv2 != null && origMesh.uv2.Length > 0) subMesh.uv2 = origMesh.uv2;
+                if (origMesh.uv3 != null && origMesh.uv3.Length > 0) subMesh.uv3 = origMesh.uv3;
+                if (origMesh.uv4 != null && origMesh.uv4.Length > 0) subMesh.uv4 = origMesh.uv4;
+
+                subMesh.subMeshCount = 1;
+                var topology = origMesh.GetTopology(i);
+                var indices = origMesh.GetIndices(i);
+                subMesh.SetIndices(indices, topology, 0);
+
+                // Copy blend shapes if present
+                for (int s = 0; s < origMesh.blendShapeCount; s++)
+                {
+                    string shapeName = origMesh.GetBlendShapeName(s);
+                    int frameCount = origMesh.GetBlendShapeFrameCount(s);
+                    for (int f = 0; f < frameCount; f++)
+                    {
+                        float frameWeight = origMesh.GetBlendShapeFrameWeight(s, f);
+                        var deltaVerts = new Vector3[origMesh.vertexCount];
+                        var deltaNormals = new Vector3[origMesh.vertexCount];
+                        var deltaTangents = new Vector3[origMesh.vertexCount];
+                        origMesh.GetBlendShapeFrameVertices(s, f, deltaVerts, deltaNormals, deltaTangents);
+                        subMesh.AddBlendShapeFrame(shapeName, frameWeight, deltaVerts, deltaNormals, deltaTangents);
+                    }
+                }
+
+                subMesh.RecalculateBounds();
+
+                var childSmr = childGO.AddComponent<SkinnedMeshRenderer>();
+                childSmr.sharedMesh = subMesh;
+                childSmr.sharedMaterial = (origMaterials != null && i < origMaterials.Length) ? origMaterials[i] : null;
+                childSmr.bones = smr.bones;
+                childSmr.rootBone = smr.rootBone;
+                childSmr.quality = smr.quality;
+                childSmr.updateWhenOffscreen = smr.updateWhenOffscreen;
+                childSmr.probeAnchor = smr.probeAnchor;
+                childSmr.lightProbeUsage = smr.lightProbeUsage;
+                childSmr.reflectionProbeUsage = smr.reflectionProbeUsage;
+
+                if (origMesh.blendShapeCount > 0)
+                {
+                    var sync = childGO.AddComponent<BlendShapeSync>();
+                    sync.source = smr;
+                    sync.target = childSmr;
+                }
+            }
+
+            // Disable original multi-submesh renderer to prevent duplicate rendering
+            smr.enabled = false;
+        }
+    }
+
     private void TryInjectDynamicOutfitEntries(GameObject model, string modelPath)
     {
         if (model == null || string.IsNullOrEmpty(modelPath)) return;
+
+        // Ensure multi-submesh renderers are split before inspecting transforms
+        SplitMultiSubmeshRenderers(model);
 
         // Look for sidecar outfit json
         string dir = Path.GetDirectoryName(modelPath);
@@ -443,8 +546,8 @@ public class VRMLoader : MonoBehaviour
     {
         if (string.IsNullOrEmpty(s)) return "";
         string lower = s.Trim().ToLowerInvariant();
-        // Strip .baked or baked suffix (and any trailing _0, _1, etc.)
-        lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\.?baked(_\d+)?$", "");
+        // Strip .baked or baked suffix while preserving primitive indices (e.g. _0, _1)
+        lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\.?baked(?=$|[._\-\s])", "");
         // Strip delimiters
         lower = System.Text.RegularExpressions.Regex.Replace(lower, @"[._\-\s]", "");
         return lower;
@@ -496,26 +599,21 @@ public class VRMLoader : MonoBehaviour
                 return true;
         }
 
-        // 6. Check if any parent/ancestor container transform matches searchName
-        Transform curr = go.transform.parent;
-        while (curr != null && curr != curr.root)
+        // 6. Check if any parent/ancestor container transform matches searchName.
+        // NOTICE: Only match ancestor if searchName does NOT specify a primitive sub-index (e.g. "_0", "_1")!
+        bool searchHasIndex = System.Text.RegularExpressions.Regex.IsMatch(searchExact, @"_\d+$");
+        if (!searchHasIndex)
         {
-            string parentNorm = NormalizeMeshName(curr.name);
-            if (!string.IsNullOrEmpty(parentNorm) && parentNorm == searchNorm)
-                return true;
-            if (curr.name.Equals(searchExact, StringComparison.OrdinalIgnoreCase))
-                return true;
-            curr = curr.parent;
-        }
-
-        // 7. Prefix match for sub-parts (e.g. "skirt" matches "skirtbaked", "skirt_0", "skirt_1")
-        if (!string.IsNullOrEmpty(goNorm) && goNorm.StartsWith(searchNorm))
-            return true;
-        if (smr != null && smr.sharedMesh != null)
-        {
-            string meshNorm = NormalizeMeshName(smr.sharedMesh.name);
-            if (!string.IsNullOrEmpty(meshNorm) && meshNorm.StartsWith(searchNorm))
-                return true;
+            Transform curr = go.transform.parent;
+            while (curr != null && curr != curr.root)
+            {
+                string parentNorm = NormalizeMeshName(curr.name);
+                if (!string.IsNullOrEmpty(parentNorm) && parentNorm == searchNorm)
+                    return true;
+                if (curr.name.Equals(searchExact, StringComparison.OrdinalIgnoreCase))
+                    return true;
+                curr = curr.parent;
+            }
         }
 
         return false;
@@ -763,3 +861,20 @@ public sealed class GltfInstanceDisposer : MonoBehaviour
         try { inst?.Dispose(); } catch { }
     }
 }
+
+public sealed class BlendShapeSync : MonoBehaviour
+{
+    public SkinnedMeshRenderer source;
+    public SkinnedMeshRenderer target;
+
+    private void LateUpdate()
+    {
+        if (source == null || target == null || source.sharedMesh == null || target.sharedMesh == null) return;
+        int count = Mathf.Min(source.sharedMesh.blendShapeCount, target.sharedMesh.blendShapeCount);
+        for (int i = 0; i < count; i++)
+        {
+            target.SetBlendShapeWeight(i, source.GetBlendShapeWeight(i));
+        }
+    }
+}
+

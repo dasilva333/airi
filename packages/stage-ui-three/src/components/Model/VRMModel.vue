@@ -652,15 +652,36 @@ async function loadModel() {
       }
 
       // Populate discovered 3D mesh hierarchy tree for the wardrobe/outfits UI
-      function buildMeshHierarchy(scene: any): DiscoveredMeshNode[] {
-        function processNode(node: any): DiscoveredMeshNode | null {
+      function buildMeshHierarchy(scene: any, parser?: any): DiscoveredMeshNode[] {
+        function processNode(node: any, parentCleanName?: string): DiscoveredMeshNode | null {
           const isDirectMesh = Boolean(node.isMesh || node.isSkinnedMesh)
           const directVerts = isDirectMesh ? (node.geometry?.attributes?.position?.count ?? 0) : 0
-          const childrenNodes: DiscoveredMeshNode[] = []
 
+          const rawName = node.name || (isDirectMesh ? 'Mesh' : 'Group')
+          const baseCleanName = rawName.replace(/\.baked(_\d+)?$/i, '').replace(/baked(_\d+)?$/i, '')
+
+          let cleanName = baseCleanName
+          const assoc = parser?.associations ? parser.associations.get(node) : null
+
+          // If this is a primitive submesh inside a parent container node:
+          if (isDirectMesh && parentCleanName) {
+            if (assoc && typeof assoc.primitives === 'number' && assoc.nodes === undefined) {
+              cleanName = `${parentCleanName}_${assoc.primitives}`
+            }
+            else if (baseCleanName === parentCleanName) {
+              const match = rawName.match(/_(\d+)$/)
+              const primIdx = match ? match[1] : '0'
+              cleanName = `${parentCleanName}_${primIdx}`
+            }
+          }
+
+          node.userData = node.userData || {}
+          node.userData.cleanName = cleanName
+
+          const childrenNodes: DiscoveredMeshNode[] = []
           if (node.children && Array.isArray(node.children)) {
             for (const child of node.children) {
-              const childRes = processNode(child)
+              const childRes = processNode(child, cleanName)
               if (childRes) {
                 childrenNodes.push(childRes)
               }
@@ -672,9 +693,6 @@ async function loadModel() {
 
           if (!hasMeshes)
             return null
-
-          const rawName = node.name || (isDirectMesh ? 'Mesh' : 'Group')
-          const cleanName = rawName.replace(/\.baked(_\d+)?$/i, '').replace(/baked(_\d+)?$/i, '')
 
           return {
             id: node.uuid || cleanName,
@@ -697,7 +715,7 @@ async function loadModel() {
         // Unwrap single top-level wrapper if it contains no direct geometry
         while (nodes.length === 1 && nodes[0].children && nodes[0].children.length > 0) {
           const single = nodes[0]
-          const obj = scene.getObjectByName(single.name)
+          const obj = scene.getObjectByName(single.name) || scene.children?.find((c: any) => c.uuid === single.id || c.name === single.name)
           if (obj && !obj.isMesh && !obj.isSkinnedMesh) {
             nodes = single.children ?? []
           }
@@ -709,7 +727,12 @@ async function loadModel() {
         return nodes
       }
 
-      modelStore.discoveredMeshes = buildMeshHierarchy(_vrm.scene)
+      modelStore.discoveredMeshes = buildMeshHierarchy(_vrm.scene, vrmParser)
+      if (modelStore.hiddenMeshes.length > 0) {
+        for (const name of modelStore.hiddenMeshes) {
+          modelStore.applyMeshVisibility(name, false)
+        }
+      }
 
       const hipNode = _vrm.humanoid?.getNormalizedBoneNode('hips')
       if (hipNode) {

@@ -417,9 +417,52 @@ Configured wardrobe slots render as full-width cards in a single-column stack, p
 | **StageMate Radial Menu** | [`apps/stage-mate/mate-engine/Assets/MATE ENGINE - Scripts/Tasty Pie Menu/Scripts/CircleSelector.cs`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/apps/stage-mate/mate-engine/Assets/MATE%20ENGINE%20-%20Scripts/Tasty%20Pie%20Menu/Scripts/CircleSelector.cs) | Detects `MEClothes` and displays dress icon. |
 | **StageMate Dev Harness** | [`apps/stage-mate/harness/index.ts`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/apps/stage-mate/harness/index.ts) | Standalone mock WebSocket server with `[F]` outfit test key. |
 | **Electron Packaging Filters** | [`apps/stage-tamagotchi/electron-builder.config.ts`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/apps/stage-tamagotchi/electron-builder.config.ts) | Strips loose VRMs and deadweight from release installer bundles. |
-| **AIRI Three.js VRM Scene** | [`packages/stage-ui-three/src/components/Model/VRMModel.vue`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui-three/src/components/Model/VRMModel.vue) | WebGL stage mesh node loader and visibility renderer. |
-| **AIRI Model Customizer** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/ModelCustomizer.vue`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/settings/model-settings/ModelCustomizer.vue) | Unified avatar customization controller across VRM, Live2D, Spine, MMD. |
+| **AIRI Three.js VRM Scene** | [`packages/stage-ui-three/src/components/Model/VRMModel.vue`](file:///packages/stage-ui-three/src/components/Model/VRMModel.vue) | WebGL stage mesh node loader and visibility renderer. |
+| **AIRI Model Customizer** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/ModelCustomizer.vue`](file:///packages/stage-ui/src/components/scenarios/settings/model-settings/ModelCustomizer.vue) | Unified avatar customization controller across VRM, Live2D, Spine, MMD. |
+
+---
+
+## 10. Fine-Grained Submesh & Primitive Discovery Architecture
+
+### 10.1 The glTF 2.0 Invariant: Nodes vs. Multi-Primitive Meshes
+In standard glTF 2.0 / VRM specifications, a single node may point to a single mesh that contains multiple distinct `primitives`, each assigned to different materials. For example, in avatars like `AliciaSolid.vrm`:
+- `Node [1] (body_top)` points to `Mesh [0] (body_top.baked)` with 3 primitives:
+  - Primitive 0: `Alicia_body` (torso skin & shoulders)
+  - Primitive 1: `Alicia_body_wear` (inner top straps)
+  - Primitive 2: `Alicia_wear` (outer sleeves & sailor top)
+- `Node [2] (body_under)` contains 2 primitives (skin and stockings).
+- `Nodes [3..6] (cloth, cloth1, cloth2, cloth_ribbon)` each contain 1 primitive.
+
+### 10.2 Three.js WebGL Primitive Resolution (`VRMModel.vue` & `model-store.ts`)
+1. **Tree Hierarchy Disambiguation**:
+   - Three.js `GLTFLoader` unpacks multi-primitive meshes into a parent `Group` containing child `SkinnedMesh` instances named with `.baked` or `.baked_N`.
+   - `buildMeshHierarchy` in `VRMModel.vue` checks `parser.associations.get(node)`:
+     - If `assoc.primitives !== undefined` and `assoc.nodes === undefined`, the node is identified as a primitive submesh of the parent container and assigned an indexed name: `${parentCleanName}_${assoc.primitives}` (e.g. `body_top_0`, `body_top_1`, `body_top_2`).
+     - Standalone single-primitive nodes (`cloth`, `cloth1`, `cloth2`) retain their clean, unindexed names.
+     - Each mesh is tagged with `node.userData.cleanName` for fast direct lookup.
+2. **Strict Visibility Targeting Without Ancestor Collapsing**:
+   - In `modelStore.applyMeshVisibility`:
+     - If `meshName` matches an indexed target (e.g. `body_top_1`), visibility matching evaluates strictly against that specific primitive (`assoc.primitives === targetPrimIndex` or direct `cleanName`), and **never climbs to parent containers**.
+     - If `meshName` is an unindexed container name (e.g. `body_top`), ancestor traversal matches and hides all sibling primitives under that container, preserving group toggling.
+
+### 10.3 Stage-Mate / Unity Sidecar Parity (`VRMLoader.cs`)
+1. **Dynamic Submesh Splitting on Model Load (`SplitMultiSubmeshRenderers`)**:
+   - UniVRM imports multi-primitive nodes as a single GameObject with a single `SkinnedMeshRenderer` (combining all primitives as submeshes in one `UnityEngine.Mesh`).
+   - On model finalization, `VRMLoader` inspects loaded renderers. Any `SkinnedMeshRenderer` with `subMeshCount > 1` is dynamically split into child GameObjects:
+     - `body_top` (parent container)
+       - `body_top_0` (child GameObject with submesh 0)
+       - `body_top_1` (child GameObject with submesh 1)
+       - `body_top_2` (child GameObject with submesh 2)
+   - Each child GameObject receives an isolated `SkinnedMeshRenderer` with full vertex attributes, rigging bindings (`bones`, `rootBone`), and submesh material.
+   - For meshes containing blend shapes, a `BlendShapeSync` component keeps deformations synchronized in real-time.
+   - The original multi-submesh renderer is disabled (`enabled = false`) to prevent double-drawing.
+2. **Exact 1:1 Matching Without Greedy Prefixes (`IsMeshMatch`)**:
+   - Stripped greedy `goNorm.StartsWith(searchNorm)` prefix matching that previously caused `"cloth"` to falsely toggle `"cloth1"`, `"cloth2"`, and `"cloth_ribbon"`.
+   - Mesh matching is exact 1:1: `"body_top_1"` matches GameObject `body_top_1`, while `"cloth"` matches only `cloth`.
+   - Ancestor matching is reserved exclusively for unindexed container queries.
 
 ## Relevant Skills
 
 - [[airi-modular-outfits-system]]
+- [[airi-model-customizer]]
+- [[airi-stage-mate-unity]]
