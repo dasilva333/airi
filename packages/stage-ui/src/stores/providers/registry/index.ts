@@ -30,7 +30,7 @@ export function createProviderRegistry(
   const resolvedMetadata = { ...mergedMetadata }
 
   for (const [providerId, existing] of Object.entries(resolvedMetadata)) {
-    if (existing.category !== 'speech' && existing.category !== 'transcription' && providerId !== 'web-rwkv' && providerId !== 'web-llm' && providerId !== 'blip-local' && providerId !== 'apple-core-ai') {
+    if (existing.category !== 'speech' && existing.category !== 'transcription' && providerId !== 'web-rwkv' && providerId !== 'web-llm' && providerId !== 'blip-local' && providerId !== 'moondream-local' && providerId !== 'apple-core-ai') {
       delete resolvedMetadata[providerId]
     }
   }

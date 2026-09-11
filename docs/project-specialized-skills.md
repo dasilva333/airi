@@ -113,8 +113,8 @@ The catalog contains 65 discoverable skills. Desktop chatbox and interaction pip
 - **Content**: Physical synthesis and transcription, VoiceProfile resolution, UST transformations, empty-input handling, format/decode/device failures, permission and stream cleanup. Speech intents belong to airi-speech-runtime; filler preparation belongs to airi-conversational-pacing.
 
 #### 2.3 `airi-local-inference-engines`
-- **Target Domain**: Local WebGPU & WASM Inference (Kokoro TTS, Whisper STT, WebLLM, Web-RWKV).
-- **Key Paths**: `packages/stage-ui/src/libs/inference/` (protocol/coordinator/`gpu-resource-coordinator`, `adapters/`), `packages/stage-ui/src/workers/kokoro/`, `packages/stage-ui/src/libs/workers/worker.ts`. Note: WebLLM/Web-RWKV run as workers under `packages/stage-ui/src/workers/`.
+- **Target Domain**: Local WebGPU & WASM Inference (Kokoro TTS, Whisper STT, WebLLM, Web-RWKV, Moondream VLM).
+- **Key Paths**: `packages/stage-ui/src/libs/inference/` (protocol/coordinator/`gpu-resource-coordinator`, `adapters/`), `packages/stage-ui/src/workers/kokoro/`, `packages/stage-ui/src/workers/moondream/`, `packages/stage-ui/src/libs/workers/worker.ts`. Note: WebLLM/Web-RWKV/Moondream run as workers under `packages/stage-ui/src/workers/`.
 - **Content**: Message protocol (`load-model`, `run-inference`, `progress`), serialized load queues, `GpuResourceCoordinator` VRAM pressure telemetry, and WebGPU detection.
 
 #### 2.4 `airi-stage-ui-surfaces`

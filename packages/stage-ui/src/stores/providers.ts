@@ -95,11 +95,16 @@ export const useProvidersStore = defineStore('providers', () => {
   })
 
   function markProviderAdded(providerId: string) {
-    addedProviders.value[providerId] = true
+    addedProviders.value = {
+      ...addedProviders.value,
+      [providerId]: true,
+    }
   }
 
   function unmarkProviderAdded(providerId: string) {
-    delete addedProviders.value[providerId]
+    const next = { ...addedProviders.value }
+    delete next[providerId]
+    addedProviders.value = next
   }
 
   const { validateProvider } = createProviderValidation({

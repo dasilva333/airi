@@ -116,7 +116,7 @@ watchEffect(() => {
       min-h-0 flex-1
     >
       <div ref="scrollContainer" relative h-full w-full overflow-y-auto scrollbar-none>
-        <div flex="~ col" mx-auto h-full max-w-screen-xl>
+        <div flex="~ col" mx-auto min-h-full max-w-screen-xl>
           <PageHeader
             :title="routeHeaderMetadata?.title ?? ''"
             :subtitle="routeHeaderMetadata?.subtitle ?? ''"
@@ -124,7 +124,7 @@ watchEffect(() => {
             px-4
             @back="handleBack"
           />
-          <div min-h-0 flex-1 px-4>
+          <div flex-1 px-4 pb-8>
             <RouterView />
           </div>
         </div>

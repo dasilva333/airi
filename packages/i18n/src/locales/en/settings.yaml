@@ -1372,6 +1372,10 @@ pages:
         title: AIRI Audio Server
         description: High-Performance Neural Audio Server - Local C++ inference with
           zero-shot voice cloning and paralinguistic expression tags
+      moondream-local:
+        title: Moondream2 VLM (Local, WebGPU)
+        description: On-device 1.6B Vision-Language Model running in browser via WebGPU for
+          natural image understanding and visual Q&A.
     title: Inference Providers
   connection:
     description: Configure server endpoints, local channel gateway, and model

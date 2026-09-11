@@ -8,6 +8,7 @@ import { createLocalVisionAdapter, DEFAULT_LOCAL_VISION_MODEL, LOCAL_VISION_MODE
 import { DEFAULT_WEB_LLM_MODEL, DEFAULT_WEB_RWKV_MODEL, WEB_LLM_MODELS, WEB_RWKV_MODELS } from '../../../libs/inference/constants'
 import { NativeAI } from '../../../libs/native-ai'
 import { createAppleCoreAIChatProvider, DEFAULT_APPLE_CORE_AI_MODEL } from '../apple-core-ai'
+import { createMoondreamChatProvider } from '../moondream'
 import { createWebLlmChatProvider } from '../web-llm'
 import { createWebRwkvChatProvider } from '../web-rwkv'
 
@@ -202,6 +203,49 @@ export const localEngineMetadata: Record<string, ProviderMetadata> = {
       validateProviderConfig: (config) => {
         const url = (config.model as string) || DEFAULT_LOCAL_VISION_MODEL
         if (!url) {
+          return { errors: [new Error('No model configured')], reason: 'A model is required.', valid: false }
+        }
+        return { errors: [], reason: '', valid: true }
+      },
+    },
+  },
+  'moondream-local': {
+    id: 'moondream-local',
+    category: 'vision',
+    tasks: ['vision', 'image-to-text', 'chat'],
+    nameKey: 'settings.pages.providers.provider.moondream-local.title',
+    name: 'Moondream2 VLM (Local, WebGPU)',
+    descriptionKey: 'settings.pages.providers.provider.moondream-local.description',
+    description: 'On-device 1.6B Vision-Language Model running in browser via WebGPU for natural image understanding and visual Q&A.',
+    icon: 'i-solar:eye-scan-bold-duotone',
+    pricing: 'free',
+    deployment: 'local',
+    beginnerRecommended: true,
+    requiresCredentials: false,
+    isAvailableBy: () => isWebGPUSupported(),
+    defaultOptions: () => ({
+      model: 'Xenova/moondream2',
+    }),
+    createProvider: async config => createMoondreamChatProvider({
+      model: (config.model as string) || 'Xenova/moondream2',
+    }),
+    capabilities: {
+      listModels: async () => [
+        {
+          id: 'Xenova/moondream2',
+          name: 'Moondream2 (1.6B)',
+          provider: 'moondream-local',
+          description: 'Compact 1.6B visual language model (~700 MB)',
+          contextLength: 2048,
+          deprecated: false,
+        },
+      ],
+    },
+    validators: {
+      chatPingCheckAvailable: false,
+      validateProviderConfig: (config) => {
+        const model = (config.model as string) || 'Xenova/moondream2'
+        if (!model) {
           return { errors: [new Error('No model configured')], reason: 'A model is required.', valid: false }
         }
         return { errors: [], reason: '', valid: true }

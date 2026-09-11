@@ -84,6 +84,7 @@ export const MODEL_VRAM_ESTIMATES: Record<string, number> = {
   // Local vision models
   [MODEL_NAMES.BLIP]: 400 * 1024 * 1024, // ~400 MB
   [MODEL_NAMES.WD14]: 300 * 1024 * 1024, // ~300 MB
+  [MODEL_NAMES.MOONDREAM]: 700 * 1024 * 1024, // ~700 MB
 
   // Attention Ecology Guard — CLIP vision + text towers (q8) are always
   // resident; Moondream2 (q4, opt-in Stage-3 captioner) is the heavy partner.

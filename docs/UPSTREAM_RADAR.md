@@ -6,6 +6,93 @@
 
 ---
 
+## [2026-09-11] Upstream Delta: `2904b795..3fcae726` (6 commits, 15 files, 19 PR update(s))
+
+### 🎯 Executive Highlights
+* **Upstream Focus**: Upstream merged 6 commits (`2904b795..3fcae726`) focusing on macOS Steam signing restoration (#2509), Live2D lip sync preservation during MAGIC motion (#2481), mobile chat input layout centering (#2517), Web FPS history visualization (#2516), setup guide alignment with pinned tooling (#2503), and automated Nix dependency hash updates (#2515).
+* **Discussion & Community Buzz**:
+  - 🔥 **#2506: `feat(plugin-host): import extensions and host kits` (+102 new comments, total 103)**: Major community and architectural deliberation as plugin host extensions moved from Draft to Ready.
+  - ⚡ **#2487: `feat(stage): add bilingual subtitles` (+41 new comments, total 73)**: Strong discussion velocity evaluating bilingual dual-subtitle rendering for stage captioning.
+  - 💬 **#2484: `feat(stage-ui): show Cloud announcements on Web and Electron` (+12 new comments, total 22)**: Cloud announcement banner delivery across web and desktop shells.
+  - 💬 **#2121: `chore(i18n): update translations` (+4 new comments, total 82)**: Ongoing localization review.
+  - 💬 **#2335: `refactor(api): extract payment CORE to support other payment providers [1/2]` (+2 new comments, total 54)**: Ongoing payment abstraction refactoring.
+* **Cherry-Pick Candidates**:
+  - ⭐ **PR #2481 (`fix(stage-ui-live2d): preserve lip sync during MAGIC motion`) [Commit `c30d169543`]**: High-value, surgical 1-line bug fix in `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue` swapping registration order so `useMotionUpdatePluginLipSync` executes after `useMotionUpdatePluginManualControl`, preventing MAGIC cues from clobbering lip sync mouth movement.
+  - ⭐ **PR #2509 (`fix(stage-tamagotchi): restore macOS Steam signing`) [Commit `8928dca0b5`]**: Upgrades `electron-builder` to 26.16.1 with `minimumReleaseAgeExclude` configuration in `pnpm-workspace.yaml` to fix macOS code signing on modern GitHub runner environments.
+  - 🔍 **PR #2517 (`fix(stage-layouts): center the mobile chat input`) [Commit `3fcae726c5`]**: Minor UI polish switching input bubble to `justify-center` in `packages/stage-layouts/src/components/Layouts/MobileInteractiveArea.vue`.
+  - 🔍 **PR #2516 (`feat(stage-web): show FPS history in performance visualizer`) [Commit `69ca0a9171`]**: Self-contained SVG sparkline component `fps-history.vue` in devtools with accompanying i18n strings in `tamagotchi/settings.yaml`.
+* **Divergence / Collision Warnings**:
+  - ⚠️ **`apps/stage-tamagotchi/src/renderer/components/InteractiveArea.browser.test.ts`**: Touched by #2517; our desktop shell uses custom chatbox/gesture implementations, so avoid bulk-merging desktop interactive area test suites.
+  - ⚪ **`apps/stage-web/` (PR #2516)**: Low priority / ignored platform in fork.
+  - ⚪ **`nix/pnpm-deps-hash.txt` (PR #2515)** & `docs/content/` (PR #2503): Platform-specific Nix hashing and upstream-only contributing docs; ignore.
+
+### 📋 Upstream Commits
+- `3fcae726c5` fix(stage-layouts): center the mobile chat input (#2517) [#2517](https://github.com/moeru-ai/airi/pull/2517) _(Neko, 2026-09-11)_
+- `c30d169543` fix(stage-ui-live2d): preserve lip sync during MAGIC motion (#2481) [#2481](https://github.com/moeru-ai/airi/pull/2481) _(Arata, 2026-09-11)_
+- `69ca0a9171` feat(stage-web): show FPS history in performance visualizer (#2516) [#2516](https://github.com/moeru-ai/airi/pull/2516) _(Neko, 2026-09-11)_
+- `22b164bab0` chore(nix): update pnpmDeps hash (#2515) [#2515](https://github.com/moeru-ai/airi/pull/2515) _(Weathercold, 2026-09-10)_
+- `ac3601c061` chore(CONTRIBUTING.md): align setup guides with pinned tooling (#2503) [#2503](https://github.com/moeru-ai/airi/pull/2503) _(bianyi, 2026-09-11)_
+- `8928dca0b5` fix(stage-tamagotchi): restore macOS Steam signing (#2509) [#2509](https://github.com/moeru-ai/airi/pull/2509) _(Lovehsigure_520, 2026-09-11)_
+
+### 🔬 Subsystem Breakdown
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 1 file(s) (+27/-3)
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.browser.test.ts` *(+27/-3)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 5 file(s) (+153/-0)
+- `apps/stage-web/README.md` *(+17/-0)*
+- `apps/stage-web/src/components/Devtools/PerformanceOverlay.vue` *(+10/-0)*
+- `apps/stage-web/src/components/Devtools/fps-history.browser.test.ts` *(+48/-0)*
+- `apps/stage-web/src/components/Devtools/fps-history.vue` *(+71/-0)*
+- `apps/stage-web/src/pages/devtools/performance-visualizer.vue` *(+7/-0)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 2 file(s) (+54/-37)
+- `docs/content/en/docs/contributing/index.md` *(+18/-5)*
+- `docs/content/zh-Hans/docs/contributing/index.md` *(+36/-32)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 2 file(s) (+9/-2)
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `pnpm-workspace.yaml` *(+8/-1)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 2 file(s) (+18/-2)
+- `packages/i18n/src/locales/en/tamagotchi/settings.yaml` *(+9/-1)*
+- `packages/i18n/src/locales/zh-Hans/tamagotchi/settings.yaml` *(+9/-1)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 1 file(s) (+1/-1)
+- `packages/stage-layouts/src/components/Layouts/MobileInteractiveArea.vue` *(+1/-1)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 1 file(s) (+1/-1)
+- `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue` *(+1/-1)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 1 file(s) (+42/-36)
+- `pnpm-lock.yaml` *(+42/-36)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (6)
+- [#2520](https://github.com/moeru-ai/airi/pull/2520) `fix(server): fence stale cache writes after invalidation` by **@luoling8192** *(7 comments)*
+- [#2519](https://github.com/moeru-ai/airi/pull/2519) `test(stage-tamagotchi): verify linux window rendering in CI` by **@gg582** *(3 comments)*
+- [#2518](https://github.com/moeru-ai/airi/pull/2518) `feat(auth): accept configured native Google ID token audiences` by **@Neko-233** *(7 comments)*
+- [#2517](https://github.com/moeru-ai/airi/pull/2517) `fix(stage-layouts): center the mobile chat input` by **@nekomeowww** *(5 comments)*
+- [#2516](https://github.com/moeru-ai/airi/pull/2516) `feat(stage-web): show FPS history in performance visualizer` by **@nekomeowww** *(4 comments)*
+- [#2515](https://github.com/moeru-ai/airi/pull/2515) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(1 comments)*
+
+#### 🔄 PR Status & Lifecycle Changes (5)
+- [#2506](https://github.com/moeru-ai/airi/pull/2506) `feat(plugin-host): import extensions and host kits` — `Draft` ➔ `Ready`
+- [#2481](https://github.com/moeru-ai/airi/pull/2481) `fix(stage-ui-live2d): preserve lip sync during MAGIC motion` — `OPEN` ➔ `MERGED`
+- [#2503](https://github.com/moeru-ai/airi/pull/2503) `docs(contributing): align setup guides with pinned tooling` — `OPEN` ➔ `MERGED`
+- [#2509](https://github.com/moeru-ai/airi/pull/2509) `fix(stage-tamagotchi): restore macOS Steam signing` — `OPEN` ➔ `MERGED`
+- [#2502](https://github.com/moeru-ai/airi/pull/2502) `test(stage-tamagotchi): cover Fade on Hover interaction recovery` — `OPEN` ➔ `CLOSED`
+
+#### 💬 Discussion Activity (8)
+- [#2335](https://github.com/moeru-ai/airi/pull/2335) `refactor(api): extract payment CORE to support other payment providers [1/2]` — *+2 comments (52 ➔ 54 total)*
+- [#2487](https://github.com/moeru-ai/airi/pull/2487) `feat(stage): add bilingual subtitles` — *+41 comments (32 ➔ 73 total)*
+- [#2506](https://github.com/moeru-ai/airi/pull/2506) `feat(plugin-host): import extensions and host kits` — *+102 comments (1 ➔ 103 total)*
+- [#2299](https://github.com/moeru-ai/airi/pull/2299) `feat(providers): add Prompt API Provider` — *+2 comments (40 ➔ 42 total)*
+- [#2484](https://github.com/moeru-ai/airi/pull/2484) `feat(stage-ui): show Cloud announcements on Web and Electron` — *+12 comments (10 ➔ 22 total)*
+- [#2352](https://github.com/moeru-ai/airi/pull/2352) `fix(stage-ui-three): maintain vrm emotion weights and prevent morph conflicts` — *+2 comments (27 ➔ 29 total)*
+- [#2121](https://github.com/moeru-ai/airi/pull/2121) `chore(i18n): update translations` — *+4 comments (78 ➔ 82 total)*
+- [#2481](https://github.com/moeru-ai/airi/pull/2481) `fix(stage-ui-live2d): preserve lip sync during MAGIC motion` — *+1 comments (12 ➔ 13 total)*
+
+---
 ## [2026-09-10] Upstream Delta: `3e94ea81..2904b795` (12 commits, 126 files, 20 PR update(s))
 
 ### 🎯 Executive Highlights

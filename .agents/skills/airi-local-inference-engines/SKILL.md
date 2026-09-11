@@ -1,7 +1,7 @@
 ---
 name: airi-local-inference-engines
 description: >-
-  Load/debug local WebGPU/WASM inference workers: Kokoro, Whisper, WebLLM, Web-RWKV, worker protocols, model load queues, GpuResourceCoordinator, VRAM pressure. Provider definitions use airi-provider-core-registry.
+  Load/debug local WebGPU/WASM inference workers: Kokoro, Whisper, WebLLM, Web-RWKV, Moondream, worker protocols, model load queues, GpuResourceCoordinator, VRAM pressure. Provider definitions use airi-provider-core-registry.
 ---
 
 # AIRI Local Inference Engines (WebGPU & WASM)
@@ -15,6 +15,7 @@ AIRI executes local neural models directly in the browser via dedicated Web Work
 - **Whisper STT Worker**: Local speech-to-text inference with Eventa server streaming (`packages/stage-ui/src/libs/workers/worker.ts`, adapter at `packages/stage-ui/src/libs/inference/adapters/whisper.ts`, provider `whisper-local`).
 - **WebLLM Worker**: Local LLM text generation (`packages/stage-ui/src/workers/web-llm/`).
 - **Web-RWKV Worker**: Local RWKV-7 RNN model execution (`packages/stage-ui/src/workers/web-rwkv/`).
+- **Moondream VLM Worker**: Local 1.6B vision-language model inference (`packages/stage-ui/src/workers/moondream/`, adapter at `packages/stage-ui/src/libs/inference/adapters/moondream.ts`, provider `moondream-local`).
 - **Apple Core AI Bridge**: Hardware-accelerated speculative dialogue and on-device vision via Apple Neural Engine (ANE) and Metal (`NativeAI` bridge).
 
 VRAM budget accounting, WebGPU hardware feature detection, memory pressure telemetry, and worker load queues are coordinated by `GpuResourceCoordinator`.
@@ -33,6 +34,7 @@ VRAM budget accounting, WebGPU hardware feature detection, memory pressure telem
 - `packages/stage-ui/src/libs/workers/worker.ts` — Eventa WebGPU/WASM Whisper STT worker.
 - `packages/stage-ui/src/workers/web-llm/` — WebLLM (TVM WebGPU) worker implementation.
 - `packages/stage-ui/src/workers/web-rwkv/` — Web-RWKV WebGPU worker implementation.
+- `packages/stage-ui/src/workers/moondream/` — Moondream2 (`Xenova/moondream2`) WebGPU/WASM VLM worker (`Moondream1ForConditionalGeneration`). Adapter at `packages/stage-ui/src/libs/inference/adapters/moondream.ts`, chat provider with `/chat/completions` interception at `packages/stage-ui/src/stores/providers/moondream/index.ts`.
 
 ### Related Specs
 - `docs/design-local-whisper-stt.md` — Comprehensive design doc for Local Whisper STT engine, Eventa worker, GPU queuing, and single-tenant cache.
@@ -72,6 +74,7 @@ In Electron or multi-tab web, each BrowserWindow or tab possesses an isolated V8
 - **OOM Reload Storms**: Never blindly restart a worker after `GPUOutOfMemoryError`. `GpuWorkerHost` halts restarts on OOM; downstream callers must handle the rejection and offer smaller models or manual retries.
 - **WebGPU Memory Leaks**: Failing to call `.destroy()` on `GPUBuffer` or ONNX `InferenceSession` objects during worker reload causes VRAM exhaustion and browser tab crashes.
 - **Worker Script Bundling**: Worker scripts must be bundled with Vite using `new Worker(new URL('...', import.meta.url), { type: 'module' })` to support cross-origin worker loading.
+- **Transformers.js AutoModel Class Gap**: `AutoModelForVision2Seq` in `@huggingface/transformers` does not support `moondream1` architecture directly (`Unsupported model type: moondream1`). It must be instantiated via direct class load: `Moondream1ForConditionalGeneration.from_pretrained(modelId, { dtype: { embed_tokens: 'fp32', vision_encoder: 'q8', decoder_model_merged: 'q4' } })`.
 
 ## 5. Verification Workflows
 

@@ -132,7 +132,8 @@ The AIRI provider subsystem is organized across four distinct layers:
 
 | Provider ID | Title | Deployment | Notes |
 | :--- | :--- | :--- | :--- |
-| `blip-local` | BLIP & WD14 Tagger (Local) | Local (WebGPU) | On-device anime character tagging & natural scene captioning via WebGPU |
+| `blip-local` | Waifu Diffusion Tagger (WD) | Local (WebGPU) | On-device anime character and visual trait tagging via WebGPU |
+| `moondream-local` | Moondream2 VLM (Local, WebGPU) | Local (WebGPU) | On-device 1.6B visual language model for conversational image QA & scene captioning via WebGPU |
 | *(Cloud VLMs)* | GPT-4o, Claude 3.5, Gemini 2.5 | Cloud | Multi-modal vision capabilities routed through respective chat providers |
 
 ---
@@ -208,7 +209,7 @@ Managed by [`ModelCacheManager.vue`](file:///Users/richardpinedo/Projects.nosync
 | **Unified Providers** | [`packages/stage-ui/src/libs/providers/providers/`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/providers/providers/) | Modular provider definitions (Anthropic, OpenAI, DeepSeek, Google, etc.) |
 | **Speech Registry** | [`packages/stage-ui/src/stores/providers/registry/speech.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/registry/speech.ts) | Speech provider metadata, voice catalogs (Pocket TTS, Kokoro, ElevenLabs, Azure, Polly) |
 | **Transcription Registry** | [`packages/stage-ui/src/stores/providers/registry/transcription.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/registry/transcription.ts) | STT metadata, Whisper model definitions, Web Speech API, and Aliyun NLS |
-| **Local Engines Registry** | [`packages/stage-ui/src/stores/providers/registry/local-engines.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/registry/local-engines.ts) | Web-RWKV, WebLLM, BLIP Local, and Apple Core AI adapters |
+| **Local Engines Registry** | [`packages/stage-ui/src/stores/providers/registry/local-engines.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/registry/local-engines.ts) | Web-RWKV, WebLLM, Moondream2 Local VLM, Waifu Diffusion Tagger (WD), and Apple Core AI adapters |
 | **Self-Hosted Registry** | [`packages/stage-ui/src/stores/providers/registry/chat-local.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/registry/chat-local.ts) | vLLM and Player2 chat endpoints |
 
 ---

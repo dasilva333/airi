@@ -34,6 +34,7 @@ export function createProviderValidation(deps: ProviderValidationDeps) {
     t,
     getDefaultProviderConfig,
     isProviderConfigured,
+    markProviderAdded,
   } = deps
 
   // Configuration validation functions
@@ -49,12 +50,12 @@ export function createProviderValidation(deps: ProviderValidationDeps) {
     if (!metadata)
       return false
 
-    if (providerId === 'browser-web-speech-api' && !providerCredentials.value[providerId]) {
+    if (!providerCredentials.value[providerId] && (metadata.requiresCredentials === false || metadata.deployment === 'local' || providerId === 'browser-web-speech-api')) {
       providerCredentials.value[providerId] = getDefaultProviderConfig(providerId)
     }
 
     const config = providerCredentials.value[providerId]
-    if (!config && providerId !== 'browser-web-speech-api')
+    if (!config && metadata.requiresCredentials !== false && metadata.deployment !== 'local' && providerId !== 'browser-web-speech-api')
       return false
 
     const configString = JSON.stringify(config || {})
@@ -122,6 +123,10 @@ export function createProviderValidation(deps: ProviderValidationDeps) {
       if (providerRuntimeState.value[providerId]) {
         providerRuntimeState.value[providerId].isConfigured = validationResult.valid
         providerRuntimeState.value[providerId].validatedCredentialHash = configString
+      }
+
+      if (validationResult.valid && options.force) {
+        markProviderAdded(providerId)
       }
 
       return validationResult.valid

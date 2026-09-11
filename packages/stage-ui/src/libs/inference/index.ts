@@ -1,5 +1,7 @@
 export { createLocalVisionAdapter } from './adapters/blip'
 export type { LocalVisionAdapter } from './adapters/blip'
+export { createLocalMoondreamAdapter, getMoondreamAdapter } from './adapters/moondream'
+export type { LocalMoondreamAdapter } from './adapters/moondream'
 export { createNeedleClient, needleClient } from './adapters/needle-client'
 export type { NeedleClient } from './adapters/needle-client'
 export {

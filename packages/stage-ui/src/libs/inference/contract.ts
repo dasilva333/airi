@@ -405,6 +405,24 @@ export const blipLoadEvent = defineInvokeEventa<LoadStreamItem, BlipLoadRequest>
 export const blipProcessEvent = defineInvokeEventa<BlipProcessResult, BlipProcessRequest>('inference:blip:process')
 export const blipUnloadEvent = defineInvokeEventa<void, undefined>('inference:blip:unload')
 
+export interface MoondreamLoadRequest {
+  device?: InferenceDevice
+  hfToken?: string
+}
+
+export interface MoondreamProcessRequest {
+  imageUrl: string
+  prompt?: string
+}
+
+export interface MoondreamProcessResult {
+  text: string
+}
+
+export const moondreamLoadEvent = defineInvokeEventa<LoadStreamItem, MoondreamLoadRequest>('inference:moondream:load')
+export const moondreamProcessEvent = defineInvokeEventa<MoondreamProcessResult, MoondreamProcessRequest>('inference:moondream:process')
+export const moondreamUnloadEvent = defineInvokeEventa<void, undefined>('inference:moondream:unload')
+
 export interface MossGenerateRequest {
   text: string
   voiceId: string

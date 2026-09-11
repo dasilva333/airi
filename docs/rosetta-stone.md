@@ -202,12 +202,18 @@ interface ProviderMetadata {
 - **Coordinator**: `packages/stage-ui/src/libs/inference/coordinator.ts` — serialized model loads via `getLoadQueue()`.
 - **GPU Resource Coordinator**: `packages/stage-ui/src/libs/inference/gpu-resource-coordinator.ts` — VRAM bookkeeping, pressure telemetry, device-loss fallback.
 - **WebGPU detection**: `packages/stage-shared/src/webgpu/detect.ts`.
-- **Workers vs Adapters**: Worker implementations live in **`packages/stage-ui/src/workers/`** (`kokoro`, `web-llm`, `web-rwkv`, `vad`, `blip`, `attention-guard`, `background-removal`, `moss`, `pocket-tts`); thin **`adapters/`** in `libs/inference/` bridge workers → provider contract. **Exception**: `whisper` worker is at `libs/workers/worker.ts`, not under `workers/`.
+- **Workers vs Adapters**: Worker implementations live in **`packages/stage-ui/src/workers/`** (`kokoro`, `web-llm`, `web-rwkv`, `vad`, `blip`, `moondream`, `attention-guard`, `background-removal`, `moss`, `pocket-tts`); thin **`adapters/`** in `libs/inference/` bridge workers → provider contract. **Exception**: `whisper` worker is at `libs/workers/worker.ts`, not under `workers/`.
 
 ### Local TTS Reference (Kokoro)
 - **Worker**: `packages/stage-ui/src/workers/kokoro/worker.ts`
 - **Adapter**: `packages/stage-ui/src/libs/inference/adapters/kokoro.ts` — uses load queue, GPU coordinator, device-loss promotion.
 - **Provider page**: `packages/stage-pages/src/pages/settings/providers/speech/kokoro-local.vue`
+
+### Local VLM Reference (Moondream2)
+- **Worker**: `packages/stage-ui/src/workers/moondream/worker.ts`
+- **Adapter**: `packages/stage-ui/src/libs/inference/adapters/moondream.ts` — uses `createGpuWorkerHost`, priority queuing, OOM circuit breaker.
+- **Provider store**: `packages/stage-ui/src/stores/providers/moondream/index.ts` — `createMoondreamChatProvider` implementing `ChatProvider` with `/chat/completions` interception.
+- **Provider page**: `packages/stage-pages/src/pages/settings/providers/chat/moondream-local.vue`
 
 ---
 

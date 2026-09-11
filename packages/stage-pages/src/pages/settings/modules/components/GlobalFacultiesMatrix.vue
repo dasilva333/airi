@@ -116,6 +116,8 @@ function formatEngineLabel(provider: string, model: string, voiceId?: string): s
     return 'Whisper Tiny'
   if (provider === 'blip' || provider === 'wd14' || provider === 'blip-local')
     return 'Waifu Diffusion (WD Tagger)'
+  if (provider === 'moondream' || provider === 'moondream-local')
+    return 'Moondream2 (1.6B VLM)'
   if (provider === 'web-speech-api')
     return 'Web Speech API'
   if (provider === 'mimo')
@@ -260,10 +262,12 @@ const allFacultyProviders = computed<ProviderItem[]>(() => {
 
   if (activeDrawerFaculty.value === 'vision') {
     const recommendedMap: Record<string, string> = {
+      moondream: 'Moondream2 VLM (Local, WebGPU)',
       blip: 'Waifu Diffusion Tagger (WD Local)',
       none: 'None (Skip Vision)',
     }
     const recommendedList: ProviderItem[] = [
+      { id: 'moondream', name: 'Moondream2 VLM (Local, WebGPU)', isRecommended: true },
       { id: 'blip', name: 'Waifu Diffusion Tagger (WD Local)', isRecommended: true },
       { id: 'none', name: 'None (Skip Vision)', isRecommended: true },
     ]
@@ -399,6 +403,11 @@ function resolveModelsForFacultyProvider(faculty: FacultyName | null, provider: 
   }
 
   if (faculty === 'vision') {
+    if (provider === 'moondream' || provider === 'moondream-local') {
+      return [
+        { id: 'Xenova/moondream2', name: 'Moondream2 (1.6B ~700MB)' },
+      ]
+    }
     if (provider === 'blip' || provider === 'wd14' || provider === 'blip-local') {
       return [
         { id: 'SmilingWolf/wd-swinv2-tagger-v3', name: 'WD SwinV2 Tagger v3 (~450MB)' },
