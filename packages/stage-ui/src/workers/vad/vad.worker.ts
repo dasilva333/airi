@@ -144,6 +144,7 @@ async function loadModel(request: LoadModelRequest): Promise<void> {
     }
     resolvedDevice = device as 'webgpu' | 'wasm' | 'cpu'
 
+    env.backends.onnx.logLevel = 'error'
     env.backends.onnx.wasm!.proxy = false
 
     // Initialize state tensors

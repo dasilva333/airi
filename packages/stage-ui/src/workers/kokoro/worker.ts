@@ -21,6 +21,8 @@ import {
   kokoroUnloadEvent,
 } from '../../libs/inference/contract'
 
+env.backends.onnx.logLevel = 'error'
+
 const { context } = createContext()
 
 let ttsModel: KokoroTTS | null = null

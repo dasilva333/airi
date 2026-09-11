@@ -62,6 +62,7 @@ Web/pocket never mount the strip inside `WidgetStage` (the `isElectron` guard is
 - **Hover expand / 400ms debounce** — `useElectronMouseInElement(controlStripRoot)` (:83-84) drives `hoverExpanded` with a 400ms collapse timer (:244-258).
 - **State sync to main** — `electronControlStripSyncState` (shared/eventa.ts:290-298; payload `{ activePopover, lastPlacement, orientation, collapsed?, backgroundColor?, stripLength? }`) invoked at `index.vue:357`; handler persists into app window config under `{ title: 'AIRI', tag: 'main' }` (`apps/stage-tamagotchi/src/main/windows/main/rpc/index.electron.ts:92`).
 - **Sizing** — `stripLength = 52 + 44 * activeButtons.length` (ControlStrip.vue, `stripLength` computed); `applySizePreset` dispatches `control-strip:apply-size-preset` with monitor/alignment detail (ControlStrip.vue:~623-636).
+- **Multi-Monitor Display Discovery & Placement** — Desktop stage (`actor.vue`) discovers active displays via `useElectronAllDisplays()` from `@proj-airi/electron-vueuse` and forwards them to `RendererStage.vue` and `HeadTetheredRadialMenu.vue`. The radial menu's `monitor` wedge activates when `monitorCount > 1` or `displays.length > 1`, generating dynamic wedge subtitles with display resolution, orientation, and Primary tags.
 
 ## 3. Web / Pocket Integration (`mode="mobile"`)
 

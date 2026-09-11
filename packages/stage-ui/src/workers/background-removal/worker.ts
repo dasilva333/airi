@@ -62,6 +62,7 @@ defineStreamInvokeHandler(context, backgroundRemovalLoadEvent, toStreamHandler<L
   }
   resolvedDevice = device
 
+  env.backends.onnx.logLevel = 'error'
   env.backends.onnx.wasm!.proxy = false
 
   model = await AutoModel.from_pretrained(MODEL_ID, {

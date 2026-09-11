@@ -142,6 +142,7 @@ defineStreamInvokeHandler(context, blipLoadEvent, toStreamHandler<any, any>(asyn
   }
   resolvedDevice = device as any
 
+  env.backends.onnx.logLevel = 'error'
   env.backends.onnx.wasm!.proxy = false
   const hfToken = payload.hfToken
   if (hfToken) {

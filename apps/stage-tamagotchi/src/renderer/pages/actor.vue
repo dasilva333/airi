@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useElectronEventaContext, useElectronEventaInvoke, useElectronMouseAroundWindowBorder, useElectronMouseInElement, useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
+import { useElectronAllDisplays, useElectronEventaContext, useElectronEventaInvoke, useElectronMouseAroundWindowBorder, useElectronMouseInElement, useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
 import { resolveAtmosphereComponent } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { StageConfigOverlay, WhisperDock } from '@proj-airi/stage-ui/components'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
@@ -31,7 +31,8 @@ function handleHideStage() {
 const configOverlayOpen = ref(false)
 const showBackgroundLayer = ref(true)
 const showModelLayer = ref(true)
-const monitorCount = ref(1)
+const allDisplays = useElectronAllDisplays()
+const monitorCount = computed(() => (allDisplays.value && allDisplays.value.length > 0) ? allDisplays.value.length : 1)
 const activeMonitor = ref(1)
 
 function handleApplyPreset(preset: string) {
@@ -563,6 +564,7 @@ onBeforeUnmount(() => {
           :show-model="showModelLayer"
           :monitor-count="monitorCount"
           :active-monitor="activeMonitor"
+          :displays="allDisplays"
           @update:show-background="(val) => showBackgroundLayer = val"
           @update:show-model="(val) => showModelLayer = val"
           @apply-preset="handleApplyPreset"

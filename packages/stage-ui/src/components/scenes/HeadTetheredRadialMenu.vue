@@ -58,6 +58,7 @@ const props = withDefaults(defineProps<{
   showModel?: boolean
   monitorCount?: number
   activeMonitor?: number
+  displays?: any[]
 }>(), {
   open: false,
   stageModelRenderer: 'vrm',
@@ -65,6 +66,7 @@ const props = withDefaults(defineProps<{
   showModel: true,
   monitorCount: 1,
   activeMonitor: 1,
+  displays: () => [],
 })
 
 const emit = defineEmits<{
@@ -103,7 +105,7 @@ const MAIN_WEDGES: RadialWedgeDef[] = [
 ]
 
 const activeMainWedges = computed(() => {
-  if (props.monitorCount > 1)
+  if (props.monitorCount > 1 || (props.displays && props.displays.length > 1))
     return MAIN_WEDGES
   // When single monitor, do not show monitor slice (redundant)
   return MAIN_WEDGES.filter(w => w.id !== 'monitor')
@@ -157,10 +159,28 @@ const LAYER_SLICES = computed(() => [
 
 // 6. Monitor Presets: N Slices (360° / count)
 const MONITOR_SLICES = computed(() => {
+  const displays = props.displays || []
+  if (displays.length > 0) {
+    return displays.map((d: any, i: number) => {
+      const w = d.bounds?.width || d.size?.width || 0
+      const h = d.bounds?.height || d.size?.height || 0
+      const isPortrait = h > w
+      const isPrimary = Boolean(d.isPrimary || (d.bounds?.x === 0 && d.bounds?.y === 0))
+      const tag = isPrimary ? 'Primary' : isPortrait ? 'Portrait' : 'Landscape'
+      return {
+        id: i + 1,
+        label: `Display ${i + 1}`,
+        sub: `${w}×${h} (${tag})`,
+        active: props.activeMonitor === i + 1,
+      }
+    })
+  }
+
   const count = Math.max(1, props.monitorCount)
   return Array.from({ length: count }, (_, i) => ({
     id: i + 1,
     label: `Monitor ${i + 1}`,
+    sub: '',
     active: props.activeMonitor === i + 1,
   }))
 })
@@ -701,6 +721,7 @@ function getSectorPath(startAngle: number, endAngle: number, innerR = INNER_RADI
           >
             <div class="i-ph:desktop text-2xl" />
             <span class="mt-0.5 text-[10px] font-bold">{{ m.label }}</span>
+            <span v-if="m.sub" class="text-[7px] text-neutral-400 font-mono">{{ m.sub }}</span>
             <span v-if="m.active" class="text-[7px] text-amber-400 font-bold uppercase">Active</span>
           </div>
         </template>

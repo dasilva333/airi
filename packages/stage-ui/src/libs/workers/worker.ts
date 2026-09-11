@@ -40,6 +40,7 @@ import {
 // Initialize HuggingFace environment
 env.allowLocalModels = false
 env.useBrowserCache = true
+env.backends.onnx.logLevel = 'error'
 
 const { context } = createContext()
 

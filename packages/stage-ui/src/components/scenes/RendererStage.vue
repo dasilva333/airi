@@ -38,6 +38,7 @@ const props = withDefaults(defineProps<{
   activeMonitor?: number
   radialMenuEnabled?: boolean
   draggable?: boolean
+  displays?: any[]
 }>(), {
   paused: false,
   scale: 1,
@@ -50,6 +51,7 @@ const props = withDefaults(defineProps<{
   activeMonitor: 1,
   radialMenuEnabled: true,
   draggable: undefined,
+  displays: () => [],
 })
 
 const emits = defineEmits<{
@@ -573,6 +575,7 @@ defineExpose({
       :show-model="showModel"
       :monitor-count="monitorCount"
       :active-monitor="activeMonitor"
+      :displays="props.displays"
       @update:show-background="(val) => emits('update:showBackground', val)"
       @update:show-model="(val) => emits('update:showModel', val)"
       @apply-preset="(preset) => emits('applyPreset', preset)"

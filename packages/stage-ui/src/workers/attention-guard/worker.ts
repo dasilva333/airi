@@ -134,6 +134,7 @@ defineStreamInvokeHandler(context, attentionGuardLoadEvent, toStreamHandler<any,
   state.device = device
   state.enableVlm = !!payload.enableVlm
 
+  env.backends.onnx.logLevel = 'error'
   env.backends.onnx.wasm!.proxy = false
   if (payload.hfToken) {
     (env as any).customHeaders = { Authorization: `Bearer ${payload.hfToken}` }

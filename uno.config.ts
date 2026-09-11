@@ -202,6 +202,11 @@ export function sharedUnoConfig() {
         ],
         exclude: [
           /\/node_modules\//, // DO NOT SCAN THE BLACK HOLE
+          '**/*.log',
+          '**/airi.log',
+          '**/.cache/**',
+          '**/out/**',
+          '**/dist/**',
         ],
       },
     },

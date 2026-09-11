@@ -214,41 +214,12 @@ const nprProgramVersion = ref(0)
 let airiIblProbe: ReturnType<typeof createIblProbeController> | null = null
 
 // clean the previous vrm model loaded
-function componentCleanUp() {
+function componentCleanUp(deepClean = false) {
   // clear animation
   disposeBeforeRenderLoop?.()
   // clear vrm group
   if (vrmGroup.value) {
     vrmGroup.value.removeFromParent()
-  }
-  // deep clear
-  if (vrm.value) {
-    // TODO: after bumping up to three 0.180.0 with @types/three 0.180.0,
-    //   Argument of type 'Group<Object3DEventMap>' is not assignable to parameter of type 'Object3D<Object3DEventMap>'.
-    //     Type 'Group<Object3DEventMap>' is missing the following properties from type 'Object3D<Object3DEventMap>': setPointerCapture, releasePointerCapture, hasPointerCapture
-    //
-    // Currently, AFAIK, https://github.com/pmndrs/xr/blob/456aa380206e93888cd3a5741a1534e672ae3106/packages/pointer-events/src/pointer.ts#L69-L100 declares
-    // declare module 'three' {
-    //   interface Object3D {
-    //     setPointerCapture(pointerId: number): void
-    //     releasePointerCapture(pointerId: number): void
-    //     hasPointerCapture(pointerId: number): boolean
-
-    //     intersectChildren?: boolean
-    //     interactableDescendants?: Array<Object3D>
-    //     /**
-    //      * @deprecated
-    //      */
-    //     ancestorsHaveListeners?: boolean
-    //     ancestorsHavePointerListeners?: boolean
-    //     ancestorsHaveWheelListeners?: boolean
-    //   }
-    // }
-    //
-    // And in @tresjs/core v5, it uses the @pmndrs/pointer-events internally.
-    // Somehow the Object3D from @types/three and the one augmented by @pmndrs/pointer-events are not compatible.
-    // This needs to be fixed later.
-    VRMUtils.deepDispose(vrm.value.scene as unknown as Object3D)
   }
   // clear IBL probe
   airiIblProbe?.dispose()
@@ -260,14 +231,25 @@ function componentCleanUp() {
     vrmClothTug.tetherLine.value.removeFromParent()
   }
 
-  modelStore.activeVrm = null
-  modelStore.activeVrmIdentity = ''
-
   cycleAdvancePending = false
-  clipCache.clear()
   currentAction = null
   vrmAnimationMixer?.removeEventListener('finished', onAnimationFinished)
+  vrmAnimationMixer?.stopAllAction()
   vrmAnimationMixer = undefined
+
+  if (deepClean) {
+    // deep clear WebGL resources
+    if (vrm.value) {
+      VRMUtils.deepDispose(vrm.value.scene as unknown as Object3D)
+    }
+    clipCache.clear()
+    modelStore.activeVrm = null
+    modelStore.activeVrmIdentity = ''
+    modelStore.activeVrmGroup = null
+    modelStore.activeVrmInfo = null
+    vrm.value = null
+    vrmGroup.value = undefined
+  }
 }
 
 const clipCache = new Map<string, AnimationClip>()
@@ -546,6 +528,233 @@ function defaultTookAt(eyeHeight: number): Vec3 {
   }
 }
 
+// Populate discovered 3D mesh hierarchy tree for the wardrobe/outfits UI
+function buildMeshHierarchy(scene: any, parser?: any): DiscoveredMeshNode[] {
+  function processNode(node: any, parentCleanName?: string): DiscoveredMeshNode | null {
+    const isDirectMesh = Boolean(node.isMesh || node.isSkinnedMesh)
+    const directVerts = isDirectMesh ? (node.geometry?.attributes?.position?.count ?? 0) : 0
+
+    const rawName = node.name || (isDirectMesh ? 'Mesh' : 'Group')
+    const baseCleanName = rawName.replace(/\.baked(_\d+)?$/i, '').replace(/baked(_\d+)?$/i, '')
+
+    let cleanName = baseCleanName
+    const assoc = parser?.associations ? parser.associations.get(node) : null
+
+    // If this is a primitive submesh inside a parent container node:
+    if (isDirectMesh && parentCleanName) {
+      if (assoc && typeof assoc.primitives === 'number' && assoc.nodes === undefined) {
+        cleanName = `${parentCleanName}_${assoc.primitives}`
+      }
+      else if (baseCleanName === parentCleanName) {
+        const match = rawName.match(/_(\d+)$/)
+        const primIdx = match ? match[1] : '0'
+        cleanName = `${parentCleanName}_${primIdx}`
+      }
+    }
+
+    node.userData = node.userData || {}
+    node.userData.cleanName = cleanName
+
+    const childrenNodes: DiscoveredMeshNode[] = []
+    if (node.children && Array.isArray(node.children)) {
+      for (const child of node.children) {
+        const childRes = processNode(child, cleanName)
+        if (childRes) {
+          childrenNodes.push(childRes)
+        }
+      }
+    }
+
+    const totalVerts = directVerts + childrenNodes.reduce((sum, c) => sum + c.vertexCount, 0)
+    const hasMeshes = isDirectMesh || childrenNodes.length > 0
+
+    if (!hasMeshes)
+      return null
+
+    return {
+      id: node.uuid || cleanName,
+      name: cleanName,
+      isSkinned: Boolean(node.isSkinnedMesh) || childrenNodes.some(c => c.isSkinned),
+      vertexCount: totalVerts,
+      children: childrenNodes.length > 0 ? childrenNodes : undefined,
+    }
+  }
+
+  let nodes: DiscoveredMeshNode[] = []
+  if (scene?.children) {
+    for (const child of scene.children) {
+      const res = processNode(child)
+      if (res)
+        nodes.push(res)
+    }
+  }
+
+  // Unwrap single top-level wrapper if it contains no direct geometry
+  while (nodes.length === 1 && nodes[0].children && nodes[0].children.length > 0) {
+    const single = nodes[0]
+    const obj = scene.getObjectByName(single.name) || scene.children?.find((c: any) => c.uuid === single.id || c.name === single.name)
+    if (obj && !obj.isMesh && !obj.isSkinnedMesh) {
+      nodes = single.children ?? []
+    }
+    else {
+      break
+    }
+  }
+
+  return nodes
+}
+
+async function attachAndActivateModel(
+  _vrmInfo: any,
+  currentModelIdentity: string,
+  isFirstLoad: boolean,
+  loadId: number,
+) {
+  const {
+    _vrm,
+    _vrmGroup,
+    modelCenter: vrmModelCenter,
+    modelSize: vrmModelSize,
+    initialCameraOffset: vrmInitialCameraOffset,
+    parser: vrmParser,
+    unmappedExpressions: vrmUnlockedExpressions = [],
+  } = _vrmInfo
+
+  vrm.value = _vrm
+  vrmGroup.value = _vrmGroup
+
+  if (scene.value && !_vrmGroup.parent) {
+    scene.value.add(_vrmGroup)
+  }
+
+  // Add tether line to model group for local-to-world sync
+  if (vrmClothTug.tetherLine.value && !vrmClothTug.tetherLine.value.parent) {
+    _vrmGroup.add(vrmClothTug.tetherLine.value)
+  }
+
+  modelStore.activeVrm = _vrm
+  modelStore.activeVrmParser = vrmParser
+  modelStore.activeVrmIdentity = currentModelIdentity
+  modelStore.activeVrmGroup = _vrmGroup
+  modelStore.activeVrmInfo = _vrmInfo
+
+  if (isFirstLoad) {
+    emit('cameraPosition', {
+      x: vrmModelCenter.x + vrmInitialCameraOffset.x,
+      y: vrmModelCenter.y + vrmInitialCameraOffset.y,
+      z: vrmModelCenter.z + vrmInitialCameraOffset.z,
+    })
+    emit('modelOrigin', {
+      x: vrmModelCenter.x,
+      y: vrmModelCenter.y,
+      z: vrmModelCenter.z,
+    })
+    emit('modelSize', {
+      x: vrmModelSize.x,
+      y: vrmModelSize.y,
+      z: vrmModelSize.z,
+    })
+    emit('modelRotationY', 0)
+  }
+
+  if (_vrm.expressionManager) {
+    const nativeExpressions = Object.keys(_vrm.expressionManager.expressionMap)
+    modelStore.availableExpressions = [...nativeExpressions, ...vrmUnlockedExpressions].sort()
+  }
+
+  if (!modelStore.discoveredMeshes?.length) {
+    modelStore.discoveredMeshes = buildMeshHierarchy(_vrm.scene, vrmParser)
+  }
+  if (modelStore.hiddenMeshes.length > 0) {
+    for (const name of modelStore.hiddenMeshes) {
+      modelStore.applyMeshVisibility(name, false)
+    }
+  }
+
+  const hipNode = _vrm.humanoid?.getNormalizedBoneNode('hips')
+  if (hipNode) {
+    hipNode.updateMatrixWorld(true)
+    const hipWorldPosition = new Vector3()
+    hipNode.getWorldPosition(hipWorldPosition)
+    initialHipWorldPosition.value = hipWorldPosition
+  }
+  else {
+    initialHipWorldPosition.value = null
+  }
+
+  // Animation setting
+  vrmAnimationMixer?.stopAllAction()
+  vrmAnimationMixer = new AnimationMixer(_vrm.scene)
+  vrmAnimationMixer.addEventListener('finished', onAnimationFinished)
+
+  const cycle = vrmCycleAnimationUrls.value
+  if (cycle.length > 0) {
+    await playNextIdleCycleAnimation()
+  }
+  else {
+    await playBaseAnimation()
+  }
+
+  vrmEmote.value = useVRMEmote(_vrm)
+
+  if (!airiIblProbe && scene.value)
+    airiIblProbe = createIblProbeController(scene.value)
+
+  function getEyePosition(): number | null {
+    const eye = vrm.value?.humanoid?.getNormalizedBoneNode('head')
+    if (!eye)
+      return null
+    const eyePos = new Vector3()
+    eye.getWorldPosition(eyePos)
+    return eyePos.y
+  }
+  if (isFirstLoad) {
+    const eyePositionY = getEyePosition()
+    if (eyePositionY) {
+      emit('eyeHeight', eyePositionY)
+      emit('lookAtTarget', defaultTookAt(eyePositionY))
+    }
+  }
+
+  disposeBeforeRenderLoop?.()
+  disposeBeforeRenderLoop = onBeforeRender(({ delta }) => {
+    if (vrm.value) {
+      vrmFrameHook.value?.(vrm.value, delta)
+      vrmClothTug.update(vrm.value, delta, vrmEmote.value)
+      vrmAnimationMixer?.update(delta)
+    }
+    const activeVrm = vrm.value
+    if (!activeVrm)
+      return
+
+    activeVrm.update(delta)
+    blink.update(activeVrm, delta)
+    idleEyeSaccades.update(activeVrm, lookAtTarget, delta)
+    vrmEmote.value?.update(delta)
+
+    if (mouthOpenSize.value !== undefined) {
+      activeVrm.expressionManager?.setValue('aa', mouthOpenSize.value * 0.75)
+    }
+    else {
+      vrmLipSync.update(activeVrm, delta)
+    }
+
+    activeVrm.expressionManager?.update()
+  }).off
+
+  if (isUnmounted || loadId !== currentLoadId) {
+    console.warn('[VRMModel] Component unmounted during animation load:', loadId)
+    componentCleanUp(false)
+    return
+  }
+
+  emit('loaded', {
+    modelIdentity: modelIdentity.value,
+    modelSrc: modelSrc.value || '',
+  })
+  modelLoaded.value = true
+}
+
 async function loadModel() {
   try {
     if (!scene.value) {
@@ -553,24 +762,38 @@ async function loadModel() {
       return
     }
 
-    // console.log('[VRMModel] Loading:', modelSrc.value)
-
     const loadId = ++currentLoadId
 
     if (!modelSrc.value) {
-      componentCleanUp()
+      componentCleanUp(true)
       console.warn('NO model src, cannot load VRM model.')
       return
     }
+
     // Local file models are loaded through blob URLs, so a stable model identity
     // is required to avoid resetting the camera on every app restart.
     const currentModelIdentity = modelIdentity.value || modelSrc.value
     const previousModelIdentity = lastModelIdentity.value || lastModelSrc.value
     const isFirstLoad = currentModelIdentity !== previousModelIdentity
 
+    // 1. If switching away to a different model, dispose the old model completely
+    if (modelStore.activeVrm && modelStore.activeVrmIdentity && modelStore.activeVrmIdentity !== currentModelIdentity) {
+      componentCleanUp(true)
+    }
+
+    // 2. Cache Hit: If modelStore already holds this exact model, reuse it immediately!
+    if (
+      modelStore.activeVrm
+      && modelStore.activeVrmGroup
+      && modelStore.activeVrmIdentity === currentModelIdentity
+      && modelStore.activeVrmInfo
+    ) {
+      await attachAndActivateModel(modelStore.activeVrmInfo, currentModelIdentity, isFirstLoad, loadId)
+      return
+    }
+
     try {
       emit('loadStart')
-      // Load vrm model
       modelLoaded.value = false
       const _vrmInfo = await loadVrm(modelSrc.value, {
         scene: scene.value,
@@ -585,279 +808,39 @@ async function loadModel() {
         console.warn('VRM model loading failure!')
         return
       }
-      const {
-        _vrm,
-        _vrmGroup,
-        modelCenter: vrmModelCenter,
-        modelSize: vrmModelSize,
-        initialCameraOffset: vrmInitialCameraOffset,
-        parser: vrmParser,
-        unmappedExpressions: vrmUnlockedExpressions,
-      } = _vrmInfo
 
       // ASYNC GUARD: If we unmounted or a new load started, dispose this model immediately
       if (isUnmounted || loadId !== currentLoadId) {
-        console.warn('[VRMModel] Discarding model from stale/unmounted load:', loadId)
-        VRMUtils.deepDispose(_vrm.scene as unknown as Object3D)
-        _vrmGroup.removeFromParent()
+        if (!isUnmounted && loadId !== currentLoadId) {
+          console.warn('[VRMModel] Discarding superseded model load:', loadId)
+          VRMUtils.deepDispose(_vrmInfo._vrm.scene as unknown as Object3D)
+          _vrmInfo._vrmGroup.removeFromParent()
+        }
         return
       }
 
-      // Atomic Model Swap: Clean up the previous model right before mounting the new one
-      componentCleanUp()
+      // Clean up previous scene attachment before activating new one
+      componentCleanUp(false)
 
-      /*
-        * Model setting
-      */
-      vrm.value = _vrm
-      vrmGroup.value = _vrmGroup
-
-      // Add tether line to model group for local-to-world sync
-      if (vrmClothTug.tetherLine.value) {
-        _vrmGroup.add(vrmClothTug.tetherLine.value)
-      }
-      modelStore.activeVrm = _vrm
-      modelStore.activeVrmParser = vrmParser
-      modelStore.activeVrmIdentity = currentModelIdentity
-      // If it's first load
-      if (isFirstLoad) {
-        emit('cameraPosition', {
-          x: vrmModelCenter.x + vrmInitialCameraOffset.x,
-          y: vrmModelCenter.y + vrmInitialCameraOffset.y,
-          z: vrmModelCenter.z + vrmInitialCameraOffset.z,
-        })
-        emit('modelOrigin', {
-          x: vrmModelCenter.x,
-          y: vrmModelCenter.y,
-          z: vrmModelCenter.z,
-        })
-        emit('modelSize', {
-          x: vrmModelSize.x,
-          y: vrmModelSize.y,
-          z: vrmModelSize.z,
-        })
-      }
-
-      // Set model facing direction
-      // Lilia: I brought forward the rotation to the core.ts, so that any ad-hoc rotation will not impact the model centre position.
-      if (isFirstLoad) {
-        // Reset model rotation Y
-        emit('modelRotationY', 0)
-      }
-
-      // Populate available expressions for the settings UI
-      if (_vrm.expressionManager) {
-        const nativeExpressions = Object.keys(_vrm.expressionManager.expressionMap)
-        modelStore.availableExpressions = [...nativeExpressions, ...vrmUnlockedExpressions].sort()
-      }
-
-      // Populate discovered 3D mesh hierarchy tree for the wardrobe/outfits UI
-      function buildMeshHierarchy(scene: any, parser?: any): DiscoveredMeshNode[] {
-        function processNode(node: any, parentCleanName?: string): DiscoveredMeshNode | null {
-          const isDirectMesh = Boolean(node.isMesh || node.isSkinnedMesh)
-          const directVerts = isDirectMesh ? (node.geometry?.attributes?.position?.count ?? 0) : 0
-
-          const rawName = node.name || (isDirectMesh ? 'Mesh' : 'Group')
-          const baseCleanName = rawName.replace(/\.baked(_\d+)?$/i, '').replace(/baked(_\d+)?$/i, '')
-
-          let cleanName = baseCleanName
-          const assoc = parser?.associations ? parser.associations.get(node) : null
-
-          // If this is a primitive submesh inside a parent container node:
-          if (isDirectMesh && parentCleanName) {
-            if (assoc && typeof assoc.primitives === 'number' && assoc.nodes === undefined) {
-              cleanName = `${parentCleanName}_${assoc.primitives}`
-            }
-            else if (baseCleanName === parentCleanName) {
-              const match = rawName.match(/_(\d+)$/)
-              const primIdx = match ? match[1] : '0'
-              cleanName = `${parentCleanName}_${primIdx}`
-            }
-          }
-
-          node.userData = node.userData || {}
-          node.userData.cleanName = cleanName
-
-          const childrenNodes: DiscoveredMeshNode[] = []
-          if (node.children && Array.isArray(node.children)) {
-            for (const child of node.children) {
-              const childRes = processNode(child, cleanName)
-              if (childRes) {
-                childrenNodes.push(childRes)
-              }
-            }
-          }
-
-          const totalVerts = directVerts + childrenNodes.reduce((sum, c) => sum + c.vertexCount, 0)
-          const hasMeshes = isDirectMesh || childrenNodes.length > 0
-
-          if (!hasMeshes)
-            return null
-
-          return {
-            id: node.uuid || cleanName,
-            name: cleanName,
-            isSkinned: Boolean(node.isSkinnedMesh) || childrenNodes.some(c => c.isSkinned),
-            vertexCount: totalVerts,
-            children: childrenNodes.length > 0 ? childrenNodes : undefined,
-          }
-        }
-
-        let nodes: DiscoveredMeshNode[] = []
-        if (scene?.children) {
-          for (const child of scene.children) {
-            const res = processNode(child)
-            if (res)
-              nodes.push(res)
-          }
-        }
-
-        // Unwrap single top-level wrapper if it contains no direct geometry
-        while (nodes.length === 1 && nodes[0].children && nodes[0].children.length > 0) {
-          const single = nodes[0]
-          const obj = scene.getObjectByName(single.name) || scene.children?.find((c: any) => c.uuid === single.id || c.name === single.name)
-          if (obj && !obj.isMesh && !obj.isSkinnedMesh) {
-            nodes = single.children ?? []
-          }
-          else {
-            break
-          }
-        }
-
-        return nodes
-      }
-
-      modelStore.discoveredMeshes = buildMeshHierarchy(_vrm.scene, vrmParser)
-      if (modelStore.hiddenMeshes.length > 0) {
-        for (const name of modelStore.hiddenMeshes) {
-          modelStore.applyMeshVisibility(name, false)
-        }
-      }
-
-      const hipNode = _vrm.humanoid?.getNormalizedBoneNode('hips')
-      if (hipNode) {
-        hipNode.updateMatrixWorld(true)
-        const hipWorldPosition = new Vector3()
-        hipNode.getWorldPosition(hipWorldPosition)
-        initialHipWorldPosition.value = hipWorldPosition
-      }
-      else {
-        initialHipWorldPosition.value = null
-      }
-
-      /*
-        * Animation setting
-      */
-      // play animation
-      vrmAnimationMixer = new AnimationMixer(_vrm.scene)
-      vrmAnimationMixer.addEventListener('finished', onAnimationFinished)
-
-      const cycle = vrmCycleAnimationUrls.value
-      if (cycle.length > 0) {
-        await playNextIdleCycleAnimation()
-      }
-      else {
-        await playBaseAnimation()
-      }
-
-      vrmEmote.value = useVRMEmote(_vrm)
-
-      /*
-        * Shader setting
-      */
-      // material selection
-      // refactoring
-      // MToon material sky box lightProbe setting
-      if (!airiIblProbe && scene.value)
-        airiIblProbe = createIblProbeController(scene.value)
-
-      /*
-        * Eye tracking setting
-      */
-      function getEyePosition(): number | null {
-        const eye = vrm.value?.humanoid?.getNormalizedBoneNode('head')
-        if (!eye)
-          return null
-        const eyePos = new Vector3()
-        eye.getWorldPosition(eyePos)
-        return eyePos.y
-      }
-      if (isFirstLoad) {
-        const eyePositionY = getEyePosition()
-        if (eyePositionY) {
-          emit('eyeHeight', eyePositionY)
-          emit('lookAtTarget', defaultTookAt(eyePositionY))
-        }
-      }
-
-      // Standard VRM Update Loop
-      disposeBeforeRenderLoop = onBeforeRender(({ delta }) => {
-        if (vrm.value) {
-          // Loop: Custom frame hook
-          vrmFrameHook.value?.(vrm.value, delta)
-
-          // Loop: Cloth Interaction (Wired R&D)
-          vrmClothTug.update(vrm.value, delta, vrmEmote.value)
-
-          // Update mixer
-          vrmAnimationMixer?.update(delta)
-        }
-        const activeVrm = vrm.value
-        if (!activeVrm)
-          return
-
-        // 1. Core update (humanoid, springbone, expressions)
-        activeVrm.update(delta)
-
-        // 2. Plugin updates
-        blink.update(activeVrm, delta)
-        idleEyeSaccades.update(activeVrm, lookAtTarget, delta)
-        vrmEmote.value?.update(delta)
-
-        if (mouthOpenSize.value !== undefined) {
-          activeVrm.expressionManager?.setValue('aa', mouthOpenSize.value * 0.75)
-        }
-        else {
-          vrmLipSync.update(activeVrm, delta)
-        }
-
-        // 3. Apply expression updates to meshes
-        activeVrm.expressionManager?.update()
-      }).off
-
-      // ASYNC GUARD: Check again after animation loading
-      if (isUnmounted || loadId !== currentLoadId) {
-        console.warn('[VRMModel] Discarding model after animation load - stale/unmounted:', loadId)
-        componentCleanUp() // This will use the latest vrm.value, but we should be careful
-        // Better: dispose the specific ones we just loaded if they aren't assigned yet
-        VRMUtils.deepDispose(_vrm.scene as unknown as Object3D)
-        _vrmGroup.removeFromParent()
-        return
-      }
-
-      // update the 'last model src'
-      emit('loaded', {
-        modelIdentity: modelIdentity.value,
-        modelSrc: modelSrc.value,
-      })
-      modelLoaded.value = true
+      await attachAndActivateModel(_vrmInfo, currentModelIdentity, isFirstLoad, loadId)
     }
     catch (err: any) {
       console.error('[VRMModel] Failed to load VRM model:', err?.message || err)
-      componentCleanUp()
+      componentCleanUp(true)
       modelLoaded.value = false
       emit('error', err)
     }
   }
   catch (err: any) {
     console.error('[VRMModel] Outer error in loadModel:', err?.message || err)
-    componentCleanUp()
+    componentCleanUp(true)
     modelLoaded.value = false
     emit('error', err)
   }
 }
 
 onMounted(async () => {
+  isUnmounted = false
   // wait until scene is not undefined
   await until(() => scene.value).toBeTruthy()
   await loadModel()
@@ -992,13 +975,13 @@ onMounted(async () => {
 
 onUnmounted(() => {
   isUnmounted = true
-  componentCleanUp()
+  componentCleanUp(false)
 })
 
 if (import.meta.hot) {
   // Ensure cleanup on HMR
   import.meta.hot.dispose(() => {
-    componentCleanUp()
+    componentCleanUp(false)
   })
 }
 
