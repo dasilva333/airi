@@ -27,6 +27,7 @@ export interface OnboardingV3DraftState {
   userName?: string
   userDescription?: string
   userPrompt?: string
+  userGender?: 'male' | 'female' | 'non-binary'
   selectedUserArchetypeId?: string
   companionName?: string
   companionHonorific?: string
@@ -153,6 +154,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       memory: true,
       tools: false,
     },
+    userGender: 'male',
     pacingPreset: 'balanced',
     subconsciousAsides: true,
     artistryProvider: 'pollinations',
@@ -247,6 +249,8 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     userName?: string
     description?: string
     prompt?: string
+    gender?: 'male' | 'female' | 'non-binary'
+    userGender?: 'male' | 'female' | 'non-binary'
     archetypeId?: string
     companionName?: string
     companionHonorific?: string
@@ -259,6 +263,10 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.userDescription = profile.description
     if (profile.prompt !== undefined)
       state.value.userPrompt = profile.prompt
+    if (profile.gender !== undefined)
+      state.value.userGender = profile.gender
+    if (profile.userGender !== undefined)
+      state.value.userGender = profile.userGender
     if (profile.archetypeId !== undefined)
       state.value.selectedUserArchetypeId = profile.archetypeId
     if (profile.companionName !== undefined)

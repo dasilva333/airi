@@ -97,6 +97,10 @@ const selectedPresetId = computed({
 
 function selectPreset(id: string) {
   selectedPresetId.value = id
+  const preset = STARTER_CHARACTERS[id]
+  if (preset && draft.state) {
+    draft.state.companionName = preset.name
+  }
 }
 
 // --- Community Hub & Electron Webview Interceptor ---
@@ -240,6 +244,10 @@ function handleWizardSubmitDraft(finalCard: any) {
     importedCardDraft: finalCard,
     cardId: finalCard?.id || finalCard?.data?.name || 'custom-import',
   })
+  const cardName = ('data' in finalCard ? finalCard.data?.name : finalCard?.name) || finalCard?.name
+  if (cardName && draft.state) {
+    draft.state.companionName = cardName
+  }
   toast.success(`Mounted custom card "${importedName.value}" to draft!`)
 }
 
@@ -252,6 +260,9 @@ const importedName = computed(() => {
 
 function clearImported() {
   applyPersonaToDraft({ source: 'preset', cardId: 'default', importedCardDraft: undefined })
+  if (draft.state) {
+    draft.state.companionName = STARTER_CHARACTERS.default?.name || 'ReLU'
+  }
   toast.info('Cleared imported card; reverted to ReLU preset.')
 }
 
@@ -285,6 +296,15 @@ const activePersonaLabel = computed(() => {
 })
 
 onMounted(() => {
+  if (draft.state?.personaSource !== 'import') {
+    const id = draft.state?.personaCardId || 'default'
+    const preset = STARTER_CHARACTERS[id]
+    const knownPresets = Object.values(STARTER_CHARACTERS).map(c => c.name)
+    if (preset && draft.state && (!draft.state.companionName || knownPresets.includes(draft.state.companionName) || ['ReLU', 'Dr. Aria', 'Lupin', 'Airi'].includes(draft.state.companionName))) {
+      draft.state.companionName = preset.name
+    }
+  }
+
   if (typeof window !== 'undefined' && (window as any).electron?.ipcRenderer) {
     const handler = (_event: any, payload: { base64Data: string, filename: string, ext: string }) => {
       handleCharaCardDownloaded(payload)

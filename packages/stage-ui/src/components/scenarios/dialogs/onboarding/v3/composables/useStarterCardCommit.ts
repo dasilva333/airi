@@ -1,6 +1,7 @@
 import type { ChatHistoryItem } from '../../../../../../types/chat'
 import type { OnboardingV3DraftState } from '../stores/useOnboardingV3Draft'
 
+import { SPOTLIGHT_MODELS } from '@proj-airi/stage-ui/constants'
 import { nanoid } from 'nanoid'
 
 import {
@@ -23,6 +24,42 @@ import { useSettingsUserProfile } from '../../../../../../stores/settings/user-p
 
 export const USER_TOKEN_REGEX = /(?<!\{)\{user\}(?!\})/g
 
+export function applyPronounsAndUser(
+  text: string,
+  userName: string,
+  gender: 'male' | 'female' | 'non-binary' = 'male',
+): string {
+  if (!text)
+    return ''
+  let res = text
+    .replace(USER_TOKEN_REGEX, userName)
+    .replace(/\{\{user\}\}/gi, userName)
+    .replace(/\bRichard\b/g, userName)
+
+  if (gender === 'female') {
+    res = res
+      .replace(/\bhis one and only companion\b/gi, 'her one and only companion')
+      .replace(/\bmaking him feel at home\b/gi, 'making her feel at home')
+      .replace(/\bcelebrate everything he does\b/gi, 'celebrate everything she does')
+      .replace(/\bhis\b/g, 'her')
+      .replace(/\bhim\b/g, 'her')
+      .replace(/\bhe does\b/g, 'she does')
+      .replace(/\bhe\b/g, 'she')
+  }
+  else if (gender === 'non-binary') {
+    res = res
+      .replace(/\bhis one and only companion\b/gi, 'their one and only companion')
+      .replace(/\bmaking him feel at home\b/gi, 'making them feel at home')
+      .replace(/\bcelebrate everything he does\b/gi, 'celebrate everything they do')
+      .replace(/\bhis\b/g, 'their')
+      .replace(/\bhim\b/g, 'them')
+      .replace(/\bhe does\b/g, 'they do')
+      .replace(/\bhe\b/g, 'they')
+  }
+
+  return res
+}
+
 export interface ResolvedPersona {
   name: string
   nickname: string
@@ -40,16 +77,17 @@ export interface ResolvedPersona {
 /**
  * Resolves character persona data from the onboarding draft state.
  * Handles imported cards, starter character presets, and installed cards,
- * replacing {user} and {{user}} tokens with the user's name.
+ * replacing {user} and {{user}} tokens with the user's name and adjusting pronouns.
  */
 export function resolvePersona(draft: OnboardingV3DraftState, userName: string): ResolvedPersona {
+  const userGender = draft.userGender || 'male'
   const imported = draft.importedCardDraft
 
   if (imported) {
     const rawData = (imported as any).data || imported
     const greetings = (rawData.greetings || (rawData.first_mes ? [rawData.first_mes, ...(rawData.alternate_greetings || [])] : [])) as string[]
     const firstGreeting = greetings[0]
-      ? greetings[0].replace(USER_TOKEN_REGEX, userName).replace(/\{\{user\}\}/gi, userName)
+      ? applyPronounsAndUser(greetings[0], userName, userGender)
       : `Hello ${userName}! Everything is calibrated and ready to go.`
 
     return {
@@ -71,42 +109,48 @@ export function resolvePersona(draft: OnboardingV3DraftState, userName: string):
 
   if (STARTER_CHARACTERS[personaCardId]) {
     const p = getStarterCharacter(personaCardId)
-    const greetings = p.greetings.map(g => g.replace(USER_TOKEN_REGEX, userName))
+    const greetings = p.greetings.map(g => applyPronounsAndUser(g, userName, userGender))
     const firstGreeting = greetings[0] || `Hello ${userName}! Everything is calibrated and ready to go. Let's step onto the stage together!`
+
+    const isKnownPreset = Object.values(STARTER_CHARACTERS).some(c => c.name === draft.companionName) || ['ReLU', 'Dr. Aria', 'Lupin', 'Airi'].includes(draft.companionName || '')
+    const nickname = (draft.companionName && !isKnownPreset) ? draft.companionName : p.name
 
     return {
       name: p.name,
-      nickname: draft.companionName || p.name,
-      description: p.description,
-      personality: p.personality,
-      scenario: p.scenario.replace(USER_TOKEN_REGEX, userName),
-      systemPrompt: p.systemPrompt.replace(USER_TOKEN_REGEX, userName),
+      nickname,
+      description: applyPronounsAndUser(p.description, userName, userGender),
+      personality: applyPronounsAndUser(p.personality, userName, userGender),
+      scenario: applyPronounsAndUser(p.scenario, userName, userGender),
+      systemPrompt: applyPronounsAndUser(p.systemPrompt, userName, userGender),
       postHistoryInstructions: DEFAULT_POST_HISTORY_INSTRUCTIONS,
       greetings,
       messageExample: (p.messageExample || []).map(([uMsg, cMsg]) => [
-        uMsg.replace(USER_TOKEN_REGEX, userName),
-        cMsg.replace(USER_TOKEN_REGEX, userName),
+        applyPronounsAndUser(uMsg, userName, userGender),
+        applyPronounsAndUser(cMsg, userName, userGender),
       ]) as [string, string][],
       firstGreeting,
     }
   }
 
   const d = STARTER_CHARACTERS.default
-  const greetings = d.greetings.map(g => g.replace(USER_TOKEN_REGEX, userName))
+  const greetings = d.greetings.map(g => applyPronounsAndUser(g, userName, userGender))
   const firstGreeting = greetings[0] || `Hello ${userName}! Everything is calibrated and ready to go. Let's step onto the stage together!`
+
+  const isKnownPreset = Object.values(STARTER_CHARACTERS).some(c => c.name === draft.companionName) || ['ReLU', 'Dr. Aria', 'Lupin', 'Airi'].includes(draft.companionName || '')
+  const nickname = (draft.companionName && !isKnownPreset) ? draft.companionName : d.name
 
   return {
     name: d.name,
-    nickname: draft.companionName || d.name,
-    description: d.description,
-    personality: d.personality,
-    scenario: d.scenario.replace(USER_TOKEN_REGEX, userName),
-    systemPrompt: d.systemPrompt.replace(USER_TOKEN_REGEX, userName),
+    nickname,
+    description: applyPronounsAndUser(d.description, userName, userGender),
+    personality: applyPronounsAndUser(d.personality, userName, userGender),
+    scenario: applyPronounsAndUser(d.scenario, userName, userGender),
+    systemPrompt: applyPronounsAndUser(d.systemPrompt, userName, userGender),
     postHistoryInstructions: DEFAULT_POST_HISTORY_INSTRUCTIONS,
     greetings,
     messageExample: (d.messageExample || []).map(([uMsg, cMsg]) => [
-      uMsg.replace(USER_TOKEN_REGEX, userName),
-      cMsg.replace(USER_TOKEN_REGEX, userName),
+      applyPronounsAndUser(uMsg, userName, userGender),
+      applyPronounsAndUser(cMsg, userName, userGender),
     ]) as [string, string][],
     firstGreeting,
   }
@@ -134,7 +178,8 @@ export function resolvePromptDirectives(draft: OnboardingV3DraftState, card: any
   const toolsSet = new Set<string>(airi.generation.known.allowedTools || [])
 
   // 1. Think Aloud Directive
-  const isThinkAloudEnabled = Boolean(draft.subconsciousTier1 || (draft.subconsciousAsides && draft.pacingPreset !== 'disabled'))
+  const isSpeechEnabled = Boolean(draft.modules?.speech && draft.ttsProvider !== 'speech-noop')
+  const isThinkAloudEnabled = isSpeechEnabled && Boolean(draft.subconsciousTier1 || (draft.subconsciousAsides && draft.pacingPreset !== 'disabled'))
   if (isThinkAloudEnabled) {
     airi.acting = airi.acting || {}
     const currentMannerism = (airi.acting.speechMannerismPrompt || '').trim()
@@ -171,7 +216,8 @@ export function resolvePromptDirectives(draft: OnboardingV3DraftState, card: any
   }
 
   // 4. Context-Aware Smart Silence Directive (No-Yap Guarantee)
-  const isSmartSilenceEnabled = draft.smartSilenceDirectiveEnabled !== false
+  const isSensoryActive = Boolean(draft.modules?.sensory || draft.heartbeatsEnabled)
+  const isSmartSilenceEnabled = isSensoryActive && (draft.smartSilenceDirectiveEnabled !== false)
   if (isSmartSilenceEnabled) {
     if (draft.modules?.sensory) {
       airi.heartbeats = airi.heartbeats || {}
@@ -211,13 +257,41 @@ export function resolvePromptDirectives(draft: OnboardingV3DraftState, card: any
   airi.generation.known.allowedTools = Array.from(toolsSet)
 }
 
+export function isVessel3D(modelId: string, displayModels: any[] = []): boolean {
+  if (modelId === 'preset-vrm-1' || modelId === 'preset-vrm-2')
+    return true
+  if (modelId === 'preset-live2d-2')
+    return false
+  const spotlight = SPOTLIGHT_MODELS.find(m => m.id === modelId)
+  if (spotlight) {
+    const fmt = (spotlight as any).format?.toLowerCase() || ''
+    return fmt === 'vrm' || fmt === 'mmd' || fmt.includes('vrm') || fmt.includes('pmx')
+  }
+  const custom = displayModels.find(m => m.id === modelId)
+  if (custom?.format) {
+    const fmt = String(custom.format).toLowerCase()
+    return fmt.includes('vrm') || fmt.includes('pmx') || fmt.includes('pmd') || fmt.includes('mmd')
+  }
+  const lower = modelId.toLowerCase()
+  if (lower.includes('spine') || lower.includes('live2d'))
+    return false
+  if (lower.includes('vrm') || lower.includes('mmd') || lower.includes('pmx') || lower.includes('pmd'))
+    return true
+  return false
+}
+
 /**
  * Compiles a character card payload from transient onboarding draft state.
  * Preserves upstream CCv3 character books and lorebooks if imported,
  * or builds a standard CCv3 specification.
  */
-export function compileCardPayload(draft: OnboardingV3DraftState, resolvedPersona: ResolvedPersona): any {
+export function compileCardPayload(
+  draft: OnboardingV3DraftState,
+  resolvedPersona: ResolvedPersona,
+  displayModels: any[] = [],
+): any {
   const activeModelId = draft.vesselDisplayModelId || 'preset-live2d-2'
+  const isSpeechEnabled = Boolean(draft.modules?.speech && draft.ttsProvider !== 'speech-noop')
 
   // If user imported a card, preserve its upstream assets and patch extensions.airi
   if (resolvedPersona.importedCardRaw) {
@@ -252,6 +326,14 @@ export function compileCardPayload(draft: OnboardingV3DraftState, resolvedPerson
   const firstGreeting = resolvedPersona.firstGreeting || greetings[0] || ''
   const alternateGreetings = greetings.slice(1)
 
+  let modelExpressionPrompt = draft.actingModelExpressionPrompt || DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT
+  if (!isVessel3D(activeModelId, displayModels)) {
+    // Strip out 3D-only Elemental Manifestation for 2D vessels (Live2D / Spine)
+    modelExpressionPrompt = modelExpressionPrompt
+      .replace(/### Elemental Manifestation \(VRM \/ MMD\)[\s\S]*?(?=\n## |\n### |$)/g, '')
+      .trim()
+  }
+
   const cardPayload = {
     spec: 'chara_card_v3' as const,
     spec_version: '3.0' as const,
@@ -272,8 +354,13 @@ export function compileCardPayload(draft: OnboardingV3DraftState, resolvedPerson
       mes_example: (resolvedPersona.messageExample || [])
         .map(pair => pair.filter(Boolean).join('\n'))
         .filter(block => block.trim().length > 0)
-        .join('\n<START>\n'),
-      tags: ['onboarding-v3', draft.experienceArchetype],
+        .join('\n\n'),
+      tags: [
+        draft.experienceArchetype,
+        ...(STARTER_CHARACTERS[draft.personaCardId || 'default']?.tag
+          ? [STARTER_CHARACTERS[draft.personaCardId || 'default'].tag.toLowerCase()]
+          : []),
+      ].filter(Boolean),
       extensions: {
         airi: {
           agents: {},
@@ -292,14 +379,14 @@ export function compileCardPayload(draft: OnboardingV3DraftState, resolvedPerson
             },
           },
           acting: {
-            modelExpressionPrompt: draft.actingModelExpressionPrompt || DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT,
+            modelExpressionPrompt,
             speechExpressionPrompt: '',
             speechMannerismPrompt: '',
             pacing: {
-              enabled: draft.pacingPreset !== 'disabled',
+              enabled: isSpeechEnabled && draft.pacingPreset !== 'disabled',
               pacingProfile: draft.pacingPreset === 'snappy' ? 'snappy' : draft.pacingPreset === 'deep' ? 'deep_cot' : 'balanced',
-              dynamicAsidesEnabled: Boolean(draft.subconsciousTier2),
-              semanticExtractorEnabled: Boolean(draft.subconsciousTier2),
+              dynamicAsidesEnabled: isSpeechEnabled && Boolean(draft.subconsciousTier2),
+              semanticExtractorEnabled: isSpeechEnabled && Boolean(draft.subconsciousTier2),
             },
           },
           artistry: draft.modules?.artistry
@@ -488,7 +575,7 @@ export function useStarterCardCommit() {
     }
 
     // 4. Compile & Persist AiriCard
-    const payload = compileCardPayload(draft, persona)
+    const payload = compileCardPayload(draft, persona, displayModelsStore.displayModels)
     if (draft.modules?.speech && payload.data?.extensions?.airi?.modules?.speech) {
       payload.data.extensions.airi.modules.speech.voice_id = charProfileId
     }

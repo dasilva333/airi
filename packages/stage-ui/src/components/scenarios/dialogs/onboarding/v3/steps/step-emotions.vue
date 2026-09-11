@@ -108,11 +108,23 @@ const avatarPreviewUrl = computed(() => {
 const stageModelReady = ref(false)
 const isLoadingModel = ref(false)
 const stageState = ref<'pending' | 'loading' | 'mounted'>('pending')
+const previewXOffset = ref(0)
+const previewYOffset = ref(0)
+const previewScale = ref(1)
+
+function resetPreviewPosition() {
+  previewXOffset.value = 0
+  previewYOffset.value = 0
+  previewScale.value = 1
+}
 
 async function initializeStageRenderer() {
   isLoadingModel.value = true
   try {
-    await settingsStore.updateStageModel(activeModelId.value)
+    if (activeModelId.value) {
+      settingsStore.stageModelSelected = activeModelId.value
+      await settingsStore.updateStageModel('onboarding-v3-emotions')
+    }
     stageModelReady.value = true
   }
   catch (err) {
@@ -390,6 +402,7 @@ function syncDraft() {
 
 watch(activeModelId, async (newId) => {
   if (newId) {
+    resetPreviewPosition()
     await initializeStageRenderer()
     await loadModelCapabilities()
   }
@@ -449,13 +462,19 @@ function handleContinue() {
 
             <!-- Live RendererStage Canvas -->
             <RendererStage
-              v-if="stageModelReady && stageModelRenderer && stageModelRenderer !== 'disabled'"
+              v-if="stageModelReady && stageModelRenderer && stageModelRenderer !== 'disabled' && (settingsStore.stageModelSelected === activeModelId || settingsStore.stageModelSelectedDisplayModel?.id === activeModelId)"
               v-model:state="stageState"
               :focus-at="{ x: 0, y: 0 }"
               :paused="false"
               :show-background="false"
               :radial-menu-enabled="false"
+              :draggable="true"
+              :x-offset="previewXOffset"
+              :y-offset="previewYOffset"
+              :scale="previewScale"
               :class="['absolute inset-0 h-full w-full z-0']"
+              @offset-change="({ x, y }) => { previewXOffset = x; previewYOffset = y }"
+              @scale-change="(s) => previewScale = s"
             />
 
             <!-- Fallback Static Asset Preview while loading / unmounted -->
@@ -487,6 +506,18 @@ function handleContinue() {
                 <span :class="['capitalize text-[11px]']">{{ activePlayingEmotion }}</span>
               </div>
             </transition>
+
+            <!-- Bottom Right: Reset Position Pill if moved -->
+            <button
+              v-if="previewXOffset !== 0 || previewYOffset !== 0 || previewScale !== 1"
+              type="button"
+              title="Reset Avatar Position"
+              :class="['absolute bottom-2 right-2 z-20 px-2 py-1 rounded-lg bg-neutral-900/80 backdrop-blur-md border border-neutral-700/60 text-[10px] font-mono text-neutral-300 hover:text-white flex items-center gap-1 shadow-md cursor-pointer transition-all']"
+              @click="resetPreviewPosition"
+            >
+              <div :class="['i-solar:restart-bold w-3 h-3']" />
+              <span>Reset Pos</span>
+            </button>
           </div>
 
           <!-- Bottom HUD Bar: "Now Playing" Pill & Reset Button -->

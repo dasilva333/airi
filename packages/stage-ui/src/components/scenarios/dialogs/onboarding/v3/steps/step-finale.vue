@@ -422,7 +422,7 @@ const honestyMatrix = computed<HonestyItem[]>(() => {
 
 // --- 6. Compiled Card Payload ---
 const isPayloadModalOpen = ref(false)
-const compiledCardPayload = computed(() => compileCardPayload(draft.state, resolvedPersona.value))
+const compiledCardPayload = computed(() => compileCardPayload(draft.state, resolvedPersona.value, displayModelsStore.displayModels))
 
 function copyPayload() {
   navigator.clipboard.writeText(JSON.stringify(compiledCardPayload.value, null, 2))

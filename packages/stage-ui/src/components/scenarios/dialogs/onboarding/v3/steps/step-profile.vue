@@ -72,12 +72,21 @@ const USER_ARCHETYPES: UserArchetype[] = [
 ]
 
 const selectedArchetypeId = ref<string | null>(draft.state.selectedUserArchetypeId || null)
+const selectedGender = ref<'male' | 'female' | 'non-binary'>(draft.state.userGender || 'male')
+
+function selectGender(gender: 'male' | 'female' | 'non-binary') {
+  selectedGender.value = gender
+  if (draft.state) {
+    draft.state.userGender = gender
+  }
+}
 
 function applyUserProfileToDraft(profile: {
   name?: string
   description?: string
   prompt?: string
   archetypeId?: string
+  gender?: 'male' | 'female' | 'non-binary'
 }) {
   if (typeof (draft as any).setUserProfile === 'function') {
     draft.setUserProfile(profile)
@@ -89,6 +98,8 @@ function applyUserProfileToDraft(profile: {
       draft.state.userDescription = profile.description
     if (profile.prompt !== undefined)
       draft.state.userPrompt = profile.prompt
+    if (profile.gender !== undefined)
+      draft.state.userGender = profile.gender
     if (profile.archetypeId !== undefined)
       draft.state.selectedUserArchetypeId = profile.archetypeId
   }
@@ -99,19 +110,21 @@ function applyArchetype(archetype: UserArchetype) {
   userProfileStore.name = archetype.name
   userProfileStore.description = archetype.description
   userProfileStore.prompt = archetype.prompt
+  selectGender(archetype.gender)
   applyUserProfileToDraft({
     name: archetype.name,
     description: archetype.description,
     prompt: archetype.prompt,
+    gender: archetype.gender,
     archetypeId: archetype.id,
   })
 }
 
 // Watch inputs and keep draft updated
 watch(
-  [() => userProfileStore.name, () => userProfileStore.description, () => userProfileStore.prompt],
-  ([name, description, prompt]) => {
-    applyUserProfileToDraft({ name, description, prompt })
+  [() => userProfileStore.name, () => userProfileStore.description, () => userProfileStore.prompt, selectedGender],
+  ([name, description, prompt, gender]) => {
+    applyUserProfileToDraft({ name, description, prompt, gender })
   },
   { immediate: true },
 )
@@ -239,6 +252,37 @@ watch(
           >
           <p :class="['text-[10px] text-neutral-400 italic']">
             The default nickname used by imported cards and creator story scripts unless overridden.
+          </p>
+        </div>
+
+        <div :class="['flex flex-col gap-1.5']">
+          <label :class="['text-xs text-neutral-700 font-bold dark:text-neutral-300']">User Gender & Pronouns</label>
+          <div :class="['grid grid-cols-3 gap-2']">
+            <button
+              v-for="opt in [
+                { id: 'male', label: 'Male', sub: 'he/him', icon: 'i-solar:user-bold-duotone' },
+                { id: 'female', label: 'Female', sub: 'she/her', icon: 'i-solar:user-heart-rounded-bold-duotone' },
+                { id: 'non-binary', label: 'Non-Binary', sub: 'they/them', icon: 'i-solar:users-group-two-rounded-bold-duotone' },
+              ] as const"
+              :key="opt.id"
+              type="button"
+              :class="[
+                'flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer text-left',
+                selectedGender === opt.id
+                  ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400 font-semibold shadow-xs'
+                  : 'border-neutral-200/80 dark:border-neutral-800/80 bg-white/60 dark:bg-neutral-900/60 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700',
+              ]"
+              @click="selectGender(opt.id)"
+            >
+              <div :class="[opt.icon, 'h-4 w-4 shrink-0']" />
+              <div :class="['min-w-0 flex flex-col']">
+                <span :class="['text-xs leading-tight']">{{ opt.label }}</span>
+                <span :class="['text-[10px] font-normal text-neutral-400']">{{ opt.sub }}</span>
+              </div>
+            </button>
+          </div>
+          <p :class="['text-[10px] text-neutral-400 italic']">
+            Shapes third-person narrative pronouns and relationship lore in companion card generation.
           </p>
         </div>
 
