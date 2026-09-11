@@ -40,6 +40,7 @@ import {
   electronStageToggleVisibility,
 } from '../shared/eventa'
 import { openDebugger, setupDebugger } from './app/debugger'
+import { ensureLevelDBIntegrityOrHalt } from './app/leveldb-guard'
 import { ensureLegacyUserDataMigrated } from './app/migration'
 import { createGlobalAppConfig } from './configs/global'
 import { emitAppBeforeQuit, emitAppReady, emitAppWindowAllClosed } from './libs/bootkit/lifecycle'
@@ -200,6 +201,9 @@ const effectiveUserDataPath = ensureLegacyUserDataMigrated(app.getPath('userData
 if (effectiveUserDataPath && effectiveUserDataPath !== app.getPath('userData')) {
   app.setPath('userData', effectiveUserDataPath)
 }
+
+// Pre-flight check: intercept LevelDB corruption before Chromium can delete user data
+ensureLevelDBIntegrityOrHalt(app.getPath('userData'))
 
 app.dock?.setIcon(icon)
 electronApp.setAppUserModelId('ai.moeru.airi.dasilva333')

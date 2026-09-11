@@ -417,7 +417,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       const modelsRes = await client.readFile('assets/models/manifest.json')
       if (modelsRes.success && modelsRes.content) {
         const manifest = JSON.parse(modelsRes.content)
-        const models = Object.values(manifest.models || {})
+        const models = Object.entries(manifest.models || {}).map(([id, val]: [string, any]) => ({ id, ...val }))
         return { success: true, models }
       }
       return { success: false, error: modelsRes.error || 'Failed to read remote display models manifest' }
@@ -454,7 +454,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       const modelsRes = await client.readFile('assets/models/manifest.json')
       if (modelsRes.success && modelsRes.content) {
         const manifest = JSON.parse(modelsRes.content)
-        models = Object.values(manifest.models || {})
+        models = Object.entries(manifest.models || {}).map(([id, val]: [string, any]) => ({ id, ...val }))
       }
     }
     catch (e) {
@@ -754,14 +754,6 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
       // 5. Upload backgrounds present locally but missing/incomplete on remote
       for (const [id, entry] of localBgs.entries()) {
-        if (selectiveSyncEnabled.value) {
-          const charId = entry.characterId || 'shared'
-          const bundleId = charId === 'shared' ? 'bg-char-shared' : `bg-char-${charId}`
-          if (!selectiveCheckedIds.value.includes(bundleId)) {
-            await logDebug(`Skipping upload of background ${id} because its bundle ${bundleId} is not selected in selective sync.`)
-            continue
-          }
-        }
         const remoteInfo = remoteBgs.get(id)
         if (!remoteInfo || !remoteInfo.image || !remoteInfo.json) {
           await logDebug(`Uploading background to remote: ${id} (title: ${entry.title}, characterId: ${entry.characterId})`)
@@ -1045,13 +1037,6 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           continue
         }
 
-        if (selectiveSyncEnabled.value) {
-          const modelNodeId = `model-${id}`
-          if (!selectiveCheckedIds.value.includes(modelNodeId)) {
-            debug(`[SyncEngine] Skipping upload of model ${id} because it is not selected in selective sync.`)
-            continue
-          }
-        }
         if (!manifest.models[id]) {
           debug(`[SyncEngine] Uploading model to remote: ${id} (${entry.name})`)
           if (entry.file instanceof Blob || entry.file instanceof File) {
@@ -1311,6 +1296,26 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             }
           }
 
+          // 13. Reconcile preview image (upload updated or missing preview)
+          const pendingPreviewUpdate = await storage.getItemRaw<number>(`local:sync-metadata/preview-updated/${id}`)
+          if ((pendingPreviewUpdate || !remoteEntry.hasPreview) && localEntry.previewImage && typeof localEntry.previewImage === 'string' && localEntry.previewImage.startsWith('data:')) {
+            debug(`[SyncEngine] Uploading refreshed/missing preview image sidecar for model: ${id}`)
+            const parts = localEntry.previewImage.split(',')
+            const base64 = parts[1]
+            if (base64) {
+              const previewRelPath = `assets/models/${id}-preview.png`
+              const previewUploadRes = await client.writeFile(previewRelPath, base64, 'base64')
+              if (previewUploadRes.success) {
+                remoteEntry.hasPreview = true
+                manifestModified = true
+                await storage.removeItem(`local:sync-metadata/preview-updated/${id}`)
+              }
+              else {
+                console.error(`[SyncEngine] Failed to upload preview for ${id}:`, previewUploadRes.error)
+              }
+            }
+          }
+
           if (localModified) {
             debug(`[SyncEngine] Updating local display model metadata for: ${id}`)
             await localforage.setItem(id, localEntry)
@@ -1518,14 +1523,6 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           continue
         }
 
-        if (selectiveSyncEnabled.value) {
-          const nodeId = `vmd-${id}`
-          if (!selectiveCheckedIds.value.includes(nodeId)) {
-            debug(`[SyncEngine] Skipping upload of VMD motion ${id} because it is not selected in selective sync.`)
-            continue
-          }
-        }
-
         if (!manifest.motions[id]) {
           const hasSyncHistory = await storage.getItemRaw<number>(`local:sync-metadata/timestamps/${id}`)
           const isStaleManifest = remoteManifestMtime > 0 && hasSyncHistory && hasSyncHistory > remoteManifestMtime
@@ -1723,14 +1720,6 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           await localforage.removeItem(`custom-vrma-animation-${id}`)
           await storage.removeItem(`local:sync-metadata/timestamps/${id}`)
           continue
-        }
-
-        if (selectiveSyncEnabled.value) {
-          const nodeId = `vrma-${id}`
-          if (!selectiveCheckedIds.value.includes(nodeId)) {
-            debug(`[SyncEngine] Skipping upload of VRMA animation ${id} because it is not selected in selective sync.`)
-            continue
-          }
         }
 
         if (!manifest.animations[id]) {

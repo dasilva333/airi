@@ -99,7 +99,7 @@ const syncTree = ref<TreeNode[]>([
   {
     id: 'chats',
     label: 'Chat Sessions',
-    checked: true,
+    checked: false,
     children: [],
   },
   {
@@ -217,22 +217,22 @@ function updateSyncTree() {
         id: chatNodeId,
         label: card.name || 'Unnamed Session',
         size: sizeStr,
-        checked: checkedMap[chatNodeId] !== false,
+        checked: Boolean(checkedMap[chatNodeId]),
       })
     }
   }
   else {
     chatChildren.push(
-      { id: 'chat-asuka', label: 'Asuka Langley Soryu', size: '250 KB', checked: checkedMap['chat-asuka'] !== false },
-      { id: 'chat-kiana', label: 'Kiana Kaslana', size: '420 KB', checked: checkedMap['chat-kiana'] !== false },
-      { id: 'chat-bronya', label: 'Bronya Zaychik', size: '1.2 MB', checked: checkedMap['chat-bronya'] !== false },
+      { id: 'chat-asuka', label: 'Asuka Langley Soryu', size: '250 KB', checked: Boolean(checkedMap['chat-asuka']) },
+      { id: 'chat-kiana', label: 'Kiana Kaslana', size: '420 KB', checked: Boolean(checkedMap['chat-kiana']) },
+      { id: 'chat-bronya', label: 'Bronya Zaychik', size: '1.2 MB', checked: Boolean(checkedMap['chat-bronya']) },
     )
   }
 
   const chatsNode: TreeNode = {
     id: 'chats',
     label: 'Chat Sessions',
-    checked: checkedMap.chats !== false,
+    checked: Boolean(checkedMap.chats),
     children: chatChildren,
   }
   chatsNode.checked = chatChildren.some(c => c.checked)
@@ -652,10 +652,6 @@ function selectRelatedAssetsForCard(cardId: string) {
   }
 
   for (const group of syncTree.value) {
-    // If models group is explicitly unchecked, skip auto-checking models
-    if (group.id === 'models' && !group.checked && selectiveSyncEnabled.value)
-      continue
-
     if (group.children) {
       for (const child of group.children) {
         if (child.required)
@@ -723,6 +719,36 @@ function handleSync() {
   emit('sync', getSelectedCheckedIds())
 }
 
+function selectAll() {
+  for (const parent of syncTree.value) {
+    if (parent.required)
+      continue
+    parent.checked = true
+    if (parent.children) {
+      for (const child of parent.children) {
+        if (child.required)
+          continue
+        child.checked = true
+      }
+    }
+  }
+}
+
+function unselectAll() {
+  for (const parent of syncTree.value) {
+    if (parent.required)
+      continue
+    parent.checked = false
+    if (parent.children) {
+      for (const child of parent.children) {
+        if (child.required)
+          continue
+        child.checked = false
+      }
+    }
+  }
+}
+
 function formatSize(bytes: number): string {
   if (bytes === 0)
     return '0 Bytes'
@@ -772,6 +798,8 @@ defineExpose({
   getSelectedCheckedIds,
   fetchRemoteCatalogData,
   isLoadingRemote,
+  selectAll,
+  unselectAll,
 })
 </script>
 
@@ -851,6 +879,24 @@ defineExpose({
           <div class="flex items-center gap-2">
             <span>Resource Directory</span>
             <span class="text-[11px] text-primary-500 font-semibold dark:text-primary-400">({{ totalSelectedSize }})</span>
+
+            <div class="ml-2 flex items-center gap-1.5">
+              <button
+                type="button"
+                class="rounded px-1.5 py-0.5 text-[11px] text-neutral-500 font-medium transition-colors hover:bg-neutral-200/60 dark:text-neutral-400 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
+                @click="selectAll"
+              >
+                Select All
+              </button>
+              <span class="text-neutral-300 dark:text-neutral-700">·</span>
+              <button
+                type="button"
+                class="rounded px-1.5 py-0.5 text-[11px] text-neutral-500 font-medium transition-colors hover:bg-neutral-200/60 dark:text-neutral-400 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
+                @click="unselectAll"
+              >
+                Unselect All
+              </button>
+            </div>
           </div>
 
           <!-- Top Save Filters & Sync Action Button -->

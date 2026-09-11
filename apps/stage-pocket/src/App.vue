@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { OnboardingDialog, ToasterRoot } from '@proj-airi/stage-ui/components'
+import { OnboardingV3, ToasterRoot } from '@proj-airi/stage-ui/components'
 import { useSharedAnalyticsStore } from '@proj-airi/stage-ui/stores/analytics'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
@@ -124,12 +124,13 @@ function handleSetupSkipped() {
     <Toaster />
   </ToasterRoot>
 
-  <!-- First Time Setup Dialog -->
-  <OnboardingDialog
-    v-model="showingSetup"
-    @configured="handleSetupConfigured"
-    @skipped="handleSetupSkipped"
-  />
+  <!-- First Time Setup (Onboarding V3) -->
+  <div v-if="showingSetup" class="fixed inset-0 z-[9999] overflow-hidden">
+    <OnboardingV3
+      @close="handleSetupSkipped"
+      @finish="handleSetupConfigured"
+    />
+  </div>
 </template>
 
 <style>

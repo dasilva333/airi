@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import SelectiveSyncPanel from '@proj-airi/stage-ui/components/scenarios/providers/selective-sync-panel.vue'
 
+import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useCloudflareStore } from '@proj-airi/stage-ui/stores/modules/cloudflare'
 import { useSyncEngineStore } from '@proj-airi/stage-ui/stores/sync-engine'
@@ -21,7 +22,81 @@ const router = useRouter()
 const syncStore = useSyncEngineStore()
 const cloudflareStore = useCloudflareStore()
 const cardStore = useAiriCardStore()
+const displayModelsStore = useDisplayModelsStore()
 const isRestoringVault = ref(false)
+
+// Prune Models states
+const isPruneDialogOpen = ref(false)
+const isLoadingPruneCandidates = ref(false)
+const isPruning = ref(false)
+const pruneCandidates = ref<Array<{ id: string, name: string, format: string, sizeBytes: number }>>([])
+const selectedPruneIds = ref<Set<string>>(new Set())
+const protectedModelsCount = ref(0)
+
+const totalPruneSelectedBytes = computed(() => {
+  let bytes = 0
+  for (const candidate of pruneCandidates.value) {
+    if (selectedPruneIds.value.has(candidate.id)) {
+      bytes += candidate.sizeBytes
+    }
+  }
+  return bytes
+})
+
+async function handleOpenPruneDialog() {
+  isPruneDialogOpen.value = true
+  isLoadingPruneCandidates.value = true
+  try {
+    const res = await displayModelsStore.getPrunableLocalModels()
+    pruneCandidates.value = res.prunable
+    selectedPruneIds.value = new Set(res.prunable.map(m => m.id))
+    protectedModelsCount.value = res.protectedCount
+  }
+  catch (e: any) {
+    console.error('[CloudSync] Failed to check prunable models:', e)
+    toast.error(`Failed to scan prunable models: ${e.message}`)
+  }
+  finally {
+    isLoadingPruneCandidates.value = false
+  }
+}
+
+function togglePruneCandidate(id: string) {
+  if (selectedPruneIds.value.has(id)) {
+    selectedPruneIds.value.delete(id)
+  }
+  else {
+    selectedPruneIds.value.add(id)
+  }
+}
+
+function toggleAllPruneCandidates() {
+  if (selectedPruneIds.value.size === pruneCandidates.value.length) {
+    selectedPruneIds.value.clear()
+  }
+  else {
+    selectedPruneIds.value = new Set(pruneCandidates.value.map(m => m.id))
+  }
+}
+
+async function handleExecutePrune() {
+  if (selectedPruneIds.value.size === 0)
+    return
+  isPruning.value = true
+  try {
+    const idsToPrune = Array.from(selectedPruneIds.value)
+    const { prunedCount, freedBytes } = await displayModelsStore.pruneLocalModels(idsToPrune)
+    isPruneDialogOpen.value = false
+    toast.success(`Pruned ${prunedCount} unlinked models (${formatSize(freedBytes)} freed). Cloud backups preserved!`)
+  }
+  catch (e: any) {
+    console.error('[CloudSync] Failed to prune models:', e)
+    toast.error(`Failed to prune models: ${e.message}`)
+  }
+  finally {
+    isPruning.value = false
+  }
+}
 
 async function handleRestoreFromVault() {
   if (isRestoringVault.value)
@@ -321,6 +396,23 @@ function isMergeable(key: string): boolean {
       </div>
 
       <div class="flex flex-row items-center border-t border-neutral-200 pt-4 dark:border-neutral-800">
+        <div class="size-10 flex items-center justify-center rounded-full bg-indigo-500/10 text-indigo-500">
+          <div class="i-solar:broom-bold text-xl" />
+        </div>
+        <div class="ml-3 flex flex-col">
+          <span class="text-neutral-700 font-semibold dark:text-neutral-300">Prune Unlinked Local Models</span>
+          <span class="text-xs text-neutral-400 dark:text-neutral-500">Free up local disk space by safely removing models not associated with any character card. Verified against cloud backups before removal.</span>
+        </div>
+        <button
+          class="ml-auto rounded-xl bg-indigo-600 px-5 py-2.5 text-sm text-white font-semibold transition-colors duration-200 hover:bg-indigo-700 disabled:opacity-50 focus:outline-none"
+          :disabled="isSyncing || isPruning"
+          @click="handleOpenPruneDialog"
+        >
+          Prune Models...
+        </button>
+      </div>
+
+      <div class="flex flex-row items-center border-t border-neutral-200 pt-4 dark:border-neutral-800">
         <div class="size-10 flex items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
           <div class="i-solar:shield-up-bold text-xl" />
         </div>
@@ -490,6 +582,110 @@ function isMergeable(key: string): boolean {
           @cancel="isSelectiveSyncOpen = false"
           @sync="onSelectiveSync"
         />
+      </DialogContent>
+    </DialogPortal>
+  </DialogRoot>
+
+  <!-- Prune Unlinked Models Dialog -->
+  <DialogRoot :open="isPruneDialogOpen" @update:open="isPruneDialogOpen = $event">
+    <DialogPortal>
+      <DialogOverlay class="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm data-[state=closed]:animate-fadeOut data-[state=open]:animate-fadeIn" />
+      <DialogContent
+        class="fixed left-1/2 top-1/2 z-100 max-h-[85vh] max-w-xl w-[90vw] flex flex-col border border-neutral-200 rounded-2xl bg-white p-6 text-neutral-900 shadow-2xl backdrop-blur-xl -translate-x-1/2 -translate-y-1/2 data-[state=closed]:animate-contentHide data-[state=open]:animate-contentShow dark:border-neutral-800 dark:bg-neutral-900 dark:text-white focus:outline-none"
+      >
+        <div class="mb-4 flex items-start justify-between">
+          <div>
+            <DialogTitle class="mb-1 w-full flex items-center gap-2 text-xl text-neutral-900 font-bold dark:text-white">
+              <div class="i-solar:broom-bold text-2xl text-indigo-500 dark:text-indigo-400" />
+              <span>Prune Unlinked Local Models</span>
+            </DialogTitle>
+            <DialogDescription class="text-xs text-neutral-500 dark:text-neutral-400">
+              Remove local model files that are not referenced by any character card. Models remain safely backed up in your cloud storage.
+            </DialogDescription>
+          </div>
+          <button
+            class="rounded-full p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            @click="isPruneDialogOpen = false"
+          >
+            <div class="i-solar:close-circle-bold-duotone text-2xl" />
+          </button>
+        </div>
+
+        <div v-if="isLoadingPruneCandidates" class="flex flex-col items-center justify-center gap-3 py-12 text-neutral-500 dark:text-neutral-400">
+          <div class="i-solar:refresh-bold animate-spin text-3xl text-indigo-500" />
+          <span class="text-xs">Scanning character cards and cloud backups...</span>
+        </div>
+
+        <div v-else-if="pruneCandidates.length === 0" class="flex flex-col items-center justify-center gap-3 py-10 text-center text-neutral-500 dark:text-neutral-400">
+          <div class="i-solar:check-circle-bold text-3xl text-emerald-500" />
+          <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-200">No Unlinked Models Found</span>
+          <span class="max-w-sm text-xs text-neutral-400">
+            All {{ protectedModelsCount }} local models on your device are actively referenced by your character cards or are built-in presets.
+          </span>
+          <button
+            class="mt-2 rounded-xl bg-neutral-200 px-4 py-2 text-xs text-neutral-700 font-semibold transition-colors dark:bg-neutral-800 hover:bg-neutral-300 dark:text-neutral-300 dark:hover:bg-neutral-700"
+            @click="isPruneDialogOpen = false"
+          >
+            Close
+          </button>
+        </div>
+
+        <template v-else>
+          <div class="mb-3 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+            <span>{{ pruneCandidates.length }} models safe to prune ({{ formatSize(totalPruneSelectedBytes) }} selected)</span>
+            <button
+              type="button"
+              class="text-indigo-500 font-semibold hover:underline"
+              @click="toggleAllPruneCandidates"
+            >
+              {{ selectedPruneIds.size === pruneCandidates.length ? 'Deselect All' : 'Select All' }}
+            </button>
+          </div>
+
+          <div class="max-h-[300px] flex-1 overflow-y-auto border border-neutral-200 rounded-xl bg-neutral-50/50 p-2 dark:border-neutral-800 dark:bg-neutral-950/40">
+            <div
+              v-for="candidate in pruneCandidates"
+              :key="candidate.id"
+              class="flex cursor-pointer items-center justify-between rounded-lg p-2 transition-colors hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50"
+              @click="togglePruneCandidate(candidate.id)"
+            >
+              <div class="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  :checked="selectedPruneIds.has(candidate.id)"
+                  class="border-neutral-300 rounded text-indigo-600 focus:ring-indigo-500"
+                  @click.stop="togglePruneCandidate(candidate.id)"
+                >
+                <div class="flex flex-col">
+                  <span class="text-xs text-neutral-800 font-medium dark:text-neutral-200">{{ candidate.name }}</span>
+                  <span class="text-[10px] text-neutral-400 tracking-wider uppercase">{{ candidate.format }}</span>
+                </div>
+              </div>
+              <span class="text-xs text-neutral-400">{{ formatSize(candidate.sizeBytes) }}</span>
+            </div>
+          </div>
+
+          <div class="mt-4 flex items-center justify-between border-t border-neutral-200 pt-4 dark:border-neutral-800">
+            <span class="text-xs text-neutral-400">Cloud copies will not be deleted.</span>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="border border-neutral-200 rounded-xl px-4 py-2 text-xs text-neutral-600 font-semibold dark:border-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                @click="isPruneDialogOpen = false"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                :disabled="selectedPruneIds.size === 0 || isPruning"
+                class="rounded-xl bg-indigo-600 px-4 py-2 text-xs text-white font-semibold transition-colors hover:bg-indigo-700 disabled:opacity-50"
+                @click="handleExecutePrune"
+              >
+                {{ isPruning ? 'Pruning...' : `Prune ${selectedPruneIds.size} Models (${formatSize(totalPruneSelectedBytes)})` }}
+              </button>
+            </div>
+          </div>
+        </template>
       </DialogContent>
     </DialogPortal>
   </DialogRoot>

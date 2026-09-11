@@ -1582,6 +1582,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         }
         await localforage.setItem(id, cleanModel)
         await syncMetadataCacheFromMemory()
+        await storage.setItemRaw(`local:sync-metadata/preview-updated/${id}`, Date.now())
         broadcastModelsSync(Date.now())
       }
     }
@@ -1632,7 +1633,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   // Alias for backward compatibility
   const fetchRemoteCatalog = fetchRemoteDisplayModelsCatalog
 
-  async function removeLocalCopy(id: string) {
+  async function removeLocalCopy(id: string, silent = false) {
     await until(displayModelsFromIndexedDBLoading).toBe(false)
     try {
       await localforage.removeItem(id)
@@ -1652,13 +1653,191 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       }
 
       displayModels.value = displayModels.value.filter(model => model.id !== id)
+      await syncMetadataCacheFromMemory()
       broadcastModelsSync(Date.now())
-      toast.success('Local copy removed successfully')
+      if (!silent) {
+        toast.success('Local copy removed successfully')
+      }
     }
     catch (e: any) {
       console.error('[DisplayModels] Failed to remove local copy:', e)
-      toast.error(`Failed to remove local copy: ${e.message}`)
+      if (!silent) {
+        toast.error(`Failed to remove local copy: ${e.message}`)
+      }
     }
+  }
+
+  async function getPrunableLocalModels(): Promise<{
+    prunable: Array<{ id: string, name: string, format: string, sizeBytes: number }>
+    protectedCount: number
+    totalBytesToFree: number
+  }> {
+    await until(displayModelsFromIndexedDBLoading).toBe(false)
+    if (displayModels.value.length === 0) {
+      await loadDisplayModelsFromIndexedDB()
+    }
+
+    const { useAiriCardStore } = await import('./modules/airi-card')
+    const cardStore = useAiriCardStore()
+    if (cardStore.cards.size === 0) {
+      await cardStore.loadCards(true)
+    }
+
+    const { useSyncEngineStore } = await import('./sync-engine')
+    const syncStore = useSyncEngineStore()
+
+    // 1. Collect all model IDs referenced by character cards
+    const protectedModelIds = new Set<string>()
+
+    // Built-in presets are always protected
+    for (const preset of displayModelsPresets) {
+      protectedModelIds.add(preset.id)
+    }
+
+    const isSelective = Boolean(syncStore.selectiveSyncEnabled)
+    const checkedCardIds = new Set<string>()
+    if (isSelective && Array.isArray(syncStore.selectiveCheckedIds)) {
+      for (const cid of syncStore.selectiveCheckedIds) {
+        if (cid.startsWith('chat-')) {
+          checkedCardIds.add(cid.replace(/^chat-/, ''))
+        }
+      }
+    }
+
+    // Models referenced by character cards
+    for (const [cardId, card] of cardStore.cards.entries()) {
+      // If selective sync is active and specific cards are checked, only protect models belonging to those checked cards
+      if (isSelective && checkedCardIds.size > 0 && !checkedCardIds.has(cardId)) {
+        continue
+      }
+
+      const defaultModelId = card.extensions?.airi?.modules?.displayModelId
+      if (defaultModelId) {
+        protectedModelIds.add(defaultModelId)
+        protectedModelIds.add(`display-model-${defaultModelId}`)
+        protectedModelIds.add(defaultModelId.replace('display-model-', ''))
+      }
+
+      const visualAssets = card.extensions?.airi?.visual_assets || {}
+      for (const asset of Object.values(visualAssets) as any[]) {
+        if (asset.manifestation?.modelId) {
+          protectedModelIds.add(asset.manifestation.modelId)
+          protectedModelIds.add(`display-model-${asset.manifestation.modelId}`)
+          protectedModelIds.add(asset.manifestation.modelId.replace('display-model-', ''))
+        }
+      }
+    }
+
+    // 2. Fetch remote manifest to ensure candidate models are backed up on cloud
+    const remoteModelsMap = new Map<string, any>()
+    try {
+      const catalogRes = await syncStore.fetchRemoteSyncManifestCatalog()
+      if (catalogRes && catalogRes.success && Array.isArray(catalogRes.models)) {
+        for (const rm of catalogRes.models) {
+          if (rm.id) {
+            remoteModelsMap.set(rm.id, rm)
+            remoteModelsMap.set(rm.id.replace('display-model-', ''), rm)
+            remoteModelsMap.set(`display-model-${rm.id.replace('display-model-', '')}`, rm)
+          }
+        }
+      }
+    }
+    catch (err) {
+      console.warn('[DisplayModels] Could not fetch remote manifest for prune validation:', err)
+    }
+
+    // 3. Find file-backed local models that are not protected and are safely backed up remotely
+    const prunable: Array<{ id: string, name: string, format: string, sizeBytes: number }> = []
+    let protectedCount = 0
+    let totalBytesToFree = 0
+
+    const userModels = displayModels.value.filter(m => m.type === 'file')
+    const candidateChecks = userModels.map(async (model) => {
+      const isProtected = protectedModelIds.has(model.id)
+        || protectedModelIds.has(model.id.replace('display-model-', ''))
+        || protectedModelIds.has(`display-model-${model.id}`)
+
+      if (isProtected) {
+        return { isProtected: true, model: null, sizeBytes: 0 }
+      }
+
+      // Check remote backup verification
+      const rawId = model.id.replace('display-model-', '')
+      const isBackedUp = remoteModelsMap.has(model.id) || remoteModelsMap.has(rawId) || remoteModelsMap.has(`display-model-${rawId}`)
+      if (!isBackedUp && remoteModelsMap.size > 0) {
+        // If remote catalog is available and this model is not on remote, keep it locally so it's not lost
+        return { isProtected: true, model: null, sizeBytes: 0 }
+      }
+
+      // Read real binary size from localforage
+      let sizeBytes = 0
+      try {
+        const rawRecord = await localforage.getItem<any>(model.id)
+        if (rawRecord?.file?.size) {
+          sizeBytes = rawRecord.file.size
+        }
+      }
+      catch (e) {
+        console.warn(`[DisplayModels] Could not read file size for ${model.id}:`, e)
+      }
+
+      return {
+        isProtected: false,
+        model: {
+          id: model.id,
+          name: model.name || model.id,
+          format: model.format || 'vrm',
+          sizeBytes,
+        },
+        sizeBytes,
+      }
+    })
+
+    const results = await Promise.all(candidateChecks)
+    for (const res of results) {
+      if (res.isProtected) {
+        protectedCount++
+      }
+      else if (res.model) {
+        prunable.push(res.model)
+        totalBytesToFree += res.sizeBytes
+      }
+    }
+
+    return {
+      prunable,
+      protectedCount,
+      totalBytesToFree,
+    }
+  }
+
+  async function pruneLocalModels(modelIds: string[]): Promise<{ prunedCount: number, freedBytes: number }> {
+    const { useSyncEngineStore } = await import('./sync-engine')
+    const syncStore = useSyncEngineStore()
+
+    let prunedCount = 0
+    let freedBytes = 0
+
+    for (const id of modelIds) {
+      try {
+        const rawRecord = await localforage.getItem<any>(id)
+        if (rawRecord?.file?.size) {
+          freedBytes += rawRecord.file.size
+        }
+      }
+      catch {}
+      await removeLocalCopy(id, true)
+      prunedCount++
+    }
+
+    // Update selectiveCheckedIds to purge pruned model IDs
+    const prunedSet = new Set(modelIds.flatMap(id => [id, `model-${id}`, `model-${id.replace('display-model-', '')}`]))
+    syncStore.selectiveCheckedIds = syncStore.selectiveCheckedIds.filter(cid => !prunedSet.has(cid))
+
+    // Broadcast sync
+    broadcastModelsSync(Date.now())
+
+    return { prunedCount, freedBytes }
   }
 
   async function resetDisplayModels() {
@@ -2114,6 +2293,8 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     fetchRemoteCatalog,
     fetchRemoteDisplayModelsCatalog,
     removeLocalCopy,
+    getPrunableLocalModels,
+    pruneLocalModels,
 
     syncMetadataCacheFromMemory,
   }

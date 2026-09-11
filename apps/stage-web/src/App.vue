@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { debug } from '@proj-airi/stage-shared'
-import { GetNativeAppDialog, OnboardingDialog, ToasterRoot } from '@proj-airi/stage-ui/components'
+import { GetNativeAppDialog, OnboardingV3, ToasterRoot } from '@proj-airi/stage-ui/components'
 import { useGetNativeAppModal } from '@proj-airi/stage-ui/composables'
 import { useSharedAnalyticsStore } from '@proj-airi/stage-ui/stores/analytics'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
@@ -187,11 +187,12 @@ function handleSetupSkipped() {
   </ToasterRoot>
 
   <!-- First Time Setup Dialog -->
-  <OnboardingDialog
-    v-model="showingSetup"
-    @configured="handleSetupConfigured"
-    @skipped="handleSetupSkipped"
-  />
+  <div v-if="showingSetup" class="fixed inset-0 z-[9999] overflow-hidden">
+    <OnboardingV3
+      @close="handleSetupSkipped"
+      @finish="handleSetupConfigured"
+    />
+  </div>
 
   <!-- Get Native App Dialog -->
   <GetNativeAppDialog />

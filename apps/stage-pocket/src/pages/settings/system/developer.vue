@@ -3,13 +3,20 @@ import { SETTINGS_CATALOG_ITEMS } from '@proj-airi/stage-pages/composables/setti
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { CheckBar, IconItem, RippleGrid } from '@proj-airi/stage-ui/components'
 import { useRippleGridState } from '@proj-airi/stage-ui/composables/use-ripple-grid-state'
+import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 const settings = useSettings()
+const onboardingStore = useOnboardingStore()
 const { lastClickedIndex, setLastClickedIndex } = useRippleGridState()
+
+function launchOnboardingV3() {
+  onboardingStore.resetSetupState()
+  onboardingStore.forceShowSetup()
+}
 
 interface ToolItem {
   id: string
@@ -104,6 +111,33 @@ const toolGroups = computed<ToolGroup[]>(() => {
           text="settings.animations.use-page-specific-transitions.title"
           description="settings.animations.use-page-specific-transitions.description"
         />
+      </div>
+    </div>
+
+    <!-- Onboarding Wizard Trigger -->
+    <div flex="~ col gap-3">
+      <div px-4 text="xs neutral-400 dark:neutral-500" font-bold tracking-wider uppercase>
+        Onboarding Wizard
+      </div>
+      <div class="px-4">
+        <button
+          type="button"
+          class="w-full flex items-center justify-between border border-neutral-200/80 rounded-xl bg-neutral-100/50 p-4 text-left transition-all active:scale-[0.99] dark:border-neutral-800/80 active:bg-neutral-200/60 dark:bg-neutral-900/50 dark:active:bg-neutral-800/60"
+          @click="launchOnboardingV3"
+        >
+          <div class="flex items-center gap-3">
+            <div class="i-solar:stars-minimalistic-bold-duotone size-6 text-primary-500" />
+            <div>
+              <div class="text-sm text-neutral-800 font-medium dark:text-neutral-200">
+                Launch Onboarding V3
+              </div>
+              <div class="text-xs text-neutral-500 dark:text-neutral-400">
+                Re-test the modular 7-stage initialization and persona wizard
+              </div>
+            </div>
+          </div>
+          <div class="i-solar:alt-arrow-right-linear size-4 text-neutral-400" />
+        </button>
       </div>
     </div>
 
