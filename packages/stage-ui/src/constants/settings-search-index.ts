@@ -67,6 +67,7 @@ export function convertCatalogItemToSearchItem(item: CatalogNodeItem): SearchIte
     item.label,
     item.shortLabel || '',
     ...routeSegments,
+    ...(item.keywords || []),
   ].filter(Boolean)
 
   return {
@@ -96,7 +97,9 @@ export function convertProviderMetadataToSearchItem(p: ProviderMetadata): Search
   }
 
   const categoryLabel = categoryNameMap[p.category] || `Providers (${p.category})`
-  const routeCategory = p.category === 'transcription' ? 'transcription' : p.category
+  const routeCategory = (p.id === 'blip-local' || p.category === 'vision')
+    ? 'chat'
+    : (p.category === 'transcription' ? 'transcription' : p.category)
   const to = `/settings/providers/${routeCategory}/${p.id}`
 
   const keywords = [

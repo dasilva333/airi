@@ -42,6 +42,7 @@ export interface CatalogNodeItem {
   parentId: string | null
   kind?: 'root' | 'area' | 'category' | 'page' | 'tool'
   desktopOnly?: boolean
+  keywords?: string[]
 }
 
 /**
@@ -545,8 +546,9 @@ export const SETTINGS_CATALOG_ITEMS: CatalogNodeItem[] = [
   },
   {
     id: 'prov-blip-local',
-    label: 'BLIP / WD (Local)',
-    shortLabel: 'BLIP',
+    label: 'Waifu Diffusion Tagger (WD)',
+    shortLabel: 'WD Tagger',
+    description: 'Useful image tagging tool that uses Danbooru tags to classify or describe images, especially effective for anime and stylized artwork.',
     glyph: '視',
     clusterGroup: 'LOCAL 端',
     route: '/settings/providers/chat/blip-local',
@@ -554,6 +556,7 @@ export const SETTINGS_CATALOG_ITEMS: CatalogNodeItem[] = [
     order: 1,
     parentId: 'prov-cat-vision',
     kind: 'page',
+    keywords: ['waifu diffusion', 'wd tagger', 'wd14', 'danbooru', 'vision', 'tagger', 'image tagging', 'anime', 'blip'],
   },
   {
     id: 'prov-cat-artistry',

@@ -114,8 +114,8 @@ function formatEngineLabel(provider: string, model: string, voiceId?: string): s
     return voiceId ? `Kokoro 82M (${voiceId})` : 'Kokoro 82M'
   if (provider === 'whisper-local')
     return 'Whisper Tiny'
-  if (provider === 'blip')
-    return 'SmilingWolf WD14'
+  if (provider === 'blip' || provider === 'wd14' || provider === 'blip-local')
+    return 'Waifu Diffusion (WD Tagger)'
   if (provider === 'web-speech-api')
     return 'Web Speech API'
   if (provider === 'mimo')
@@ -260,11 +260,11 @@ const allFacultyProviders = computed<ProviderItem[]>(() => {
 
   if (activeDrawerFaculty.value === 'vision') {
     const recommendedMap: Record<string, string> = {
-      blip: 'SmilingWolf WD14 Tagger (Local)',
+      blip: 'Waifu Diffusion Tagger (WD Local)',
       none: 'None (Skip Vision)',
     }
     const recommendedList: ProviderItem[] = [
-      { id: 'blip', name: 'SmilingWolf WD14 Tagger (Local)', isRecommended: true },
+      { id: 'blip', name: 'Waifu Diffusion Tagger (WD Local)', isRecommended: true },
       { id: 'none', name: 'None (Skip Vision)', isRecommended: true },
     ]
     const otherList: ProviderItem[] = allVisionProvidersMetadata.value
@@ -399,7 +399,7 @@ function resolveModelsForFacultyProvider(faculty: FacultyName | null, provider: 
   }
 
   if (faculty === 'vision') {
-    if (provider === 'blip') {
+    if (provider === 'blip' || provider === 'wd14' || provider === 'blip-local') {
       return [
         { id: 'SmilingWolf/wd-swinv2-tagger-v3', name: 'WD SwinV2 Tagger v3 (~450MB)' },
         { id: 'SmilingWolf/wd-v1-4-swinv2-tagger-v2', name: 'WD14 SwinV2 Tagger (~300MB)' },

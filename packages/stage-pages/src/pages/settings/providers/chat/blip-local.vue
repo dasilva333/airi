@@ -159,7 +159,7 @@ async function runPlaygroundInference() {
 
 <template>
   <ProviderSettingsLayout
-    :provider-name="providerMetadata?.localizedName || 'BLIP / WD14 (Local)'"
+    :provider-name="providerMetadata?.localizedName || 'Waifu Diffusion Tagger (WD)'"
     :provider-icon="providerMetadata?.icon"
     :provider-icon-color="providerMetadata?.iconColor"
     :on-back="() => router.back()"
@@ -170,7 +170,7 @@ async function runPlaygroundInference() {
           Local On-Device Vision Provider
         </template>
         <template #content>
-          This provider runs image captioning and tagging models directly in your browser. Selecting a <b>WD14 Tagger</b> is highly recommended for comma-separated artwork tags. Prose models like <b>BLIP</b> are best for rich description generation.
+          This provider runs local on-device image tagging models directly in your browser. <b>Waifu Diffusion (WD Tagger)</b> classifies and describes artwork with rich Danbooru tags, especially tailored for anime and stylized illustrations.
         </template>
       </Alert>
 

@@ -1291,8 +1291,9 @@ pages:
         settings:
           title: S3-Compatible Cloud Storage Configuration
       blip-local:
-        title: BLIP / WD (Local)
-        description: Local on-device vision models running client-side via WebGPU.
+        title: Waifu Diffusion Tagger (WD)
+        description: Useful image tagging tool that uses Danbooru tags to classify or
+          describe images, especially effective for anime and stylized artwork.
       moss-nano-local:
         title: Moss TTS (Nano)
         description: Local on-device text-to-speech engine using Moss TTS.

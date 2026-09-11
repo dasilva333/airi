@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SearchItem } from '@proj-airi/stage-ui/constants'
 
-import { convertCatalogItemToSearchItem, convertProviderMetadataToSearchItem, getAllCatalogItems } from '@proj-airi/stage-ui/constants'
+import { convertCatalogItemToSearchItem, getAllCatalogItems } from '@proj-airi/stage-ui/constants'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { onClickOutside, useMediaQuery } from '@vueuse/core'
@@ -73,19 +73,6 @@ const dynamicCharacterIndex = computed<SearchItem[]>(() => {
   }
 })
 
-// ── Dynamic Live Provider Registry Index ──
-const dynamicProviderIndex = computed<SearchItem[]>(() => {
-  try {
-    const metadata = providersStore.allProvidersMetadata
-    if (!metadata)
-      return []
-    return Object.values(metadata).map(convertProviderMetadataToSearchItem)
-  }
-  catch {
-    return []
-  }
-})
-
 // ── Dynamic Settings Catalog Index (Curated + Provider Fallbacks) ──
 const dynamicCatalogIndex = computed<SearchItem[]>(() => {
   return getAllCatalogItems(providersStore.allProvidersMetadata)
@@ -105,15 +92,7 @@ const fullSearchIndex = computed<SearchItem[]>(() => {
     }
   }
 
-  // 2. Live Providers (takes priority for provider routes)
-  for (const item of dynamicProviderIndex.value) {
-    if (!seenRoutes.has(item.to)) {
-      seenRoutes.add(item.to)
-      result.push(item)
-    }
-  }
-
-  // 3. Settings Catalog Pages & DevTools
+  // 2. Settings Catalog Pages & Live Providers
   for (const item of dynamicCatalogIndex.value) {
     if (!seenRoutes.has(item.to)) {
       seenRoutes.add(item.to)

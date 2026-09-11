@@ -82,7 +82,7 @@ async function runTagExtraction() {
 
     const providerInstance = await providersStore.getProviderInstance<any>(providerId)
     if (!providerInstance) {
-      throw new Error('BLIP local vision provider unavailable')
+      throw new Error('Waifu Diffusion local vision provider unavailable')
     }
 
     await providerInstance.loadModel()

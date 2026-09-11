@@ -1,5 +1,5 @@
 /**
- * Local Vision (BLIP & WD14 Tagger) Web Worker.
+ * Local Vision (Waifu Diffusion / WD Tagger) Web Worker.
  *
  * Runs local vision models off the main thread.
  * Speaks the Eventa inference contract:
@@ -180,7 +180,7 @@ defineStreamInvokeHandler(context, blipLoadEvent, toStreamHandler<any, any>(asyn
     taggerTags = await loadTaggerTags(modelId)
   }
   else {
-    console.log(`[Vision Worker] Loading BLIP image-to-text pipeline: ${modelId} on ${resolvedDevice}`)
+    console.log(`[Vision Worker] Loading image-to-text pipeline: ${modelId} on ${resolvedDevice}`)
     imageToTextPipeline = await pipeline('image-to-text', modelId, {
       device: resolvedDevice,
       progress_callback: progressCallback,
@@ -312,7 +312,7 @@ defineInvokeHandler(context, blipProcessEvent, async ({ imageUrl, generalThresho
   }
   else {
     if (!imageToTextPipeline)
-      throw new Error('BLIP pipeline not loaded. Call load() first.')
+      throw new Error('Image-to-text pipeline not loaded. Call load() first.')
 
     const result = await imageToTextPipeline(imageUrl)
     const text = result[0]?.generated_text || ''

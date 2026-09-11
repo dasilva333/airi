@@ -163,7 +163,7 @@ function handleApply() {
           <div class="w-1/2 flex flex-col justify-between">
             <div class="flex-1 space-y-4">
               <p class="text-xs text-neutral-500 leading-relaxed">
-                This will process the preview image of your character model through the local <b>WD14 Tagger / BLIP</b> pipeline (WebGPU/WASM) to extract visual traits (e.g. hair style, colors, clothing, aesthetics).
+                This will process the preview image of your character model through the local <b>Waifu Diffusion Tagger (WD)</b> pipeline (WebGPU/WASM) to extract visual traits (e.g. hair style, colors, clothing, aesthetics).
               </p>
 
               <!-- Loading Indicator -->
