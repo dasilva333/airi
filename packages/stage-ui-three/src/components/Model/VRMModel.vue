@@ -163,6 +163,7 @@ let stopMouseWatch: WatchStopHandle | undefined
 
 let isUnmounted = false
 let currentLoadId = 0
+const lastLoadedSrc = ref<string>('')
 
 // Expressions
 const blink = useBlink()
@@ -221,6 +222,20 @@ function componentCleanUp(deepClean = false) {
   if (vrmGroup.value) {
     vrmGroup.value.removeFromParent()
   }
+
+  // Defensive: purge any leftover VRM groups from scene
+  if (scene.value) {
+    const staleChildren = scene.value.children.filter((child: any) =>
+      child.userData?.isVRMModelGroup
+      || child.name === 'VRMGroup'
+      || child.userData?.vrm
+      || (child.isGroup && child.children?.some((c: any) => c.userData?.vrm)),
+    )
+    for (const stale of staleChildren) {
+      stale.removeFromParent()
+    }
+  }
+
   // clear IBL probe
   airiIblProbe?.dispose()
   airiIblProbe = null
@@ -245,8 +260,6 @@ function componentCleanUp(deepClean = false) {
     clipCache.clear()
     modelStore.activeVrm = null
     modelStore.activeVrmIdentity = ''
-    modelStore.activeVrmGroup = null
-    modelStore.activeVrmInfo = null
     vrm.value = null
     vrmGroup.value = undefined
   }
@@ -623,8 +636,26 @@ async function attachAndActivateModel(
   vrm.value = _vrm
   vrmGroup.value = _vrmGroup
 
-  if (scene.value && !_vrmGroup.parent) {
-    scene.value.add(_vrmGroup)
+  _vrmGroup.name = 'VRMGroup'
+  _vrmGroup.userData.isVRMModelGroup = true
+
+  if (scene.value) {
+    // Purge any stale VRM groups from the scene to prevent duplicate models
+    const staleChildren = scene.value.children.filter((child: any) =>
+      child !== _vrmGroup && (
+        child.userData?.isVRMModelGroup
+        || child.name === 'VRMGroup'
+        || child.userData?.vrm
+        || (child.isGroup && child.children?.some((c: any) => c.userData?.vrm))
+      ),
+    )
+    for (const stale of staleChildren) {
+      stale.removeFromParent()
+    }
+
+    if (!_vrmGroup.parent) {
+      scene.value.add(_vrmGroup)
+    }
   }
 
   // Add tether line to model group for local-to-world sync
@@ -635,8 +666,6 @@ async function attachAndActivateModel(
   modelStore.activeVrm = _vrm
   modelStore.activeVrmParser = vrmParser
   modelStore.activeVrmIdentity = currentModelIdentity
-  modelStore.activeVrmGroup = _vrmGroup
-  modelStore.activeVrmInfo = _vrmInfo
 
   if (isFirstLoad) {
     emit('cameraPosition', {
@@ -743,10 +772,14 @@ async function attachAndActivateModel(
   }).off
 
   if (isUnmounted || loadId !== currentLoadId) {
-    console.warn('[VRMModel] Component unmounted during animation load:', loadId)
+    console.warn('[VRMModel] Component unmounted or superseded during animation load:', loadId)
+    _vrmGroup.removeFromParent()
+    VRMUtils.deepDispose(_vrm.scene as unknown as Object3D)
     componentCleanUp(false)
     return
   }
+
+  lastLoadedSrc.value = modelSrc.value || ''
 
   emit('loaded', {
     modelIdentity: modelIdentity.value,
@@ -770,6 +803,11 @@ async function loadModel() {
       return
     }
 
+    // Skip redundant reload if exact same source is already active
+    if (modelSrc.value === lastLoadedSrc.value && vrm.value) {
+      return
+    }
+
     // Local file models are loaded through blob URLs, so a stable model identity
     // is required to avoid resetting the camera on every app restart.
     const currentModelIdentity = modelIdentity.value || modelSrc.value
@@ -777,26 +815,14 @@ async function loadModel() {
     const isFirstLoad = currentModelIdentity !== previousModelIdentity
 
     // 1. If switching away to a different model, dispose the old model completely
-    if (modelStore.activeVrm && modelStore.activeVrmIdentity && modelStore.activeVrmIdentity !== currentModelIdentity) {
+    if (vrm.value) {
       componentCleanUp(true)
-    }
-
-    // 2. Cache Hit: If modelStore already holds this exact model, reuse it immediately!
-    if (
-      modelStore.activeVrm
-      && modelStore.activeVrmGroup
-      && modelStore.activeVrmIdentity === currentModelIdentity
-      && modelStore.activeVrmInfo
-    ) {
-      await attachAndActivateModel(modelStore.activeVrmInfo, currentModelIdentity, isFirstLoad, loadId)
-      return
     }
 
     try {
       emit('loadStart')
       modelLoaded.value = false
       const _vrmInfo = await loadVrm(modelSrc.value, {
-        scene: scene.value,
         lookAt: true,
         onProgress: progress => emit(
           'loadingProgress',
@@ -811,9 +837,11 @@ async function loadModel() {
 
       // ASYNC GUARD: If we unmounted or a new load started, dispose this model immediately
       if (isUnmounted || loadId !== currentLoadId) {
-        if (!isUnmounted && loadId !== currentLoadId) {
-          console.warn('[VRMModel] Discarding superseded model load:', loadId)
+        console.warn('[VRMModel] Discarding superseded/unmounted model load:', loadId)
+        if (_vrmInfo?._vrm?.scene) {
           VRMUtils.deepDispose(_vrmInfo._vrm.scene as unknown as Object3D)
+        }
+        if (_vrmInfo?._vrmGroup) {
           _vrmInfo._vrmGroup.removeFromParent()
         }
         return
@@ -851,7 +879,7 @@ onMounted(async () => {
   */
   // watch if the model needs to be reloaded
   watch(modelSrc, (newSrc, oldSrc) => {
-    if (newSrc !== oldSrc) {
+    if (newSrc && newSrc !== oldSrc && newSrc !== lastLoadedSrc.value) {
       loadModel()
     }
   })

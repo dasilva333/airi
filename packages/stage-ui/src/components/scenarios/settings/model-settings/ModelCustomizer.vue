@@ -15,6 +15,7 @@ import { computed, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import ExpressionCurationModal from '../../dialogs/ExpressionCurationModal.vue'
+import ModelCustomizerSkeleton from './components/ModelCustomizerSkeleton.vue'
 import WardrobeMeshTreeNode from './components/WardrobeMeshTreeNode.vue'
 
 import { classifyExpression, isTrackingNoise } from '../../../../libs/character/expression-noise-gate'
@@ -1087,11 +1088,8 @@ function toggleMotionCycle(key: string) {
         </div>
       </div>
 
-      <!-- Loading indicator while capabilities resolve -->
-      <div v-if="capabilitiesLoading" class="py-4 text-center text-[10px] text-neutral-400">
-        <div class="i-solar:spinner-bold inline-block animate-spin text-base" />
-        <span class="ml-1">Loading model capabilities…</span>
-      </div>
+      <!-- Shimmer skeleton while capabilities resolve -->
+      <ModelCustomizerSkeleton v-if="capabilitiesLoading" :show-tabs="false" class="my-1" />
 
       <!-- Filter Controls (Emotions & Motions only) -->
       <div v-if="!capabilitiesLoading && activeTab !== 'outfits' && activeTab !== 'vfx'" class="flex shrink-0 items-center justify-between py-2">

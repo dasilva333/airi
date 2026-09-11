@@ -2,9 +2,10 @@
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { Button, Callout, Checkbox, FieldRange } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import ModelCustomizerSkeleton from './components/ModelCustomizerSkeleton.vue'
 import ModelSceneSettings from './components/ModelSceneSettings.vue'
 import VRMExpressions from './vrm-expressions.vue'
 
@@ -46,6 +47,17 @@ const sceneMutationLocked = computed(() => false)
 const settingsLockClass = computed(() => {
   return sceneMutationLocked.value ? ['pointer-events-none', 'opacity-60'] : []
 })
+
+const isReadyToHydrate = ref(false)
+
+onMounted(() => {
+  // Defer heavy expressions hydration until stage viewport paints its initial frame
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      isReadyToHydrate.value = true
+    }, 150)
+  })
+})
 </script>
 
 <template>
@@ -63,7 +75,8 @@ const settingsLockClass = computed(() => {
       :expand="true"
     >
       <div :class="settingsLockClass" class="min-w-0 w-full flex flex-col gap-4 overflow-hidden p-2">
-        <VRMExpressions :model-id="modelId" />
+        <VRMExpressions v-if="isReadyToHydrate" :model-id="modelId" />
+        <ModelCustomizerSkeleton v-else />
       </div>
     </Section>
 

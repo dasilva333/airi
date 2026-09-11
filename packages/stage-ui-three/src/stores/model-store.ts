@@ -100,8 +100,6 @@ export const useModelStore = defineStore('modelStore', () => {
   const activeVrm = ref<any>(null)
   const activeVrmParser = ref<any>(null)
   const activeVrmIdentity = ref<string>('')
-  const activeVrmGroup = ref<any>(null)
-  const activeVrmInfo = ref<any>(null)
   const { post, data } = useBroadcastChannel<BroadcastChannelEvents, BroadcastChannelEvents>({ name: 'airi-stores-live2d' })
   const shouldUpdateViewHooks = ref(new Set<(reason?: string) => void>())
   const triggerEmotionHooks = ref(new Set<(name: string, intensity: number) => void>())
@@ -355,8 +353,6 @@ export const useModelStore = defineStore('modelStore', () => {
     activeVrm.value = null
     activeVrmParser.value = null
     activeVrmIdentity.value = ''
-    activeVrmGroup.value = null
-    activeVrmInfo.value = null
     detectedWardrobe.value = { active: null, siblings: [], texIndex: null }
   }
 
@@ -454,8 +450,6 @@ export const useModelStore = defineStore('modelStore', () => {
     activeVrm,
     activeVrmParser,
     activeVrmIdentity,
-    activeVrmGroup,
-    activeVrmInfo,
     detectedWardrobe,
 
     setMeshVisibility,

@@ -1,22 +1,13 @@
 <script setup lang="ts">
 import type { DisplayModel } from '../../../../stores/display-models'
 
-import { Live2DScene } from '@proj-airi/stage-ui-live2d'
-import { MMDScene, useMmd } from '@proj-airi/stage-ui-mmd'
-import { SpineScene, useSpine } from '@proj-airi/stage-ui-spine'
-import { ThreeScene } from '@proj-airi/stage-ui-three'
+import { useMmd } from '@proj-airi/stage-ui-mmd/stores'
+import { useSpine } from '@proj-airi/stage-ui-spine/stores'
 import { Button, Callout } from '@proj-airi/ui'
 import { useLocalStorage, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-
-import LHackerPanel from './live2d-lhack/LHackerPanel.vue'
-import Live2D from './live2d.vue'
-import MMD from './mmd.vue'
-import Spine from './spine.vue'
-import HackerPanel from './vrm-vhack/HackerPanel.vue'
-import VRM from './vrm.vue'
 
 import { useIdleAnimations } from '../../../../composables'
 import { useAiriCardStore } from '../../../../stores/modules'
@@ -34,10 +25,21 @@ const props = defineProps<{
   vrmSceneClass?: string | string[]
   initialTab?: 'library' | 'explore' | 'cloud'
 }>()
-
 defineEmits<{
   (e: 'extractColorsFromModel'): void
 }>()
+const Live2DScene = defineAsyncComponent(() => import('@proj-airi/stage-ui-live2d').then(m => m.Live2DScene))
+const ThreeScene = defineAsyncComponent(() => import('@proj-airi/stage-ui-three').then(m => m.ThreeScene))
+const SpineScene = defineAsyncComponent(() => import('@proj-airi/stage-ui-spine').then(m => m.SpineScene))
+const MMDScene = defineAsyncComponent(() => import('@proj-airi/stage-ui-mmd').then(m => m.MMDScene))
+
+const Live2D = defineAsyncComponent(() => import('./live2d.vue'))
+const VRM = defineAsyncComponent(() => import('./vrm.vue'))
+const Spine = defineAsyncComponent(() => import('./spine.vue'))
+const MMD = defineAsyncComponent(() => import('./mmd.vue'))
+
+const HackerPanel = defineAsyncComponent(() => import('./vrm-vhack/HackerPanel.vue'))
+const LHackerPanel = defineAsyncComponent(() => import('./live2d-lhack/LHackerPanel.vue'))
 
 const router = useRouter()
 const modelSelectorOpen = ref(false)
@@ -106,8 +108,8 @@ const currentSelectedDisplayModel = computed<DisplayModel | undefined>(() => sta
 
 const modelSupportCalloutDismissed = useLocalStorage('airi-model-support-callout-dismissed', false)
 
-const live2dRef = ref<InstanceType<typeof Live2D>>()
-const threeSceneRef = ref<InstanceType<typeof ThreeScene>>()
+const live2dRef = ref<any>()
+const threeSceneRef = ref<any>()
 const isStageExpanded = ref(false)
 
 onMounted(async () => {
@@ -356,7 +358,7 @@ function handleOffsetChange(offset: { x: number, y: number }) {
       />
     </div>
 
-    <HackerPanel />
-    <LHackerPanel />
+    <HackerPanel v-if="stageModelRenderer === 'vrm'" />
+    <LHackerPanel v-if="stageModelRenderer === 'live2d'" />
   </div>
 </template>

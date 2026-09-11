@@ -18,6 +18,7 @@
     ".": "./src/components/index.ts",
     "./components/scenarios/dialogs/model-selector": "./src/components/scenarios/dialogs/model-selector/index.ts",
     "./components/scenarios/settings/model-settings": "./src/components/scenarios/settings/model-settings/index.ts",
+    "./components/scenarios/settings/model-settings/*": "./src/components/scenarios/settings/model-settings/*",
     "./components/scenes": "./src/components/scenes/index.ts",
     "./components/scenes/*": "./src/components/scenes/*",
     "./components/*": "./src/components/*.ts",

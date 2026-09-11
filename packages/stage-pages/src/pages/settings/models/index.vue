@@ -1,14 +1,26 @@
 <script setup lang="ts">
-import { ModelSettings } from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { Vibrant } from 'node-vibrant/browser'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+
+import ModelSettingsSkeleton from './components/ModelSettingsSkeleton.vue'
+
+interface ModelSettingsExposed {
+  openModelSelector: (tab?: 'library' | 'explore' | 'cloud') => void
+  captureFrame: () => Promise<Blob | null>
+}
+
+const ModelSettings = defineAsyncComponent({
+  loader: () => import('@proj-airi/stage-ui/components/scenarios/settings/model-settings/index.vue'),
+  loadingComponent: ModelSettingsSkeleton,
+  delay: 0,
+})
 
 const cardStore = useAiriCardStore()
 const settingsStore = useSettings()
-const modelSettingsRef = ref<InstanceType<typeof ModelSettings>>()
+const modelSettingsRef = ref<ModelSettingsExposed>()
 const route = useRoute()
 const router = useRouter()
 

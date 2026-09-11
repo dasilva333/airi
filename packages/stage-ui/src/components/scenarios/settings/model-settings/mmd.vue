@@ -2,11 +2,11 @@
 import { useMmd } from '@proj-airi/stage-ui-mmd/stores/mmd'
 import { Checkbox, FieldRange } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import ModelCustomizerSkeleton from './components/ModelCustomizerSkeleton.vue'
 import ModelSceneSettings from './components/ModelSceneSettings.vue'
-import ModelCustomizer from './ModelCustomizer.vue'
 
 import { useSettings } from '../../../../stores/settings'
 import { usePositioningStore } from '../../../../stores/settings/positioning'
@@ -18,6 +18,12 @@ const props = withDefaults(defineProps<{
   modelId?: string
 }>(), {
   allowExtractColors: true,
+})
+
+const ModelCustomizer = defineAsyncComponent({
+  loader: () => import('./ModelCustomizer.vue'),
+  loadingComponent: ModelCustomizerSkeleton,
+  delay: 0,
 })
 
 const mmdStore = useMmd()
@@ -40,6 +46,16 @@ const mouseTrackingEnabled = computed({
     gazeMode.value = val ? 'mouse' : 'none'
   },
 })
+
+const isReadyToHydrate = ref(false)
+
+onMounted(() => {
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      isReadyToHydrate.value = true
+    }, 150)
+  })
+})
 </script>
 
 <template>
@@ -51,7 +67,10 @@ const mouseTrackingEnabled = computed({
     size="sm"
     :expand="true"
   >
-    <ModelCustomizer :model-id="props.modelId || stageModelSelected" :local-stage="true" />
+    <div class="min-w-0 w-full flex flex-col gap-4 overflow-hidden p-2">
+      <ModelCustomizer v-if="isReadyToHydrate" :model-id="props.modelId || stageModelSelected" :local-stage="true" />
+      <ModelCustomizerSkeleton v-else />
+    </div>
   </Section>
 
   <!-- Block 2: Scene -->

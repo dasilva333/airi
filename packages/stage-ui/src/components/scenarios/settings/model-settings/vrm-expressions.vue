@@ -1,16 +1,24 @@
 <script setup lang="ts">
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 
-import ModelCustomizer from './ModelCustomizer.vue'
+import ModelCustomizerSkeleton from './components/ModelCustomizerSkeleton.vue'
 
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
+import { useSettings } from '../../../../stores/settings'
 
 const props = defineProps<{
   modelId?: string
 }>()
 
+const ModelCustomizer = defineAsyncComponent({
+  loader: () => import('./ModelCustomizer.vue'),
+  loadingComponent: ModelCustomizerSkeleton,
+  delay: 0,
+})
+
+const settingsStore = useSettings()
 const airiCardStore = useAiriCardStore()
 const { activeCardId } = storeToRefs(airiCardStore)
 const modelStore = useModelStore()
@@ -34,9 +42,10 @@ function resetAll() {
 
 <template>
   <div class="min-w-0 w-full flex flex-col gap-2 overflow-hidden">
-    <div v-if="!hasExpressions" class="p-2 text-xs text-neutral-400">
+    <div v-if="!hasExpressions && !settingsStore.stageModelSelectedUrl" class="p-2 text-xs text-neutral-400">
       No expressions available. Load a VRM model first.
     </div>
+    <ModelCustomizerSkeleton v-else-if="!hasExpressions" />
 
     <div v-else class="flex flex-col gap-2">
       <!-- Sub-Header Controls -->

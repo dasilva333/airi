@@ -4,10 +4,10 @@ import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
 import { FieldRange } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import ModelCustomizer from './ModelCustomizer.vue'
+import ModelCustomizerSkeleton from './components/ModelCustomizerSkeleton.vue'
 
 import { useSettingsSpine } from '../../../../stores/settings/spine'
 import { Section } from '../../../layouts'
@@ -24,6 +24,12 @@ const props = withDefaults(defineProps<{
 defineEmits<{
   (e: 'extractColorsFromModel'): void
 }>()
+
+const ModelCustomizer = defineAsyncComponent({
+  loader: () => import('./ModelCustomizer.vue'),
+  loadingComponent: ModelCustomizerSkeleton,
+  delay: 0,
+})
 
 const { t } = useI18n()
 
@@ -83,6 +89,16 @@ const fpsOptions = computed(() => [
   { value: 60, label: '60' },
   { value: 30, label: '30' },
 ])
+
+const isReadyToHydrate = ref(false)
+
+onMounted(() => {
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      isReadyToHydrate.value = true
+    }, 150)
+  })
+})
 </script>
 
 <template>
@@ -98,7 +114,10 @@ const fpsOptions = computed(() => [
     size="sm"
     :expand="true"
   >
-    <ModelCustomizer :model-id="props.modelId || stageModelSelected" :local-stage="true" />
+    <div class="min-w-0 w-full flex flex-col gap-4 overflow-hidden p-2">
+      <ModelCustomizer v-if="isReadyToHydrate" :model-id="props.modelId || stageModelSelected" :local-stage="true" />
+      <ModelCustomizerSkeleton v-else />
+    </div>
 
     <!-- Global Spine Settings -->
     <div class="mt-4 border-t border-neutral-100 pt-4 space-y-4 dark:border-neutral-800">

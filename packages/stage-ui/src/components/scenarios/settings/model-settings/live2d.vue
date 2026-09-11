@@ -3,10 +3,10 @@ import { defaultModelParameters, useLive2d } from '@proj-airi/stage-ui-live2d'
 import { OPFSCacheV2 } from '@proj-airi/stage-ui-live2d/utils/opfs-loader'
 import { Button, Checkbox, FieldRange, SelectTab } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import ModelCustomizer from './ModelCustomizer.vue'
+import ModelCustomizerSkeleton from './components/ModelCustomizerSkeleton.vue'
 
 import { useLive2DMotionMagicSettings, useLive2DStageAmbientMotion } from '../../../../features/motions/live2d'
 import { useLHackStore } from '../../../../stores'
@@ -19,9 +19,16 @@ const props = defineProps<{
   palette: string[]
   modelId?: string
 }>()
+
 defineEmits<{
   (e: 'extractColorsFromModel'): void
 }>()
+
+const ModelCustomizer = defineAsyncComponent({
+  loader: () => import('./ModelCustomizer.vue'),
+  loadingComponent: ModelCustomizerSkeleton,
+  delay: 0,
+})
 
 const { t } = useI18n()
 
@@ -125,9 +132,16 @@ const sceneTabs = computed(() => [
   { value: 'placement', label: 'Placement', icon: 'i-solar:minimalistic-magnifer-zoom-in-bold-duotone' },
 ])
 const activeSceneTab = ref('placement')
+const isReadyToHydrate = ref(false)
 
 // Get available runtime motions from the model
 onMounted(() => {
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      isReadyToHydrate.value = true
+    }, 150)
+  })
+
   // Listen for available motions updates
   watch(() => live2d.availableMotions, (motions) => {
     // Show all motions with their full paths
@@ -268,7 +282,8 @@ onUnmounted(() => {
 
     <!-- Customizer Tab (Unified Expressions/Motions) -->
     <div v-if="activeCustomizationTab === 'customizer'">
-      <ModelCustomizer :model-id="props.modelId || settings.stageModelSelected" :local-stage="true" />
+      <ModelCustomizer v-if="isReadyToHydrate" :model-id="props.modelId || settings.stageModelSelected" :local-stage="true" />
+      <ModelCustomizerSkeleton v-else />
     </div>
 
     <!-- Head & Face Tab -->

@@ -99,8 +99,10 @@ export async function loadVrm(model: string, options?: {
   }
 
   const _vrmGroup = new Group()
+  _vrmGroup.name = 'VRMGroup'
+  _vrmGroup.userData.isVRMModelGroup = true
   _vrmGroup.add(_vrm.scene)
-  // Add to scene
+  // Add to scene if caller explicitly requested scene attachment (e.g. offscreen preview)
   if (options?.scene) {
     options.scene.add(_vrmGroup)
   }

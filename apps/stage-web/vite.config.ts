@@ -202,6 +202,10 @@ export default defineConfig({
     esbuildOptions: { target: 'esnext' },
     include: [
       'uncrypto',
+      'jszip',
+      'node-vibrant',
+      'node-vibrant/browser',
+      '@pixiv/three-vrm',
     ],
     exclude: [
       // Internal Packages

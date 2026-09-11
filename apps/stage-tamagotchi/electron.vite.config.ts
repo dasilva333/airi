@@ -163,6 +163,8 @@ export default defineConfig({
         'popmotion',
         'uncrypto',
         'three',
+        'jszip',
+        '@pixiv/three-vrm',
       ],
       exclude: [
         // Internal Packages
