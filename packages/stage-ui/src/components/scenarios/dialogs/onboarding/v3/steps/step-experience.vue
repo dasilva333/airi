@@ -20,6 +20,7 @@ const showAdvancedModules = ref(false)
 interface ArchetypeCard {
   id: ExperienceArchetypeId
   title: string
+  badgeLabel?: string
   subtitle: string
   description: string
   icon: string
@@ -38,6 +39,7 @@ const archetypes: ArchetypeCard[] = [
   {
     id: 'quiet',
     title: 'The Quiet Observer',
+    badgeLabel: '⚡ Fastest · Minimalist',
     subtitle: 'Text, Expressions & Memory',
     description: 'Zero audio overhead, avatar emotions, thinking pacing, and long-term memory.',
     icon: 'i-solar:chat-round-line-bold-duotone',
@@ -54,8 +56,9 @@ const archetypes: ArchetypeCard[] = [
   {
     id: 'casual',
     title: 'The Casual Companion',
-    subtitle: 'Voice Dialogue & Soul',
-    description: 'Live speech transcription (STT), emotional voice (TTS), natural pacing, and memory.',
+    badgeLabel: '✨ Popular Choice',
+    subtitle: 'Voice Dialogue & Vision',
+    description: 'Live speech transcription (STT), emotional voice (TTS), photo vision, natural pacing, and memory.',
     icon: 'i-solar:microphone-3-bold-duotone',
     colorTheme: {
       activeBorder: 'border-purple-500',
@@ -68,10 +71,28 @@ const archetypes: ArchetypeCard[] = [
     },
   },
   {
+    id: 'muse',
+    title: 'The Creative Muse',
+    badgeLabel: '🎨 Visual Focus',
+    subtitle: 'Voice, Vision & Artistry',
+    description: 'Spoken dialogue, image generation (Pollinations/ComfyUI), chat vision, and expressive morphs.',
+    icon: 'i-solar:palette-round-bold-duotone',
+    colorTheme: {
+      activeBorder: 'border-amber-500',
+      activeRing: 'ring-amber-500/40',
+      activeGlow: 'shadow-amber-500/20',
+      badgeBg: 'bg-amber-500/20',
+      badgeText: 'text-amber-600 dark:text-amber-300',
+      iconBg: 'bg-amber-500/15 text-amber-500',
+      iconColor: 'text-amber-500',
+    },
+  },
+  {
     id: 'copilot',
     title: 'The Executive Copilot',
-    subtitle: 'Voice + System Automation',
-    description: 'Voice dialogue, screen perception, desktop filesystem MCP tools, and web search.',
+    badgeLabel: '💼 Productivity',
+    subtitle: 'Voice + Action Tools',
+    description: 'Voice dialogue, desktop screen watching, local filesystem action tools, and live web search.',
     icon: 'i-solar:case-round-bold-duotone',
     colorTheme: {
       activeBorder: 'border-teal-500',
@@ -84,25 +105,46 @@ const archetypes: ArchetypeCard[] = [
     },
   },
   {
-    id: 'performer',
-    title: 'The Dynamic Performer',
+    id: 'roommate',
+    title: 'The Ambient Roommate',
+    badgeLabel: '🌙 Proactive Presence',
+    subtitle: 'Living Routine & Presence',
+    description: 'Spoken voice, ambient heartbeats, sleep schedule, quiet hours, and screen awareness.',
+    icon: 'i-solar:moon-sleep-bold-duotone',
+    colorTheme: {
+      activeBorder: 'border-indigo-500',
+      activeRing: 'ring-indigo-500/40',
+      activeGlow: 'shadow-indigo-500/20',
+      badgeBg: 'bg-indigo-500/20',
+      badgeText: 'text-indigo-600 dark:text-indigo-300',
+      iconBg: 'bg-indigo-500/15 text-indigo-500',
+      iconColor: 'text-indigo-500',
+    },
+  },
+  {
+    id: 'swiss-army',
+    title: 'The Swiss Army Companion',
+    badgeLabel: '🔥 Most Steps · All-In-One',
     subtitle: 'Full Autonomous Multimodal',
-    description: 'Autonomous artistry, dynamic expressions, stage motion cues, multimodal.',
+    description: 'The flagship do-it-all: Voice STT/TTS, vision, screen watching, daily routine, visual novels, tools & memory.',
     icon: 'i-solar:magic-stick-3-bold-duotone',
     colorTheme: {
-      activeBorder: 'border-fuchsia-500',
-      activeRing: 'ring-fuchsia-500/40',
-      activeGlow: 'shadow-fuchsia-500/20',
-      badgeBg: 'bg-fuchsia-500/20',
-      badgeText: 'text-fuchsia-600 dark:text-fuchsia-300',
-      iconBg: 'bg-fuchsia-500/15 text-fuchsia-500',
-      iconColor: 'text-fuchsia-500',
+      activeBorder: 'border-rose-500',
+      activeRing: 'ring-rose-500/40',
+      activeGlow: 'shadow-rose-500/20',
+      badgeBg: 'bg-rose-500/20',
+      badgeText: 'text-rose-600 dark:text-rose-300',
+      iconBg: 'bg-rose-500/15 text-rose-500',
+      iconColor: 'text-rose-500',
     },
   },
 ]
 
 const selectedArchetypeId = computed<ExperienceArchetypeId>({
-  get: () => draftStore.state.experienceArchetype || 'casual',
+  get: () => {
+    const current = draftStore.state.experienceArchetype || 'casual'
+    return current === 'performer' ? 'swiss-army' : current
+  },
   set: (val) => {
     draftStore.setExperienceArchetype(val)
   },
@@ -127,16 +169,16 @@ interface ModuleDefinition {
 const moduleDefinitions: ModuleDefinition[] = [
   {
     key: 'hearing',
-    label: 'Transcription (STT)',
+    label: 'Voice Input (STT)',
     shortLabel: 'STT',
-    description: 'Mic input & Whisper WebGPU voice transcription',
+    description: 'Mic input & Whisper voice transcription',
     icon: 'i-solar:microphone-bold-duotone',
   },
   {
     key: 'speech',
     label: 'Neural Voice (TTS)',
     shortLabel: 'TTS',
-    description: 'Kokoro WebGPU or Edge TTS natural spoken synthesis',
+    description: 'Kokoro or Edge TTS spoken voice synthesis',
     icon: 'i-solar:volume-loud-bold-duotone',
   },
   {
@@ -144,28 +186,14 @@ const moduleDefinitions: ModuleDefinition[] = [
     label: 'Thinking & Pacing',
     shortLabel: 'Pacing',
     description: 'Dynamic conversational fillers & subconscious asides',
-    icon: 'i-solar:brain-bold-duotone',
+    icon: 'i-ph:brain-duotone',
   },
   {
     key: 'emotions',
-    label: 'Emotional Expressions',
-    shortLabel: 'Expressions',
-    description: '2-Pass AI ACT emotion mapping and Live2D/VRM morphs',
+    label: 'Avatar Emotions',
+    shortLabel: 'Emotions',
+    description: '2-Pass AI ACT emotion mapping and avatar morphs',
     icon: 'i-solar:smile-circle-bold-duotone',
-  },
-  {
-    key: 'artistry',
-    label: 'Autonomous Artistry',
-    shortLabel: 'Artistry',
-    description: 'Pollinations or ComfyUI visual generation & selfies',
-    icon: 'i-solar:palette-round-bold-duotone',
-  },
-  {
-    key: 'sensory',
-    label: 'Screen Perception',
-    shortLabel: 'Vision',
-    description: 'Screen watching, OCR salience gate & heartbeats',
-    icon: 'i-solar:videocamera-record-bold-duotone',
   },
   {
     key: 'memory',
@@ -175,8 +203,36 @@ const moduleDefinitions: ModuleDefinition[] = [
     icon: 'i-solar:book-bookmark-bold-duotone',
   },
   {
+    key: 'vision',
+    label: 'Chat Image Vision',
+    shortLabel: 'Vision',
+    description: 'Photo analysis & VLM 1-hop/2-hop routing',
+    icon: 'i-solar:camera-bold-duotone',
+  },
+  {
+    key: 'screen',
+    label: 'Screen Watching',
+    shortLabel: 'Screen',
+    description: 'Desktop display watching & OCR salience gate',
+    icon: 'i-solar:videocamera-record-bold-duotone',
+  },
+  {
+    key: 'proactivity',
+    label: 'Daily Routine',
+    shortLabel: 'Routine',
+    description: 'Circadian rhythm, sleep hours & ambient check-ins',
+    icon: 'i-solar:heart-pulse-2-bold-duotone',
+  },
+  {
+    key: 'artistry',
+    label: 'Visual Novels',
+    shortLabel: 'Visuals',
+    description: 'Turn-by-turn scene visuals, art generation & selfies',
+    icon: 'i-solar:palette-round-bold-duotone',
+  },
+  {
     key: 'tools',
-    label: 'Automation & MCP Tools',
+    label: 'Action Tools',
     shortLabel: 'Tools',
     description: 'Web search, local file access, and MCP servers',
     icon: 'i-solar:widget-add-bold-duotone',
@@ -251,20 +307,20 @@ function resetToPresetDefaults() {
       </div>
     </div>
 
-    <!-- 4 Hero Archetype Cards Grid -->
+    <!-- 6 Hero Archetype Cards Grid (3 Columns x 2 Rows) -->
     <div
       v-motion
       :initial="{ opacity: 0, y: 10 }"
       :enter="{ opacity: 1, y: 0 }"
       :duration="400"
       :delay="150"
-      :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1 items-stretch']"
+      :class="['grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 items-stretch']"
     >
       <div
         v-for="archetype in archetypes"
         :key="archetype.id"
         :class="[
-          'relative flex flex-col justify-between overflow-hidden rounded-2xl p-4 border-2 transition-all duration-200 cursor-pointer min-h-[260px]',
+          'relative flex flex-col justify-between overflow-hidden rounded-2xl p-3.5 border-2 transition-all duration-200 cursor-pointer min-h-[195px]',
           selectedArchetypeId === archetype.id
             ? [
               archetype.colorTheme.activeBorder,
@@ -277,21 +333,21 @@ function resetToPresetDefaults() {
         ]"
         @click="selectArchetype(archetype.id)"
       >
-        <!-- Top Row: Icon + Selection Badge -->
+        <!-- Top Row: Icon + Selection Badge / Archetype Badge -->
         <div>
-          <div :class="['flex items-start justify-between mb-3']">
+          <div :class="['flex items-start justify-between mb-2.5']">
             <div
               :class="[
-                'h-10 w-10 rounded-xl flex items-center justify-center transition-colors',
+                'h-9 w-9 rounded-xl flex items-center justify-center transition-colors',
                 selectedArchetypeId === archetype.id
                   ? archetype.colorTheme.iconBg
                   : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400',
               ]"
             >
-              <div :class="[archetype.icon, 'text-xl']" />
+              <div :class="[archetype.icon, 'text-lg']" />
             </div>
 
-            <!-- Active Selected Badge -->
+            <!-- Active Selected Badge OR Archetype Badge Label -->
             <span
               v-if="selectedArchetypeId === archetype.id"
               :class="[
@@ -302,6 +358,15 @@ function resetToPresetDefaults() {
             >
               <div :class="['i-solar:check-circle-bold text-xs']" />
               <span>Selected Preset</span>
+            </span>
+            <span
+              v-else-if="archetype.badgeLabel"
+              :class="[
+                'px-2 py-0.5 rounded-full text-[10px] font-medium tracking-wide flex items-center gap-1',
+                'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200/60 dark:border-neutral-700/60',
+              ]"
+            >
+              {{ archetype.badgeLabel }}
             </span>
           </div>
 
@@ -314,13 +379,13 @@ function resetToPresetDefaults() {
           </p>
 
           <!-- Description -->
-          <p :class="['text-xs text-neutral-600 dark:text-neutral-400 mt-2 leading-relaxed']">
+          <p :class="['text-[11px] text-neutral-600 dark:text-neutral-400 mt-1.5 leading-snug']">
             {{ archetype.description }}
           </p>
         </div>
 
         <!-- Card Footer (Active Indicator bar) -->
-        <div :class="['pt-3 mt-3 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-[11px]']">
+        <div :class="['pt-2.5 mt-2.5 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-[11px]']">
           <span :class="['text-neutral-500 dark:text-neutral-400 font-medium']">
             {{ Object.values(ARCHETYPE_MODULE_PRESETS[archetype.id]).filter(Boolean).length }} Capabilities
           </span>
@@ -398,7 +463,7 @@ function resetToPresetDefaults() {
         v-if="showAdvancedModules"
         :class="['px-3.5 pb-3.5 pt-1 border-t border-neutral-100 dark:border-neutral-800/80 animate-fadeIn']"
       >
-        <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mt-2']">
+        <div :class="['grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 mt-2']">
           <button
             v-for="mod in moduleDefinitions"
             :key="mod.key"

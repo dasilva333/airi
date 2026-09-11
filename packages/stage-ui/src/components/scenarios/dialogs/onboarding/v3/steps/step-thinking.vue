@@ -226,7 +226,7 @@ function handleContinue() {
     <div :class="['sticky top-0 z-20 bg-neutral-50/95 dark:bg-[#0c0c0e]/95 backdrop-blur-md flex items-start justify-between gap-4 border-b border-neutral-200/60 dark:border-white/5 pb-3 pt-2 -mx-2 px-2']">
       <div :class="['flex items-center gap-3']">
         <div :class="['w-10 h-10 rounded-2xl bg-primary-500/10 text-primary-500 flex items-center justify-center text-xl flex-shrink-0']">
-          <div :class="['i-solar:brain-bold-duotone w-5 h-5']" />
+          <div :class="['i-ph:brain-duotone w-5 h-5']" />
         </div>
         <div>
           <div :class="['flex items-center gap-2']">

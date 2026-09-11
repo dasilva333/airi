@@ -19,6 +19,7 @@ import { useChatSessionStore } from '../../../../../../stores/chat/session-store
 import { useDisplayModelsStore } from '../../../../../../stores/display-models'
 import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
+import { useVisionStore } from '../../../../../../stores/modules/vision'
 import { useOnboardingStore } from '../../../../../../stores/onboarding'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
 
@@ -398,7 +399,15 @@ export function compileCardPayload(
                 autonomousTarget: draft.artistryDirectorTarget || 'assistant',
               }
             : undefined,
-          screenWatching: draft.modules?.sensory
+          vision: draft.modules?.vision
+            ? {
+                enabled: true,
+                provider: draft.visionProvider || '',
+                model: draft.visionModel || '',
+                strategy: draft.visionStrategy || 'direct',
+              }
+            : undefined,
+          screenWatching: (draft.modules?.screen ?? draft.modules?.sensory)
             ? {
                 enabled: Boolean(draft.screenWatcherEnabled),
                 deliveryMode: draft.screenWatcherMode === 'voice-and-bubble' ? 'both' : draft.screenWatcherMode === 'bubble-only' ? 'bubble_only' : draft.screenWatcherMode === 'voice-only' ? 'tts_only' : 'off',
@@ -417,7 +426,7 @@ export function compileCardPayload(
                 afkThresholdMinutes: draft.afkMinutes || 5,
               }
             : undefined,
-          heartbeats: draft.modules?.sensory
+          heartbeats: (draft.modules?.proactivity ?? draft.modules?.sensory)
             ? {
                 enabled: Boolean(draft.heartbeatsEnabled),
                 intervalMinutes: draft.heartbeatsInterval || 5,
@@ -481,6 +490,7 @@ export function useStarterCardCommit() {
   const userProfileStore = useSettingsUserProfile()
   const cardStore = useAiriCardStore()
   const speechStore = useSpeechStore()
+  const visionStore = useVisionStore()
   const displayModelsStore = useDisplayModelsStore()
   const chatSessionStore = useChatSessionStore()
   const onboardingStore = useOnboardingStore()
@@ -561,7 +571,26 @@ export function useStarterCardCommit() {
       }
     }
 
-    // 3. Update Display Model Emotion Mappings
+    // 3. Persist Vision Profile & Settings
+    if (draft.modules?.vision) {
+      try {
+        if (draft.visionProvider)
+          visionStore.activeProvider = draft.visionProvider
+        if (draft.visionModel)
+          visionStore.activeModel = draft.visionModel
+        if (draft.visionStrategy)
+          visionStore.strategy = draft.visionStrategy
+        if (draft.visionPromptShimDirect)
+          visionStore.promptShimDirect = draft.visionPromptShimDirect
+        if (draft.visionPromptShimForward)
+          visionStore.promptShimForward = draft.visionPromptShimForward
+      }
+      catch (err) {
+        console.warn('[useStarterCardCommit] Vision persistence warning:', err)
+      }
+    }
+
+    // 4. Update Display Model Emotion Mappings
     const activeModelId = draft.vesselDisplayModelId || 'preset-live2d-2'
     if (draft.expressionMappings && Object.keys(draft.expressionMappings).length > 0 && activeModelId) {
       try {

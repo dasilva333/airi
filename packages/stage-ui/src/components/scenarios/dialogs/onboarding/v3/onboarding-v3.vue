@@ -14,13 +14,16 @@ import StepFinale from './steps/step-finale.vue'
 import StepHearing from './steps/step-hearing.vue'
 import StepMemory from './steps/step-memory.vue'
 import StepPersona from './steps/step-persona.vue'
+import StepProactivity from './steps/step-proactivity.vue'
 import StepProfile from './steps/step-profile.vue'
+import StepScreen from './steps/step-screen.vue'
 import StepSensory from './steps/step-sensory.vue'
 import StepSpeech from './steps/step-speech.vue'
 import StepThinking from './steps/step-thinking.vue'
 import StepTools from './steps/step-tools.vue'
 import StepTriage from './steps/step-triage.vue'
 import StepVessel from './steps/step-vessel.vue'
+import StepVision from './steps/step-vision.vue'
 import StepWelcome from './steps/step-welcome.vue'
 
 import { useOnboardingV3Draft } from './stores/useOnboardingV3Draft'
@@ -230,16 +233,37 @@ function handleSkip() {
         :on-previous="handlePrevious"
       />
 
-      <!-- Step 12: Artistry (Visual Creative Studio & Autonomous Director) -->
-      <StepArtistry
-        v-else-if="currentStepId === 'artistry'"
+      <!-- Step 12: Vision (Photo & Image Understanding) -->
+      <StepVision
+        v-else-if="currentStepId === 'vision'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
-      <!-- Step 13: Sensory (Screen Watching & Heartbeats) -->
+      <!-- Step 13: Screen (Desktop Screen Watching) -->
+      <StepScreen
+        v-else-if="currentStepId === 'screen'"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 14: Proactivity (Daily Schedule & Heartbeats) -->
+      <StepProactivity
+        v-else-if="currentStepId === 'proactivity'"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Fallback for Sensory -->
       <StepSensory
         v-else-if="currentStepId === 'sensory'"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 15: Artistry (Visual Creative Studio & Autonomous Director) -->
+      <StepArtistry
+        v-else-if="currentStepId === 'artistry'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />

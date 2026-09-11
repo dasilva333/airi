@@ -3,17 +3,20 @@ import { defineStore } from 'pinia'
 
 export type OnboardingArchitecture = 'local' | 'cloud'
 
-export type ExperienceArchetypeId = 'quiet' | 'casual' | 'copilot' | 'performer'
+export type ExperienceArchetypeId = 'quiet' | 'casual' | 'muse' | 'copilot' | 'roommate' | 'swiss-army' | 'performer'
 
 export interface ModuleBundleConfig {
   hearing: boolean
   speech: boolean
   thinking: boolean
   emotions: boolean
-  artistry: boolean
-  sensory: boolean
   memory: boolean
+  vision: boolean
+  screen: boolean
+  proactivity: boolean
+  artistry: boolean
   tools: boolean
+  sensory?: boolean
 }
 
 export interface OnboardingV3DraftState {
@@ -52,6 +55,11 @@ export interface OnboardingV3DraftState {
   ttsVoiceId?: string
   ttsPitch?: number
   ttsRate?: number
+  visionProvider?: string
+  visionModel?: string
+  visionStrategy?: 'direct' | 'forward'
+  visionPromptShimDirect?: string
+  visionPromptShimForward?: string
   artistryProvider?: 'pollinations' | 'comfyui' | 'nanobanana' | 'replicate' | 'none'
   artistryModel?: string
   artistryApiKey?: string
@@ -98,44 +106,88 @@ export interface OnboardingV3DraftState {
 }
 
 export const ARCHETYPE_MODULE_PRESETS: Record<ExperienceArchetypeId, ModuleBundleConfig> = {
-  quiet: {
+  'quiet': {
     hearing: false,
     speech: false,
     thinking: true,
     emotions: true,
-    artistry: false,
-    sensory: false,
     memory: true,
+    vision: false,
+    screen: false,
+    proactivity: false,
+    artistry: false,
     tools: false,
   },
-  casual: {
+  'casual': {
     hearing: true,
     speech: true,
     thinking: true,
     emotions: true,
-    artistry: false,
-    sensory: false,
     memory: true,
+    vision: true,
+    screen: false,
+    proactivity: false,
+    artistry: false,
     tools: false,
   },
-  copilot: {
+  'muse': {
+    hearing: false,
+    speech: true,
+    thinking: true,
+    emotions: true,
+    memory: true,
+    vision: true,
+    screen: false,
+    proactivity: false,
+    artistry: true,
+    tools: false,
+  },
+  'copilot': {
     hearing: true,
     speech: true,
     thinking: true,
     emotions: false,
-    artistry: false,
-    sensory: true,
     memory: true,
+    vision: false,
+    screen: true,
+    proactivity: false,
+    artistry: false,
     tools: true,
   },
-  performer: {
+  'roommate': {
+    hearing: false,
+    speech: true,
+    thinking: true,
+    emotions: true,
+    memory: true,
+    vision: false,
+    screen: true,
+    proactivity: true,
+    artistry: false,
+    tools: false,
+  },
+  'swiss-army': {
     hearing: true,
     speech: true,
     thinking: true,
     emotions: true,
-    artistry: true,
-    sensory: true,
     memory: true,
+    vision: true,
+    screen: true,
+    proactivity: true,
+    artistry: true,
+    tools: true,
+  },
+  'performer': {
+    hearing: true,
+    speech: true,
+    thinking: true,
+    emotions: true,
+    memory: true,
+    vision: true,
+    screen: true,
+    proactivity: true,
+    artistry: true,
     tools: true,
   },
 }
@@ -149,14 +201,21 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       speech: true,
       thinking: true,
       emotions: true,
-      artistry: false,
-      sensory: false,
       memory: true,
+      vision: true,
+      screen: false,
+      proactivity: false,
+      artistry: false,
       tools: false,
     },
     userGender: 'male',
     pacingPreset: 'balanced',
     subconsciousAsides: true,
+    visionProvider: '',
+    visionModel: '',
+    visionStrategy: 'direct',
+    visionPromptShimDirect: 'You are currently acting as a vision-capable stand-in for the main character. Keep your responses natural, in-character, and avoid any meta-commentary about "analyzing" or "describing" the image for the user. Just react to what you see as the character would.',
+    visionPromptShimForward: 'You are an objective image analysis model. Analyze the provided image in the context of the conversation and the user\'s latest message. Describe the key visual details, subjects, actions, colors, text, or any specific elements mentioned or asked about by the user, so that the primary chat LLM can respond appropriately. Keep your analysis descriptive and objective, and avoid any conversational filler.',
     artistryProvider: 'pollinations',
     artistryModel: '',
     artistryDirectorEnabled: true,
@@ -206,9 +265,23 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
   if (!state.value.experienceArchetype) {
     state.value.experienceArchetype = 'casual'
   }
+  if (state.value.experienceArchetype === 'performer') {
+    state.value.experienceArchetype = 'swiss-army'
+  }
   if (!state.value.modules) {
     state.value.modules = {
       ...ARCHETYPE_MODULE_PRESETS[state.value.experienceArchetype],
+    }
+  }
+  else {
+    if (state.value.modules.screen === undefined) {
+      state.value.modules.screen = Boolean(state.value.modules.sensory)
+    }
+    if (state.value.modules.proactivity === undefined) {
+      state.value.modules.proactivity = Boolean(state.value.modules.sensory)
+    }
+    if (state.value.modules.vision === undefined) {
+      state.value.modules.vision = ['casual', 'muse', 'swiss-army', 'performer'].includes(state.value.experienceArchetype)
     }
   }
   if (!state.value.personaCardId) {
@@ -464,6 +537,93 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.smartSilenceDirectiveEnabled = sensory.smartSilenceDirectiveEnabled
   }
 
+  function setVision(vision: {
+    provider?: string
+    model?: string
+    strategy?: 'direct' | 'forward'
+    promptShimDirect?: string
+    promptShimForward?: string
+  }) {
+    if (vision.provider !== undefined)
+      state.value.visionProvider = vision.provider
+    if (vision.model !== undefined)
+      state.value.visionModel = vision.model
+    if (vision.strategy !== undefined)
+      state.value.visionStrategy = vision.strategy
+    if (vision.promptShimDirect !== undefined)
+      state.value.visionPromptShimDirect = vision.promptShimDirect
+    if (vision.promptShimForward !== undefined)
+      state.value.visionPromptShimForward = vision.promptShimForward
+  }
+
+  function setScreen(screen: {
+    screenWatcherEnabled?: boolean
+    screenWatcherMode?: 'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'
+    screenWatcherTier?: 'lightweight' | 'moondream'
+    screenWatcherInterval?: number
+  }) {
+    if (screen.screenWatcherEnabled !== undefined)
+      state.value.screenWatcherEnabled = screen.screenWatcherEnabled
+    if (screen.screenWatcherMode !== undefined)
+      state.value.screenWatcherMode = screen.screenWatcherMode
+    if (screen.screenWatcherTier !== undefined)
+      state.value.screenWatcherTier = screen.screenWatcherTier
+    if (screen.screenWatcherInterval !== undefined)
+      state.value.screenWatcherInterval = screen.screenWatcherInterval
+  }
+
+  function setProactivity(proactivity: {
+    heartbeatsEnabled?: boolean
+    heartbeatsInterval?: number
+    operatingScheduleEnabled?: boolean
+    wakeUpTime?: string
+    bedTime?: string
+    pauseOnAfk?: boolean
+    afkMinutes?: number
+    sensorGroundingEnabled?: boolean
+    salienceGatingEnabled?: boolean
+    heartbeatsContextWindowHistory?: boolean
+    heartbeatsContextSystemLoad?: boolean
+    heartbeatsContextUsageMetrics?: boolean
+    eventLedgerEnabled?: boolean
+    eventLedgerSampleDepth?: number
+    eventLedgerDomains?: string[]
+    smartSilenceDirectiveEnabled?: boolean
+  }) {
+    if (proactivity.heartbeatsEnabled !== undefined)
+      state.value.heartbeatsEnabled = proactivity.heartbeatsEnabled
+    if (proactivity.heartbeatsInterval !== undefined)
+      state.value.heartbeatsInterval = proactivity.heartbeatsInterval
+    if (proactivity.operatingScheduleEnabled !== undefined)
+      state.value.operatingScheduleEnabled = proactivity.operatingScheduleEnabled
+    if (proactivity.wakeUpTime !== undefined)
+      state.value.wakeUpTime = proactivity.wakeUpTime
+    if (proactivity.bedTime !== undefined)
+      state.value.bedTime = proactivity.bedTime
+    if (proactivity.pauseOnAfk !== undefined)
+      state.value.pauseOnAfk = proactivity.pauseOnAfk
+    if (proactivity.afkMinutes !== undefined)
+      state.value.afkMinutes = proactivity.afkMinutes
+    if (proactivity.sensorGroundingEnabled !== undefined)
+      state.value.sensorGroundingEnabled = proactivity.sensorGroundingEnabled
+    if (proactivity.salienceGatingEnabled !== undefined)
+      state.value.salienceGatingEnabled = proactivity.salienceGatingEnabled
+    if (proactivity.heartbeatsContextWindowHistory !== undefined)
+      state.value.heartbeatsContextWindowHistory = proactivity.heartbeatsContextWindowHistory
+    if (proactivity.heartbeatsContextSystemLoad !== undefined)
+      state.value.heartbeatsContextSystemLoad = proactivity.heartbeatsContextSystemLoad
+    if (proactivity.heartbeatsContextUsageMetrics !== undefined)
+      state.value.heartbeatsContextUsageMetrics = proactivity.heartbeatsContextUsageMetrics
+    if (proactivity.eventLedgerEnabled !== undefined)
+      state.value.eventLedgerEnabled = proactivity.eventLedgerEnabled
+    if (proactivity.eventLedgerSampleDepth !== undefined)
+      state.value.eventLedgerSampleDepth = proactivity.eventLedgerSampleDepth
+    if (proactivity.eventLedgerDomains !== undefined)
+      state.value.eventLedgerDomains = proactivity.eventLedgerDomains
+    if (proactivity.smartSilenceDirectiveEnabled !== undefined)
+      state.value.smartSilenceDirectiveEnabled = proactivity.smartSilenceDirectiveEnabled
+  }
+
   function setMemory(memory: {
     shortTermEnabled?: boolean
     shortTermWindowSize?: number
@@ -537,6 +697,9 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     setEmotions,
     setArtistry,
     setSensory,
+    setVision,
+    setScreen,
+    setProactivity,
     setMemory,
     setTools,
     reset,

@@ -28,7 +28,7 @@ This document serves as the **canonical technical architecture specification**, 
 
 ---
 
-## 3. Master 17-Step Journey Topology
+### 3. Master 19-Step Journey Topology
 
 ```
 [ 0. Welcome ] ──▶ [ 1. Appearance ] ──▶ [ 2. Triage ] ──▶ [ 3. Experience Archetypes ]
@@ -37,21 +37,21 @@ This document serves as the **canonical technical architecture specification**, 
    ▼
 [ 4. User Profile ] ──▶ [ 5. Physical Vessel ] ──▶ [ 6. Soul & Persona ]
                                                                │
-   ┌──────────────────────────────────────────────────────────┘
+   ┌───────────────────────────────────────────────────────────┘
    ▼
 [ 7. Hearing (STT)* ] ──▶ [ 8. Consciousness (LLM) ] ──▶ [ 9. Speech (TTS)* ]
                                                                    │
    ┌───────────────────────────────────────────────────────────────┘
    ▼
-[ 10. Thinking (Pacing)* ] ──▶ [ 11. Emotions (ACT Bridge)* ] ──▶ [ 12. Artistry (Visuals)* ]
-                                                                             │
-   ┌─────────────────────────────────────────────────────────────────────────┘
+[ 10. Thinking (Pacing)* ] ──▶ [ 11. Emotions (ACT Bridge)* ] ──▶ [ 12. Vision (Chat VLM)* ]
+                                                                            │
+   ┌────────────────────────────────────────────────────────────────────────┘
    ▼
-[ 13. Sensory & Vision* ] ──▶ [ 14. Memory Hierarchy* ] ──▶ [ 15. Automation & Tools* ]
-                                                                         │
-   ┌─────────────────────────────────────────────────────────────────────┘
+[ 13. Screen (Desktop)* ] ──▶ [ 14. Proactivity (Schedule)* ] ──▶ [ 15. Artistry (Visuals)* ]
+                                                                           │
+   ┌───────────────────────────────────────────────────────────────────────┘
    ▼
-[ 16. Stage Finale & Launch ]
+[ 16. Memory Hierarchy* ] ──▶ [ 17. Automation & Tools* ] ──▶ [ 18. Stage Finale & Launch ]
 ```
 *\* Denotes optional modular steps dynamically governed by the Experience Coordinator.*
 
@@ -61,19 +61,21 @@ This document serves as the **canonical technical architecture specification**, 
 
 The wizard does not force users through irrelevant steps. Selecting an Archetype preset in Step 3 (or toggling individual switches in the "Advanced: Customize Modules" drawer) reactively computes `activeSteps`. The breadcrumb stepper and navigation dynamically shrink or expand in real time:
 
-| Archetype Preset | Active Modules | Steps Traversed | User Journey Experience |
-| :--- | :--- | :---: | :--- |
-| **The Quiet Observer**<br>*(Text & Ambient Presence)* | `emotions`, `thinking`, `memory` | **12 Steps**<br>*(Skips STT, TTS, Artistry, Sensory, Tools)* | Fast, lightweight text companion. Avatar emotes on screen, has inner thoughts and deep memory, with zero audio, vision, or filesystem overhead. |
-| **The Casual Companion**<br>*(Voice Dialogue & Soul)* | `hearing`, `speech`, `thinking`, `emotions`, `memory` | **14 Steps**<br>*(Skips Artistry, Sensory, Tools)* | The quintessential voice friend. Natural speech transcription (STT), emotional voice (TTS), natural pacing, and long-term memory. |
-| **The Executive Copilot**<br>*(Voice + System Automation)* | `hearing`, `speech`, `thinking`, `sensory`, `memory`, `tools` | **15 Steps**<br>*(Skips Emotions and Artistry)* | Focused productivity. Voice conversation, screen awareness, active window history, desktop filesystem MCP tools, and web search. |
-| **The Dynamic Performer**<br>*(Full Autonomous Multimodal)* | **All 8 Modules Active** | **17 Steps**<br>*(Complete master journey)* | Full multimodal studio: autonomous visuals, ComfyUI/Pollinations, 3D motion generation, vision, and MCP tools. |
+| Archetype Preset | Badge & Tag | Active Modules | Steps Traversed | User Journey Experience |
+| :--- | :--- | :--- | :---: | :--- |
+| **The Quiet Observer** | `[⚡ Fastest · Minimalist]` | `thinking`, `emotions`, `memory` | **12 Steps**<br>*(Skips Audio, Vision, Screen, Proactivity, Artistry, Tools)* | Ultra-fast, lightweight text companion. Avatar emotes on stage, has inner thoughts and deep memory, with zero audio, vision, or system overhead. |
+| **The Casual Companion** | `[✨ Popular Choice]` | `hearing`, `speech`, `thinking`, `emotions`, `memory`, `vision` | **15 Steps**<br>*(Skips Screen, Proactivity, Artistry, Tools)* | The quintessential voice and visual companion. Natural speech (STT/TTS), chat photo perception (VLM), natural pacing, and long-term memory. |
+| **The Creative Muse** | `[🎨 Visual Focus]` | `speech`, `thinking`, `emotions`, `memory`, `vision`, `artistry` | **15 Steps**<br>*(Skips Hearing, Screen, Proactivity, Tools)* | Visual inspiration studio. Spoken voice, visual generation (Pollinations/ComfyUI), chat photo understanding, and expressive avatar morphs. |
+| **The Executive Copilot** | `[💼 Productivity]` | `hearing`, `speech`, `thinking`, `memory`, `screen`, `tools` | **15 Steps**<br>*(Skips Emotions, Vision, Proactivity, Artistry)* | Focused productivity. Voice dialogue, desktop display perception, active window history, local filesystem MCP tools, and live web search. |
+| **The Ambient Roommate** | `[🌙 Proactive Presence]` | `speech`, `thinking`, `emotions`, `memory`, `screen`, `proactivity` | **15 Steps**<br>*(Skips Hearing, Vision, Artistry, Tools)* | Living routine & presence. Spoken voice, ambient heartbeats, sleep schedule, quiet hours, and screen awareness. |
+| **The Swiss Army Companion** | `[🔥 Most Steps · All-In-One]` | **All 10 Modules Active** | **19 Steps**<br>*(Complete master journey)* | The flagship do-it-all: Voice STT/TTS, vision, screen watching, proactivity, artistry, tools & memory hierarchy. |
 
 > [!NOTE]
-> The **12–17 step range** describes the 4 curated Archetype presets. Users who customize individual modules in the "Advanced: Customize Modules" drawer can prune all 8 optional modules, reaching a streamlined minimum configuration of **9 foundation steps** (Welcome, Appearance, Triage, Experience, Profile, Vessel, Persona, Consciousness, and Finale).
+> The **12–19 step range** describes the 6 curated Archetype presets. Users who customize individual modules in the "Advanced: Customize Modules" drawer can prune all 10 optional modules, reaching a streamlined minimum configuration of **9 foundation steps** (Welcome, Appearance, Triage, Experience, Profile, Vessel, Persona, Consciousness, and Finale).
 
 ---
 
-## 5. Detailed Per-Page Breakdown (All 17 Steps)
+## 5. Detailed Per-Page Breakdown (All 19 Steps)
 
 Below is the comprehensive field-by-field and control breakdown for every page in Onboarding V3.
 
@@ -86,7 +88,7 @@ Below is the comprehensive field-by-field and control breakdown for every page i
 │ 0  │ welcome            │ step-welcome.vue        │ Studio Introduction & Bubble  │
 │ 1  │ triage             │ step-triage.vue         │ Account Sign-In & Restore     │
 │ 2  │ appearance         │ step-appearance.vue     │ Language, Theme & 24 Colors   │
-│ 3  │ experience         │ step-experience.vue     │ Archetype & Step Pruning      │
+│ 3  │ experience         │ step-experience.vue     │ 6 Archetypes & 10 Modules     │
 │ 4  │ profile            │ step-profile.vue        │ User Persona & Callout Name   │
 │ 5  │ vessel             │ step-vessel.vue         │ 3D Vessel Coverflow (Avatar)  │
 │ 6  │ persona            │ step-persona.vue        │ Character Card & Soul         │
@@ -95,11 +97,13 @@ Below is the comprehensive field-by-field and control breakdown for every page i
 │ 9  │ speech             │ step-speech.vue         │ Neural TTS & Voice Timbre     │
 │ 10 │ thinking           │ step-thinking.vue       │ Pacing & Subconscious Asides  │
 │ 11 │ emotions           │ step-emotions.vue       │ 2-Pass ACT Expression Bridge  │
-│ 12 │ artistry           │ step-artistry.vue       │ Pollinations/ComfyUI Visuals  │
-│ 13 │ sensory            │ step-sensory.vue        │ Screen Watching & Telemetry   │
-│ 14 │ memory             │ step-memory.vue         │ 4 Temporal Memory Quadrants   │
-│ 15 │ tools              │ step-tools.vue          │ Web Search & Desktop MCP      │
-│ 16 │ finale             │ step-finale.vue         │ Honesty Matrix & Stage Launch │
+│ 12 │ vision             │ step-vision.vue         │ Chat Photo & VLM 2-Hop Test   │
+│ 13 │ screen             │ step-screen.vue         │ Desktop Display Watching      │
+│ 14 │ proactivity        │ step-proactivity.vue    │ Schedule, Heartbeats & Probes │
+│ 15 │ artistry           │ step-artistry.vue       │ Pollinations/ComfyUI Visuals  │
+│ 16 │ memory             │ step-memory.vue         │ 4 Temporal Memory Quadrants   │
+│ 17 │ tools              │ step-tools.vue          │ Web Search & Desktop MCP      │
+│ 18 │ finale             │ step-finale.vue         │ Honesty Matrix & Stage Launch │
 └────┴────────────────────┴─────────────────────────┴───────────────────────────────┘
 ```
 
