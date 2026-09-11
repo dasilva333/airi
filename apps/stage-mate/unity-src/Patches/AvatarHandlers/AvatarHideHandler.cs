@@ -148,15 +148,41 @@ public class AvatarHideHandler : MonoBehaviour
         if (cam == null) cam = Camera.main ?? FindFirstObjectByType<Camera>();
     }
 
+    Transform GetAnchorHand(Side side)
+    {
+        // Wall-touching hand:
+        // In HideRight (facing camera), avatar's leftHand reaches right towards the screen edge.
+        // In HideLeft (mirrored), avatar's rightHand reaches left towards the screen edge.
+        return side == Side.Left ? rightHand : leftHand;
+    }
+
+    float GetAnchorWindowX(Side side, Vector2 winSize)
+    {
+        Transform t = GetAnchorHand(side);
+        if (t != null && cam != null)
+        {
+            Vector3 sp = cam.WorldToScreenPoint(t.position);
+            if (sp.z > 0.01f && cam.pixelWidth > 0)
+            {
+                return Mathf.Clamp((sp.x / cam.pixelWidth) * winSize.x, 0f, winSize.x);
+            }
+        }
+        // Fallback for non-humanoid or before bone references resolve:
+        // Right: wall-touching hand is at ~28.4% of window width
+        // Left: wall-touching hand is at ~71.6% of window width
+        return side == Side.Left ? (winSize.x * 0.716f) : (winSize.x * 0.284f);
+    }
+
     float GetDesiredWindowX(Side side, Vector2 winSize, float screenLeft, float screenW)
     {
+        float anchorWinX = GetAnchorWindowX(side, winSize);
         if (side == Side.Left)
         {
-            return screenLeft + (-winSize.x * 0.565f) - edgeInsetPx;
+            return screenLeft + edgeInsetPx - anchorWinX;
         }
         else if (side == Side.Right)
         {
-            return screenLeft + (screenW - (winSize.x * 0.44f)) + edgeInsetPx;
+            return (screenLeft + screenW - 1f - edgeInsetPx) - anchorWinX;
         }
         return screenLeft;
     }
@@ -187,6 +213,34 @@ public class AvatarHideHandler : MonoBehaviour
         return false;
     }
 
+    bool GetAllowedEdgesForMonitorOSX(float screenLeft, float screenW, out bool allowLeft, out bool allowRight)
+    {
+        int monCount = Kirurobo.UniWindowController.GetMonitorCount();
+        if (monCount <= 1)
+        {
+            allowLeft = true;
+            allowRight = true;
+            return true;
+        }
+
+        bool hasLeftNeighbor = false;
+        bool hasRightNeighbor = false;
+
+        for (int i = 0; i < monCount; i++)
+        {
+            Rect r = Kirurobo.UniWindowController.GetMonitorRect(i);
+            if (r.width <= 0 || r.height <= 0) continue;
+            if (Mathf.Abs(r.x - screenLeft) < 1f) continue;
+
+            if (Mathf.Abs((r.x + r.width) - screenLeft) <= 10f) hasLeftNeighbor = true;
+            if (Mathf.Abs(r.x - (screenLeft + screenW)) <= 10f) hasRightNeighbor = true;
+        }
+
+        allowLeft = !hasLeftNeighbor;
+        allowRight = !hasRightNeighbor;
+        return true;
+    }
+
     void Update()
     {
 #if !UNITY_STANDALONE_WIN && !UNITY_EDITOR_WIN
@@ -212,9 +266,10 @@ public class AvatarHideHandler : MonoBehaviour
 
         if (isDraggingNow)
         {
+            GetAllowedEdgesForMonitorOSX(screenLeft, screenW, out bool allowLeft, out bool allowRight);
             int thrSnap = Math.Max(32, snapThresholdPx);
-            bool nearLeft = snapEligible && (mousePos.x <= screenLeft + thrSnap);
-            bool nearRight = snapEligible && (mousePos.x >= screenLeft + screenW - thrSnap);
+            bool nearLeft = snapEligible && allowLeft && (mousePos.x <= screenLeft + thrSnap);
+            bool nearRight = snapEligible && allowRight && (mousePos.x >= screenLeft + screenW - thrSnap);
 
             if (mousePos.x <= screenLeft + 150f || mousePos.x >= screenLeft + screenW - 150f)
             {
@@ -488,7 +543,7 @@ public class AvatarHideHandler : MonoBehaviour
 
     int GetAnchorDesktopX(Side side)
     {
-        Transform t = side == Side.Left ? leftHand : rightHand;
+        Transform t = GetAnchorHand(side);
         if (t == null || cam == null) return -1;
         if (!GetUnityClientRect(out RECT uCli)) return -1;
 
