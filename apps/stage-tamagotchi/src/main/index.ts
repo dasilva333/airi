@@ -170,15 +170,16 @@ const log = useLogg('main').useGlobalConfig()
 const forceHighPerformanceGpu = env.AIRI_FORCE_HIGH_PERFORMANCE_GPU === '1'
 
 if (isLinux) {
-  app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer')
-  app.commandLine.appendSwitch('enable-unsafe-webgpu')
-  app.commandLine.appendSwitch('enable-features', 'Vulkan')
-
+  const linuxFeatures = ['SharedArrayBuffer', 'Vulkan']
   if (env.XDG_SESSION_TYPE === 'wayland') {
-    app.commandLine.appendSwitch('enable-features', 'GlobalShortcutsPortal')
-    app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform')
-    app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations')
+    linuxFeatures.push('GlobalShortcutsPortal', 'UseOzonePlatform', 'WaylandWindowDecorations')
   }
+  app.commandLine.appendSwitch('enable-features', linuxFeatures.join(','))
+  app.commandLine.appendSwitch('enable-unsafe-webgpu')
+  // NOTICE: Dawn disables shader-f16 on Linux NVIDIA Vulkan by default. Enabling
+  // vulkan_enable_f16_on_nvidia allows WebLLM q4f16 models (such as Qwen 3.5)
+  // to compile WGSL shaders without extension 'f16' is not allowed errors.
+  app.commandLine.appendSwitch('enable-dawn-features', 'vulkan_enable_f16_on_nvidia')
 }
 
 if (forceHighPerformanceGpu) {

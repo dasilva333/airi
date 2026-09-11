@@ -161,6 +161,19 @@ const DEVICE_LOSS_PATTERNS = [
   'webgpu device is invalid',
 ] as const
 
+export function serializeWorkerError(error: unknown): Error {
+  if (error instanceof Error) {
+    const err = new Error(error.message)
+    err.name = error.name || 'Error'
+    if (error.stack) {
+      err.stack = error.stack
+    }
+    return err
+  }
+  const msg = errorMessageFrom(error) ?? String(error)
+  return new Error(msg)
+}
+
 /**
  * Classify an unknown error into an `InferenceErrorCode`.
  * Used by worker adapters to normalise caught exceptions.
@@ -172,12 +185,14 @@ const DEVICE_LOSS_PATTERNS = [
 export function classifyError(error: unknown, phase?: 'load' | 'inference'): InferenceErrorCode {
   const lower = (errorMessageFrom(error) ?? String(error)).toLowerCase()
 
-  if (lower.includes('out of memory') || lower.includes('allocation failed'))
+  if (lower.includes('out of memory') || lower.includes('allocation failed') || lower.includes('gpuoutofmemoryerror'))
     return 'OOM'
   if (DEVICE_LOSS_PATTERNS.some(p => lower.includes(p)))
     return 'DEVICE_LOST'
   if (lower.includes('timeout'))
     return 'TIMEOUT'
+  if (lower.includes('extension \'f16\' is not allowed') || lower.includes('f16 is not allowed'))
+    return 'LOAD_FAILED'
 
   if (phase === 'load')
     return 'LOAD_FAILED'

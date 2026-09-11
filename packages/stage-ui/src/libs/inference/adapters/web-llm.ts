@@ -33,6 +33,7 @@ import { MODEL_VRAM_ESTIMATES } from '../coordinator'
 import { GPU_PRIORITY } from '../gpu-executor'
 import { createGpuWorkerHost } from '../gpu-worker-host'
 import { InferenceAbortError, InferenceTimeoutError, throwIfAborted } from '../protocol'
+import { createSingleOwnerWebLlmAdapter } from './web-llm-channel'
 
 /** Which model to load; mirrors the worker's `WebLlmLoadRequest` minus device. */
 export interface WebLlmLoadTarget {
@@ -278,7 +279,7 @@ export async function getWebLlmAdapter(): Promise<WebLlmAdapter> {
       || globalAdapter.state === 'error'
     ) {
       globalAdapter?.terminate()
-      globalAdapter = createWebLlmAdapter()
+      globalAdapter = await createSingleOwnerWebLlmAdapter()
     }
     return globalAdapter
   })

@@ -37,6 +37,7 @@ import {
   webLlmLoadEvent,
   webLlmUnloadEvent,
 } from '../../libs/inference/contract'
+import { serializeWorkerError } from '../../libs/inference/protocol'
 
 const { context } = createContext()
 
@@ -176,7 +177,7 @@ defineStreamInvokeHandler(context, webLlmLoadEvent, toStreamHandler<WebLlmLoadRe
       }
       catch (retryErr) {
         console.error('[web-llm:worker] engine creation failed on retry:', retryErr)
-        throw retryErr
+        throw serializeWorkerError(retryErr)
       }
     }
 
@@ -184,7 +185,7 @@ defineStreamInvokeHandler(context, webLlmLoadEvent, toStreamHandler<WebLlmLoadRe
     // user to reload with a smaller model; the adapter classifies it via
     // classifyError() into DEVICE_LOST / OOM for telemetry and restart.
     console.error('[web-llm:worker] engine creation failed:', error)
-    throw error
+    throw serializeWorkerError(error)
   }
 
   console.info('[web-llm:worker] model ready', { modelId: payload.modelId })
@@ -200,22 +201,28 @@ defineStreamInvokeHandler(context, webLlmGenerateEvent, toStreamHandler<WebLlmGe
   const mappedMessages = payload.messages.map(m => ({ role: m.role as never, content: m.content }))
   console.info('[web-llm:worker] stream generate starting', { modelId: payload.modelId, messagesCount: payload.messages.length, messages: mappedMessages })
 
-  const stream = await engine.chat.completions.create({
-    model: payload.modelId,
-    messages: payload.messages.map(m => ({ role: m.role as never, content: m.content })),
-    stream: true,
-    ...(payload.temperature != null ? { temperature: payload.temperature } : {}),
-    ...(payload.topP != null ? { top_p: payload.topP } : {}),
-    ...(payload.maxTokens != null ? { max_tokens: payload.maxTokens } : {}),
-  })
+  try {
+    const stream = await engine.chat.completions.create({
+      model: payload.modelId,
+      messages: payload.messages.map(m => ({ role: m.role as never, content: m.content })),
+      stream: true,
+      ...(payload.temperature != null ? { temperature: payload.temperature } : {}),
+      ...(payload.topP != null ? { top_p: payload.topP } : {}),
+      ...(payload.maxTokens != null ? { max_tokens: payload.maxTokens } : {}),
+    })
 
-  for await (const chunk of stream) {
-    if (signal?.aborted)
-      return
-    const delta = chunk.choices?.[0]?.delta
-    const text = delta && 'content' in delta ? (delta.content ?? '') : ''
-    if (text)
-      emit({ text })
+    for await (const chunk of stream) {
+      if (signal?.aborted)
+        return
+      const delta = chunk.choices?.[0]?.delta
+      const text = delta && 'content' in delta ? (delta.content ?? '') : ''
+      if (text)
+        emit({ text })
+    }
+  }
+  catch (error) {
+    console.error('[web-llm:worker] stream generate failed:', error)
+    throw serializeWorkerError(error)
   }
 }))
 

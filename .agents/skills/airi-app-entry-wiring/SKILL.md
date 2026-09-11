@@ -10,7 +10,18 @@ This skill provides comprehensive guidelines for understanding and modifying the
 
 ## 1. Overview & Surface Map
 
+AIRI initializes in three distinct phases:
+1. **Process Bootstrap & Hardware Flags** (`main/index.ts`): Early Chromium / Dawn command-line switch configuration before `app.whenReady()` (Vulkan, WebGPU, SharedArrayBuffer, Wayland portal flags).
+2. **Composition Root & Dependency Injection** (`injeca` in `main/index.ts`): Typed DI container wiring core services (`serverChannel`, `mcpStdioManager`, window managers, `i18n`, `appConfig`).
+3. **Window Lifecycle & Routing**: Main window (Control Strip `#/`) boots first; secondary windows (Chatbox `#/chat`, Actor Stage `#/actor`, Onboarding, Settings) mount dynamically with `@moeru/eventa` IPC and `BroadcastChannel` cross-window synchronization.
+
 ## 2. Key Code Paths
+
+- `apps/stage-tamagotchi/src/main/index.ts` — Main process bootstrap, hardware/Chromium command-line switches, composition root (`injeca`), and app lifecycle.
+- `apps/stage-tamagotchi/src/main/windows/` — Per-window manager factories (reusable window wrappers, bounds persistence, Eventa RPC handlers).
+- `apps/stage-tamagotchi/src/shared/eventa.ts` — Strongly typed Eventa IPC contract schemas.
+- `apps/stage-tamagotchi/src/renderer/App.vue` — Desktop renderer entry point (`isMainWindow` resolution, window title synchronization, onboarding gate watcher).
+- `apps/stage-web/src/App.vue` — Web platform entry point.
 
 ## 3. Core SOPs & Guidelines
 ### 1. Main Process Bootstrap & Dependency Injection (DI)
@@ -85,15 +96,25 @@ The standalone web version (non-Electron) lives in `apps/stage-web/`.
 - **Vite Config:** `vite.config.ts`
 It shares most UI components from `packages/stage-ui/` but lacks Main Process features (no IPC).
 
+### 6. Chromium Command-Line Switches & Hardware Feature Enablement
+
+Hardware switches are configured in `apps/stage-tamagotchi/src/main/index.ts` before `app.whenReady()`.
+
+- **Single `enable-features` rule**: Always join multiple Chromium features into a single comma-delimited string (e.g. `app.commandLine.appendSwitch('enable-features', ['SharedArrayBuffer', 'Vulkan', ...].join(','))`). Calling `appendSwitch('enable-features', ...)` multiple times silently overwrites earlier features in Chromium.
+- **Dawn NVIDIA Vulkan `shader-f16`**: On Linux, Dawn gates `shader-f16` for WGSL compute shaders behind `vulkan_enable_f16_on_nvidia`. Must append `app.commandLine.appendSwitch('enable-dawn-features', 'vulkan_enable_f16_on_nvidia')` so WebLLM `q4f16` models (e.g. Qwen 3.5) compile shaders without fatal syntax errors.
+
 ## 4. Known Pitfalls & Failure Modes
 
+- **Chromium Switch Clobbering**: Calling `app.commandLine.appendSwitch('enable-features', ...)` sequentially with different arguments overwrites prior features instead of combining them. Always merge feature flags into a single comma-separated list.
+- **Missing Dawn NVIDIA f16 on Linux**: Without `enable-dawn-features: vulkan_enable_f16_on_nvidia`, WebLLM crashes on Linux/NVIDIA during pipeline creation with `extension 'f16' is not allowed in the current environment`.
+- **Vue 3 Proxy Destruction**: When sending objects across Eventa IPC, never send reactive proxies. Always pass through `toRaw()` to preserve binary/plain-object serialization.
+- **IPC Handler Leaks / Re-registration**: `ipcMain.setMaxListeners(0)` is set temporarily, but event handlers should be cleaned up with window disposal to avoid memory leaks.
+
 ## 5. Verification Workflows
-### 6. Verification & Validation
 
-When touching bootstrap, DI, or IPC logic, you must ensure you haven't broken the types or the startup sequence.
-
-- **Validation Command:** Run `pnpm -F stage-tamagotchi typecheck` (or `build`) to verify `injeca` and `eventa` types align.
-- **Local Dev:** Always start the local dev server (`pnpm run dev`) and manually verify the affected window opens correctly without throwing `Object has been destroyed` or IPC timeout errors.
+- **Typecheck**: `pnpm -F @proj-airi/stage-tamagotchi typecheck` (verifies both Node and Web targets).
+- **Build / Packaging**: `pnpm -F @proj-airi/stage-tamagotchi build` (runs full Vite and Electron build).
+- **Local Dev**: Run `pnpm run dev` and confirm that all primary windows mount without IPC timeout or `Object has been destroyed` errors.
 
 ### Authoritative Design & Architecture Documents
 

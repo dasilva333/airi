@@ -464,6 +464,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | `airi:custom-vrma-sync` | `stage-ui-three/src/stores/custom-vrm-animations.ts` | Custom VRMA animation import/deletion sync |
 | `airi::beat-sync` | `stage-shared/src/beat-sync/eventa.ts` | **(raw `new BroadcastChannel`, note `::`)** Audio beat detection & lip-sync amplitude relay across processes/windows |
 | `dating-sim-sync` | `stores/dating-sim.ts` | **(raw `new BroadcastChannel`)** Dating-sim game-state sync across windows; a dedicated `live2d-dsl-bridge` channel relays DSL motion commands |
+| `airi:inference:web-llm` | `stage-ui/src/libs/inference/adapters/web-llm-channel.ts` | Single-owner WebLLM coordinator (leader election over BroadcastChannel, preventing multi-window VRAM duplication) |
 
 ---
 

@@ -236,4 +236,62 @@ describe('gpuWorkerHost', () => {
     host.terminate()
     expect(release).toHaveBeenCalledTimes(2)
   })
+
+  describe('oOM circuit breaker', () => {
+    it('engages isOom and does NOT schedule automatic restart on OOM', async () => {
+      vi.useFakeTimers()
+      const host = makeHost()
+      host.ensure()
+      const worker = FakeWorker.instances.at(-1)!
+
+      worker.emitError(new Error('GPUOutOfMemoryError: out of memory'))
+
+      expect(host.isOom).toBe(true)
+      expect(host.phase).toBe('error')
+      const instancesAfterOom = FakeWorker.instances.length
+
+      // Advance timers by backoff delay to prove restart is NOT scheduled
+      await vi.advanceTimersByTimeAsync(RESTART_DELAY_MS * 5)
+      expect(FakeWorker.instances.length).toBe(instancesAfterOom)
+      expect(host.isOom).toBe(true)
+      expect(host.phase).toBe('error')
+
+      host.terminate()
+      vi.useRealTimers()
+    })
+
+    it('rejects subsequent operations while in oom state', async () => {
+      const host = makeHost()
+      host.ensure()
+      const worker = FakeWorker.instances.at(-1)!
+
+      worker.emitError(new Error('GPU allocation failed: out of memory'))
+      expect(host.isOom).toBe(true)
+      expect(host.phase).toBe('error')
+
+      await expect(host.runExclusive(async () => 'ok')).rejects.toThrow('circuit breaker active')
+      await expect(host.runOnGpu('test-model', 1, undefined, async () => 'ok')).rejects.toThrow('circuit breaker active')
+      expect(() => host.ensure()).toThrow('circuit breaker active')
+
+      host.terminate()
+    })
+
+    it('reset() exits oom state and re-arms the host', () => {
+      const host = makeHost()
+      host.ensure()
+      const worker = FakeWorker.instances.at(-1)!
+
+      worker.emitError(new Error('GPUOutOfMemoryError'))
+      expect(host.isOom).toBe(true)
+      expect(host.phase).toBe('error')
+
+      // Call reset to recover
+      host.reset()
+      expect(host.isOom).toBe(false)
+      expect(host.phase).toBe('idle')
+      expect(FakeWorker.instances.length).toBe(2)
+
+      host.terminate()
+    })
+  })
 })

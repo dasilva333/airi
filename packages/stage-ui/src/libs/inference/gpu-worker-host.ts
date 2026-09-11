@@ -97,6 +97,8 @@ export interface GpuWorkerHostOptions<Rpc> {
 export interface GpuWorkerHost<Rpc> {
   /** Current lifecycle phase — the single source of truth for the adapter's `state` getter. */
   readonly phase: WorkerHostPhase
+  /** Whether the host is blocked by the GPU Out-of-Memory circuit breaker. */
+  readonly isOom: boolean
   /** The bound RPC for the live worker, or null when not spawned / torn down. */
   readonly rpc: Rpc | null
   /** WebGPU device-loss events observed by this host. */
@@ -184,6 +186,7 @@ export function createGpuWorkerHost<Rpc>(options: GpuWorkerHostOptions<Rpc>): Gp
   let worker: Worker | null = null
   let rpc: Rpc | null = null
   let phase: WorkerHostPhase = 'idle'
+  let isOom = false
   let allocationToken: AllocationToken | null = null
   let restartAttempts = 0
   let deviceLossCount = 0
@@ -257,17 +260,33 @@ export function createGpuWorkerHost<Rpc>(options: GpuWorkerHostOptions<Rpc>): Gp
       return
     handlingError = true
 
+    const error = event instanceof Error ? event : (event as ErrorEvent).error ?? event
+    const code = classifyError(error)
+
+    if (code === 'OOM') {
+      phase = 'error'
+      isOom = true
+      operationMutex.cancel()
+      const oomError = new Error(`GPUOutOfMemoryError: GPU memory exhausted while executing ${resolveModelId()}. Reload with a less resource-intensive model.`)
+      oomError.name = 'GPUOutOfMemoryError'
+      console.error(`[GpuWorkerHost:${resolveModelId()}] Unrecoverable GPU Out-of-Memory detected:`, (error as Error)?.message || error)
+      inflightAbort?.abort(oomError)
+      destroyWorker()
+      // NOTICE: OOM circuit breaker: do NOT call scheduleRestart().
+      // Auto-restarts after an OOM create an expensive reload storm that repeatedly
+      // crashes WebGPU device contexts. Call reset() or switch models to recover.
+      return
+    }
+
     phase = 'error'
     operationMutex.cancel()
 
     // Record device-loss telemetry before teardown so the coordinator sees it
     // even if the host is never used again.
-    const error = event instanceof Error ? event : (event as ErrorEvent).error ?? event
     console.warn(`[GpuWorkerHost:${resolveModelId()}] Worker error occurred:`, (error as Error)?.name, (error as Error)?.message, error)
     // Unblock any in-flight GPU op (see `inflightAbort`) so the shared executor
     // slot is released immediately rather than at the op timeout.
     inflightAbort?.abort(error instanceof Error ? error : new Error(String(error)))
-    const code = classifyError(error)
     if (code === 'DEVICE_LOST') {
       deviceLossCount++
       getGPUCoordinator().recordDeviceLoss({
@@ -282,6 +301,9 @@ export function createGpuWorkerHost<Rpc>(options: GpuWorkerHostOptions<Rpc>): Gp
   }
 
   function ensure(): Rpc {
+    if (isOom) {
+      throw new Error(`[GpuWorkerHost:${resolveModelId()}] GPU out-of-memory circuit breaker active. Call reset() or switch to a smaller model to retry.`)
+    }
     if (!worker) {
       worker = createWorker()
       rpc = createRpc(worker)
@@ -297,6 +319,9 @@ export function createGpuWorkerHost<Rpc>(options: GpuWorkerHostOptions<Rpc>): Gp
   }
 
   function runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+    if (isOom) {
+      return Promise.reject(new Error(`[GpuWorkerHost:${resolveModelId()}] GPU out-of-memory circuit breaker active. Call reset() or switch to a smaller model to retry.`))
+    }
     return operationMutex.runExclusive(fn)
   }
 
@@ -306,6 +331,9 @@ export function createGpuWorkerHost<Rpc>(options: GpuWorkerHostOptions<Rpc>): Gp
     callerSignal: AbortSignal | undefined,
     work: (ctx: GpuWork) => Promise<T>,
   ): Promise<T> {
+    if (isOom) {
+      return Promise.reject(new Error(`[GpuWorkerHost:${resolveModelId()}] GPU out-of-memory circuit breaker active. Call reset() or switch to a smaller model to retry.`))
+    }
     const opAbort = new AbortController()
     inflightAbort = opAbort
     return getGpuExecutor()
@@ -368,12 +396,14 @@ export function createGpuWorkerHost<Rpc>(options: GpuWorkerHostOptions<Rpc>): Gp
       getGPUCoordinator().release(allocationToken)
       allocationToken = null
     }
+    isOom = false
     phase = 'idle'
     return ensure()
   }
 
   return {
     get phase() { return phase },
+    get isOom() { return isOom },
     get rpc() { return rpc },
     get deviceLossCount() { return deviceLossCount },
     setPhase(next) { phase = next },

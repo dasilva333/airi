@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { classifyDeviceLossReason, classifyError, createRequestId, InferenceAbortError, isRecoverable, throwIfAborted } from './protocol'
+import { classifyDeviceLossReason, classifyError, createRequestId, InferenceAbortError, isRecoverable, serializeWorkerError, throwIfAborted } from './protocol'
 
 describe('createRequestId', () => {
   it('should produce ids prefixed with "req_"', () => {
@@ -17,6 +17,12 @@ describe('classifyError', () => {
   it('should classify OOM errors', () => {
     expect(classifyError(new Error('out of memory'))).toBe('OOM')
     expect(classifyError(new Error('GPU allocation failed'))).toBe('OOM')
+    expect(classifyError(new Error('[object GPUOutOfMemoryError]'))).toBe('OOM')
+    expect(classifyError('GPUOutOfMemoryError')).toBe('OOM')
+  })
+
+  it('should classify f16 WGSL errors as LOAD_FAILED', () => {
+    expect(classifyError(new Error('GPUDevice: Error while parsing WGSL: extension \'f16\' is not allowed in the current environment'))).toBe('LOAD_FAILED')
   })
 
   it('should classify DEVICE_LOST errors', () => {
@@ -181,5 +187,39 @@ describe('classifyDeviceLossReason', () => {
   it('should return unknown for non-device-loss inputs', () => {
     expect(classifyDeviceLossReason(new Error('out of memory'))).toBe('unknown')
     expect(classifyDeviceLossReason('random string')).toBe('unknown')
+  })
+})
+
+describe('serializeWorkerError', () => {
+  it('should preserve name, message, and stack from an Error instance', () => {
+    const original = new TypeError('Test type error')
+    const serialized = serializeWorkerError(original)
+    expect(serialized).toBeInstanceOf(Error)
+    expect(serialized.name).toBe('TypeError')
+    expect(serialized.message).toBe('Test type error')
+    expect(serialized.stack).toBe(original.stack)
+  })
+
+  it('should safely convert uncloneable objects or error-like structures', () => {
+    // Simulates a GPUPipelineError or DOMException-like structure
+    const gpuPipelineError = {
+      name: 'GPUPipelineError',
+      message: 'extension \'f16\' is not allowed',
+      reason: 'validation',
+      stack: 'Error at webgpu...',
+    }
+    const serialized = serializeWorkerError(gpuPipelineError)
+    expect(serialized).toBeInstanceOf(Error)
+    expect(serialized.message).toContain('f16')
+  })
+
+  it('should convert primitive values and strings to Error', () => {
+    const fromStr = serializeWorkerError('raw error string')
+    expect(fromStr).toBeInstanceOf(Error)
+    expect(fromStr.message).toBe('raw error string')
+
+    const fromNum = serializeWorkerError(500)
+    expect(fromNum).toBeInstanceOf(Error)
+    expect(fromNum.message).toBe('500')
   })
 })
