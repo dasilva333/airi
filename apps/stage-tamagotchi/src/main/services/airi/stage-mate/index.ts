@@ -614,12 +614,15 @@ export function createStageMateService(params?: {
         if (pt.x !== lastMousePos.x || pt.y !== lastMousePos.y || isDown !== lastLeftDown) {
           lastMousePos = { x: pt.x, y: pt.y }
           lastLeftDown = isDown
+          const disp = screen.getDisplayNearestPoint(pt)
           broadcast({
             type: 'stage:control:mouse',
             data: {
               x: pt.x,
               y: pt.y,
               isDown,
+              monitorWidth: disp?.bounds?.width ?? 0,
+              monitorHeight: disp?.bounds?.height ?? 0,
             },
           })
         }

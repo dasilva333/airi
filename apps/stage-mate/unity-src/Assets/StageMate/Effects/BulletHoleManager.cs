@@ -151,8 +151,19 @@ namespace StageMate.Effects
             decalGO.transform.SetParent(overlayCanvas.transform, false);
 
             var rectTransform = decalGO.AddComponent<RectTransform>();
-            rectTransform.position = new Vector3(screenPos.x, screenPos.y, 0f);
-            rectTransform.sizeDelta = new Vector2(60f, 60f);
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.zero;
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = screenPos;
+
+            float scale = 1f;
+            if (Kirurobo.UniWindowController.current != null && Kirurobo.UniWindowController.current.windowSize.x > 0f)
+            {
+                scale = UnityEngine.Screen.width / Kirurobo.UniWindowController.current.windowSize.x;
+            }
+            if (scale <= 0.1f) scale = 1f;
+
+            rectTransform.sizeDelta = new Vector2(65f * scale, 65f * scale);
 
             // Random rotation (0..360°) and scale variation (0.85x..1.25x)
             rectTransform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 360f));
@@ -167,6 +178,7 @@ namespace StageMate.Effects
 
             // Self-contained decay lifecycle
             decalGO.AddComponent<BulletHoleDecay>();
+            Debug.Log($"[BulletHoleManager] Spawned cartoon bullet hole at canvas pos: ({screenPos.x:F1}, {screenPos.y:F1})");
         }
     }
 }

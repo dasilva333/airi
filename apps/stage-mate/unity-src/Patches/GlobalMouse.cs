@@ -26,18 +26,46 @@ public static class GlobalMouse
     private static bool hasStreamedPosition = false;
     private static bool streamedLeftDown = false;
     private static bool prevStreamedLeftDown = false;
+    private static bool streamedLeftUpPending = false;
+    private static float streamedMonitorWidth = 0f;
+    private static float streamedMonitorHeight = 0f;
 
-    public static void SetStreamedPosition(float x, float y, bool isDown)
+    public static void SetStreamedPosition(float x, float y, bool isDown, float monW = 0f, float monH = 0f)
     {
         streamedPosition = new Vector2(x, y);
         hasStreamedPosition = true;
+        if (monW > 0f) streamedMonitorWidth = monW;
+        if (monH > 0f) streamedMonitorHeight = monH;
+
+        if (streamedLeftDown && !isDown)
+        {
+            // Latched falling edge: user released mouse button
+            streamedLeftUpPending = true;
+        }
+
         prevStreamedLeftDown = streamedLeftDown;
         streamedLeftDown = isDown;
     }
 
+    public static void SetStreamedPosition(float x, float y, bool isDown)
+    {
+        SetStreamedPosition(x, y, isDown, 0f, 0f);
+    }
+
     public static void SetStreamedPosition(float x, float y)
     {
-        SetStreamedPosition(x, y, false);
+        SetStreamedPosition(x, y, false, 0f, 0f);
+    }
+
+    public static bool TryGetStreamedMonitorSize(out Vector2 size)
+    {
+        if (streamedMonitorWidth > 0f && streamedMonitorHeight > 0f)
+        {
+            size = new Vector2(streamedMonitorWidth, streamedMonitorHeight);
+            return true;
+        }
+        size = Vector2.zero;
+        return false;
     }
 
     public static Vector2 GetPosition()
@@ -111,9 +139,12 @@ public static class GlobalMouse
     {
         if (hasStreamedPosition)
         {
-            bool up = prevStreamedLeftDown && !streamedLeftDown;
-            prevStreamedLeftDown = streamedLeftDown;
-            if (up) return true;
+            if (streamedLeftUpPending)
+            {
+                streamedLeftUpPending = false;
+                return true;
+            }
+            return false;
         }
 #if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
         try

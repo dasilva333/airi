@@ -76,6 +76,7 @@ public class AvatarMouseTracking : MonoBehaviour
     public bool enableWeaponStance = false;
     bool wasArmed = false;
     GameObject gun;
+    private float nextAutoFireDecalTime = 0f;
     [Header("Gun Attachment Offset")]
     public Vector3 gunLocalPos = Vector3.zero;
     public Vector3 gunLocalRot = Vector3.zero;
@@ -550,11 +551,17 @@ public class AvatarMouseTracking : MonoBehaviour
                 if (GlobalMouse.LeftMouseUp())
                 {
                     gunAnim.SetTrigger("Fire");
-                    StageMate.Effects.BulletHoleManager.Instance.SpawnAt(Input.mousePosition);
+                    SpawnBulletHoleAtCursor();
                 }
                 else if (gunAnim.HasParameter("Firing", AnimatorControllerParameterType.Bool))
                 {
-                    gunAnim.SetBool("Firing", GlobalMouse.LeftMouseDown());
+                    bool firing = GlobalMouse.LeftMouseDown();
+                    gunAnim.SetBool("Firing", firing);
+                    if (firing && Time.unscaledTime >= nextAutoFireDecalTime)
+                    {
+                        nextAutoFireDecalTime = Time.unscaledTime + 0.18f;
+                        SpawnBulletHoleAtCursor();
+                    }
                 }
             }
         }
@@ -591,6 +598,39 @@ public class AvatarMouseTracking : MonoBehaviour
         {
             DoArms0();
             //DoArms05();
+        }
+    }
+
+    void SpawnBulletHoleAtCursor()
+    {
+        Vector2 mousePos = GlobalMouse.GetPosition();
+        Vector2 winPos = Vector2.zero;
+        Vector2 winSize = Vector2.zero;
+
+        if (Kirurobo.UniWindowController.current != null)
+        {
+            winPos = Kirurobo.UniWindowController.current.windowPosition;
+            winSize = Kirurobo.UniWindowController.current.windowSize;
+        }
+
+        if (winSize.x <= 0f || winSize.y <= 0f)
+        {
+            winSize = new Vector2(UnityEngine.Screen.width, UnityEngine.Screen.height);
+        }
+
+        float localX = mousePos.x - winPos.x;
+        float localY = mousePos.y - winPos.y;
+
+        // Verify click is contained within the companion window viewport
+        if (localX >= 0f && localX <= winSize.x && localY >= 0f && localY <= winSize.y)
+        {
+            float canvasX = (localX / winSize.x) * UnityEngine.Screen.width;
+            float canvasY = (1f - (localY / winSize.y)) * UnityEngine.Screen.height;
+            StageMate.Effects.BulletHoleManager.Instance.SpawnAt(new Vector2(canvasX, canvasY));
+        }
+        else
+        {
+            Debug.Log($"[Gunslinger] Fired outside window bounds (local=({localX:F1},{localY:F1}), winSize=({winSize.x:F1},{winSize.y:F1})). No decal spawned.");
         }
     }
 

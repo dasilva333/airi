@@ -78,6 +78,13 @@ public static class WinMonitorUtil
     {
         monitorRect = default;
 
+        // 1. Authoritative streamed display size from Electron telemetry
+        if (GlobalMouse.TryGetStreamedMonitorSize(out UnityEngine.Vector2 streamedSize) && streamedSize.x > 0f && streamedSize.y > 0f)
+        {
+            monitorRect = new RECT { left = 0, top = 0, right = (int)streamedSize.x, bottom = (int)streamedSize.y };
+            return true;
+        }
+
 #if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
         try
         {
@@ -101,8 +108,21 @@ public static class WinMonitorUtil
         catch { }
 #endif
 
-        int w = UnityEngine.Screen.width > 0 ? UnityEngine.Screen.width : UnityEngine.Screen.currentResolution.width;
-        int h = UnityEngine.Screen.height > 0 ? UnityEngine.Screen.height : UnityEngine.Screen.currentResolution.height;
+        // 2. UniWindowController monitor geometry across macOS/Linux
+        try
+        {
+            UnityEngine.Rect r = Kirurobo.UniWindowController.GetMonitorRect(0);
+            if (r.width > 0f && r.height > 0f)
+            {
+                monitorRect = new RECT { left = (int)r.x, top = (int)r.y, right = (int)(r.x + r.width), bottom = (int)(r.y + r.height) };
+                return true;
+            }
+        }
+        catch { }
+
+        // 3. Fallback to system desktop display resolution (never the window render dimensions)
+        int w = UnityEngine.Display.main.systemWidth > 0 ? UnityEngine.Display.main.systemWidth : UnityEngine.Screen.currentResolution.width;
+        int h = UnityEngine.Display.main.systemHeight > 0 ? UnityEngine.Display.main.systemHeight : UnityEngine.Screen.currentResolution.height;
         if (w <= 0) w = 1920;
         if (h <= 0) h = 1080;
         monitorRect = new RECT { left = 0, top = 0, right = w, bottom = h };

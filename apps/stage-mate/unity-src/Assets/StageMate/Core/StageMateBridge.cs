@@ -276,7 +276,9 @@ namespace StageMate.Core
                     if (env.data != null)
                     {
                         bool isClick = env.data.isDown || env.data.down;
-                        GlobalMouse.SetStreamedPosition(env.data.x, env.data.y, isClick);
+                        float mw = env.data.monitorWidth;
+                        float mh = env.data.monitorHeight;
+                        GlobalMouse.SetStreamedPosition(env.data.x, env.data.y, isClick, mw, mh);
                     }
                     break;
             }
