@@ -490,7 +490,7 @@ onBeforeUnmount(() => {
       <!-- Step Subtitle & Header -->
       <div :class="['flex items-center justify-between text-xs text-neutral-400 font-medium']">
         <span>Consciousness</span>
-        <span>Step 9 of 16 • Reasoning Engine (LLM)</span>
+        <span>Step 6 of 16 • Reasoning Engine (LLM)</span>
       </div>
 
       <div class="flex-shrink-0">
@@ -1070,7 +1070,7 @@ onBeforeUnmount(() => {
         @click="props.onPrevious"
       >
         <div :class="['i-solar:alt-arrow-left-line-duotone h-4 w-4']" />
-        <span>Back to Hearing</span>
+        <span>Back to Physical Vessel</span>
       </button>
 
       <!-- Center Status Hint -->
@@ -1107,7 +1107,7 @@ onBeforeUnmount(() => {
           ]"
           @click="handleNextClick"
         >
-          <span>Next: Thinking (Pacing)</span>
+          <span>Next: Soul & Persona</span>
           <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
         </Button>
       </div>

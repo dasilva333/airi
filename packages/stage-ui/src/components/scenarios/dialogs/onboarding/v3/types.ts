@@ -7,9 +7,9 @@ export type OnboardingV3Step
     | 'experience'
     | 'profile'
     | 'vessel'
+    | 'consciousness'
     | 'persona'
     | 'hearing'
-    | 'consciousness'
     | 'speech'
     | 'thinking'
     | 'emotions'
@@ -37,9 +37,9 @@ export const ONBOARDING_V3_STEPS: OnboardingV3StepDef[] = [
   { id: 'experience', label: 'Experience', subtitle: 'Interaction Archetype', index: 3 },
   { id: 'profile', label: 'User Profile', subtitle: 'Who Are You?', index: 4 },
   { id: 'vessel', label: 'Physical Vessel', subtitle: 'Live2D / VRM Avatar Body', index: 5 },
-  { id: 'persona', label: 'Soul & Persona', subtitle: 'Personality Core', index: 6 },
-  { id: 'hearing', label: 'Hearing', subtitle: 'Voice Transcription (STT)', index: 7, moduleKey: 'hearing' },
-  { id: 'consciousness', label: 'Consciousness', subtitle: 'Reasoning Engine (LLM)', index: 8 },
+  { id: 'consciousness', label: 'Consciousness', subtitle: 'Reasoning Engine (LLM)', index: 6 },
+  { id: 'persona', label: 'Soul & Persona', subtitle: 'Personality Core', index: 7 },
+  { id: 'hearing', label: 'Hearing', subtitle: 'Voice Transcription (STT)', index: 8, moduleKey: 'hearing' },
   { id: 'speech', label: 'Speech', subtitle: 'Neural Voice Studio (TTS)', index: 9, moduleKey: 'speech' },
   { id: 'thinking', label: 'Thinking', subtitle: 'Pacing & Subconscious Asides', index: 10, moduleKey: 'thinking' },
   { id: 'emotions', label: 'Emotions', subtitle: '2-Pass ACT Expression Bridge', index: 11, moduleKey: 'emotions' },

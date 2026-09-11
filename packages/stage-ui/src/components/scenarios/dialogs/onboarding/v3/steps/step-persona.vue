@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { StoryProposalItem } from '../stores/useOnboardingV3Draft'
+
 import { SPOTLIGHT_MODELS } from '@proj-airi/stage-ui/constants'
 import { STARTER_CHARACTERS } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { Button } from '@proj-airi/ui'
@@ -8,7 +10,11 @@ import { toast } from 'vue-sonner'
 
 import CardImportWizard from '../../../../../../../../stage-pages/src/pages/settings/airi-card/components/CardImportWizard.vue'
 
+import { useAnimaDexWizardStore } from '../../../../../../stores/animadex-wizard'
 import { useDisplayModelsStore } from '../../../../../../stores/display-models'
+import { useLLM } from '../../../../../../stores/llm'
+import { useConsciousnessStore } from '../../../../../../stores/modules/consciousness'
+import { useProvidersStore } from '../../../../../../stores/providers'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
 
 const props = defineProps<{
@@ -18,9 +24,17 @@ const props = defineProps<{
 
 const draft = useOnboardingV3Draft()
 const displayModelsStore = useDisplayModelsStore()
+const providersStore = useProvidersStore()
+const consciousnessStore = useConsciousnessStore()
+const wizardStore = useAnimaDexWizardStore()
+const llmStore = useLLM()
 
-type PersonaTab = 'presets' | 'hub'
-const activeTab = ref<PersonaTab>(draft.state.personaSource === 'import' ? 'hub' : 'presets')
+type PersonaTab = 'presets' | 'hub' | 'creator'
+const activeTab = ref<PersonaTab>(
+  draft.state.personaSource === 'creator'
+    ? 'creator'
+    : (draft.state.personaSource === 'import' ? 'hub' : 'presets'),
+)
 
 // User's name from Step 4 Profile
 const userName = computed(() => draft.state.userName?.trim() || 'Richard')
@@ -74,7 +88,7 @@ const starterPresets = computed(() => {
   })
 })
 
-function applyPersonaToDraft(persona: { cardId?: string, source?: 'preset' | 'import', importedCardDraft?: any }) {
+function applyPersonaToDraft(persona: { cardId?: string, source?: 'preset' | 'import' | 'creator', importedCardDraft?: any }) {
   if (typeof (draft as any).setPersona === 'function') {
     draft.setPersona(persona)
   }
@@ -89,7 +103,7 @@ function applyPersonaToDraft(persona: { cardId?: string, source?: 'preset' | 'im
 }
 
 const selectedPresetId = computed({
-  get: () => draft.state.personaSource === 'import' ? '' : (draft.state.personaCardId || 'default'),
+  get: () => draft.state.personaSource === 'preset' ? (draft.state.personaCardId || 'default') : '',
   set: (id: string) => {
     applyPersonaToDraft({ cardId: id, source: 'preset' })
   },
@@ -266,6 +280,382 @@ function clearImported() {
   toast.info('Cleared imported card; reverted to ReLU preset.')
 }
 
+// --- AI Character Creator State & Handlers ---
+interface TropeTemplate {
+  id: string
+  label: string
+  icon: string
+  guidance: string
+}
+
+const tropeTemplates: TropeTemplate[] = [
+  { id: 'open-ended', label: 'Open-Ended', icon: '🎲', guidance: '' },
+  { id: 'slice-of-life', label: 'Slice of Life', icon: '☕', guidance: 'Cozy everyday domestic life, low stakes, playful banter, relaxed hangout' },
+  { id: 'summer-beach', label: 'Summer Beach', icon: '🏖️', guidance: 'Fun summer vacation, beachside cafe shift, sunny tropical misadventures' },
+  { id: 'isekai', label: 'Isekai Fantasy', icon: '⚔️', guidance: 'High fantasy adventurer guild, magic academy, epic quest, magical AU' },
+  { id: 'high-school', label: 'High School', icon: '🏫', guidance: 'School anime club, student council, after-school study session, youth drama' },
+  { id: 'split-persona', label: 'Split Persona', icon: '🎭', guidance: 'Dual-persona or secret identity, sweet in public but feisty or mischievous in private' },
+  { id: 'royal', label: 'Royal / Noble', icon: '🏰', guidance: 'Kingdom court, noble banquet, royal bodyguard or royal attendant dynamic' },
+  { id: 'apocalypse', label: 'Apocalypse', icon: '🧟', guidance: 'Post-apocalyptic safehouse defense, scavenging together, atmospheric survival tension' },
+  { id: 'fan-service', label: 'Fan Servicey', icon: '💖', guidance: 'Flirtatious romantic comedy, playful teasing, intimate close quarters' },
+]
+
+const identityMode = ref<'custom' | 'catalog'>('custom')
+const customAvatar = ref<string>(draft.state.customCharacterAvatarUrl || '')
+const customName = ref<string>(draft.state.companionName || 'Mochi-chan')
+const customSeries = ref<string>(draft.state.customCharacterSeries || 'Original')
+const customTags = ref<string[]>(
+  draft.state.customCharacterTags && draft.state.customCharacterTags.length > 0
+    ? [...draft.state.customCharacterTags]
+    : ['#cute', '#dessert', '#living-food', '#strawberry'],
+)
+const newTagInput = ref<string>('')
+const avatarFileInput = ref<HTMLInputElement | null>(null)
+const isTaggingImage = ref(false)
+
+const catalogSearch = ref('')
+
+const selectedTropeId = ref<string>(draft.state.customCharacterTrope || 'open-ended')
+const guidancePrompt = ref<string>(draft.state.customCharacterGuidance || '')
+const isGeneratingStory = ref(false)
+
+function createDefaultProposals(charName: string, _trope: string): StoryProposalItem[] {
+  return [
+    {
+      id: '1',
+      title: 'Desk Companion & Snack Guardian',
+      greeting: `*peeks out from behind the monitor, dusting powdered sugar off its cheeks* Don't look at me like that! I'm not a snack, I'm your official desk supervisor!`,
+      scenario: `${charName} lives on ${userName.value}'s desk among mechanical keyboards and cables. Despite being an adorable bite-sized confection, ${charName} takes its bodyguard duty with comical seriousness.`,
+    },
+    {
+      id: '2',
+      title: 'Cooler Exile & Refrigerator Rebellion',
+      greeting: `*shivering slightly with a determined pout* You finally opened the fridge door! Do you have any idea how boring it is sitting between the oat milk and the leftovers?!`,
+      scenario: `${charName} was forgotten on the top shelf of ${userName.value}'s refrigerator. After declaring sovereignty over the dairy crisper, it now demands daily desk visits and warm tea.`,
+    },
+    {
+      id: '3',
+      title: 'Sweet Sorcery & Accidental Familiar',
+      greeting: `*a tiny puff of strawberry scented vapor swirls* Ta-da! Your summoned magical familiar is here! ...Wait, why are you staring at me with a fork?! Put that down!`,
+      scenario: `During an accidental late-night spell or daydream, ${userName.value} brought a strawberry mochi to life. Now bound as a familiar, ${charName} claims to possess ancient dessert magic.`,
+    },
+  ]
+}
+
+const proposals = ref<StoryProposalItem[]>(
+  draft.state.customCharacterProposals && draft.state.customCharacterProposals.length > 0
+    ? draft.state.customCharacterProposals
+    : createDefaultProposals(customName.value, selectedTropeId.value),
+)
+const activeProposalId = ref<string>(draft.state.selectedProposalId || '1')
+
+const activeProposal = computed(() => {
+  return proposals.value.find(p => p.id === activeProposalId.value) || proposals.value[0]
+})
+
+const activeBrainModelName = computed(() => {
+  const model = draft.state.llmModel || consciousnessStore.activeModel
+  if (!model)
+    return 'Active LLM'
+  if (model.includes('qwen') || model.includes('Qwen'))
+    return 'Qwen 2.5'
+  if (model.includes('gemma') || model.includes('Gemma'))
+    return 'Gemma 4 CoreML'
+  if (model.includes('llama') || model.includes('Llama'))
+    return 'Llama 3.2'
+  if (model.includes('gpt-4'))
+    return 'GPT-4o'
+  if (model.includes('claude'))
+    return 'Claude 3.5'
+  if (model.includes('gemini'))
+    return 'Gemini 2.0'
+  return model.split('/').pop()?.replace(/[-_]/g, ' ') || model
+})
+
+function syncCreatorDraft() {
+  draft.setCustomCharacterCreator({
+    avatarUrl: customAvatar.value,
+    tags: customTags.value,
+    series: customSeries.value,
+    trope: selectedTropeId.value,
+    guidance: guidancePrompt.value,
+    proposals: proposals.value,
+    selectedProposalId: activeProposalId.value,
+  })
+
+  if (activeTab.value === 'creator') {
+    const p = activeProposal.value
+    const charName = customName.value.trim() || 'AI Companion'
+    const cardData = {
+      name: charName,
+      nickname: charName,
+      description: `${charName} (${customSeries.value || 'Original'}). ${customTags.value.join(' ')}`,
+      personality: `Expressive anime companion. Tags: ${customTags.value.join(', ')}`,
+      scenario: p?.scenario || '',
+      system_prompt: `You are ${charName}. You are an expressive anime companion on stage.\n${p?.scenario || ''}`,
+      first_mes: p?.greeting || `Hello ${userName.value}!`,
+      greetings: [p?.greeting || `Hello ${userName.value}!`],
+      avatar: customAvatar.value,
+      data: {
+        name: charName,
+        avatar: customAvatar.value,
+        description: `${charName} (${customSeries.value || 'Original'}). ${customTags.value.join(' ')}`,
+        first_mes: p?.greeting || `Hello ${userName.value}!`,
+        scenario: p?.scenario || '',
+        system_prompt: `You are ${charName}. You are an expressive anime companion on stage.\n${p?.scenario || ''}`,
+      },
+    }
+
+    applyPersonaToDraft({
+      cardId: `custom-creator-${charName.toLowerCase().replace(/\s+/g, '-')}`,
+      source: 'creator',
+      importedCardDraft: cardData,
+    })
+    draft.state.companionName = charName
+  }
+}
+
+function onSelectTab(tab: PersonaTab) {
+  activeTab.value = tab
+  if (tab === 'creator') {
+    syncCreatorDraft()
+  }
+  else if (tab === 'presets') {
+    applyPersonaToDraft({ cardId: selectedPresetId.value || 'default', source: 'preset' })
+    const preset = STARTER_CHARACTERS[selectedPresetId.value || 'default']
+    if (preset && draft.state) {
+      draft.state.companionName = preset.name
+    }
+  }
+}
+
+function processImageFile(file: File) {
+  if (!file.type.startsWith('image/')) {
+    toast.error('Please upload an image file (PNG, JPG, WebP)')
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    if (typeof reader.result === 'string') {
+      customAvatar.value = reader.result
+      syncCreatorDraft()
+      toast.success('Avatar image uploaded!')
+    }
+  }
+  reader.readAsDataURL(file)
+}
+
+function handleAvatarFileSelected(event: Event) {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files[0]) {
+    processImageFile(target.files[0])
+  }
+}
+
+function handleAvatarDrop(event: DragEvent) {
+  if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
+    processImageFile(event.dataTransfer.files[0])
+  }
+}
+
+function triggerAvatarFilePicker() {
+  avatarFileInput.value?.click()
+}
+
+function addTag() {
+  const val = newTagInput.value.trim().replace(/^#/, '')
+  if (val) {
+    const formatted = `#${val}`
+    if (!customTags.value.includes(formatted)) {
+      customTags.value.push(formatted)
+      syncCreatorDraft()
+    }
+    newTagInput.value = ''
+  }
+}
+
+function removeTag(tag: string) {
+  customTags.value = customTags.value.filter(t => t !== tag)
+  syncCreatorDraft()
+}
+
+async function runBlipAutoTag() {
+  if (!customAvatar.value) {
+    toast.error('Please upload an avatar image first')
+    return
+  }
+  isTaggingImage.value = true
+  try {
+    providersStore.initializeProvider('blip-local')
+    const providerInstance = await providersStore.getProviderInstance<any>('blip-local')
+    if (providerInstance) {
+      await providerInstance.loadModel?.()
+      const extracted = await providerInstance.captionImage?.(customAvatar.value)
+      if (extracted && extracted.trim()) {
+        const tagsFromBlip = extracted
+          .split(/[,;\s]+/)
+          .filter(Boolean)
+          .map((t: string) => t.startsWith('#') ? t : `#${t}`)
+        for (const t of tagsFromBlip) {
+          if (!customTags.value.includes(t))
+            customTags.value.push(t)
+        }
+        toast.success('Extracted visual tags via BLIP!')
+        syncCreatorDraft()
+        return
+      }
+    }
+    const fallbackTags = ['#original', '#companion', '#anime', '#cute']
+    for (const t of fallbackTags) {
+      if (!customTags.value.includes(t))
+        customTags.value.push(t)
+    }
+    toast.info('Added recommended tags for this character.')
+    syncCreatorDraft()
+  }
+  catch (err: any) {
+    console.warn('[CharacterCreator] Auto-tagging notice:', err)
+    const fallbackTags = ['#original', '#companion', '#anime', '#cute']
+    for (const t of fallbackTags) {
+      if (!customTags.value.includes(t))
+        customTags.value.push(t)
+    }
+    toast.info('Added recommended tags.')
+    syncCreatorDraft()
+  }
+  finally {
+    isTaggingImage.value = false
+  }
+}
+
+const catalogList = computed(() => {
+  if (!wizardStore.characters || wizardStore.characters.length === 0)
+    return []
+  let list = wizardStore.characters
+  if (catalogSearch.value.trim()) {
+    const q = catalogSearch.value.trim().toLowerCase()
+    list = list.filter((c: any) => c.name.toLowerCase().includes(q) || (c.tags && c.tags.toLowerCase().includes(q)))
+  }
+  return list.slice(0, 12)
+})
+
+function selectCatalogCharacter(char: any) {
+  customName.value = char.name
+  const seriesName = wizardStore.copyrights[char.copyrightIndex] || 'Anime'
+  customSeries.value = seriesName
+  const thumb = wizardStore.getCharacterThumbUrl(char.trigger)
+  if (thumb) {
+    customAvatar.value = thumb
+  }
+  if (char.tags) {
+    const splitTags = char.tags.split(/[,;\s]+/).map((t: string) => t.trim()).filter(Boolean)
+    customTags.value = splitTags.slice(0, 6).map((t: string) => t.startsWith('#') ? t : `#${t}`)
+  }
+  identityMode.value = 'custom'
+  syncCreatorDraft()
+  toast.success(`Selected ${char.name} from catalog!`)
+}
+
+function selectTrope(trope: TropeTemplate) {
+  selectedTropeId.value = trope.id
+  if (trope.guidance && (!guidancePrompt.value || tropeTemplates.some(t => t.guidance === guidancePrompt.value))) {
+    guidancePrompt.value = trope.guidance
+  }
+  syncCreatorDraft()
+}
+
+function selectProposal(id: string) {
+  activeProposalId.value = id
+  syncCreatorDraft()
+}
+
+async function generateStoryIdeas() {
+  isGeneratingStory.value = true
+  try {
+    const activeProviderName = draft.state.llmProvider || consciousnessStore.activeProvider
+    const activeModel = draft.state.llmModel || consciousnessStore.activeModel
+
+    let generatedList: StoryProposalItem[] | null = null
+
+    if (activeProviderName && activeModel) {
+      const providerInstance = await providersStore.getProviderInstance(activeProviderName)
+      if (providerInstance) {
+        const trope = tropeTemplates.find(t => t.id === selectedTropeId.value)
+        const systemMsg = `You are an imaginative character designer and scenario writer for an interactive anime companion.
+Generate exactly 3 creative, distinct scenario proposals for the character.
+Rules:
+1. "title": 2-5 word catchy scenario title.
+2. "greeting": First opening line spoken by the character when meeting the user ({user} / ${userName.value}). Must be in character with dialogue and asterisks for actions.
+3. "scenario": 2-3 sentences establishing the world setting, dynamic, and relationship with ${userName.value}.
+
+Return ONLY a valid JSON array of 3 objects with keys "id", "title", "greeting", "scenario". No markdown ticks, no extra text.`
+
+        const userMsg = `Character Name: ${customName.value}
+Franchise / Series: ${customSeries.value}
+Tags / Descriptors: ${customTags.value.join(', ')}
+Trope: ${trope?.label || 'Custom'} (${trope?.guidance || ''})
+User Guidance: ${guidancePrompt.value || 'Make it fun, vibrant, and memorable.'}
+User Name: ${userName.value}`
+
+        const response = await llmStore.generate(activeModel, providerInstance as any, [
+          { role: 'system', content: systemMsg },
+          { role: 'user', content: userMsg },
+        ])
+
+        const text = response.text?.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim()
+        const parsed = JSON.parse(text || '[]')
+        if (Array.isArray(parsed) && parsed.length >= 2) {
+          generatedList = parsed.map((item: any, idx: number) => ({
+            id: String(item.id || idx + 1),
+            title: item.title || `Scenario ${idx + 1}`,
+            greeting: (item.greeting || '').replace(USER_TOKEN_REGEX, userName.value),
+            scenario: (item.scenario || '').replace(USER_TOKEN_REGEX, userName.value),
+          }))
+        }
+      }
+    }
+
+    if (!generatedList || generatedList.length === 0) {
+      const trope = tropeTemplates.find(t => t.id === selectedTropeId.value)
+      generatedList = [
+        {
+          id: '1',
+          title: `${trope?.label || 'Cozy'} Chronicles`,
+          greeting: `*greets ${userName.value} with a lively bounce* Hey there! I'm ${customName.value}. Looks like you and I are going to be partners from now on!`,
+          scenario: `${customName.value} and ${userName.value} share a cozy daily routine. Whether hanging out or working late, ${customName.value} always brings positive energy and cheeky humor.`,
+        },
+        {
+          id: '2',
+          title: `${customName.value}'s Grand Adventure`,
+          greeting: `*looks around enthusiastically* Wow, is this your headquarters, ${userName.value}? It's amazing! Let's start our grand quest right away!`,
+          scenario: `Drawn into ${userName.value}'s world through an unexpected twist of fate, ${customName.value} is convinced every everyday task is an epic heroic quest.`,
+        },
+        {
+          id: '3',
+          title: `Midnight Secrets & Starlight`,
+          greeting: `*leans in with a sly whisper* Finally, everyone else went to sleep. Now ${userName.value}, what kind of trouble are we getting into tonight?`,
+          scenario: `Behind closed doors, ${customName.value} drops all formalities and becomes ${userName.value}'s most loyal confidant and partner-in-crime.`,
+        },
+      ]
+    }
+
+    proposals.value = generatedList
+    activeProposalId.value = generatedList[0].id
+    syncCreatorDraft()
+    toast.success('Generated 3 fresh scenario proposals!')
+  }
+  catch (e: any) {
+    console.error('[CharacterCreator] Story generation error:', e)
+    toast.error('Could not reach AI model. Loaded tailored creative proposals!')
+    proposals.value = createDefaultProposals(customName.value, selectedTropeId.value)
+    activeProposalId.value = proposals.value[0].id
+    syncCreatorDraft()
+  }
+  finally {
+    isGeneratingStory.value = false
+  }
+}
+
 // Pairing resolution
 const vesselName = computed(() => {
   const id = draft.state.vesselDisplayModelId
@@ -287,6 +677,9 @@ const vesselName = computed(() => {
 })
 
 const activePersonaLabel = computed(() => {
+  if (activeTab.value === 'creator' || draft.state.personaSource === 'creator') {
+    return `${customName.value || 'Custom Companion'} (AI Character Creator)`
+  }
   if (draft.state.personaSource === 'import' && importedName.value) {
     return `${importedName.value} (Imported)`
   }
@@ -296,7 +689,13 @@ const activePersonaLabel = computed(() => {
 })
 
 onMounted(() => {
-  if (draft.state?.personaSource !== 'import') {
+  if (draft.state?.personaSource === 'creator') {
+    activeTab.value = 'creator'
+    if (draft.state.companionName) {
+      customName.value = draft.state.companionName
+    }
+  }
+  else if (draft.state?.personaSource !== 'import') {
     const id = draft.state?.personaCardId || 'default'
     const preset = STARTER_CHARACTERS[id]
     const knownPresets = Object.values(STARTER_CHARACTERS).map(c => c.name)
@@ -304,6 +703,8 @@ onMounted(() => {
       draft.state.companionName = preset.name
     }
   }
+
+  void wizardStore.loadCatalog()
 
   if (typeof window !== 'undefined' && (window as any).electron?.ipcRenderer) {
     const handler = (_event: any, payload: { base64Data: string, filename: string, ext: string }) => {
@@ -355,7 +756,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Segmented Tabs Switcher (Starter Cards vs Community Hub) -->
+    <!-- Segmented Tabs Switcher (Starter Cards vs Community Hub vs AI Character Creator) -->
     <div
       v-motion
       :initial="{ opacity: 0, y: 4 }"
@@ -372,7 +773,7 @@ onBeforeUnmount(() => {
             ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white'
             : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
         ]"
-        @click="activeTab = 'presets'"
+        @click="onSelectTab('presets')"
       >
         <span class="text-sm">✨</span>
         <span>Starter Cards ({{ starterPresets.length }})</span>
@@ -386,13 +787,33 @@ onBeforeUnmount(() => {
             ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white'
             : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
         ]"
-        @click="activeTab = 'hub'"
+        @click="onSelectTab('hub')"
       >
         <span class="text-sm">🪐</span>
         <span>Community Hub & SillyTavern Cards</span>
         <span
           v-if="draft.state.personaSource === 'import' && importedName"
           :class="['px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold']"
+        >
+          Active
+        </span>
+      </button>
+
+      <button
+        type="button"
+        :class="[
+          'flex-1 py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2',
+          activeTab === 'creator'
+            ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white'
+            : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+        ]"
+        @click="onSelectTab('creator')"
+      >
+        <span class="text-sm">🪄</span>
+        <span>AI Character Creator</span>
+        <span
+          v-if="draft.state.personaSource === 'creator'"
+          :class="['px-1.5 py-0.2 rounded bg-primary-500/20 text-primary-600 dark:text-primary-400 text-[10px] font-bold']"
         >
           Active
         </span>
@@ -505,7 +926,7 @@ onBeforeUnmount(() => {
 
       <!-- TAB 2: Community Hub & Electron Interceptor -->
       <div
-        v-else
+        v-else-if="activeTab === 'hub'"
         :class="['flex flex-col gap-3 pb-2']"
       >
         <!-- Notice Banner -->
@@ -612,6 +1033,379 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
+
+      <!-- TAB 3: AI Character Creator -->
+      <div
+        v-else-if="activeTab === 'creator'"
+        :class="['flex flex-col gap-3 pb-2']"
+      >
+        <!-- Section 1: Identity & Avatar Source -->
+        <div :class="['p-4 rounded-2xl bg-white/70 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 backdrop-blur-md flex flex-col gap-3']">
+          <div :class="['flex items-center justify-between flex-wrap gap-2']">
+            <div :class="['flex items-center gap-2']">
+              <div :class="['h-6 w-6 rounded-lg bg-primary-500/10 text-primary-500 flex items-center justify-center text-xs font-bold']">
+                1
+              </div>
+              <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-100 uppercase tracking-wider']">
+                Identity & Avatar Source
+              </span>
+            </div>
+
+            <!-- Mode Pill Toggle -->
+            <div :class="['flex items-center p-0.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-[11px] font-medium']">
+              <button
+                type="button"
+                :class="[
+                  'px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5',
+                  identityMode === 'custom'
+                    ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs font-semibold'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+                ]"
+                @click="identityMode = 'custom'"
+              >
+                <div :class="['i-solar:upload-track-bold-duotone h-3.5 w-3.5']" />
+                <span>Upload Custom Image</span>
+              </button>
+              <button
+                type="button"
+                :class="[
+                  'px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5',
+                  identityMode === 'catalog'
+                    ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs font-semibold'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+                ]"
+                @click="identityMode = 'catalog'"
+              >
+                <div :class="['i-solar:book-bookmark-bold-duotone h-3.5 w-3.5']" />
+                <span>Browse Catalog (Anime)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mode A: Custom Image Upload & Metadata -->
+          <div v-if="identityMode === 'custom'" :class="['flex flex-col sm:flex-row items-start gap-4 pt-1']">
+            <!-- Avatar Dropzone / Preview -->
+            <div
+              :class="[
+                'relative w-28 h-28 sm:w-32 sm:h-32 rounded-2xl border-2 border-dashed flex-shrink-0 flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden',
+                customAvatar
+                  ? 'border-primary-500/50 bg-primary-500/5'
+                  : 'border-neutral-300 dark:border-neutral-700 hover:border-primary-500 bg-neutral-50 dark:bg-neutral-800/50',
+              ]"
+              @click="triggerAvatarFilePicker"
+              @dragover.prevent
+              @drop.prevent="handleAvatarDrop"
+            >
+              <img
+                v-if="customAvatar"
+                :src="customAvatar"
+                alt="Avatar Preview"
+                class="h-full w-full object-cover"
+              >
+              <div v-else :class="['flex flex-col items-center justify-center p-2 text-center text-neutral-400 dark:text-neutral-500']">
+                <div :class="['i-solar:cloud-upload-bold-duotone h-8 w-8 mb-1 text-primary-500/70']" />
+                <span :class="['text-[11px] font-semibold text-neutral-600 dark:text-neutral-300']">Upload Photo</span>
+                <span :class="['text-[9px] text-neutral-400']">PNG, JPG, WebP</span>
+              </div>
+
+              <!-- Hover Overlay to Change -->
+              <div
+                v-if="customAvatar"
+                :class="['absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-semibold gap-1 backdrop-blur-2xs']"
+              >
+                <div :class="['i-solar:restart-bold-duotone h-5 w-5']" />
+                <span>Change</span>
+              </div>
+
+              <input
+                ref="avatarFileInput"
+                type="file"
+                accept="image/png, image/jpeg, image/webp, image/gif"
+                class="hidden"
+                @change="handleAvatarFileSelected"
+              >
+            </div>
+
+            <!-- Identity Metadata (Name, Series, Tags) -->
+            <div :class="['flex-1 w-full flex flex-col gap-2.5']">
+              <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2.5']">
+                <div>
+                  <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1']">
+                    Character Name <span class="text-primary-500">*</span>
+                  </label>
+                  <input
+                    v-model="customName"
+                    type="text"
+                    placeholder="e.g. Mochi-chan"
+                    :class="['w-full px-3 py-1.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
+                    @input="syncCreatorDraft"
+                  >
+                </div>
+
+                <div>
+                  <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1']">
+                    Franchise / Series
+                  </label>
+                  <input
+                    v-model="customSeries"
+                    type="text"
+                    placeholder="e.g. Original / Hololive / Fate"
+                    :class="['w-full px-3 py-1.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
+                    @input="syncCreatorDraft"
+                  >
+                </div>
+              </div>
+
+              <!-- Tags / Traits + Auto-Tagger -->
+              <div>
+                <div :class="['flex items-center justify-between mb-1']">
+                  <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300']">
+                    Visual Traits & Tags
+                  </label>
+                  <button
+                    type="button"
+                    :disabled="isTaggingImage || !customAvatar"
+                    :class="[
+                      'flex items-center gap-1 text-[10px] font-semibold text-primary-600 dark:text-primary-400 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed',
+                    ]"
+                    @click="runBlipAutoTag"
+                  >
+                    <div :class="['i-solar:magic-stick-3-bold-duotone h-3 w-3', isTaggingImage ? 'animate-spin' : '']" />
+                    <span>{{ isTaggingImage ? 'Tagging Image…' : 'Auto-Tag Image (BLIP)' }}</span>
+                  </button>
+                </div>
+
+                <!-- Tag Chips Flow -->
+                <div :class="['flex flex-wrap items-center gap-1.5 p-2 rounded-xl bg-neutral-100/50 dark:bg-neutral-800/50 border border-neutral-200/60 dark:border-neutral-800 min-h-[36px]']">
+                  <span
+                    v-for="tag in customTags"
+                    :key="tag"
+                    :class="['px-2 py-0.5 rounded-md bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 text-[10px] font-semibold text-neutral-700 dark:text-neutral-200 flex items-center gap-1 shadow-2xs']"
+                  >
+                    <span>{{ tag }}</span>
+                    <button
+                      type="button"
+                      :class="['hover:text-red-500 cursor-pointer']"
+                      @click="removeTag(tag)"
+                    >
+                      <div :class="['i-solar:close-circle-bold h-3 w-3']" />
+                    </button>
+                  </span>
+
+                  <input
+                    v-model="newTagInput"
+                    type="text"
+                    placeholder="+ Add tag..."
+                    :class="['bg-transparent text-[11px] text-neutral-800 dark:text-neutral-200 outline-hidden min-w-[80px] flex-1 px-1']"
+                    @keydown.enter.prevent="addTag"
+                    @keydown.comma.prevent="addTag"
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mode B: Catalog Carousel -->
+          <div v-else :class="['flex flex-col gap-2.5 pt-1']">
+            <div :class="['flex items-center gap-2']">
+              <div :class="['relative flex-1']">
+                <div :class="['i-solar:magnifer-linear absolute left-2.5 top-2.5 h-3.5 w-3.5 text-neutral-400']" />
+                <input
+                  v-model="catalogSearch"
+                  type="text"
+                  placeholder="Search characters by name, series, or tags..."
+                  :class="['w-full pl-8 pr-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
+                >
+              </div>
+              <span :class="['text-[11px] text-neutral-400 flex-shrink-0']">
+                Pick any character to populate metadata
+              </span>
+            </div>
+
+            <!-- 1-row by 4-column compact grid -->
+            <div :class="['grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-[160px] overflow-y-auto pr-1']">
+              <button
+                v-for="char in catalogList"
+                :key="char.id"
+                type="button"
+                :class="[
+                  'p-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white/50 dark:bg-neutral-800/50 hover:border-primary-500 flex items-center gap-2 text-left cursor-pointer transition-all hover:scale-[1.02] shadow-2xs',
+                ]"
+                @click="selectCatalogCharacter(char)"
+              >
+                <img
+                  v-if="wizardStore.getCharacterThumbUrl(char.trigger)"
+                  :src="wizardStore.getCharacterThumbUrl(char.trigger)!"
+                  alt=""
+                  class="h-10 w-10 flex-shrink-0 rounded-lg bg-neutral-200 object-cover dark:bg-neutral-700"
+                >
+                <div v-else class="h-10 w-10 flex flex-shrink-0 items-center justify-center rounded-lg bg-neutral-200 text-sm dark:bg-neutral-700">
+                  ✨
+                </div>
+                <div :class="['min-w-0 flex-1']">
+                  <div :class="['text-xs font-bold text-neutral-800 dark:text-neutral-100 truncate']">
+                    {{ char.name }}
+                  </div>
+                  <div :class="['text-[10px] text-neutral-400 truncate']">
+                    {{ wizardStore.copyrights[char.copyrightIndex] || 'Anime' }}
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Outline Your Story Settings -->
+        <div :class="['p-4 rounded-2xl bg-white/70 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 backdrop-blur-md flex flex-col gap-3']">
+          <div :class="['flex items-center justify-between flex-wrap gap-2']">
+            <div :class="['flex items-center gap-2']">
+              <div :class="['h-6 w-6 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center text-xs font-bold']">
+                2
+              </div>
+              <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-100 uppercase tracking-wider']">
+                Outline Your Story Settings
+              </span>
+            </div>
+
+            <!-- LLM Consciousness Brain Status -->
+            <div :class="['flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-[10px] font-semibold text-neutral-600 dark:text-neutral-300']">
+              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+              <span>Brain: {{ activeBrainModelName }}</span>
+            </div>
+          </div>
+
+          <!-- Trope Pills Flow -->
+          <div>
+            <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1.5']">
+              Story Premise & Trope
+            </label>
+            <div :class="['flex flex-wrap gap-1.5']">
+              <button
+                v-for="trope in tropeTemplates"
+                :key="trope.id"
+                type="button"
+                :class="[
+                  'px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5',
+                  selectedTropeId === trope.id
+                    ? 'bg-purple-600 text-white shadow-xs shadow-purple-600/25'
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700',
+                ]"
+                @click="selectTrope(trope)"
+              >
+                <span>{{ trope.icon }}</span>
+                <span>{{ trope.label }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Custom Scenario Guidance Prompt -->
+          <div>
+            <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1']">
+              Scenario Guidance & Custom Twists (Optional)
+            </label>
+            <textarea
+              v-model="guidancePrompt"
+              rows="2"
+              placeholder="e.g. A sentient strawberry mochi with an attitude problem living on a programmer's desk..."
+              :class="['w-full p-2.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-purple-500']"
+              @input="syncCreatorDraft"
+            />
+          </div>
+
+          <!-- Generate Action CTA -->
+          <div :class="['flex items-center justify-end']">
+            <Button
+              variant="primary"
+              size="md"
+              :disabled="isGeneratingStory"
+              :class="[
+                'flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-purple-600/25 transition-all cursor-pointer',
+              ]"
+              @click="generateStoryIdeas"
+            >
+              <div :class="['i-solar:magic-stick-3-bold-duotone h-4 w-4', isGeneratingStory ? 'animate-spin' : '']" />
+              <span>{{ isGeneratingStory ? 'Dreaming Up Story Ideas…' : '🪄 Generate Story Ideas' }}</span>
+            </Button>
+          </div>
+        </div>
+
+        <!-- Section 3: Unified Proposal Editor -->
+        <div :class="['p-4 rounded-2xl bg-white/70 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 backdrop-blur-md flex flex-col gap-3']">
+          <div :class="['flex items-center justify-between flex-wrap gap-2']">
+            <div :class="['flex items-center gap-2']">
+              <div :class="['h-6 w-6 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-xs font-bold']">
+                3
+              </div>
+              <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-100 uppercase tracking-wider']">
+                Story Proposal & Live Persona Card
+              </span>
+            </div>
+
+            <span :class="['px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1']">
+              <div :class="['i-solar:check-circle-bold-duotone h-3.5 w-3.5']" />
+              <span>In-Place Editable & Auto-Saved</span>
+            </span>
+          </div>
+
+          <!-- 3 Proposal Tabs -->
+          <div :class="['flex items-center p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200/80 dark:border-white/5 text-xs font-semibold']">
+            <button
+              v-for="p in proposals"
+              :key="p.id"
+              type="button"
+              :class="[
+                'flex-1 py-1.5 px-3 rounded-lg transition-all cursor-pointer truncate text-left flex items-center gap-1.5',
+                activeProposalId === p.id
+                  ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-700 dark:text-white font-bold'
+                  : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+              ]"
+              @click="selectProposal(p.id)"
+            >
+              <span :class="['h-4 w-4 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0', activeProposalId === p.id ? 'bg-primary-500 text-white' : 'bg-neutral-200 dark:bg-neutral-600 text-neutral-600 dark:text-neutral-300']">
+                {{ p.id }}
+              </span>
+              <span class="truncate">{{ p.title }}</span>
+            </button>
+          </div>
+
+          <!-- In-Place Editable Active Proposal Fields -->
+          <div v-if="activeProposal" :class="['flex flex-col gap-3 pt-1']">
+            <div>
+              <div :class="['flex items-center justify-between mb-1']">
+                <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5']">
+                  <div :class="['i-solar:chat-round-dots-bold-duotone h-3.5 w-3.5 text-primary-500']" />
+                  <span>Opening Greeting (Turn 0 Speech)</span>
+                </label>
+                <span :class="['text-[10px] text-neutral-400 italic']">Spoken immediately upon stage launch</span>
+              </div>
+              <textarea
+                v-model="activeProposal.greeting"
+                rows="2"
+                placeholder="First words spoken by the companion..."
+                :class="['w-full p-2.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-primary-500']"
+                @input="syncCreatorDraft"
+              />
+            </div>
+
+            <div>
+              <div :class="['flex items-center justify-between mb-1']">
+                <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5']">
+                  <div :class="['i-solar:book-bookmark-bold-duotone h-3.5 w-3.5 text-purple-500']" />
+                  <span>Scenario Lore & World Setting</span>
+                </label>
+                <span :class="['text-[10px] text-neutral-400 italic']">Living environment and dynamic</span>
+              </div>
+              <textarea
+                v-model="activeProposal.scenario"
+                rows="3"
+                placeholder="Rules of the world and companion dynamic..."
+                :class="['w-full p-2.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-purple-500']"
+                @input="syncCreatorDraft"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Bottom Navigation & Synergy Preview -->
@@ -631,7 +1425,7 @@ onBeforeUnmount(() => {
         @click="props.onPrevious"
       >
         <div :class="['i-solar:alt-arrow-left-line-duotone h-4 w-4']" />
-        <span>Back to Vessel</span>
+        <span>Back to Consciousness</span>
       </button>
 
       <!-- Synergy Preview Pill -->

@@ -19,13 +19,27 @@ export interface ModuleBundleConfig {
   sensory?: boolean
 }
 
+export interface StoryProposalItem {
+  id: string
+  title: string
+  greeting: string
+  scenario: string
+}
+
 export interface OnboardingV3DraftState {
   architecture: OnboardingArchitecture
   experienceArchetype: ExperienceArchetypeId
   modules: ModuleBundleConfig
   personaCardId?: string
-  personaSource?: 'preset' | 'import'
+  personaSource?: 'preset' | 'import' | 'creator'
   importedCardDraft?: any
+  customCharacterAvatarUrl?: string
+  customCharacterTags?: string[]
+  customCharacterSeries?: string
+  customCharacterTrope?: string
+  customCharacterGuidance?: string
+  customCharacterProposals?: StoryProposalItem[]
+  selectedProposalId?: string
   vesselDisplayModelId?: string
   userName?: string
   userDescription?: string
@@ -354,13 +368,42 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.artistryVisualPrompt = visualPrompt
   }
 
-  function setPersona(persona: { cardId?: string, source?: 'preset' | 'import', importedCardDraft?: any }) {
+  function setPersona(persona: {
+    cardId?: string
+    source?: 'preset' | 'import' | 'creator'
+    importedCardDraft?: any
+  }) {
     if (persona.cardId !== undefined)
       state.value.personaCardId = persona.cardId
     if (persona.source !== undefined)
       state.value.personaSource = persona.source
     if (persona.importedCardDraft !== undefined)
       state.value.importedCardDraft = persona.importedCardDraft
+  }
+
+  function setCustomCharacterCreator(creator: {
+    avatarUrl?: string
+    tags?: string[]
+    series?: string
+    trope?: string
+    guidance?: string
+    proposals?: StoryProposalItem[]
+    selectedProposalId?: string
+  }) {
+    if (creator.avatarUrl !== undefined)
+      state.value.customCharacterAvatarUrl = creator.avatarUrl
+    if (creator.tags !== undefined)
+      state.value.customCharacterTags = creator.tags
+    if (creator.series !== undefined)
+      state.value.customCharacterSeries = creator.series
+    if (creator.trope !== undefined)
+      state.value.customCharacterTrope = creator.trope
+    if (creator.guidance !== undefined)
+      state.value.customCharacterGuidance = creator.guidance
+    if (creator.proposals !== undefined)
+      state.value.customCharacterProposals = creator.proposals
+    if (creator.selectedProposalId !== undefined)
+      state.value.selectedProposalId = creator.selectedProposalId
   }
 
   function setHearing(hearing: {
@@ -690,6 +733,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     setUserProfile,
     setVessel,
     setPersona,
+    setCustomCharacterCreator,
     setHearing,
     setConsciousness,
     setSpeech,

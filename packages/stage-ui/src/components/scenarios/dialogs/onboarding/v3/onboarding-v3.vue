@@ -191,23 +191,23 @@ function handleSkip() {
         :on-previous="handlePrevious"
       />
 
-      <!-- Step 6: Soul & Persona (Personality Core) -->
+      <!-- Step 6: Consciousness (Reasoning Engine LLM) -->
+      <StepConsciousness
+        v-else-if="currentStepId === 'consciousness'"
+        :on-next="handleNext"
+        :on-previous="handlePrevious"
+      />
+
+      <!-- Step 7: Soul & Persona (Personality Core) -->
       <StepPersona
         v-else-if="currentStepId === 'persona'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />
 
-      <!-- Step 7: Hearing & Mic Playground (Voice Transcription STT) -->
+      <!-- Step 8: Hearing & Mic Playground (Voice Transcription STT) -->
       <StepHearing
         v-else-if="currentStepId === 'hearing'"
-        :on-next="handleNext"
-        :on-previous="handlePrevious"
-      />
-
-      <!-- Step 8: Consciousness (Reasoning Engine LLM) -->
-      <StepConsciousness
-        v-else-if="currentStepId === 'consciousness'"
         :on-next="handleNext"
         :on-previous="handlePrevious"
       />

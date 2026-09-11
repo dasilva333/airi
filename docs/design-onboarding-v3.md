@@ -29,26 +29,27 @@ This document serves as the **canonical technical architecture specification**, 
 ---
 
 ### 3. Master 19-Step Journey Topology
+## 3. Master 19-Step Journey Topology
 
 ```
 [ 0. Welcome ] ──▶ [ 1. Appearance ] ──▶ [ 2. Triage ] ──▶ [ 3. Experience Archetypes ]
                                                                         │
    ┌────────────────────────────────────────────────────────────────────┘
    ▼
-[ 4. User Profile ] ──▶ [ 5. Physical Vessel ] ──▶ [ 6. Soul & Persona ]
+[ 4. User Profile ] ──▶ [ 5. Physical Vessel ] ──▶ [ 6. Consciousness (LLM) ]
                                                                │
    ┌───────────────────────────────────────────────────────────┘
    ▼
-[ 7. Hearing (STT)* ] ──▶ [ 8. Consciousness (LLM) ] ──▶ [ 9. Speech (TTS)* ]
-                                                                   │
+[ 7. Soul & Persona ] ──▶ [ 8. Hearing (STT)* ] ──▶ [ 9. Speech (TTS)* ]
+                                                                    │
    ┌───────────────────────────────────────────────────────────────┘
    ▼
 [ 10. Thinking (Pacing)* ] ──▶ [ 11. Emotions (ACT Bridge)* ] ──▶ [ 12. Vision (Chat VLM)* ]
-                                                                            │
+                                                                             │
    ┌────────────────────────────────────────────────────────────────────────┘
    ▼
 [ 13. Screen (Desktop)* ] ──▶ [ 14. Proactivity (Schedule)* ] ──▶ [ 15. Artistry (Visuals)* ]
-                                                                           │
+                                                                            │
    ┌───────────────────────────────────────────────────────────────────────┘
    ▼
 [ 16. Memory Hierarchy* ] ──▶ [ 17. Automation & Tools* ] ──▶ [ 18. Stage Finale & Launch ]
@@ -194,28 +195,7 @@ Below is the comprehensive field-by-field and control breakdown for every page i
 
 ---
 
-### Step 6: Soul & Persona (`step-persona.vue`)
-- **Persona Selection Grid (`persona-card-grid.vue`)**:
-  - 2-column card grid showing pre-installed and community starter cards.
-  - Official default Airi persona.
-  - Starter archetypes (Tsundere, Kuudere, Dandere, Genki, Executive Assistant).
-- **Card Metadata Preview**: Displays avatar icon, character name, nickname, creator, and first greeting speech bubble.
-- **Custom Card Import Seam**: 1-click import of Tavern PNG cards (tEXt chunk), CCv2/CCv3 JSON, or AiriCard archives.
-
----
-
-### Step 7: Hearing & Microphone (`step-hearing.vue` - Optional)
-- **Input Microphone Selector**: Device dropdown enumeration via Web Audio API.
-- **Live VAD Audio Meter**: Real-time canvas volume visualizer testing mic sensitivity and background noise floor.
-- **STT Engine Selection**:
-  - `Browser Web Speech API`: Zero download, instant activation, native OS speech engine.
-  - `Whisper WebGPU`: Local neural transcription (`onnx-community/whisper-tiny` or `whisper-base`) running in WebAssembly/WebGPU.
-  - `External Cloud STT`: Groq Whisper or OpenAI Whisper API integration.
-- **Activation Mode**: Push-to-Talk (with hotkey assignment: `Caps`, `Space`, `Fn`) vs Voice Activity Detection (VAD) threshold slider.
-
----
-
-### Step 8: Consciousness Core (`step-consciousness.vue` - Core)
+### Step 6: Consciousness Core (`step-consciousness.vue` - Core)
 - **Consciousness Engine Architecture**:
   - **Local WebGPU / Neural Engine**:
     - WebLLM (Llama 3.2 1B / 3B, Qwen 2.5 1.5B / 7B, SmolLM2).
@@ -225,6 +205,34 @@ Below is the comprehensive field-by-field and control breakdown for every page i
     - OpenAI, Anthropic Claude, Google Gemini (with Live API audio support), DeepSeek, Groq, OpenRouter, and Ollama local server.
 - **API Key & Endpoint Inputs**: Secure password fields and custom base URL inputs.
 - **Model Selector & Ping Connection Test**: Live test query verifying latency and token throughput.
+- **Immediate Downstream Creative Payoff**: Configured LLM immediately powers the AI story generator in Step 7.
+
+---
+
+### Step 7: Soul & Persona (`step-persona.vue`)
+- **Tab 1: Starter Cards (8 Anime Tropes)**:
+  - 2-column card grid showing pre-installed anime starter cards.
+  - Official default Airi / ReLU persona.
+  - Starter archetypes (Tsundere, Kuudere, Dandere, Genki, Executive Assistant, etc.).
+  - Card Metadata Preview: avatar icon, character name, nickname, creator, and first greeting speech bubble.
+- **Tab 2: Community Hub & SillyTavern Cards**:
+  - Live community directories (DataCat, Chub AI, Risu Realm, JannyAI).
+  - Electron In-App Webview Side Drawer with automatic card download interceptor (.png tEXt chara chunk, CCv2/CCv3 JSON).
+- **Tab 3: AI Character Creator**:
+  - **Section 1: Avatar & Identity**: Dual selection defaulting to Upload Custom Image (avatar dropzone, Name, Series, BLIP/WD auto-tagger chips) alongside optional Browse Catalog (compact 1×4 carousel with search).
+  - **Section 2: Outline Your Story Settings**: Trope preset chips (`Open-Ended`, `Slice of Life`, `Summer Beach`, `Isekai Fantasy`, `High School`, `Split Persona`, `Royal / Noble`, `Apocalypse`, `Fan Servicey`) + guidance prompt box + `🪄 Generate Story Ideas` button calling the active LLM configured in Step 6.
+  - **Section 3: Unified Proposal Editor**: 3 proposal tabs (`1. Title`, `2. Title`, `3. Title`) with directly editable `<textarea>` fields for `Opening Line` and `Scenario Lore`, binding live to the companion draft card.
+
+---
+
+### Step 8: Hearing & Microphone (`step-hearing.vue` - Optional)
+- **Input Microphone Selector**: Device dropdown enumeration via Web Audio API.
+- **Live VAD Audio Meter**: Real-time canvas volume visualizer testing mic sensitivity and background noise floor.
+- **STT Engine Selection**:
+  - `Browser Web Speech API`: Zero download, instant activation, native OS speech engine.
+  - `Whisper WebGPU`: Local neural transcription (`onnx-community/whisper-tiny` or `whisper-base`) running in WebAssembly/WebGPU.
+  - `External Cloud STT`: Groq Whisper or OpenAI Whisper API integration.
+- **Activation Mode**: Push-to-Talk (with hotkey assignment: `Caps`, `Space`, `Fn`) vs Voice Activity Detection (VAD) threshold slider.
 
 ---
 
@@ -368,9 +376,9 @@ packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/
 │   ├── step-experience.vue            # Step 3: 4 Archetypes & dynamic module pruning coordinator
 │   ├── step-profile.vue               # Step 4: User name, honorific, narrative backstory
 │   ├── step-vessel.vue                # Step 5: Physical Vessel selection & 3D coverflow
-│   ├── step-persona.vue               # Step 6: Character card & soul selection
-│   ├── step-hearing.vue               # Step 7: Mic selection, VAD, and STT engine
-│   ├── step-consciousness.vue         # Step 8: WebGPU / Cloud LLM reasoning core
+│   ├── step-consciousness.vue         # Step 6: WebGPU / Cloud LLM reasoning core
+│   ├── step-persona.vue               # Step 7: Character card & soul selection (Starter Cards, Hub, AI Character Creator)
+│   ├── step-hearing.vue               # Step 8: Mic selection, VAD, and STT engine
 │   ├── step-speech.vue                # Step 9: Neural TTS provider & voice timbre
 │   ├── step-thinking.vue              # Step 10: Pacing presets & subconscious thinking asides
 │   ├── step-emotions.vue              # Step 11: 2-Pass ACT expression curation bridge

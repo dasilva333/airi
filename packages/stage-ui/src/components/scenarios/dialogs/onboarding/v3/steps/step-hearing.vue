@@ -1016,7 +1016,7 @@ watch(selectedAudioInput, async () => {
           ]"
           @click="props.onNext"
         >
-          <span>Next: Consciousness (LLM)</span>
+          <span>Next: Speech (TTS)</span>
           <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
         </Button>
       </div>

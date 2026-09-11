@@ -592,7 +592,7 @@ function handleDrop(e: DragEvent) {
         ]"
         @click="props.onNext"
       >
-        <span>Next: Soul & Persona</span>
+        <span>Next: Consciousness (LLM)</span>
         <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
       </Button>
     </div>
