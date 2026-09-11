@@ -40,6 +40,8 @@ export interface OnboardingV3DraftState {
   customCharacterGuidance?: string
   customCharacterProposals?: StoryProposalItem[]
   selectedProposalId?: string
+  customCharacterCardBundle?: any
+  customCharacterProposal?: any
   vesselDisplayModelId?: string
   userName?: string
   userDescription?: string
@@ -389,6 +391,8 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     guidance?: string
     proposals?: StoryProposalItem[]
     selectedProposalId?: string
+    cardBundle?: any
+    proposal?: any
   }) {
     if (creator.avatarUrl !== undefined)
       state.value.customCharacterAvatarUrl = creator.avatarUrl
@@ -404,6 +408,10 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.customCharacterProposals = creator.proposals
     if (creator.selectedProposalId !== undefined)
       state.value.selectedProposalId = creator.selectedProposalId
+    if (creator.cardBundle !== undefined)
+      state.value.customCharacterCardBundle = creator.cardBundle
+    if (creator.proposal !== undefined)
+      state.value.customCharacterProposal = creator.proposal
   }
 
   function setHearing(hearing: {

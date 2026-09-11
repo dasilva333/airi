@@ -281,6 +281,160 @@ export function isVessel3D(modelId: string, displayModels: any[] = []): boolean 
   return false
 }
 
+export function populateAiriExtensions(
+  airi: any,
+  draft: OnboardingV3DraftState,
+  activeModelId: string,
+  displayModels: any[] = [],
+): void {
+  const isSpeechEnabled = Boolean(draft.modules?.speech && draft.ttsProvider !== 'speech-noop')
+  airi.agents = airi.agents || {}
+  airi.modules = airi.modules || {}
+  airi.modules.displayModelId = activeModelId
+  airi.modules.consciousness = {
+    provider: draft.llmProvider || 'openai',
+    model: draft.llmModel || 'gpt-4o',
+  }
+  airi.modules.speech = {
+    provider: draft.modules?.speech ? (draft.ttsProvider || 'kokoro-local') : 'speech-noop',
+    model: draft.modules?.speech ? (draft.ttsModel || 'q4') : '',
+    voice_id: draft.modules?.speech ? (draft.ttsVoiceId || 'af_bella') : '',
+    pitch: draft.ttsPitch ?? 1.0,
+    rate: draft.ttsRate ?? 1.0,
+  }
+
+  // Update actor modules and visual_assets manifestations if present
+  if (airi.visual_assets) {
+    Object.keys(airi.visual_assets).forEach((key) => {
+      const asset = airi.visual_assets[key]
+      if (asset && !asset.isBase) {
+        asset.manifestation = asset.manifestation || {}
+        if (!asset.manifestation.modelId) {
+          asset.manifestation.modelId = activeModelId
+        }
+        if (airi.modules[key]) {
+          airi.modules[key].manifestation = airi.modules[key].manifestation || {}
+          if (!airi.modules[key].manifestation.modelId) {
+            airi.modules[key].manifestation.modelId = activeModelId
+          }
+          if (draft.modules?.speech) {
+            airi.modules[key].speech = airi.modules.speech
+            asset.speech = airi.modules.speech
+          }
+        }
+      }
+    })
+  }
+
+  let modelExpressionPrompt = draft.actingModelExpressionPrompt || DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT
+  if (!isVessel3D(activeModelId, displayModels)) {
+    // Strip out 3D-only Elemental Manifestation for 2D vessels (Live2D / Spine)
+    modelExpressionPrompt = modelExpressionPrompt
+      .replace(/### Elemental Manifestation \(VRM \/ MMD\)[\s\S]*?(?=\n## |\n### |$)/g, '')
+      .trim()
+  }
+
+  airi.acting = {
+    ...airi.acting,
+    modelExpressionPrompt,
+    speechExpressionPrompt: airi.acting?.speechExpressionPrompt || '',
+    speechMannerismPrompt: airi.acting?.speechMannerismPrompt || '',
+    pacing: {
+      enabled: isSpeechEnabled && draft.pacingPreset !== 'disabled',
+      pacingProfile: draft.pacingPreset === 'snappy' ? 'snappy' : draft.pacingPreset === 'deep' ? 'deep_cot' : 'balanced',
+      dynamicAsidesEnabled: isSpeechEnabled && Boolean(draft.subconsciousTier2),
+      semanticExtractorEnabled: isSpeechEnabled && Boolean(draft.subconsciousTier2),
+    },
+  }
+
+  if (draft.modules?.artistry) {
+    airi.artistry = {
+      ...airi.artistry,
+      provider: draft.artistryProvider || 'pollinations',
+      model: draft.artistryModel || '',
+      promptPrefix: draft.artistryVisualPrompt || '',
+      autonomousEnabled: Boolean(draft.artistryDirectorEnabled),
+      autonomousTarget: draft.artistryDirectorTarget || 'assistant',
+    }
+  }
+
+  if (draft.modules?.vision) {
+    airi.vision = {
+      enabled: true,
+      provider: draft.visionProvider || '',
+      model: draft.visionModel || '',
+      strategy: draft.visionStrategy || 'direct',
+    }
+  }
+
+  if (draft.modules?.screen ?? draft.modules?.sensory) {
+    airi.screenWatching = {
+      enabled: Boolean(draft.screenWatcherEnabled),
+      deliveryMode: draft.screenWatcherMode === 'voice-and-bubble' ? 'both' : draft.screenWatcherMode === 'bubble-only' ? 'bubble_only' : draft.screenWatcherMode === 'voice-only' ? 'tts_only' : 'off',
+      sourceType: 'displays',
+      sourceId: 'primary',
+      captureIntervalMs: draft.screenWatcherInterval || 2000,
+      downscalePercent: 50,
+      workload: draft.screenWatcherTier === 'moondream' ? 'screen:interpret' : 'screen:ocr',
+      publishToContext: true,
+      interestTags: [],
+      deferWhileSpeaking: true,
+      maxPerHour: 12,
+      hysteresisMinutes: 5,
+      respectSchedule: Boolean(draft.operatingScheduleEnabled),
+      pauseWhenAfk: Boolean(draft.pauseOnAfk),
+      afkThresholdMinutes: draft.afkMinutes || 5,
+    }
+  }
+
+  if (draft.modules?.proactivity ?? draft.modules?.sensory) {
+    airi.heartbeats = {
+      enabled: Boolean(draft.heartbeatsEnabled),
+      intervalMinutes: draft.heartbeatsInterval || 5,
+      prompt: DEFAULT_HEARTBEATS_PROMPT,
+      injectIntoPrompt: true,
+      useAsLocalGate: true,
+      contextOptions: {
+        windowHistory: Boolean(draft.heartbeatsContextWindowHistory),
+        systemLoad: Boolean(draft.heartbeatsContextSystemLoad),
+        usageMetrics: Boolean(draft.heartbeatsContextUsageMetrics),
+      },
+      schedule: {
+        start: draft.wakeUpTime || '09:00',
+        end: draft.bedTime || '22:00',
+      },
+      respectSchedule: Boolean(draft.operatingScheduleEnabled),
+      pauseWhenAfk: Boolean(draft.pauseOnAfk),
+      afkThresholdMinutes: draft.afkMinutes || 5,
+      prefixCacheOptimized: true,
+    }
+  }
+
+  if (draft.modules?.memory) {
+    airi.shortTermMemory = {
+      enabled: Boolean(draft.memoryShortTermEnabled),
+      windowSize: draft.memoryShortTermWindowSize || 3,
+      tokenBudgetPerDay: draft.memoryShortTermTokenBudget || 1000,
+    }
+    airi.dreamState = {
+      enabled: Boolean(draft.memoryDreamStateEnabled),
+      strictAfkGating: true,
+    }
+    airi.textJournal = {
+      injectJournalContext: Boolean(draft.memoryLongTermJournalEnabled),
+    }
+  }
+
+  airi.generation = {
+    enabled: true,
+    provider: draft.llmProvider || 'openai',
+    model: draft.llmModel || 'gpt-4o',
+    known: {
+      allowedTools: [],
+    },
+  }
+}
+
 /**
  * Compiles a character card payload from transient onboarding draft state.
  * Preserves upstream CCv3 character books and lorebooks if imported,
@@ -292,32 +446,21 @@ export function compileCardPayload(
   displayModels: any[] = [],
 ): any {
   const activeModelId = draft.vesselDisplayModelId || 'preset-live2d-2'
-  const isSpeechEnabled = Boolean(draft.modules?.speech && draft.ttsProvider !== 'speech-noop')
 
-  // If user imported a card, preserve its upstream assets and patch extensions.airi
-  if (resolvedPersona.importedCardRaw) {
-    const card = JSON.parse(JSON.stringify(resolvedPersona.importedCardRaw))
+  // If user used AI Character Creator or imported a card, preserve its assets and coalesce extensions.airi
+  const rawTarget = draft.personaSource === 'creator'
+    ? (draft.customCharacterCardBundle || resolvedPersona.importedCardRaw)
+    : resolvedPersona.importedCardRaw
+
+  if (rawTarget) {
+    const card = JSON.parse(JSON.stringify(rawTarget))
     const isV3 = 'data' in card
     const targetData = isV3 ? card.data : card
 
     targetData.extensions = targetData.extensions || {}
     targetData.extensions.airi = targetData.extensions.airi || {}
-    const airi = targetData.extensions.airi
-    airi.modules = airi.modules || {}
 
-    airi.modules.displayModelId = activeModelId
-    airi.modules.consciousness = {
-      provider: draft.llmProvider || 'openai',
-      model: draft.llmModel || 'gpt-4o',
-    }
-    airi.modules.speech = {
-      provider: draft.modules?.speech ? (draft.ttsProvider || 'kokoro-local') : 'speech-noop',
-      model: draft.modules?.speech ? (draft.ttsModel || 'q4') : '',
-      voice_id: draft.modules?.speech ? (draft.ttsVoiceId || 'af_bella') : '',
-      pitch: draft.ttsPitch ?? 1.0,
-      rate: draft.ttsRate ?? 1.0,
-    }
-
+    populateAiriExtensions(targetData.extensions.airi, draft, activeModelId, displayModels)
     resolvePromptDirectives(draft, card)
     return card
   }
@@ -326,14 +469,6 @@ export function compileCardPayload(
   const greetings = resolvedPersona.greetings || []
   const firstGreeting = resolvedPersona.firstGreeting || greetings[0] || ''
   const alternateGreetings = greetings.slice(1)
-
-  let modelExpressionPrompt = draft.actingModelExpressionPrompt || DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT
-  if (!isVessel3D(activeModelId, displayModels)) {
-    // Strip out 3D-only Elemental Manifestation for 2D vessels (Live2D / Spine)
-    modelExpressionPrompt = modelExpressionPrompt
-      .replace(/### Elemental Manifestation \(VRM \/ MMD\)[\s\S]*?(?=\n## |\n### |$)/g, '')
-      .trim()
-  }
 
   const cardPayload = {
     spec: 'chara_card_v3' as const,
@@ -363,122 +498,12 @@ export function compileCardPayload(
           : []),
       ].filter(Boolean),
       extensions: {
-        airi: {
-          agents: {},
-          modules: {
-            displayModelId: activeModelId,
-            consciousness: {
-              provider: draft.llmProvider || 'openai',
-              model: draft.llmModel || 'gpt-4o',
-            },
-            speech: {
-              provider: draft.modules?.speech ? (draft.ttsProvider || 'kokoro-local') : 'speech-noop',
-              model: draft.modules?.speech ? (draft.ttsModel || 'q4') : '',
-              voice_id: draft.modules?.speech ? (draft.ttsVoiceId || 'af_bella') : '',
-              pitch: draft.ttsPitch ?? 1.0,
-              rate: draft.ttsRate ?? 1.0,
-            },
-          },
-          acting: {
-            modelExpressionPrompt,
-            speechExpressionPrompt: '',
-            speechMannerismPrompt: '',
-            pacing: {
-              enabled: isSpeechEnabled && draft.pacingPreset !== 'disabled',
-              pacingProfile: draft.pacingPreset === 'snappy' ? 'snappy' : draft.pacingPreset === 'deep' ? 'deep_cot' : 'balanced',
-              dynamicAsidesEnabled: isSpeechEnabled && Boolean(draft.subconsciousTier2),
-              semanticExtractorEnabled: isSpeechEnabled && Boolean(draft.subconsciousTier2),
-            },
-          },
-          artistry: draft.modules?.artistry
-            ? {
-                provider: draft.artistryProvider || 'pollinations',
-                model: draft.artistryModel || '',
-                promptPrefix: draft.artistryVisualPrompt || '',
-                autonomousEnabled: Boolean(draft.artistryDirectorEnabled),
-                autonomousTarget: draft.artistryDirectorTarget || 'assistant',
-              }
-            : undefined,
-          vision: draft.modules?.vision
-            ? {
-                enabled: true,
-                provider: draft.visionProvider || '',
-                model: draft.visionModel || '',
-                strategy: draft.visionStrategy || 'direct',
-              }
-            : undefined,
-          screenWatching: (draft.modules?.screen ?? draft.modules?.sensory)
-            ? {
-                enabled: Boolean(draft.screenWatcherEnabled),
-                deliveryMode: draft.screenWatcherMode === 'voice-and-bubble' ? 'both' : draft.screenWatcherMode === 'bubble-only' ? 'bubble_only' : draft.screenWatcherMode === 'voice-only' ? 'tts_only' : 'off',
-                sourceType: 'displays',
-                sourceId: 'primary',
-                captureIntervalMs: draft.screenWatcherInterval || 2000,
-                downscalePercent: 50,
-                workload: draft.screenWatcherTier === 'moondream' ? 'screen:interpret' : 'screen:ocr',
-                publishToContext: true,
-                interestTags: [],
-                deferWhileSpeaking: true,
-                maxPerHour: 12,
-                hysteresisMinutes: 5,
-                respectSchedule: Boolean(draft.operatingScheduleEnabled),
-                pauseWhenAfk: Boolean(draft.pauseOnAfk),
-                afkThresholdMinutes: draft.afkMinutes || 5,
-              }
-            : undefined,
-          heartbeats: (draft.modules?.proactivity ?? draft.modules?.sensory)
-            ? {
-                enabled: Boolean(draft.heartbeatsEnabled),
-                intervalMinutes: draft.heartbeatsInterval || 5,
-                prompt: DEFAULT_HEARTBEATS_PROMPT,
-                injectIntoPrompt: true,
-                useAsLocalGate: true,
-                contextOptions: {
-                  windowHistory: Boolean(draft.heartbeatsContextWindowHistory),
-                  systemLoad: Boolean(draft.heartbeatsContextSystemLoad),
-                  usageMetrics: Boolean(draft.heartbeatsContextUsageMetrics),
-                },
-                schedule: {
-                  start: draft.wakeUpTime || '09:00',
-                  end: draft.bedTime || '22:00',
-                },
-                respectSchedule: Boolean(draft.operatingScheduleEnabled),
-                pauseWhenAfk: Boolean(draft.pauseOnAfk),
-                afkThresholdMinutes: draft.afkMinutes || 5,
-                prefixCacheOptimized: true,
-              }
-            : undefined,
-          shortTermMemory: draft.modules?.memory
-            ? {
-                enabled: Boolean(draft.memoryShortTermEnabled),
-                windowSize: draft.memoryShortTermWindowSize || 3,
-                tokenBudgetPerDay: draft.memoryShortTermTokenBudget || 1000,
-              }
-            : undefined,
-          dreamState: draft.modules?.memory
-            ? {
-                enabled: Boolean(draft.memoryDreamStateEnabled),
-                strictAfkGating: true,
-              }
-            : undefined,
-          textJournal: draft.modules?.memory
-            ? {
-                injectJournalContext: Boolean(draft.memoryLongTermJournalEnabled),
-              }
-            : undefined,
-          generation: {
-            enabled: true,
-            provider: draft.llmProvider || 'openai',
-            model: draft.llmModel || 'gpt-4o',
-            known: {
-              allowedTools: [],
-            },
-          },
-        },
+        airi: {},
       },
     },
   }
 
+  populateAiriExtensions(cardPayload.data.extensions.airi, draft, activeModelId, displayModels)
   resolvePromptDirectives(draft, cardPayload)
   return cardPayload
 }

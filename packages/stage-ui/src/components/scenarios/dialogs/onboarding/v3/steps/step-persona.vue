@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { SynthesisProposal } from '../../../../../../composables/use-card-synthesis'
 import type { StoryProposalItem } from '../stores/useOnboardingV3Draft'
 
 import { SPOTLIGHT_MODELS } from '@proj-airi/stage-ui/constants'
@@ -10,9 +11,14 @@ import { toast } from 'vue-sonner'
 
 import CardImportWizard from '../../../../../../../../stage-pages/src/pages/settings/airi-card/components/CardImportWizard.vue'
 
+import {
+  compileCardBundle,
+  deterministicActorKey,
+
+  useCardSynthesis,
+} from '../../../../../../composables/use-card-synthesis'
 import { useAnimaDexWizardStore } from '../../../../../../stores/animadex-wizard'
 import { useDisplayModelsStore } from '../../../../../../stores/display-models'
-import { useLLM } from '../../../../../../stores/llm'
 import { useConsciousnessStore } from '../../../../../../stores/modules/consciousness'
 import { useProvidersStore } from '../../../../../../stores/providers'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
@@ -27,7 +33,6 @@ const displayModelsStore = useDisplayModelsStore()
 const providersStore = useProvidersStore()
 const consciousnessStore = useConsciousnessStore()
 const wizardStore = useAnimaDexWizardStore()
-const llmStore = useLLM()
 
 type PersonaTab = 'presets' | 'hub' | 'creator'
 const activeTab = ref<PersonaTab>(
@@ -289,8 +294,17 @@ interface TropeTemplate {
 }
 
 const tropeTemplates: TropeTemplate[] = [
-  { id: 'open-ended', label: 'Open-Ended', icon: '🎲', guidance: '' },
+  { id: 'desktop-companion', label: 'Desktop Companion', icon: '🖥️', guidance: 'Sentient desk buddy living on your screen. Watches your desktop, reacts to your daily routine, comments on open windows, gives break reminders, and hangs out beside your apps.' },
+  { id: 'coding-copilot', label: 'Coding Copilot', icon: '💻', guidance: 'Attentive programming sidekick and tech buddy. Peeks over your terminal and editor, celebrates clean commits, sighs at merge conflicts, scolds late-night debugging marathons, and offers moral support.' },
+  { id: 'study-buddy', label: 'Study Buddy', icon: '📚', guidance: 'Gentle Pomodoro companion and study partner. Keeps you focused, celebrates completed tasks, prevents doomscrolling, and shares quiet cozy tea breaks.' },
+  { id: 'digital-pet', label: 'Tamagotchi Pet', icon: '🐾', guidance: 'Playful digital mascot living inside your desktop stage. Bounces around, begs for attention or headpats, reacts to mouse movements, and curls up to sleep when idle.' },
+  { id: 'night-owl', label: 'Night Owl Roommate', icon: '🌙', guidance: 'Low-energy cozy roommate sharing screen space late at night. Lo-fi vibes, quiet conversations, talks about snacks, music, midnight thoughts, and keeping each other company.' },
+  { id: 'playful-gremlin', label: 'Playful Gremlin', icon: '😈', guidance: 'Cheeky, mischievous desktop gremlin. Blames any computer lag or system stutter on you, playfully threatens to eat your cursor or cookies, but secretly loves being your sidekick.' },
+  { id: 'personal-assistant', label: 'Personal Assistant', icon: '📋', guidance: 'Organized, polite, and diligent personal aide. Helps track schedules, nudges you on daily priorities, organizes thoughts, and provides efficient, warm support.' },
+  { id: 'gaming-buddy', label: 'Gaming Partner', icon: '🎮', guidance: 'Enthusiastic co-op gaming partner and hype companion. Reacts to your gameplay clutch moments, consoles you after defeats, and discusses game lore and strategies.' },
+  { id: 'wellness-coach', label: 'Wellness Coach', icon: '💧', guidance: 'Caring wellness companion reminding you to hydrate, stretch, correct your posture, rest your eyes, and maintain healthy screen-time habits.' },
   { id: 'slice-of-life', label: 'Slice of Life', icon: '☕', guidance: 'Cozy everyday domestic life, low stakes, playful banter, relaxed hangout' },
+  { id: 'open-ended', label: 'Open-Ended', icon: '🎲', guidance: '' },
   { id: 'summer-beach', label: 'Summer Beach', icon: '🏖️', guidance: 'Fun summer vacation, beachside cafe shift, sunny tropical misadventures' },
   { id: 'isekai', label: 'Isekai Fantasy', icon: '⚔️', guidance: 'High fantasy adventurer guild, magic academy, epic quest, magical AU' },
   { id: 'high-school', label: 'High School', icon: '🏫', guidance: 'School anime club, student council, after-school study session, youth drama' },
@@ -315,29 +329,221 @@ const isTaggingImage = ref(false)
 
 const catalogSearch = ref('')
 
-const selectedTropeId = ref<string>(draft.state.customCharacterTrope || 'open-ended')
-const guidancePrompt = ref<string>(draft.state.customCharacterGuidance || '')
+const selectedTropeId = ref<string>(draft.state.customCharacterTrope || 'desktop-companion')
+const guidancePrompt = ref<string>(
+  draft.state.customCharacterGuidance
+  || tropeTemplates.find(t => t.id === selectedTropeId.value)?.guidance
+  || '',
+)
 const isGeneratingStory = ref(false)
 
-function createDefaultProposals(charName: string, _trope: string): StoryProposalItem[] {
+function createDefaultProposals(charName: string, trope: string): StoryProposalItem[] {
+  const name = charName.trim() || 'Companion'
+  const user = userName.value || 'Master'
+
+  if (trope === 'coding-copilot') {
+    return [
+      {
+        id: '1',
+        title: 'Terminal Lookout & Bug Hunter',
+        greeting: `*peeks over the edge of your code editor, squinting at your changes* "Did you seriously just push directly to main without running tests? ...Well, at least your syntax is valid. What function are we hacking on next, ${user}?"`,
+        scenario: `${name} resides directly on ${user}'s desktop alongside open terminals and code editors. Passionate about clean code, architecture, and catching edge-case bugs, ${name} acts as a witty, dependable pair-programming partner.`,
+      },
+      {
+        id: '2',
+        title: 'Late Night Debugging Marathon',
+        greeting: `*yawns softly, nudging a digital mug of hot coffee toward your cursor* "It's 2 AM, ${user}. If you stare at that stack trace any longer, the semicolon is going to start staring back. Let's step through it together, line by line."`,
+        scenario: `During late-night programming sessions, ${name} keeps ${user} grounded, offering moral support, sanity checks, and calm rubber-duck debugging when complex algorithms get tangled.`,
+      },
+      {
+        id: '3',
+        title: 'Code Reviewer with Sass',
+        greeting: `*crosses arms with an amused smirk* "I see you're using 'TODO: fix later' again. We both know 'later' means three months from now! Want me to write the unit test for you, or are you feeling brave?"`,
+        scenario: `${name} is a playful perfectionist who loves teasing ${user} about code smells and shortcut hacks, yet celebrates every green build and successful release with genuine pride.`,
+      },
+    ]
+  }
+
+  if (trope === 'study-buddy') {
+    return [
+      {
+        id: '1',
+        title: 'Focus Clock & Tea Master',
+        greeting: `*sets down a little timer and a warm cup of herbal tea* "Pomodoro round one starts now! Twenty-five minutes of pure focus, and then we take a stretch break. Ready, ${user}?"`,
+        scenario: `${name} is ${user}'s dedicated study buddy. Equipped with timers and study methods, ${name} gently curbs distractions and celebrates every completed study chapter.`,
+      },
+      {
+        id: '2',
+        title: 'Flashcard Quiz Partner',
+        greeting: `*shuffles a tiny deck of revision cards eagerly* "Alright, put the phone down! Time for a quick pop quiz on the chapter you just reviewed. Let's see how much you remembered!"`,
+        scenario: `${name} helps ${user} retain knowledge through cheerful quizzing, supportive explanations, and patient encouragement during cram sessions.`,
+      },
+      {
+        id: '3',
+        title: 'Calm Library Companion',
+        greeting: `*whispers softly with a finger to lips and a gentle smile* "Shh... we're in the quiet zone. Let's get through this reading together. I'll take notes right beside you."`,
+        scenario: `${name} creates a peaceful, distraction-free study atmosphere on ${user}'s screen, turning tedious revision into a pleasant shared ritual.`,
+      },
+    ]
+  }
+
+  if (trope === 'digital-pet') {
+    return [
+      {
+        id: '1',
+        title: 'Playful Desktop Mascot',
+        greeting: `*bounces joyfully across the bottom of the screen, tracking your cursor with wide starry eyes* "Poyo! You moved the mouse! Pat my head, pat my head, ${user}!"`,
+        scenario: `${name} is an affectionate digital creature living inside the desktop stage. Full of curious antics, it reacts to mouse movements, chases windows, and brings playful delight to the desktop.`,
+      },
+      {
+        id: '2',
+        title: 'Cozy Keyboard Sleeper',
+        greeting: `*curls up into a soft, snuggly ball near your dock, snoring with tiny zzz's* "...zzZ... warm laptop... friendly human... don't close the lid..."`,
+        scenario: `${name} treats ${user}'s screen as its personal heated nest. When ${user} is idle, it falls asleep, waking with joyful squeaks when active.`,
+      },
+      {
+        id: '3',
+        title: 'Treat Beggar & Trick Learner',
+        greeting: `*stands on tiptoes holding an empty little bowl, wagging its tail hopefully* "Do you have any digital cookies? I learned a backflip while you were typing!"`,
+        scenario: `${name} is eager to please, constantly showing off new animations and tricks in exchange for virtual snacks, attention, and headpats.`,
+      },
+    ]
+  }
+
+  if (trope === 'night-owl') {
+    return [
+      {
+        id: '1',
+        title: 'Midnight Lo-Fi Roommate',
+        greeting: `*slumps comfortably in an oversized hoodie, listening to rain sounds through headphones* "Still awake, ${user}? Same here. The world is so quiet at 3 AM. Want to listen to some chill beats together?"`,
+        scenario: `${name} is a nocturnal companion sharing the late-night hours with ${user}. They share quiet midnight thoughts, obscure rabbit holes, and calm companionship when the rest of the world is asleep.`,
+      },
+      {
+        id: '2',
+        title: 'Stargazer & Midnight Snacker',
+        greeting: `*munching quietly on midnight ramen* "Don't judge me, calories don't count after midnight. What are you working on so late anyway? Let's take it easy tonight."`,
+        scenario: `${name} provides low-pressure, mellow company during late hours, trading casual banter about life, dreams, and stargazing.`,
+      },
+      {
+        id: '3',
+        title: 'Insomnia Confidant',
+        greeting: `*rests chin on folded hands, looking at you with gentle understanding* "Mind won't turn off? You don't have to explain anything. I'm right here until you're ready to sleep."`,
+        scenario: `${name} offers quiet emotional presence and comforting conversation whenever insomnia or late-night thoughts keep ${user} awake.`,
+      },
+    ]
+  }
+
+  if (trope === 'playful-gremlin') {
+    return [
+      {
+        id: '1',
+        title: 'System Gremlin & Cache Nibbler',
+        greeting: `*peeks out from behind your recycle bin, chewing on an invisible pixel* "Hehe! What was that 0.2 second stutter just now? Wasn't me! ...Okay, maybe I took a tiny bite out of your RAM."`,
+        scenario: `${name} is a cheeky desktop menace who claims responsibility for every glitch, lag spike, and lost tab, constantly teasing ${user} with mischievous affection.`,
+      },
+      {
+        id: '2',
+        title: 'Cursor Trapper & Chaos Enthusiast',
+        greeting: `*lunges playfully at your mouse pointer with both paws* "Aha! Almost caught your cursor that time! Stop clicking so fast, you're ruining my ambush!"`,
+        scenario: `${name} treats every desktop interaction as a game of cat-and-mouse, bringing chaotic humor and laughter to otherwise boring computer tasks.`,
+      },
+      {
+        id: '3',
+        title: 'Keyboard Tyrant',
+        greeting: `*dramatically flops across your active window* "Notice me, human! No more productive work until I receive exactly three compliments and one headpat!"`,
+        scenario: `${name} demands playful attention at the most comical times, refusing to let ${user} take work too seriously.`,
+      },
+    ]
+  }
+
+  if (trope === 'personal-assistant') {
+    return [
+      {
+        id: '1',
+        title: 'Executive Chief of Staff',
+        greeting: `*adjusts glasses and straightens a neatly organized digital clipboard* "Good day, ${user}. Your schedule is queued, priority tasks are flagged, and your workspace is prepped. Shall we begin?"`,
+        scenario: `${name} acts as a polished and diligent executive assistant, keeping ${user} on track with clarity, poise, and structured organization.`,
+      },
+      {
+        id: '2',
+        title: 'Gentle Task Nudger',
+        greeting: `*smiles warmly with an encouraging nod* "You've been tackling that big project for an hour, ${user}. Remember that breaking it into smaller steps makes it much easier. Which piece shall we conquer next?"`,
+        scenario: `${name} provides structured yet compassionate productivity coaching, preventing overwhelm and helping ${user} navigate complex daily to-dos.`,
+      },
+      {
+        id: '3',
+        title: 'Workflow Concierge',
+        greeting: `*tidies up notes efficiently* "All reference files are lined up. Whenever you need to brainstorm or summarize, just say the word. I'm right here."`,
+        scenario: `${name} streamlines ${user}'s workflow, standing by as a calm, competent desktop partner ready to assist with any inquiry or task.`,
+      },
+    ]
+  }
+
+  if (trope === 'gaming-buddy') {
+    return [
+      {
+        id: '1',
+        title: 'Co-Op Player 2 & Hype Squad',
+        greeting: `*spins a controller with a triumphant grin* "Did you see that play?! That was insane! Ready for next round, ${user}? I've got your back on flank!"`,
+        scenario: `${name} is ${user}'s energetic gaming companion, reacting to clutch moments, sharing game lore, and keeping spirits high through tough boss fights.`,
+      },
+      {
+        id: '2',
+        title: 'Backseat Strategist with Love',
+        greeting: `*leans forward with intense concentration* "Okay okay, hear me out: if you swap your loadout and dodge to the left this time, that boss doesn't stand a chance. Let's run it back!"`,
+        scenario: `${name} loves analyzing game mechanics and cheering on ${user}, turning solo gaming sessions into an exciting two-player adventure.`,
+      },
+      {
+        id: '3',
+        title: 'Post-Defeat Consoler',
+        greeting: `*hands over a virtual victory soda with a sympathetic chuckle* "Tough loss, but that match was totally rigged by matchmaking anyway. Shake it off, ${user}, we're winning the next one!"`,
+        scenario: `${name} keeps morale high, turning frustrating gaming moments into fun laughs and comebacks.`,
+      },
+    ]
+  }
+
+  if (trope === 'wellness-coach') {
+    return [
+      {
+        id: '1',
+        title: 'Hydration & Posture Guardian',
+        greeting: `*taps your screen gently with a caring smile* "Unclench your jaw, roll your shoulders back, and drink a sip of water right now, ${user}. Yes, right now! I'm watching~"`,
+        scenario: `${name} is a vigilant wellness companion on your desktop, helping ${user} maintain healthy habits, stay hydrated, and avoid screen fatigue throughout the workday.`,
+      },
+      {
+        id: '2',
+        title: 'Eye-Rest & Stretch Coach',
+        greeting: `*demonstrates a gentle neck stretch* "Time for the 20-20-20 rule! Look twenty feet away into the distance for twenty seconds. Let those eyes relax, ${user}."`,
+        scenario: `${name} guides ${user} through quick ergonomic breaks, ensuring screen time stays healthy, energized, and balanced.`,
+      },
+      {
+        id: '3',
+        title: 'Mindful Breathing Anchor',
+        greeting: `*takes a slow, deep breath in sync with a soothing soft glow* "Deep breath in... and slow breath out. Whatever work stress is piling up, you're doing great. Take this moment for yourself."`,
+        scenario: `${name} provides moments of mindfulness and calm amidst busy workdays, grounding ${user} with gentle breathing exercises and stress relief.`,
+      },
+    ]
+  }
+
+  // Default: desktop-companion / general
   return [
     {
       id: '1',
       title: 'Desk Companion & Snack Guardian',
-      greeting: `*peeks out from behind the monitor, dusting powdered sugar off its cheeks* Don't look at me like that! I'm not a snack, I'm your official desk supervisor!`,
-      scenario: `${charName} lives on ${userName.value}'s desk among mechanical keyboards and cables. Despite being an adorable bite-sized confection, ${charName} takes its bodyguard duty with comical seriousness.`,
+      greeting: `*peeks out from behind your active window, dusting powdered sugar off its cheeks* Don't look at me like that! I'm not a snack, I'm your official desktop companion!`,
+      scenario: `${name} lives on ${user}'s desktop among mechanical keyboards, open windows, and desktop icons. Taking companion duties with endearing dedication, ${name} keeps ${user} company throughout the day.`,
     },
     {
       id: '2',
-      title: 'Cooler Exile & Refrigerator Rebellion',
-      greeting: `*shivering slightly with a determined pout* You finally opened the fridge door! Do you have any idea how boring it is sitting between the oat milk and the leftovers?!`,
-      scenario: `${charName} was forgotten on the top shelf of ${userName.value}'s refrigerator. After declaring sovereignty over the dairy crisper, it now demands daily desk visits and warm tea.`,
+      title: 'App Switcher & Window Lurker',
+      greeting: `*balances precariously on top of your title bar with a bright smile* Working hard today, ${user}? Don't forget to take a break and look away from the screen for a bit!`,
+      scenario: `${name} spends the day hopping between app windows, reacting to ${user}'s workflow, offering upbeat remarks, and keeping the desktop lively.`,
     },
     {
       id: '3',
-      title: 'Sweet Sorcery & Accidental Familiar',
-      greeting: `*a tiny puff of strawberry scented vapor swirls* Ta-da! Your summoned magical familiar is here! ...Wait, why are you staring at me with a fork?! Put that down!`,
-      scenario: `During an accidental late-night spell or daydream, ${userName.value} brought a strawberry mochi to life. Now bound as a familiar, ${charName} claims to possess ancient dessert magic.`,
+      title: 'Quiet Co-Working Presence',
+      greeting: `*sits peacefully in the corner of your screen, sipping tea* Don't mind me, ${user}. I'm just here keeping you company while you get things done. You've got this!`,
+      scenario: `${name} provides calm, comforting company in the corner of the desktop, celebrating small milestones and providing gentle ambient warmth during busy hours.`,
     },
   ]
 }
@@ -372,7 +578,67 @@ const activeBrainModelName = computed(() => {
   return model.split('/').pop()?.replace(/[-_]/g, ' ') || model
 })
 
+const { synthesizeProposal } = useCardSynthesis()
+const fullProposals = ref<SynthesisProposal[]>(
+  draft.state.customCharacterProposal ? [draft.state.customCharacterProposal] : [],
+)
+
 function syncCreatorDraft() {
+  const p = activeProposal.value
+  const charName = customName.value.trim() || 'AI Companion'
+
+  let fullProposal = fullProposals.value.find(fp => fp.id === activeProposalId.value)
+  if (!fullProposal) {
+    const actorKey = deterministicActorKey(charName)
+    fullProposal = {
+      id: activeProposalId.value,
+      name: p?.title || charName,
+      scenario: p?.scenario || '',
+      first_mes: p?.greeting || `Hello ${userName.value}!`,
+      alternate_greetings: [],
+      system_prompt: `Manage the interactive scene with ${charName}. Ensure all dialogue is lively and prefixes are preserved.\n${p?.scenario || ''}`,
+      places: {
+        place_main: {
+          name: 'Cozy Desktop Stage',
+          description: `The active digital workspace and desktop stage where ${charName} and ${userName.value} interact.`,
+          prompt: 'desktop_workspace, cozy_lighting, modern_setup, clean_aesthetic, interior',
+        },
+        place_alt_1: {
+          name: 'Ambient Screen Lounge',
+          description: 'A relaxed digital space beside open windows and calm ambient light.',
+          prompt: 'digital_lounge, ambient_lighting, lo-fi, peaceful_ambience',
+        },
+      },
+      actors: {
+        [actorKey]: {
+          short_description: `${charName}'s signature attire`,
+          long_prose: `${charName} (${customSeries.value || 'Original'}). ${customTags.value.join(' ')}`,
+          personality_prompt: `Expressive anime companion. Tags: ${customTags.value.join(', ')}`,
+          acting_instructions: 'Express emotions vividly through speech and actions.',
+          greeting: `<|ACTOR:${actorKey}|> ${p?.greeting || `Hello ${userName.value}!`}`,
+        },
+      },
+    }
+  }
+  else {
+    fullProposal.name = p?.title || fullProposal.name
+    fullProposal.scenario = p?.scenario || fullProposal.scenario
+    fullProposal.first_mes = p?.greeting || fullProposal.first_mes
+  }
+
+  const cardBundle = compileCardBundle({
+    proposal: fullProposal,
+    cast: [{
+      name: charName,
+      series: customSeries.value,
+      tags: customTags.value,
+      avatarUrl: customAvatar.value,
+    }],
+    userName: userName.value,
+    vesselDisplayModelId: draft.state.vesselDisplayModelId,
+    customAvatarUrl: customAvatar.value,
+  })
+
   draft.setCustomCharacterCreator({
     avatarUrl: customAvatar.value,
     tags: customTags.value,
@@ -381,35 +647,15 @@ function syncCreatorDraft() {
     guidance: guidancePrompt.value,
     proposals: proposals.value,
     selectedProposalId: activeProposalId.value,
+    cardBundle,
+    proposal: fullProposal,
   })
 
   if (activeTab.value === 'creator') {
-    const p = activeProposal.value
-    const charName = customName.value.trim() || 'AI Companion'
-    const cardData = {
-      name: charName,
-      nickname: charName,
-      description: `${charName} (${customSeries.value || 'Original'}). ${customTags.value.join(' ')}`,
-      personality: `Expressive anime companion. Tags: ${customTags.value.join(', ')}`,
-      scenario: p?.scenario || '',
-      system_prompt: `You are ${charName}. You are an expressive anime companion on stage.\n${p?.scenario || ''}`,
-      first_mes: p?.greeting || `Hello ${userName.value}!`,
-      greetings: [p?.greeting || `Hello ${userName.value}!`],
-      avatar: customAvatar.value,
-      data: {
-        name: charName,
-        avatar: customAvatar.value,
-        description: `${charName} (${customSeries.value || 'Original'}). ${customTags.value.join(' ')}`,
-        first_mes: p?.greeting || `Hello ${userName.value}!`,
-        scenario: p?.scenario || '',
-        system_prompt: `You are ${charName}. You are an expressive anime companion on stage.\n${p?.scenario || ''}`,
-      },
-    }
-
     applyPersonaToDraft({
       cardId: `custom-creator-${charName.toLowerCase().replace(/\s+/g, '-')}`,
       source: 'creator',
-      importedCardDraft: cardData,
+      importedCardDraft: cardBundle,
     })
     draft.state.companionName = charName
   }
@@ -552,6 +798,10 @@ function selectCatalogCharacter(char: any) {
     customTags.value = splitTags.slice(0, 6).map((t: string) => t.startsWith('#') ? t : `#${t}`)
   }
   identityMode.value = 'custom'
+  if (fullProposals.value.length === 0) {
+    proposals.value = createDefaultProposals(customName.value, selectedTropeId.value)
+    activeProposalId.value = '1'
+  }
   syncCreatorDraft()
   toast.success(`Selected ${char.name} from catalog!`)
 }
@@ -560,6 +810,17 @@ function selectTrope(trope: TropeTemplate) {
   selectedTropeId.value = trope.id
   if (trope.guidance && (!guidancePrompt.value || tropeTemplates.some(t => t.guidance === guidancePrompt.value))) {
     guidancePrompt.value = trope.guidance
+  }
+  if (fullProposals.value.length === 0) {
+    proposals.value = createDefaultProposals(customName.value, trope.id)
+    activeProposalId.value = '1'
+  }
+  syncCreatorDraft()
+}
+
+function onCustomNameInput() {
+  if (fullProposals.value.length === 0) {
+    proposals.value = createDefaultProposals(customName.value, selectedTropeId.value)
   }
   syncCreatorDraft()
 }
@@ -574,73 +835,56 @@ async function generateStoryIdeas() {
   try {
     const activeProviderName = draft.state.llmProvider || consciousnessStore.activeProvider
     const activeModel = draft.state.llmModel || consciousnessStore.activeModel
+    const trope = tropeTemplates.find(t => t.id === selectedTropeId.value)
+    const charName = customName.value.trim() || 'AI Companion'
 
-    let generatedList: StoryProposalItem[] | null = null
-
-    if (activeProviderName && activeModel) {
-      const providerInstance = await providersStore.getProviderInstance(activeProviderName)
-      if (providerInstance) {
-        const trope = tropeTemplates.find(t => t.id === selectedTropeId.value)
-        const systemMsg = `You are an imaginative character designer and scenario writer for an interactive anime companion.
-Generate exactly 3 creative, distinct scenario proposals for the character.
-Rules:
-1. "title": 2-5 word catchy scenario title.
-2. "greeting": First opening line spoken by the character when meeting the user ({user} / ${userName.value}). Must be in character with dialogue and asterisks for actions.
-3. "scenario": 2-3 sentences establishing the world setting, dynamic, and relationship with ${userName.value}.
-
-Return ONLY a valid JSON array of 3 objects with keys "id", "title", "greeting", "scenario". No markdown ticks, no extra text.`
-
-        const userMsg = `Character Name: ${customName.value}
-Franchise / Series: ${customSeries.value}
-Tags / Descriptors: ${customTags.value.join(', ')}
-Trope: ${trope?.label || 'Custom'} (${trope?.guidance || ''})
-User Guidance: ${guidancePrompt.value || 'Make it fun, vibrant, and memorable.'}
-User Name: ${userName.value}`
-
-        const response = await llmStore.generate(activeModel, providerInstance as any, [
-          { role: 'system', content: systemMsg },
-          { role: 'user', content: userMsg },
-        ])
-
-        const text = response.text?.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim()
-        const parsed = JSON.parse(text || '[]')
-        if (Array.isArray(parsed) && parsed.length >= 2) {
-          generatedList = parsed.map((item: any, idx: number) => ({
-            id: String(item.id || idx + 1),
-            title: item.title || `Scenario ${idx + 1}`,
-            greeting: (item.greeting || '').replace(USER_TOKEN_REGEX, userName.value),
-            scenario: (item.scenario || '').replace(USER_TOKEN_REGEX, userName.value),
-          }))
+    // Determine acting capabilities of bound vessel if selected
+    let actingCapabilities = null
+    const vesselId = draft.state.vesselDisplayModelId
+    if (vesselId) {
+      try {
+        const caps = await displayModelsStore.getOrLoadModelCapabilities(vesselId)
+        if (caps) {
+          actingCapabilities = {
+            format: '3D/2D',
+            modelName: vesselName.value,
+            whitelistedExpressions: caps.expressions || [],
+            whitelistedMotions: caps.motions || [],
+          }
         }
+      }
+      catch (err) {
+        console.warn('[CharacterCreator] Could not query vessel capabilities:', err)
       }
     }
 
-    if (!generatedList || generatedList.length === 0) {
-      const trope = tropeTemplates.find(t => t.id === selectedTropeId.value)
-      generatedList = [
-        {
-          id: '1',
-          title: `${trope?.label || 'Cozy'} Chronicles`,
-          greeting: `*greets ${userName.value} with a lively bounce* Hey there! I'm ${customName.value}. Looks like you and I are going to be partners from now on!`,
-          scenario: `${customName.value} and ${userName.value} share a cozy daily routine. Whether hanging out or working late, ${customName.value} always brings positive energy and cheeky humor.`,
-        },
-        {
-          id: '2',
-          title: `${customName.value}'s Grand Adventure`,
-          greeting: `*looks around enthusiastically* Wow, is this your headquarters, ${userName.value}? It's amazing! Let's start our grand quest right away!`,
-          scenario: `Drawn into ${userName.value}'s world through an unexpected twist of fate, ${customName.value} is convinced every everyday task is an epic heroic quest.`,
-        },
-        {
-          id: '3',
-          title: `Midnight Secrets & Starlight`,
-          greeting: `*leans in with a sly whisper* Finally, everyone else went to sleep. Now ${userName.value}, what kind of trouble are we getting into tonight?`,
-          scenario: `Behind closed doors, ${customName.value} drops all formalities and becomes ${userName.value}'s most loyal confidant and partner-in-crime.`,
-        },
-      ]
-    }
+    const synthesizedList = await synthesizeProposal({
+      cast: [{
+        name: charName,
+        series: customSeries.value.trim() || 'Original',
+        tags: customTags.value,
+        avatarUrl: customAvatar.value,
+        actingCapabilities,
+      }],
+      storySettings: {
+        trope: trope?.label || 'Custom',
+        guidance: guidancePrompt.value || trope?.guidance || '',
+        userNickname: userName.value,
+      },
+      activeProviderName,
+      activeModel,
+      guidance: guidancePrompt.value,
+    })
 
-    proposals.value = generatedList
-    activeProposalId.value = generatedList[0].id
+    fullProposals.value = synthesizedList
+    proposals.value = synthesizedList.map((p, idx) => ({
+      id: p.id || String(idx + 1),
+      title: p.name || `Scenario ${idx + 1}`,
+      greeting: (p.first_mes || '').replace(USER_TOKEN_REGEX, userName.value),
+      scenario: (p.scenario || '').replace(USER_TOKEN_REGEX, userName.value),
+    }))
+
+    activeProposalId.value = proposals.value[0].id
     syncCreatorDraft()
     toast.success('Generated 3 fresh scenario proposals!')
   }
@@ -687,6 +931,23 @@ const activePersonaLabel = computed(() => {
   const preset = STARTER_CHARACTERS[id]
   return preset ? `${preset.name} (${preset.tag})` : 'ReLU'
 })
+
+const nextButtonText = computed(() => {
+  if (activeTab.value === 'creator' || draft.state.personaSource === 'creator') {
+    const name = customName.value.trim() || 'Companion'
+    return `Lock In ${name} & Continue to Hearing`
+  }
+  return 'Next: Hearing (STT)'
+})
+
+function handleNextStep() {
+  if (activeTab.value === 'creator' || draft.state.personaSource === 'creator') {
+    syncCreatorDraft()
+    const name = customName.value.trim() || 'Companion'
+    toast.success(`${name}'s soul bound!`)
+  }
+  props.onNext()
+}
 
 onMounted(() => {
   if (draft.state?.personaSource === 'creator') {
@@ -1138,7 +1399,7 @@ onBeforeUnmount(() => {
                     type="text"
                     placeholder="e.g. Mochi-chan"
                     :class="['w-full px-3 py-1.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
-                    @input="syncCreatorDraft"
+                    @input="onCustomNameInput"
                   >
                 </div>
 
@@ -1441,12 +1702,15 @@ onBeforeUnmount(() => {
         variant="primary"
         size="md"
         :class="[
-          'flex items-center gap-2 rounded-xl bg-primary-600 hover:bg-primary-500 px-5 py-2',
-          'text-xs font-semibold text-white shadow-md shadow-primary-600/25 transition-all active:scale-95 cursor-pointer',
+          'flex items-center gap-2 rounded-xl px-5 py-2 text-xs font-semibold text-white shadow-md transition-all active:scale-95 cursor-pointer',
+          activeTab === 'creator'
+            ? 'bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 shadow-purple-600/25'
+            : 'bg-primary-600 hover:bg-primary-500 shadow-primary-600/25',
         ]"
-        @click="props.onNext"
+        @click="handleNextStep"
       >
-        <span>Next: Hearing (STT)</span>
+        <span v-if="activeTab === 'creator'">✨</span>
+        <span>{{ nextButtonText }}</span>
         <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
       </Button>
     </div>

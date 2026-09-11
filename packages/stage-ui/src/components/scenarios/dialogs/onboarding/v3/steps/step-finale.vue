@@ -420,13 +420,21 @@ const honestyMatrix = computed<HonestyItem[]>(() => {
   return items
 })
 
-// --- 6. Compiled Card Payload ---
+// --- 6. Compiled Card Payload & Dry-Run Inspector ---
 const isPayloadModalOpen = ref(false)
+const activeInspectorTab = ref<'compiled' | 'draft'>('compiled')
 const compiledCardPayload = computed(() => compileCardPayload(draft.state, resolvedPersona.value, displayModelsStore.displayModels))
 
 function copyPayload() {
-  navigator.clipboard.writeText(JSON.stringify(compiledCardPayload.value, null, 2))
-  toast.success('Card JSON copied to clipboard')
+  const content = activeInspectorTab.value === 'compiled'
+    ? JSON.stringify(compiledCardPayload.value, null, 2)
+    : JSON.stringify(draft.state, null, 2)
+  navigator.clipboard.writeText(content)
+  toast.success(
+    activeInspectorTab.value === 'compiled'
+      ? 'Compiled Card JSON copied to clipboard'
+      : 'Raw Draft State JSON copied to clipboard',
+  )
 }
 
 // --- 7. Atomic Launch to Stage ---
@@ -761,44 +769,90 @@ async function handleLaunch() {
           :class="['fixed left-1/2 top-1/2 z-50 max-h-[85vh] max-w-2xl w-[92vw] flex flex-col border border-neutral-200 dark:border-neutral-800 rounded-2xl bg-white dark:bg-neutral-900 shadow-2xl -translate-x-1/2 -translate-y-1/2 focus:outline-none p-6']"
         >
           <!-- Modal Header -->
-          <div :class="['flex shrink-0 items-center justify-between pb-4 border-b border-neutral-100 dark:border-neutral-800']">
-            <div :class="['flex items-center gap-2.5']">
-              <div :class="['w-9 h-9 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center']">
-                <div :class="['i-solar:code-file-bold-duotone w-5 h-5']" />
+          <div :class="['flex flex-col gap-3 pb-3 border-b border-neutral-100 dark:border-neutral-800 shrink-0']">
+            <div :class="['flex items-center justify-between']">
+              <div :class="['flex items-center gap-2.5']">
+                <div :class="['w-9 h-9 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center']">
+                  <div :class="['i-solar:code-file-bold-duotone w-5 h-5']" />
+                </div>
+                <div>
+                  <DialogTitle :class="['text-base font-bold text-neutral-900 dark:text-white']">
+                    Pre-Flight Specification Inspector
+                  </DialogTitle>
+                  <p :class="['text-xs text-neutral-400']">
+                    Review raw draft inputs vs. deterministic compiled card specification before stage launch.
+                  </p>
+                </div>
               </div>
-              <div>
-                <DialogTitle :class="['text-base font-bold text-neutral-900 dark:text-white']">
-                  Compiled AiriCard Payload (`chara_card_v3`)
-                </DialogTitle>
-                <p :class="['text-xs text-neutral-400']">
-                  The exact deterministic JSON specification committed to IndexedDB on launch.
-                </p>
-              </div>
+
+              <button
+                type="button"
+                :class="['p-1 rounded-lg text-neutral-400 hover:text-neutral-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer']"
+                @click="isPayloadModalOpen = false"
+              >
+                <div :class="['i-solar:close-circle-bold w-5 h-5']" />
+              </button>
             </div>
 
-            <button
-              type="button"
-              :class="['p-1 rounded-lg text-neutral-400 hover:text-neutral-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer']"
-              @click="isPayloadModalOpen = false"
-            >
-              <div :class="['i-solar:close-circle-bold w-5 h-5']" />
-            </button>
+            <!-- Segmented Tab Switcher -->
+            <div :class="['flex items-center p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-xs font-medium']">
+              <button
+                type="button"
+                :class="[
+                  'flex-1 py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5',
+                  activeInspectorTab === 'compiled'
+                    ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-900 dark:text-white font-bold'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+                ]"
+                @click="activeInspectorTab = 'compiled'"
+              >
+                <div :class="['i-solar:rocket-bold-duotone h-3.5 w-3.5 text-emerald-500']" />
+                <span>Compiled AiriCard (`chara_card_v3`)</span>
+                <span :class="['px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold']">
+                  Target Payload
+                </span>
+              </button>
+
+              <button
+                type="button"
+                :class="[
+                  'flex-1 py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5',
+                  activeInspectorTab === 'draft'
+                    ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-900 dark:text-white font-bold'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+                ]"
+                @click="activeInspectorTab = 'draft'"
+              >
+                <div :class="['i-solar:clipboard-list-bold-duotone h-3.5 w-3.5 text-amber-500']" />
+                <span>Raw Draft State (Pre-Compilation)</span>
+                <span :class="['px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[10px] font-bold']">
+                  Inputs
+                </span>
+              </button>
+            </div>
           </div>
 
           <!-- Modal Body: JSON View -->
-          <div :class="['flex-1 min-h-0 py-4 overflow-y-auto']">
-            <pre :class="['w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-950 p-4 text-[11px] font-mono text-emerald-400 overflow-x-auto leading-relaxed']">{{ JSON.stringify(compiledCardPayload, null, 2) }}</pre>
+          <div :class="['flex-1 min-h-0 py-3 overflow-y-auto']">
+            <pre
+              v-if="activeInspectorTab === 'compiled'"
+              :class="['w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-950 p-4 text-[11px] font-mono text-emerald-400 overflow-x-auto leading-relaxed']"
+            >{{ JSON.stringify(compiledCardPayload, null, 2) }}</pre>
+            <pre
+              v-else
+              :class="['w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-950 p-4 text-[11px] font-mono text-amber-400 overflow-x-auto leading-relaxed']"
+            >{{ JSON.stringify(draft.state, null, 2) }}</pre>
           </div>
 
           <!-- Modal Footer -->
-          <div :class="['flex items-center justify-between pt-4 border-t border-neutral-100 dark:border-neutral-800 shrink-0']">
+          <div :class="['flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800 shrink-0']">
             <button
               type="button"
               :class="['px-3.5 py-1.5 rounded-xl text-xs font-medium text-neutral-500 hover:text-neutral-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-1.5']"
               @click="copyPayload"
             >
               <div :class="['i-solar:copy-bold w-3.5 h-3.5']" />
-              <span>Copy JSON</span>
+              <span>Copy {{ activeInspectorTab === 'compiled' ? 'Compiled Card JSON' : 'Raw Draft JSON' }}</span>
             </button>
 
             <button
