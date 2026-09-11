@@ -50,64 +50,93 @@ const presetVrmAvatarBPreview = new URL('../../../../../../assets/vrm/models/Ava
 const activeModelId = computed(() => draft.state.vesselDisplayModelId || 'preset-live2d-2')
 
 const currentModel = computed(() => {
-  return displayModelsStore.displayModels.find(m => m.id === activeModelId.value)
+  const targetId = activeModelId.value
+  return displayModelsStore.displayModels.find(m =>
+    m.id === targetId
+    || m.id === `display-model-${targetId}`
+    || m.id.replace(/^display-model-/, '') === targetId.replace(/^display-model-/, ''),
+  )
 })
 
 const modelType = computed<'live2d' | 'vrm' | 'mmd' | 'spine' | 'unknown'>(() => {
+  const fmt = currentModel.value?.format
+  if (fmt) {
+    if (fmt === DisplayModelFormat.Live2dZip || fmt === DisplayModelFormat.Live2dDirectory)
+      return 'live2d'
+    if (fmt === DisplayModelFormat.VRM)
+      return 'vrm'
+    if (fmt === DisplayModelFormat.PMXZip || fmt === DisplayModelFormat.PMXDirectory || fmt === DisplayModelFormat.PMD)
+      return 'mmd'
+    if (fmt === DisplayModelFormat.SpineZip)
+      return 'spine'
+  }
+
+  const idLower = (activeModelId.value || '').toLowerCase()
+  if (idLower.includes('spine'))
+    return 'spine'
+  if (idLower.includes('live2d'))
+    return 'live2d'
+  if (idLower.includes('pmx') || idLower.includes('pmd') || idLower.includes('mmd'))
+    return 'mmd'
+  if (idLower.includes('vrm'))
+    return 'vrm'
+
   if (stageModelRenderer.value && stageModelRenderer.value !== 'disabled')
     return stageModelRenderer.value
 
-  if (!currentModel.value) {
-    if (activeModelId.value.includes('live2d'))
-      return 'live2d'
-    if (activeModelId.value.includes('vrm'))
-      return 'vrm'
-    return 'vrm'
-  }
-  const fmt = currentModel.value.format
-  if (fmt === DisplayModelFormat.Live2dZip || fmt === DisplayModelFormat.Live2dDirectory)
-    return 'live2d'
-  if (fmt === DisplayModelFormat.VRM)
-    return 'vrm'
-  if (fmt === DisplayModelFormat.PMXZip || fmt === DisplayModelFormat.PMXDirectory || fmt === DisplayModelFormat.PMD)
-    return 'mmd'
-  if (fmt === DisplayModelFormat.SpineZip)
-    return 'spine'
   return 'unknown'
 })
 
 const modelFormatLabel = computed(() => {
   const type = modelType.value
   const name = currentModel.value?.name
-    || (activeModelId.value === 'preset-live2d-2' ? 'Hiyori' : activeModelId.value === 'preset-vrm-2' ? 'Seed Girl' : 'AvatarSample_A')
+    || (activeModelId.value === 'preset-live2d-2' ? 'Hiyori' : activeModelId.value === 'preset-vrm-2' ? 'Seed Girl' : activeModelId.value === 'preset-vrm-1' ? 'AvatarSample_A' : activeModelId.value)
   if (type === 'vrm')
     return `VRM (3D) - ${name}`
   if (type === 'live2d')
     return `Live2D (2D) - ${name}`
+  if (type === 'spine')
+    return `Spine (2D) - ${name}`
+  if (type === 'mmd')
+    return `MMD (3D) - ${name}`
   return `${type.toUpperCase()} - ${name}`
 })
 
 const avatarPreviewUrl = computed(() => {
   if (currentModel.value && 'previewImage' in currentModel.value && currentModel.value.previewImage)
     return currentModel.value.previewImage
+  if (currentModel.value && 'authorIcon' in currentModel.value && currentModel.value.authorIcon)
+    return currentModel.value.authorIcon
   if (activeModelId.value === 'preset-live2d-2')
     return presetLive2dPreview
   if (activeModelId.value === 'preset-vrm-2')
     return presetVrmAvatarBPreview
   if (activeModelId.value === 'preset-vrm-1')
     return presetVrmAvatarAPreview
-  return presetLive2dPreview
+  return undefined
 })
 
 // --- Stage Model Live Mounting ---
 const stageModelReady = ref(false)
 const isLoadingModel = ref(false)
 const stageState = ref<'pending' | 'loading' | 'mounted'>('pending')
+const previewXOffset = ref(0)
+const previewYOffset = ref(0)
+const previewScale = ref(1)
+
+function resetPreviewPosition() {
+  previewXOffset.value = 0
+  previewYOffset.value = 0
+  previewScale.value = 1
+}
 
 async function initializeStageRenderer() {
   isLoadingModel.value = true
   try {
-    await settingsStore.updateStageModel(activeModelId.value)
+    if (activeModelId.value) {
+      settingsStore.stageModelSelected = activeModelId.value
+      await settingsStore.updateStageModel('onboarding-v3-finale')
+    }
     stageModelReady.value = true
   }
   catch (err) {
@@ -118,8 +147,11 @@ async function initializeStageRenderer() {
   }
 }
 
-onMounted(() => {
-  initializeStageRenderer()
+onMounted(async () => {
+  if (displayModelsStore.displayModels.length === 0) {
+    await displayModelsStore.loadDisplayModelsFromIndexedDB?.(true)
+  }
+  await initializeStageRenderer()
 })
 
 // --- 2. Persona & Greeting Resolution ---
@@ -438,7 +470,7 @@ async function handleLaunch() {
           <div :class="['absolute top-3 left-3 z-10 px-2.5 py-1 rounded-lg bg-neutral-900/80 backdrop-blur-md border border-neutral-700/60 text-[11px] font-medium text-neutral-200 flex items-center gap-1.5 shadow-md']">
             <div
               :class="[
-                modelType === 'vrm' ? 'i-solar:box-bold text-sky-400' : 'i-solar:layers-minimalistic-bold text-emerald-400',
+                modelType === 'vrm' || modelType === 'mmd' ? 'i-solar:box-bold text-sky-400' : 'i-solar:layers-minimalistic-bold text-emerald-400',
                 'w-3.5 h-3.5',
               ]"
             />
@@ -456,13 +488,19 @@ async function handleLaunch() {
             <div :class="['absolute w-36 h-36 rounded-full bg-primary-500/15 blur-2xl pointer-events-none z-0']" />
 
             <RendererStage
-              v-if="stageModelReady && stageModelRenderer && stageModelRenderer !== 'disabled'"
+              v-if="stageModelReady && stageModelRenderer && stageModelRenderer !== 'disabled' && (settingsStore.stageModelSelected === activeModelId || settingsStore.stageModelSelectedDisplayModel?.id === activeModelId)"
               v-model:state="stageState"
               :focus-at="{ x: 0, y: 0 }"
               :paused="false"
               :show-background="false"
               :radial-menu-enabled="false"
+              :draggable="true"
+              :x-offset="previewXOffset"
+              :y-offset="previewYOffset"
+              :scale="previewScale"
               :class="['absolute inset-0 h-full w-full z-0']"
+              @offset-change="({ x, y }) => { previewXOffset = x; previewYOffset = y }"
+              @scale-change="(s) => previewScale = s"
             />
 
             <!-- Fallback Static Asset Preview while loading / unmounted -->
@@ -476,11 +514,40 @@ async function handleLaunch() {
                 alt="Avatar Preview"
                 :class="['h-44 w-44 object-contain rounded-2xl shadow-md border border-neutral-700/50 bg-black/40']"
               >
+              <div
+                v-else
+                :class="['h-44 w-44 rounded-2xl border border-neutral-700/50 bg-neutral-800/60 flex flex-col items-center justify-center gap-2 p-4 text-center shadow-md']"
+              >
+                <div
+                  :class="[
+                    modelType === 'vrm' || modelType === 'mmd' ? 'i-solar:box-bold text-sky-400' : 'i-solar:layers-minimalistic-bold text-emerald-400',
+                    'w-12 h-12',
+                  ]"
+                />
+                <span class="max-w-full truncate text-xs text-neutral-300 font-medium font-mono">
+                  {{ currentModel?.name || activeModelId }}
+                </span>
+                <span class="text-[10px] text-neutral-500 font-mono uppercase">
+                  {{ modelType }}
+                </span>
+              </div>
               <div v-if="isLoadingModel" :class="['text-xs text-primary-400 flex items-center gap-1.5 animate-pulse']">
                 <div :class="['i-solar:restart-bold w-3.5 h-3.5 animate-spin']" />
                 <span>Mounting Avatar Vessel...</span>
               </div>
             </div>
+
+            <!-- Bottom Right: Reset Position Pill if moved -->
+            <button
+              v-if="previewXOffset !== 0 || previewYOffset !== 0 || previewScale !== 1"
+              type="button"
+              title="Reset Avatar Position"
+              :class="['absolute bottom-3 right-3 z-10 px-2 py-1 rounded-lg bg-neutral-900/80 backdrop-blur-md border border-neutral-700/60 text-[10px] font-mono text-neutral-300 hover:text-white flex items-center gap-1 shadow-md cursor-pointer transition-all']"
+              @click="resetPreviewPosition"
+            >
+              <div :class="['i-solar:restart-bold w-3 h-3']" />
+              <span>Reset Pos</span>
+            </button>
           </div>
         </div>
 

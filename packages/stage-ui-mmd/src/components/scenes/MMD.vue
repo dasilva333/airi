@@ -232,8 +232,8 @@ function handleWheel(event: WheelEvent) {
 }
 
 function handlePointerDown(event: PointerEvent) {
-  console.log('[MMD] handlePointerDown, mode:', props.interactionMode)
-  if (props.interactionMode !== 'drag' && props.interactionMode !== 'positioning')
+  console.log('[MMD] handlePointerDown, mode:', props.interactionMode, 'draggable:', props.draggable)
+  if (!props.draggable && props.interactionMode !== 'drag' && props.interactionMode !== 'positioning')
     return
 
   const target = event.currentTarget as HTMLElement
@@ -937,7 +937,7 @@ defineExpose({
 <template>
   <Screen
     relative
-    :class="(props.interactionMode === 'drag' || props.interactionMode === 'positioning') ? (isDragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''"
+    :class="(props.draggable || props.interactionMode === 'drag' || props.interactionMode === 'positioning') ? (isDragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''"
     @wheel="handleWheel"
     @pointerdown="handlePointerDown"
     @pointermove="handlePointerMove"

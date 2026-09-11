@@ -45,7 +45,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     return next
   }
 
-  const stageViewControlsEnabled = useLocalStorageManualReset<boolean>('settings/stage/view-controls-enabled', false)
+  const stageViewControlsEnabled = useLocalStorageManualReset<boolean>('settings/stage/view-controls-enabled', true)
   const stageViewControlsMode = ref<'x' | 'y' | 'z' | 'scale'>('scale')
   const lastReloadReason = ref<string | undefined>(undefined)
   const mmdTextureMap = ref<Map<string, string | ImageBitmap>>(new Map())

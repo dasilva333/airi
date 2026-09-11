@@ -37,6 +37,7 @@ const props = withDefaults(defineProps<{
   monitorCount?: number
   activeMonitor?: number
   radialMenuEnabled?: boolean
+  draggable?: boolean
 }>(), {
   paused: false,
   scale: 1,
@@ -48,6 +49,7 @@ const props = withDefaults(defineProps<{
   monitorCount: 1,
   activeMonitor: 1,
   radialMenuEnabled: true,
+  draggable: undefined,
 })
 
 const emits = defineEmits<{
@@ -132,6 +134,12 @@ const resolvedIdleAnimations = computed(() => {
 const reducedRenderScale = computed(() => {
   const nextScale = Math.min(vrmStore.renderScale, 0.75)
   return Math.max(0.5, nextScale)
+})
+
+const effectiveDraggable = computed(() => {
+  if (props.draggable !== undefined)
+    return props.draggable
+  return stageViewControlsEnabled.value
 })
 
 function canvasElement() {
@@ -457,7 +465,7 @@ defineExpose({
       :live2d-shadow-enabled="live2dShadowEnabled"
       :live2d-max-fps="live2dMaxFps"
       :idle-animations="resolvedIdleAnimations"
-      :draggable="stageViewControlsEnabled"
+      :draggable="effectiveDraggable"
       :interaction-mode="vrmStore.interactionMode === 'tactile' ? 'tactile' : 'orbit'"
       @scale-change="(val) => emits('scaleChange', val)"
       @offset-change="(val) => emits('offsetChange', val)"
@@ -482,7 +490,7 @@ defineExpose({
       :scale="scale !== undefined ? Number(scale) : undefined"
       :x-offset="xOffset !== undefined ? Number(xOffset) : undefined"
       :y-offset="yOffset !== undefined ? Number(yOffset) : undefined"
-      :draggable="stageViewControlsEnabled"
+      :draggable="effectiveDraggable"
       @error="console.error"
       @binary-loaded="vhackStore.setSourceArrayBuffer"
       @finished="emits('animationFinished')"
@@ -506,7 +514,7 @@ defineExpose({
       :idle-animation-enabled="spineIdleAnimationEnabled"
       :max-fps="spineMaxFps"
       :render-scale="spineRenderScale"
-      :draggable="stageViewControlsEnabled"
+      :draggable="effectiveDraggable"
       :idle-animations="resolvedIdleAnimations"
       :mouth-open-size="mouthOpenSize"
       @scale-change="(val) => emits('scaleChange', val)"
@@ -528,7 +536,7 @@ defineExpose({
       :position-y="yOffset !== undefined ? Number(yOffset) : undefined"
       :interaction-mode="vrmStore.interactionMode"
       :idle-animations="resolvedIdleAnimations"
-      :draggable="stageViewControlsEnabled"
+      :draggable="effectiveDraggable"
       :cursor-position="focusAt"
       :preview-expression="previewExpression || undefined"
       @error="console.error"

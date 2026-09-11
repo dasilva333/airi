@@ -78,12 +78,12 @@ export function setupOnboardingWindowManager(params: {
     await setupBaseWindowElectronInvokes({ context, window: newWindow, i18n: params.i18n, serverChannel: params.serverChannel })
     createWidgetsService({ context, widgetsManager: params.widgetsManager, window: newWindow })
 
-    await load(newWindow, withHashRoute(rendererBase, '/onboarding'))
+    await load(newWindow, withHashRoute(rendererBase, '/onboarding-v3'))
 
     return newWindow
   })
 
-  async function openWindow(route: string = '/onboarding') {
+  async function openWindow(route: string = '/onboarding-v3') {
     const window = await reusableWindow.getWindow()
 
     if (window.webContents) {

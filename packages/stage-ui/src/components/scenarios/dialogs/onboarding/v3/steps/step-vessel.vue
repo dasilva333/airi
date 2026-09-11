@@ -88,13 +88,32 @@ const communitySpotlightModels = computed<UnifiedVesselItem[]>(() => {
 // Dynamic custom models from user's store
 const userCustomModels = computed<UnifiedVesselItem[]>(() => {
   return displayModelsStore.displayModels.map((m) => {
-    const isVrm = m.format === DisplayModelFormat.VRM
+    let format: 'live2d' | 'vrm' | 'spine' | 'mmd' = 'live2d'
+    let formatLabel = 'Live2D (2D)'
+
+    if (m.format === DisplayModelFormat.VRM) {
+      format = 'vrm'
+      formatLabel = 'VRM (3D)'
+    }
+    else if (m.format === DisplayModelFormat.SpineZip) {
+      format = 'spine'
+      formatLabel = 'Spine (2D)'
+    }
+    else if (m.format === DisplayModelFormat.PMXZip || m.format === DisplayModelFormat.PMXDirectory || m.format === DisplayModelFormat.PMD) {
+      format = 'mmd'
+      formatLabel = 'MMD (3D)'
+    }
+    else if (m.format === DisplayModelFormat.Live2dZip || m.format === DisplayModelFormat.Live2dDirectory) {
+      format = 'live2d'
+      formatLabel = 'Live2D (2D)'
+    }
+
     return {
       id: m.id,
       name: m.name || m.id,
-      format: isVrm ? 'vrm' : 'live2d',
-      formatLabel: isVrm ? 'VRM (3D)' : 'Live2D (2D)',
-      previewUrl: ('previewImage' in m && m.previewImage) ? m.previewImage : '',
+      format,
+      formatLabel,
+      previewUrl: ('previewImage' in m && m.previewImage) ? m.previewImage : (('authorIcon' in m && m.authorIcon) ? m.authorIcon : ''),
       isInstalled: true,
       author: 'Custom Import',
       sourceSiteName: 'Local Vault',
@@ -115,7 +134,7 @@ const allModels = computed<UnifiedVesselItem[]>(() => {
 
 // Filters
 type SourceFilter = 'all' | 'installed' | 'free'
-type FormatFilter = 'all' | 'vrm' | 'live2d' | 'mmd'
+type FormatFilter = 'all' | 'vrm' | 'live2d' | 'spine' | 'mmd'
 
 const activeSourceFilter = ref<SourceFilter>('all')
 const activeFormatFilter = ref<FormatFilter>('all')
@@ -369,6 +388,18 @@ function handleDrop(e: DragEvent) {
           @click="activeFormatFilter = 'live2d'"
         >
           Live2D (2D)
+        </button>
+        <button
+          type="button"
+          :class="[
+            'px-2.5 py-1 rounded-lg transition-all cursor-pointer',
+            activeFormatFilter === 'spine'
+              ? 'bg-emerald-500 text-white shadow-xs font-semibold'
+              : 'text-neutral-500 hover:text-emerald-600 dark:text-neutral-400 dark:hover:text-emerald-300',
+          ]"
+          @click="activeFormatFilter = 'spine'"
+        >
+          Spine (2D)
         </button>
         <button
           type="button"

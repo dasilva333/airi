@@ -512,7 +512,7 @@ let initialOffsetX = 0
 let initialOffsetY = 0
 
 function handlePointerDown(event: PointerEvent) {
-  if (modelStore.interactionMode !== 'drag' && modelStore.interactionMode !== 'positioning')
+  if (!props.draggable && modelStore.interactionMode !== 'drag' && modelStore.interactionMode !== 'positioning')
     return
 
   const target = event.currentTarget as HTMLElement
@@ -557,7 +557,7 @@ function handlePointerUp(event: PointerEvent) {
 <template>
   <Screen
     relative
-    :class="(modelStore.interactionMode === 'drag' || modelStore.interactionMode === 'positioning') ? (isDragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''"
+    :class="(props.draggable || modelStore.interactionMode === 'drag' || modelStore.interactionMode === 'positioning') ? (isDragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''"
     @wheel="handleWheel"
     @pointerdown="handlePointerDown"
     @pointermove="handlePointerMove"
