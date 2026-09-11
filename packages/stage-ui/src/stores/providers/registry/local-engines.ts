@@ -194,6 +194,7 @@ export const localEngineMetadata: Record<string, ProviderMetadata> = {
           provider: 'blip-local',
           description: m.description,
           contextLength: 0,
+          capabilities: ['vision'],
           deprecated: false,
         }))
       },
@@ -237,6 +238,7 @@ export const localEngineMetadata: Record<string, ProviderMetadata> = {
           provider: 'moondream-local',
           description: 'Compact 1.6B visual language model (~700 MB)',
           contextLength: 2048,
+          capabilities: ['vision'],
           deprecated: false,
         },
       ],
