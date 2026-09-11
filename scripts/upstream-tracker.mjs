@@ -243,7 +243,7 @@ query($owner: String!, $repo: String!, $limit: Int!) {
         updatedAt
         mergedAt
         closedAt
-        comments { totalCount }
+        totalCommentsCount
         url
       }
     }
@@ -281,7 +281,7 @@ function fetchUpstreamPRs(repo = UPSTREAM_REPO, limit = 100) {
       updatedAt: node.updatedAt,
       mergedAt: node.mergedAt,
       closedAt: node.closedAt,
-      commentsCount: node.comments?.totalCount || 0,
+      commentsCount: node.totalCommentsCount ?? 0,
       url: node.url || `https://github.com/${repo}/pull/${node.number}`,
     }))
   }

@@ -92,6 +92,21 @@ function dismissTooltip() {
   isTooltipOpen.value = false
 }
 
+const waveGreetSeen = useLocalStorage('airi:onboarding:wave-greet-seen', false)
+const isWaveTooltipOpen = ref(false)
+
+function dismissWaveTooltip() {
+  waveGreetSeen.value = true
+  isWaveTooltipOpen.value = false
+}
+
+function handleWaveTooltipOpenUpdate(open: boolean) {
+  isWaveTooltipOpen.value = open
+  if (!open) {
+    waveGreetSeen.value = true
+  }
+}
+
 watch(messageInput, (newVal) => {
   if (newVal.trim().length > 0 && !magicWandSeen.value) {
     isTooltipOpen.value = true
@@ -559,6 +574,8 @@ async function handleSend() {
     return
   }
 
+  dismissWaveTooltip()
+
   const isEmptyInput = !messageInput.value.trim() && !attachments.value.length
 
   if (isEmptyInput && hasVisibleMessages.value) {
@@ -761,6 +778,15 @@ const hasVisibleMessages = computed(() => {
 })
 
 const isGreetMode = computed(() => !hasVisibleMessages.value && !messageInput.value.trim())
+
+watch([isGreetMode, isHistorySettled], ([greetMode, settled]) => {
+  if (greetMode && settled && !waveGreetSeen.value) {
+    isWaveTooltipOpen.value = true
+  }
+  else if (!greetMode) {
+    isWaveTooltipOpen.value = false
+  }
+}, { immediate: true })
 
 onMounted(async () => {
   updateWindowTitle()
@@ -1365,58 +1391,92 @@ defineExpose({
 
         <!-- Send / Greet Inline Button — morphs into the Stop button while a reply streams,
              so the escape hatch lives exactly where the send muscle memory aims. -->
-        <PopoverRoot v-model:open="isSendMenuOpen">
+        <PopoverRoot :open="isWaveTooltipOpen" @update:open="handleWaveTooltipOpenUpdate">
           <PopoverAnchor as-child>
-            <button
-              v-if="canStop"
-              class="ml-2.5 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-500/35 transition-all duration-250 active:scale-95 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600"
-              :title="sending ? 'Stop Generating' : 'Stop Speaking'"
-              @click="handleStopGeneration"
-            >
-              <div class="i-solar:stop-bold-duotone text-base" />
-            </button>
-            <button
-              v-else
-              class="ml-2.5 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-primary-600 text-white transition-all duration-250 active:scale-95 dark:bg-primary-500 hover:bg-primary-700 dark:hover:bg-primary-600"
-              :class="[
-                messageInput.trim()
-                  ? 'shadow-lg shadow-primary-500/35 scale-[1.03]'
-                  : 'opacity-90',
-              ]"
-              :title="isGreetMode ? 'Greet (Right-click to configure)' : 'Send Message (Right-click to configure)'"
-              @click="handleSend"
-              @contextmenu.prevent="isSendMenuOpen = true"
-            >
-              <div :class="[isGreetMode ? 'i-ph:hand-waving-bold' : 'i-solar:plain-2-bold-duotone', 'text-base']" />
-            </button>
+            <PopoverRoot v-model:open="isSendMenuOpen">
+              <PopoverAnchor as-child>
+                <button
+                  v-if="canStop"
+                  class="ml-2.5 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-500/35 transition-all duration-250 active:scale-95 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600"
+                  :title="sending ? 'Stop Generating' : 'Stop Speaking'"
+                  @click="handleStopGeneration"
+                >
+                  <div class="i-solar:stop-bold-duotone text-base" />
+                </button>
+                <button
+                  v-else
+                  class="ml-2.5 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-primary-600 text-white transition-all duration-250 active:scale-95 dark:bg-primary-500 hover:bg-primary-700 dark:hover:bg-primary-600"
+                  :class="[
+                    messageInput.trim()
+                      ? 'shadow-lg shadow-primary-500/35 scale-[1.03]'
+                      : 'opacity-90',
+                  ]"
+                  :title="isGreetMode ? 'Greet (Right-click to configure)' : 'Send Message (Right-click to configure)'"
+                  @click="handleSend"
+                  @contextmenu.prevent="isSendMenuOpen = true"
+                >
+                  <div :class="[isGreetMode ? 'i-ph:hand-waving-bold' : 'i-solar:plain-2-bold-duotone', 'text-base']" />
+                </button>
+              </PopoverAnchor>
+              <PopoverPortal>
+                <PopoverContent
+                  side="top"
+                  align="center"
+                  :side-offset="8"
+                  class="animate-in fade-in slide-in-from-bottom-1 z-[10000] w-36 flex flex-col border border-neutral-200/60 rounded-xl bg-white/95 p-1.5 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
+                >
+                  <div class="select-none px-2 py-1 text-[9px] text-neutral-400 font-bold tracking-wider uppercase">
+                    Send Key Mode
+                  </div>
+                  <button
+                    v-for="opt in ([
+                      { label: 'Enter', value: 'enter' },
+                      { label: 'Ctrl+Enter', value: 'ctrl-enter' },
+                      { label: 'Double', value: 'double-enter' },
+                    ] as const)"
+                    :key="opt.value"
+                    :class="[
+                      'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',
+                      settingsChat.sendMode === opt.value
+                        ? 'bg-primary-50/50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400 font-bold'
+                        : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
+                    ]"
+                    @click="settingsChat.sendMode = opt.value as ChatSendMode; isSendMenuOpen = false"
+                  >
+                    <span>{{ opt.label }}</span>
+                    <div v-if="settingsChat.sendMode === opt.value" class="i-solar:check-circle-bold text-xs" />
+                  </button>
+                </PopoverContent>
+              </PopoverPortal>
+            </PopoverRoot>
           </PopoverAnchor>
           <PopoverPortal>
             <PopoverContent
               side="top"
-              align="center"
-              :side-offset="8"
-              class="animate-in fade-in slide-in-from-bottom-1 z-[10000] w-36 flex flex-col border border-neutral-200/60 rounded-xl bg-white/95 p-1.5 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
+              align="end"
+              :side-offset="12"
+              class="animate-in fade-in slide-in-from-bottom-2 z-[10000] w-64 flex flex-col gap-2 border border-primary-200 rounded-xl bg-primary-50/95 p-3 text-xs text-primary-900 shadow-xl backdrop-blur-xl duration-200 dark:border-primary-800 dark:bg-neutral-900/95 dark:text-primary-100"
             >
-              <div class="select-none px-2 py-1 text-[9px] text-neutral-400 font-bold tracking-wider uppercase">
-                Send Key Mode
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex select-none items-center gap-1.5 text-primary-700 font-bold dark:text-primary-400">
+                  <div class="i-ph:hand-waving-bold animate-pulse text-sm" />
+                  <span>Break the Ice!</span>
+                </div>
+                <button
+                  class="cursor-pointer rounded p-0.5 text-neutral-400 hover:bg-primary-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+                  @click="dismissWaveTooltip"
+                >
+                  <div class="i-ph:x-bold text-xs" />
+                </button>
               </div>
+              <p class="text-[11px] leading-relaxed">
+                Don't know what to say? Click here and let your companion greet you first.
+              </p>
               <button
-                v-for="opt in ([
-                  { label: 'Enter', value: 'enter' },
-                  { label: 'Ctrl+Enter', value: 'ctrl-enter' },
-                  { label: 'Double', value: 'double-enter' },
-                ] as const)"
-                :key="opt.value"
-                :class="[
-                  'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',
-                  settingsChat.sendMode === opt.value
-                    ? 'bg-primary-50/50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400 font-bold'
-                    : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
-                ]"
-                @click="settingsChat.sendMode = opt.value as ChatSendMode; isSendMenuOpen = false"
+                class="cursor-pointer self-end rounded bg-primary-600 px-2.5 py-1 text-[10px] text-white font-bold transition-colors hover:bg-primary-700"
+                @click="dismissWaveTooltip"
               >
-                <span>{{ opt.label }}</span>
-                <div v-if="settingsChat.sendMode === opt.value" class="i-solar:check-circle-bold text-xs" />
+                Got It
               </button>
             </PopoverContent>
           </PopoverPortal>
