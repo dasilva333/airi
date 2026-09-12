@@ -17,6 +17,10 @@ export const DEFAULT_CORS_BYPASS_URLS: string[] = [
   'http://127.0.0.1:11434/*',
   'http://localhost:1234/*',
   'http://127.0.0.1:1234/*',
+  'http://localhost:50021/*',
+  'http://127.0.0.1:50021/*',
+  'http://localhost:10101/*',
+  'http://127.0.0.1:10101/*',
 ]
 
 export const DEFAULT_SKIP_CORS_HOSTS: string[] = [
@@ -34,6 +38,10 @@ export const DEFAULT_SKIP_CORS_HOSTS: string[] = [
   '127.0.0.1:11434',
   'localhost:1234',
   '127.0.0.1:1234',
+  'localhost:50021',
+  '127.0.0.1:50021',
+  'localhost:10101',
+  '127.0.0.1:10101',
 ]
 
 /**

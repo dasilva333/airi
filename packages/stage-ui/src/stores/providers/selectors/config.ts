@@ -85,6 +85,15 @@ export function createProvidersConfigSelectors(state: ProvidersConfigSelectorsSt
 
     const config = state.providerInstanceOptions?.(providerId, instanceId)
       ?? state.providerCredentials.value[providerId]
+
+    // Key inheritance for Google Gemini Audio Speech from Google Gemini chat provider
+    if (providerId === 'google-gemini-audio-speech') {
+      const parentConfig = state.providerCredentials.value['google-generative-ai'] as Record<string, any> | undefined
+      const parentHasKey = typeof parentConfig?.apiKey === 'string' && parentConfig.apiKey.trim().length > 0
+      if (parentHasKey)
+        return true
+    }
+
     if (!config)
       return false
 

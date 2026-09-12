@@ -514,4 +514,109 @@ export const transcriptionMetadata = {
     ),
     validation: ['model_list'],
   }),
+  'mimo-audio-transcription': {
+    id: 'mimo-audio-transcription',
+    name: 'Xiaomi MiMo',
+    nameKey: 'settings.pages.providers.provider.mimo.title',
+    descriptionKey: 'settings.pages.providers.provider.mimo.description',
+    description: 'api.xiaomimimo.com',
+    icon: 'i-simple-icons:xiaomi',
+    category: 'transcription',
+    tasks: ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'],
+    defaultOptions: () => ({
+      apiKey: '',
+      baseUrl: 'https://api.xiaomimimo.com/v1/',
+      model: 'mimo-v2-omni',
+    }),
+    transcriptionFeatures: {
+      supportsGenerate: true,
+      supportsStreamOutput: false,
+      supportsStreamInput: false,
+    },
+    createProvider: async (config: Record<string, unknown>) => {
+      const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+      const rawBaseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim() ? config.baseUrl.trim() : 'https://api.xiaomimimo.com/v1/'
+      const baseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl : `${rawBaseUrl}/`
+      const defaultModel = typeof config.model === 'string' && config.model.trim() ? config.model.trim() : 'mimo-v2-omni'
+
+      return {
+        transcription: (model: string) => ({
+          baseURL: baseUrl,
+          model: model || defaultModel,
+          headers: {},
+          fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+            if (!(init?.body instanceof FormData))
+              throw new Error('No audio file provided for transcription.')
+
+            const file = init.body.get('file')
+            if (!(file instanceof Blob))
+              throw new Error('No audio file provided for transcription.')
+
+            const modelName = String(init.body.get('model') || model || defaultModel)
+            const arrayBuffer = await file.arrayBuffer()
+            const bytes = new Uint8Array(arrayBuffer)
+            let binary = ''
+            for (let i = 0; i < bytes.length; i++)
+              binary += String.fromCharCode(bytes[i])
+            const base64Data = btoa(binary)
+
+            let format = 'wav'
+            if (file.type) {
+              const subtype = file.type.split('/')[1] || ''
+              if (subtype === 'webm' || subtype === 'mp4')
+                format = subtype
+              else if (subtype === 'mpeg' || subtype === 'mp3')
+                format = 'mp3'
+            }
+
+            const response = await fetch(new URL('chat/completions', baseUrl), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
+              body: JSON.stringify({
+                model: modelName,
+                messages: [{
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: 'Transcribe the audio content.' },
+                    { type: 'input_audio', input_audio: { data: base64Data, format } },
+                  ],
+                }],
+              }),
+            })
+            if (!response.ok) {
+              const errorBody = await response.text().catch(() => '')
+              throw new Error(`MiMo transcription failed: ${response.status} ${response.statusText}${errorBody ? ` — ${errorBody}` : ''}`)
+            }
+
+            const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> }
+            return new Response(JSON.stringify({ text: data.choices?.[0]?.message?.content || '' }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            })
+          },
+        }),
+      } as unknown as TranscriptionProviderWithExtraOptions<string, any>
+    },
+    capabilities: {
+      listModels: async () => [
+        { id: 'mimo-v2-omni', name: 'MiMo V2 Omni', provider: 'mimo-audio-transcription', description: 'Omni-modal model with native audio understanding and speech-to-text', contextLength: 256000, deprecated: false },
+        { id: 'mimo-v2.5', name: 'MiMo V2.5', provider: 'mimo-audio-transcription', description: 'Latest omni-modal model with audio understanding, 1M context', contextLength: 1_000_000, deprecated: false },
+      ],
+      listVoices: async () => [],
+    },
+    validators: {
+      validateProviderConfig: (config: Record<string, unknown>) => {
+        const errors = [
+          !config.apiKey && new Error('API Key is required'),
+          !config.baseUrl && new Error('Base URL is required. Default to https://api.xiaomimimo.com/v1/'),
+        ].filter(Boolean)
+
+        return {
+          errors,
+          reason: errors.filter((e): e is Error => e instanceof Error).map(e => e.message).join(', '),
+          valid: !!config.apiKey && !!config.baseUrl,
+        }
+      },
+    },
+  },
 } satisfies Record<string, ProviderMetadata & { createProvider?: (config: Record<string, unknown>) => AnyProvider | Promise<AnyProvider> }>

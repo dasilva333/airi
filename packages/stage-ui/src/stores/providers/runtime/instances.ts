@@ -78,6 +78,16 @@ export function createProviderInstances(deps: ProviderInstancesDeps) {
 
     let config = deps.providerInstanceOptions?.(providerId, targetInstanceId)
       ?? deps.getProviderCredentials()[providerId]
+
+    // Key inheritance for Google Gemini Audio Speech from Google Gemini chat provider
+    if (!config && providerId === 'google-gemini-audio-speech') {
+      const parentConfig = deps.getProviderCredentials()['google-generative-ai']
+      const parentKey = parentConfig?.apiKey
+      if (typeof parentKey === 'string' && parentKey.trim().length > 0) {
+        config = { apiKey: parentKey.trim() }
+      }
+    }
+
     if (!config && noCredentials) {
       config = deps.getDefaultProviderConfig(providerId)
       deps.setProviderCredentials(providerId, config)
@@ -91,7 +101,12 @@ export function createProviderInstances(deps: ProviderInstancesDeps) {
       // apiKey) would pass `!config` but produces an unauthenticated
       // SDK that fails with a raw 401 at network time. Trap it here.
       const anyCfg = config as Record<string, any>
-      const hasKey = typeof anyCfg.apiKey === 'string' && anyCfg.apiKey.trim().length > 0
+      let hasKey = typeof anyCfg.apiKey === 'string' && anyCfg.apiKey.trim().length > 0
+      if (!hasKey && providerId === 'google-gemini-audio-speech') {
+        const parentKey = deps.getProviderCredentials()['google-generative-ai']?.apiKey
+        if (typeof parentKey === 'string' && parentKey.trim().length > 0)
+          hasKey = true
+      }
       const hasAwsKey = typeof anyCfg.accessKeyId === 'string' && anyCfg.accessKeyId.trim().length > 0
         && typeof anyCfg.secretAccessKey === 'string' && anyCfg.secretAccessKey.trim().length > 0
       if (!hasKey && !hasAwsKey)

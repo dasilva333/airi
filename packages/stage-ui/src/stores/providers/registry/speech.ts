@@ -13,7 +13,9 @@ import type { ComposerTranslation } from 'vue-i18n'
 
 import type { PocketTtsVoiceEmbedding } from '../../../libs/inference/contract'
 import type { ModelInfo, ProviderMetadata, SpeechCapabilitiesInfo, VoiceInfo } from '../types'
+import type { VoicevoxSynthesisParameters } from '../voicevox/engine'
 
+import { toWavFromPCM16 } from '@proj-airi/audio/encoding'
 import { isUrl } from '@proj-airi/stage-shared'
 import { getCachedWebGPUCapabilities } from '@proj-airi/stage-shared/webgpu'
 import { createOpenAI } from '@xsai-ext/providers/create'
@@ -37,8 +39,33 @@ import { logWarn, toProviderRootBaseUrl, toV1SpeechBaseUrl, validateProviderBase
 import { getMossAdapterInstance, preprocessMossReferenceAudio } from '../moss-audio-utils'
 import { buildOpenAICompatibleProvider } from '../openai-compatible-builder'
 import { getPocketTtsAdapterInstance, preprocessPocketReferenceAudio } from '../pocket-audio-utils'
+import { hexToBytes, readSSEAudioStream } from '../sse-audio-stream'
+import {
+  fetchSpeakers as fetchVoicevoxSpeakers,
+  fetchEngineVersion as fetchVoicevoxVersion,
+  synthesizeSpeech as synthesizeVoicevoxSpeech,
+
+} from '../voicevox/engine'
 
 const baseUrlValidator = { value: validateProviderBaseUrl }
+
+function getGeminiChatApiKey(): string {
+  try {
+    if (typeof window !== 'undefined') {
+      const raw = window.localStorage.getItem('settings/credentials/providers')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        const key = parsed['google-generative-ai']?.apiKey
+        if (typeof key === 'string')
+          return key.trim()
+      }
+    }
+  }
+  catch {
+    // Ignore
+  }
+  return ''
+}
 
 // NOTICE: `kokoro-local`'s listModels closure captures the vue-i18n `t` passed in here.
 // Because providers.ts can only construct the registry inside the Pinia store setup
@@ -2700,6 +2727,517 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
             errors,
             reason: errors.filter((e): e is Error => e instanceof Error).map(e => e.message).join(', '),
             valid: errors.length === 0,
+          }
+        },
+      },
+    },
+    'voicevox': {
+      id: 'voicevox',
+      category: 'speech',
+      tasks: ['text-to-speech'],
+      nameKey: 'settings.pages.providers.provider.voicevox.title',
+      name: 'VOICEVOX',
+      descriptionKey: 'settings.pages.providers.provider.voicevox.description',
+      description: 'voicevox.hiroshiba.jp',
+      icon: 'i-lobe-icons:speaker',
+      requiresCredentials: false,
+      defaultOptions: () => ({
+        baseUrl: 'http://localhost:50021/',
+        voiceSettings: { intonation: 1, pitch: 0, speed: 1, volume: 1 },
+      }),
+      createProvider: async (config) => {
+        const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim()
+          ? config.baseUrl.trim()
+          : 'http://localhost:50021/'
+
+        return {
+          speech: () => ({
+            baseURL: 'http://voicevox-family.invalid/v1/',
+            model: 'default',
+            fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+              if (!init?.body || typeof init.body !== 'string')
+                throw new Error('Invalid speech request body')
+
+              const body = JSON.parse(init.body) as { input?: string, voice?: string }
+              if (!body.voice)
+                throw new Error('No voice selected. Pick a character in the speech settings.')
+
+              const wav = await synthesizeVoicevoxSpeech(
+                baseUrl,
+                {
+                  parameters: config.voiceSettings as undefined | VoicevoxSynthesisParameters,
+                  styleId: body.voice,
+                  text: body.input ?? '',
+                },
+                { signal: init?.signal ?? undefined },
+              )
+
+              return new Response(wav, { headers: { 'Content-Type': 'audio/wav' }, status: 200 })
+            },
+          }),
+        }
+      },
+      capabilities: {
+        listModels: async () => [{
+          id: 'default',
+          name: 'VOICEVOX Engine',
+          provider: 'voicevox',
+          contextLength: 0,
+          deprecated: false,
+        }],
+        listVoices: async (config) => {
+          const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim()
+            ? config.baseUrl.trim()
+            : 'http://localhost:50021/'
+          try {
+            const speakers = await fetchVoicevoxSpeakers(baseUrl)
+            return speakers.flatMap(speaker => (speaker.styles ?? []).map(style => ({
+              id: String(style.id),
+              name: `${speaker.name} / ${style.name}`,
+              provider: 'voicevox',
+              languages: [{ code: 'ja', title: 'Japanese' }],
+            })))
+          }
+          catch {
+            return []
+          }
+        },
+      },
+      validators: {
+        validateProviderConfig: async (config) => {
+          const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim()
+            ? config.baseUrl.trim()
+            : 'http://localhost:50021/'
+          try {
+            const controller = new AbortController()
+            const timeout = setTimeout(() => controller.abort(), 5000)
+            await fetchVoicevoxVersion(baseUrl, { signal: controller.signal })
+            clearTimeout(timeout)
+            return { errors: [], reason: '', valid: true }
+          }
+          catch (error) {
+            const reason = `Cannot reach VOICEVOX engine: ${error instanceof Error ? error.message : 'Unknown error'}\nMake sure the engine is running on ${baseUrl}.`
+            return { errors: [error instanceof Error ? error : new Error(reason)], reason, valid: false }
+          }
+        },
+      },
+    },
+    'aivis-speech': {
+      id: 'aivis-speech',
+      category: 'speech',
+      tasks: ['text-to-speech'],
+      nameKey: 'settings.pages.providers.provider.aivis-speech.title',
+      name: 'AivisSpeech',
+      descriptionKey: 'settings.pages.providers.provider.aivis-speech.description',
+      description: 'aivis-project.com',
+      icon: 'i-lobe-icons:speaker',
+      requiresCredentials: false,
+      defaultOptions: () => ({
+        baseUrl: 'http://localhost:10101/',
+        voiceSettings: { intonation: 1, pitch: 0, speed: 1, volume: 1 },
+      }),
+      createProvider: async (config) => {
+        const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim()
+          ? config.baseUrl.trim()
+          : 'http://localhost:10101/'
+
+        return {
+          speech: () => ({
+            baseURL: 'http://voicevox-family.invalid/v1/',
+            model: 'default',
+            fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+              if (!init?.body || typeof init.body !== 'string')
+                throw new Error('Invalid speech request body')
+
+              const body = JSON.parse(init.body) as { input?: string, voice?: string }
+              if (!body.voice)
+                throw new Error('No voice selected. Pick a character in the speech settings.')
+
+              const wav = await synthesizeVoicevoxSpeech(
+                baseUrl,
+                {
+                  parameters: config.voiceSettings as undefined | VoicevoxSynthesisParameters,
+                  styleId: body.voice,
+                  text: body.input ?? '',
+                },
+                { signal: init?.signal ?? undefined },
+              )
+
+              return new Response(wav, { headers: { 'Content-Type': 'audio/wav' }, status: 200 })
+            },
+          }),
+        }
+      },
+      capabilities: {
+        listModels: async () => [{
+          id: 'default',
+          name: 'AivisSpeech Engine',
+          provider: 'aivis-speech',
+          contextLength: 0,
+          deprecated: false,
+        }],
+        listVoices: async (config) => {
+          const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim()
+            ? config.baseUrl.trim()
+            : 'http://localhost:10101/'
+          try {
+            const speakers = await fetchVoicevoxSpeakers(baseUrl)
+            return speakers.flatMap(speaker => (speaker.styles ?? []).map(style => ({
+              id: String(style.id),
+              name: `${speaker.name} / ${style.name}`,
+              provider: 'aivis-speech',
+              languages: [{ code: 'ja', title: 'Japanese' }],
+            })))
+          }
+          catch {
+            return []
+          }
+        },
+      },
+      validators: {
+        validateProviderConfig: async (config) => {
+          const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim()
+            ? config.baseUrl.trim()
+            : 'http://localhost:10101/'
+          try {
+            const controller = new AbortController()
+            const timeout = setTimeout(() => controller.abort(), 5000)
+            await fetchVoicevoxVersion(baseUrl, { signal: controller.signal })
+            clearTimeout(timeout)
+            return { errors: [], reason: '', valid: true }
+          }
+          catch (error) {
+            const reason = `Cannot reach AivisSpeech engine: ${error instanceof Error ? error.message : 'Unknown error'}\nMake sure the engine is running on ${baseUrl}.`
+            return { errors: [error instanceof Error ? error : new Error(reason)], reason, valid: false }
+          }
+        },
+      },
+    },
+    'minimax-speech': {
+      id: 'minimax-speech',
+      category: 'speech',
+      tasks: ['text-to-speech'],
+      nameKey: 'settings.pages.providers.provider.minimax-speech.title',
+      name: 'MiniMax Speech',
+      descriptionKey: 'settings.pages.providers.provider.minimax-speech.description',
+      description: 'minimax.io',
+      icon: 'i-lobe-icons:minimax',
+      iconColor: 'i-lobe-icons:minimax-color',
+      defaultOptions: () => ({
+        apiKey: '',
+        baseUrl: 'https://api.minimax.io',
+      }),
+      createProvider: async (config) => {
+        const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+        const rawBaseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim() ? config.baseUrl.trim() : 'https://api.minimax.io'
+        const baseUrl = rawBaseUrl.replace(/\/+$/, '')
+
+        return {
+          speech: () => ({
+            baseURL: `${baseUrl}/v1/`,
+            model: 'speech-2.8-hd',
+            fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+              if (!init?.body || typeof init.body !== 'string')
+                throw new Error('Invalid request body')
+
+              const body = JSON.parse(init.body) as { input?: string, voice?: string, model?: string }
+              const response = await fetch(`${baseUrl}/v1/t2a_v2`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify({
+                  model: body.model || 'speech-2.8-hd',
+                  text: body.input ?? '',
+                  stream: true,
+                  voice_setting: {
+                    voice_id: body.voice || 'English_Graceful_Lady',
+                    speed: 1,
+                    vol: 1,
+                    pitch: 0,
+                  },
+                  audio_setting: {
+                    sample_rate: 32000,
+                    bitrate: 128000,
+                    format: 'mp3',
+                    channel: 1,
+                  },
+                }),
+              })
+
+              if (!response.ok)
+                throw new Error(`MiniMax TTS request failed: ${response.status} ${response.statusText}`)
+
+              return await readSSEAudioStream(
+                response,
+                (event) => {
+                  if (event.data?.audio && event.data.status !== 2) {
+                    return hexToBytes(event.data.audio)
+                  }
+                  return null
+                },
+                'audio/mpeg',
+              )
+            },
+          }),
+        }
+      },
+      capabilities: {
+        listModels: async () => [
+          { id: 'speech-2.8-hd', name: 'Speech 2.8 HD', provider: 'minimax-speech', description: 'High-definition TTS model with natural prosody', deprecated: false },
+          { id: 'speech-2.8-turbo', name: 'Speech 2.8 Turbo', provider: 'minimax-speech', description: 'Fast TTS model for low-latency scenarios', deprecated: false },
+        ],
+        listVoices: async () => [
+          { id: 'English_Graceful_Lady', name: 'Graceful Lady', provider: 'minimax-speech', gender: 'female', languages: [{ code: 'en', title: 'English' }] },
+          { id: 'English_Insightful_Speaker', name: 'Insightful Speaker', provider: 'minimax-speech', gender: 'male', languages: [{ code: 'en', title: 'English' }] },
+          { id: 'English_radiant_girl', name: 'Radiant Girl', provider: 'minimax-speech', gender: 'female', languages: [{ code: 'en', title: 'English' }] },
+          { id: 'English_Persuasive_Man', name: 'Persuasive Man', provider: 'minimax-speech', gender: 'male', languages: [{ code: 'en', title: 'English' }] },
+          { id: 'English_Lucky_Robot', name: 'Lucky Robot', provider: 'minimax-speech', gender: 'neutral', languages: [{ code: 'en', title: 'English' }] },
+          { id: 'English_expressive_narrator', name: 'Expressive Narrator', provider: 'minimax-speech', gender: 'neutral', languages: [{ code: 'en', title: 'English' }] },
+          { id: 'Mandarin_Gentle_Woman', name: 'Gentle Woman', provider: 'minimax-speech', gender: 'female', languages: [{ code: 'zh', title: 'Chinese' }] },
+          { id: 'Mandarin_Steadfast_Man', name: 'Steadfast Man', provider: 'minimax-speech', gender: 'male', languages: [{ code: 'zh', title: 'Chinese' }] },
+          { id: 'Mandarin_Sweet_Girl', name: 'Sweet Girl', provider: 'minimax-speech', gender: 'female', languages: [{ code: 'zh', title: 'Chinese' }] },
+          { id: 'Mandarin_Magnetic_Gentleman', name: 'Magnetic Gentleman', provider: 'minimax-speech', gender: 'male', languages: [{ code: 'zh', title: 'Chinese' }] },
+        ],
+      },
+      validators: {
+        validateProviderConfig: (config) => {
+          const valid = Boolean(typeof config.apiKey === 'string' && config.apiKey.trim())
+          return {
+            errors: valid ? [] : [new Error('API Key is required.')],
+            reason: valid ? '' : 'API Key is required.',
+            valid,
+          }
+        },
+      },
+    },
+    'mimo-audio-speech': {
+      id: 'mimo-audio-speech',
+      category: 'speech',
+      tasks: ['text-to-speech'],
+      nameKey: 'settings.pages.providers.provider.mimo.title',
+      name: 'Xiaomi MiMo',
+      descriptionKey: 'settings.pages.providers.provider.mimo.description',
+      description: 'api.xiaomimimo.com',
+      icon: 'i-simple-icons:xiaomi',
+      defaultOptions: () => ({
+        apiKey: '',
+        baseUrl: 'https://api.xiaomimimo.com/v1/',
+      }),
+      createProvider: async (config) => {
+        const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+        const rawBaseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim() ? config.baseUrl.trim() : 'https://api.xiaomimimo.com/v1/'
+        const baseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl : `${rawBaseUrl}/`
+
+        return {
+          speech: (model?: string) => ({
+            baseURL: baseUrl,
+            model: model || 'mimo-v2.5-tts',
+            fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+              if (!init?.body || typeof init.body !== 'string')
+                throw new Error('Invalid request body')
+
+              const body = JSON.parse(init.body) as { input?: string, voice?: string, model?: string }
+              const targetModel = body.model || model || 'mimo-v2.5-tts'
+              const voice = body.voice || 'mimo_default'
+
+              const response = await fetch(new URL('chat/completions', baseUrl), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
+                body: JSON.stringify({
+                  model: targetModel,
+                  messages: [
+                    { role: 'user', content: 'Synthesize speech' },
+                    { role: 'assistant', content: body.input ?? '' },
+                  ],
+                  audio: { voice, format: 'wav' },
+                }),
+              })
+              if (!response.ok) {
+                const errText = await response.text().catch(() => '')
+                throw new Error(`MiMo TTS request failed: ${response.status} ${response.statusText}${errText ? ` — ${errText}` : ''}`)
+              }
+
+              const data = await response.json() as {
+                choices?: Array<{ message?: { audio?: { data?: string } } }>
+              }
+              const audioBase64 = data.choices?.[0]?.message?.audio?.data
+              if (!audioBase64)
+                throw new Error('MiMo TTS response missing audio data')
+
+              const binary = atob(audioBase64)
+              const bytes = new Uint8Array(binary.length)
+              for (let i = 0; i < binary.length; i++)
+                bytes[i] = binary.charCodeAt(i)
+
+              return new Response(bytes.buffer, {
+                status: 200,
+                headers: { 'Content-Type': 'audio/wav' },
+              })
+            },
+          }),
+        }
+      },
+      capabilities: {
+        listModels: async () => [
+          { id: 'mimo-v2.5-tts', name: 'MiMo v2.5 TTS', provider: 'mimo-audio-speech', description: 'Preset voice synthesis with the built-in MiMo voice list', deprecated: false },
+          { id: 'mimo-v2.5-tts-voicedesign', name: 'MiMo v2.5 TTS Voice Design', provider: 'mimo-audio-speech', description: 'Design a new voice from a natural language description', deprecated: false },
+          { id: 'mimo-v2.5-tts-voiceclone', name: 'MiMo v2.5 TTS Voice Clone', provider: 'mimo-audio-speech', description: 'Clone a voice from a base64-encoded audio sample', deprecated: false },
+        ],
+        listVoices: async () => [
+          { id: 'mimo_default', name: 'MiMo-默认', provider: 'mimo-audio-speech', gender: 'female', languages: [{ code: 'en', title: 'English' }, { code: 'zh', title: 'Chinese' }] },
+          { id: '冰糖', name: '冰糖', provider: 'mimo-audio-speech', gender: 'female', languages: [{ code: 'zh', title: 'Chinese' }] },
+          { id: '茉莉', name: '茉莉', provider: 'mimo-audio-speech', gender: 'female', languages: [{ code: 'zh', title: 'Chinese' }] },
+          { id: '苏打', name: '苏打', provider: 'mimo-audio-speech', gender: 'male', languages: [{ code: 'zh', title: 'Chinese' }] },
+          { id: '白桦', name: '白桦', provider: 'mimo-audio-speech', gender: 'male', languages: [{ code: 'zh', title: 'Chinese' }] },
+          { id: 'Mia', name: 'Mia', provider: 'mimo-audio-speech', gender: 'female', languages: [{ code: 'en', title: 'English' }] },
+          { id: 'Chloe', name: 'Chloe', provider: 'mimo-audio-speech', gender: 'female', languages: [{ code: 'en', title: 'English' }] },
+          { id: 'Milo', name: 'Milo', provider: 'mimo-audio-speech', gender: 'male', languages: [{ code: 'en', title: 'English' }] },
+          { id: 'Dean', name: 'Dean', provider: 'mimo-audio-speech', gender: 'male', languages: [{ code: 'en', title: 'English' }] },
+        ],
+      },
+      validators: {
+        validateProviderConfig: (config) => {
+          const valid = Boolean(typeof config.apiKey === 'string' && config.apiKey.trim())
+          return {
+            errors: valid ? [] : [new Error('API Key is required.')],
+            reason: valid ? '' : 'API Key is required.',
+            valid,
+          }
+        },
+      },
+    },
+    'google-gemini-audio-speech': {
+      id: 'google-gemini-audio-speech',
+      category: 'speech',
+      tasks: ['text-to-speech', 'tts'],
+      nameKey: 'settings.pages.providers.provider.google-gemini-audio-speech.title',
+      name: 'Google Gemini',
+      descriptionKey: 'settings.pages.providers.provider.google-gemini-audio-speech.description',
+      description: 'aistudio.google.com',
+      icon: 'i-lobe-icons:gemini',
+      iconColor: 'i-lobe-icons:gemini-color',
+      defaultOptions: () => ({
+        apiKey: '',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/',
+      }),
+      createProvider: async (config) => {
+        const dedicatedKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+        const apiKey = dedicatedKey || getGeminiChatApiKey()
+        const rawBaseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim() ? config.baseUrl.trim() : 'https://generativelanguage.googleapis.com/v1beta/'
+        const baseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl : `${rawBaseUrl}/`
+
+        return {
+          speech: (model?: string) => ({
+            baseURL: baseUrl,
+            model: model || 'gemini-2.5-flash-preview-tts',
+            fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+              if (!init?.body || typeof init.body !== 'string')
+                throw new Error('Invalid request body')
+
+              const body = JSON.parse(init.body) as { input?: string, model?: string, voice?: string, temperature?: number }
+              if (!body.input)
+                throw new Error('Missing input text for Gemini TTS')
+
+              const targetModel = body.model || model || 'gemini-2.5-flash-preview-tts'
+              const voice = body.voice || 'Kore'
+
+              const response = await fetch(new URL(`models/${targetModel}:generateContent`, baseUrl), {
+                method: 'POST',
+                headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: body.input }] }],
+                  generationConfig: {
+                    responseModalities: ['AUDIO'],
+                    speechConfig: {
+                      voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+                    },
+                    ...(body.temperature !== undefined ? { temperature: body.temperature } : {}),
+                  },
+                }),
+              })
+
+              if (!response.ok) {
+                const errText = await response.text().catch(() => '')
+                throw new Error(`Gemini TTS request failed: ${response.status} ${errText}`)
+              }
+
+              const data = await response.json() as {
+                candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string } }> } }>
+              }
+              const audioBase64 = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data
+              if (!audioBase64)
+                throw new Error('Gemini TTS response missing audio data')
+
+              const binary = atob(audioBase64)
+              const pcmBytes = new Uint8Array(binary.length)
+              for (let i = 0; i < binary.length; i++)
+                pcmBytes[i] = binary.charCodeAt(i)
+
+              const wavBuffer = toWavFromPCM16(pcmBytes, 24000)
+              return new Response(wavBuffer, {
+                status: 200,
+                headers: { 'Content-Type': 'audio/wav' },
+              })
+            },
+          }),
+        }
+      },
+      capabilities: {
+        listModels: async () => [
+          { id: 'gemini-2.5-flash-preview-tts', name: 'Gemini 2.5 Flash Preview TTS', provider: 'google-gemini-audio-speech', description: 'Fast multimodal TTS model' },
+          { id: 'gemini-2.5-pro-preview-tts', name: 'Gemini 2.5 Pro Preview TTS', provider: 'google-gemini-audio-speech', description: 'High-quality multimodal TTS model' },
+          { id: 'gemini-3.1-flash-tts-preview', name: 'Gemini 3.1 Flash TTS Preview', provider: 'google-gemini-audio-speech', description: 'Next-gen flash TTS preview' },
+        ],
+        listVoices: async () => [
+          ['Zephyr', 'Bright'],
+          ['Puck', 'Upbeat'],
+          ['Charon', 'Informative'],
+          ['Kore', 'Firm'],
+          ['Fenrir', 'Excitable'],
+          ['Leda', 'Youthful'],
+          ['Orus', 'Firm'],
+          ['Aoede', 'Breezy'],
+          ['Callirrhoe', 'Easy-going'],
+          ['Autonoe', 'Bright'],
+          ['Enceladus', 'Breathy'],
+          ['Iapetus', 'Clear'],
+          ['Umbriel', 'Easy-going'],
+          ['Algieba', 'Smooth'],
+          ['Despina', 'Smooth'],
+          ['Erinome', 'Clear'],
+          ['Algenib', 'Gravelly'],
+          ['Rasalgethi', 'Informative'],
+          ['Laomedeia', 'Upbeat'],
+          ['Achernar', 'Soft'],
+          ['Alnilam', 'Firm'],
+          ['Schedar', 'Even'],
+          ['Gacrux', 'Mature'],
+          ['Pulcherrima', 'Forward'],
+          ['Achird', 'Friendly'],
+          ['Zubenelgenubi', 'Casual'],
+          ['Vindemiatrix', 'Gentle'],
+          ['Sadachbia', 'Lively'],
+          ['Sadaltager', 'Knowledgeable'],
+          ['Sulafat', 'Warm'],
+        ].map(([id, desc]) => ({
+          id,
+          name: id,
+          provider: 'google-gemini-audio-speech',
+          description: desc,
+          languages: [{ code: 'auto', title: 'Auto' }],
+        })),
+      },
+      validators: {
+        validateProviderConfig: (config) => {
+          const dedicatedKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+          const resolvedKey = dedicatedKey || getGeminiChatApiKey()
+          const valid = Boolean(resolvedKey)
+          return {
+            errors: valid ? [] : [new Error('API Key is required (or configure Google Gemini chat provider).')],
+            reason: valid ? '' : 'API Key is required (or configure Google Gemini chat provider).',
+            valid,
           }
         },
       },

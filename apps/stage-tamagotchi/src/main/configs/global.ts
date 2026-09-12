@@ -45,6 +45,10 @@ export function createGlobalAppConfig() {
         'http://127.0.0.1:11434/*',
         'http://localhost:1234/*',
         'http://127.0.0.1:1234/*',
+        'http://localhost:50021/*',
+        'http://127.0.0.1:50021/*',
+        'http://localhost:10101/*',
+        'http://127.0.0.1:10101/*',
       ],
     },
   })
