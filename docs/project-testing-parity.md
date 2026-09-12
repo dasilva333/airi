@@ -23,7 +23,7 @@
 
 | Package / Workspace | Test Suites (Files) | Total Tests | Primary Subsystem Focus |
 |---|:---:|:---:|---|
-| [`packages/stage-ui`](../packages/stage-ui) | 71 | 725 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory, Artistry, Proactivity, MCP, Cloudflare OAuth, Gemini Live Bidi, Chat Input Bridge |
+| [`packages/stage-ui`](../packages/stage-ui) | 76 | 906 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory, Artistry, Proactivity, MCP, Cloudflare OAuth, Gemini Live Bidi, Chat Input Bridge |
 | [`packages/live2d-runtime`](../packages/live2d-runtime) | 5 | 79 | Live2D Scripting DSL VM, Command Parser, Selector, Template, VarStore |
 | [`packages/stage-pages`](../packages/stage-pages) | 2 | 34 | Settings Topology & Devtools Context Flow Formatters |
 | [`apps/stage-tamagotchi`](../apps/stage-tamagotchi) | 6 | 32 | Desktop Multi-Window, Display Bounds, Location, Widgets, Airi Plugins |
@@ -34,9 +34,9 @@
 | [`packages/cap-vite`](../packages/cap-vite) | 4 | 22 | Capacitor Vite Plugin, CLI Integration & Native Wrappers |
 | [`packages/plugin-sdk`](../packages/plugin-sdk) | 1 | 22 | Plugin SDK Host Core Lifecycle |
 | [`packages/server-runtime`](../packages/server-runtime) | 1 | 9 | Server Route Middleware |
-| **Monorepo Vitest Baseline** | **103 Suites** | **1,027 Tests** | **Automated Zero-Failure Headless Test Baseline** |
+| **Monorepo Vitest Baseline** | **108 Suites** | **1,208 Tests** | **Automated Zero-Failure Headless Test Baseline** |
 
-*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 107 total test files discovered).*
+*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 114 total test files cataloged and audited).*
 
 ---
 
@@ -105,6 +105,7 @@
 | **Web-RWKV Stop Sequence Scanner** | [`packages/stage-ui/src/workers/web-rwkv/stop.test.ts`](../packages/stage-ui/src/workers/web-rwkv/stop.test.ts) | 8 | Node / Pure TS | Blocking in CI | Sliding-window stop token scanner, holdback buffer, and natural end-of-stream flush. | Pure string scanner unit tests. |
 | **RMBG Background Removal** | [`packages/stage-ui/src/libs/inference/adapters/background-removal.test.ts`](../packages/stage-ui/src/libs/inference/adapters/background-removal.test.ts) | 7 | Node / Mocks | Blocking in CI | RMBG client adapter messaging and mask processing. | Mocks WebGPU worker. |
 | **Needle 2 Subconscious Runtime** | [`packages/stage-ui/src/libs/inference/adapters/needle-client.test.ts`](../packages/stage-ui/src/libs/inference/adapters/needle-client.test.ts) | 5 | Node / Mocks | Blocking in CI | Fast reaction probing (Task 2) and CoT pivot probing (Task 3) client interface. | Verifies client API contracts against mock worker. |
+| **Web-LLM Channel Adapter** | [`packages/stage-ui/src/libs/inference/adapters/web-llm-channel.test.ts`](../packages/stage-ui/src/libs/inference/adapters/web-llm-channel.test.ts) | 4 | Node / Mocks | Blocking in CI | Web-LLM streaming communication channel, response packet framing, and abort handling. | Mocks worker channel. |
 
 #### Providers & Model Registries
 | Invariant / Subsystem | Test Path | Tests | Runner / Env | CI Inclusion | What Assertions Directly Establish | Coverage Boundary & Known Limits |
@@ -118,6 +119,10 @@
 | **Audio Format Converters** | [`packages/stage-ui/src/stores/providers/converters.test.ts`](../packages/stage-ui/src/stores/providers/converters.test.ts) | 4 | Node / Pure TS | Blocking in CI | PCM, WAV, MP3, and Base64 format converters. | Audio buffer transformation unit tests. |
 | **Provider Registry Wiring** | [`packages/stage-ui/src/stores/providers/registry/index.test.ts`](../packages/stage-ui/src/stores/providers/registry/index.test.ts) | 3 | Node / Pure TS | Blocking in CI | Backend registry registration, capability lookup, and factory resolution. | Registry lookup tests. |
 | **Provider Catalog** | [`packages/stage-ui/src/stores/provider-catalog.test.ts`](../packages/stage-ui/src/stores/provider-catalog.test.ts) | 2 | Node / Pure TS | Blocking in CI | Catalog enumeration and model capability filtering. | In-memory catalog inspection. |
+| **Portable Provider Runtime Matrix** | [`packages/stage-ui/src/libs/providers/runtime-matrix.test.ts`](../packages/stage-ui/src/libs/providers/runtime-matrix.test.ts) | 162 | Node / Pure TS | Blocking in CI | Universal runtime matrix verifying all 39 provider directories and 40 definitions meet metadata, schema, and localization contracts. | Metadata contract compliance; does not execute live network calls. |
+| **Tool Schema Sanitizer** | [`packages/stage-ui/src/libs/providers/tool-schema.test.ts`](../packages/stage-ui/src/libs/providers/tool-schema.test.ts) | 10 | Node / Pure TS | Blocking in CI | Collapses nullable `anyOf` unions into `['string', 'null']` for Azure and Grok, cleans unsupported schema attributes recursively. | Pure JSON schema transformation. |
+| **Azure OpenAI Provider** | [`packages/stage-ui/src/libs/providers/providers/azure-openai/index.test.ts`](../packages/stage-ui/src/libs/providers/providers/azure-openai/index.test.ts) | 3 | Node / Pure TS | Blocking in CI | Custom completions endpoint URL mapping, `api-version` injection, and tool schema sanitization. | Tests mapping logic with mocked fetch. |
+| **ByteDance Ark Provider Family** | [`packages/stage-ui/src/libs/providers/providers/ark-providers.test.ts`](../packages/stage-ui/src/libs/providers/providers/ark-providers.test.ts) | 2 | Node / Mocks | Blocking in CI | Model ID prefix stripping on chat dispatch, model catalog enumeration, and default regional base URLs. | Mocks `createOpenAI`; does not execute live network calls. |
 | **MOSS Audio Utilities** | [`packages/stage-ui/src/stores/providers/moss-audio-utils.test.ts`](../packages/stage-ui/src/stores/providers/moss-audio-utils.test.ts) | 1 | Node / Pure TS | Blocking in CI | Audio chunking and header extraction. | Buffer utility test. |
 | **Metadata Contract** | [`packages/stage-ui/src/stores/providers/registry/metadata-contract.test.ts`](../packages/stage-ui/src/stores/providers/registry/metadata-contract.test.ts) | 1 | Node / Pure TS | Blocking in CI | Provider metadata schema compliance. | Contract validation. |
 

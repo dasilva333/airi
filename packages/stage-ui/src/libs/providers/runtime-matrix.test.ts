@@ -26,7 +26,7 @@ describe('portable provider runtime matrix', () => {
   })
 
   it('contains all expected registered providers', () => {
-    expect(providers.length).toBeGreaterThanOrEqual(34)
+    expect(providers.length).toBeGreaterThanOrEqual(39)
   })
 
   for (const provider of providers) {

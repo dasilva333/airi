@@ -1374,8 +1374,23 @@ pages:
           zero-shot voice cloning and paralinguistic expression tags
       moondream-local:
         title: Moondream2 VLM (Local, WebGPU)
-        description: On-device 1.6B Vision-Language Model running in browser via WebGPU for
-          natural image understanding and visual Q&A.
+        description: On-device 1.6B Vision-Language Model running in browser via WebGPU
+          for natural image understanding and visual Q&A.
+      openpaths:
+        title: OpenPaths
+        description: openpaths.io
+      atlascloud:
+        title: Atlas Cloud
+        description: api.atlascloud.ai
+      byteplus:
+        title: BytePlus
+        description: byteplus.com
+      byteplus-coding-plan:
+        title: BytePlus Coding Plan
+        description: BytePlus Coding Plan
+      volcengine-coding-plan:
+        title: Volcengine Coding Plan
+        description: Volcengine Coding Plan
     title: Inference Providers
   connection:
     description: Configure server endpoints, local channel gateway, and model

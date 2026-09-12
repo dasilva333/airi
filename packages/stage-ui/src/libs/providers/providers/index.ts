@@ -32,6 +32,11 @@ import './opencode-go'
 import './alibaba-cloud'
 import './pollinations'
 import './mimo'
+import './atlascloud'
+import './openpaths'
+import './byteplus'
+import './byteplus-coding-plan'
+import './volcengine-coding-plan'
 
 export {
   getDefinedProvider,
