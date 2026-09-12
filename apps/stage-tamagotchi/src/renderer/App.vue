@@ -42,7 +42,6 @@ import {
   electronMcpListTools,
   electronMcpUpdateConfig,
   electronOpenOnboarding,
-  electronOpenSettings,
   electronPluginInspect,
   electronPluginList,
   electronPluginLoad,
@@ -287,9 +286,6 @@ onMounted(async () => {
     debug('[App] Auto-backup condition met. Triggering backup...')
     void backupStore.triggerBackup()
   }
-
-  // Listen for open-settings IPC message from main process
-  defineInvokeHandler(context.value, electronOpenSettings, payload => router.push(payload?.route || '/settings'))
 
   if (typeof window !== 'undefined' && (window as any).electron) {
     if (typeof (window as any).electron.ipcRenderer.removeAllListeners === 'function') {
