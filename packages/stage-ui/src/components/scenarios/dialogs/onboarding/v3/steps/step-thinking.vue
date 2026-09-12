@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
-import { prewarmThinkingFillers } from '../../../../../../libs/pacing/pacing-prewarm'
+import { isThinkingAudioCached, prewarmThinkingFillers } from '../../../../../../libs/pacing/pacing-prewarm'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useProvidersStore } from '../../../../../../stores/providers'
 import { DEFAULT_PACING_FILLERS } from '../../../../../../types/pacing'
@@ -32,6 +32,42 @@ const tier3Enabled = ref<boolean>(draftStore.state.subconsciousTier3 ?? true)
 const isPrewarming = ref(false)
 const prewarmProgress = ref<{ completed: number, total: number } | null>(null)
 const prewarmSuccessCount = ref<number | null>(null)
+const showPrewarmPrompt = ref(false)
+
+const ttsVoiceLabel = computed(() => {
+  const provider = draftStore.state.ttsProvider || 'pocket-tts-local'
+  const voiceId = draftStore.state.ttsVoiceId || 'anna'
+  return `${voiceId} · ${provider}`
+})
+
+onMounted(async () => {
+  const ttsProvider = draftStore.state.ttsProvider || 'pocket-tts-local'
+  const ttsModel = draftStore.state.ttsModel || 'english_2026-04'
+  const ttsVoiceId = draftStore.state.ttsVoiceId || 'anna'
+  const ttsRate = draftStore.state.ttsRate ?? 1.0
+  const ttsPitch = draftStore.state.ttsPitch ?? 1.0
+
+  try {
+    let cached = 0
+    for (const phrase of DEFAULT_PACING_FILLERS) {
+      const isCached = await isThinkingAudioCached({
+        provider: ttsProvider,
+        model: ttsModel,
+        voiceId: ttsVoiceId,
+        pitch: ttsPitch,
+        rate: ttsRate,
+      }, phrase.text)
+      if (isCached)
+        cached++
+    }
+    if (cached > 0) {
+      prewarmSuccessCount.value = cached
+    }
+  }
+  catch (err) {
+    console.warn('[Step 10 Thinking] Cache check error:', err)
+  }
+})
 
 // 4. Response Length & Depth Cadence State
 export type ResponseLengthTierId = 'short' | 'balanced' | 'rich'
@@ -204,7 +240,17 @@ async function handlePrewarmAudioCache() {
 }
 
 // Navigation
-function handleContinue() {
+function handleContinue(skipPrompt = false) {
+  if (
+    !skipPrompt
+    && selectedProfile.value !== 'disabled'
+    && tier3Enabled.value
+    && (!prewarmSuccessCount.value || prewarmSuccessCount.value === 0)
+  ) {
+    showPrewarmPrompt.value = true
+    return
+  }
+
   draftStore.setThinking({
     pacingPreset: selectedProfile.value,
     subconsciousAsides: selectedProfile.value !== 'disabled',
@@ -217,6 +263,21 @@ function handleContinue() {
     customProse: customProse.value,
   })
   props.onNext()
+}
+
+function onContinueClick() {
+  handleContinue(false)
+}
+
+async function handleConfirmPrewarmAndContinue() {
+  await handlePrewarmAudioCache()
+  showPrewarmPrompt.value = false
+  handleContinue(true)
+}
+
+function handleSkipPrewarmAndContinue() {
+  showPrewarmPrompt.value = false
+  handleContinue(true)
 }
 </script>
 
@@ -546,51 +607,57 @@ function handleContinue() {
           <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
             Speaks short vocal reactions and organic transitions ("Wait...", "Hmm, let me see...") when the model takes time to reason.
           </p>
+
+          <!-- Inline Pre-warm Audio Cache Strip -->
+          <div
+            v-if="tier3Enabled"
+            :class="['mt-2 flex items-center justify-between gap-2 text-[10px] bg-neutral-50 dark:bg-neutral-800/40 p-1.5 rounded-lg border border-neutral-200/40 dark:border-white/5']"
+            @click.stop
+          >
+            <div :class="['flex items-center gap-1.5 font-medium min-w-0 truncate']">
+              <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', prewarmSuccessCount ? 'bg-emerald-500' : isPrewarming ? 'bg-amber-500 animate-ping' : 'bg-neutral-400 dark:bg-neutral-500']" />
+              <span :class="['truncate text-neutral-600 dark:text-neutral-300']">
+                <template v-if="isPrewarming">
+                  Synthesizing fillers ({{ prewarmProgress?.completed || 0 }}/{{ prewarmProgress?.total || 9 }})...
+                </template>
+                <template v-else-if="prewarmSuccessCount">
+                  Cache primed: {{ prewarmSuccessCount }} fillers ready (instant playback)
+                </template>
+                <template v-else>
+                  Cache unprimed · Pre-synthesize clips to eliminate pause latency
+                </template>
+              </span>
+            </div>
+
+            <div :class="['flex items-center gap-1.5 flex-shrink-0']">
+              <span
+                v-if="prewarmSuccessCount"
+                :class="['text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-bold flex items-center gap-1']"
+              >
+                <div :class="['i-solar:check-circle-bold w-3 h-3']" />
+                <span>Zero Latency</span>
+              </span>
+
+              <button
+                type="button"
+                :disabled="isPrewarming"
+                :class="[
+                  'px-2.5 py-1 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-xs',
+                  isPrewarming
+                    ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed'
+                    : prewarmSuccessCount
+                      ? 'bg-neutral-200/80 hover:bg-neutral-300 dark:bg-neutral-700/80 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200'
+                      : 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/25',
+                ]"
+                @click.stop.prevent="handlePrewarmAudioCache"
+              >
+                <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin w-3 h-3' : 'i-solar:bolt-bold w-3 h-3']" />
+                <span>{{ isPrewarming ? 'Pre-warming...' : prewarmSuccessCount ? 'Re-warm' : 'Pre-warm Audio Cache' }}</span>
+              </button>
+            </div>
+          </div>
         </div>
       </label>
-    </div>
-
-    <!-- Section 3: Pre-warm Audio Cache Action -->
-    <div
-      v-if="selectedProfile !== 'disabled'"
-      :class="['p-4 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900/60 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4']"
-    >
-      <div :class="['flex items-start gap-3']">
-        <div :class="['w-8 h-8 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center text-base flex-shrink-0 mt-0.5']">
-          <div :class="['i-solar:bolt-circle-bold w-4 h-4']" />
-        </div>
-        <div>
-          <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-            Thinking Audio Filler Cache
-          </h4>
-          <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5']">
-            Pre-synthesize filler phrases into browser cache using your companion's configured voice to eliminate latency during reasoning pauses.
-          </p>
-        </div>
-      </div>
-
-      <div :class="['flex items-center gap-2 flex-shrink-0']">
-        <span
-          v-if="prewarmSuccessCount"
-          :class="['text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20']"
-        >
-          ✓ {{ prewarmSuccessCount }} Fillers Ready
-        </span>
-        <button
-          type="button"
-          :disabled="isPrewarming"
-          :class="[
-            'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm',
-            isPrewarming
-              ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed'
-              : 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/30',
-          ]"
-          @click="handlePrewarmAudioCache"
-        >
-          <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin w-4 h-4' : 'i-solar:bolt-bold w-4 h-4']" />
-          <span>{{ isPrewarming ? `Pre-warming (${prewarmProgress?.completed}/${prewarmProgress?.total})...` : 'Pre-warm Audio Cache' }}</span>
-        </button>
-      </div>
     </div>
 
     <!-- Section 4: Max Response Length & Cadence -->
@@ -785,11 +852,67 @@ function handleContinue() {
       <button
         type="button"
         :class="['px-6 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-md shadow-primary-600/30 transition-all cursor-pointer flex items-center gap-2']"
-        @click="handleContinue"
+        @click="onContinueClick"
       >
         <span>Confirm & Continue</span>
         <div :class="['i-solar:arrow-right-linear w-4 h-4']" />
       </button>
+    </div>
+
+    <!-- Option A: Pre-warm Thinking Fillers Confirmation Modal -->
+    <div
+      v-if="showPrewarmPrompt"
+      :class="['fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn']"
+    >
+      <div :class="['relative max-w-md w-full rounded-2xl border border-neutral-200 dark:border-white/15 bg-white dark:bg-[#10101c] p-6 text-center shadow-2xl space-y-4']">
+        <div :class="['mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-primary-500/30 bg-primary-950/20 text-primary-400 shadow-inner']">
+          <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin h-8 w-8' : 'i-solar:bolt-circle-bold h-8 w-8']" />
+        </div>
+
+        <div>
+          <h3 :class="['text-base font-bold text-neutral-900 dark:text-white']">
+            Pre-warm Thinking Fillers?
+          </h3>
+          <p :class="['mt-2 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed text-left']">
+            You've enabled <strong>Casual Spoken Fillers</strong>, but the audio cache is currently empty.
+          </p>
+          <p :class="['mt-2 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed text-left']">
+            To eliminate voice latency during reasoning pauses, AIRI needs to make <strong>9 quick synthesis requests</strong> to your configured voice provider (<span class="text-primary-600 font-semibold font-mono dark:text-primary-400">{{ ttsVoiceLabel }}</span>).
+          </p>
+          <p :class="['mt-2 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed text-left']">
+            Would you like to pre-generate these clips now, or continue and generate them on-demand later?
+          </p>
+
+          <!-- Prewarm progress indicator if running inside modal -->
+          <div
+            v-if="isPrewarming"
+            :class="['mt-3 p-2.5 rounded-xl bg-primary-500/10 border border-primary-500/20 text-xs font-semibold text-primary-600 dark:text-primary-300 flex items-center justify-center gap-2']"
+          >
+            <div :class="['i-solar:refresh-circle-bold animate-spin h-4 w-4']" />
+            <span>Pre-warming fillers ({{ prewarmProgress?.completed || 0 }}/{{ prewarmProgress?.total || 9 }})...</span>
+          </div>
+        </div>
+
+        <div :class="['flex flex-col sm:flex-row items-center gap-2.5 pt-2']">
+          <button
+            type="button"
+            :disabled="isPrewarming"
+            :class="['w-full sm:flex-1 rounded-xl border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-white/5 px-4 py-2.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed']"
+            @click="handleSkipPrewarmAndContinue"
+          >
+            Generate On-Demand Later
+          </button>
+          <button
+            type="button"
+            :disabled="isPrewarming"
+            :class="['w-full sm:flex-1 rounded-xl bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-500 hover:to-indigo-500 px-4 py-2.5 text-xs font-semibold text-white transition-all shadow-md shadow-primary-600/30 cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed']"
+            @click="handleConfirmPrewarmAndContinue"
+          >
+            <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin w-4 h-4' : 'i-solar:bolt-bold w-4 h-4']" />
+            <span>{{ isPrewarming ? 'Synthesizing...' : '⚡ Pre-generate 9 Clips Now' }}</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
