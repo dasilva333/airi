@@ -674,7 +674,11 @@ const wardrobeFilter = ref<'all' | 'base' | 'overlay'>('all')
 
 const isElectron = computed(() => typeof window !== 'undefined' && !!(window as any).electron)
 
+let lastDispatchedStance: string | null = null
 watch(gunslingerStance, async (stance) => {
+  if (stance === lastDispatchedStance)
+    return
+  lastDispatchedStance = stance
   if (isElectron.value) {
     try {
       const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')

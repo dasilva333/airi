@@ -601,6 +601,34 @@ export function createStageMateService(params?: {
   let mouseTicker: NodeJS.Timeout | null = null
   let lastMousePos = { x: -1, y: -1 }
   let lastLeftDown = false
+  let cachedDisplayBounds: { x: number, y: number, width: number, height: number } | null = null
+
+  function getDisplayBoundsForPoint(pt: { x: number, y: number }): { width: number, height: number } {
+    if (
+      cachedDisplayBounds
+      && pt.x >= cachedDisplayBounds.x
+      && pt.x < cachedDisplayBounds.x + cachedDisplayBounds.width
+      && pt.y >= cachedDisplayBounds.y
+      && pt.y < cachedDisplayBounds.y + cachedDisplayBounds.height
+    ) {
+      return cachedDisplayBounds
+    }
+
+    try {
+      const disp = screen.getDisplayNearestPoint(pt)
+      if (disp?.bounds) {
+        cachedDisplayBounds = disp.bounds
+        return disp.bounds
+      }
+    }
+    catch {}
+
+    return cachedDisplayBounds ?? { width: 1920, height: 1080 }
+  }
+
+  screen.on('display-metrics-changed', () => { cachedDisplayBounds = null })
+  screen.on('display-added', () => { cachedDisplayBounds = null })
+  screen.on('display-removed', () => { cachedDisplayBounds = null })
 
   function startMouseTelemetry() {
     if (mouseTicker)
@@ -614,15 +642,15 @@ export function createStageMateService(params?: {
         if (pt.x !== lastMousePos.x || pt.y !== lastMousePos.y || isDown !== lastLeftDown) {
           lastMousePos = { x: pt.x, y: pt.y }
           lastLeftDown = isDown
-          const disp = screen.getDisplayNearestPoint(pt)
+          const bounds = getDisplayBoundsForPoint(pt)
           broadcast({
             type: 'stage:control:mouse',
             data: {
               x: pt.x,
               y: pt.y,
               isDown,
-              monitorWidth: disp?.bounds?.width ?? 0,
-              monitorHeight: disp?.bounds?.height ?? 0,
+              monitorWidth: bounds.width,
+              monitorHeight: bounds.height,
             },
           })
         }

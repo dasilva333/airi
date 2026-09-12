@@ -2,32 +2,89 @@ import type { BrowserWindow } from 'electron'
 
 import type { MicToggleHotkey } from '../../../shared/eventa'
 
-import { execFile } from 'node:child_process'
-import { chmodSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import koffi from 'koffi'
 
-import { app, globalShortcut, ipcMain } from 'electron'
+import { globalShortcut, ipcMain } from 'electron'
 
 let currentHotkey: MicToggleHotkey = 'Scroll'
 let currentWindow: BrowserWindow | null = null
-let macCapsLockPollingInterval: NodeJS.Timeout | null = null
-let lastMacCapsLockState: boolean | null = null
+let lockKeyPollingInterval: NodeJS.Timeout | null = null
+let lastLockKeyState: boolean | null = null
+
+let getMacCapsLockState: (() => boolean) | null = null
+let getWinLockKeyState: ((vk: number) => boolean) | null = null
+
+const WIN_LOCK_KEYS: Record<MicToggleHotkey, number> = {
+  Caps: 0x14, // VK_CAPITAL
+  Scroll: 0x91, // VK_SCROLL
+  Num: 0x90, // VK_NUMLOCK
+}
+
+function initMacCapsLockChecker(): boolean {
+  if (getMacCapsLockState)
+    return true
+  try {
+    const cg = koffi.load('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics')
+    const CGEventSourceFlagsState = cg.func('uint64_t CGEventSourceFlagsState(int stateID)')
+    const kCGEventSourceStateCombinedSessionState = 1
+    const kCGEventFlagMaskAlphaShift = 0x00010000n
+
+    getMacCapsLockState = () => {
+      try {
+        const flags = BigInt(CGEventSourceFlagsState(kCGEventSourceStateCombinedSessionState))
+        return (flags & kCGEventFlagMaskAlphaShift) !== 0n
+      }
+      catch {
+        return false
+      }
+    }
+    return true
+  }
+  catch (err) {
+    console.error(`[Mic Toggle] Failed to load CoreGraphics via koffi: ${err}`)
+    return false
+  }
+}
+
+function initWinLockKeyChecker(): boolean {
+  if (getWinLockKeyState)
+    return true
+  try {
+    const user32 = koffi.load('user32.dll')
+    const GetKeyState = user32.func('short GetKeyState(int nVirtKey)')
+
+    getWinLockKeyState = (vk: number) => {
+      try {
+        // Low-order bit indicates toggle status (1 = toggled ON, 0 = untoggled OFF)
+        return (GetKeyState(vk) & 1) !== 0
+      }
+      catch {
+        return false
+      }
+    }
+    return true
+  }
+  catch (err) {
+    console.error(`[Mic Toggle] Failed to load user32.dll via koffi: ${err}`)
+    return false
+  }
+}
 
 /**
  * Stop any existing monitoring and unregister shortcuts
  */
 export function cleanupMicToggleShortcut() {
   globalShortcut.unregisterAll()
-  if (macCapsLockPollingInterval) {
-    clearInterval(macCapsLockPollingInterval)
-    macCapsLockPollingInterval = null
+  if (lockKeyPollingInterval) {
+    clearInterval(lockKeyPollingInterval)
+    lockKeyPollingInterval = null
   }
-  lastMacCapsLockState = null
+  lastLockKeyState = null
   ipcMain.removeAllListeners('mic-state-changed')
 }
 
 /**
- * Setup global microphone toggle shortcut using Electron globalShortcut
+ * Setup global microphone toggle shortcut using Electron globalShortcut or native lock key state polling
  */
 export function setupMicToggleShortcut(mainWindow: BrowserWindow, hotkey: MicToggleHotkey = 'Scroll') {
   currentWindow = mainWindow
@@ -45,69 +102,81 @@ export function setupMicToggleShortcut(mainWindow: BrowserWindow, hotkey: MicTog
 
   console.log(`[Mic Toggle] Setting up shortcut with hotkey: ${currentHotkey}`)
 
-  // 1. Initial State Check (Windows only fallback for LED sync)
-  // We don't poll anymore. We just react to the global shortcut.
-  // The globalShortcut consumes the event, so the LED won't toggle by itself.
-  // We will manually toggle it to keep the OS/User in sync.
-
   const registerShortcut = () => {
+    // 1. macOS Caps Lock polling fallback (avoids unreliable globalShortcut on Darwin)
     if (process.platform === 'darwin' && currentHotkey === 'Caps') {
-      const helperPath = join(app.getAppPath(), 'src/main/services/shortcuts/macos-capslock-check')
-      console.log(`[Mic Toggle] Using macOS polling fallback for Caps Lock.`)
-      console.log(`[Mic Toggle] Expected helper path: ${helperPath}`)
+      console.log(`[Mic Toggle] Using in-process CoreGraphics polling for Caps Lock on macOS.`)
 
-      // Verify helper existence
-      if (!existsSync(helperPath)) {
-        console.error(`[Mic Toggle] CRITICAL: Native helper not found at ${helperPath}`)
-      }
-      else {
-        try {
-          chmodSync(helperPath, '755')
-          console.log(`[Mic Toggle] Native helper found and ready.`)
-        }
-        catch (e) {
-          console.error(`[Mic Toggle] Failed to chmod helper: ${e}`)
-        }
+      if (!initMacCapsLockChecker() || !getMacCapsLockState) {
+        console.error(`[Mic Toggle] CRITICAL: Could not initialize CoreGraphics Caps Lock checker.`)
+        return
       }
 
-      macCapsLockPollingInterval = setInterval(() => {
-        // Heartbeat logging every 30 seconds
-        if (Date.now() % 30000 < 200) {
-          console.log('[@proj-airi/stage-tamagotchi] [MicToggle] macOS Caps Lock poller heartbeat...')
+      lastLockKeyState = getMacCapsLockState()
+
+      lockKeyPollingInterval = setInterval(() => {
+        if (!getMacCapsLockState)
+          return
+
+        const currentState = getMacCapsLockState()
+
+        if (lastLockKeyState !== null && currentState !== lastLockKeyState) {
+          console.log(`[@proj-airi/stage-tamagotchi] [MicToggle] Caps Lock state changed: ${lastLockKeyState} -> ${currentState}`)
+
+          if (currentWindow && !currentWindow.isDestroyed()) {
+            const timestamp = Date.now()
+            console.log(`[@proj-airi/stage-tamagotchi] [MicToggle] Emitting toggle-mic-from-shortcut at ${timestamp}`)
+            currentWindow.webContents.send('toggle-mic-from-shortcut', { timestamp })
+          }
+          else {
+            console.warn(`[Mic Toggle] No active window to send toggle event to.`)
+          }
         }
-
-        execFile(helperPath, (error, stdout) => {
-          if (error) {
-            console.error(`[@proj-airi/stage-tamagotchi] [MicToggle] Poller error: ${error.message}`)
-            return
-          }
-
-          const stdoutTrimmed = stdout.trim()
-          const currentState = stdoutTrimmed === '1'
-
-          if (lastMacCapsLockState !== null && currentState !== lastMacCapsLockState) {
-            console.log(`[@proj-airi/stage-tamagotchi] [MicToggle] Caps Lock state changed: ${lastMacCapsLockState} -> ${currentState}`)
-
-            if (currentWindow) {
-              const timestamp = Date.now()
-              console.log(`[@proj-airi/stage-tamagotchi] [MicToggle] Emitting toggle-mic-from-shortcut at ${timestamp}`)
-              currentWindow.webContents.send('toggle-mic-from-shortcut', { timestamp })
-            }
-            else {
-              console.warn(`[Mic Toggle] No active window to send toggle event to.`)
-            }
-          }
-          lastMacCapsLockState = currentState
-        })
-      }, 200) // Poll every 200ms
+        lastLockKeyState = currentState
+      }, 100)
       return
     }
 
-    // 2. Standard globalShortcut for other keys/platforms
+    // 2. Windows Lock Keys (Caps, Scroll, Num) polling to avoid swallowing keys with RegisterHotKey
+    if (process.platform === 'win32' && WIN_LOCK_KEYS[currentHotkey] !== undefined) {
+      const vk = WIN_LOCK_KEYS[currentHotkey]
+      console.log(`[Mic Toggle] Using in-process Win32 GetKeyState polling for ${currentHotkey} (VK: 0x${vk.toString(16)}).`)
+
+      if (!initWinLockKeyChecker() || !getWinLockKeyState) {
+        console.error(`[Mic Toggle] CRITICAL: Could not initialize Win32 GetKeyState checker.`)
+        return
+      }
+
+      lastLockKeyState = getWinLockKeyState(vk)
+
+      lockKeyPollingInterval = setInterval(() => {
+        if (!getWinLockKeyState)
+          return
+
+        const currentState = getWinLockKeyState(vk)
+
+        if (lastLockKeyState !== null && currentState !== lastLockKeyState) {
+          console.log(`[@proj-airi/stage-tamagotchi] [MicToggle] Windows ${currentHotkey} state changed: ${lastLockKeyState} -> ${currentState}`)
+
+          if (currentWindow && !currentWindow.isDestroyed()) {
+            const timestamp = Date.now()
+            console.log(`[@proj-airi/stage-tamagotchi] [MicToggle] Emitting toggle-mic-from-shortcut at ${timestamp}`)
+            currentWindow.webContents.send('toggle-mic-from-shortcut', { timestamp })
+          }
+          else {
+            console.warn(`[Mic Toggle] No active window to send toggle event to.`)
+          }
+        }
+        lastLockKeyState = currentState
+      }, 100)
+      return
+    }
+
+    // 3. Standard globalShortcut for other keys/platforms
     try {
       const isRegistered = globalShortcut.register(electronKey, () => {
         console.log(`[Mic Toggle] Hotkey ${electronKey} pressed`)
-        if (currentWindow) {
+        if (currentWindow && !currentWindow.isDestroyed()) {
           currentWindow.webContents.send('toggle-mic-from-shortcut', { timestamp: Date.now() })
         }
       })
@@ -127,29 +196,4 @@ export function setupMicToggleShortcut(mainWindow: BrowserWindow, hotkey: MicTog
   setTimeout(() => {
     registerShortcut()
   }, 100)
-
-  // 2. Listen to renderer state changes to sync the LED
-  // NOTICE: Disabled backend Scroll Lock state syncing as requested by user.
-  // It causes unwanted flickering and OS overlays.
-  /*
-  ipcMain.on('mic-state-changed', (_event, _micEnabled: boolean) => {
-    // On Windows, try to sync the LED if possible.
-    // Since globalShortcut consumes the keypress, the LED state is controlled by US.
-    // We send a toggle if the target state doesn't match our 'presumed' LED state.
-    // NOTE: This uses WScript.Shell which is safer than Add-Type.
-    if (process.platform === 'win32') {
-      console.log(`[Mic Toggle] Syncing LED for ${electronKey}`)
-      // Temporarily unregister to avoid infinite loop from simulated keypress
-      globalShortcut.unregister(electronKey)
-
-      const syncScript = `$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys('{${sendKey}}')`
-      spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', syncScript], { windowsHide: true })
-
-      // Re-register after a small delay to ensure the OS has processed the simulated key
-      setTimeout(() => {
-        registerShortcut()
-      }, 500)
-    }
-  })
-  */
 }

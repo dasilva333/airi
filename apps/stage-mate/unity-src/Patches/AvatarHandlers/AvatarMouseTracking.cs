@@ -194,6 +194,7 @@ public class AvatarMouseTracking : MonoBehaviour
     void LoadGun(GameObject prefab)
     {
         if (!prefab || !rightHand) return;
+        if (gun != null && currentGunObj == prefab && gun.activeSelf) return;
         if (gun != null) Destroy(gun.gameObject);
         Debug.Log("[Gunslinger] Loaded weapon: " + prefab.name, this);
         gun = Instantiate(prefab, rightHand);
