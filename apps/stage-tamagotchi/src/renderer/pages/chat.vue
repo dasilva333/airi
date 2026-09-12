@@ -22,12 +22,12 @@ import ChatWorkspaceCoordinator from '../components/chat/ChatWorkspaceCoordinato
 import { electronApplySizePreset, electronOpenSettings } from '../../shared/eventa'
 
 // Code-split workspace sub-surfaces to eliminate heavy initial bundle evaluation
+const chat_arcade = defineAsyncComponent(() => import('../components/chat/chat_arcade.vue'))
 const chat_director = defineAsyncComponent(() => import('../components/chat/chat_director.vue'))
 const chat_event_log = defineAsyncComponent(() => import('../components/chat/chat_event_log.vue'))
 const chat_lifetime = defineAsyncComponent(() => import('../components/chat/chat_lifetime.vue'))
 const chat_media = defineAsyncComponent(() => import('../components/chat/chat_media.vue'))
 const chat_messages = defineAsyncComponent(() => import('../components/chat/chat_messages.vue'))
-const chat_notes = defineAsyncComponent(() => import('../components/chat/chat_notes.vue'))
 const chat_rehearsal = defineAsyncComponent(() => import('../components/chat/chat_rehearsal.vue'))
 const chat_studio = defineAsyncComponent(() => import('../components/chat/chat_studio.vue'))
 const chat_world = defineAsyncComponent(() => import('../components/chat/chat_world.vue'))
@@ -62,6 +62,15 @@ function handleOpenStudio() {
     route: `/settings/airi-card?cardId=${activeCardId.value}&tab=studio`,
   }).catch((err: any) => {
     console.error('Failed to open Studio settings:', err)
+  })
+}
+
+function handleOpenCharacterConfig() {
+  const route = activeCardId.value ? `/settings/airi-card?cardId=${activeCardId.value}` : '/settings/airi-card'
+  void openSettings({
+    route,
+  }).catch((err: any) => {
+    console.error('Failed to open Character Config settings:', err)
   })
 }
 
@@ -123,33 +132,65 @@ const rightPanelMediaCollapsed = useLocalStorage('airi:chat:rp-media-collapsed',
 
 // Left Panel Routing States
 const isLeftPanelOpen = useLocalStorage('airi:chat:left-panel-open', true)
-const activeSurface = useLocalStorage<'messages' | 'director' | 'world' | 'characters' | 'media' | 'archives' | 'notes' | 'rehearsal' | 'event-log'>('airi:chat:left-panel-active', 'messages')
+const activeSurface = useLocalStorage<'messages' | 'director' | 'world' | 'characters' | 'media' | 'archives' | 'rehearsal' | 'event-log' | 'arcade'>('airi:chat:left-panel-active', 'messages')
+
+// Guard removed legacy surfaces
+if ((activeSurface.value as string) === 'notes') {
+  activeSurface.value = 'messages'
+}
 
 const SURFACE_LABELS: Record<string, string> = {
-  'messages': 'Chat View',
+  'messages': 'Live Dialog',
   'director': 'Director\'s Monitor',
-  'world': 'World Bible',
-  'characters': 'Studio',
-  'media': 'Media Library',
+  'world': 'Stage Directives',
+  'characters': 'Cast Review',
+  'media': 'Scene Vault',
   'archives': 'Eternal Thread',
-  'event-log': 'Event Ledger',
-  'notes': 'Notes',
-  'rehearsal': 'Rehearsal',
+  'event-log': 'Production Log',
+  'rehearsal': 'Rehearsal Room',
+  'arcade': 'Arcade Room',
 }
 
 const SURFACE_ICONS: Record<string, string> = {
   'messages': 'i-solar:chat-line-bold-duotone',
   'director': 'i-solar:videocamera-record-bold-duotone',
   'world': 'i-solar:notes-bold-duotone',
-  'characters': 'i-solar:layers-minimalistic-bold-duotone',
+  'characters': 'i-solar:users-group-two-rounded-bold-duotone',
   'media': 'i-solar:gallery-bold-duotone',
   'archives': 'i-solar:dna-bold-duotone',
   'event-log': 'i-solar:document-text-bold-duotone',
-  'notes': 'i-solar:document-text-bold-duotone',
   'rehearsal': 'i-solar:clapperboard-text-bold-duotone',
+  'arcade': 'i-solar:gamepad-bold-duotone',
 }
 
-const activeSurfaceLabel = computed(() => SURFACE_LABELS[activeSurface.value] || 'Chat View')
+const NAV_SECTIONS = [
+  {
+    title: 'Main',
+    items: [
+      { id: 'messages', label: 'Live Dialog', icon: 'i-solar:chat-line-bold-duotone' },
+      { id: 'arcade', label: 'Arcade Room', icon: 'i-solar:gamepad-bold-duotone' },
+      { id: 'rehearsal', label: 'Rehearsal Room', icon: 'i-solar:clapperboard-text-bold-duotone' },
+    ],
+  },
+  {
+    title: 'Autonomous Artistry',
+    items: [
+      { id: 'director', label: 'Director\'s Monitor', icon: 'i-solar:videocamera-record-bold-duotone' },
+      { id: 'characters', label: 'Cast Review', icon: 'i-solar:users-group-two-rounded-bold-duotone' },
+      { id: 'media', label: 'Scene Vault', icon: 'i-solar:gallery-bold-duotone' },
+      { id: 'world', label: 'Stage Directives', icon: 'i-solar:notes-bold-duotone' },
+    ],
+  },
+  {
+    title: 'Recall',
+    items: [
+      { id: 'archives', label: 'Eternal Thread', icon: 'i-solar:dna-bold-duotone' },
+      { id: 'event-log', label: 'Production Log', icon: 'i-solar:document-text-bold-duotone' },
+    ],
+  },
+] as const
+
+const activeSurfaceLabel = computed(() => SURFACE_LABELS[activeSurface.value] || 'Live Dialog')
 const activeSurfaceIcon = computed(() => SURFACE_ICONS[activeSurface.value] || 'i-solar:chat-line-bold-duotone')
 
 // Track loaded sub-surfaces to skip coordinator on subsequent warm visits
@@ -322,9 +363,9 @@ const activeSurfaceComponent = computed(() => {
     'characters': chat_studio,
     'media': chat_media,
     'archives': chat_lifetime,
-    'notes': chat_notes,
     'rehearsal': chat_rehearsal,
     'event-log': chat_event_log,
+    'arcade': chat_arcade,
   }
   return markRaw(map[activeSurface.value] || chat_messages)
 })
@@ -1624,42 +1665,43 @@ function selectSurface(surface: typeof activeSurface.value) {
             <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase">Workspace Routes</span>
           </div>
 
-          <!-- Navigation Links -->
-          <div class="flex-1 space-y-1">
-            <button
-              v-for="item in ([
-                { id: 'messages', label: 'Chat View', icon: 'i-solar:chat-line-bold-duotone' },
-                { id: 'director', label: 'Director\'s Monitor', icon: 'i-solar:videocamera-record-bold-duotone' },
-                { id: 'world', label: 'World Bible', icon: 'i-solar:notes-bold-duotone' },
-                { id: 'characters', label: 'Studio', icon: 'i-solar:layers-minimalistic-bold-duotone' },
-                { id: 'media', label: 'Media Library', icon: 'i-solar:gallery-bold-duotone' },
-                { id: 'archives', label: 'Eternal Thread', icon: 'i-solar:dna-bold-duotone' },
-                { id: 'event-log', label: 'Event Ledger', icon: 'i-solar:document-text-bold-duotone' },
-                { id: 'notes', label: 'Notes', icon: 'i-solar:document-text-bold-duotone' },
-                { id: 'rehearsal', label: 'Rehearsal', icon: 'i-solar:clapperboard-text-bold-duotone' },
-              ] as const)"
-              :key="item.id"
-              class="w-full flex items-center gap-3 rounded-xl p-2.5 text-left text-xs font-semibold transition-all"
-              :class="activeSurface === item.id
-                ? 'bg-primary-50/70 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400 ring-1 ring-primary-500/10'
-                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900/50'"
-              @click="selectSurface(item.id)"
+          <!-- Navigation Sections -->
+          <div class="flex-1 overflow-y-auto pr-1 space-y-4">
+            <div
+              v-for="section in NAV_SECTIONS"
+              :key="section.title"
+              class="space-y-1"
             >
-              <div :class="[item.icon, 'text-base']" />
-              <span>{{ item.label }}</span>
-            </button>
+              <div class="px-2 pb-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+                {{ section.title }}
+              </div>
+              <button
+                v-for="item in section.items"
+                :key="item.id"
+                class="w-full flex items-center gap-3 rounded-xl p-2.5 text-left text-xs font-semibold transition-all"
+                :class="activeSurface === item.id
+                  ? 'bg-primary-50/70 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400 ring-1 ring-primary-500/10'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900/50'"
+                @click="selectSurface(item.id)"
+              >
+                <div :class="[item.icon, 'text-base']" />
+                <span class="truncate">{{ item.label }}</span>
+              </button>
+            </div>
           </div>
 
-          <!-- Settings Footer -->
+          <!-- Character Config Footer -->
           <div class="border-t border-neutral-200/40 pt-2 dark:border-neutral-800/40">
             <button
-              class="w-full flex items-center justify-between rounded-xl p-2 text-left text-xs text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
-              @click="selectSurface('messages')"
+              class="w-full flex items-center justify-between rounded-xl p-2 text-left text-xs text-neutral-500 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
+              title="Open Character Config"
+              @click="handleOpenCharacterConfig"
             >
               <div class="flex items-center gap-2">
-                <div class="i-solar:settings-minimalistic-linear text-base" />
-                <span>Settings</span>
+                <div class="i-solar:user-id-bold-duotone text-base text-primary-500" />
+                <span class="font-medium">Character Config</span>
               </div>
+              <div class="i-solar:arrow-right-up-linear text-xs opacity-60" />
             </button>
           </div>
         </div>
@@ -1676,40 +1718,42 @@ function selectSurface(surface: typeof activeSurface.value) {
           <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase">Workspace</span>
         </div>
 
-        <div class="flex-1 space-y-1">
-          <button
-            v-for="item in ([
-              { id: 'messages', label: 'Chat View', icon: 'i-solar:chat-line-bold-duotone' },
-              { id: 'director', label: 'Director\'s Monitor', icon: 'i-solar:videocamera-record-bold-duotone' },
-              { id: 'world', label: 'World Bible', icon: 'i-solar:notes-bold-duotone' },
-              { id: 'characters', label: 'Studio', icon: 'i-solar:layers-minimalistic-bold-duotone' },
-              { id: 'media', label: 'Media Library', icon: 'i-solar:gallery-bold-duotone' },
-              { id: 'archives', label: 'Eternal Thread', icon: 'i-solar:dna-bold-duotone' },
-              { id: 'event-log', label: 'Event Ledger', icon: 'i-solar:document-text-bold-duotone' },
-              { id: 'notes', label: 'Notes', icon: 'i-solar:document-text-bold-duotone' },
-              { id: 'rehearsal', label: 'Rehearsal', icon: 'i-solar:clapperboard-text-bold-duotone' },
-            ] as const)"
-            :key="item.id"
-            class="w-full flex items-center gap-3 rounded-xl p-2.5 text-left text-xs font-semibold transition-all"
-            :class="activeSurface === item.id
-              ? 'bg-primary-50/70 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400 ring-1 ring-primary-500/10'
-              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900/50'"
-            @click="selectSurface(item.id)"
+        <div class="flex-1 overflow-y-auto pr-1 space-y-4">
+          <div
+            v-for="section in NAV_SECTIONS"
+            :key="section.title"
+            class="space-y-1"
           >
-            <div :class="[item.icon, 'text-base']" />
-            <span class="truncate">{{ item.label }}</span>
-          </button>
+            <div class="px-2 pb-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+              {{ section.title }}
+            </div>
+            <button
+              v-for="item in section.items"
+              :key="item.id"
+              class="w-full flex items-center gap-3 rounded-xl p-2.5 text-left text-xs font-semibold transition-all"
+              :class="activeSurface === item.id
+                ? 'bg-primary-50/70 text-primary-600 dark:bg-primary-950/20 dark:text-primary-400 ring-1 ring-primary-500/10'
+                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900/50'"
+              @click="selectSurface(item.id)"
+            >
+              <div :class="[item.icon, 'text-base']" />
+              <span class="truncate">{{ item.label }}</span>
+            </button>
+          </div>
         </div>
 
+        <!-- Character Config Footer -->
         <div class="border-t border-neutral-200/45 pt-2 dark:border-neutral-800/45">
           <button
-            class="w-full flex items-center justify-between rounded-xl p-2 text-left text-xs text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
-            @click="selectSurface('messages')"
+            class="w-full flex items-center justify-between rounded-xl p-2 text-left text-xs text-neutral-500 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
+            title="Open Character Config"
+            @click="handleOpenCharacterConfig"
           >
             <div class="flex items-center gap-2">
-              <div class="i-solar:settings-minimalistic-linear text-base" />
-              <span>Settings</span>
+              <div class="i-solar:user-id-bold-duotone text-base text-primary-500" />
+              <span class="truncate font-medium">Character Config</span>
             </div>
+            <div class="i-solar:arrow-right-up-linear text-xs opacity-60" />
           </button>
         </div>
       </div>
