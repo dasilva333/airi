@@ -37,7 +37,7 @@ function patchSpmPackageForCoreAI() {
 }
 
 // Read root or tamagotchi version
-let version = '0.9.30-stable.20260907'
+let version = '0.9.31-stable.20260911'
 try {
   const pkgTamagotchi = JSON.parse(readFileSync(join(rootDir, 'apps/stage-tamagotchi/package.json'), 'utf-8'))
   if (pkgTamagotchi.version)

@@ -75,10 +75,33 @@ This fork favors finished, testable paths over indiscriminate accumulation. Upst
 
 ---
 
+## Privacy & Data Sovereignty
+
+> **Your companion belongs to you.**
+
+An AI companion interacts with your most personal thoughts, daily habits, emotional states, and desktop activities. In Project AIRI, **local-first runtime and user custody are non-negotiable architectural requirements**, not marketing afterthoughts.
+
+### Privacy & Trust Matrix
+
+| Dimension | Architectural Policy & Reality |
+| :--- | :--- |
+| **Telemetry & Analytics** | **0 telemetry.** No analytics scripts, no tracking pixels (no PostHog, Plausible, or Google Analytics), and no error/crash reporting pings. |
+| **Backend & Operators** | **No server operator exists.** There is no Project AIRI database or central relay. The web stage is hosted as static assets via GitHub Pages. |
+| **Local Storage** | **Local-first.** All cards, chat sessions, journals, memories, assets, and settings live in browser/Electron IndexedDB on your machine. |
+| **Cloud Synchronization** | **Optional & User-Authorized.** Syncs directly to your own Cloudflare infrastructure (Workers, R2, KV) via Cloudflare Access (PKCE). |
+| **Data Custody** | **Cloudflare and you.** The developer holds no keys, tokens, or infrastructure access. Your R2 bucket acts as your private raw backup. |
+| **What Leaves the Device?** | In local mode, nothing leaves your device. When Cloud Sync is active, application state syncs to your private R2/KV; machine-local hardware settings (audio devices, per-device Discord toggles) stay strictly local. |
+| **Discord Cloud Presence** | When enabled, the cloud worker operates as a remote presence using your synced state in KV/R2 while your local desktop stage is powered off. |
+| **Retention & Purging** | Disabling sync halts all uploads while preserving remote state. You can completely purge all cloud data directly from the in-app Cloud Relay tab or the Cloudflare dashboard. |
+
+*For the complete architectural trust model, data boundary breakdown, and security specifications, see [**PRIVACY.md**](./PRIVACY.md).*
+
+---
+
 ## Download
 
 <p float="left" align="center">
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.30-stable.20260907/AIRI (dasilva333)-0.9.30-stable.20260907-windows-x64-setup.exe">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.31-stable.20260911/AIRI (dasilva333)-0.9.31-stable.20260911-windows-x64-setup.exe">
     <picture>
       <source
         width="33%"
@@ -93,7 +116,7 @@ This fork favors finished, testable paths over indiscriminate accumulation. Upst
       <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.windows.light.en-US.avif" alt="Download AIRI for Windows" />
     </picture>
   </a>
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.30-stable.20260907/AIRI (dasilva333)-0.9.30-stable.20260907-darwin-arm64.dmg">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.31-stable.20260911/AIRI (dasilva333)-0.9.31-stable.20260911-darwin-arm64.dmg">
     <picture>
       <source
         width="33%"
