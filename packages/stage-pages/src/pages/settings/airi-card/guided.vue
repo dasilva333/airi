@@ -13,6 +13,7 @@ import { useSettingsUserProfile } from '@proj-airi/stage-ui/stores/settings/user
 import { Button } from '@proj-airi/ui'
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
+import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -108,6 +109,49 @@ const refinementGuidance = ref('')
 const userDescriptionInput = ref('')
 const userImagePromptInput = ref('')
 const includeSelfConcept = ref(false)
+
+// Step Stepper Navigation
+interface WizardStepDef {
+  step: number
+  id: string
+  label: string
+  subtitle: string
+  icon: string
+}
+
+const wizardSteps: WizardStepDef[] = [
+  { step: 1, id: 'cast', label: '1. Cast', subtitle: 'Select Characters', icon: 'i-solar:users-group-two-rounded-bold' },
+  { step: 2, id: 'roster', label: '2. Roster', subtitle: 'Actor Alignment', icon: 'i-solar:user-circle-bold' },
+  { step: 3, id: 'story', label: '3. Story', subtitle: 'Prompts & Context', icon: 'i-solar:clipboard-text-bold' },
+  { step: 4, id: 'synthesis', label: '4. Synthesis', subtitle: 'World Proposal', icon: 'i-solar:magic-stick-3-bold' },
+]
+
+const isStepMenuOpen = ref(false)
+
+function isStepNavigable(stepNumber: number): boolean {
+  if (stepNumber === currentStep.value)
+    return true
+  if (stepNumber === 1)
+    return true
+  if (stepNumber === 2 || stepNumber === 3)
+    return selectedCharacters.value.length > 0
+  if (stepNumber === 4)
+    return Boolean(synthesisProposal.value)
+  return false
+}
+
+function handleStepClick(stepNumber: number) {
+  if (!isStepNavigable(stepNumber)) {
+    if (stepNumber === 4) {
+      toast.info('Synthesize the world proposal in Step 3 first.')
+    }
+    else if (selectedCharacters.value.length === 0) {
+      toast.info('Please select at least one character first.')
+    }
+    return
+  }
+  currentStep.value = stepNumber
+}
 
 function writeBackVoiceBinding(characterId: string, voice: { baseProvider: string, baseModel: string, baseVoice: string }) {
   const char = selectedCharacters.value.find(c => c.id === characterId)
@@ -207,13 +251,26 @@ function handleSearchEnter() {
   }
 }
 
-// Thumbnail resolver
+// Thumbnail resolver & Broken Image Fallbacks
+const failedThumbs = ref<Record<string, boolean>>({})
+
+function handleThumbError(charId: string) {
+  failedThumbs.value[charId] = true
+}
+
 function getThumbUrl(trigger: string) {
   return wizardStore.getCharacterThumbUrl(trigger) || ''
 }
 
 // Model Preview & Unbind Helpers
 const showModelPreviews = ref<Record<string, boolean>>({})
+
+function getDisplayThumbUrl(char: { id: string, trigger?: string }) {
+  if (showModelPreviews.value[char.id]) {
+    return getModelPreviewUrl(char.trigger || '') || getThumbUrl(char.trigger || '')
+  }
+  return getThumbUrl(char.trigger || '')
+}
 
 function getBindingsMap() {
   try {
@@ -277,13 +334,17 @@ const boundCharactersCount = computed(() => {
   return wizardStore.characters.filter(char => boundTriggers.has(char.trigger)).length
 })
 
-function getActorThumbUrl(actorKey: string) {
+function getActorChar(actorKey: string) {
   const slug = actorKey.replace('actor_', '')
-  const char = selectedCharacters.value.find((c) => {
+  return selectedCharacters.value.find((c) => {
     const cSlug = c.name.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '')
     return cSlug === slug
   })
-  return char ? getThumbUrl(char.trigger) : ''
+}
+
+function getActorThumbUrl(actorKey: string) {
+  const char = getActorChar(actorKey)
+  return char ? getDisplayThumbUrl(char) : ''
 }
 
 // Navigation helpers
@@ -390,6 +451,7 @@ interface TropeTemplate {
 
 const tropeTemplates: TropeTemplate[] = [
   { id: 'open-ended', label: 'Open-Ended', icon: '🎲', guidance: '' },
+  { id: 'desktop-companion', label: 'Desktop Companion', icon: '🖥️', guidance: 'Ambient desktop companion, casual banter, working alongside the user, low-pressure cozy co-presence' },
   { id: 'fan-service', label: 'Fan Servicey', icon: '💖', guidance: 'Flirtatious, high tension, romantic comedy, playful banter, intimate setting' },
   { id: 'slice-of-life', label: 'Slice of Life', icon: '☕', guidance: 'Cozy everyday domestic life, low stakes, relaxed hangout, cafe or home setting' },
   { id: 'isekai', label: 'Isekai Fantasy', icon: '⚔️', guidance: 'High fantasy adventurer guild, magic academy, epic quest, medieval AU' },
@@ -928,15 +990,113 @@ async function confirmCreateCard() {
         </div>
       </div>
 
-      <!-- Step Indicator -->
-      <div class="mr-4 flex items-center gap-2 text-xs font-semibold">
-        <span :class="[currentStep >= 1 ? 'text-primary-500' : 'text-neutral-400 dark:text-neutral-600']">1. Cast Selection</span>
-        <div i-solar:alt-arrow-right-line-duotone class="text-neutral-300 dark:text-neutral-700" />
-        <span :class="[currentStep >= 2 ? 'text-primary-500' : 'text-neutral-400 dark:text-neutral-600']">2. Roster Settings</span>
-        <div i-solar:alt-arrow-right-line-duotone class="text-neutral-300 dark:text-neutral-700" />
-        <span :class="[currentStep >= 3 ? 'text-primary-500' : 'text-neutral-400 dark:text-neutral-600']">3. Story Prompts</span>
-        <div i-solar:alt-arrow-right-line-duotone class="text-neutral-300 dark:text-neutral-700" />
-        <span :class="[currentStep >= 4 ? 'text-primary-500' : 'text-neutral-400 dark:text-neutral-600']">4. LLM Synthesis</span>
+      <!-- Center: Modern V3 Pill Stepper -->
+      <nav
+        aria-label="Wizard Steps"
+        class="flex select-none items-center border border-neutral-200/80 rounded-full bg-black/5 px-2 py-1 text-xs space-x-1.5 dark:border-white/5 dark:bg-neutral-900/60"
+      >
+        <button
+          v-for="s in wizardSteps"
+          :key="s.id"
+          type="button"
+          :disabled="!isStepNavigable(s.step) && s.step !== currentStep"
+          :title="s.step === 4 && !synthesisProposal ? 'Synthesize the world in Step 3 first' : s.subtitle"
+          :class="[
+            'px-3 py-1 rounded-full text-xs transition-all whitespace-nowrap flex items-center gap-1.5',
+            s.step === currentStep
+              ? 'bg-primary-600 text-white font-semibold shadow-md shadow-primary-600/25'
+              : isStepNavigable(s.step)
+                ? 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white font-medium hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer'
+                : 'opacity-40 cursor-not-allowed text-neutral-400 dark:text-neutral-600',
+          ]"
+          @click="handleStepClick(s.step)"
+        >
+          <span>{{ s.label }}</span>
+          <div
+            v-if="s.step === 4 && !synthesisProposal"
+            class="i-solar:lock-keyhole-minimalistic-bold text-[11px] opacity-70"
+          />
+          <div
+            v-else-if="s.step < currentStep || (s.step === 4 && synthesisProposal)"
+            class="i-solar:check-circle-bold text-[11px] text-primary-400"
+          />
+        </button>
+
+        <!-- Quick Jump Popover Dropdown -->
+        <PopoverRoot v-model:open="isStepMenuOpen">
+          <PopoverTrigger as-child>
+            <button
+              type="button"
+              class="ml-0.5 flex cursor-pointer items-center justify-center rounded-full p-1 text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-800 dark:hover:bg-white/10 dark:hover:text-white"
+              title="Jump to any step"
+            >
+              <div class="i-solar:list-linear h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverPortal>
+            <PopoverContent
+              align="center"
+              :side-offset="8"
+              class="z-50 max-h-80 w-64 overflow-y-auto border border-neutral-200 rounded-2xl bg-white/95 p-2 text-xs shadow-xl backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/95"
+            >
+              <div class="mb-1 px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+                Wizard Steps ({{ wizardSteps.length }})
+              </div>
+              <div class="space-y-0.5">
+                <button
+                  v-for="s in wizardSteps"
+                  :key="s.id"
+                  type="button"
+                  :disabled="!isStepNavigable(s.step) && s.step !== currentStep"
+                  :class="[
+                    'w-full px-2.5 py-1.5 rounded-xl flex items-center justify-between text-left transition-colors',
+                    s.step === currentStep
+                      ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400 font-bold'
+                      : isStepNavigable(s.step)
+                        ? 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-white/5 cursor-pointer'
+                        : 'opacity-40 cursor-not-allowed text-neutral-400',
+                  ]"
+                  @click="handleStepClick(s.step); isStepMenuOpen = false"
+                >
+                  <div class="min-w-0 flex items-center gap-2">
+                    <div :class="[s.icon, 'text-sm shrink-0']" />
+                    <div class="min-w-0">
+                      <div class="truncate">
+                        {{ s.label }}
+                      </div>
+                      <div class="truncate text-[9px] text-neutral-400">
+                        {{ s.subtitle }}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    v-if="s.step === currentStep"
+                    class="i-solar:arrow-right-bold shrink-0 text-sm text-primary-500"
+                  />
+                  <div
+                    v-else-if="s.step === 4 && !synthesisProposal"
+                    class="i-solar:lock-keyhole-minimalistic-bold shrink-0 text-xs text-neutral-400"
+                  />
+                  <div
+                    v-else-if="s.step < currentStep || (s.step === 4 && synthesisProposal)"
+                    class="i-solar:check-circle-bold shrink-0 text-sm text-primary-500"
+                  />
+                </button>
+              </div>
+            </PopoverContent>
+          </PopoverPortal>
+        </PopoverRoot>
+      </nav>
+
+      <!-- Right: Cast Count Indicator -->
+      <div class="flex items-center gap-2 text-xs">
+        <span
+          v-if="selectedCharacters.length > 0"
+          class="items-center gap-1.5 border border-primary-500/20 rounded-full bg-primary-500/10 px-2.5 py-1 text-[11px] text-primary-500 font-semibold hidden sm:inline-flex"
+        >
+          <span class="h-1.5 w-1.5 rounded-full bg-primary-500" />
+          {{ selectedCharacters.length }} in cast
+        </span>
       </div>
     </header>
 
@@ -1152,16 +1312,46 @@ async function confirmCreateCard() {
             >
               <!-- Card Portrait Image -->
               <div class="relative aspect-[3/4] overflow-hidden bg-neutral-100 dark:bg-neutral-900">
-                <div v-if="char.isCustom && !getThumbUrl(char.trigger) && !showModelPreviews[char.id]" class="h-full w-full flex flex-col items-center justify-center from-purple-900/30 to-indigo-900/30 bg-gradient-to-br p-2 text-center text-purple-400">
-                  <div i-solar:user-bold-duotone class="text-4xl opacity-80" />
-                  <span class="line-clamp-2 mt-1 text-[10px] text-neutral-300 font-semibold leading-tight opacity-80">{{ char.name }}</span>
+                <!-- Fallback when image failed or missing -->
+                <div
+                  v-if="failedThumbs[char.id] || !getDisplayThumbUrl(char)"
+                  :class="[
+                    'h-full w-full flex flex-col items-center justify-center p-3 text-center select-none',
+                    char.isCustom
+                      ? 'bg-gradient-to-b from-purple-950/40 via-purple-900/20 to-neutral-900/60 dark:from-purple-950/60 dark:via-purple-900/30 dark:to-neutral-950'
+                      : 'bg-gradient-to-b from-neutral-100 via-neutral-100 to-neutral-200/80 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-950',
+                  ]"
+                >
+                  <!-- Extra Large Glyph -->
+                  <div class="relative mb-2 flex items-center justify-center">
+                    <div
+                      :class="[
+                        char.isCustom
+                          ? 'i-solar:user-bold-duotone text-purple-400 dark:text-purple-300'
+                          : 'i-solar:gallery-broken-bold-duotone text-neutral-400 dark:text-neutral-600',
+                        'text-5xl sm:text-6xl transition-transform duration-300 group-hover:scale-110',
+                      ]"
+                    />
+                    <div
+                      v-if="char.isCustom"
+                      class="i-solar:sparkles-bold absolute animate-pulse text-sm text-purple-300 -right-1 -top-1"
+                    />
+                  </div>
+
+                  <span class="line-clamp-2 max-w-[90%] text-xs text-neutral-700 font-bold leading-tight dark:text-neutral-200">
+                    {{ char.name }}
+                  </span>
+                  <span class="mt-1 text-[10px] text-neutral-400 font-medium dark:text-neutral-500">
+                    {{ char.isCustom ? 'Custom Character' : 'Image Unavailable' }}
+                  </span>
                 </div>
                 <img
                   v-else
-                  :src="showModelPreviews[char.id] ? (getModelPreviewUrl(char.trigger) || getThumbUrl(char.trigger)) : getThumbUrl(char.trigger)"
-                  alt=""
+                  :src="getDisplayThumbUrl(char)"
+                  :alt="char.name"
                   loading="lazy"
                   class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  @error="handleThumbError(char.id)"
                 >
 
                 <!-- Custom Character Badge -->
@@ -1271,7 +1461,7 @@ async function confirmCreateCard() {
         <transition name="slide-up">
           <div
             v-if="selectedCharacters.length > 0"
-            class="dark:bg-neutral-955/90 sticky bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-neutral-200 bg-white/90 px-6 py-4 backdrop-blur-lg dark:border-neutral-800"
+            class="sticky bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-neutral-200/80 bg-white/90 px-6 py-4 backdrop-blur-lg dark:border-neutral-800/80 dark:bg-neutral-900/90"
           >
             <div class="flex items-center gap-4">
               <div class="flex flex-col">
@@ -1284,11 +1474,26 @@ async function confirmCreateCard() {
                 <div
                   v-for="char in selectedCharacters"
                   :key="char.id"
-                  class="group relative h-10 w-10 flex-shrink-0 cursor-pointer overflow-hidden border border-neutral-200 rounded-full transition-colors dark:border-neutral-800 hover:border-red-500"
+                  class="group relative h-10 w-10 flex flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden border border-neutral-200 rounded-full bg-neutral-100 transition-colors dark:border-neutral-800 hover:border-red-500 dark:bg-neutral-800"
                   :title="`Remove ${char.name}`"
                   @click="wizardStore.removeCharacterFromBasket(char.id)"
                 >
-                  <img :src="getThumbUrl(char.trigger)" alt="" class="h-full w-full object-cover">
+                  <img
+                    v-if="!failedThumbs[char.id] && getDisplayThumbUrl(char)"
+                    :src="getDisplayThumbUrl(char)"
+                    :alt="char.name"
+                    class="h-full w-full object-cover"
+                    @error="handleThumbError(char.id)"
+                  >
+                  <div
+                    v-else
+                    class="h-full w-full flex items-center justify-center bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500"
+                  >
+                    <div
+                      :class="[char.isCustom ? 'i-solar:user-bold-duotone text-purple-400' : 'i-solar:gallery-broken-bold']"
+                      class="text-base"
+                    />
+                  </div>
                   <div class="absolute inset-0 flex items-center justify-center bg-red-600/60 opacity-0 transition-opacity group-hover:opacity-100">
                     <div i-solar:trash-bin-trash-bold class="text-xs text-white" />
                   </div>
@@ -1311,7 +1516,7 @@ async function confirmCreateCard() {
 
       <!-- STEP 2: ROSTER SETTINGS (MODEL & VOICE BINDING) -->
       <div v-else-if="currentStep === 2" class="flex flex-1 flex-col items-center overflow-y-auto bg-white p-6 dark:bg-neutral-950">
-        <div class="max-w-4xl w-full border border-neutral-200 rounded-2xl bg-neutral-50/30 p-8 shadow-xl dark:border-neutral-900 dark:bg-neutral-900/20">
+        <div class="max-w-5xl w-full border border-neutral-200 rounded-2xl bg-neutral-50/30 p-8 shadow-xl dark:border-neutral-900 dark:bg-neutral-900/20">
           <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
             <h3 class="flex items-center gap-2 text-lg text-neutral-800 font-bold dark:text-neutral-200">
               <div i-solar:user-circle-bold-duotone class="text-primary-500" />
@@ -1332,13 +1537,13 @@ async function confirmCreateCard() {
           <!-- Contextual hint strip -->
           <div class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 dark:border-neutral-800/50 dark:bg-neutral-900/60">
             <div class="flex items-center gap-1.5">
-              <div i-solar:gallery-bold class="text-neutral-550 shrink-0 text-xs dark:text-neutral-500" />
-              <span class="text-neutral-550 text-xs dark:text-neutral-500">Tap the avatar to bind a 3D model</span>
+              <div i-solar:gallery-bold class="shrink-0 text-xs text-neutral-500" />
+              <span class="text-xs text-neutral-500">Tap the avatar to bind a 3D model</span>
             </div>
             <span class="text-xs text-neutral-400 dark:text-neutral-700">·</span>
             <div class="flex items-center gap-1.5">
-              <div i-solar:user-speak-linear class="text-neutral-550 shrink-0 text-xs dark:text-neutral-500" />
-              <span class="text-neutral-550 text-xs dark:text-neutral-500">Tap the voice button to set a TTS voice</span>
+              <div i-solar:user-speak-linear class="shrink-0 text-xs text-neutral-500" />
+              <span class="text-xs text-neutral-500">Tap the voice button to set a TTS voice</span>
             </div>
           </div>
 
@@ -1351,8 +1556,23 @@ async function confirmCreateCard() {
             >
               <!-- Identity Row: Character thumb + name -->
               <div class="flex items-center gap-3">
-                <div class="h-11 w-11 shrink-0 overflow-hidden border border-neutral-200 rounded-full bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900">
-                  <img :src="getThumbUrl(char.trigger)" alt="" class="h-full w-full object-cover">
+                <div class="h-11 w-11 flex shrink-0 items-center justify-center overflow-hidden border border-neutral-200 rounded-full bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-800">
+                  <img
+                    v-if="!failedThumbs[char.id] && getDisplayThumbUrl(char)"
+                    :src="getDisplayThumbUrl(char)"
+                    :alt="char.name"
+                    class="h-full w-full object-cover"
+                    @error="handleThumbError(char.id)"
+                  >
+                  <div
+                    v-else
+                    class="h-full w-full flex items-center justify-center bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500"
+                  >
+                    <div
+                      :class="[char.isCustom ? 'i-solar:user-bold-duotone text-purple-400' : 'i-solar:gallery-broken-bold']"
+                      class="text-xl"
+                    />
+                  </div>
                 </div>
                 <div class="min-w-0 flex flex-col">
                   <span class="truncate text-sm text-neutral-800 font-bold dark:text-neutral-100">{{ char.name }}</span>
@@ -1447,210 +1667,229 @@ async function confirmCreateCard() {
 
       <!-- STEP 3: CONTEXT & STORY PROMPTS -->
       <div v-else-if="currentStep === 3" class="flex flex-1 flex-col items-center overflow-y-auto bg-white p-6 dark:bg-neutral-950">
-        <div class="max-w-xl w-full border border-neutral-200 rounded-2xl bg-neutral-50/30 p-8 shadow-xl dark:border-neutral-900 dark:bg-neutral-900/20">
-          <h3 class="mb-6 flex items-center gap-2 text-lg text-neutral-800 font-bold dark:text-neutral-200">
-            <div i-solar:clipboard-text-line-duotone class="text-primary-500" />
-            Outline Your Story Settings
-          </h3>
-
-          <div class="flex flex-col gap-5">
-            <!-- AI Story Idea Generator Deck -->
-            <div class="shadow-xs flex flex-col gap-3.5 border border-primary-500/20 rounded-2xl bg-primary-500/5 p-4.5 backdrop-blur-md dark:border-primary-400/20 dark:bg-primary-500/10">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <div i-solar:stars-bold-duotone class="text-base text-primary-500" />
-                  <span class="text-xs text-primary-900 font-bold dark:text-primary-200">AI Story Idea Generator</span>
-                </div>
-                <span class="text-[10px] text-neutral-400 font-medium dark:text-neutral-500">Pick a trope preset or type custom instructions</span>
-              </div>
-
-              <!-- Trope Templates Chips (2-Row Deck) -->
-              <div class="flex flex-wrap items-center gap-1.5">
-                <button
-                  v-for="trope in tropeTemplates"
-                  :key="trope.id"
-                  type="button"
-                  :class="[
-                    'flex items-center gap-1.2 rounded-xl px-2.8 py-1.2 text-[11px] font-semibold transition-all duration-200 border cursor-pointer',
-                    selectedTropeId === trope.id
-                      ? 'border-primary-500/80 bg-primary-500 text-neutral-950 font-bold shadow-md shadow-primary-500/20 scale-[1.02]'
-                      : 'border-neutral-200/80 dark:border-neutral-800/80 bg-white/70 dark:bg-neutral-900/60 text-neutral-700 dark:text-neutral-300 hover:border-primary-500/50 hover:bg-white dark:hover:bg-neutral-850',
-                  ]"
-                  @click="selectTropeTemplate(trope)"
-                >
-                  <span class="text-xs">{{ trope.icon }}</span>
-                  <span>{{ trope.label }}</span>
-                </button>
-              </div>
-
-              <!-- Steering Guidance Textarea + Glowing Generate Button -->
-              <div class="flex flex-col gap-2 pt-1">
-                <textarea
-                  v-model="suggestionGuidance"
-                  rows="2"
-                  placeholder="Type custom scenario guidance or tweak the selected trope prompt..."
-                  class="w-full resize-y border border-neutral-200/80 rounded-xl bg-white/80 p-3 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800/80 focus:border-primary-500/80 dark:bg-neutral-900/70 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
-                />
-                <div class="flex justify-end">
-                  <button
-                    type="button"
-                    :disabled="isSuggestingIdeas"
-                    :class="[
-                      'h-[34px] flex items-center gap-1.5 rounded-xl px-4 text-xs font-bold transition-all duration-300 border cursor-pointer disabled:opacity-50',
-                      isSuggestingIdeas
-                        ? 'border-primary-500/30 bg-primary-500/20 text-primary-400'
-                        : 'border-primary-500/40 bg-primary-500 text-neutral-950 shadow-md shadow-primary-500/25 hover:bg-primary-400 hover:shadow-primary-500/40 animate-pulse',
-                    ]"
-                    @click="fetchStoryIdeas(suggestionGuidance)"
-                  >
-                    <div
-                      :class="isSuggestingIdeas ? 'i-solar:refresh-bold animate-spin' : 'i-solar:magic-stick-3-bold'"
-                      class="text-sm"
-                    />
-                    <span>{{ isSuggestingIdeas ? 'Generating Ideas...' : '🪄 Generate Story Ideas' }}</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Generated Suggestion Cards list -->
-              <div v-if="showSuggestions" class="flex flex-col gap-2 pt-2">
-                <!-- Skeleton loading -->
-                <template v-if="isSuggestingIdeas && storyIdeas.length === 0">
-                  <div
-                    v-for="i in 3"
-                    :key="i"
-                    class="h-[52px] animate-pulse border border-neutral-200 rounded-xl bg-neutral-100/50 dark:border-neutral-800 dark:bg-neutral-800/40"
-                  />
-                </template>
-
-                <!-- Loaded suggestions -->
-                <template v-else-if="storyIdeas.length > 0">
-                  <button
-                    v-for="(idea, idx) in storyIdeas"
-                    :key="idx"
-                    type="button"
-                    :class="[
-                      'w-full text-left border rounded-xl px-4 py-3 transition-all cursor-pointer',
-                      activeSuggestionIndex === idx
-                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/8'
-                        : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60',
-                    ]"
-                    @click="applySuggestion(idx)"
-                  >
-                    <!-- Title row with clipboard button -->
-                    <div class="flex items-start justify-between gap-2">
-                      <div class="text-xs text-neutral-800 font-bold leading-snug dark:text-neutral-100">
-                        {{ idea.title }}
-                      </div>
-                      <button
-                        type="button"
-                        class="shrink-0 rounded-md p-0.5 text-neutral-500 transition-colors dark:text-neutral-600 hover:text-neutral-700 focus:outline-none dark:hover:text-neutral-300"
-                        :title="copiedIdx === idx ? 'Copied!' : 'Copy to clipboard'"
-                        @click.stop="copyIdeaToClipboard(idx)"
-                      >
-                        <div
-                          :class="copiedIdx === idx ? 'i-solar:check-circle-bold text-primary-400' : 'i-solar:clipboard-text-bold'"
-                          class="text-[13px]"
-                        />
-                      </button>
-                    </div>
-                    <!-- Inactive: nickname · location, truncated -->
-                    <div v-if="activeSuggestionIndex !== idx" class="mt-0.5 truncate text-[10px] text-neutral-500 dark:text-neutral-400">
-                      <span class="italic">{{ idea.nickname }}</span> · {{ idea.location }}
-                    </div>
-                    <!-- Active: nickname · location (no truncate) + lore below -->
-                    <template v-else>
-                      <div class="text-neutral-550 mt-0.5 text-[10px] dark:text-neutral-400">
-                        <span class="italic">{{ idea.nickname }}</span> · {{ idea.location }}
-                      </div>
-                      <div class="mt-1 text-[10px] text-neutral-600 leading-relaxed dark:text-neutral-400">
-                        {{ idea.lore }}
-                      </div>
-                    </template>
-                  </button>
-                </template>
-              </div>
-            </div>
-
-            <!-- User Nickname -->
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">What should the characters call you?</label>
-              <input
-                v-model="storyPrompt.nickname"
-                type="text"
-                placeholder="Leave blank for the AI to choose a name (e.g., 'Master', 'Detective', 'Stranger')."
-                class="w-full border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
-              >
-            </div>
-
-            <!-- Your looks -->
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Your looks</label>
-              <textarea
-                v-model="userDescriptionInput"
-                placeholder="Describe your appearance, attire, or gender representation."
-                class="h-[60px] w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
-              />
-            </div>
-
-            <!-- Your image prompt looks -->
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Your Image Prompt Looks</label>
-              <textarea
-                v-model="userImagePromptInput"
-                placeholder="Detailed stable diffusion style prompt tags for your appearance (e.g. '1guy, brown hair, henley shirt, suspenders')."
-                class="h-[60px] w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
-              />
-            </div>
-
-            <!-- Include self concept checkbox -->
-            <div class="flex items-start gap-2.5 border border-neutral-200 rounded-xl bg-neutral-50/50 p-3.5 dark:border-neutral-800/40 dark:bg-neutral-900/40">
-              <input
-                id="includeSelfConcept"
-                v-model="includeSelfConcept"
-                type="checkbox"
-                class="mt-0.5 h-4 w-4 cursor-pointer accent-primary-500"
-              >
-              <div class="flex flex-col gap-0.5">
-                <label for="includeSelfConcept" class="cursor-pointer text-xs text-neutral-800 font-bold dark:text-neutral-200">
-                  Include Myself As Concept
-                </label>
-                <span class="text-[10px] text-neutral-500 leading-normal dark:text-neutral-400">
-                  Enable this if your roleplay includes your own character in scenes. This creates a dedicated background concept for you (<code class="rounded bg-neutral-200 px-1 text-[9px] font-mono dark:bg-neutral-800">actor_[name]</code>) with your visual description, ensuring the AI Director can render you with a consistent look across generated images.
-                </span>
-              </div>
-            </div>
-
-            <!-- Setting / Location -->
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Where does this take place?</label>
-              <textarea
-                v-model="storyPrompt.setting"
-                placeholder="Leave blank to let the AI suggest a fitting location (e.g., 'A rainy cafe in Tokyo', 'A fantasy medieval tavern')."
-                class="h-[60px] w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
-              />
-            </div>
-
-            <!-- Lore / Rule overrides -->
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Lore & Behavior Rules</label>
-              <textarea
-                v-model="storyPrompt.lore"
-                placeholder="Describe custom personality overrides or AU rules (e.g., 'Make them tsundere', 'Set in a school AU', 'Characters are rival musicians')."
-                class="h-[80px] w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
-              />
+        <div class="max-w-6xl w-full border border-neutral-200 rounded-2xl bg-neutral-50/30 p-6 shadow-xl dark:border-neutral-900 dark:bg-neutral-900/20 md:p-8">
+          <!-- Header title banner -->
+          <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 class="flex items-center gap-2 text-lg text-neutral-800 font-bold dark:text-neutral-200">
+                <div i-solar:clipboard-text-line-duotone class="text-primary-500" />
+                Outline Your Story Settings
+              </h3>
+              <p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                Customize the world scenario, define your persona, and tune the roleplay rules.
+              </p>
             </div>
           </div>
 
-          <!-- Active LLM Warning/Indicator -->
-          <div class="mt-5 flex items-center justify-between border border-neutral-200 rounded-xl bg-neutral-50/50 p-3.5 dark:border-neutral-800/40 dark:bg-neutral-900/30">
-            <div class="flex items-start gap-2 pr-2">
-              <div i-solar:info-circle-bold class="mt-0.5 shrink-0 text-sm text-neutral-400 dark:text-neutral-500" />
-              <p class="text-[10px] text-neutral-700 leading-relaxed dark:text-neutral-400">
-                <span class="dark:text-neutral-350 text-neutral-800 font-bold">Note:</span> This request will be processed by <span class="text-primary-600 font-semibold dark:text-primary-400">{{ consciousnessStore.activeProvider || 'None' }}</span> / <span class="text-primary-600 font-semibold dark:text-primary-400">{{ consciousnessStore.activeModel || 'None' }}</span>. Please ensure this is a high-quality model as the next step is somewhat complex and requires high reasoning to generate properly.
-              </p>
+          <!-- Responsive 7/5 Grid -->
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <!-- Left Column: Story World & AI Generator (7 cols) -->
+            <div class="flex flex-col gap-5 lg:col-span-7">
+              <!-- AI Story Idea Generator Deck -->
+              <div class="shadow-xs flex flex-col gap-3.5 border border-primary-500/20 rounded-2xl bg-primary-500/5 p-4.5 backdrop-blur-md dark:border-primary-400/20 dark:bg-primary-500/10">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div i-solar:stars-bold-duotone class="text-base text-primary-500" />
+                    <span class="text-xs text-primary-900 font-bold dark:text-primary-200">AI Story Idea Generator</span>
+                  </div>
+                  <span class="text-[10px] text-neutral-400 font-medium dark:text-neutral-500">Pick a trope preset or type instructions</span>
+                </div>
+
+                <!-- Trope Templates Chips (Deck) -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <button
+                    v-for="trope in tropeTemplates"
+                    :key="trope.id"
+                    type="button"
+                    :class="[
+                      'flex items-center gap-1.2 rounded-xl px-2.8 py-1.2 text-[11px] font-semibold transition-all duration-200 border cursor-pointer',
+                      selectedTropeId === trope.id
+                        ? 'border-primary-500/80 bg-primary-500 text-neutral-950 font-bold shadow-md shadow-primary-500/20 scale-[1.02]'
+                        : 'border-neutral-200/80 dark:border-neutral-800/80 bg-white/70 dark:bg-neutral-900/60 text-neutral-700 dark:text-neutral-300 hover:border-primary-500/50 hover:bg-white dark:hover:bg-neutral-850',
+                    ]"
+                    @click="selectTropeTemplate(trope)"
+                  >
+                    <span class="text-xs">{{ trope.icon }}</span>
+                    <span>{{ trope.label }}</span>
+                  </button>
+                </div>
+
+                <!-- Steering Guidance Textarea + Glowing Generate Button -->
+                <div class="flex flex-col gap-2 pt-1">
+                  <textarea
+                    v-model="suggestionGuidance"
+                    rows="2"
+                    placeholder="Type custom scenario guidance or tweak the selected trope prompt..."
+                    class="w-full resize-y border border-neutral-200/80 rounded-xl bg-white/80 p-3 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800/80 focus:border-primary-500/80 dark:bg-neutral-900/70 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
+                  />
+                  <div class="flex justify-end">
+                    <button
+                      type="button"
+                      :disabled="isSuggestingIdeas"
+                      :class="[
+                        'h-[34px] flex items-center gap-1.5 rounded-xl px-4 text-xs font-bold transition-all duration-300 border cursor-pointer disabled:opacity-50',
+                        isSuggestingIdeas
+                          ? 'border-primary-500/30 bg-primary-500/20 text-primary-400'
+                          : 'border-primary-500/40 bg-primary-500 text-neutral-950 shadow-md shadow-primary-500/25 hover:bg-primary-400 hover:shadow-primary-500/40 animate-pulse',
+                      ]"
+                      @click="fetchStoryIdeas(suggestionGuidance)"
+                    >
+                      <div
+                        :class="isSuggestingIdeas ? 'i-solar:refresh-bold animate-spin' : 'i-solar:magic-stick-3-bold'"
+                        class="text-sm"
+                      />
+                      <span>{{ isSuggestingIdeas ? 'Generating Ideas...' : '🪄 Generate Story Ideas' }}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Generated Suggestion Cards list -->
+                <div v-if="showSuggestions" class="flex flex-col gap-2 pt-2">
+                  <!-- Skeleton loading -->
+                  <template v-if="isSuggestingIdeas && storyIdeas.length === 0">
+                    <div
+                      v-for="i in 3"
+                      :key="i"
+                      class="h-[52px] animate-pulse border border-neutral-200 rounded-xl bg-neutral-100/50 dark:border-neutral-800 dark:bg-neutral-800/40"
+                    />
+                  </template>
+
+                  <!-- Loaded suggestions -->
+                  <template v-else-if="storyIdeas.length > 0">
+                    <button
+                      v-for="(idea, idx) in storyIdeas"
+                      :key="idx"
+                      type="button"
+                      :class="[
+                        'w-full text-left border rounded-xl px-4 py-3 transition-all cursor-pointer',
+                        activeSuggestionIndex === idx
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/8'
+                          : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60',
+                      ]"
+                      @click="applySuggestion(idx)"
+                    >
+                      <!-- Title row with clipboard button -->
+                      <div class="flex items-start justify-between gap-2">
+                        <div class="text-xs text-neutral-800 font-bold leading-snug dark:text-neutral-100">
+                          {{ idea.title }}
+                        </div>
+                        <button
+                          type="button"
+                          class="shrink-0 rounded-md p-0.5 text-neutral-500 transition-colors dark:text-neutral-600 hover:text-neutral-700 focus:outline-none dark:hover:text-neutral-300"
+                          :title="copiedIdx === idx ? 'Copied!' : 'Copy to clipboard'"
+                          @click.stop="copyIdeaToClipboard(idx)"
+                        >
+                          <div
+                            :class="copiedIdx === idx ? 'i-solar:check-circle-bold text-primary-400' : 'i-solar:clipboard-text-bold'"
+                            class="text-[13px]"
+                          />
+                        </button>
+                      </div>
+                      <!-- Inactive: nickname · location, truncated -->
+                      <div v-if="activeSuggestionIndex !== idx" class="mt-0.5 truncate text-[10px] text-neutral-500 dark:text-neutral-400">
+                        <span class="italic">{{ idea.nickname }}</span> · {{ idea.location }}
+                      </div>
+                      <!-- Active: nickname · location (no truncate) + lore below -->
+                      <template v-else>
+                        <div class="mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
+                          <span class="italic">{{ idea.nickname }}</span> · {{ idea.location }}
+                        </div>
+                        <div class="mt-1 text-[10px] text-neutral-600 leading-relaxed dark:text-neutral-400">
+                          {{ idea.lore }}
+                        </div>
+                      </template>
+                    </button>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Setting / Location -->
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Where does this take place?</label>
+                <textarea
+                  v-model="storyPrompt.setting"
+                  rows="2"
+                  placeholder="Leave blank to let the AI suggest a fitting location (e.g., 'A rainy cafe in Tokyo', 'A fantasy medieval tavern')."
+                  class="w-full resize-y border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
+                />
+              </div>
+
+              <!-- Lore / Rule overrides -->
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Lore & Behavior Rules</label>
+                <textarea
+                  v-model="storyPrompt.lore"
+                  rows="3"
+                  placeholder="Describe custom personality overrides or AU rules (e.g., 'Make them tsundere', 'Set in a school AU', 'Characters are rival musicians')."
+                  class="w-full resize-y border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
+                />
+              </div>
             </div>
-            <BrainModelPicker variant="default" side="top" title="Switch Active LLM" />
+
+            <!-- Right Column: Protagonist (You) & Brain Engine (5 cols) -->
+            <div class="flex flex-col gap-5 lg:col-span-5">
+              <!-- User Nickname -->
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">What should the characters call you?</label>
+                <input
+                  v-model="storyPrompt.nickname"
+                  type="text"
+                  placeholder="Leave blank for AI to choose (e.g., 'Master', 'Detective')."
+                  class="w-full border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
+                >
+              </div>
+
+              <!-- Your looks -->
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Your looks (prose description)</label>
+                <textarea
+                  v-model="userDescriptionInput"
+                  rows="2"
+                  placeholder="Describe your appearance, attire, or gender representation."
+                  class="w-full resize-y border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
+                />
+              </div>
+
+              <!-- Your image prompt looks -->
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Your Image Prompt Looks (SD tags)</label>
+                <textarea
+                  v-model="userImagePromptInput"
+                  rows="2"
+                  placeholder="Detailed stable diffusion style prompt tags for your appearance (e.g. '1guy, brown hair, henley shirt, suspenders')."
+                  class="w-full resize-y border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
+                />
+              </div>
+
+              <!-- Include self concept checkbox -->
+              <div class="flex items-start gap-2.5 border border-neutral-200 rounded-xl bg-neutral-50/50 p-3.5 dark:border-neutral-800/40 dark:bg-neutral-900/40">
+                <input
+                  id="includeSelfConcept"
+                  v-model="includeSelfConcept"
+                  type="checkbox"
+                  class="mt-0.5 h-4 w-4 cursor-pointer accent-primary-500"
+                >
+                <div class="flex flex-col gap-0.5">
+                  <label for="includeSelfConcept" class="cursor-pointer text-xs text-neutral-800 font-bold dark:text-neutral-200">
+                    Include Myself As Concept
+                  </label>
+                  <span class="text-[10px] text-neutral-500 leading-normal dark:text-neutral-400">
+                    Enable this if your roleplay includes your own character in scenes. This creates a dedicated background concept for you (<code class="rounded bg-neutral-200 px-1 text-[9px] font-mono dark:bg-neutral-800">actor_[name]</code>) with your visual description, ensuring the AI Director can render you with a consistent look across generated images.
+                  </span>
+                </div>
+              </div>
+
+              <!-- Active LLM Warning/Indicator -->
+              <div class="flex items-center justify-between border border-neutral-200 rounded-xl bg-neutral-50/50 p-3.5 dark:border-neutral-800/40 dark:bg-neutral-900/30">
+                <div class="flex items-start gap-2 pr-2">
+                  <div i-solar:info-circle-bold class="mt-0.5 shrink-0 text-sm text-neutral-400 dark:text-neutral-500" />
+                  <p class="text-[10px] text-neutral-700 leading-relaxed dark:text-neutral-400">
+                    <span class="dark:text-neutral-350 text-neutral-800 font-bold">Processed by:</span> <span class="text-primary-600 font-semibold dark:text-primary-400">{{ consciousnessStore.activeProvider || 'None' }}</span> / <span class="text-primary-600 font-semibold dark:text-primary-400">{{ consciousnessStore.activeModel || 'None' }}</span>.
+                  </p>
+                </div>
+                <BrainModelPicker variant="default" side="top" title="Switch Active LLM" />
+              </div>
+            </div>
           </div>
 
           <!-- Bottom Actions -->
@@ -1661,7 +1900,7 @@ async function confirmCreateCard() {
               @click="currentStep = 2"
             >
               <div i-solar:alt-arrow-left-bold class="text-base" />
-              Back
+              Back to Roster
             </Button>
 
             <Button
@@ -1678,7 +1917,7 @@ async function confirmCreateCard() {
 
       <!-- STEP 4: LLM INGESTION PAYLOAD PREVIEW & DASHBOARD -->
       <div v-else-if="currentStep === 4" class="flex flex-1 flex-col overflow-hidden bg-white p-6 dark:bg-neutral-950">
-        <div class="mx-auto max-w-4xl w-full flex flex-1 flex-col overflow-hidden border border-neutral-200 rounded-2xl bg-neutral-50/30 p-6 shadow-xl dark:border-neutral-900 dark:bg-neutral-900/20">
+        <div class="mx-auto max-w-5xl w-full flex flex-1 flex-col overflow-hidden border border-neutral-200 rounded-2xl bg-neutral-50/30 p-6 shadow-xl dark:border-neutral-900 dark:bg-neutral-900/20">
           <div class="mb-4 flex items-center justify-between border-b border-neutral-200 pb-4 dark:border-neutral-800/60">
             <div>
               <h3 class="text-md flex items-center gap-2 text-neutral-800 font-bold dark:text-neutral-200">
@@ -1727,7 +1966,7 @@ async function confirmCreateCard() {
 
           <!-- Developer Payload View -->
           <div v-else-if="showDeveloperPayload" class="min-h-0 flex flex-1 flex-col gap-3">
-            <span class="text-neutral-550 text-xs font-bold tracking-wide uppercase dark:text-neutral-400">Raw Ingestion Payload (Sent to LLM)</span>
+            <span class="text-xs text-neutral-500 font-bold tracking-wide uppercase dark:text-neutral-400">Raw Ingestion Payload (Sent to LLM)</span>
             <textarea
               readonly
               class="flex-1 select-text resize-none border border-neutral-200 rounded-xl bg-neutral-50 p-4 text-xs text-neutral-800 font-mono outline-none dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-300"
@@ -1740,7 +1979,7 @@ async function confirmCreateCard() {
             <!-- World Header -->
             <div class="flex flex-col gap-3 border border-neutral-200 bg-neutral-50/50 p-5 dark:border-neutral-800/80 dark:bg-neutral-900/40">
               <div class="flex items-center gap-3">
-                <div class="dark:bg-neutral-955 text-primary-505 h-12 w-12 flex items-center justify-center overflow-hidden border border-neutral-200 rounded-2xl bg-neutral-100 text-xl font-bold dark:border-neutral-800">
+                <div class="h-12 w-12 flex items-center justify-center overflow-hidden border border-neutral-200 rounded-2xl bg-neutral-100 text-xl text-primary-500 font-bold dark:border-neutral-800 dark:bg-neutral-900">
                   🏰
                 </div>
                 <div class="flex flex-col">
@@ -1749,8 +1988,8 @@ async function confirmCreateCard() {
                 </div>
               </div>
               <div class="border-t border-neutral-200 pt-3 dark:border-neutral-800/60">
-                <span class="dark:text-neutral-550 mb-1 block text-[10px] text-neutral-400 font-black tracking-wider uppercase">Premise & Scenario</span>
-                <p class="bg-neutral-55/50 border-l-2 border-primary-500 rounded-r py-1.5 pl-3 text-xs text-neutral-700 leading-relaxed italic dark:bg-neutral-950/40 dark:text-neutral-300">
+                <span class="mb-1 block text-[10px] text-neutral-400 font-black tracking-wider uppercase">Premise & Scenario</span>
+                <p class="border-l-2 border-primary-500 rounded-r bg-neutral-50/50 py-1.5 pl-3 text-xs text-neutral-700 leading-relaxed italic dark:bg-neutral-950/40 dark:text-neutral-300">
                   "{{ synthesisProposal.scenario }}"
                 </p>
               </div>
@@ -1767,9 +2006,24 @@ async function confirmCreateCard() {
                 >
                   <div class="flex items-start justify-between">
                     <div class="flex items-center gap-2.5">
-                      <div class="h-9 w-9 overflow-hidden border border-neutral-200 rounded-full bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-950">
+                      <div class="h-9 w-9 flex shrink-0 items-center justify-center overflow-hidden border border-neutral-200 rounded-full bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-800">
                         <!-- Match trig to character thumb -->
-                        <img :src="getActorThumbUrl(String(key))" alt="" class="h-full w-full object-cover">
+                        <img
+                          v-if="getActorChar(String(key)) && !failedThumbs[getActorChar(String(key))!.id] && getActorThumbUrl(String(key))"
+                          :src="getActorThumbUrl(String(key))"
+                          :alt="String(key)"
+                          class="h-full w-full object-cover"
+                          @error="handleThumbError(getActorChar(String(key))!.id)"
+                        >
+                        <div
+                          v-else
+                          class="h-full w-full flex items-center justify-center bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500"
+                        >
+                          <div
+                            :class="[getActorChar(String(key))?.isCustom ? 'i-solar:user-bold-duotone text-purple-400' : 'i-solar:gallery-broken-bold']"
+                            class="text-sm"
+                          />
+                        </div>
                       </div>
                       <div class="flex flex-col">
                         <span class="text-xs text-neutral-800 font-bold capitalize dark:text-neutral-200">{{ String(key).replace('actor_', '').replace(/_/g, ' ') }}</span>
@@ -1779,7 +2033,7 @@ async function confirmCreateCard() {
                   </div>
 
                   <div class="border border-neutral-200 rounded-lg bg-neutral-50 p-2.5 text-[10px] text-neutral-600 dark:border-neutral-800/40 dark:bg-neutral-950/30 dark:text-neutral-400">
-                    <span class="dark:text-neutral-505 mb-1 block text-[8px] text-neutral-400 font-bold uppercase">Default Greeting</span>
+                    <span class="mb-1 block text-[8px] text-neutral-400 font-bold uppercase">Default Greeting</span>
                     <p class="leading-normal italic">
                       {{ actor.greeting || synthesisProposal.first_mes }}
                     </p>
@@ -1790,7 +2044,7 @@ async function confirmCreateCard() {
 
             <!-- Locations / Places -->
             <div class="flex flex-col gap-3">
-              <span class="text-neutral-550 text-xs font-bold tracking-wide uppercase dark:text-neutral-400">Locations & Backgrounds</span>
+              <span class="text-xs text-neutral-500 font-bold tracking-wide uppercase dark:text-neutral-400">Locations & Backgrounds</span>
               <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div
                   v-for="(place, key) in synthesisProposal.places"
