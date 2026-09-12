@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { getStarterCharacter, STARTER_CHARACTERS } from '../../../../../../constants/prompts/character-defaults'
@@ -64,6 +64,27 @@ watch(activeEngineTab, (tab) => {
 const showApiKey = ref(false)
 const apiKeyInput = ref('')
 
+// Hugging Face Token for gated models (Pocket-TTS voices)
+const showHfTokenInput = ref(false)
+const hfTokenInput = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('settings/connection/hf-token') || '' : '')
+const isHFTokenModalOpen = ref(false)
+
+function saveHfToken() {
+  if (typeof localStorage !== 'undefined') {
+    if (hfTokenInput.value.trim()) {
+      localStorage.setItem('settings/connection/hf-token', hfTokenInput.value.trim())
+    }
+    else {
+      localStorage.removeItem('settings/connection/hf-token')
+    }
+  }
+}
+
+function openHFTokenPage() {
+  isHFTokenModalOpen.value = false
+  window.open('https://huggingface.co/settings/tokens', '_blank')
+}
+
 // Local download state
 const isDownloading = ref(false)
 const downloadProgress = ref(0)
@@ -71,8 +92,18 @@ const downloadStatusText = ref('')
 const downloadError = ref('')
 const isEngineReady = ref(false)
 
-// Audio playback state
-const isPlayingSample = ref(false)
+// Audio playback & calibration targets
+const activeVoiceTab = ref<'companion' | 'user'>('companion')
+const selectedUserVoice = ref<string>(userProfileStore.voiceProfileId || '')
+const userSpeed = ref<number>(1.0)
+const userPitch = ref<number>(1.0)
+
+const sampleText = ref<string>('')
+const userSampleText = ref<string>('')
+
+const isPlayingTarget = ref<'companion' | 'user' | null>(null)
+const isPlayingCompanion = computed(() => isPlayingTarget.value === 'companion')
+const isPlayingUser = computed(() => isPlayingTarget.value === 'user')
 const audioPlayer = ref<HTMLAudioElement | null>(null)
 
 const isLocalProvider = computed(() => {
@@ -288,10 +319,22 @@ watch(availableModels, (models) => {
 }, { immediate: true })
 
 watch(availableVoices, (voices) => {
-  if (voices.length > 0 && (!selectedVoice.value || !voices.some(v => v.id === selectedVoice.value))) {
-    selectedVoice.value = voices[0].id
+  if (voices.length > 0) {
+    if (!selectedVoice.value || !voices.some(v => v.id === selectedVoice.value)) {
+      selectedVoice.value = voices[0].id
+    }
+    if (!selectedUserVoice.value || !voices.some(v => v.id === selectedUserVoice.value)) {
+      const alt = voices.find(v => v.id !== selectedVoice.value) || voices[0]
+      selectedUserVoice.value = alt.id
+    }
   }
 }, { immediate: true })
+
+watch(selectedUserVoice, (val) => {
+  if (val) {
+    userProfileStore.voiceProfileId = val
+  }
+})
 
 // Pre-fill API key on provider change
 watch(selectedProvider, async (providerId) => {
@@ -353,6 +396,33 @@ const sampleGreeting = computed(() => {
   if (resolvedPersona.value.greeting)
     return resolvedPersona.value.greeting
   return `Hello ${userName.value}! I'm ${companionName.value}. Everything is ready — how do I sound?`
+})
+
+watch([sampleGreeting, companionName, userName], ([g, cName, uName]) => {
+  if (!sampleText.value || sampleText.value === g) {
+    sampleText.value = g
+  }
+  if (!userSampleText.value) {
+    userSampleText.value = `Hey ${cName}, I'm ${uName}! Looking forward to working with you.`
+  }
+}, { immediate: true })
+
+function resetSampleText() {
+  sampleText.value = sampleGreeting.value
+}
+
+function resetUserSampleText() {
+  userSampleText.value = `Hey ${companionName.value}, I'm ${userName.value}! Looking forward to working with you.`
+}
+
+async function refreshVoices() {
+  const normId = normalizeProviderId(selectedProvider.value)
+  await speechStore.loadVoicesForProvider(normId)
+  toast.success('Voice catalog refreshed')
+}
+
+onMounted(() => {
+  void checkEngineReadiness()
 })
 
 // 5. Engine Readiness & Weights Download
@@ -438,13 +508,13 @@ async function activateAndDownloadEngine() {
 }
 
 // 6. Audio Sample Playback
-async function togglePreview() {
-  if (isPlayingSample.value) {
+async function togglePreview(target: 'companion' | 'user' = 'companion') {
+  if (isPlayingTarget.value === target) {
     if (audioPlayer.value) {
       audioPlayer.value.pause()
       audioPlayer.value = null
     }
-    isPlayingSample.value = false
+    isPlayingTarget.value = null
     return
   }
 
@@ -452,6 +522,7 @@ async function togglePreview() {
     audioPlayer.value.pause()
     audioPlayer.value = null
   }
+  isPlayingTarget.value = null
 
   // Pre-download weights if local engine is chosen and not ready
   if (isLocalProvider.value && !isEngineReady.value) {
@@ -461,21 +532,25 @@ async function togglePreview() {
       return
   }
 
-  isPlayingSample.value = true
+  isPlayingTarget.value = target
   try {
-    const textToSpeak = sampleGreeting.value
+    const textToSpeak = target === 'user'
+      ? (userSampleText.value || `Hello ${companionName.value}! I am ${userName.value}.`)
+      : (sampleText.value || sampleGreeting.value)
     const providerId = normalizeProviderId(selectedProvider.value)
-    const voiceId = selectedVoice.value || availableVoices.value[0]?.id || 'anna'
+    const voiceId = target === 'user'
+      ? (selectedUserVoice.value || availableVoices.value[1]?.id || availableVoices.value[0]?.id || 'adam')
+      : (selectedVoice.value || availableVoices.value[0]?.id || 'anna')
     const modelId = selectedModel.value || availableModels.value[0]?.id || 'english_2026-04'
 
     const providerInstance = await providersStore.getProviderInstance(providerId)
     if (!providerInstance) {
       toast.error(`Speech provider "${providerId}" is not configured.`)
-      isPlayingSample.value = false
+      isPlayingTarget.value = null
       return
     }
 
-    toast.info(`Synthesizing ${companionName.value}'s voice...`)
+    toast.info(`Synthesizing ${target === 'user' ? userName.value : companionName.value}'s voice...`)
     const audioData = await speechStore.speech(
       providerInstance as any,
       modelId,
@@ -493,11 +568,11 @@ async function togglePreview() {
     audioPlayer.value = audio
 
     audio.onended = () => {
-      isPlayingSample.value = false
+      isPlayingTarget.value = null
       audioPlayer.value = null
     }
     audio.onerror = () => {
-      isPlayingSample.value = false
+      isPlayingTarget.value = null
       audioPlayer.value = null
       toast.error('Audio playback error')
     }
@@ -506,8 +581,15 @@ async function togglePreview() {
   }
   catch (err: any) {
     console.error('[Step 9 Speech] Audio preview error:', err)
-    toast.error(err?.message || 'Voice playback failed')
-    isPlayingSample.value = false
+    const msg: string = err?.message || ''
+    const isGated = msg.includes('401') || msg.includes('gated') || msg.includes('HF token') || msg.includes('huggingface')
+    if (isGated) {
+      isHFTokenModalOpen.value = true
+    }
+    else {
+      toast.error(msg || 'Voice playback failed')
+    }
+    isPlayingTarget.value = null
   }
 }
 
@@ -516,6 +598,7 @@ onBeforeUnmount(() => {
     audioPlayer.value.pause()
     audioPlayer.value = null
   }
+  isPlayingTarget.value = null
 })
 
 // 7. Navigation Handlers
@@ -527,6 +610,9 @@ function handleContinue() {
     pitch: pitch.value,
     rate: speed.value,
   })
+  if (selectedUserVoice.value) {
+    userProfileStore.voiceProfileId = selectedUserVoice.value
+  }
   props.onNext()
 }
 </script>
@@ -687,16 +773,20 @@ function handleContinue() {
       </div>
     </div>
 
-    <!-- Model & Voice Parameters Selection -->
-    <div :class="['grid grid-cols-1 md:grid-cols-2 gap-4']">
-      <!-- Voice Model Selector -->
-      <div :class="['flex flex-col gap-1.5']">
-        <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
-          Engine Model
-        </label>
+    <!-- Model Architecture & Local Engine Provisioning Panel -->
+    <div :class="['flex flex-col gap-3 p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
+      <div :class="['flex flex-col sm:flex-row sm:items-center justify-between gap-2']">
+        <div>
+          <label :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide']">
+            Engine Model Architecture
+          </label>
+          <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+            Select the underlying neural checkpoint or speech synthesis model.
+          </p>
+        </div>
         <select
           v-model="selectedModel"
-          :class="['w-full px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer']"
+          :class="['w-full sm:w-64 px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer shadow-sm']"
         >
           <option
             v-for="model in availableModels"
@@ -708,113 +798,405 @@ function handleContinue() {
         </select>
       </div>
 
-      <!-- Voice Timbre Selector -->
-      <div :class="['flex flex-col gap-1.5']">
-        <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
-          Voice Persona Timbre
-        </label>
-        <select
-          v-model="selectedVoice"
-          :class="['w-full px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer']"
-        >
-          <option
-            v-for="voice in availableVoices"
-            :key="voice.id"
-            :value="voice.id"
+      <!-- Local Provisioning & Weights Activation Bar -->
+      <div v-if="isLocalProvider" :class="['flex flex-col gap-2.5 pt-2 border-t border-neutral-200/60 dark:border-white/5']">
+        <!-- Optional Hugging Face Token Accordion for Gated Models (Pocket-TTS) -->
+        <div :class="['flex flex-col gap-2 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white/60 dark:bg-neutral-900/40']">
+          <button
+            type="button"
+            :class="['flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white cursor-pointer transition-colors w-full']"
+            @click="showHfTokenInput = !showHfTokenInput"
           >
-            {{ voice.label }}
-          </option>
-        </select>
-      </div>
-    </div>
+            <div :class="['flex items-center gap-2']">
+              <div :class="['i-lobe-icons:huggingface w-4 h-4 text-amber-500']" />
+              <span :class="['font-semibold']">Hugging Face Access Token (for Pocket-TTS gated voices)</span>
+            </div>
+            <div :class="[showHfTokenInput ? 'i-solar:alt-arrow-down-line-duotone' : 'i-solar:alt-arrow-right-line-duotone', 'w-4 h-4 text-neutral-400']" />
+          </button>
 
-    <!-- Acoustic Sliders (Speed & Pitch) -->
-    <div :class="['grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
-      <!-- Speed Slider -->
-      <div :class="['flex flex-col gap-1.5']">
-        <div :class="['flex items-center justify-between text-xs font-semibold']">
-          <span :class="['text-neutral-600 dark:text-neutral-400']">Speaking Rate</span>
-          <span :class="['text-primary-500 font-mono']">{{ speed.toFixed(2) }}x</span>
+          <div v-if="showHfTokenInput" :class="['flex gap-2 pt-1']">
+            <input
+              v-model="hfTokenInput"
+              type="password"
+              placeholder="hf_..."
+              :class="['flex-1 px-3 py-1.5 rounded-xl text-xs font-mono bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500']"
+              @input="saveHfToken"
+            >
+            <a
+              href="https://huggingface.co/settings/tokens"
+              target="_blank"
+              rel="noopener noreferrer"
+              :class="['flex items-center self-center gap-1 px-2.5 py-1 text-xs text-primary-500 font-semibold hover:underline cursor-pointer']"
+            >
+              <span>Get Token</span>
+              <div :class="['i-solar:square-top-down-bold w-3.5 h-3.5']" />
+            </a>
+          </div>
         </div>
-        <input
-          v-model.number="speed"
-          type="range"
-          min="0.5"
-          max="2.0"
-          step="0.05"
-          :class="['w-full accent-primary-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-white/10']"
-        >
-      </div>
 
-      <!-- Pitch Slider -->
-      <div :class="['flex flex-col gap-1.5']">
-        <div :class="['flex items-center justify-between text-xs font-semibold']">
-          <span :class="['text-neutral-600 dark:text-neutral-400']">Vocal Pitch</span>
-          <span :class="['text-primary-500 font-mono']">{{ pitch.toFixed(2) }}x</span>
-        </div>
-        <input
-          v-model.number="pitch"
-          type="range"
-          min="0.5"
-          max="1.5"
-          step="0.05"
-          :class="['w-full accent-primary-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-white/10']"
-        >
-      </div>
-    </div>
-
-    <!-- Download Progress Bar (When Downloading Weights) -->
-    <div
-      v-if="isDownloading"
-      :class="['p-4 rounded-2xl bg-primary-500/10 border border-primary-500/30 flex flex-col gap-2 animate-fadeIn']"
-    >
-      <div :class="['flex items-center justify-between text-xs font-semibold text-primary-600 dark:text-primary-400']">
-        <span :class="['truncate max-w-sm']">{{ downloadStatusText }}</span>
-        <span>{{ downloadProgress }}%</span>
-      </div>
-      <div :class="['w-full h-2 rounded-full bg-primary-500/20 overflow-hidden']">
-        <div
-          :class="['h-full bg-primary-500 transition-all duration-200 rounded-full']"
-          :style="{ width: `${downloadProgress}%` }"
-        />
-      </div>
-    </div>
-
-    <!-- Live Audio Preview & Sample Card -->
-    <div :class="['p-4 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900/60 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4']">
-      <div :class="['flex items-start gap-3 w-full']">
-        <div :class="['w-9 h-9 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center text-lg flex-shrink-0 mt-0.5']">
-          <div :class="['i-solar:chat-round-line-bold w-4 h-4']" />
-        </div>
-        <div :class="['flex-1 min-w-0']">
+        <!-- Activation / Readiness Trigger Row -->
+        <div :class="['flex flex-wrap items-center justify-between gap-3 pt-1']">
           <div :class="['flex items-center gap-2']">
-            <span :class="['text-xs font-bold text-neutral-800 dark:text-white']">
-              {{ companionName }}'s Greeting Sample
-            </span>
-            <span :class="['text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-white/10 text-neutral-500 font-mono']">
-              Live Preview
+            <!-- If not ready and not downloading: Show Activate & Download -->
+            <button
+              v-if="!isEngineReady && !isDownloading"
+              type="button"
+              :class="['flex items-center gap-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold px-4 py-2 shadow-sm shadow-primary-600/30 transition-all cursor-pointer']"
+              @click="activateAndDownloadEngine"
+            >
+              <div :class="['i-solar:download-square-bold-duotone w-4 h-4']" />
+              <span>Activate & Download Engine</span>
+            </button>
+
+            <!-- If downloading: Show disabled downloading spinner -->
+            <button
+              v-else-if="isDownloading"
+              type="button"
+              disabled
+              :class="['flex cursor-wait items-center gap-2 rounded-xl bg-primary-500/80 text-white text-xs font-semibold px-4 py-2']"
+            >
+              <div :class="['i-solar:restart-square-bold w-4 h-4 animate-spin']" />
+              <span>Downloading Weights ({{ downloadProgress }}%)...</span>
+            </button>
+
+            <!-- If ready: Show green badge + Re-download button -->
+            <div v-else :class="['flex items-center gap-2']">
+              <span :class="['flex items-center gap-1.5 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-3 py-1.5 ring-1 ring-emerald-500/20']">
+                <div :class="['i-solar:check-circle-bold-duotone w-4 h-4']" />
+                <span>Engine Initialized & Ready</span>
+              </span>
+              <button
+                type="button"
+                :class="['rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer']"
+                title="Force re-download weights"
+                @click="activateAndDownloadEngine"
+              >
+                Re-download
+              </button>
+            </div>
+          </div>
+
+          <span v-if="isDownloading" :class="['text-xs text-primary-500 font-mono font-semibold']">
+            {{ downloadProgress }}%
+          </span>
+        </div>
+
+        <!-- Download Progress Bar -->
+        <div v-if="isDownloading" :class="['flex flex-col gap-1 mt-1']">
+          <div :class="['w-full h-2 rounded-full bg-primary-500/20 overflow-hidden']">
+            <div
+              :class="['h-full bg-primary-500 transition-all duration-200 rounded-full']"
+              :style="{ width: `${downloadProgress}%` }"
+            />
+          </div>
+          <span v-if="downloadStatusText" :class="['truncate text-[11px] text-neutral-400 font-mono']">
+            {{ downloadStatusText }}
+          </span>
+        </div>
+
+        <!-- Download Error Box -->
+        <div
+          v-if="downloadError"
+          :class="['flex items-start gap-2.5 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400']"
+        >
+          <div :class="['i-solar:danger-triangle-bold-duotone w-4 h-4 flex-shrink-0 mt-0.5 text-red-500']" />
+          <div :class="['flex-1 min-w-0']">
+            <span :class="['font-bold']">Download Failed:</span>
+            <p :class="['text-[11px] break-all leading-snug mt-0.5']">
+              {{ downloadError }}
+            </p>
+          </div>
+          <button
+            type="button"
+            :class="['px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-300 font-semibold cursor-pointer text-xs transition-colors']"
+            @click="activateAndDownloadEngine"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dual Voice Calibration Section -->
+    <div :class="['flex flex-col gap-4']">
+      <!-- Target Switcher Tabs: Companion Voice vs User Voice Profile -->
+      <div :class="['flex items-center justify-between gap-2 p-1.5 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10']">
+        <button
+          type="button"
+          :class="[
+            'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer',
+            activeVoiceTab === 'companion'
+              ? 'bg-white dark:bg-neutral-800 text-primary-600 dark:text-primary-400 shadow-sm'
+              : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white',
+          ]"
+          @click="activeVoiceTab = 'companion'"
+        >
+          <div :class="['i-solar:heart-bold-duotone w-4 h-4']" />
+          <span :class="['truncate']">{{ companionName }}'s Voice</span>
+        </button>
+
+        <button
+          type="button"
+          :class="[
+            'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer',
+            activeVoiceTab === 'user'
+              ? 'bg-white dark:bg-neutral-800 text-purple-600 dark:text-purple-400 shadow-sm'
+              : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white',
+          ]"
+          @click="activeVoiceTab = 'user'"
+        >
+          <div :class="['i-solar:user-speak-bold-duotone w-4 h-4 text-purple-500']" />
+          <span :class="['truncate']">{{ userName }}'s Voice Profile</span>
+        </button>
+      </div>
+
+      <!-- COMPANION VOICE CALIBRATION PANEL -->
+      <div
+        v-if="activeVoiceTab === 'companion'"
+        :class="['flex flex-col gap-4 p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] animate-fadeIn']"
+      >
+        <div :class="['flex items-center justify-between']">
+          <div :class="['flex items-center gap-2']">
+            <div :class="['i-solar:heart-bold-duotone w-4 h-4 text-primary-500']" />
+            <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
+              {{ companionName }}'s Voice Persona
             </span>
           </div>
-          <p :class="['text-xs text-neutral-600 dark:text-neutral-300 italic mt-1 leading-relaxed select-text']">
-            "{{ sampleGreeting }}"
-          </p>
+          <span :class="['text-[10px] px-2 py-0.5 rounded-full font-bold bg-primary-500/10 text-primary-600 dark:text-primary-400']">
+            Companion Voice
+          </span>
+        </div>
+
+        <!-- Timbre Selector with Refresh Voices Button -->
+        <div :class="['flex flex-col gap-1.5']">
+          <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
+            Voice Persona Timbre
+          </label>
+          <div :class="['flex items-center gap-2']">
+            <select
+              v-model="selectedVoice"
+              :class="['flex-1 px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer shadow-sm']"
+            >
+              <option
+                v-for="voice in availableVoices"
+                :key="voice.id"
+                :value="voice.id"
+              >
+                {{ voice.label }}
+              </option>
+            </select>
+            <button
+              type="button"
+              :class="['h-9 px-3 rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm']"
+              title="Refresh voice catalog"
+              @click="refreshVoices"
+            >
+              <div :class="['i-solar:restart-bold-duotone w-3.5 h-3.5 text-primary-500']" />
+              <span>Load Voices</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Acoustic Sliders (Speed & Pitch) -->
+        <div :class="['grid grid-cols-1 md:grid-cols-2 gap-4 pt-1']">
+          <div :class="['flex flex-col gap-1.5']">
+            <div :class="['flex items-center justify-between text-xs font-semibold']">
+              <span :class="['text-neutral-600 dark:text-neutral-400']">Speech Rate / Speed</span>
+              <span :class="['text-primary-500 font-mono']">{{ speed.toFixed(2) }}x</span>
+            </div>
+            <input
+              v-model.number="speed"
+              type="range"
+              min="0.5"
+              max="2.0"
+              step="0.05"
+              :class="['w-full accent-primary-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
+            >
+          </div>
+
+          <div :class="['flex flex-col gap-1.5']">
+            <div :class="['flex items-center justify-between text-xs font-semibold']">
+              <span :class="['text-neutral-600 dark:text-neutral-400']">Vocal Pitch</span>
+              <span :class="['text-primary-500 font-mono']">{{ pitch.toFixed(2) }}x</span>
+            </div>
+            <input
+              v-model.number="pitch"
+              type="range"
+              min="0.5"
+              max="1.5"
+              step="0.05"
+              :class="['w-full accent-primary-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
+            >
+          </div>
+        </div>
+
+        <!-- Companion Audio Preview & Editable Playground -->
+        <div :class="['p-3.5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900/60 shadow-sm flex flex-col gap-2.5']">
+          <div :class="['flex items-center justify-between']">
+            <div :class="['flex items-center gap-2']">
+              <span :class="['text-xs font-bold text-neutral-800 dark:text-white']">
+                {{ companionName }}'s Greeting Sample
+              </span>
+              <span :class="['text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-white/10 text-neutral-500 font-mono']">
+                Live Preview
+              </span>
+            </div>
+            <button
+              type="button"
+              :class="['text-[11px] text-neutral-500 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-colors cursor-pointer']"
+              @click="resetSampleText"
+            >
+              Reset Text
+            </button>
+          </div>
+
+          <div :class="['flex items-center gap-2.5']">
+            <input
+              v-model="sampleText"
+              type="text"
+              placeholder="Enter greeting sample text to preview..."
+              :class="['flex-1 px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 select-text']"
+            >
+            <button
+              type="button"
+              :class="[
+                'px-4 py-2 rounded-xl font-semibold text-xs transition-all flex items-center gap-2 flex-shrink-0 cursor-pointer shadow-sm',
+                isPlayingCompanion
+                  ? 'bg-red-500 hover:bg-red-600 text-white'
+                  : 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/30',
+              ]"
+              @click="togglePreview('companion')"
+            >
+              <div :class="[isPlayingCompanion ? 'i-solar:stop-circle-bold w-4 h-4' : 'i-solar:play-circle-bold w-4 h-4']" />
+              <span>{{ isPlayingCompanion ? 'Stop' : 'Play Preview' }}</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Play / Stop Button -->
-      <button
-        type="button"
-        :class="[
-          'px-5 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-2 flex-shrink-0 cursor-pointer shadow-sm',
-          isPlayingSample
-            ? 'bg-red-500 hover:bg-red-600 text-white'
-            : 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/30',
-        ]"
-        @click="togglePreview"
+      <!-- USER / PRODUCER VOICE CALIBRATION PANEL -->
+      <div
+        v-else
+        :class="['flex flex-col gap-4 p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] animate-fadeIn']"
       >
-        <div :class="[isPlayingSample ? 'i-solar:stop-circle-bold w-4 h-4' : 'i-solar:play-circle-bold w-4 h-4']" />
-        <span>{{ isPlayingSample ? 'Stop Playback' : 'Listen to Voice' }}</span>
-      </button>
+        <div :class="['flex items-center justify-between']">
+          <div :class="['flex items-center gap-2']">
+            <div :class="['i-solar:user-speak-bold-duotone w-4 h-4 text-purple-500']" />
+            <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
+              {{ userName }}'s Voice Profile
+            </span>
+          </div>
+          <span :class="['text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400']">
+            Producer / User Voice
+          </span>
+        </div>
+
+        <!-- Timbre Selector with Refresh Voices Button -->
+        <div :class="['flex flex-col gap-1.5']">
+          <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
+            User Voice Persona
+          </label>
+          <div :class="['flex items-center gap-2']">
+            <select
+              v-model="selectedUserVoice"
+              :class="['flex-1 px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-purple-500 cursor-pointer shadow-sm']"
+            >
+              <option
+                v-for="voice in availableVoices"
+                :key="voice.id"
+                :value="voice.id"
+              >
+                {{ voice.label }}
+              </option>
+            </select>
+            <button
+              type="button"
+              :class="['h-9 px-3 rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm']"
+              title="Refresh voice catalog"
+              @click="refreshVoices"
+            >
+              <div :class="['i-solar:restart-bold-duotone w-3.5 h-3.5 text-purple-500']" />
+              <span>Load Voices</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Acoustic Sliders (Speed & Pitch) -->
+        <div :class="['grid grid-cols-1 md:grid-cols-2 gap-4 pt-1']">
+          <div :class="['flex flex-col gap-1.5']">
+            <div :class="['flex items-center justify-between text-xs font-semibold']">
+              <span :class="['text-neutral-600 dark:text-neutral-400']">Speech Rate / Speed</span>
+              <span :class="['text-purple-500 font-mono']">{{ userSpeed.toFixed(2) }}x</span>
+            </div>
+            <input
+              v-model.number="userSpeed"
+              type="range"
+              min="0.5"
+              max="2.0"
+              step="0.05"
+              :class="['w-full accent-purple-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
+            >
+          </div>
+
+          <div :class="['flex flex-col gap-1.5']">
+            <div :class="['flex items-center justify-between text-xs font-semibold']">
+              <span :class="['text-neutral-600 dark:text-neutral-400']">Vocal Pitch</span>
+              <span :class="['text-purple-500 font-mono']">{{ userPitch.toFixed(2) }}x</span>
+            </div>
+            <input
+              v-model.number="userPitch"
+              type="range"
+              min="0.5"
+              max="1.5"
+              step="0.05"
+              :class="['w-full accent-purple-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
+            >
+          </div>
+        </div>
+
+        <!-- User Audio Preview & Editable Playground -->
+        <div :class="['p-3.5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900/60 shadow-sm flex flex-col gap-2.5']">
+          <div :class="['flex items-center justify-between']">
+            <div :class="['flex items-center gap-2']">
+              <span :class="['text-xs font-bold text-neutral-800 dark:text-white']">
+                {{ userName }}'s Spoken Sample
+              </span>
+              <span :class="['text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono font-semibold']">
+                Producer Sample
+              </span>
+            </div>
+            <button
+              type="button"
+              :class="['text-[11px] text-neutral-500 hover:text-purple-600 dark:hover:text-purple-400 font-medium transition-colors cursor-pointer']"
+              @click="resetUserSampleText"
+            >
+              Reset Text
+            </button>
+          </div>
+
+          <div :class="['flex items-center gap-2.5']">
+            <input
+              v-model="userSampleText"
+              type="text"
+              placeholder="Enter user sample speech to preview..."
+              :class="['flex-1 px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-purple-500 select-text']"
+            >
+            <button
+              type="button"
+              :class="[
+                'px-4 py-2 rounded-xl font-semibold text-xs transition-all flex items-center gap-2 flex-shrink-0 cursor-pointer shadow-sm',
+                isPlayingUser
+                  ? 'bg-red-500 hover:bg-red-600 text-white'
+                  : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/30',
+              ]"
+              @click="togglePreview('user')"
+            >
+              <div :class="[isPlayingUser ? 'i-solar:stop-circle-bold w-4 h-4' : 'i-solar:play-circle-bold w-4 h-4']" />
+              <span>{{ isPlayingUser ? 'Stop' : 'Play Preview' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Bottom Navigation Bar -->
@@ -836,5 +1218,95 @@ function handleContinue() {
         <div :class="['i-solar:arrow-right-linear w-4 h-4']" />
       </button>
     </div>
+
+    <!-- Hugging Face Token Helper Modal -->
+    <Teleport to="body">
+      <div
+        v-if="isHFTokenModalOpen"
+        class="pointer-events-auto fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        @pointerdown.stop
+        @mousedown.stop
+        @touchstart.stop
+        @click.stop.self="isHFTokenModalOpen = false"
+      >
+        <div
+          class="max-w-sm w-full border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl dark:border-neutral-800/80 dark:bg-neutral-900"
+          @pointerdown.stop
+          @mousedown.stop
+          @touchstart.stop
+          @click.stop
+        >
+          <!-- Icon + Title -->
+          <div class="mb-4 flex items-center gap-3">
+            <div class="size-12 flex shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500 dark:bg-amber-500/25">
+              <div class="i-solar:key-bold-duotone size-6.5" />
+            </div>
+            <div>
+              <h3 class="text-base text-neutral-900 font-bold dark:text-white">
+                Hugging Face Token Required
+              </h3>
+              <p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                This voice is behind a gated model
+              </p>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <p class="mb-5 text-sm text-neutral-600 leading-relaxed dark:text-neutral-300">
+            The voice you selected (<span class="text-neutral-800 font-semibold dark:text-neutral-100">{{ selectedVoice }}</span>) is hosted on a gated Hugging Face repository.
+            To use it, you need a free Hugging Face account, accept the model gate, and paste your access token below.
+          </p>
+
+          <!-- Steps -->
+          <ol class="mb-5 text-xs text-neutral-500 space-y-2 dark:text-neutral-400">
+            <li class="flex items-start gap-2">
+              <span class="mt-0.5 size-4 flex shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[10px] text-amber-600 font-bold dark:text-amber-400">1</span>
+              <span>Create a free account at <span class="text-neutral-700 font-semibold dark:text-neutral-200">huggingface.co</span></span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="mt-0.5 size-4 flex shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[10px] text-amber-600 font-bold dark:text-amber-400">2</span>
+              <span>Accept the gate at <span class="text-neutral-700 font-semibold dark:text-neutral-200">kyutai/pocket-tts</span></span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="mt-0.5 size-4 flex shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[10px] text-amber-600 font-bold dark:text-amber-400">3</span>
+              <span>Generate a <span class="text-neutral-700 font-semibold dark:text-neutral-200">Read</span> token and paste it below</span>
+            </li>
+          </ol>
+
+          <!-- Quick Token Input inside Modal -->
+          <div class="mb-5 flex flex-col gap-1.5">
+            <label class="text-[11px] text-neutral-600 font-semibold dark:text-neutral-300">Paste Token Here</label>
+            <input
+              v-model="hfTokenInput"
+              type="password"
+              placeholder="hf_..."
+              class="w-full border border-neutral-200 rounded-xl bg-neutral-100 px-3 py-2 text-xs text-neutral-900 font-mono outline-none dark:border-white/10 focus:border-primary-500 dark:bg-neutral-800 dark:text-white"
+              @input="saveHfToken"
+            >
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-2">
+            <button
+              type="button"
+              class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-2xl bg-amber-500 py-2.5 text-xs text-white font-semibold shadow-amber-500/25 shadow-md transition active:scale-95 hover:bg-amber-600"
+              @pointerdown.stop
+              @click.stop="openHFTokenPage"
+            >
+              <div class="i-solar:key-bold-duotone size-3.5" />
+              <span>Get Token</span>
+            </button>
+            <button
+              type="button"
+              class="flex-1 cursor-pointer rounded-2xl bg-neutral-100 py-2.5 text-xs text-neutral-600 font-semibold transition active:scale-98 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              @pointerdown.stop
+              @click.stop="isHFTokenModalOpen = false"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

@@ -590,4 +590,39 @@ describe('kokoro adapter - generate inactivity timeout', () => {
 
     adapter.terminate()
   })
+
+  it('should use the relaxed WASM inter-segment idle timeout for WASM loads', async () => {
+    let segmentYielded = false
+    MockWorker.onCreate = worker => bridgeWorker(worker, async function* () {
+      // Yield segment 1 immediately
+      yield { samples: new Float32Array([0.1]), samplingRate: 24_000 } satisfies KokoroGenerateChunk
+      segmentYielded = true
+      // Hang on segment 2
+      await new Promise<never>(() => {})
+    })
+
+    const { createKokoroAdapter } = await import('./kokoro')
+    const adapter = createKokoroAdapter()
+
+    await adapter.loadModel('q4', 'wasm')
+    expect(adapter.state).toBe('ready')
+
+    const generating = adapter.generate('hello world', 'af_heart' as any).catch(error => error)
+
+    // Flush microtasks carrying segment 1 (armed for KOKORO_GENERATE_IDLE_WASM = 30_000ms)
+    await vi.advanceTimersByTimeAsync(100)
+    expect(segmentYielded).toBe(true)
+
+    // Advancing 15,000ms (well past the 5,000ms WebGPU idle timeout) must NOT trip when on WASM
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(adapter.state).not.toBe('error')
+
+    // Advancing the remaining 15,000ms reaches the 30,000ms WASM idle budget and trips the timeout
+    await vi.advanceTimersByTimeAsync(15_000)
+    const result = await generating
+    expect((result as Error).name).toBe('TimeoutError')
+    expect(adapter.state).toBe('error')
+
+    adapter.terminate()
+  })
 })

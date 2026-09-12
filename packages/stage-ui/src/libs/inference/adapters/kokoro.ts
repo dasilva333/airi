@@ -75,6 +75,7 @@ export interface KokoroAdapter {
 const LOAD_MODEL_TIMEOUT = TIMEOUTS.KOKORO_LOAD
 const GENERATE_FIRST_CHUNK_TIMEOUT = TIMEOUTS.KOKORO_GENERATE_FIRST_CHUNK
 const GENERATE_IDLE_TIMEOUT = TIMEOUTS.KOKORO_GENERATE_IDLE
+const GENERATE_IDLE_TIMEOUT_WASM = TIMEOUTS.KOKORO_GENERATE_IDLE_WASM
 
 /**
  * Encode raw PCM Float32Array samples into a WAV ArrayBuffer.
@@ -295,9 +296,9 @@ export function createKokoroAdapter(): KokoroAdapter {
       let samplingRate = 0
       // Two-tier inactivity timeout: a generous first-segment budget (warmup +
       // first sentence, slow on fp32) then a tighter inter-segment gap once the
-      // worker has proven alive. A wedged worker trips it and is restarted via
-      // the outer catch; a slow-but-progressing generation resets it per segment.
-      const idle = createIdleTimeout(GENERATE_FIRST_CHUNK_TIMEOUT, GENERATE_IDLE_TIMEOUT)
+      const isWasm = !lastManifest || lastManifest.device === 'wasm' || lastManifest.device === 'cpu'
+      const idleTimeout = isWasm ? GENERATE_IDLE_TIMEOUT_WASM : GENERATE_IDLE_TIMEOUT
+      const idle = createIdleTimeout(GENERATE_FIRST_CHUNK_TIMEOUT, idleTimeout)
       try {
         // `crashSignal` ends the stream on worker death so the slot frees
         // immediately; see {@link GpuWorkerHost.runOnGpu}.

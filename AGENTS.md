@@ -1,3 +1,6 @@
+# CRITICAL REQUIREMENT: First-Action Domain Skill Loading
+- **Always consult `.agents/skills` immediately upon receiving a prompt**: Whenever the user sends a message (especially the very first message or any task kickoff), the very first thing you MUST do is evaluate all user input, inspect `.agents/skills/` and [`docs/project-specialized-skills.md`](./docs/project-specialized-skills.md) to identify the relevant domain skill(s), view and read the associated `SKILL.md` (and any relevant reference files), and only after that proceed to do codebase research or take action.
+
 # CRITICAL REQUIREMENT: Git Status Reporting
 - **Always run `git status` after every single commit or file modification, and report exactly what files are still open, unstaged, or pending.** Never assume the working directory is clean or that unrelated modifications are invisible.
 

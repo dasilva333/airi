@@ -189,6 +189,13 @@ export const TIMEOUTS = {
    * CPU/WASM hardware trip false-positive restarts.
    */
   KOKORO_GENERATE_IDLE: 5_000,
+  /**
+   * Inter-segment inactivity budget for Kokoro generation on CPU/WASM.
+   * On CPU/WASM, synthesizing complex or multi-clause sentences takes significantly
+   * longer than WebGPU (~5-15s per segment), so we use a 30s budget to prevent
+   * false-positive wedged worker classifications.
+   */
+  KOKORO_GENERATE_IDLE_WASM: 30_000,
 
   /** Whisper model load timeout (absolute; larger model, allow more time) */
   WHISPER_LOAD: 180_000,
