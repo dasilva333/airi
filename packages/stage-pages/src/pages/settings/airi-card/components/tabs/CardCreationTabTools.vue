@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ensureMcpServersForAllowedTools } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
+import { ensureMcpServersForAllowedTools, tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { FieldInput } from '@proj-airi/ui'
-import { computed } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 withDefaults(defineProps<{
   dreamStateEnabled?: boolean
@@ -96,6 +96,73 @@ const hasMotionGenerator = computed({
       generationAllowedTools.value = current.filter(t => t !== 'generate_motion')
     }
   },
+})
+
+// Opt-in only: Custom Developer MCP (disabled by default)
+const hasCustomMcp = computed({
+  get() {
+    return generationAllowedTools.value !== undefined && generationAllowedTools.value.includes('mcp')
+  },
+  set(checked) {
+    const current = generationAllowedTools.value ?? ['text_journal', 'image_journal']
+    if (checked) {
+      if (!current.includes('mcp'))
+        generationAllowedTools.value = [...current, 'mcp']
+    }
+    else {
+      generationAllowedTools.value = current.filter(t => t !== 'mcp')
+    }
+  },
+})
+
+interface ConnectedMcpServer {
+  name: string
+  toolCount: number
+  status?: string
+}
+
+const connectedServers = ref<ConnectedMcpServer[]>([])
+const isLoadingServers = ref(false)
+
+async function loadConnectedServers() {
+  const bridge = tryGetMcpToolBridge()
+  if (!bridge)
+    return
+
+  isLoadingServers.value = true
+  try {
+    const [status, rawTools] = await Promise.all([
+      bridge.getRuntimeStatus().catch(() => null),
+      bridge.listTools().catch(() => []),
+    ])
+
+    if (status?.servers) {
+      connectedServers.value = status.servers.map((s) => {
+        const count = rawTools.filter(t => t.serverName === s.name).length
+        return {
+          name: s.name,
+          toolCount: count,
+          status: s.state,
+        }
+      })
+    }
+  }
+  catch (err) {
+    console.warn('[CardCreationTabTools] Failed to load MCP servers:', err)
+  }
+  finally {
+    isLoadingServers.value = false
+  }
+}
+
+onMounted(() => {
+  void loadConnectedServers()
+})
+
+watch(hasCustomMcp, (enabled) => {
+  if (enabled) {
+    void loadConnectedServers()
+  }
 })
 
 // Widget instructions text
@@ -650,6 +717,98 @@ const textJournalConflictWarning = computed(() => {
       <div v-if="hasMotionGenerator" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-2 dark:border-neutral-800">
         <div class="rounded-xl bg-rose-50/50 p-3 text-xs text-rose-700 dark:bg-rose-950/20 dark:text-rose-300">
           🏃‍♂️ Supports VRM humanoid avatars via Procedural LLM keyframing and FlowMDM Local WebGPU neural diffusion.
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Custom Developer MCP Pack -->
+    <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="size-10 flex shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+            <div class="i-solar:server-square-bold-duotone text-2xl" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+              <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
+                Custom Developer MCP Pack
+              </h3>
+              <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] text-indigo-700 font-bold uppercase dark:bg-indigo-900/40 dark:text-indigo-300">
+                Developer MCP
+              </span>
+            </div>
+            <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+              Unlocks all third-party Model Context Protocol (MCP) servers and tools configured in <code class="rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-800">mcp.json</code> (e.g. custom harnesses, databases, Spotify, local APIs).
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          :class="[
+            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+            hasCustomMcp ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+          ]"
+          @click="hasCustomMcp = !hasCustomMcp"
+        >
+          <span
+            aria-hidden="true"
+            :class="[
+              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+              hasCustomMcp ? 'translate-x-5' : 'translate-x-0',
+            ]"
+          />
+        </button>
+      </div>
+
+      <div v-if="hasCustomMcp" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-3 dark:border-neutral-800">
+        <div class="flex flex-wrap gap-2">
+          <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+            <div class="i-solar:widget-add-bold text-indigo-500" />
+            mcp_list_tools (All Connected Servers)
+          </span>
+          <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+            <div class="i-solar:tuning-square-2-bold text-indigo-500" />
+            mcp_call_tool (&lt;server&gt;::&lt;tool&gt;)
+          </span>
+          <span class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-[11px] text-indigo-700 font-medium dark:bg-indigo-950/30 dark:text-indigo-300">
+            <div class="i-solar:shield-check-bold text-indigo-500" />
+            Full MCP Permission Granted
+          </span>
+        </div>
+
+        <!-- Discovered Connected Servers -->
+        <div v-if="connectedServers.length > 0" class="rounded-xl bg-neutral-50 p-3 dark:bg-neutral-800/50">
+          <div class="mb-2 flex items-center justify-between">
+            <span class="text-[11px] text-neutral-500 font-semibold tracking-wider uppercase dark:text-neutral-400">
+              Active MCP Servers Detected ({{ connectedServers.length }})
+            </span>
+            <button
+              type="button"
+              class="text-[11px] text-primary-600 dark:text-primary-400 hover:text-primary-700"
+              @click="loadConnectedServers"
+            >
+              Refresh
+            </button>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <div
+              v-for="server in connectedServers"
+              :key="server.name"
+              class="inline-flex items-center gap-1.5 border border-neutral-200 rounded-lg bg-white px-2.5 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <div
+                class="size-2 rounded-full"
+                :class="server.status === 'running' ? 'bg-emerald-500' : 'bg-neutral-400'"
+              />
+              <span class="text-neutral-800 font-medium dark:text-neutral-200">{{ server.name }}</span>
+              <span class="text-[10px] text-neutral-400 font-mono dark:text-neutral-500">({{ server.toolCount }} tools)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-300">
+          ⚙️ <strong>Configuration:</strong> Add and configure third-party MCP servers in <strong>Settings &rarr; MCP Servers & Tools</strong>. When this pack is enabled, this character card allows unrestricted tool discovery and execution across all running servers.
         </div>
       </div>
     </section>
