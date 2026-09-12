@@ -18,7 +18,7 @@
   - 💬 **#2121: `chore(i18n): update translations` (+4 new comments, total 86)**: Ongoing localization review.
   - 💬 **#2533: `refactor(api): restore Stripe product catalog as Flux pack source` (7 comments, Draft)**: Follow-up to payment core extraction.
 * **Cherry-Pick Candidates**:
-  - ⭐ **PR #2530: `fix(stage-tamagotchi): remove obsolete mouse tracking IPC`**: High priority for desktop shell stability. `await startTrackingCursorPoint()` in `App.vue` calls an obsolete Eventa RPC whose main-process handler was removed in `ab001a7ab`, leaving the call pending and potentially delaying provider capability publication and model preload.
+  - ✅ **PR #2530: `fix(stage-tamagotchi): remove obsolete mouse tracking IPC` (PORTED)**: Removed dead `await startTrackingCursorPoint()` call in `App.vue` and obsolete `electronStartTrackMousePosition` definition in `shared/eventa.ts`, unblocking desktop startup sequence.
   - ⭐ **PR #2525: `fix(stage-pages): load speech provider voices after configuration updates`**: Converts reactive provider configurations to plain snapshots before synchronized validation across speech providers (ElevenLabs, Deepgram, Volcengine, etc.), fixing voice loading stall/caching bugs on configuration changes.
   - 🔍 **PR #2522: `fix(stage-tamagotchi): keep controls island open on native Wayland`**: Fixes auto-collapse bug on native Wayland desktops by tracking DOM `pointerenter`/`pointerleave` events on the controls island alongside `screen.getCursorScreenPoint()`.
   - 🔍 **PR #2524: `feat(provider-inference): refresh Volcengine coding-plan models from endpoint`**: Adds dynamic `/models` endpoint refreshing for Volcengine with 5s timeout fallback to static list.

@@ -877,15 +877,23 @@ async function loadModel() {
     motionManagerUpdate.register(useMotionUpdatePluginIdleFocus(disableFocusAtRef, undefined, motionControlActive), 'post')
     motionManagerUpdate.register(useMotionUpdatePluginAutoEyeBlink(), 'post')
 
-    // Real-time lip-sync mouth opening
-    motionManagerUpdate.register((ctx) => {
-      const size = props.mouthOpenSize ?? 0
-      ctx.model.setParameterValueById('ParamMouthOpenY', Math.max(0, Math.min(1.0, size)))
-    }, 'post')
-
     // Manual / Procedural ambient motion spring controller (with additive mouse focus blending)
     motionManagerUpdate.register(useMotionUpdatePluginManualControl(manualMotionControl, manualMotionSpring, exclusiveOwnerId, disableFocusAtRef), 'post')
     motionManagerUpdate.register(useMotionUpdatePluginBreathControl(manualBreathControl), 'post')
+
+    // Real-time lip-sync mouth opening (registered after manual control so audio speech phonemes have final authority)
+    motionManagerUpdate.register((ctx) => {
+      const size = props.mouthOpenSize ?? 0
+      if (size > 0) {
+        ctx.model.setParameterValueById('ParamMouthOpenY', Math.max(0, Math.min(1.0, size)))
+      }
+      else {
+        const hasManualMouth = manualMotionControl.value.active && (manualMotionControl.value.pose?.mouthOpen ?? 0) > 0.001
+        if (!hasManualMouth) {
+          ctx.model.setParameterValueById('ParamMouthOpenY', 0)
+        }
+      }
+    }, 'post')
 
     // NOTICE: ArtMesh colors must be applied after coreModel.update(), not in the motion hook.
     // See Cubism4InternalModel.update(): motionManager.update → … → model.update() → draw.

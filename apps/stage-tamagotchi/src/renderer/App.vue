@@ -52,7 +52,6 @@ import {
   electronPluginUpdateCapability,
   electronSettingsNavigate,
   electronShowToastEvent,
-  electronStartTrackMousePosition,
   electronWindowSetTitle,
   i18nSetLocale,
   pluginProtocolListProviders,
@@ -131,7 +130,6 @@ const loadEnabledPlugins = useElectronEventaInvoke(electronPluginLoadEnabled)
 const loadPlugin = useElectronEventaInvoke(electronPluginLoad)
 const unloadPlugin = useElectronEventaInvoke(electronPluginUnload)
 const inspectPluginHost = useElectronEventaInvoke(electronPluginInspect)
-const startTrackingCursorPoint = useElectronEventaInvoke(electronStartTrackMousePosition)
 const reportPluginCapability = useElectronEventaInvoke(electronPluginUpdateCapability)
 const listMcpTools = useElectronEventaInvoke(electronMcpListTools)
 const callMcpTool = useElectronEventaInvoke(electronMcpCallTool)
@@ -247,15 +245,12 @@ onMounted(async () => {
     logStep('Checking yesterday short-term block')
     await ensureYesterdayShortTermBlockForActiveCharacter()
 
-    // NOTICE: Stage model rendering and mouse cursor tracking are exclusive to the
+    // NOTICE: Stage model rendering is exclusive to the
     // primary transparent desktop Stage window. Secondary windows (Chat, Settings,
     // Caption, Customizer) must NOT query 3D assets or decode textures at boot.
     logStep('Initializing stage model')
     await settingsStore.initializeStageModel().catch((err: any) => console.error('[PipelineTTS:App] FAILED stage model init:', err))
     logStep('Stage model initialized')
-
-    logStep('Starting cursor tracking')
-    await startTrackingCursorPoint().catch((err: any) => console.error('[PipelineTTS:App] FAILED cursor tracking init:', err))
   }
 
   logStep('Initializing server channel store')
