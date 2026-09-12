@@ -345,38 +345,58 @@ Instead of wrestling with the live runtime, development follows an **isolated cl
 
 ```mermaid
 flowchart LR
-    A[Live2D DSL Model Collection] --> B[scripts/extract-dsl-manifests.mjs]
+    A[Live2D Model Collection] --> B[extract_live2d_manifests.py]
     B --> C[Normalized Capability Fixtures]
     C --> D[Standalone HTML Mock Workbench]
-    D --> E[User UI Review & Label Map Refinement]
-    E --> F[Port Validated Architecture to AIRI Production]
+    D --> E[User UI Review & Hybrid Translation Map]
+    E --> F[Devtools Integration: Replace DSL & State]
+    F --> G[Production Live2D Gimmick Deck]
 ```
 
-1. **Batch Extraction**:
-   - An offline Node/ESM script scans the user's real collection of Live2D models with DSL manifests.
-   - Extracts choices, motion groups, variable modifiers, parameters, and costume lists into static JSON fixtures.
-2. **Interactive HTML Mock Workbench**:
-   - Generates a standalone, dependency-free interactive HTML test bench.
-   - Renders grouped controls (Switches, Costumes, Sliders, Scene Triggers) for each discovered model scenario.
-   - Provides a zero-latency playground to refine layout density, grouping heuristics, category icons, and user-friendly aliases without touching production code.
-3. **Dual-View UX Architecture**:
-   To prevent discarding the author's carefully curated menu logic by blindly flattening everything:
-   - **"Creator Menu" View**: Preserves the original tree structure, branching options, and text from the creator's `Choices` array.
-   - **"Discovered Features" View**: Groups features by functional capability (Switches, Outfits, Gimmicks, Sliders).
-   Users and designers can toggle between both views to compare ergonomics.
-4. **Three Concrete Experiment Deliverables**:
-   - **Extracted Capability Inventory**: What each package actually declares, with source file references and locations preserved.
-   - **Interactive Control Mock**: Demonstrates whether grouping, labels, menus, and discovery make sense to a human user.
-   - **Coverage & Ambiguity Report**: Identifies which patterns generalize cleanly and which models require special aliases, fallbacks, or manual mapping.
-5. **The 5-Layer Capability Model**:
-   The cleanroom workbench enforces a strict separation of concerns across 5 distinct authorities:
-   - **Layer 1 (Declared)**: What does the creator manifest declare? (Manifest inspection).
-   - **Layer 2 (Host Supported)**: Does this specific host implement the required execution port? (e.g. is `change_cos` wired or stubbed?).
-   - **Layer 3 (State Eligible)**: Is the action valid right now? (Variable guards, intimacy thresholds, cooldowns).
-   - **Layer 4 (Execution Reality)**: What actually played, and did audio/motion complete?
-   - **Layer 5 (User Presentation)**: What should it be called? (Original creator text vs. user aliases).
-6. **Production Porting**:
-   Once the UI ergonomics, grouped controls, and taxonomy maps are refined and approved in the cleanroom mock, the proven patterns will be ported into `@proj-airi/stage-ui-live2d`.
+#### 1. Empirical Cleanroom Findings (18,165 Models Scanned)
+The cleanroom extractor (`scripts/live2d-cleanroom/extractors/extract_live2d_manifests.py`) ran directly on the Windows host storage, scanning all 18,165 Live2D model archives in 22.42 seconds (810 models/s):
+- **DSL Models Discovered**: **4,816 models** (26.5% of total Live2D collection)
+- **Cutscenes & Voiced Dialogue (`Text` + `Sound`)**: 1,994 models
+- **Semicolon-Chained Commands (`Command` / `PostCommand`)**: 629 models
+- **`VarFloats` State Machines**: 516 models
+- **Costumes (`change_cos` multi-MOC hot-swaps)**: 296 models
+- **Intimacy Bounds & Tiers (`Intimacy`)**: 276 models
+- **`ParamValue` Controllers & Sliders**: 254 models
+- **Choice Trees (`Choices` branching menus)**: 144 models
+
+#### 2. The Hybrid Translation Architecture (Semantic Bridging)
+Third-party models are predominantly Chinese and Japanese. To solve the language barrier without bloating the repository or introducing runtime latency:
+```mermaid
+flowchart TD
+    A[Model Introspected] --> B{Check Common Lexicon}
+    B -->|Match found ~5KB Dictionary| C[Instant Translation: 去布料 ➔ Remove Fabric, 背景隐藏 ➔ Hide Background]
+    B -->|Unique Narrative/Dialogue| D{Check localforage Cache}
+    D -->|Cached| E[Render from IndexedDB 0ms]
+    D -->|Not Cached| F["Translate Hook (Active Provider / Web API)"]
+    F --> G[Save to localforage: live2d-translations:modelId]
+```
+- **Tier 1: Static Live2D Common Lexicon (`lexicon.ts`, ~5 KB)**:
+  - Universal creator idioms (~100 keys) bundled in `packages/stage-ui-live2d/src/interpreter/lexicon.ts`.
+  - Instantly translates ~80% of switches, mesh parts, and choices (`去布料` ➔ Remove Fabric, `背景隐藏` ➔ Hide Background, `开启/关闭` ➔ Enable/Disable, `待机` ➔ Idle, `好的` ➔ Okay) with **0 network requests**.
+- **Tier 2: JIT Translation Composable (`useLive2dTranslator`)**:
+  - For narrative visual novel dialogue and character-specific choices (e.g. Minato Aqua, Icarus, Honkai Bronya).
+  - Translates uncached strings on demand into the user's active client language (`settings.locale`) and caches them in `localforage` under `local:live2d-translations:{modelId}:{locale}`.
+  - Subsequent loads are 0ms.
+- **Presentation Pattern**:
+  - Primary label: Clean translated English (e.g. `Remove Fabric / Strip Clothes`).
+  - Subtitle: Original creator text (e.g. `去布料`).
+  - Includes user override capability (`[ ✏️ ]`) to personalize or fine-tune labels.
+
+#### 3. Integration Phase 1: Replacing Legacy "DSL & State" in Devtools
+Instead of maintaining the legacy developer-only heap table in `apps/stage-tamagotchi/src/renderer/pages/devtools/live2d.vue`, the old "DSL & State" tab is replaced with the newly validated **Live2D Gimmick Deck**:
+- **Scrap Legacy Panel**: Remove the manual `Dispatch` text input, raw intimacy number, and bare `VarFloats` key-value table.
+- **Mount `<Live2dGimmickDeck />`**: A dedicated modular component in `packages/stage-ui-live2d/src/components/devtools/Live2dGimmickDeck.vue` mounted as Tab 1 in `devtools/live2d.vue`.
+- **Preserve Ambient Motion**: Tab 2 (`Ambient Motion Studio`) remains untouched.
+- **Bridge to Live Runtime**:
+  - `CostumePicker` dispatches costume swaps through the model runtime.
+  - `GimmickSwitch` updates live `VarFloats` registers directly in `dslVM.vars`.
+  - `PartController` sliders directly update `modelParameters` locked into the render ticker loop.
+  - `Choice` and `Reaction` buttons trigger `selectDslChoice()` and `dispatchDsl()`.
 
 ---
 

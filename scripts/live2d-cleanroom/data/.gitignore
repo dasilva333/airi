@@ -1,0 +1,4 @@
+# Ignore all raw personal model catalogs and raw model dumps
+*
+!.gitignore
+!.gitkeep

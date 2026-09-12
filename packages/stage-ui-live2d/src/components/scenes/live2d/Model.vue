@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Application } from '@pixi/app'
+import type { DslMotionGroup } from '@proj-airi/live2d-runtime'
 
 import type { PixiLive2DInternalModel } from '../../../composables/live2d'
 
@@ -143,12 +144,14 @@ const modelLoadMutex = new Mutex()
 // --- Live2D DSL runtime (additive; never alters existing Cubism behavior) ---
 let dslVM: DSLVirtualMachine | null = null
 let dslAdapter: Live2DRuntimeAdapter | null = null
+let activeDslGroups: DslMotionGroup[] = []
 
 function disposeDslRuntime() {
   dslAdapter?.setOnMotionGroupEnabledChange(null)
   dslAdapter?.dispose()
   dslAdapter = null
   dslVM = null
+  activeDslGroups = []
 }
 
 /**
@@ -1329,6 +1332,7 @@ async function loadModel() {
       disposeDslRuntime()
 
       const rawGroups = consumePendingDslGroups()
+      activeDslGroups = rawGroups
       const hasDsl = rawGroups.length > 0
       if (!hasDsl)
         return
@@ -1989,12 +1993,32 @@ function getDslState() {
   }
 }
 
+function setParamValue(paramId: string, value: number) {
+  modelParameters.value[paramId] = value
+}
+
+function setVarFloat(name: string, value: number) {
+  dslVM?.vars.set(name, value)
+}
+
+function getCapturedDslGroups() {
+  return activeDslGroups
+}
+
+function getRawSettings() {
+  return (model.value?.internalModel as any)?.settings || null
+}
+
 defineExpose({
   setMotion,
   listMotionGroups,
   dispatchDsl,
   selectDslChoice,
   getDslState,
+  getCapturedDslGroups,
+  getRawSettings,
+  setParamValue,
+  setVarFloat,
 })
 
 import.meta.hot?.dispose(() => {

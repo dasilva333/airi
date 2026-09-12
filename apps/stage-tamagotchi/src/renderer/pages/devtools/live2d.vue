@@ -3,6 +3,7 @@ import type { Pose } from '@proj-airi/model-driver-magic-live2d'
 import type { DisplayModel } from '@proj-airi/stage-ui/stores/display-models'
 
 import { neutralPose } from '@proj-airi/model-driver-magic-live2d'
+import { Live2dGimmickDeck } from '@proj-airi/stage-ui-live2d'
 import {
   defaultLive2DBreathControlOptions,
   useLive2DMotionControl,
@@ -39,6 +40,10 @@ type Live2DModelExposed = InstanceType<typeof Live2DModel> & {
   getDslState: () => DslState
   setMotion: (motionName: string, index?: number) => Promise<void>
   listMotionGroups: () => { motionName: string, motionIndex: number, fileName: string }[]
+  getCapturedDslGroups?: () => any[]
+  getRawSettings?: () => any
+  setParamValue?: (paramId: string, value: number) => void
+  setVarFloat?: (name: string, value: number) => void
 }
 
 const displayModelsStore = useDisplayModelsStore()
@@ -50,8 +55,6 @@ const modelState = ref<'pending' | 'loading' | 'mounted'>('pending')
 const loadError = ref<string>('')
 
 const dslState = ref<DslState | null>(null)
-const motionGroups = ref<{ motionName: string, motionIndex: number, fileName: string }[]>([])
-const dispatchGroup = ref('Tapbody')
 
 const selectedModel = computed<DisplayModel | undefined>(() => {
   return displayModelsStore.displayModels.find(m => m.id === selectedModelId.value)
@@ -77,11 +80,8 @@ function handleCanvasPointerMove(event: PointerEvent) {
   }
 }
 
-const varFloatEntries = computed(() => Object.entries(dslState.value?.varFloats ?? {}).sort(([a], [b]) => a.localeCompare(b)))
-const pendingChoices = computed(() => dslState.value?.pendingChoices ?? null)
-
 // The DSL VM is non-reactive inside Model.vue; poll on a short cadence to keep the
-// VarFloats heap / pending choices inspector live without invasive reactive bridging.
+// dslState live for Ambient Motion interaction-yielding.
 useIntervalFn(() => {
   if (modelState.value === 'mounted' && live2dModelRef.value)
     dslState.value = live2dModelRef.value.getDslState()
@@ -123,27 +123,12 @@ async function handleModelPick(model: DisplayModel | undefined) {
 
 function handleModelLoaded() {
   modelState.value = 'mounted'
-  motionGroups.value = live2dModelRef.value?.listMotionGroups() ?? []
   dslState.value = live2dModelRef.value?.getDslState() ?? null
 }
 
 function handleModelError(error: Error) {
   modelState.value = 'pending'
   loadError.value = error.message
-}
-
-function dispatch() {
-  live2dModelRef.value?.dispatchDsl(dispatchGroup.value.trim())
-  dslState.value = live2dModelRef.value?.getDslState() ?? null
-}
-
-function choose(index: number) {
-  live2dModelRef.value?.selectDslChoice(index)
-  dslState.value = live2dModelRef.value?.getDslState() ?? null
-}
-
-function playMotion(group: string, index: number) {
-  void live2dModelRef.value?.setMotion(group, index)
 }
 
 // --- Top-Level Segmented Control ---
@@ -351,8 +336,8 @@ onBeforeUnmount(() => {
               ]"
               @click="activeTab = 'dsl'"
             >
-              <div class="i-solar:document-text-bold text-sm" />
-              <span>DSL &amp; State</span>
+              <div class="i-solar:gamepad-bold text-sm text-primary-400" />
+              <span>Gimmick Deck</span>
             </button>
             <button
               :class="[
@@ -367,113 +352,19 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <!-- Tab 1: DSL & State -->
-        <div v-if="activeTab === 'dsl'" class="p-4 space-y-5">
+        <!-- Tab 1: Gimmick Deck -->
+        <div v-if="activeTab === 'dsl'" class="p-4 space-y-4">
           <p v-if="loadError" class="rounded bg-red-500/10 px-3 py-2 text-xs text-red-300">
             {{ loadError }}
           </p>
 
-          <!-- Intimacy -->
-          <section>
-            <h2 class="mb-2 text-xs text-neutral-400 font-semibold tracking-wide uppercase">
-              Intimacy (playground-scoped)
-            </h2>
-            <div class="flex items-baseline gap-2">
-              <span class="text-2xl font-semibold">{{ dslState?.intimacyDisplay ?? 0 }}</span>
-              <span class="text-xs text-neutral-500">/ 100</span>
-              <span class="ml-auto text-xs text-neutral-500 font-mono">raw {{ dslState?.intimacyRaw ?? 0 }}</span>
-            </div>
-          </section>
-
-          <!-- Pending choices -->
-          <section v-if="pendingChoices">
-            <h2 class="mb-2 text-xs text-neutral-400 font-semibold tracking-wide uppercase">
-              Choices
-            </h2>
-            <p v-if="pendingChoices.text" class="mb-2 text-sm text-neutral-300">
-              {{ pendingChoices.text }}
-            </p>
-            <div class="flex flex-col gap-2">
-              <button
-                v-for="(choice, index) in pendingChoices.choices"
-                :key="index"
-                class="border border-neutral-700 rounded bg-neutral-900 px-3 py-2 text-left text-sm hover:border-primary-500 hover:bg-neutral-800"
-                @click="choose(index)"
-              >
-                {{ choice.text }}
-              </button>
-            </div>
-          </section>
-
-          <!-- Dispatch -->
-          <section>
-            <h2 class="mb-2 text-xs text-neutral-400 font-semibold tracking-wide uppercase">
-              Dispatch group
-            </h2>
-            <div class="flex gap-2">
-              <input
-                v-model="dispatchGroup"
-                placeholder="Tapbody · 送礼#99:香水 …"
-                class="min-w-0 flex-1 border border-neutral-700 rounded bg-neutral-900 px-2 py-1.5 text-xs font-mono outline-none focus:border-primary-500"
-                @keyup.enter="dispatch"
-              >
-              <button
-                class="rounded bg-primary-600 px-3 py-1.5 text-xs font-medium hover:bg-primary-500 disabled:opacity-40"
-                :disabled="modelState !== 'mounted'"
-                @click="dispatch"
-              >
-                Dispatch
-              </button>
-            </div>
-            <p class="mt-1 text-xs text-neutral-500">
-              DSL active: <span :class="dslState?.active ? 'text-emerald-400' : 'text-neutral-500'">{{ dslState?.active ? 'yes' : 'no DSL payload' }}</span>
-            </p>
-          </section>
-
-          <!-- VarFloats heap -->
-          <section>
-            <h2 class="mb-2 text-xs text-neutral-400 font-semibold tracking-wide uppercase">
-              VarFloats heap
-            </h2>
-            <div v-if="varFloatEntries.length" class="overflow-hidden border border-neutral-800 rounded">
-              <table class="w-full text-xs">
-                <tbody>
-                  <tr
-                    v-for="[name, value] in varFloatEntries"
-                    :key="name"
-                    class="border-b border-neutral-800 last:border-0 odd:bg-neutral-900/60"
-                  >
-                    <td class="px-2 py-1 text-neutral-300 font-mono">
-                      {{ name }}
-                    </td>
-                    <td class="px-2 py-1 text-right text-neutral-100 font-mono">
-                      {{ value }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p v-else class="text-xs text-neutral-600">
-              Heap empty — dispatch an entry with VarFloats to populate it.
-            </p>
-          </section>
-
-          <!-- Renderable motions -->
-          <section v-if="motionGroups.length">
-            <h2 class="mb-2 text-xs text-neutral-400 font-semibold tracking-wide uppercase">
-              Motion groups
-            </h2>
-            <div class="flex flex-col gap-1">
-              <button
-                v-for="m in motionGroups"
-                :key="`${m.motionName}:${m.motionIndex}`"
-                class="rounded px-2 py-1 text-left text-xs text-neutral-300 font-mono hover:bg-neutral-800"
-                @click="playMotion(m.motionName, m.motionIndex)"
-              >
-                {{ m.motionName }}[{{ m.motionIndex }}] <span class="text-neutral-600">{{ m.fileName }}</span>
-              </button>
-            </div>
-          </section>
+          <Live2dGimmickDeck
+            :model="live2dModelRef"
+            :model-id="playgroundModelId"
+            :model-title="selectedModel?.name || (selectedModel as any)?.title || 'Selected Model'"
+            :model-format="(selectedModel as any)?.format || 'model3'"
+            :disabled="modelState !== 'mounted'"
+          />
         </div>
 
         <!-- Tab 2: Ambient Motion Studio -->
