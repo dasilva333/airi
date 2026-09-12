@@ -1,5 +1,6 @@
 import './openai'
 import './aihubmix'
+import './amazon-bedrock'
 import './lm-studio'
 import './azure-openai'
 import './openai-compatible'

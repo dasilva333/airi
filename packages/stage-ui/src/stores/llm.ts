@@ -9,6 +9,7 @@ import { streamText } from '@xsai/stream-text'
 import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 
+import { sanitizeTools } from '../libs/providers/tool-schema'
 import { useAiriCardStore } from './modules/airi-card'
 import { useSettingsChat } from './settings/chat'
 
@@ -247,134 +248,6 @@ const TOOLS_RELATED_ERROR_PATTERNS: RegExp[] = [
 export function isToolRelatedError(err: unknown): boolean {
   const msg = String(err)
   return TOOLS_RELATED_ERROR_PATTERNS.some(p => p.test(msg))
-}
-
-function sanitizeTools(tools?: Tool[]): Tool[] | undefined {
-  if (!tools)
-    return undefined
-
-  // Deep clone to avoid mutating the original tool objects
-  const cloned = JSON.parse(JSON.stringify(tools)) as Tool[]
-
-  const cleanSchema = (obj: any) => {
-    if (!obj || typeof obj !== 'object')
-      return
-
-    delete obj.$schema
-    delete obj.additionalProperties
-
-    // Handle anyOf at the current node level (handles items or nested objects)
-    if (obj.anyOf && Array.isArray(obj.anyOf)) {
-      const nonNullSchemas = obj.anyOf.filter((s: any) => s && s.type !== 'null')
-      if (nonNullSchemas.length >= 1) {
-        const desc = obj.description
-        const chosen = nonNullSchemas[0]
-        delete obj.anyOf
-        Object.assign(obj, chosen)
-        if (desc && !obj.description)
-          obj.description = desc
-      }
-    }
-
-    // Handle oneOf at the current node level
-    if (obj.oneOf && Array.isArray(obj.oneOf)) {
-      const nonNullSchemas = obj.oneOf.filter((s: any) => s && s.type !== 'null')
-      if (nonNullSchemas.length >= 1) {
-        const desc = obj.description
-        const chosen = nonNullSchemas[0]
-        delete obj.oneOf
-        Object.assign(obj, chosen)
-        if (desc && !obj.description)
-          obj.description = desc
-      }
-    }
-
-    // Handle type as array (e.g. ["string", "null"])
-    if (Array.isArray(obj.type)) {
-      const nonNullTypes = obj.type.filter((t: any) => t !== 'null')
-      obj.type = nonNullTypes[0] || 'string'
-    }
-
-    // Handle explicit null type
-    if (obj.type === 'null') {
-      obj.type = 'string'
-    }
-
-    // Ensure any node with type: 'object' has a properties object for strict validators (Grok/xAI, OpenAI)
-    if (obj.type === 'object') {
-      if (!obj.properties || typeof obj.properties !== 'object') {
-        obj.properties = {}
-      }
-    }
-
-    if (obj.properties && typeof obj.properties === 'object') {
-      const requiredSet = new Set(Array.isArray(obj.required) ? obj.required : [])
-
-      for (const [key, prop] of Object.entries(obj.properties)) {
-        if (!prop || typeof prop !== 'object')
-          continue
-
-        const p = prop as any
-        let isNullable = false
-
-        // Detect nullability before cleaning so we can remove it from requiredSet
-        if (p.anyOf && Array.isArray(p.anyOf) && (p.anyOf.some((s: any) => s?.type === 'null') || p.anyOf.length > 1)) {
-          isNullable = true
-        }
-        if (p.oneOf && Array.isArray(p.oneOf) && (p.oneOf.some((s: any) => s?.type === 'null') || p.oneOf.length > 1)) {
-          isNullable = true
-        }
-        if (Array.isArray(p.type) && p.type.includes('null')) {
-          isNullable = true
-        }
-        if (p.type === 'null') {
-          isNullable = true
-        }
-
-        if (isNullable) {
-          requiredSet.delete(key)
-        }
-
-        // Recurse into nested properties/items
-        cleanSchema(p)
-      }
-
-      if (requiredSet.size > 0) {
-        obj.required = Array.from(requiredSet)
-      }
-      else {
-        delete obj.required
-      }
-    }
-
-    if (obj.items) {
-      if (Array.isArray(obj.items)) {
-        obj.items.forEach((item: any) => cleanSchema(item))
-      }
-      else if (typeof obj.items === 'object') {
-        cleanSchema(obj.items)
-      }
-    }
-  }
-
-  cloned.forEach((t) => {
-    if (t.function?.parameters) {
-      cleanSchema(t.function.parameters)
-      if (t.function.parameters.type !== 'object') {
-        t.function.parameters.type = 'object'
-      }
-      if (!t.function.parameters.properties) {
-        t.function.parameters.properties = {}
-      }
-    }
-  })
-
-  // Restore the execute function which was stripped by JSON stringify/parse
-  cloned.forEach((clonedTool, idx) => {
-    clonedTool.execute = tools[idx].execute
-  })
-
-  return cloned
 }
 
 function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefined {

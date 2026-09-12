@@ -2,6 +2,7 @@ import { errorMessageFrom } from '@moeru/std'
 import { createOpenAI } from '@xsai-ext/providers/create'
 import { z } from 'zod'
 
+import { sanitizeTools } from '../../tool-schema'
 import { defineProvider } from '../registry'
 
 const AZURE_OPENAI_PROVIDER_ID = 'azure-openai' as const
@@ -103,6 +104,10 @@ function mapChatBodyToCompletions(body: any): Record<string, unknown> {
 
   delete mappedBody.input
   delete mappedBody.max_output_tokens
+
+  if (mappedBody.tools && Array.isArray(mappedBody.tools)) {
+    mappedBody.tools = sanitizeTools(mappedBody.tools as any)
+  }
 
   return mappedBody
 }

@@ -6,6 +6,142 @@
 
 ---
 
+## [2026-09-12] Upstream Delta: `3fcae726..553d8a0d` (8 commits, 64 files, 19 PR update(s))
+
+### 🎯 Executive Highlights
+* **Upstream Focus**: Upstream merged 8 commits (`3fcae726..553d8a0d`) concentrating on server payment CORE extraction (decoupling Stripe into multi-provider `payment_order` tables, PR #2335), native Google OAuth ID-token audience configuration (#2518), `core-agent` modularization by moving `spark-command` from `stage-ui` to `@proj-airi/core-agent` (#2528), co-locating provider inference tests (#2529), Service Worker navigation precaching for payment redirects in `stage-web` (#2531), and ADR placement standards in `ai/adr/` (#827b692, #41ee5ee).
+* **Discussion & Community Buzz**:
+  - 💬 **#2525: `fix(stage-pages): load speech provider voices after configuration updates` (19 comments)**: High initial velocity on converting reactive provider configurations to plain snapshots to reliably refresh voice catalogs across 6 speech providers (ElevenLabs, Volcengine, Deepgram, Alibaba Cloud, Player2, Kokoro).
+  - 🔥 **#2352: `fix(stage-ui-three): maintain vrm emotion weights and prevent morph conflicts` (+10 new comments, total 39)**: Sustained community engagement resolving VRM blendshape decay, procedural blink clobbering eye expressions, and viseme/emotion arbitration.
+  - ⚡ **#2519: `test(stage-tamagotchi): verify linux window rendering in CI` (+10 new comments, total 13, ➔ Draft)**: Discussion around headless Weston and Xvfb CI smoke testing for Linux desktop rendering.
+  - 💬 **#2487: `feat(stage): add bilingual subtitles` (+1 new comment, total 74, closed)**: Discussion finalized and PR closed.
+  - 💬 **#2121: `chore(i18n): update translations` (+4 new comments, total 86)**: Ongoing localization review.
+  - 💬 **#2533: `refactor(api): restore Stripe product catalog as Flux pack source` (7 comments, Draft)**: Follow-up to payment core extraction.
+* **Cherry-Pick Candidates**:
+  - ⭐ **PR #2530: `fix(stage-tamagotchi): remove obsolete mouse tracking IPC`**: High priority for desktop shell stability. `await startTrackingCursorPoint()` in `App.vue` calls an obsolete Eventa RPC whose main-process handler was removed in `ab001a7ab`, leaving the call pending and potentially delaying provider capability publication and model preload.
+  - ⭐ **PR #2525: `fix(stage-pages): load speech provider voices after configuration updates`**: Converts reactive provider configurations to plain snapshots before synchronized validation across speech providers (ElevenLabs, Deepgram, Volcengine, etc.), fixing voice loading stall/caching bugs on configuration changes.
+  - 🔍 **PR #2522: `fix(stage-tamagotchi): keep controls island open on native Wayland`**: Fixes auto-collapse bug on native Wayland desktops by tracking DOM `pointerenter`/`pointerleave` events on the controls island alongside `screen.getCursorScreenPoint()`.
+  - 🔍 **PR #2524: `feat(provider-inference): refresh Volcengine coding-plan models from endpoint`**: Adds dynamic `/models` endpoint refreshing for Volcengine with 5s timeout fallback to static list.
+  - 🔍 **PR #2352: `fix(stage-ui-three): maintain vrm emotion weights and prevent morph conflicts`**: Holds VRM blendshape weights across steady-state frames and gates procedural blinking during active expressions.
+* **Divergence / Collision Warnings**:
+  - ⚠️ **`packages/stage-ui/src/stores/ai/chat-llm/tool-resolver.ts` & `packages/stage-ui/src/tools/character/`**: Commit `cf6ff23f7c` (#2528) removed spark tools from `stage-ui` into `core-agent`. In our fork, cognitive orchestration and tool resolution are architecturally divergent; do not bulk-import upstream `tool-resolver.ts` or upstream tool registrations.
+  - ⚪ **`server/apps/api` & `server/apps/auth` (PR #2335, #2518)**: Upstream hosted backend services (Stripe/Flux payment orders, cloud OAuth ID tokens). Not used by local-first desktop fork; ignore.
+  - ⚪ **`apps/stage-web/vite.config.ts` (PR #2531)** & `nix/assets-hash.txt` (#2532): Web service worker precache and Nix hash; low priority / ignore.
+
+### 📋 Upstream Commits
+- `553d8a0da4` feat(auth): accept configured native Google ID token audiences (#2518) [#2518](https://github.com/moeru-ai/airi/pull/2518) _(Lovehsigure_520, 2026-09-12)_
+- `41ee5ee5c8` docs: place ADRs under ai/adr directories  _(RainbowBird, 2026-09-12)_
+- `827b692b15` docs: keep ADRs in the main repository  _(RainbowBird, 2026-09-12)_
+- `938c9d6b88` chore(nix): update assets hash (#2532) [#2532](https://github.com/moeru-ai/airi/pull/2532) _(Weathercold, 2026-09-12)_
+- `1d27dc7cdf` fix(stage-web): cache canonical app shell for payment returns (#2531) [#2531](https://github.com/moeru-ai/airi/pull/2531) _(RainbowBird, 2026-09-12)_
+- `37c837e502` refactor(api): extract payment CORE to support other payment providers [1/2] (#2335) [#2335](https://github.com/moeru-ai/airi/pull/2335) _(Lulu, 2026-09-12)_
+- `e447b15b0d` refactor(provider-inference): move provider tests closer to implementations (#2529) [#2529](https://github.com/moeru-ai/airi/pull/2529) _(Garfield Lee, 2026-09-12)_
+- `cf6ff23f7c` refactor(core-agent): move spark-command agent from stage-ui to core-agent (#2528) [#2528](https://github.com/moeru-ai/airi/pull/2528) _(Garfield Lee, 2026-09-12)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 4 file(s) (+44/-3)
+- `AGENTS.md` *(+7/-0)*
+- `server/AGENTS.md` *(+2/-3)*
+- `server/apps/api/README.md` *(+9/-0)*
+- `server/apps/auth/README.md` *(+26/-0)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 1 file(s) (+4/-0)
+- `apps/stage-web/vite.config.ts` *(+4/-0)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 53 file(s) (+6076/-2324)
+- `nix/assets-hash.txt` *(+1/-1)*
+- `packages/{stage-ui/src/tools/character/orchestrator/spark-command-shared.ts => core-agent/src/agents/spark-command/schema.ts}` *(+78/-17)*
+- `packages/{stage-ui/src/tools/character/orchestrator/spark-command.test.ts => core-agent/src/agents/spark-command/tools.test.ts}` *(+2/-2)*
+- `packages/{stage-ui/src/tools/character/orchestrator/spark-command.ts => core-agent/src/agents/spark-command/tools.ts}` *(+9/-1)*
+- `packages/{stage-ui/src/tools/character/orchestrator/spark-notify.test.ts => core-agent/src/agents/spark-notify/tools.test.ts}` *(+2/-2)*
+- `packages/{stage-ui/src/libs/providers/providers => provider-inference/src/providers/cloud}/azure-openai/index.test.ts` *(+3/-7)*
+- `packages/{stage-ui/src/libs/providers/providers => provider-inference/src/providers/cloud}/openrouter-ai/index.test.ts` *(+6/-13)*
+- `packages/stage-ui/src/stores/ai/chat-llm/tool-resolver.ts` *(+2/-1)*
+- `packages/stage-ui/src/tools/character/index.ts` *(+0/-1)*
+- `packages/stage-ui/src/tools/character/orchestrator/index.ts` *(+0/-3)*
+- `packages/stage-ui/src/tools/character/orchestrator/spark-notify.ts` *(+0/-9)*
+- `packages/stage-ui/src/tools/index.ts` *(+0/-1)*
+- `server/apps/api/drizzle/0023_payment_order.sql` *(+113/-0)*
+- `server/apps/api/drizzle/meta/0023_snapshot.json` *(+3795/-0)*
+- `server/apps/api/drizzle/meta/_journal.json` *(+8/-1)*
+- `server/apps/api/src/app.test.ts` *(+2/-1)*
+- `server/apps/api/src/app.ts` *(+50/-35)*
+- `server/apps/api/src/otel/index.ts` *(+0/-12)*
+- `server/apps/api/src/routes/flux/route.test.ts` *(+0/-1)*
+- `server/apps/api/src/routes/openai/v1/route.test.ts` *(+0/-3)*
+- `server/apps/api/src/routes/stripe/checkout.test.ts` *(+292/-0)*
+- `server/apps/api/src/routes/stripe/claim.ts` *(+49/-0)*
+- `server/apps/api/src/routes/stripe/index.ts` *(+20/-97)*
+- `server/apps/api/src/routes/stripe/operations/checkout.ts` *(+97/-106)*
+- `server/apps/api/src/routes/stripe/operations/webhook.ts` *(+140/-296)*
+- `server/apps/api/src/routes/stripe/payment-release.test.ts` *(+120/-0)*
+- `server/apps/api/src/routes/stripe/price-catalog.test.ts` *(+78/-0)*
+- `server/apps/api/src/routes/stripe/price-catalog.ts` *(+71/-126)*
+- `server/apps/api/src/routes/stripe/route.test.ts` *(+164/-562)*
+- `server/apps/api/src/routes/stripe/schema.ts` *(+19/-5)*
+- `server/apps/api/src/schemas/flux.ts` *(+2/-0)*
+- `server/apps/api/src/schemas/index.ts` *(+1/-0)*
+- `server/apps/api/src/schemas/payment.ts` *(+55/-0)*
+- `server/apps/api/src/schemas/stripe.ts` *(+13/-70)*
+- `server/apps/api/src/services/adapters/config-kv/definitions.ts` *(+32/-3)*
+- `server/apps/api/src/services/adapters/config-kv/index.test.ts` *(+43/-3)*
+- `server/apps/api/src/services/domain/billing/billing-service.ts` *(+27/-160)*
+- `server/apps/api/src/services/domain/billing/tests/billing-service.test.ts` *(+0/-78)*
+- `server/apps/api/src/services/domain/flux.test.ts` *(+0/-7)*
+- `server/apps/api/src/services/domain/flux.ts` *(+0/-15)*
+- `server/apps/api/src/services/domain/payment/index.ts` *(+290/-0)*
+- `server/apps/api/src/services/domain/payment/tests/payment.test.ts` *(+259/-0)*
+- `server/apps/api/src/services/domain/payment/types.ts` *(+48/-0)*
+- `server/apps/api/src/services/domain/stripe.test.ts` *(+0/-468)*
+- `server/apps/api/src/services/domain/stripe.ts` *(+0/-212)*
+- `server/apps/api/src/utils/format-price.ts` *(+20/-0)*
+- `server/apps/api/src/utils/observability.ts` *(+0/-2)*
+- `server/apps/auth/src/auth.ts` *(+2/-1)*
+- `server/apps/auth/src/env.ts` *(+3/-0)*
+- `server/apps/auth/src/google-client-ids.ts` *(+29/-0)*
+- `server/apps/auth/src/social-authorization.ts` *(+7/-0)*
+- `server/apps/auth/src/tests/google-client-ids.test.ts` *(+62/-0)*
+- `server/apps/auth/src/tests/social-authorization.test.ts` *(+62/-2)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 3 file(s) (+22/-0)
+- `packages/core-agent/package.json` *(+4/-0)*
+- `packages/core-agent/src/agents/spark-command/index.ts` *(+17/-0)*
+- `packages/core-agent/tsdown.config.ts` *(+1/-0)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 2 file(s) (+4/-0)
+- `packages/provider-inference/package.json` *(+1/-0)*
+- `pnpm-lock.yaml` *(+3/-0)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 1 file(s) (+13/-13)
+- `packages/stage-pages/src/pages/settings/flux.vue` *(+13/-13)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (10)
+- [#2533](https://github.com/moeru-ai/airi/pull/2533) `refactor(api): restore Stripe product catalog as Flux pack source` by **@lulu0119** *(Draft)* *(7 comments)*
+- [#2532](https://github.com/moeru-ai/airi/pull/2532) `chore(nix): update assets hash` by **@Weathercold** *(1 comments)*
+- [#2531](https://github.com/moeru-ai/airi/pull/2531) `fix(stage-web): cache canonical app shell for payment returns` by **@luoling8192** *(2 comments)*
+- [#2525](https://github.com/moeru-ai/airi/pull/2525) `fix(stage-pages): load speech provider voices after configuration updates` by **@0xSelenicDove** *(19 comments)*
+- [#2530](https://github.com/moeru-ai/airi/pull/2530) `fix(stage-tamagotchi): remove obsolete mouse tracking IPC` by **@keeponlight** *(0 comments)*
+- [#2522](https://github.com/moeru-ai/airi/pull/2522) `fix(stage-tamagotchi): keep controls island open on native Wayland` by **@gg582** *(Draft)* *(6 comments)*
+- [#2526](https://github.com/moeru-ai/airi/pull/2526) `feat(provider-inference): add API Route provider` by **@DennyHo0917** *(3 comments)*
+- [#2529](https://github.com/moeru-ai/airi/pull/2529) `refactor(provider-inference): move provider tests closer to implementations` by **@Garfield550** *(3 comments)*
+- [#2528](https://github.com/moeru-ai/airi/pull/2528) `refactor(core-agent): move spark-command agent from stage-ui to core-agent` by **@Garfield550** *(3 comments)*
+- [#2524](https://github.com/moeru-ai/airi/pull/2524) `feat(provider-inference): refresh Volcengine coding-plan models from endpoint` by **@Bruce-Yii** *(9 comments)*
+
+#### 🔄 PR Status & Lifecycle Changes (4)
+- [#2518](https://github.com/moeru-ai/airi/pull/2518) `feat(auth): accept configured native Google ID token audiences` — `OPEN` ➔ `MERGED`
+- [#2335](https://github.com/moeru-ai/airi/pull/2335) `refactor(api): extract payment CORE to support other payment providers [1/2]` — `OPEN` ➔ `MERGED`
+- [#2487](https://github.com/moeru-ai/airi/pull/2487) `feat(stage): add bilingual subtitles` — `OPEN` ➔ `CLOSED`
+- [#2519](https://github.com/moeru-ai/airi/pull/2519) `test(stage-tamagotchi): verify linux window rendering in CI` — ➔ `Draft`
+
+#### 💬 Discussion Activity (5)
+- [#2335](https://github.com/moeru-ai/airi/pull/2335) `refactor(api): extract payment CORE to support other payment providers [1/2]` — *+3 comments (54 ➔ 57 total)*
+- [#2352](https://github.com/moeru-ai/airi/pull/2352) `fix(stage-ui-three): maintain vrm emotion weights and prevent morph conflicts` — *+10 comments (29 ➔ 39 total)*
+- [#2121](https://github.com/moeru-ai/airi/pull/2121) `chore(i18n): update translations` — *+4 comments (82 ➔ 86 total)*
+- [#2487](https://github.com/moeru-ai/airi/pull/2487) `feat(stage): add bilingual subtitles` — *+1 comments (73 ➔ 74 total)*
+- [#2519](https://github.com/moeru-ai/airi/pull/2519) `test(stage-tamagotchi): verify linux window rendering in CI` — *+10 comments (3 ➔ 13 total)*
+
+---
 ## [2026-09-11] Upstream Delta: `2904b795..3fcae726` (6 commits, 15 files, 19 PR update(s))
 
 ### 🎯 Executive Highlights
