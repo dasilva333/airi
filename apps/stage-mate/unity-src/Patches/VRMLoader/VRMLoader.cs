@@ -29,6 +29,7 @@ public class VRMLoader : MonoBehaviour
     private const string LegacyModelPathKey = "SavedPathModel";
     private RuntimeGltfInstance currentGltf;
     private AssetBundle currentBundle;
+    private static readonly List<Mesh> proceduralMeshes = new List<Mesh>();
 
     void Start()
     {
@@ -412,6 +413,7 @@ public class VRMLoader : MonoBehaviour
                 }
 
                 subMesh.RecalculateBounds();
+                proceduralMeshes.Add(subMesh);
 
                 var childSmr = childGO.AddComponent<SkinnedMeshRenderer>();
                 childSmr.sharedMesh = subMesh;
@@ -669,11 +671,30 @@ public class VRMLoader : MonoBehaviour
 
     private void ClearPreviousCustomModel(bool skipRawImageCleanup = false)
     {
+        for (int i = 0; i < proceduralMeshes.Count; i++)
+        {
+            if (proceduralMeshes[i] != null)
+            {
+                Destroy(proceduralMeshes[i]);
+            }
+        }
+        proceduralMeshes.Clear();
+
         if (customModelOutput != null)
         {
             foreach (Transform child in customModelOutput.transform)
             {
                 if (child.gameObject == mainModel) continue;
+
+                var smrs = child.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                foreach (var smr in smrs)
+                {
+                    if (smr != null && smr.sharedMesh != null && (smr.sharedMesh.name.Contains("_baked_") || smr.gameObject.name.Contains("_")))
+                    {
+                        Destroy(smr.sharedMesh);
+                    }
+                }
+
                 CleanupRawImages(child.gameObject);
                 Destroy(child.gameObject);
             }

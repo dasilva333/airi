@@ -55,14 +55,37 @@ namespace StageMate.Core
                 LogClickEvent(leftDown, rightDown, middleDown, f1Down, leftUp, rightUp, unityMouse, osMouse, curClickThrough);
             }
 
-            // Periodic probe every 1.0s or when clickThrough state changes
-            if (Time.unscaledTime - lastLogTime > 1.0f || curClickThrough != lastClickThrough)
+            // Periodic probe every 5.0s or when clickThrough state changes
+            if (Time.unscaledTime - lastLogTime > 5.0f || curClickThrough != lastClickThrough)
             {
                 lastLogTime = Time.unscaledTime;
                 lastClickThrough = curClickThrough;
 
                 LogPeriodicState(unityMouse, osMouse, curClickThrough);
+                LogMemoryMetrics();
             }
+        }
+
+        private void LogMemoryMetrics()
+        {
+            try
+            {
+                long monoUsedMb = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong() / (1024 * 1024);
+                long monoHeapMb = UnityEngine.Profiling.Profiler.GetMonoHeapSizeLong() / (1024 * 1024);
+                long totalAllocMb = UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong() / (1024 * 1024);
+                long totalReserveMb = UnityEngine.Profiling.Profiler.GetTotalReservedMemoryLong() / (1024 * 1024);
+                long gfxAllocMb = UnityEngine.Profiling.Profiler.GetAllocatedMemoryForGraphicsDriver() / (1024 * 1024);
+
+                long rssMb = 0;
+                try
+                {
+                    rssMb = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
+                }
+                catch { }
+
+                Debug.Log($"[MateTelemetryProbe:MEM] OS_RSS={rssMb}MB | TotalAlloc={totalAllocMb}MB (Reserved={totalReserveMb}MB) | MonoUsed={monoUsedMb}MB (Heap={monoHeapMb}MB) | GfxDriver={gfxAllocMb}MB");
+            }
+            catch { }
         }
 
         private void LogClickEvent(bool lDown, bool rDown, bool mDown, bool f1, bool lUp, bool rUp, Vector2 unityMouse, Vector2 osMouse, bool clickThrough)

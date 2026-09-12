@@ -159,6 +159,14 @@ public class AvatarAnimatorController : MonoBehaviour
         return 0f;
     }
 
+    private float lastProcessCheckTime = -100f;
+    private bool cachedAllowedAppRunning = false;
+    private bool cachedSpotifyRunning = false;
+    private bool cachedMusicRunning = false;
+
+    private float lastAppleScriptCheckTime = -100f;
+    private bool cachedMediaAppPlaying = false;
+
     string RunAppleScript(string script)
     {
         try
@@ -172,7 +180,7 @@ public class AvatarAnimatorController : MonoBehaviour
                 p.StartInfo.CreateNoWindow = true;
                 p.Start();
                 string output = p.StandardOutput.ReadToEnd();
-                p.WaitForExit(300);
+                p.WaitForExit(500);
                 return output;
             }
         }
@@ -182,26 +190,36 @@ public class AvatarAnimatorController : MonoBehaviour
     bool IsMacMediaAppPlaying()
     {
         if (allowedApps == null || allowedApps.Count == 0) return false;
+
+        // Only run AppleScript check every 10 seconds, and ONLY if Spotify or Music was detected running
+        if (Time.unscaledTime - lastAppleScriptCheckTime < 10f)
+            return cachedMediaAppPlaying;
+
+        lastAppleScriptCheckTime = Time.unscaledTime;
+        cachedMediaAppPlaying = false;
+
+        // Don't fork osascript if neither Spotify nor Music process exists
+        if (!cachedSpotifyRunning && !cachedMusicRunning)
+            return false;
+
         try
         {
-            for (int i = 0; i < allowedApps.Count; i++)
+            if (cachedSpotifyRunning)
             {
-                string app = allowedApps[i].ToLowerInvariant();
-                if (app.Contains("spotify"))
+                string res = RunAppleScript("tell application \"Spotify\" to if it is running then return (get player state as string)");
+                if (res != null && res.Trim().Equals("playing", StringComparison.OrdinalIgnoreCase))
                 {
-                    string res = RunAppleScript("tell application \"Spotify\" to if it is running then return (get player state as string)");
-                    if (res != null && res.Trim().Equals("playing", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
+                    cachedMediaAppPlaying = true;
+                    return true;
                 }
-                else if (app.Contains("music") || app.Contains("itunes"))
+            }
+            if (cachedMusicRunning)
+            {
+                string res = RunAppleScript("tell application \"Music\" to if it is running then return (get player state as string)");
+                if (res != null && res.Trim().Equals("playing", StringComparison.OrdinalIgnoreCase))
                 {
-                    string res = RunAppleScript("tell application \"Music\" to if it is running then return (get player state as string)");
-                    if (res != null && res.Trim().Equals("playing", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
+                    cachedMediaAppPlaying = true;
+                    return true;
                 }
             }
         }
@@ -212,26 +230,55 @@ public class AvatarAnimatorController : MonoBehaviour
     bool IsAllowedAppRunning()
     {
         if (allowedApps == null || allowedApps.Count == 0) return true;
+
+        // Cache process enumeration for 15 seconds to avoid continuous Process object allocation
+        if (Time.unscaledTime - lastProcessCheckTime < 15f)
+            return cachedAllowedAppRunning;
+
+        lastProcessCheckTime = Time.unscaledTime;
+        cachedAllowedAppRunning = false;
+        cachedSpotifyRunning = false;
+        cachedMusicRunning = false;
+
+        Process[] running = null;
         try
         {
-            var running = Process.GetProcesses();
-            foreach (var p in running)
+            running = Process.GetProcesses();
+            for (int i = 0; i < running.Length; i++)
             {
+                var p = running[i];
+                if (p == null) continue;
                 try
                 {
                     string pname = p.ProcessName;
                     if (string.IsNullOrEmpty(pname)) continue;
-                    for (int j = 0; j < allowedApps.Count; j++)
+
+                    if (pname.IndexOf("Spotify", StringComparison.OrdinalIgnoreCase) >= 0)
+                        cachedSpotifyRunning = true;
+                    if (pname.IndexOf("Music", StringComparison.OrdinalIgnoreCase) >= 0)
+                        cachedMusicRunning = true;
+
+                    if (!cachedAllowedAppRunning)
                     {
-                        if (pname.StartsWith(allowedApps[j], System.StringComparison.OrdinalIgnoreCase))
-                            return true;
+                        for (int j = 0; j < allowedApps.Count; j++)
+                        {
+                            if (pname.StartsWith(allowedApps[j], StringComparison.OrdinalIgnoreCase))
+                            {
+                                cachedAllowedAppRunning = true;
+                                break;
+                            }
+                        }
                     }
                 }
                 catch { }
+                finally
+                {
+                    try { p.Dispose(); } catch { }
+                }
             }
         }
         catch { }
-        return false;
+        return cachedAllowedAppRunning;
     }
 #endif
 
@@ -266,18 +313,22 @@ public class AvatarAnimatorController : MonoBehaviour
         catch { defaultDevice?.Dispose(); defaultDevice = null; }
         return false;
 #else
-        if (Time.time - lastSoundCheckTime < 1.5f) return isDancing;
+        if (Time.time - lastSoundCheckTime < 3f) return isDancing;
         lastSoundCheckTime = Time.time;
 
+        // 1. Refresh running processes first so cachedSpotify/Music flags are up to date
+        bool allowedRunning = IsAllowedAppRunning();
+
+        // 2. Check media player state (Spotify/Apple Music)
         if (IsMacMediaAppPlaying())
         {
             return true;
         }
 
-        InitMacAudio();
-
-        if (IsAllowedAppRunning())
+        // 3. Only sample microphone if an allowed sound app is actually running
+        if (allowedRunning)
         {
+            InitMacAudio();
             float peak = GetMacAudioPeak();
             return peak > SOUND_THRESHOLD;
         }

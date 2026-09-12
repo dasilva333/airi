@@ -475,14 +475,11 @@ public class AvatarWindowHandler : MonoBehaviour
         float sprF = ScaledProbeRadiusF();
 #endif
 
-        UnityEngine.Debug.Log($"[AvatarWindowHandler:TRY_SNAP] px={px:F1}, py={py:F1} | sprF={sprF:F1} | cachedCount={cachedWindows.Count}");
-
         for (int i = 0; i < cachedWindows.Count; i++)
         {
             var win = cachedWindows[i];
             if (win.hwnd == unityHWND) continue;
             int left = win.rect.Left, right = win.rect.Right, top = win.rect.Top;
-            UnityEngine.Debug.Log($"[AvatarWindowHandler:CHECK_TARGET] top={top} py={py:F1} diff={Mathf.Abs(py - top):F1} sprF={sprF:F1} inHoriz={(px >= left && px <= right)} bounds=[{left}..{right}]");
             if (!(px >= left && px <= right)) continue;
             if (Mathf.Abs(py - top) > sprF) continue;
             if (IsSameProcessWindow(win.hwnd)) continue;
