@@ -1,16 +1,30 @@
 <script setup lang="ts">
+import type { Live2dCapabilities } from '@proj-airi/stage-ui-live2d'
 import type { DiscoveredMeshNode } from '@proj-airi/stage-ui-three'
 
 import type { ExpressionCategory } from '../../../../libs/character/expression-noise-gate'
 import type { AiriOutfit } from '../../../../stores/modules/airi-card'
 
-import { useLive2d } from '@proj-airi/stage-ui-live2d/stores'
+import {
+  introspectLive2dManifest,
+  lookupLexicon,
+  useDslIntimacyStore,
+  useLive2d,
+  useLive2dTranslator,
+} from '@proj-airi/stage-ui-live2d'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
 import { useSpine } from '@proj-airi/stage-ui-spine'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { Input } from '@proj-airi/ui'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
+import {
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+} from 'reka-ui'
 import { computed, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
@@ -80,6 +94,63 @@ const modelType = computed<'live2d' | 'vrm' | 'mmd' | 'spine' | 'unknown'>(() =>
   if (fmt === DisplayModelFormat.SpineZip)
     return 'spine'
   return 'unknown'
+})
+
+// Live2D Gimmick & Introspection Setup
+const live2dTranslator = useLive2dTranslator(computed(() => props.modelId))
+const dslIntimacyStore = useDslIntimacyStore()
+
+const live2dCaps = computed<Live2dCapabilities>(() => {
+  if (modelType.value !== 'live2d') {
+    return {
+      hasDsl: false,
+      costumes: [],
+      switches: [],
+      parts: [],
+      choices: [],
+      reactions: [],
+      commands: [],
+      intimacy: {
+        hasIntimacy: false,
+        raw: 0,
+        display: 0,
+      },
+    }
+  }
+  return introspectLive2dManifest(live2dStore.dslGroups || [], live2dStore.rawSettings)
+})
+
+const hasAdvancedGimmicks = computed(() => {
+  if (modelType.value !== 'live2d')
+    return false
+  const c = live2dCaps.value
+  return c.switches.length > 0 || c.choices.length > 0 || c.parts.length > 0 || c.intimacy.hasIntimacy
+})
+
+const activeSwitchStates = ref<Record<string, boolean>>({})
+const activeParamValues = ref<Record<string, number>>({})
+
+function toggleFeatureSwitch(name: string) {
+  const next = !activeSwitchStates.value[name]
+  activeSwitchStates.value[name] = next
+  live2dStore.setVarFloat(name, next ? 1 : 0)
+  toast.info(`Toggled ${name}: ${next ? 'ON' : 'OFF'}`)
+}
+
+function handleParamSlider(ids: string[], val: number) {
+  for (const id of ids) {
+    activeParamValues.value[id] = val
+    live2dStore.setParamValue(id, val)
+  }
+}
+
+function handleSelectChoice(choiceText: string, nextMtn?: string) {
+  live2dStore.selectChoice(choiceText, nextMtn)
+  toast.info(`Selected: ${choiceText}`)
+}
+
+const dslIntimacyScore = computed(() => {
+  return props.modelId ? dslIntimacyStore.getRaw(props.modelId) : 0
 })
 
 // Unified interface mappings
@@ -278,15 +349,23 @@ const rawExpressions = computed<UnifiedExpression[]>(() => {
   const keys = cachedExpressions.value
 
   if (mType === 'live2d') {
-    return keys.map(key => ({
-      key,
-      displayName: mappings[key] || key,
-      isActive: !!live2dStore.activeExpressions[key],
-      actMapping: mappings[key],
-      isFavorite: favorites.includes(key),
-      isVisible: !hidden.includes(key),
-      expressionCategory: classifyExpression(key),
-    }))
+    return keys.map((key) => {
+      const base = key.split(/[\\/]/).pop() || key
+      const cleanBase = base.replace(/\.(exp3|json)$/i, '')
+      const lexiconMatch = lookupLexicon(cleanBase) || lookupLexicon(base)
+      const trans = live2dTranslator.resolve(cleanBase).main
+      const resolvedDefault = lexiconMatch || (trans !== cleanBase ? trans : null) || cleanBase
+
+      return {
+        key,
+        displayName: mappings[key] || resolvedDefault,
+        isActive: !!live2dStore.activeExpressions[key],
+        actMapping: mappings[key],
+        isFavorite: favorites.includes(key),
+        isVisible: !hidden.includes(key),
+        expressionCategory: classifyExpression(mappings[key] || resolvedDefault),
+      }
+    })
   }
   if (mType === 'vrm') {
     return keys.map(key => ({
@@ -352,16 +431,49 @@ const rawMotions = computed<UnifiedMotion[]>(() => {
   const keys = cachedMotions.value
 
   if (mType === 'live2d') {
-    return keys.map(key => ({
-      key,
-      displayName: mappings[key] || key,
-      isActive: live2dStore.currentMotion?.group === key,
-      group: 'Motions',
-      duration: 3.0,
-      hasSound: false,
-      isInIdleCycle: idleCycles.includes(`live2d:${key}`),
-      isVisible: !hidden.includes(key),
-    }))
+    return keys.map((key) => {
+      const mappedName = mappings[key]
+      const base = key.split(/[\\/]/).pop() || key
+      const cleanBase = base.replace(/\.(motion3|mtn|json)$/i, '')
+
+      // Match against introspected reactions (cutscene dialogues or sound references)
+      const cutscene = live2dCaps.value.reactions.find((c: any) =>
+        c.group === key || (c.sound && (c.sound.includes(base) || base.includes(c.sound.split(/[\\/]/).pop() || ''))),
+      )
+      const available = live2dStore.availableMotions.find((m: any) =>
+        m.fileName === key || m.motionName === key || m.fileName?.endsWith(base),
+      )
+
+      const hasSound = Boolean(cutscene?.sound || available?.sound)
+      let defaultDisplayName = cleanBase
+
+      if (cutscene?.text) {
+        const translatedText = live2dTranslator.resolve(cutscene.text).main
+        defaultDisplayName = `"${translatedText}"`
+      }
+      else {
+        const lexiconMatch = lookupLexicon(cleanBase) || lookupLexicon(base)
+        if (lexiconMatch) {
+          defaultDisplayName = lexiconMatch
+        }
+        else {
+          const trans = live2dTranslator.resolve(cleanBase).main
+          if (trans !== cleanBase)
+            defaultDisplayName = trans
+        }
+      }
+
+      return {
+        key,
+        displayName: mappedName || defaultDisplayName,
+        isActive: live2dStore.currentMotion?.group === key,
+        group: cutscene?.group || 'Motions',
+        duration: 3.0,
+        hasSound,
+        isInIdleCycle: idleCycles.includes(`live2d:${key}`),
+        isVisible: !hidden.includes(key),
+      }
+    })
   }
   if (mType === 'mmd') {
     const builtinItems = (mmdStore.availableMotions || []).map(key => ({
@@ -420,7 +532,22 @@ const rawMotions = computed<UnifiedMotion[]>(() => {
 })
 
 // Filter states
-const activeTab = ref<'expressions' | 'motions' | 'outfits' | 'vfx'>('expressions')
+export type CustomizerTab = 'expressions' | 'motions' | 'outfits' | 'vfx' | 'switches' | 'choices' | 'paramValues' | 'intimacy'
+const activeTab = ref<CustomizerTab>('expressions')
+
+const isAdvancedTabActive = computed(() => {
+  return ['switches', 'choices', 'paramValues', 'intimacy'].includes(activeTab.value)
+})
+
+const activeAdvancedTabLabel = computed(() => {
+  switch (activeTab.value) {
+    case 'switches': return `Switches (${live2dCaps.value.switches.length})`
+    case 'choices': return `Menus (${live2dCaps.value.choices.length})`
+    case 'paramValues': return `Parts (${live2dCaps.value.parts.length})`
+    case 'intimacy': return 'Intimacy'
+    default: return 'More'
+  }
+})
 const showHidden = ref(false)
 const hideTrackingNoise = ref(true)
 const filterRenamedOnly = ref(false)
@@ -772,6 +899,17 @@ function triggerMotionEffect(key: string) {
   }
   if (modelType.value === 'live2d') {
     live2dStore.triggerMotion(key)
+    const base = key.split(/[\\/]/).pop() || key
+    const cutscene = live2dCaps.value.reactions.find((c: any) =>
+      c.group === key || (c.sound && (c.sound.includes(base) || base.includes(c.sound.split(/[\\/]/).pop() || ''))),
+    )
+    if (cutscene?.sound) {
+      try {
+        const audio = new Audio(cutscene.sound)
+        audio.play().catch(() => {})
+      }
+      catch {}
+    }
   }
   else if (modelType.value === 'vrm') {
     modelStore.triggerMotion(key)
@@ -1043,8 +1181,8 @@ function toggleMotionCycle(key: string) {
         </div>
       </div>
 
-      <!-- Segment Toggle: Emotions / Motions / Outfits / VFX -->
-      <div v-if="rawMotions.length > 0 || modelType === 'vrm' || modelType === 'mmd'" class="shrink-0 pb-1">
+      <!-- Segment Toggle: Emotions / Motions / Outfits / VFX / More Gimmicks -->
+      <div v-if="rawMotions.length > 0 || modelType === 'vrm' || modelType === 'mmd' || hasAdvancedGimmicks" class="shrink-0 pb-1">
         <div class="flex rounded-lg bg-neutral-100 p-0.5 dark:bg-neutral-800">
           <button
             class="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-all"
@@ -1085,6 +1223,64 @@ function toggleMotionCycle(key: string) {
           >
             VFX & Auras (4)
           </button>
+
+          <!-- Feature-Gated Overflow More Dropdown -->
+          <DropdownMenuRoot v-if="hasAdvancedGimmicks">
+            <DropdownMenuTrigger as-child>
+              <button
+                class="flex cursor-pointer items-center justify-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all"
+                :class="isAdvancedTabActive
+                  ? 'bg-white text-neutral-800 shadow-sm dark:bg-neutral-700 dark:text-neutral-100'
+                  : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'"
+              >
+                <span>{{ activeAdvancedTabLabel }}</span>
+                <div class="i-solar:alt-arrow-down-linear text-xs" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuContent
+                class="z-50 min-w-44 border border-neutral-200 rounded-lg bg-white/95 p-1 shadow-lg backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-800/95"
+                side="bottom"
+                align="end"
+              >
+                <DropdownMenuItem
+                  v-if="live2dCaps.switches.length > 0"
+                  class="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-neutral-700 outline-none hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+                  @select="activeTab = 'switches'"
+                >
+                  <div class="i-solar:slider-vertical-bold-duotone text-sm text-cyan-500" />
+                  <span class="flex-1">Feature Switches</span>
+                  <span class="rounded bg-neutral-100 px-1 py-0.2 text-[10px] text-neutral-500 font-mono dark:bg-neutral-700 dark:text-neutral-400">{{ live2dCaps.switches.length }}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  v-if="live2dCaps.choices.length > 0"
+                  class="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-neutral-700 outline-none hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+                  @select="activeTab = 'choices'"
+                >
+                  <div class="i-solar:dialog-bold-duotone text-sm text-emerald-500" />
+                  <span class="flex-1">Dialogue Menus</span>
+                  <span class="rounded bg-neutral-100 px-1 py-0.2 text-[10px] text-neutral-500 font-mono dark:bg-neutral-700 dark:text-neutral-400">{{ live2dCaps.choices.length }}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  v-if="live2dCaps.parts.length > 0"
+                  class="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-neutral-700 outline-none hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+                  @select="activeTab = 'paramValues'"
+                >
+                  <div class="i-solar:tuning-square-2-bold-duotone text-sm text-amber-500" />
+                  <span class="flex-1">Accessories & Parts</span>
+                  <span class="rounded bg-neutral-100 px-1 py-0.2 text-[10px] text-neutral-500 font-mono dark:bg-neutral-700 dark:text-neutral-400">{{ live2dCaps.parts.length }}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  v-if="live2dCaps.intimacy.hasIntimacy"
+                  class="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-neutral-700 outline-none hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+                  @select="activeTab = 'intimacy'"
+                >
+                  <div class="i-solar:heart-bold-duotone text-sm text-pink-500" />
+                  <span class="flex-1">Intimacy & Affinity</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenuPortal>
+          </DropdownMenuRoot>
         </div>
       </div>
 
@@ -1092,7 +1288,7 @@ function toggleMotionCycle(key: string) {
       <ModelCustomizerSkeleton v-if="capabilitiesLoading" :show-tabs="false" class="my-1" />
 
       <!-- Filter Controls (Emotions & Motions only) -->
-      <div v-if="!capabilitiesLoading && activeTab !== 'outfits' && activeTab !== 'vfx'" class="flex shrink-0 items-center justify-between py-2">
+      <div v-if="!capabilitiesLoading && activeTab !== 'outfits' && activeTab !== 'vfx' && !isAdvancedTabActive" class="flex shrink-0 items-center justify-between py-2">
         <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
           Filters
         </span>
@@ -1788,6 +1984,136 @@ function toggleMotionCycle(key: string) {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ====== FEATURE SWITCHES (VarFloats) ====== -->
+        <template v-else-if="activeTab === 'switches'">
+          <div class="flex flex-col gap-2 pt-1">
+            <div class="flex items-center justify-between px-1 pb-1">
+              <span class="text-xs text-neutral-500 font-medium dark:text-neutral-400">
+                State Flags & Accessories ({{ live2dCaps.switches.length }})
+              </span>
+              <span class="text-[10px] text-neutral-400">
+                VarFloats State Machine
+              </span>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <div
+                v-for="sw in live2dCaps.switches"
+                :key="sw.name"
+                class="flex items-center justify-between border border-neutral-200/80 rounded-lg bg-white px-3 py-2 transition-colors dark:border-neutral-800 dark:bg-neutral-900"
+              >
+                <div class="min-w-0 flex-1 pr-3">
+                  <div class="truncate text-xs text-neutral-800 font-semibold dark:text-neutral-100">
+                    {{ lookupLexicon(sw.name) || live2dTranslator.resolve(sw.name).main || sw.name }}
+                  </div>
+                  <div class="flex items-center gap-2 pt-0.5 text-[10px] text-neutral-400 font-mono">
+                    <span>var: {{ sw.name }}</span>
+                    <span v-if="sw.code" class="rounded bg-neutral-100 px-1 dark:bg-neutral-800">{{ sw.code }}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="relative h-5 w-9 inline-flex shrink-0 cursor-pointer border-2 border-transparent rounded-full transition-colors duration-200 ease-in-out focus:outline-none"
+                  :class="activeSwitchStates[sw.name] ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                  @click="toggleFeatureSwitch(sw.name)"
+                >
+                  <span
+                    class="pointer-events-none inline-block size-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    :class="activeSwitchStates[sw.name] ? 'translate-x-4' : 'translate-x-0'"
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ====== DIALOGUE MENUS (Choices) ====== -->
+        <template v-else-if="activeTab === 'choices'">
+          <div class="flex flex-col gap-3 pt-1">
+            <div class="flex items-center justify-between px-1 pb-1">
+              <span class="text-xs text-neutral-500 font-medium dark:text-neutral-400">
+                Branching Choice Trees ({{ live2dCaps.choices.length }})
+              </span>
+              <span class="text-[10px] text-neutral-400">
+                Creator Choice Menus
+              </span>
+            </div>
+            <div
+              v-for="(tree, idx) in live2dCaps.choices"
+              :key="idx"
+              class="border border-neutral-200/80 rounded-xl bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+            >
+              <div v-if="tree.text" class="mb-2 text-xs text-neutral-700 font-semibold dark:text-neutral-300">
+                {{ tree.text }}
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <button
+                  v-for="(c, cIdx) in tree.choices"
+                  :key="cIdx"
+                  type="button"
+                  class="flex cursor-pointer items-center justify-between border border-neutral-100 rounded-lg bg-neutral-50/80 px-3 py-2 text-left transition-all dark:border-neutral-800/80 hover:border-primary-500/30 dark:bg-neutral-800/40 hover:bg-primary-50/20 dark:hover:bg-primary-900/10"
+                  @click="handleSelectChoice(c.text, c.nextMtn)"
+                >
+                  <span class="text-xs text-neutral-800 font-medium dark:text-neutral-200">{{ c.text }}</span>
+                  <span v-if="c.nextMtn" class="text-[10px] text-neutral-400 font-mono">Next: {{ c.nextMtn }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ====== ACCESSORIES & PARTS (ParamValue) ====== -->
+        <template v-else-if="activeTab === 'paramValues'">
+          <div class="flex flex-col gap-2 pt-1">
+            <div class="flex items-center justify-between px-1 pb-1">
+              <span class="text-xs text-neutral-500 font-medium dark:text-neutral-400">
+                Mesh Parts & Sliders ({{ live2dCaps.parts.length }})
+              </span>
+              <span class="text-[10px] text-neutral-400">
+                ParamValue Sliders
+              </span>
+            </div>
+            <div class="flex flex-col gap-2">
+              <div
+                v-for="pv in live2dCaps.parts"
+                :key="pv.name"
+                class="border border-neutral-200/80 rounded-lg bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+              >
+                <div class="mb-1.5 flex items-center justify-between">
+                  <span class="text-xs text-neutral-800 font-semibold dark:text-neutral-200">{{ lookupLexicon(pv.name) || live2dTranslator.resolve(pv.name).main || pv.name }}</span>
+                  <span class="text-xs text-primary-500 font-bold font-mono">{{ (activeParamValues[pv.ids[0]] ?? pv.value).toFixed(2) }}</span>
+                </div>
+                <input
+                  type="range"
+                  class="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-neutral-200 accent-primary-500 dark:bg-neutral-700"
+                  :min="pv.min ?? 0"
+                  :max="pv.max ?? 1"
+                  :step="0.01"
+                  :value="activeParamValues[pv.ids[0]] ?? pv.value"
+                  @input="e => handleParamSlider(pv.ids, parseFloat((e.target as HTMLInputElement).value))"
+                >
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ====== INTIMACY & AFFINITY ====== -->
+        <template v-else-if="activeTab === 'intimacy'">
+          <div class="flex flex-col gap-3 pt-1">
+            <div class="border border-pink-200/60 rounded-xl bg-pink-500/5 p-4 text-center dark:border-pink-900/40">
+              <div class="i-solar:heart-bold-duotone mx-auto mb-1 text-3xl text-pink-500" />
+              <div class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">
+                Character Affinity
+              </div>
+              <div class="mt-1 text-2xl text-pink-500 font-bold font-mono">
+                {{ dslIntimacyScore }}
+              </div>
+              <p class="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                Intimacy state machine points driving dialogue unlocks and reaction variants.
+              </p>
             </div>
           </div>
         </template>

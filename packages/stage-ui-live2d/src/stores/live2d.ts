@@ -64,6 +64,49 @@ export const useLive2d = defineStore('live2d', () => {
   const activeEmotionResets = ref<Record<string, () => void>>({})
 
   const model = shallowRef<Live2DModel<PixiLive2DInternalModel>>()
+  const dslGroups = ref<any[]>([])
+  const rawSettings = ref<any>(null)
+  const dslVM = shallowRef<any>(null)
+
+  function setVarFloat(name: string, value: number) {
+    if (dslVM.value?.vars) {
+      if (typeof dslVM.value.vars.set === 'function') {
+        dslVM.value.vars.set(name, value)
+      }
+      else {
+        dslVM.value.vars[name] = value
+      }
+    }
+  }
+
+  function setParamValue(paramId: string, value: number) {
+    modelParameters.value[paramId] = value
+    const coreModel = (model.value?.internalModel as any)?.coreModel
+    if (coreModel && typeof coreModel.setParameterValueById === 'function') {
+      try {
+        coreModel.setParameterValueById(paramId, value)
+      }
+      catch {}
+    }
+  }
+
+  function selectChoice(choiceText: string, nextMtn?: string) {
+    if (dslVM.value) {
+      const pending = dslVM.value.getPendingChoices?.()
+      if (pending && Array.isArray(pending.choices)) {
+        const idx = pending.choices.findIndex((c: any) => c.text === choiceText)
+        if (idx >= 0 && typeof dslVM.value.selectChoice === 'function') {
+          dslVM.value.selectChoice(idx)
+        }
+      }
+    }
+    if (nextMtn) {
+      if (dslVM.value && typeof dslVM.value.dispatch === 'function') {
+        dslVM.value.dispatch(nextMtn)
+      }
+      triggerMotion(nextMtn)
+    }
+  }
 
   const onShouldUpdateView = (hook: (reason?: string) => void) => {
     shouldUpdateViewHooks.value.add(hook)
@@ -321,5 +364,11 @@ export const useLive2d = defineStore('live2d', () => {
     },
     resetState,
     model,
+    dslGroups,
+    rawSettings,
+    dslVM,
+    setVarFloat,
+    setParamValue,
+    selectChoice,
   }
 })

@@ -220,3 +220,5 @@ export function introspectCapabilities(
     },
   }
 }
+
+export const introspectLive2dManifest = introspectCapabilities

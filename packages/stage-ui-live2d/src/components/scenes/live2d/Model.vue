@@ -152,6 +152,9 @@ function disposeDslRuntime() {
   dslAdapter = null
   dslVM = null
   activeDslGroups = []
+  live2dStore.dslVM = null
+  live2dStore.dslGroups = []
+  live2dStore.rawSettings = null
 }
 
 /**
@@ -1333,6 +1336,9 @@ async function loadModel() {
 
       const rawGroups = consumePendingDslGroups()
       activeDslGroups = rawGroups
+      live2dStore.dslGroups = rawGroups
+      live2dStore.rawSettings = (model.value?.internalModel as any)?.settings || null
+      live2dStore.model = model.value
       const hasDsl = rawGroups.length > 0
       if (!hasDsl)
         return
@@ -1374,6 +1380,7 @@ async function loadModel() {
         },
       })
       dslVM.loadGroups(rawGroups)
+      live2dStore.dslVM = dslVM
       // Bridge resolution: when the dating-sim overlay replies with a chosen option,
       // resume the VM. Registered here so the adapter never needs a VM reference.
       dslAdapter.setSelectChoiceHandler(idx => dslVM?.selectChoice(idx))
