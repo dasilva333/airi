@@ -2,7 +2,7 @@
 import type { WebGPUCapabilities } from '@proj-airi/stage-shared/webgpu'
 import type { SpeechProvider } from '@xsai-ext/providers/utils'
 
-import { getCachedWebGPUCapabilities } from '@proj-airi/stage-shared/webgpu'
+import { detectWebGPU, getCachedWebGPUCapabilities } from '@proj-airi/stage-shared/webgpu'
 import {
   SpeechPlayground,
   SpeechProviderSettings,
@@ -10,7 +10,7 @@ import {
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { getDefaultKokoroModel } from '@proj-airi/stage-ui/workers/kokoro/constants'
-import { Callout, Select } from '@proj-airi/ui'
+import { Callout, Progress, Select } from '@proj-airi/ui'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -37,6 +37,11 @@ const webgpuCapabilities = ref<WebGPUCapabilities | null>(getCachedWebGPUCapabil
 
 // Track voices loading state
 const voicesLoading = ref(false)
+
+// Track model download progress state
+const isDownloading = ref(false)
+const downloadProgress = ref(0)
+const downloadMessage = ref('')
 
 // Get provider models from store
 const providerModels = computed(() => {
@@ -102,16 +107,17 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
 }
 
 onMounted(async () => {
-  // Check WebGPU support
-  // NOTICE: Uses synchronous check for initial render. The cached result from
-  // detectWebGPU() is populated by the providers store during initialization.
-  webgpuCapabilities.value = getCachedWebGPUCapabilities()
+  // Check WebGPU support asynchronously to populate capabilities (fp16Supported, etc.)
+  webgpuCapabilities.value = await detectWebGPU()
 
   try {
     voicesLoading.value = true
 
     // Fetch available models first
     await providersStore.fetchModelsForProvider(providerId)
+
+    // Load voices immediately — Kokoro's voices are static and decoupled from weights
+    await speechStore.loadVoicesForProvider(providerId)
 
     const config = providersStore.getProviderConfig(providerId)
     // Persist the default model if none is saved yet so validation passes on first visit
@@ -121,14 +127,30 @@ onMounted(async () => {
     const metadata = providersStore.getProviderMetadata(providerId)
     const validationResult = await metadata.validators.validateProviderConfig(config)
     if (validationResult.valid) {
-      // Load the initial model
+      // Load the initial model with progress feedback
       if (metadata.capabilities.loadModel) {
-        await metadata.capabilities.loadModel(config, {
-          onProgress: async (_progress: any) => {},
-        })
+        isDownloading.value = true
+        downloadProgress.value = 0
+        downloadMessage.value = 'Preparing Kokoro TTS model...'
+        try {
+          await metadata.capabilities.loadModel(config, {
+            onProgress: (p: any) => {
+              if (typeof p.progress === 'number' && p.progress >= 0) {
+                downloadProgress.value = Math.min(100, Math.round(p.progress))
+              }
+              if (p.file || p.name) {
+                downloadMessage.value = `Downloading ${p.file || p.name}...`
+              }
+            },
+          })
+        }
+        catch (error) {
+          console.error('Failed to load initial Kokoro model:', error)
+        }
+        finally {
+          isDownloading.value = false
+        }
       }
-
-      await speechStore.loadVoicesForProvider(providerId)
     }
     else {
       console.error('Failed to validate Kokoro provider config', config, validationResult)
@@ -150,10 +172,24 @@ watch(model, async (newValue) => {
       const validationResult = await metadata.validators.validateProviderConfig(config)
 
       if (validationResult.valid && metadata.capabilities.loadModel) {
-        // Load the model using the capability with progress tracking
-        await metadata.capabilities.loadModel(config, {
-          onProgress: async (_progress: any) => {},
-        })
+        isDownloading.value = true
+        downloadProgress.value = 0
+        downloadMessage.value = `Downloading ${newValue}...`
+        try {
+          await metadata.capabilities.loadModel(config, {
+            onProgress: (p: any) => {
+              if (typeof p.progress === 'number' && p.progress >= 0) {
+                downloadProgress.value = Math.min(100, Math.round(p.progress))
+              }
+              if (p.file || p.name) {
+                downloadMessage.value = `Downloading ${p.file || p.name}...`
+              }
+            },
+          })
+        }
+        finally {
+          isDownloading.value = false
+        }
 
         // Then reload voices
         await speechStore.loadVoicesForProvider(providerId)
@@ -186,9 +222,18 @@ watch(model, async (newValue) => {
           <Select
             v-model="model"
             :options="modelOptions"
-            :disabled="modelsLoading"
+            :disabled="modelsLoading || isDownloading"
             placeholder="Choose a model..."
           />
+        </div>
+
+        <!-- Download Progress Card -->
+        <div v-if="isDownloading" class="border border-primary-500/20 rounded-xl bg-primary-500/5 p-4 space-y-2">
+          <div class="flex justify-between text-xs opacity-70">
+            <span class="font-medium">{{ downloadMessage || `Downloading ${model}...` }}</span>
+            <span class="font-mono">{{ downloadProgress }}%</span>
+          </div>
+          <Progress :progress="downloadProgress" class="h-2" />
         </div>
       </div>
     </template>

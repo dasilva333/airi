@@ -2,7 +2,7 @@ import type { WebGPUCapabilities } from '@proj-airi/stage-shared/webgpu'
 
 import { describe, expect, it } from 'vitest'
 
-import { getDefaultKokoroModel, kokoroModelsToModelInfo } from './constants'
+import { getDefaultKokoroModel, getKokoroVoiceList, kokoroModelsToModelInfo } from './constants'
 
 /**
  * Build a full `WebGPUCapabilities` object for tests. Defaults to a fully
@@ -94,5 +94,25 @@ describe('getDefaultKokoroModel', () => {
 
   it('should fall back to q4f16 (WASM) when WebGPU is unsupported', () => {
     expect(getDefaultKokoroModel(caps({ supported: false }))).toBe('q4f16')
+  })
+})
+
+describe('getKokoroVoiceList', () => {
+  it('should return a populated list of voices without loading models', () => {
+    const voices = getKokoroVoiceList()
+    expect(voices.length).toBeGreaterThan(20)
+
+    const heart = voices.find(v => v.id === 'af_heart')
+    expect(heart).toBeDefined()
+    expect(heart?.name).toBe('Heart (Female, English)')
+    expect(heart?.gender).toBe('female')
+    expect(heart?.provider).toBe('kokoro-local')
+    expect(heart?.languages[0]?.code).toBe('en-US')
+
+    const george = voices.find(v => v.id === 'bm_george')
+    expect(george).toBeDefined()
+    expect(george?.name).toBe('George (Male, English)')
+    expect(george?.gender).toBe('male')
+    expect(george?.languages[0]?.code).toBe('en-GB')
   })
 })

@@ -9,6 +9,7 @@ import type {
   VoiceProfile,
 } from './providers/types'
 
+import { detectWebGPU } from '@proj-airi/stage-shared/webgpu'
 import { useLocalStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
@@ -40,6 +41,12 @@ export const useProvidersStore = defineStore('providers', () => {
   const addedProviders = useLocalStorage<Record<string, boolean>>('settings/providers/added', {})
   const providerInstanceCache = ref<Record<string, unknown>>({})
   const { t } = useI18n()
+
+  // Proactively kick off WebGPU detection on store creation so capabilities (and shader-f16 support)
+  // are pre-cached before provider settings or local inference workers query them.
+  if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && navigator.gpu) {
+    void detectWebGPU().catch(() => {})
+  }
 
   // Centralized provider metadata with provider factory functions
   // Phase 2: all hand-written definitions moved out of this orchestrator into

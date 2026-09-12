@@ -19,6 +19,7 @@ import { defaultPerfTracer } from '@proj-airi/stage-shared'
 import { Mutex } from 'async-mutex'
 
 import { removeInferenceStatus, updateInferenceStatus } from '../../../composables/use-inference-status'
+import { KOKORO_VOICES } from '../../../workers/kokoro/constants'
 import { MODEL_NAMES, TIMEOUTS } from '../constants'
 import { consumeLoadStream, createIdleTimeout, kokoroGenerateEvent, kokoroLoadEvent, signalWithTimeout } from '../contract'
 import { MODEL_VRAM_ESTIMATES } from '../coordinator'
@@ -365,9 +366,7 @@ export function createKokoroAdapter(): KokoroAdapter {
   }
 
   function getVoices(): Voices {
-    if (!voices)
-      throw new Error('Model not loaded. Call loadModel() first.')
-    return voices
+    return voices ?? (KOKORO_VOICES as unknown as Voices)
   }
 
   return {

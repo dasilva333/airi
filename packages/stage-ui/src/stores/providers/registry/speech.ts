@@ -32,7 +32,7 @@ import {
 } from 'unspeech'
 
 import { getKokoroAdapter } from '../../../libs/inference/adapters/kokoro'
-import { getDefaultKokoroModel, KOKORO_MODELS, kokoroModelsToModelInfo } from '../../../workers/kokoro/constants'
+import { getDefaultKokoroModel, getKokoroVoiceList, KOKORO_MODELS, kokoroModelsToModelInfo } from '../../../workers/kokoro/constants'
 import { models as elevenLabsModels } from '../elevenlabs/list-models'
 import { createNativeElevenLabsProvider } from '../elevenlabs/native'
 import { logWarn, toProviderRootBaseUrl, toV1SpeechBaseUrl, validateProviderBaseUrl } from '../helpers'
@@ -397,63 +397,8 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
           }
         },
 
-        listVoices: async (config: Record<string, unknown>) => {
-          try {
-          // Reload the model before fetching voices
-            const modelId = config.model as string
-            if (modelId) {
-              const modelDef = KOKORO_MODELS.find(m => m.id === modelId)
-              if (modelDef) {
-              // Validate platform requirements
-                if (modelDef.platform === 'webgpu') {
-                  const hasWebGPU = typeof navigator !== 'undefined' && !!navigator.gpu
-                  if (!hasWebGPU) {
-                    throw new Error('WebGPU is required for this model but is not available in your browser')
-                  }
-                }
-
-                // Load the model
-                const adapter = await getKokoroAdapter()
-                await adapter.loadModel(modelDef.quantization, modelDef.platform)
-              }
-            }
-
-            // Get adapter and fetch voices from the model
-            const adapter = await getKokoroAdapter()
-            const modelVoices = adapter.getVoices()
-
-            // Language code mapping
-            const languageMap: Record<string, { code: string, title: string }> = {
-              'en-us': { code: 'en-US', title: 'English (US)' },
-              'en-gb': { code: 'en-GB', title: 'English (UK)' },
-              'ja': { code: 'ja', title: 'Japanese' },
-              'zh-cn': { code: 'zh-CN', title: 'Chinese (Mandarin)' },
-              'es': { code: 'es', title: 'Spanish' },
-              'fr': { code: 'fr', title: 'French' },
-              'hi': { code: 'hi', title: 'Hindi' },
-              'it': { code: 'it', title: 'Italian' },
-              'pt-br': { code: 'pt-BR', title: 'Portuguese (Brazil)' },
-            }
-
-            // Transform the voices object to the expected array format
-            return Object.entries(modelVoices).map(([id, voice]: [string, { language: string, name: string, gender: string }]) => {
-              const languageCode = voice.language.toLowerCase()
-              const languageInfo = languageMap[languageCode] || { code: languageCode, title: voice.language }
-
-              return {
-                id,
-                name: `${voice.name} (${voice.gender}, ${languageInfo.title.split('(')[0].trim()})`,
-                provider: 'kokoro-local',
-                languages: [languageInfo],
-                gender: voice.gender.toLowerCase(),
-              }
-            })
-          }
-          catch (error) {
-            console.error('Failed to fetch Kokoro voices:', error)
-            // Return empty array if model not loaded yet
-            return []
-          }
+        listVoices: async (_config: Record<string, unknown>) => {
+          return getKokoroVoiceList()
         },
       },
 

@@ -7,7 +7,7 @@ import {
 } from '@proj-airi/stage-ui/components'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { Button, Callout, Input, Select } from '@proj-airi/ui'
+import { Button, Callout, Input, Progress, Select } from '@proj-airi/ui'
 import { computed, onMounted, ref, watch } from 'vue'
 
 const providerId = 'moss-nano-local'
@@ -17,6 +17,9 @@ const providersStore = useProvidersStore()
 
 // State
 const voicesLoading = ref(false)
+const isDownloading = ref(false)
+const downloadProgress = ref(0)
+const downloadMessage = ref('')
 const isUploading = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const customVoiceProfiles = ref<MossVoiceProfile[]>([])
@@ -170,8 +173,35 @@ async function loadCustomVoiceProfiles() {
   customVoiceProfiles.value = profiles
 }
 
+async function ensureModelLoaded() {
+  const config = providersStore.getProviderConfig(providerId)
+  const metadata = providersStore.getProviderMetadata(providerId)
+  if (metadata?.capabilities?.loadModel) {
+    isDownloading.value = true
+    downloadProgress.value = 0
+    downloadMessage.value = 'Checking / downloading MOSS TTS models...'
+    try {
+      await metadata.capabilities.loadModel(config, {
+        onProgress: (p: any) => {
+          if (typeof p.progress === 'number' && p.progress >= 0) {
+            downloadProgress.value = Math.min(100, Math.round(p.progress))
+          }
+          if (p.file || p.name) {
+            downloadMessage.value = `Downloading ${p.file || p.name}...`
+          }
+        },
+      })
+    }
+    finally {
+      isDownloading.value = false
+    }
+  }
+}
+
 async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: boolean) {
   try {
+    await ensureModelLoaded()
+
     const provider = await providersStore.getProviderInstance(providerId)
     if (!provider) {
       throw new Error('Failed to initialize speech provider')
@@ -360,9 +390,18 @@ watch(model, async (newValue) => {
           <Select
             v-model="model"
             :options="modelOptions"
-            :disabled="modelsLoading"
+            :disabled="modelsLoading || isDownloading"
             placeholder="Choose a model..."
           />
+
+          <!-- Download Progress Card -->
+          <div v-if="isDownloading" class="border border-primary-500/20 rounded-xl bg-primary-500/5 p-4 space-y-2">
+            <div class="flex justify-between text-xs opacity-70">
+              <span class="font-medium">{{ downloadMessage || `Downloading MOSS model...` }}</span>
+              <span class="font-mono">{{ downloadProgress }}%</span>
+            </div>
+            <Progress :progress="downloadProgress" class="h-2" />
+          </div>
         </div>
 
         <!-- Tuning Configurations -->

@@ -171,3 +171,77 @@ export function getDefaultKokoroModel(caps: WebGPUCapabilities | null): KokoroQu
     return caps?.fp16Supported ? 'fp16-webgpu' : 'fp32-webgpu'
   return 'q4f16'
 }
+
+/**
+ * Static metadata for all voices built into kokoro-js.
+ * Kokoro's voice styles are constant trait vectors bundled with the engine;
+ * they are independent of the model's ONNX weights or quantization precision.
+ */
+export const KOKORO_VOICES = Object.freeze({
+  af_heart: { name: 'Heart', language: 'en-us', gender: 'Female', traits: '❤️', targetQuality: 'A', overallGrade: 'A' },
+  af_alloy: { name: 'Alloy', language: 'en-us', gender: 'Female', targetQuality: 'B', overallGrade: 'C' },
+  af_aoede: { name: 'Aoede', language: 'en-us', gender: 'Female', targetQuality: 'B', overallGrade: 'C+' },
+  af_bella: { name: 'Bella', language: 'en-us', gender: 'Female', traits: '🔥', targetQuality: 'A', overallGrade: 'A-' },
+  af_jessica: { name: 'Jessica', language: 'en-us', gender: 'Female', targetQuality: 'C', overallGrade: 'D' },
+  af_kore: { name: 'Kore', language: 'en-us', gender: 'Female', targetQuality: 'B', overallGrade: 'C+' },
+  af_nicole: { name: 'Nicole', language: 'en-us', gender: 'Female', traits: '🎧', targetQuality: 'B', overallGrade: 'B-' },
+  af_nova: { name: 'Nova', language: 'en-us', gender: 'Female', targetQuality: 'B', overallGrade: 'C' },
+  af_river: { name: 'River', language: 'en-us', gender: 'Female', targetQuality: 'C', overallGrade: 'D' },
+  af_sarah: { name: 'Sarah', language: 'en-us', gender: 'Female', targetQuality: 'B', overallGrade: 'C+' },
+  af_sky: { name: 'Sky', language: 'en-us', gender: 'Female', targetQuality: 'B', overallGrade: 'C-' },
+  am_adam: { name: 'Adam', language: 'en-us', gender: 'Male', targetQuality: 'D', overallGrade: 'F+' },
+  am_echo: { name: 'Echo', language: 'en-us', gender: 'Male', targetQuality: 'C', overallGrade: 'D' },
+  am_eric: { name: 'Eric', language: 'en-us', gender: 'Male', targetQuality: 'C', overallGrade: 'D' },
+  am_fenrir: { name: 'Fenrir', language: 'en-us', gender: 'Male', targetQuality: 'B', overallGrade: 'C+' },
+  am_liam: { name: 'Liam', language: 'en-us', gender: 'Male', targetQuality: 'C', overallGrade: 'D' },
+  am_michael: { name: 'Michael', language: 'en-us', gender: 'Male', targetQuality: 'B', overallGrade: 'C+' },
+  am_onyx: { name: 'Onyx', language: 'en-us', gender: 'Male', targetQuality: 'C', overallGrade: 'D' },
+  am_puck: { name: 'Puck', language: 'en-us', gender: 'Male', targetQuality: 'B', overallGrade: 'C+' },
+  am_santa: { name: 'Santa', language: 'en-us', gender: 'Male', targetQuality: 'C', overallGrade: 'D-' },
+  bf_emma: { name: 'Emma', language: 'en-gb', gender: 'Female', traits: '🚺', targetQuality: 'B', overallGrade: 'B-' },
+  bf_isabella: { name: 'Isabella', language: 'en-gb', gender: 'Female', targetQuality: 'B', overallGrade: 'C' },
+  bm_george: { name: 'George', language: 'en-gb', gender: 'Male', targetQuality: 'B', overallGrade: 'C' },
+  bm_lewis: { name: 'Lewis', language: 'en-gb', gender: 'Male', targetQuality: 'C', overallGrade: 'D+' },
+  bf_alice: { name: 'Alice', language: 'en-gb', gender: 'Female', traits: '🚺', targetQuality: 'C', overallGrade: 'D' },
+  bf_lily: { name: 'Lily', language: 'en-gb', gender: 'Female', traits: '🚺', targetQuality: 'C', overallGrade: 'D' },
+  bm_daniel: { name: 'Daniel', language: 'en-gb', gender: 'Male', traits: '🚹', targetQuality: 'C', overallGrade: 'D' },
+  bm_fable: { name: 'Fable', language: 'en-gb', gender: 'Male', traits: '🚹', targetQuality: 'B', overallGrade: 'C' },
+} as const)
+
+const KOKORO_LANGUAGE_MAP: Record<string, { code: string, title: string }> = {
+  'en-us': { code: 'en-US', title: 'English (US)' },
+  'en-gb': { code: 'en-GB', title: 'English (UK)' },
+  'ja': { code: 'ja', title: 'Japanese' },
+  'zh-cn': { code: 'zh-CN', title: 'Chinese (Mandarin)' },
+  'es': { code: 'es', title: 'Spanish' },
+  'fr': { code: 'fr', title: 'French' },
+  'hi': { code: 'hi', title: 'Hindi' },
+  'it': { code: 'it', title: 'Italian' },
+  'pt-br': { code: 'pt-BR', title: 'Portuguese (Brazil)' },
+}
+
+export interface KokoroVoiceInfo {
+  id: string
+  name: string
+  provider: 'kokoro-local'
+  languages: { code: string, title: string }[]
+  gender: string
+}
+
+/**
+ * Return formatted Kokoro voice info list immediately without awaiting model weights download.
+ */
+export function getKokoroVoiceList(): KokoroVoiceInfo[] {
+  return Object.entries(KOKORO_VOICES).map(([id, voice]) => {
+    const languageCode = voice.language.toLowerCase()
+    const languageInfo = KOKORO_LANGUAGE_MAP[languageCode] || { code: languageCode, title: voice.language }
+
+    return {
+      id,
+      name: `${voice.name} (${voice.gender}, ${languageInfo.title.split('(')[0].trim()})`,
+      provider: 'kokoro-local',
+      languages: [languageInfo],
+      gender: voice.gender.toLowerCase(),
+    }
+  })
+}
