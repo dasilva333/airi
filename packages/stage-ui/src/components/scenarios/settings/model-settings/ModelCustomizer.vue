@@ -124,7 +124,7 @@ const hasAdvancedGimmicks = computed(() => {
   if (modelType.value !== 'live2d')
     return false
   const c = live2dCaps.value
-  return c.switches.length > 0 || c.choices.length > 0 || c.parts.length > 0 || c.intimacy.hasIntimacy
+  return c.switches.length > 0 || c.choices.length > 0 || c.reactions.length > 0 || c.parts.length > 0 || c.intimacy.hasIntimacy
 })
 
 const activeSwitchStates = ref<Record<string, boolean>>({})
@@ -147,6 +147,52 @@ function handleParamSlider(ids: string[], val: number) {
 function handleSelectChoice(choiceText: string, nextMtn?: string) {
   live2dStore.selectChoice(choiceText, nextMtn)
   toast.info(`Selected: ${choiceText}`)
+}
+
+function handleTriggerReaction(reaction: any) {
+  if (reaction.sound) {
+    try {
+      const audio = new Audio(reaction.sound)
+      audio.play().catch(() => {})
+    }
+    catch {}
+  }
+  if (live2dStore.dslVM && typeof live2dStore.dslVM.dispatch === 'function') {
+    try {
+      live2dStore.dslVM.dispatch(reaction.group)
+    }
+    catch {}
+  }
+  live2dStore.triggerMotion(reaction.group, reaction.index)
+  const resolved = live2dTranslator.resolve(reaction.text).main || reaction.text || reaction.group
+  toast.info(`Reaction Triggered: "${resolved}"`)
+}
+
+async function handleTranslateAll() {
+  const stringsToTranslate: string[] = []
+  for (const r of live2dCaps.value.reactions) {
+    if (r.text)
+      stringsToTranslate.push(r.text)
+  }
+  for (const c of live2dCaps.value.choices) {
+    if (c.text)
+      stringsToTranslate.push(c.text)
+    for (const opt of c.choices) {
+      if (opt.text)
+        stringsToTranslate.push(opt.text)
+    }
+  }
+  for (const p of live2dCaps.value.parts) {
+    if (p.name)
+      stringsToTranslate.push(p.name)
+  }
+  for (const s of live2dCaps.value.switches) {
+    if (s.name)
+      stringsToTranslate.push(s.name)
+  }
+
+  const count = await live2dTranslator.translateMissing(stringsToTranslate)
+  toast.success(`Translation complete: ${count} labels translated.`)
 }
 
 const dslIntimacyScore = computed(() => {
@@ -463,6 +509,13 @@ const rawMotions = computed<UnifiedMotion[]>(() => {
         }
       }
 
+      // If still looks like an auto-generated unpacked name: "Motions_A10_1_File_0"
+      // format it to readable: "A10 #2"
+      const unpackMatch = defaultDisplayName.match(/^Motions_([A-Z0-9]+)_(\d+)_File_(\d+)$/i)
+      if (unpackMatch) {
+        defaultDisplayName = `${unpackMatch[1]} #${Number(unpackMatch[2]) + 1}`
+      }
+
       return {
         key,
         displayName: mappedName || defaultDisplayName,
@@ -532,20 +585,32 @@ const rawMotions = computed<UnifiedMotion[]>(() => {
 })
 
 // Filter states
-export type CustomizerTab = 'expressions' | 'motions' | 'outfits' | 'vfx' | 'switches' | 'choices' | 'paramValues' | 'intimacy'
+export type CustomizerTab = 'expressions' | 'motions' | 'outfits' | 'vfx' | 'switches' | 'choices' | 'reactions' | 'paramValues' | 'intimacy'
 const activeTab = ref<CustomizerTab>('expressions')
 
 const isAdvancedTabActive = computed(() => {
-  return ['switches', 'choices', 'paramValues', 'intimacy'].includes(activeTab.value)
+  return ['switches', 'choices', 'reactions', 'paramValues', 'intimacy'].includes(activeTab.value)
 })
 
 const activeAdvancedTabLabel = computed(() => {
   switch (activeTab.value) {
     case 'switches': return `Switches (${live2dCaps.value.switches.length})`
     case 'choices': return `Menus (${live2dCaps.value.choices.length})`
+    case 'reactions': return `Reactions (${live2dCaps.value.reactions.length})`
     case 'paramValues': return `Parts (${live2dCaps.value.parts.length})`
     case 'intimacy': return 'Intimacy'
     default: return 'More'
+  }
+})
+
+const advancedTabHeaderTitle = computed(() => {
+  switch (activeTab.value) {
+    case 'switches': return `Switches (${live2dCaps.value.switches.length})`
+    case 'choices': return `Dialogue Menus (${live2dCaps.value.choices.length})`
+    case 'reactions': return `Voice & Reactions (${live2dCaps.value.reactions.length})`
+    case 'paramValues': return `Accessories & Parts (${live2dCaps.value.parts.length})`
+    case 'intimacy': return 'Intimacy & Affinity'
+    default: return 'Advanced Features'
   }
 })
 const showHidden = ref(false)
@@ -1262,6 +1327,15 @@ function toggleMotionCycle(key: string) {
                   <span class="rounded bg-neutral-100 px-1 py-0.2 text-[10px] text-neutral-500 font-mono dark:bg-neutral-700 dark:text-neutral-400">{{ live2dCaps.choices.length }}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  v-if="live2dCaps.reactions.length > 0"
+                  class="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-neutral-700 outline-none hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+                  @select="activeTab = 'reactions'"
+                >
+                  <div class="i-solar:clapperboard-play-bold-duotone text-sm text-rose-500" />
+                  <span class="flex-1">Voice & Reactions</span>
+                  <span class="rounded bg-neutral-100 px-1 py-0.2 text-[10px] text-neutral-500 font-mono dark:bg-neutral-700 dark:text-neutral-400">{{ live2dCaps.reactions.length }}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   v-if="live2dCaps.parts.length > 0"
                   class="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-neutral-700 outline-none hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
                   @select="activeTab = 'paramValues'"
@@ -1324,6 +1398,51 @@ function toggleMotionCycle(key: string) {
             @click="filterRenamedOnly = !filterRenamedOnly"
           >
             {{ filterRenamedOnly ? 'Renamed Only' : 'All' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Advanced DSL Controls Bar (Language Switcher & JIT Translate) -->
+      <div v-if="!capabilitiesLoading && isAdvancedTabActive" class="flex shrink-0 items-center justify-between py-2">
+        <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+          {{ advancedTabHeaderTitle }}
+        </span>
+        <div class="flex items-center gap-1.5">
+          <!-- Language Mode Segmented Picker -->
+          <div class="flex border border-neutral-200 rounded-md bg-neutral-100 p-0.5 text-[10px] dark:border-neutral-800 dark:bg-neutral-900">
+            <button
+              type="button"
+              :class="['px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer', live2dTranslator.languageMode.value === 'bilingual' ? 'bg-white shadow-xs text-primary-600 dark:bg-neutral-800 dark:text-cyan-300' : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200']"
+              @click="live2dTranslator.languageMode.value = 'bilingual'"
+            >
+              Bilingual
+            </button>
+            <button
+              type="button"
+              :class="['px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer', live2dTranslator.languageMode.value === 'en_only' ? 'bg-white shadow-xs text-primary-600 dark:bg-neutral-800 dark:text-cyan-300' : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200']"
+              @click="live2dTranslator.languageMode.value = 'en_only'"
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              :class="['px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer', live2dTranslator.languageMode.value === 'raw' ? 'bg-white shadow-xs text-primary-600 dark:bg-neutral-800 dark:text-cyan-300' : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200']"
+              @click="live2dTranslator.languageMode.value = 'raw'"
+            >
+              Raw
+            </button>
+          </div>
+
+          <!-- Translate Button -->
+          <button
+            type="button"
+            class="flex cursor-pointer items-center gap-1 border border-cyan-500/30 rounded-md bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-600 font-medium transition-colors hover:bg-cyan-500/20 dark:text-cyan-300 disabled:opacity-40"
+            :disabled="live2dTranslator.isTranslating.value"
+            @click="handleTranslateAll"
+          >
+            <div v-if="live2dTranslator.isTranslating.value" class="i-svg-spinners:ring-resize text-[10px]" />
+            <div v-else class="i-solar:global-bold text-[10px]" />
+            <span>{{ live2dTranslator.isTranslating.value ? 'Translating...' : 'Translate' }}</span>
           </button>
         </div>
       </div>
@@ -1990,42 +2109,37 @@ function toggleMotionCycle(key: string) {
 
         <!-- ====== FEATURE SWITCHES (VarFloats) ====== -->
         <template v-else-if="activeTab === 'switches'">
-          <div class="flex flex-col gap-2 pt-1">
-            <div class="flex items-center justify-between px-1 pb-1">
-              <span class="text-xs text-neutral-500 font-medium dark:text-neutral-400">
-                State Flags & Accessories ({{ live2dCaps.switches.length }})
-              </span>
-              <span class="text-[10px] text-neutral-400">
-                VarFloats State Machine
-              </span>
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <div
-                v-for="sw in live2dCaps.switches"
-                :key="sw.name"
-                class="flex items-center justify-between border border-neutral-200/80 rounded-lg bg-white px-3 py-2 transition-colors dark:border-neutral-800 dark:bg-neutral-900"
-              >
-                <div class="min-w-0 flex-1 pr-3">
-                  <div class="truncate text-xs text-neutral-800 font-semibold dark:text-neutral-100">
-                    {{ lookupLexicon(sw.name) || live2dTranslator.resolve(sw.name).main || sw.name }}
-                  </div>
-                  <div class="flex items-center gap-2 pt-0.5 text-[10px] text-neutral-400 font-mono">
-                    <span>var: {{ sw.name }}</span>
-                    <span v-if="sw.code" class="rounded bg-neutral-100 px-1 dark:bg-neutral-800">{{ sw.code }}</span>
-                  </div>
+          <div class="flex flex-col gap-1.5 pt-1">
+            <div
+              v-for="sw in live2dCaps.switches"
+              :key="sw.name"
+              class="flex items-center justify-between border border-neutral-200/80 rounded-lg bg-white px-3 py-2 transition-colors dark:border-neutral-800 dark:bg-neutral-900"
+            >
+              <div class="min-w-0 flex-1 pr-3">
+                <div class="flex flex-wrap items-baseline gap-1">
+                  <span class="truncate text-xs text-neutral-800 font-semibold dark:text-neutral-100">
+                    {{ live2dTranslator.resolve(sw.name).main || sw.name }}
+                  </span>
+                  <span v-if="live2dTranslator.resolve(sw.name).sub" class="text-[10px] text-neutral-400">
+                    ({{ live2dTranslator.resolve(sw.name).sub }})
+                  </span>
                 </div>
-                <button
-                  type="button"
-                  class="relative h-5 w-9 inline-flex shrink-0 cursor-pointer border-2 border-transparent rounded-full transition-colors duration-200 ease-in-out focus:outline-none"
-                  :class="activeSwitchStates[sw.name] ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                  @click="toggleFeatureSwitch(sw.name)"
-                >
-                  <span
-                    class="pointer-events-none inline-block size-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    :class="activeSwitchStates[sw.name] ? 'translate-x-4' : 'translate-x-0'"
-                  />
-                </button>
+                <div class="flex items-center gap-2 pt-0.5 text-[10px] text-neutral-400 font-mono">
+                  <span>var: {{ sw.name }}</span>
+                  <span v-if="sw.code" class="rounded bg-neutral-100 px-1 dark:bg-neutral-800">{{ sw.code }}</span>
+                </div>
               </div>
+              <button
+                type="button"
+                class="relative h-5 w-9 inline-flex shrink-0 cursor-pointer border-2 border-transparent rounded-full transition-colors duration-200 ease-in-out focus:outline-none"
+                :class="activeSwitchStates[sw.name] ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                @click="toggleFeatureSwitch(sw.name)"
+              >
+                <span
+                  class="pointer-events-none inline-block size-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                  :class="activeSwitchStates[sw.name] ? 'translate-x-4' : 'translate-x-0'"
+                />
+              </button>
             </div>
           </div>
         </template>
@@ -2033,21 +2147,16 @@ function toggleMotionCycle(key: string) {
         <!-- ====== DIALOGUE MENUS (Choices) ====== -->
         <template v-else-if="activeTab === 'choices'">
           <div class="flex flex-col gap-3 pt-1">
-            <div class="flex items-center justify-between px-1 pb-1">
-              <span class="text-xs text-neutral-500 font-medium dark:text-neutral-400">
-                Branching Choice Trees ({{ live2dCaps.choices.length }})
-              </span>
-              <span class="text-[10px] text-neutral-400">
-                Creator Choice Menus
-              </span>
-            </div>
             <div
               v-for="(tree, idx) in live2dCaps.choices"
               :key="idx"
               class="border border-neutral-200/80 rounded-xl bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
             >
               <div v-if="tree.text" class="mb-2 text-xs text-neutral-700 font-semibold dark:text-neutral-300">
-                {{ tree.text }}
+                <span>"{{ live2dTranslator.resolve(tree.text).main }}"</span>
+                <span v-if="live2dTranslator.resolve(tree.text).sub" class="ml-1 text-[11px] text-neutral-400 font-normal">
+                  ({{ live2dTranslator.resolve(tree.text).sub }})
+                </span>
               </div>
               <div class="flex flex-col gap-1.5">
                 <button
@@ -2057,10 +2166,50 @@ function toggleMotionCycle(key: string) {
                   class="flex cursor-pointer items-center justify-between border border-neutral-100 rounded-lg bg-neutral-50/80 px-3 py-2 text-left transition-all dark:border-neutral-800/80 hover:border-primary-500/30 dark:bg-neutral-800/40 hover:bg-primary-50/20 dark:hover:bg-primary-900/10"
                   @click="handleSelectChoice(c.text, c.nextMtn)"
                 >
-                  <span class="text-xs text-neutral-800 font-medium dark:text-neutral-200">{{ c.text }}</span>
-                  <span v-if="c.nextMtn" class="text-[10px] text-neutral-400 font-mono">Next: {{ c.nextMtn }}</span>
+                  <div class="flex flex-wrap items-baseline gap-1">
+                    <span class="text-xs text-neutral-800 font-medium dark:text-neutral-200">
+                      {{ live2dTranslator.resolve(c.text).main }}
+                    </span>
+                    <span v-if="live2dTranslator.resolve(c.text).sub" class="text-[10px] text-neutral-400">
+                      ({{ live2dTranslator.resolve(c.text).sub }})
+                    </span>
+                  </div>
+                  <span v-if="c.nextMtn" class="text-[10px] text-neutral-400 font-mono">
+                    → {{ c.nextMtn.replace(/^Next:\s*/i, '') }}
+                  </span>
                 </button>
               </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ====== VOICE & REACTIONS (Soundboard) ====== -->
+        <template v-else-if="activeTab === 'reactions'">
+          <div class="flex flex-col gap-2 pt-1">
+            <div
+              v-for="(react, rIdx) in live2dCaps.reactions"
+              :key="rIdx"
+              class="flex items-center justify-between gap-2 border border-neutral-200/80 rounded-xl bg-white p-3 transition-colors dark:border-neutral-800 dark:bg-neutral-900"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="text-xs text-neutral-800 font-semibold leading-snug dark:text-neutral-100">
+                  "{{ live2dTranslator.resolve(react.text).main }}"
+                </div>
+                <div v-if="live2dTranslator.resolve(react.text).sub" class="pt-0.5 text-[11px] text-neutral-400 leading-snug">
+                  "{{ live2dTranslator.resolve(react.text).sub }}"
+                </div>
+                <div v-if="react.sound" class="truncate pt-1 text-[10px] text-neutral-400 font-mono">
+                  🔊 {{ react.sound }}
+                </div>
+              </div>
+              <button
+                type="button"
+                class="flex shrink-0 cursor-pointer items-center gap-1 border border-rose-500/40 rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs text-rose-600 font-semibold transition-colors hover:bg-rose-500/20 dark:text-rose-300"
+                @click="handleTriggerReaction(react)"
+              >
+                <div class="i-solar:play-bold text-[10px]" />
+                <span>Trigger</span>
+              </button>
             </div>
           </div>
         </template>
@@ -2068,14 +2217,6 @@ function toggleMotionCycle(key: string) {
         <!-- ====== ACCESSORIES & PARTS (ParamValue) ====== -->
         <template v-else-if="activeTab === 'paramValues'">
           <div class="flex flex-col gap-2 pt-1">
-            <div class="flex items-center justify-between px-1 pb-1">
-              <span class="text-xs text-neutral-500 font-medium dark:text-neutral-400">
-                Mesh Parts & Sliders ({{ live2dCaps.parts.length }})
-              </span>
-              <span class="text-[10px] text-neutral-400">
-                ParamValue Sliders
-              </span>
-            </div>
             <div class="flex flex-col gap-2">
               <div
                 v-for="pv in live2dCaps.parts"
@@ -2083,7 +2224,14 @@ function toggleMotionCycle(key: string) {
                 class="border border-neutral-200/80 rounded-lg bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
               >
                 <div class="mb-1.5 flex items-center justify-between">
-                  <span class="text-xs text-neutral-800 font-semibold dark:text-neutral-200">{{ lookupLexicon(pv.name) || live2dTranslator.resolve(pv.name).main || pv.name }}</span>
+                  <div class="flex flex-wrap items-baseline gap-1">
+                    <span class="text-xs text-neutral-800 font-semibold dark:text-neutral-200">
+                      {{ live2dTranslator.resolve(pv.name).main || pv.name }}
+                    </span>
+                    <span v-if="live2dTranslator.resolve(pv.name).sub" class="text-[10px] text-neutral-400">
+                      ({{ live2dTranslator.resolve(pv.name).sub }})
+                    </span>
+                  </div>
                   <span class="text-xs text-primary-500 font-bold font-mono">{{ (activeParamValues[pv.ids[0]] ?? pv.value).toFixed(2) }}</span>
                 </div>
                 <input
