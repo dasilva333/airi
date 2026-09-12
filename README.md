@@ -126,7 +126,7 @@ This fork favors finished, testable paths over indiscriminate accumulation. Upst
 </p>
 
 <p float="left" align="center">
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.30-stable.20260907/AIRI-0.9.30-stable.20260907-android.apk">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.31-stable.20260911/AIRI-0.9.31-stable.20260911-android.apk">
     <picture>
       <source
         width="33%"
@@ -141,7 +141,7 @@ This fork favors finished, testable paths over indiscriminate accumulation. Upst
       <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.mobile.light.en-US.avif" alt="Download AIRI for Android" />
     </picture>
   </a>
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.30-stable.20260907/AIRI-0.9.30-stable.20260907-ios.ipa">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.31-stable.20260911/AIRI-0.9.31-stable.20260911-ios.ipa">
     <picture>
       <source
         width="33%"
