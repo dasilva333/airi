@@ -206,6 +206,7 @@ onMounted(async () => {
 
   // Synchronize keys so the shared connection store reads the correct one immediately
   if (serverChannelConfig.authToken) {
+    serverChannelStore.setAuthToken(serverChannelConfig.authToken)
     localStorage.setItem('settings/connection/auth-token', serverChannelConfig.authToken)
   }
 
@@ -255,7 +256,7 @@ onMounted(async () => {
   logStep('Initializing server channel store')
   await serverChannelStore.initialize({
     possibleEvents: ['ui:configure'],
-    token: serverChannelSettingsStore.authToken,
+    token: serverChannelConfig.authToken || serverChannelSettingsStore.authToken,
   }).catch((err: any) => console.error('[PipelineTTS:App] FAILED server channel store init:', err))
 
   logStep('Initializing character orchestrator')

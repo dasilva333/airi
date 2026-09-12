@@ -67,9 +67,13 @@ async function normalizeChannelServerOptions(payload: unknown, fallback?: any) {
     return fallback
   }
 
+  const authToken = (parsed.data.authToken && parsed.data.authToken.trim().length > 0)
+    ? parsed.data.authToken
+    : fallback.authToken
+
   return {
     hostname: parsed.data.hostname ?? fallback.hostname,
-    authToken: parsed.data.authToken ?? fallback.authToken,
+    authToken,
     tlsConfig: typeof parsed.data.tlsConfig === 'undefined' ? null : parsed.data.tlsConfig,
   }
 }
@@ -409,6 +413,10 @@ export async function createServerChannelService(params: { serverChannel: Server
         authToken: req?.authToken,
         hostname: req?.hostname,
       }, current)
+
+      if (!next.authToken && current.authToken) {
+        next.authToken = current.authToken
+      }
 
       const tlsChanged = JSON.stringify(next.tlsConfig) !== JSON.stringify(current.tlsConfig)
 

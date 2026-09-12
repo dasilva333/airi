@@ -16,10 +16,15 @@ export const useServerChannelSettingsStore = defineStore('tamagotchi-server-chan
   const serverChannelConfig = useAsyncState(getServerChannelConfig, null as any)
 
   watch([websocketTlsConfig, hostname, authToken], async ([newTls, newHost, newAuth]) => {
+    const effectiveToken = newAuth || serverChannelConfig.state.value?.authToken
+    if (!effectiveToken) {
+      return
+    }
+
     await applyServerChannelConfig({
       websocketTlsConfig: newTls ? {} : null,
       hostname: newHost,
-      authToken: newAuth,
+      authToken: effectiveToken,
     })
   })
 
@@ -30,7 +35,7 @@ export const useServerChannelSettingsStore = defineStore('tamagotchi-server-chan
     if (newConfig?.hostname !== undefined) {
       hostname.value = newConfig.hostname
     }
-    if (newConfig?.authToken !== undefined) {
+    if (newConfig?.authToken) {
       authToken.value = newConfig.authToken
     }
   })

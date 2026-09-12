@@ -37,6 +37,32 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
   const websocketUrl = useLocalStorage('settings/connection/websocket-url', defaultWebSocketUrl)
   const authToken = useLocalStorage('settings/connection/auth-token', '')
 
+  const activeListeners = new Set<{
+    type: keyof WebSocketEvents
+    callback: (event: any) => void | Promise<void>
+  }>()
+
+  function attachRegisteredListeners() {
+    if (!client.value)
+      return
+    for (const listener of activeListeners) {
+      client.value.onEvent(listener.type, listener.callback)
+    }
+  }
+
+  function setAuthToken(token: string) {
+    authToken.value = token
+    if (client.value) {
+      client.value.updateToken(token)
+    }
+  }
+
+  watch(authToken, (newToken) => {
+    if (client.value && newToken && client.value.getToken() !== newToken) {
+      client.value.updateToken(newToken)
+    }
+  })
+
   const isSupported = computed(() => {
     // If on mobile (Capacitor), only connect if user configured an explicit non-localhost remote URL
     if (isStageCapacitor()) {
@@ -70,6 +96,13 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     if (!isSupported.value) {
       status.value = 'disconnected'
       return Promise.resolve()
+    }
+
+    if (options?.token) {
+      authToken.value = options.token
+      if (client.value && client.value.getToken() !== options.token) {
+        client.value.updateToken(options.token)
+      }
     }
 
     if (connected.value && client.value)
@@ -146,6 +179,8 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
           resolve() // Still resolve to unblock app
         },
       })
+
+      attachRegisteredListeners()
 
       client.value.onEvent('module:authenticated', (event) => {
         if (event.data.authenticated) {
@@ -228,12 +263,12 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     if (!isSupported.value)
       return () => {}
 
-    if (!client.value && !initializing.value)
-      void initialize()
-
+    const listener = { type: 'context:update' as const, callback: callback as any }
+    activeListeners.add(listener)
     client.value?.onEvent('context:update', callback as any)
 
     return () => {
+      activeListeners.delete(listener)
       client.value?.offEvent('context:update', callback as any)
     }
   }
@@ -245,12 +280,12 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     if (!isSupported.value)
       return () => {}
 
-    if (!client.value && !initializing.value)
-      void initialize()
-
+    const listener = { type, callback: callback as any }
+    activeListeners.add(listener)
     client.value?.onEvent(type, callback as any)
 
     return () => {
+      activeListeners.delete(listener)
       client.value?.offEvent(type, callback as any)
     }
   }
@@ -289,6 +324,8 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     status,
     isSupported,
     websocketUrl,
+    authToken,
+    setAuthToken,
     ensureConnected,
 
     initialize,

@@ -56,6 +56,7 @@ export class Client<C = undefined> {
   private connectAttempt?: Promise<void>
   private connectTask?: Promise<void>
   private heartbeatTimer?: ReturnType<typeof setInterval>
+  private consecutiveAuthFailures = 0
   private readonly identity: MetadataEventSource
 
   private readonly opts: Required<Omit<ClientOptions<C>, 'token'>> & Pick<ClientOptions<C>, 'token'>
@@ -98,6 +99,7 @@ export class Client<C = undefined> {
     // Authentication listener is registered once only
     this.onEvent('module:authenticated', async (event) => {
       if (event.data.authenticated) {
+        this.consecutiveAuthFailures = 0
         this.tryAnnounce()
       }
       else {
@@ -451,10 +453,29 @@ export class Client<C = undefined> {
     this.sendNativeHeartbeat('pong')
   }
 
+  updateToken(token?: string): void {
+    const changed = this.opts.token !== token
+    this.opts.token = token
+    if (changed) {
+      this.consecutiveAuthFailures = 0
+    }
+    if (this.websocket && this.connected && token) {
+      this.tryAuthenticate()
+    }
+    else if (!this.connected && !this.shouldClose && token) {
+      void this.connect()
+    }
+  }
+
+  getToken(): string | undefined {
+    return this.opts.token
+  }
+
   private async _reconnectDueToUnauthorized() {
     if (this.shouldClose)
       return
 
+    this.consecutiveAuthFailures += 1
     const ws = this.websocket
     this.connected = false
     this.websocket = undefined
@@ -462,7 +483,15 @@ export class Client<C = undefined> {
       ws.close()
     }
 
-    await sleep(5000)
+    // Exponential backoff to avoid hammering server on invalid token,
+    // and pause automatic reconnection after 5 consecutive failures until updateToken() is called.
+    if (this.consecutiveAuthFailures > 5) {
+      console.warn('[Client] Pausing reconnect due to repeated authentication failures with token. Awaiting updateToken().')
+      return
+    }
+
+    const backoffMs = Math.min(5000 * (2 ** (this.consecutiveAuthFailures - 1)), 30000)
+    await sleep(backoffMs)
     await this.connect()
   }
 }
