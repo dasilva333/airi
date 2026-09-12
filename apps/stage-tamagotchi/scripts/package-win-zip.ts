@@ -45,7 +45,7 @@ async function main() {
   const pkgJsonPath = path.join(tamagotchiDir, 'package.json')
   const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'))
   const version = pkg.version
-  const zipFilename = `AIRI-${version}-windows-x64.zip`
+  const zipFilename = `airi-dasilva333-${version}-windows-x64.zip`
   const zipPath = path.join(distDir, zipFilename)
 
   if (fs.existsSync(zipPath)) {

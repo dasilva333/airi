@@ -183,7 +183,7 @@ export default {
       : []),
   },
   nsis: {
-    artifactName: '${productName}-${version}-windows-${arch}-setup.${ext}',
+    artifactName: 'airi-dasilva333-${version}-windows-${arch}-setup.${ext}',
     shortcutName: '${productName}',
     uninstallDisplayName: '${productName}',
     createDesktopShortcut: 'always',
@@ -192,6 +192,7 @@ export default {
     allowToChangeInstallationDirectory: true,
   },
   mac: {
+    artifactName: 'airi-dasilva333-${version}-${arch}-mac.${ext}',
     entitlementsInherit: 'build/entitlements.mac.plist',
     extendInfo: [
       {
@@ -219,7 +220,7 @@ export default {
       : []),
   },
   dmg: {
-    artifactName: '${productName}-${version}-darwin-${arch}.${ext}',
+    artifactName: 'airi-dasilva333-${version}-darwin-${arch}.${ext}',
   },
   linux: {
     target: [
@@ -230,16 +231,16 @@ export default {
     synopsis: 'AIRI (dasilva333 fork) - AI VTuber/Waifu chatbot',
     description: 'AIRI (dasilva333 fork) is an AI VTuber/Waifu chatbot supporting Live2D/VRM avatars, featuring human-like interactions and modular stage-based rendering.',
     executableName: 'airi-dasilva333',
-    artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+    artifactName: 'airi-dasilva333-${version}-linux-${arch}.${ext}',
     icon: 'build/icons/icon.png',
   },
   appImage: {
-    artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+    artifactName: 'airi-dasilva333-${version}-linux-${arch}.${ext}',
   },
   npmRebuild: true,
   publish: {
     provider: 'github',
-    owner: 'moeru-ai',
+    owner: 'dasilva333',
     repo: 'airi',
   },
 } satisfies Configuration

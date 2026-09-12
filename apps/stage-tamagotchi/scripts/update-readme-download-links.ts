@@ -8,14 +8,14 @@ import { getFilenames } from './utils'
 const ROOT_DIR = resolve(import.meta.dirname, '..', '..', '..')
 
 // GitHub releases download URLs
-const GITHUB_WINDOWS_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-windows-x64-setup\.exe/g
-const GITHUB_MACOS_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-darwin-arm64\.dmg/g
-const GITHUB_ANDROID_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-android\.apk/g
-const GITHUB_IOS_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-ios\.ipa/g
+const GITHUB_WINDOWS_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/(?:AIRI|airi-dasilva333|AIRI \(dasilva333\)|AIRI\.dasilva333\.)-[^")\s]+-windows-x64-setup\.exe/g
+const GITHUB_MACOS_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/(?:AIRI|airi-dasilva333|AIRI \(dasilva333\)|AIRI\.dasilva333\.)-[^")\s]+-darwin-arm64\.dmg/g
+const GITHUB_ANDROID_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/(?:AIRI|airi-dasilva333)-[^")\s]+-android\.apk/g
+const GITHUB_IOS_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/(?:AIRI|airi-dasilva333)-[^")\s]+-ios\.ipa/g
 
 // Aliyun OSS mirror download URLs (used by zh-CN README)
-const OSS_WINDOWS_RE = /https:\/\/static-cn-proj-airi\.oss-cn-shanghai\.aliyuncs\.com\/artifacts\/apps\/desktop\/versions\/v[^/]+\/AIRI-[^")\s]+-windows-x64-setup\.exe/g
-const OSS_MACOS_RE = /https:\/\/static-cn-proj-airi\.oss-cn-shanghai\.aliyuncs\.com\/artifacts\/apps\/desktop\/versions\/v[^/]+\/AIRI-[^")\s]+-darwin-arm64\.dmg/g
+const OSS_WINDOWS_RE = /https:\/\/static-cn-proj-airi\.oss-cn-shanghai\.aliyuncs\.com\/artifacts\/apps\/desktop\/versions\/v[^/]+\/(?:AIRI|airi-dasilva333|AIRI \(dasilva333\)|AIRI\.dasilva333\.)-[^")\s]+-windows-x64-setup\.exe/g
+const OSS_MACOS_RE = /https:\/\/static-cn-proj-airi\.oss-cn-shanghai\.aliyuncs\.com\/artifacts\/apps\/desktop\/versions\/v[^/]+\/(?:AIRI|airi-dasilva333|AIRI \(dasilva333\)|AIRI\.dasilva333\.)-[^")\s]+-darwin-arm64\.dmg/g
 
 async function main() {
   const version = process.argv[2]

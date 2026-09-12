@@ -111,10 +111,10 @@ async function main() {
   }
 
   const files = fs.readdirSync(distDir)
-  const setupDmg = files.find(f => f.startsWith(`AIRI-${version}`) && f.endsWith('.dmg'))
+  const setupDmg = files.find(f => (f.startsWith('airi-dasilva333') || f.startsWith('AIRI')) && f.includes(version) && f.endsWith('.dmg'))
 
   if (!setupDmg) {
-    console.error(`\n❌ Error: Could not find generated DMG executable matching "AIRI-${version}*.dmg" in ${distDir}`)
+    console.error(`\n❌ Error: Could not find generated DMG executable matching "(airi-dasilva333|AIRI)*${version}*.dmg" in ${distDir}`)
     console.log('Available files in dist:', files)
     process.exit(1)
   }

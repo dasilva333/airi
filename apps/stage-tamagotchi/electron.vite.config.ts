@@ -216,6 +216,8 @@ export default defineConfig({
         { find: '@proj-airi/stage-shared', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-shared', 'src')) },
         { find: '@proj-airi/electron-vueuse', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'electron-vueuse', 'src')) },
         { find: '@proj-airi/stage-layouts', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-layouts', 'src')) },
+        { find: '@proj-airi/model-driver-magic-live2d', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'model-driver-magic-live2d', 'src')) },
+        { find: '@proj-airi/motion-driver-magic', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'motion-driver-magic', 'src')) },
         { find: 'node:crypto', replacement: resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts')) },
         { find: 'crypto', replacement: resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts')) },
         { find: 'tslib', replacement: require.resolve('tslib/tslib.es6.js') },
@@ -327,6 +329,7 @@ export default defineConfig({
 
       VueRouter({
         dts: resolve(import.meta.dirname, 'src/renderer/typed-router.d.ts'),
+        importMode: 'async',
         routesFolder: [
           {
             src: resolve(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src', 'pages'),

@@ -8,7 +8,7 @@ import { execSync } from 'node:child_process'
 const safeEnv = { ...process.env }
 delete safeEnv.GITHUB_TOKEN
 safeEnv.GH_SSL_NO_VERIFY = 'true'
-safeEnv.NODE_OPTIONS = '--max-old-space-size=12288'
+safeEnv.NODE_OPTIONS = '--max-old-space-size=8192'
 
 function execute(cmd, options = {}) {
   console.log(`\n🤖 Running: ${cmd}`)
@@ -75,6 +75,7 @@ async function main() {
     const distWinUnpacked = path.join(tamagotchiDir, 'dist', 'win-unpacked')
     const filesToCheck = [
       path.join(distWinUnpacked, 'resources', 'app.asar'),
+      path.join(distWinUnpacked, 'airi-dasilva333.exe'),
       path.join(distWinUnpacked, 'airi.exe'),
     ]
 
@@ -155,10 +156,10 @@ async function main() {
   }
 
   const files = fs.readdirSync(distDir)
-  const releaseArtifacts = files.filter(f => f.startsWith(`AIRI-${version}`) && (f.endsWith('.exe') || f.endsWith('.zip')))
+  const releaseArtifacts = files.filter(f => (f.startsWith('airi-dasilva333') || f.startsWith('AIRI')) && f.includes(version) && (f.endsWith('.exe') || f.endsWith('.zip')))
 
   if (releaseArtifacts.length === 0) {
-    console.error(`\n❌ Error: Could not find generated release artifacts matching "AIRI-${version}*.(exe|zip)" in ${distDir}`)
+    console.error(`\n❌ Error: Could not find generated release artifacts matching "(airi-dasilva333|AIRI)*${version}*.(exe|zip)" in ${distDir}`)
     console.log('Available files in dist:', files)
     process.exit(1)
   }

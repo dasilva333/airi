@@ -135,10 +135,9 @@ function getLatestUpdateFilename(target: string): string | null {
   }
 }
 
-function getMacZipFilename(productName: string, version: string, target: string): string {
+function getMacZipFilename(_productName: string, version: string, target: string): string {
   const arch = mapArchFor(target, 'zip')
-  const archPrefix = arch === 'x64' ? '' : `${arch}-`
-  return `${productName}-${version}-${archPrefix}mac.zip`
+  return `airi-dasilva333-${version}-${arch}-mac.zip`
 }
 
 export async function getFilenames(target: string, options: { release: boolean, autoTag: boolean, tag: string[] }): Promise<FilenameOutputEntry[]> {

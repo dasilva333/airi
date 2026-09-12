@@ -9,7 +9,7 @@ env:
   DEB_BUNDLE_NAME: ''
   RPM_BUNDLE_NAME: ''
   FLATPAK_BUNDLE_NAME: ''
-  PRODUCT_NAME: 'AIRI (dasilva333)'
+  PRODUCT_NAME: 'airi-dasilva333'
   VERSION: ''
 
 on:
@@ -172,10 +172,10 @@ jobs:
         run: |
           mkdir -p dist
           # Auto-install required SDK/Platform/BaseApp from Flathub in user scope
-          flatpak-builder --user --install-deps-from=flathub ./flatpak ai.moeru.airi.flatpak.yml --force-clean
+          flatpak-builder --user --install-deps-from=flathub ./flatpak ai.moeru.airi.dasilva333.flatpak.yml --force-clean
           flatpak build-export ./flatpak-repo ./flatpak
           export FLATPAK_OUTPUT_NAME=$(pnpm exec tsx scripts/artifacts-metadata.ts ${{ matrix.target }} --get-output-filename flatpak)
-          flatpak build-bundle ./flatpak-repo dist/${FLATPAK_OUTPUT_NAME} ai.moeru.airi
+          flatpak build-bundle ./flatpak-repo dist/${FLATPAK_OUTPUT_NAME} ai.moeru.airi.dasilva333
 
       # ---------
       # Nightly (schedule) builds only
