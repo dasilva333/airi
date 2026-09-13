@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
+import { useLocalVoiceClone } from '../../../../../../composables/use-local-voice-clone'
 import { getStarterCharacter, STARTER_CHARACTERS } from '../../../../../../constants/prompts/character-defaults'
 import { getKokoroAdapter } from '../../../../../../libs/inference/adapters/kokoro'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
@@ -105,6 +106,80 @@ const isPlayingTarget = ref<'companion' | 'user' | null>(null)
 const isPlayingCompanion = computed(() => isPlayingTarget.value === 'companion')
 const isPlayingUser = computed(() => isPlayingTarget.value === 'user')
 const audioPlayer = ref<HTMLAudioElement | null>(null)
+
+// Local Zero-Shot Voice Cloning Composable & Handlers
+const {
+  isCloning,
+  supportsVoiceCloning,
+  cloneVoiceFromFile,
+  removeClonedVoice,
+} = useLocalVoiceClone(selectedProvider)
+
+const audioFileInputRef = ref<HTMLInputElement | null>(null)
+const isDraggingAudio = ref(false)
+
+function triggerAudioFileInput() {
+  audioFileInputRef.value?.click()
+}
+
+async function handleAudioFileSelect(e: Event) {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (file) {
+    await processAudioClone(file)
+  }
+  target.value = ''
+}
+
+async function handleAudioDrop(e: DragEvent) {
+  isDraggingAudio.value = false
+  const file = e.dataTransfer?.files?.[0]
+  if (file) {
+    await processAudioClone(file)
+  }
+}
+
+async function processAudioClone(file: File) {
+  const normId = normalizeProviderId(selectedProvider.value)
+  try {
+    toast.info(`Cloning vocal timbre from "${file.name}"...`)
+    const cloned = await cloneVoiceFromFile(file)
+    // Refresh voices catalog
+    await speechStore.loadVoicesForProvider(normId)
+    // Select newly cloned voice
+    if (activeVoiceTab.value === 'user') {
+      selectedUserVoice.value = cloned.id
+    }
+    else {
+      selectedVoice.value = cloned.id
+    }
+    toast.success(`Voice "${cloned.name}" cloned and activated!`)
+  }
+  catch (err: any) {
+    toast.error(err?.message || 'Failed to clone voice from sample.')
+  }
+}
+
+const isSelectedVoiceCloned = computed(() => {
+  const currentVoiceId = activeVoiceTab.value === 'user' ? selectedUserVoice.value : selectedVoice.value
+  return currentVoiceId.startsWith('voice-profile-') || currentVoiceId.startsWith('pocket_clone_') || currentVoiceId.startsWith('moss_clone_')
+})
+
+async function handleDeleteCurrentClonedVoice() {
+  const currentVoiceId = activeVoiceTab.value === 'user' ? selectedUserVoice.value : selectedVoice.value
+  if (!isSelectedVoiceCloned.value)
+    return
+
+  const normId = normalizeProviderId(selectedProvider.value)
+  try {
+    await removeClonedVoice(currentVoiceId)
+    await speechStore.loadVoicesForProvider(normId)
+    toast.success('Cloned voice deleted')
+  }
+  catch (err: any) {
+    toast.error(err?.message || 'Failed to delete cloned voice')
+  }
+}
 
 const isLocalProvider = computed(() => {
   const norm = normalizeProviderId(selectedProvider.value)
@@ -266,6 +341,16 @@ const availableModels = computed(() => {
 
 const availableVoices = computed(() => {
   const normId = normalizeProviderId(selectedProvider.value)
+
+  // 1. Prioritize dynamic provider voices from speechStore (including custom cloned voices)
+  if (providerVoices.value.length > 0) {
+    return providerVoices.value.map((v: any) => ({
+      id: v.id,
+      label: v.name ? `${v.name}${v.lang ? ` (${v.lang})` : ''}` : v.id,
+    }))
+  }
+
+  // 2. Static fallbacks while dynamic catalog is loading
   if (normId === 'pocket-tts-local') {
     return [
       { id: 'anna', label: 'Anna (Female · Conversational)' },
@@ -294,13 +379,6 @@ const availableVoices = computed(() => {
       { id: 'Trump', label: 'Trump (Preset)' },
       { id: 'LJS', label: 'LJ Speech (Female Preset)' },
     ]
-  }
-
-  if (providerVoices.value.length > 0) {
-    return providerVoices.value.map((v: any) => ({
-      id: v.id,
-      label: v.name ? `${v.name}${v.lang ? ` (${v.lang})` : ''}` : v.id,
-    }))
   }
 
   return [
@@ -334,9 +412,20 @@ watch(selectedUserVoice, (val) => {
   if (val) {
     userProfileStore.voiceProfileId = val
   }
-})
+}, { immediate: true })
 
-// Pre-fill API key on provider change
+// Synchronize speech settings reactively with transient onboarding draft store
+watch([selectedProvider, selectedModel, selectedVoice, pitch, speed], ([prov, mod, voi, p, s]) => {
+  draftStore.setSpeech({
+    provider: normalizeProviderId(prov),
+    model: mod,
+    voiceId: voi,
+    pitch: p,
+    rate: s,
+  })
+}, { immediate: true })
+
+// Pre-fill API key on provider change and load voices
 watch(selectedProvider, async (providerId) => {
   if (!providerId)
     return
@@ -350,9 +439,10 @@ watch(selectedProvider, async (providerId) => {
     apiKeyInput.value = ''
   }
 
+  void speechStore.loadVoicesForProvider(normId)
+
   if (!isLocalProvider.value) {
     void providersStore.fetchModelsForProvider(normId)
-    void speechStore.loadVoicesForProvider(normId)
   }
   else {
     void checkEngineReadiness()
@@ -423,6 +513,7 @@ async function refreshVoices() {
 
 onMounted(() => {
   void checkEngineReadiness()
+  void speechStore.loadVoicesForProvider(normalizeProviderId(selectedProvider.value))
 })
 
 // 5. Engine Readiness & Weights Download
@@ -619,6 +710,14 @@ function handleContinue() {
 
 <template>
   <div :class="['w-full max-w-4xl mx-auto flex flex-col gap-6 py-2 my-auto animate-fadeIn']">
+    <!-- Hidden File Input for Audio Voice Cloning -->
+    <input
+      ref="audioFileInputRef"
+      type="file"
+      accept="audio/*"
+      class="hidden"
+      @change="handleAudioFileSelect"
+    >
     <!-- Step Header (Sticky so navigation/switch is always visible) -->
     <div :class="['sticky top-0 z-20 bg-neutral-50/95 dark:bg-[#0c0c0e]/95 backdrop-blur-md flex items-start justify-between gap-4 border-b border-neutral-200/60 dark:border-white/5 pb-3 pt-2 -mx-2 px-2']">
       <div :class="['flex items-center gap-3']">
@@ -997,6 +1096,67 @@ function handleContinue() {
           </div>
         </div>
 
+        <!-- 1-Row Inline Instant Voice Clone Dropzone -->
+        <div
+          v-if="supportsVoiceCloning"
+          :class="[
+            'flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl border border-dashed transition-all cursor-pointer select-none',
+            isDraggingAudio
+              ? 'border-primary-500 bg-primary-500/10'
+              : 'border-neutral-300/80 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] hover:border-primary-500/40',
+          ]"
+          @dragover.prevent="isDraggingAudio = true"
+          @dragleave.prevent="isDraggingAudio = false"
+          @drop.prevent="handleAudioDrop"
+          @click="triggerAudioFileInput"
+        >
+          <div class="min-w-0 flex flex-1 items-center gap-2.5">
+            <div :class="['w-8 h-8 rounded-xl bg-primary-500/15 text-primary-500 flex items-center justify-center flex-shrink-0 text-sm']">
+              <div v-if="isCloning" class="i-solar:restart-circle-bold h-4 w-4 animate-spin" />
+              <div v-else class="i-solar:magic-stick-3-bold-duotone h-4 w-4" />
+            </div>
+
+            <div class="min-w-0 flex flex-col">
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
+                  Instant Zero-Shot Voice Clone
+                </span>
+                <span class="rounded bg-primary-500/15 px-1.5 py-0.2 text-[9px] text-primary-600 font-bold font-mono uppercase dark:text-primary-400">
+                  Neural Clone
+                </span>
+              </div>
+              <p class="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+                {{ isCloning ? 'Conditioning neural audio waveform...' : 'Drop 5–10s audio sample (.wav, .mp3) or click to browse' }}
+              </p>
+            </div>
+          </div>
+
+          <div class="flex flex-shrink-0 items-center gap-2" @click.stop>
+            <button
+              v-if="isSelectedVoiceCloned"
+              type="button"
+              :class="['p-1.5 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs font-semibold cursor-pointer transition-colors']"
+              title="Delete currently selected custom voice clone"
+              @click="handleDeleteCurrentClonedVoice"
+            >
+              <div class="i-solar:trash-bin-trash-bold h-3.5 w-3.5" />
+            </button>
+
+            <button
+              type="button"
+              :disabled="isCloning"
+              :class="[
+                'px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/20',
+                isCloning && 'opacity-60 cursor-not-allowed',
+              ]"
+              @click="triggerAudioFileInput"
+            >
+              <div class="i-solar:upload-track-2-bold-duotone h-3.5 w-3.5" />
+              <span>{{ isCloning ? 'Cloning...' : 'Upload WAV' }}</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Acoustic Sliders (Speed & Pitch) -->
         <div :class="['grid grid-cols-1 md:grid-cols-2 gap-4 pt-1']">
           <div :class="['flex flex-col gap-1.5']">
@@ -1117,6 +1277,67 @@ function handleContinue() {
             >
               <div :class="['i-solar:restart-bold-duotone w-3.5 h-3.5 text-purple-500']" />
               <span>Load Voices</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 1-Row Inline Instant Voice Clone Dropzone -->
+        <div
+          v-if="supportsVoiceCloning"
+          :class="[
+            'flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl border border-dashed transition-all cursor-pointer select-none',
+            isDraggingAudio
+              ? 'border-purple-500 bg-purple-500/10'
+              : 'border-neutral-300/80 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] hover:border-purple-500/40',
+          ]"
+          @dragover.prevent="isDraggingAudio = true"
+          @dragleave.prevent="isDraggingAudio = false"
+          @drop.prevent="handleAudioDrop"
+          @click="triggerAudioFileInput"
+        >
+          <div class="min-w-0 flex flex-1 items-center gap-2.5">
+            <div :class="['w-8 h-8 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center flex-shrink-0 text-sm']">
+              <div v-if="isCloning" class="i-solar:restart-circle-bold h-4 w-4 animate-spin" />
+              <div v-else class="i-solar:magic-stick-3-bold-duotone h-4 w-4" />
+            </div>
+
+            <div class="min-w-0 flex flex-col">
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
+                  Instant Zero-Shot Voice Clone
+                </span>
+                <span class="rounded bg-purple-500/15 px-1.5 py-0.2 text-[9px] text-purple-600 font-bold font-mono uppercase dark:text-purple-400">
+                  User Voice
+                </span>
+              </div>
+              <p class="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+                {{ isCloning ? 'Conditioning neural audio waveform...' : 'Drop 5–10s audio sample (.wav, .mp3) or click to browse' }}
+              </p>
+            </div>
+          </div>
+
+          <div class="flex flex-shrink-0 items-center gap-2" @click.stop>
+            <button
+              v-if="isSelectedVoiceCloned"
+              type="button"
+              :class="['p-1.5 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs font-semibold cursor-pointer transition-colors']"
+              title="Delete currently selected custom voice clone"
+              @click="handleDeleteCurrentClonedVoice"
+            >
+              <div class="i-solar:trash-bin-trash-bold h-3.5 w-3.5" />
+            </button>
+
+            <button
+              type="button"
+              :disabled="isCloning"
+              :class="[
+                'px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20',
+                isCloning && 'opacity-60 cursor-not-allowed',
+              ]"
+              @click="triggerAudioFileInput"
+            >
+              <div class="i-solar:upload-track-2-bold-duotone h-3.5 w-3.5" />
+              <span>{{ isCloning ? 'Cloning...' : 'Upload WAV' }}</span>
             </button>
           </div>
         </div>

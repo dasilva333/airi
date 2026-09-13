@@ -639,6 +639,17 @@ There is also a second background store in `packages/stage-layouts/src/stores/ba
 | **Sync** | Via `reconcileVoiceProfiles()` — metadata JSON under `assets/voice-profiles/{id}.json`, raw audio under `assets/voice-profiles/{id}.wav` |
 | **Size** | Medium (reference audio blobs, ~800 KB each) |
 
+### 3.1.3 Custom Voice Profiles (Pocket TTS Local)
+
+| Attribute | Value |
+| :--- | :--- |
+| **Store** | `packages/stage-ui/src/composables/use-local-voice-clone.ts`, `packages/stage-ui/src/stores/providers/registry/speech.ts` |
+| **Databases** | `localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })`, `localforage.createInstance({ name: 'pocket-voice-profiles-blobs' })` |
+| **Key Pattern** | `voice-profile-{timestamp}-{id}` |
+| **Type** | `{ id: string, name: string, createdAt: number, provider: string, sourceFilename?: string, promptVoiceEmbedding?: PocketTtsVoiceEmbedding }` + `Blob` (audio/wav reference file) |
+| **Sync** | Local IndexedDB storage; cloned waveforms dynamically resampled to 24kHz mono and encoded via Mimi |
+| **Size** | Medium (reference audio blobs, ~800 KB each) |
+
 ### 3.2 Display Models (VRM / Live2D / Spine / MMD)
 
 | Attribute | Value |

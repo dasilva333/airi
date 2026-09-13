@@ -191,6 +191,7 @@
 | **Canvas Alpha Detection** | [`packages/stage-ui/src/composables/canvas-alpha.test.ts`](../packages/stage-ui/src/composables/canvas-alpha.test.ts) | 3 | Node / Canvas Mocks | Blocking in CI | Canvas transparency detection and alpha bounding box calculation. | Mocks HTMLCanvasElement 2D context. |
 | **Context Flow Formatters** | [`packages/stage-pages/src/pages/devtools/context-flow/composables/use-context-flow-formatters.test.ts`](../packages/stage-pages/src/pages/devtools/context-flow/composables/use-context-flow-formatters.test.ts) | 2 | Node / Pure TS | Blocking in CI | Context flow debugger tree visualization formatters. | Pure text formatters. |
 | **Pixel Alpha Sampling** | [`packages/stage-ui/src/composables/canvas-alpha-use-pixel.test.ts`](../packages/stage-ui/src/composables/canvas-alpha-use-pixel.test.ts) | 1 | Node / Canvas Mocks | Blocking in CI | Pixel alpha sampling for transparent click-through stage areas. | Mocks 2D context pixel data. |
+| **Local Voice Clone Composable** | [`packages/stage-ui/src/composables/use-local-voice-clone.test.ts`](../packages/stage-ui/src/composables/use-local-voice-clone.test.ts) | 7 | Node / Pure TS | Blocking in CI | Normalizes providers, gates voice cloning capabilities, and validates audio payloads for Pocket-TTS and MOSS-TTS. | Unit tests for cloning logic and store mapping. |
 
 #### Backend Server, SDK & Build Tools
 | Invariant / Subsystem | Test Path | Tests | Runner / Env | CI Inclusion | What Assertions Directly Establish | Coverage Boundary & Known Limits |
