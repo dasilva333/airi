@@ -158,4 +158,109 @@ describe('entityLedger', () => {
     expect(labels).not.toContain('Obviously')
     expect(labels).not.toContain('Goodnight')
   })
+
+  describe('pCL Contradiction Resolution & Invalidation', () => {
+    it('creates new claims with isCurrent: true', () => {
+      const ledger = new EntityLedger()
+      const res = ledger.applyPCLClaim({
+        subject: 'Sam',
+        predicate: 'likes',
+        object: 'pickles',
+        action: 'new',
+      })
+
+      expect(res.actionTaken).toBe('created')
+      const claims = ledger.queryClaims('Sam', 'likes', true)
+      expect(claims).toHaveLength(1)
+      expect(claims[0].object).toBe('pickles')
+      expect(claims[0].qualifiers?.isCurrent).toBe(true)
+    })
+
+    it('reinforces existing claims by incrementing reinforcement count', () => {
+      const ledger = new EntityLedger()
+      ledger.applyPCLClaim({
+        subject: 'Sam',
+        predicate: 'likes',
+        object: 'pickles',
+        action: 'new',
+      })
+
+      const res = ledger.applyPCLClaim({
+        subject: 'Sam',
+        predicate: 'likes',
+        object: 'pickles',
+        action: 'reinforce',
+        evidenceTurnId: 'turn-99',
+      })
+
+      expect(res.actionTaken).toBe('reinforced')
+      const claims = ledger.queryClaims('Sam', 'likes', true)
+      expect(claims).toHaveLength(1)
+      expect(claims[0].qualifiers?.reinforcementCount).toBe(2)
+      expect(claims[0].evidence).toContain('turn-99')
+    })
+
+    it('updates beliefs by superseding prior claims (Predict-Calibrate-Learn)', () => {
+      const ledger = new EntityLedger()
+      // Initial belief: Sam likes pickles
+      const initial = ledger.applyPCLClaim({
+        subject: 'Sam',
+        predicate: 'likes',
+        object: 'pickles',
+        action: 'new',
+      })
+
+      // Evolving truth / Contradiction: Sam now hates pickles (or prefers olives)
+      const updateRes = ledger.applyPCLClaim({
+        subject: 'Sam',
+        predicate: 'likes',
+        object: 'olives',
+        action: 'update',
+      })
+
+      expect(updateRes.actionTaken).toBe('updated')
+
+      // Query only current beliefs
+      const currentClaims = ledger.queryClaims('Sam', 'likes', true)
+      expect(currentClaims).toHaveLength(1)
+      expect(currentClaims[0].object).toBe('olives')
+      expect(currentClaims[0].qualifiers?.isCurrent).toBe(true)
+
+      // Query all claims (historical audit trail)
+      const allClaims = ledger.queryClaims('Sam', 'likes', false)
+      expect(allClaims).toHaveLength(2)
+
+      const oldClaim = allClaims.find(c => c.claimId === initial.claimId)
+      expect(oldClaim?.qualifiers?.isCurrent).toBe(false)
+      expect(oldClaim?.qualifiers?.supersededBy).toBe(updateRes.claimId)
+    })
+
+    it('invalidates claims without erasing historical provenance', () => {
+      const ledger = new EntityLedger()
+      ledger.applyPCLClaim({
+        subject: 'Alice',
+        predicate: 'lives_in',
+        object: 'Paris',
+        action: 'new',
+      })
+
+      const invRes = ledger.applyPCLClaim({
+        subject: 'Alice',
+        predicate: 'lives_in',
+        object: 'Paris',
+        action: 'invalidate',
+      })
+
+      expect(invRes.actionTaken).toBe('invalidated')
+
+      // Active beliefs: empty
+      expect(ledger.queryClaims('Alice', 'lives_in', true)).toHaveLength(0)
+
+      // Historical beliefs: preserved with isCurrent: false
+      const history = ledger.queryClaims('Alice', 'lives_in', false)
+      expect(history).toHaveLength(1)
+      expect(history[0].qualifiers?.isCurrent).toBe(false)
+      expect(history[0].qualifiers?.invalidatedAt).toBeDefined()
+    })
+  })
 })

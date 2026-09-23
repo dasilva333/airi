@@ -1,4 +1,4 @@
-export type TextJournalEntrySource = 'tool' | 'chat' | 'proactivity' | 'user' | 'seed' | 'episode'
+export type TextJournalEntrySource = 'tool' | 'chat' | 'proactivity' | 'dream' | 'user' | 'seed' | 'episode'
 export type TextJournalEntryType = 'message' | 'episode'
 
 export interface TextJournalEntry {

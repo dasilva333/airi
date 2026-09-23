@@ -138,6 +138,18 @@ describe('intrusions pure computational seams', () => {
       })
       expect(prompt).toBe('Custom dream prompt: 2m ago about rainy cafe.')
     })
+
+    it('infuses pendingDreamMood emotional afterglow into waking prompt', () => {
+      const prompt = formatDreamPrompt({
+        injectDreamContext: true,
+        pendingDreamChips: ['midnight ocean'],
+        pendingDreamTimestamp: 1000,
+        pendingDreamMood: 'tender',
+        nowMs: 1000 + 60000,
+      })
+      expect(prompt).toContain('Waking Afterglow: You awaken feeling subtly tender.')
+      expect(prompt).toContain('midnight ocean')
+    })
   })
 
   describe('formatJournalPrompt', () => {

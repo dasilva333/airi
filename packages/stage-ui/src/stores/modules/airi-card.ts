@@ -72,6 +72,8 @@ export interface DreamStateConfig {
   injectDreamContext?: boolean
   pendingDreamChips?: string[]
   pendingDreamTimestamp?: number
+  pendingDreamMood?: string
+  journalWorthyThreshold?: number
   dreamIntrusionPrompt?: string
 }
 

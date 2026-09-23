@@ -353,6 +353,12 @@ const allTextEntries = computed(() => {
       timestamp: c.createdAt,
       title: c.type.charAt(0).toUpperCase() + c.type.slice(1).replace('_', ' '),
       content: c.content,
+      relevanceScore: c.relevanceScore,
+      evidenceIndices: c.evidenceIndices,
+      citedText: c.citedText,
+      claims: c.claims,
+      moodShift: c.moodShift,
+      characterId: c.characterId,
     }))
 
   return [...manualEntries, ...autoEntries, ...echoEntries]

@@ -1327,6 +1327,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           injectDreamContext: dreamState?.injectDreamContext,
           pendingDreamChips: dreamState?.pendingDreamChips,
           pendingDreamTimestamp: dreamState?.pendingDreamTimestamp,
+          pendingDreamMood: dreamState?.pendingDreamMood,
           template: dreamState?.dreamIntrusionPrompt,
           nowMs: now,
         })

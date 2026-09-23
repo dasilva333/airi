@@ -152,6 +152,8 @@ const AiriDreamStateSchema = object({
   dreamIntrusionPrompt: optional(string()),
   pendingDreamChips: optional(array(string())),
   pendingDreamTimestamp: optional(number()),
+  pendingDreamMood: optional(string()),
+  journalWorthyThreshold: optional(number()),
 })
 
 const AiriTextJournalSchema = object({

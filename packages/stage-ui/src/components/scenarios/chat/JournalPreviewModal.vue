@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { useBackgroundStore } from '../../../stores/background'
+import { useEchoesStore } from '../../../stores/echo-chips'
 import { useJournalPreviewStore } from '../../../stores/journal-preview'
 import { useShortTermMemoryStore } from '../../../stores/memory-short-term'
 import { useTextJournalStore } from '../../../stores/memory-text-journal'
@@ -17,10 +18,36 @@ const { closePreview: baseClosePreview, downloadImage } = store
 
 const isConfirmingDelete = ref(false)
 const deleting = ref(false)
+const promoting = ref(false)
 
 function closePreview() {
   isConfirmingDelete.value = false
   baseClosePreview()
+}
+
+async function handlePromoteToJournal() {
+  if (!previewModal.value)
+    return
+  promoting.value = true
+  try {
+    const textJournalStore = useTextJournalStore()
+    const modal = previewModal.value
+    const quotes = modal.citedText?.length ? `\n\n> ${modal.citedText.join('\n> ')}` : ''
+    await textJournalStore.createEntry({
+      title: modal.content,
+      content: `Promoted from Echo Memory [${modal.echoType || 'moment'}]: ${modal.content}.${quotes}`,
+      characterId: modal.characterId,
+      source: 'dream',
+    })
+    toast.success('Promoted to Sacred Journal!')
+  }
+  catch (err) {
+    console.error('[JournalPreviewModal] Promotion failed:', err)
+    toast.error('Failed to promote to Sacred Journal.')
+  }
+  finally {
+    promoting.value = false
+  }
 }
 
 async function handleDelete() {
@@ -43,6 +70,11 @@ async function handleDelete() {
         const stmStore = useShortTermMemoryStore()
         await stmStore.deleteBlock(targetId)
         toast.success('Daily summary block deleted.')
+      }
+      else if (modal.entryType === 'echo') {
+        const echoesStore = useEchoesStore()
+        await echoesStore.deleteChip(targetId)
+        toast.success('Echo chip deleted.')
       }
       else {
         const textJournalStore = useTextJournalStore()
@@ -181,7 +213,130 @@ const directorNote = computed(() => {
 
           <!-- Content -->
           <div v-if="previewModal.type === 'text'" class="max-h-[60vh] overflow-y-auto px-4 py-3">
+            <!-- Specialized Echo Chip Inspector View -->
+            <div v-if="previewModal.entryType === 'echo'" class="flex flex-col gap-4">
+              <!-- Pill Header Banner -->
+              <div class="flex items-center justify-between gap-2 border-b border-neutral-100 pb-3 dark:border-neutral-800">
+                <div class="flex items-center gap-2">
+                  <span
+                    :class="[
+                      'rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase',
+                      previewModal.echoType === 'mood' ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                      : previewModal.echoType === 'flavor' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                        : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+                    ]"
+                  >
+                    {{ previewModal.echoType ? previewModal.echoType.replace('_', ' ') : 'Echo Memory' }}
+                  </span>
+                  <span v-if="typeof previewModal.relevanceScore === 'number'" class="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400">
+                    {{ Math.round(previewModal.relevanceScore * 100) }}% Salience
+                  </span>
+                </div>
+                <span v-if="previewModal.timestamp" class="text-[10px] text-neutral-400 font-mono">
+                  {{ new Date(previewModal.timestamp).toLocaleDateString() }}
+                </span>
+              </div>
+
+              <!-- Highlighted Evocative Burst -->
+              <div class="rounded-xl bg-neutral-50 p-3.5 dark:bg-neutral-800/60">
+                <div class="mb-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+                  Evocative Recall
+                </div>
+                <div class="text-base text-neutral-800 font-bold dark:text-neutral-100">
+                  {{ previewModal.content }}
+                </div>
+              </div>
+
+              <!-- Emotional Afterglow (Mood Shift) -->
+              <div v-if="previewModal.moodShift" class="border border-neutral-100 rounded-xl bg-neutral-50/50 p-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+                <div class="mb-2 flex items-center justify-between">
+                  <div class="flex items-center gap-1.5 text-[11px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
+                    <div class="i-solar:heart-angle-bold-duotone text-rose-500" />
+                    Emotional Afterglow
+                  </div>
+                  <span class="rounded-md bg-rose-500/10 px-2 py-0.5 text-xs text-rose-600 font-bold capitalize dark:text-rose-400">
+                    {{ previewModal.moodShift.sentiment }}
+                  </span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-[11px] text-neutral-600 dark:text-neutral-300">
+                  <div class="flex items-center justify-between rounded-lg bg-white px-2.5 py-1.5 dark:bg-neutral-800">
+                    <span class="text-neutral-400">Valence:</span>
+                    <span class="font-bold font-mono">{{ previewModal.moodShift.valence > 0 ? '+' : '' }}{{ previewModal.moodShift.valence }}</span>
+                  </div>
+                  <div class="flex items-center justify-between rounded-lg bg-white px-2.5 py-1.5 dark:bg-neutral-800">
+                    <span class="text-neutral-400">Arousal:</span>
+                    <span class="font-bold font-mono">{{ previewModal.moodShift.arousal > 0 ? '+' : '' }}{{ previewModal.moodShift.arousal }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PCL Knowledge Graph Belief Triples -->
+              <div v-if="previewModal.claims && previewModal.claims.length > 0" class="flex flex-col gap-1.5">
+                <div class="flex items-center gap-1.5 text-[11px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
+                  <div class="i-solar:diagram-up-bold-duotone text-cyan-500" />
+                  Knowledge Graph Belief Triples (PCL)
+                </div>
+                <div class="max-h-36 flex flex-col gap-1.5 overflow-y-auto pr-1">
+                  <div
+                    v-for="(claim, cIdx) in previewModal.claims"
+                    :key="cIdx"
+                    class="flex items-center justify-between border border-neutral-100 rounded-lg bg-neutral-50/70 p-2 text-xs dark:border-neutral-800 dark:bg-neutral-800/40"
+                  >
+                    <div class="min-w-0 flex items-center gap-1.5 text-[11px] font-mono">
+                      <span class="text-neutral-800 font-bold dark:text-neutral-200">{{ claim.subject }}</span>
+                      <span class="text-neutral-400">──[</span>
+                      <span class="text-cyan-600 font-semibold dark:text-cyan-400">{{ claim.predicate }}</span>
+                      <span class="text-neutral-400">]──></span>
+                      <span class="truncate text-neutral-700 font-bold dark:text-neutral-300">{{ claim.object }}</span>
+                    </div>
+                    <span
+                      :class="[
+                        'shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase',
+                        claim.action === 'new' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : claim.action === 'reinforce' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                          : claim.action === 'update' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+                      ]"
+                    >
+                      {{ claim.action }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Cited Evidence & Memory Anchors -->
+              <div v-if="previewModal.citedText && previewModal.citedText.length > 0" class="flex flex-col gap-1.5">
+                <div class="flex items-center gap-1.5 text-[11px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
+                  <div class="i-solar:document-text-bold-duotone text-violet-500" />
+                  Cited Evidence & Historical Anchors
+                </div>
+                <div class="max-h-36 flex flex-col gap-1 overflow-y-auto rounded-lg bg-neutral-50 p-2 dark:bg-neutral-800/40">
+                  <div
+                    v-for="(quote, qIdx) in previewModal.citedText"
+                    :key="qIdx"
+                    class="border-l-2 border-violet-400/50 py-0.5 pl-2 text-[10px] text-neutral-600 leading-snug font-mono dark:text-neutral-300"
+                  >
+                    {{ quote }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Promote Action Button -->
+              <div class="flex justify-end pt-2">
+                <button
+                  class="flex items-center gap-1.5 rounded-xl bg-primary-500/10 px-3 py-1.5 text-xs text-primary-600 font-bold transition-colors dark:bg-primary-900/30 hover:bg-primary-500/20 dark:text-primary-400"
+                  :disabled="promoting"
+                  @click="handlePromoteToJournal"
+                >
+                  <div class="i-solar:bookmark-square-bold-duotone text-sm" />
+                  <span>{{ promoting ? 'Promoting...' : 'Promote to Sacred Journal' }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Standard Markdown View for non-echo entries -->
             <MarkdownRenderer
+              v-else
               :content="previewModal.content"
               class="max-w-none prose prose-sm dark:prose-invert"
             />

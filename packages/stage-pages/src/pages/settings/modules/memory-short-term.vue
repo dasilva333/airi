@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { MarkdownRenderer } from '@proj-airi/stage-ui/components'
-import { useAiriCardStore, useEchoesStore, useShortTermMemoryStore } from '@proj-airi/stage-ui/stores'
+import { JournalPreviewModal, MarkdownRenderer } from '@proj-airi/stage-ui/components'
+import { useAiriCardStore, useEchoesStore, useJournalPreviewStore, useShortTermMemoryStore } from '@proj-airi/stage-ui/stores'
 import { Button, FieldInput, FieldSelect } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -11,6 +11,7 @@ interface CharacterOption { value: string, label: string }
 const cardStore = useAiriCardStore()
 const shortTermMemory = useShortTermMemoryStore()
 const echoesStore = useEchoesStore()
+const journalPreviewStore = useJournalPreviewStore()
 
 const { cards } = storeToRefs(cardStore)
 const { activeCardId, loading, rebuilding, rebuildProgress } = storeToRefs(shortTermMemory)
@@ -385,11 +386,12 @@ watch([windowSize, tokensPerDay], ([newWindowSize, newTokensPerDay]) => {
                   v-for="chip in getChipsForDate(block.date)"
                   :key="chip.id"
                   :class="[
-                    'flex items-center gap-2 border rounded-full px-4 py-1.5 text-xs font-bold shadow-sm transition-transform hover:scale-105',
+                    'flex items-center gap-2 border rounded-full px-4 py-1.5 text-xs font-bold shadow-sm transition-transform hover:scale-105 cursor-pointer',
                     chip.type === 'mood' ? 'border-violet-200 bg-violet-50 text-violet-600 dark:border-violet-900/40 dark:bg-violet-900/20 dark:text-violet-400'
                     : chip.type === 'flavor' ? 'border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-400'
                       : 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-400',
                   ]"
+                  @click="journalPreviewStore.openEchoPreview(chip)"
                 >
                   <div :class="[chip.type === 'mood' ? 'i-solar:ghost-bold-duotone' : chip.type === 'flavor' ? 'i-solar:magic-stick-bold-duotone' : 'i-solar:bookmark-opened-bold-duotone', 'text-base']" />
                   <div v-if="chip.relevanceScore < 0.7" class="h-1.5 w-1.5 rounded-full bg-neutral-300 dark:bg-neutral-600" title="Low relevance" />
@@ -454,6 +456,8 @@ watch([windowSize, tokensPerDay], ([newWindowSize, newTokensPerDay]) => {
         </div>
       </section>
     </div>
+
+    <JournalPreviewModal />
   </div>
 </template>
 

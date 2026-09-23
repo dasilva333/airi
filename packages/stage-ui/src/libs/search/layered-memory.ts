@@ -37,6 +37,7 @@ export interface LayeredSearchOptions {
   temporalBoost?: boolean
   ledger?: EntityLedger
   triage?: TriageDecision
+  universeId?: string
   systemOneStore?: {
     configured: boolean
     runTriage: (q: string) => Promise<any>

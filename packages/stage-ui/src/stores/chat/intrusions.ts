@@ -18,6 +18,7 @@ export interface DreamIntrusionInput {
   injectDreamContext?: boolean
   pendingDreamChips?: string[]
   pendingDreamTimestamp?: number
+  pendingDreamMood?: string
   template?: string
   nowMs: number
 }
@@ -77,9 +78,16 @@ export function formatDreamPrompt(input: DreamIntrusionInput): string {
   const template = input.template || DEFAULT_DREAM_INTRUSION_PROMPT
   const chipsText = input.pendingDreamChips.join(', ')
 
-  return template
+  let formatted = template
     .replace('{timeToDream}', String(elapsedMinutes))
     .replace('{insertEchoChips}', chipsText)
+    .replace('{dreamMood}', input.pendingDreamMood || 'reflective')
+
+  if (input.pendingDreamMood && !template.includes('{dreamMood}')) {
+    formatted += `\nWaking Afterglow: You awaken feeling subtly ${input.pendingDreamMood}. Let this gentle emotion naturally color your opening thoughts or cadence without being overt or robotic.`
+  }
+
+  return formatted
 }
 
 /**

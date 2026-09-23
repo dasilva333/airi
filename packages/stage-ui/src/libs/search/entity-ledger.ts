@@ -221,8 +221,11 @@ export class EntityLedger {
     return list
   }
 
-  queryClaims(subject?: string, predicate?: string): ClaimRecord[] {
+  queryClaims(subject?: string, predicate?: string, currentOnly = false): ClaimRecord[] {
     let list = Array.from(this.claims.values())
+    if (currentOnly) {
+      list = list.filter(c => c.qualifiers?.isCurrent !== false)
+    }
     if (subject && subject.trim()) {
       const s = subject.trim().toLowerCase()
       list = list.filter(c => c.subject.toLowerCase() === s)
@@ -232,6 +235,108 @@ export class EntityLedger {
       list = list.filter(c => c.predicate.toLowerCase() === p)
     }
     return list
+  }
+
+  applyPCLClaim(claim: {
+    subject: string
+    predicate: string
+    object: string
+    action: 'new' | 'reinforce' | 'update' | 'invalidate'
+    date?: string
+    evidenceTurnId?: string
+  }): { claimId: string, actionTaken: 'created' | 'reinforced' | 'updated' | 'invalidated' } {
+    const sNorm = claim.subject.trim().toLowerCase()
+    const pNorm = claim.predicate.trim().toLowerCase()
+    const oNorm = claim.object.trim().toLowerCase()
+
+    if (claim.action === 'reinforce') {
+      const existing = Array.from(this.claims.values()).find(c =>
+        c.subject.toLowerCase() === sNorm
+        && c.predicate.toLowerCase() === pNorm
+        && c.object.toLowerCase() === oNorm
+        && c.qualifiers?.isCurrent !== false,
+      )
+      if (existing) {
+        existing.qualifiers = {
+          ...existing.qualifiers,
+          isCurrent: true,
+          reinforcementCount: ((existing.qualifiers?.reinforcementCount as number) || 1) + 1,
+          lastReinforcedAt: Date.now(),
+        }
+        if (claim.evidenceTurnId && !existing.evidence.includes(claim.evidenceTurnId)) {
+          existing.evidence.push(claim.evidenceTurnId)
+        }
+        return { claimId: existing.claimId, actionTaken: 'reinforced' }
+      }
+    }
+
+    if (claim.action === 'update') {
+      const prior = Array.from(this.claims.values()).filter(c =>
+        c.subject.toLowerCase() === sNorm
+        && c.predicate.toLowerCase() === pNorm
+        && c.object.toLowerCase() !== oNorm
+        && c.qualifiers?.isCurrent !== false,
+      )
+      const newClaimId = `claim_${this.claims.size + 1}`
+      for (const oldClaim of prior) {
+        oldClaim.qualifiers = {
+          ...oldClaim.qualifiers,
+          isCurrent: false,
+          supersededBy: newClaimId,
+          supersededAt: Date.now(),
+        }
+      }
+      this.getOrCreateEntity(claim.subject)
+      this.getOrCreateEntity(claim.object)
+      this.addClaim({
+        claimId: newClaimId,
+        subject: claim.subject,
+        predicate: claim.predicate,
+        object: claim.object,
+        qualifiers: {
+          isCurrent: true,
+          action: 'update',
+          supersededPrevious: prior.map(p => p.claimId),
+        },
+        evidence: claim.evidenceTurnId ? [claim.evidenceTurnId] : [],
+        dateInfo: claim.date ? { iso_date: claim.date } : null,
+      })
+      return { claimId: newClaimId, actionTaken: 'updated' }
+    }
+
+    if (claim.action === 'invalidate') {
+      const matching = Array.from(this.claims.values()).filter(c =>
+        c.subject.toLowerCase() === sNorm
+        && c.predicate.toLowerCase() === pNorm
+        && (oNorm ? c.object.toLowerCase() === oNorm : true)
+        && c.qualifiers?.isCurrent !== false,
+      )
+      for (const c of matching) {
+        c.qualifiers = {
+          ...c.qualifiers,
+          isCurrent: false,
+          invalidatedAt: Date.now(),
+        }
+      }
+      return { claimId: matching[0]?.claimId || '', actionTaken: 'invalidated' }
+    }
+
+    // Default: 'new' (or fallback for reinforce when not found)
+    this.getOrCreateEntity(claim.subject)
+    this.getOrCreateEntity(claim.object)
+    const record = this.addClaim({
+      subject: claim.subject,
+      predicate: claim.predicate,
+      object: claim.object,
+      qualifiers: {
+        isCurrent: true,
+        action: 'new',
+        reinforcementCount: 1,
+      },
+      evidence: claim.evidenceTurnId ? [claim.evidenceTurnId] : [],
+      dateInfo: claim.date ? { iso_date: claim.date } : null,
+    })
+    return { claimId: record.claimId, actionTaken: 'created' }
   }
 
   getSummaryStats() {

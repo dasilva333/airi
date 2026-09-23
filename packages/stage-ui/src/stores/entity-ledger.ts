@@ -1,4 +1,5 @@
 import type { ClaimRecord, EntityType, SourceRecord } from '../libs/search/entity-ledger'
+import type { PCLClaim } from '../types/echo-chip'
 
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
@@ -509,6 +510,34 @@ export const useEntityLedgerStore = defineStore('entity-ledger', () => {
     }
   }
 
+  async function applyPCLClaims(characterId: string, claimsToApply: PCLClaim[], evidenceTurnId?: string) {
+    if (!characterId || !claimsToApply || claimsToApply.length === 0)
+      return []
+
+    if (currentLoadedCharacterId.value !== characterId) {
+      await loadLedger(characterId)
+    }
+
+    const results: Array<{ claimId: string, actionTaken: string }> = []
+    for (const c of claimsToApply) {
+      const res = activeLedger.value.applyPCLClaim({
+        subject: c.subject,
+        predicate: c.predicate,
+        object: c.object,
+        action: c.action,
+        date: c.date,
+        evidenceTurnId,
+      })
+      results.push(res)
+    }
+
+    // Persist updated ledger
+    const serialized = activeLedger.value.toJSON()
+    await entityLedgerRepo.saveLedger(characterId, serialized)
+
+    return results
+  }
+
   return {
     activeLedger,
     isPriming,
@@ -529,5 +558,6 @@ export const useEntityLedgerStore = defineStore('entity-ledger', () => {
     updateEntityType,
     deleteEntity,
     reclassifyEntity,
+    applyPCLClaims,
   }
 })

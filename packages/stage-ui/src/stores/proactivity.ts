@@ -29,6 +29,7 @@ import { useChatContextStore } from './chat/context-store'
 import { mergeLoadedSessionMessages } from './chat/session-message-merge'
 import { useChatSessionStore } from './chat/session-store'
 import { useEchoesStore } from './echo-chips'
+import { useEntityLedgerStore } from './entity-ledger'
 import { useEventLogStore } from './event-log'
 import { useLLM } from './llm'
 import { useTextJournalStore } from './memory-text-journal'
@@ -421,6 +422,44 @@ export const useProactivityStore = defineStore('proactivity', () => {
         richness: config.journalingThreshold || 'balanced',
       })
 
+      // Apply synthesized PCL claims to Knowledge Graph
+      const entityLedgerStore = useEntityLedgerStore()
+      const textJournalStore = useTextJournalStore()
+
+      const allClaims = (newChips || []).flatMap(chip => chip.claims || [])
+      if (allClaims.length > 0) {
+        try {
+          await entityLedgerStore.applyPCLClaims(characterId, allClaims)
+        }
+        catch (pclErr) {
+          console.warn('[Dream State] PCL claim application failed:', pclErr)
+        }
+      }
+
+      // Extract emotional exhaust sentiment
+      const dreamMood = (newChips || []).find(chip => chip.moodShift)?.moodShift?.sentiment
+
+      // Auto-promote high-salience journal candidate to Sacred Journal
+      const journalThreshold = config.journalWorthyThreshold ?? 0.85
+      const candidateChip = (newChips || []).find(chip => chip.type === 'journal_candidate' && chip.relevanceScore >= journalThreshold)
+      if (candidateChip) {
+        try {
+          const citedQuotes = candidateChip.citedText?.length
+            ? `\n\n> ${candidateChip.citedText.join('\n> ')}`
+            : ''
+          await textJournalStore.createEntry({
+            characterId,
+            title: candidateChip.content,
+            content: `Synthesized during dream consolidation: ${candidateChip.content}.${citedQuotes}`,
+            source: 'dream',
+            universeId: currentUniverseId,
+          })
+        }
+        catch (journalErr) {
+          console.warn('[Dream State] Auto journal promotion failed:', journalErr)
+        }
+      }
+
       const pendingDreamChips = (newChips || []).map(chip => chip.content)
       const hasDreamChips = pendingDreamChips.length > 0
 
@@ -436,6 +475,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
               dailyRunCount: dailyRunCount + 1,
               pendingDreamChips: config.injectDreamContext && hasDreamChips ? pendingDreamChips : undefined,
               pendingDreamTimestamp: config.injectDreamContext && hasDreamChips ? Date.now() : undefined,
+              pendingDreamMood: config.injectDreamContext && dreamMood ? dreamMood : undefined,
             },
           },
         },
