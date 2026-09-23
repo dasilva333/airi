@@ -28,10 +28,10 @@ console.log('🔍 Auditing Test Catalog against repository state...')
 
 const catalogContent = fs.readFileSync(CATALOG_PATH, 'utf8')
 
-// Match markdown links pointing to .test.ts or .test.js files
+// Match markdown links pointing to .test.ts, .spec.ts, or .test.js files
 // Supports both `[...](path)` and markdown table cell paths
-const linkRegex = /\[([^\]]+)\]\(([^)]+\.test\.(?:ts|js|vue))\)/g
-const tablePathRegex = /\|\s*`?((?:packages|apps)\/[^`|\s]+\.test\.(?:ts|js|vue))`?\s*\|/g
+const linkRegex = /\[([^\]]+)\]\(([^)]+\.(?:test|spec)\.(?:ts|js|vue))\)/g
+const tablePathRegex = /\|\s*`?((?:packages|apps)\/[^`|\s]+\.(?:test|spec)\.(?:ts|js|vue))`?\s*\|/g
 
 const catalogFiles = new Set()
 let match

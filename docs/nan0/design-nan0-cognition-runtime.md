@@ -203,20 +203,99 @@ We implemented an exhaustive cleanroom shootout script (`scripts/tests/rwkv-harn
 
 ---
 
-## 5. Phased Porting & Delivery Strategy
+## 5. Architectural Archaeology: Research vs. Runtime Package Reality
 
-1. **Phase 1: Canonical Documentation Hub (COMPLETED)**:
-   - Consolidated canonical design specs, audit reports, and architecture briefs under `docs/nan0/`.
-2. **Phase 2: Source Package Extraction & Test Parity (COMPLETED)**:
-   - Extracted `@proj-airi/nan0-runtime` into `packages/nan0-runtime/`.
-   - Verified **24 test suites / 301 unit tests passing in 848ms** with zero errors.
-   - Cataloged all suites in `docs/project-testing-parity.md` and confirmed 100% audit parity.
-3. **Phase 3: Novel Living Cognition UI Implementation (COMPLETED)**:
-   - Built the 5-segment layout (`Playground`, `Routing`, `Affect`, `Triggers`, `Continuity`) in `CardCreationTabCognition.vue`.
-   - Integrated the 3-question guided archetype questionnaire and live vector telemetry.
-4. **Phase 4: Two-Tier Subconscious Reflex Validation (COMPLETED)**:
-   - Verified Tier 1 `StrengthenedLexicalExtractor` (26 µs, offline, deterministic).
-   - Validated Tier 2 TypeSafe Jev 1.13 via 12-group rich contrastive choice shootout (100.0% accuracy on 43 cases, 438 ms p50).
-5. **Phase 5: Isolated Runtime Wire-Up & Telemetry Shadow Integration**:
-   - Wire `Nan0SubconsciousShadowEngine` into `packages/stage-ui/src/stores/nan0.ts` and `chat.ts`.
-   - Enforce strict shadow boundary (`apply_to_state: False`) during initial field deployment.
+An empirical codebase audit conducted on September 23, 2026 revealed the exact boundary between what was researched/proven versus what remains in the ported `@proj-airi/nan0-runtime` package:
+
+### 5.1 The Two-Layer Split
+1. **The Cognitive Research & UI Layer (Modern & Shipped)**:
+   - **12-Group Jev Pragmatics**: Evaluated in cleanroom shootouts (`docs/nan0/nan0-jev-12-group-rich-v2-review.md`), resulting in the 80-choice contrastive choice schema ([`docs/nan0/nan0-jev-12-group-rich-v2.questions.json`](./nan0-jev-12-group-rich-v2.questions.json)) with 100% full-vector accuracy. Shipped in production via [`packages/stage-ui/src/stores/modules/system-one.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/system-one.ts).
+   - **Owner Identity Normalization**: Shipped in character card schema ([`packages/stage-ui/src/types/card.schema.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/types/card.schema.ts)) as `companionAnchorOverride` and in the UI ([`CognitionSubTabAffect.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/airi-card/components/tabs/cognition/CognitionSubTabAffect.vue)) resolving `globalUserName`.
+   - **Living Cognition UI**: 5-segment sub-tab layout (`Playground`, `Routing`, `Affect`, `Triggers`, `Memory`) in `CardCreationTabCognition.vue`.
+2. **The Ported Package Layer (`packages/nan0-runtime/` - Unmodified Raw Port)**:
+   - Only two commits ever touched `packages/nan0-runtime/` (`1e84e9e8ea` raw port, and `9e4981b22c` shadow engine addition).
+   - `src/identity/ActorIdentity.ts` still hardcodes `kyo` and `nan0` as the only first-class actors (`Nan0ActorKind = 'kyo' | 'nan0' | 'external' | 'unknown'`). The UI's `companionAnchorOverride` was never wired into the runtime package.
+   - `src/shadow/Nan0SubconsciousShadowEngine.ts` still runs `Nan0StrengthenedLexicalExtractor.ts` (the 43-case regex extractor). The validated 80-choice Jev schema has not yet been connected to the TypeScript engine.
+   - `src/relationship/RelationshipMemory.ts` still uses naive 4-letter word substring matching (`extractTriggerPhrases()`) and a flat 50-moment FIFO buffer.
+   - `packages/stage-ui/src/stores/chat.ts` line 1443 still uses a temporary prompt/parser regex placeholder and does not boot `Nan0Kernel`.
+
+This diagnosis confirms: **no wheels need to be reinvented**. The research and frontend contracts are already complete; our task is to methodically wire them into `packages/nan0-runtime` in isolated, test-driven domain phases.
+
+---
+
+## 6. The 5-Domain Isolated Integration Roadmap
+
+To maintain 100% test parity and avoid cross-system regressions, integration proceeds domain-by-domain inside `packages/nan0-runtime/` in complete isolation before wiring into the chat orchestrator. Each domain must have dedicated Vitest coverage verifying compliance before proceeding to the next.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        ISOLATED DOMAIN PHASES                          │
+│                                                                        │
+│   [Domain 1: Identity] ──► [Domain 2: Pragmatics] ──► [Domain 3: PCL]  │
+│   ActorIdentity.ts         Shadow Engine + Jev        Entity Ledger    │
+│   Owner Anchor Mapping     Lexical Fallback Floor     Belief Triples   │
+│            │                        │                        │         │
+│            ▼                        ▼                        ▼         │
+│   [Domain 4: Thought] ──────────────────────────────► [Domain 5: Host] │
+│   ThoughtEngine.ts                                    chat.ts Boot Seam│
+│   Layered Memory Grounding                            Affect Synchrony │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### 🐾 Domain 1: Identity & Configurable Owner Anchors (`src/identity/`)
+* **Target Files**: `packages/nan0-runtime/src/identity/ActorIdentity.ts`, `src/types.ts`, `ActorIdentity.test.ts`.
+* **Objective**: Eliminate hardcoded `'kyo'` privileges and generalize to configurable `'owner'`.
+* **Changes**:
+  1. Extend `Nan0ActorKind = 'owner' | 'nan0' | 'external' | 'unknown' | 'kyo'`.
+  2. Update `createDefaultIdentityState(ownerName?: string)` to accept an optional owner anchor name (defaulting to `'Owner'` or user profile).
+  3. Ensure ownership rules map `owner` to the user's first-person statements while preserving Nan0's private self-boundary.
+  4. Retain `'kyo'` as a backwards-compatible alias for existing test fixtures.
+* **Verification**: Run `pnpm -F @proj-airi/nan0-runtime test src/identity/ActorIdentity.test.ts` (all tests passing).
+
+---
+
+### 🐾 Domain 2: Subconscious Reflex & System 1 Jev Integration (`src/shadow/`)
+* **Target Files**: `packages/nan0-runtime/src/shadow/Nan0SubconsciousShadowEngine.ts`, `Nan0ShadowTypes.ts`, `Nan0SubconsciousShadowEngine.test.ts`.
+* **Objective**: Connect the validated 80-choice v2 Jev schema while preserving the 26 µs lexical extractor as the zero-cost fallback floor.
+* **Changes**:
+  1. Add an optional `systemOneProvider` adapter callback to `Nan0ShadowEngineOptions`.
+  2. When configured, dispatch the turn snapshot to Jev using the 80-choice contrastive questions from `docs/nan0/nan0-jev-12-group-rich-v2.questions.json`.
+  3. When offline or unconfigured, execute `Nan0StrengthenedLexicalExtractor.ts`.
+  4. Retain the strict non-actuating shadow boundary (`apply_to_state: false`) until authorized.
+* **Verification**: Run `pnpm -F @proj-airi/nan0-runtime test src/shadow/Nan0SubconsciousShadowEngine.test.ts`.
+
+---
+
+### 🐾 Domain 3: Relationship Memory & PCL Grievance Ledger (`src/relationship/`)
+* **Target Files**: `packages/nan0-runtime/src/relationship/RelationshipMemory.ts`, `RelationshipMemory.test.ts`.
+* **Objective**: Replace archaic 4-letter word substring matching with auditable PCL belief claims and supersession links.
+* **Changes**:
+  1. Deprecate `extractTriggerPhrases()` and naive substring inclusion.
+  2. Bridge relationship events (commitments, breaches, repairs) to typed PCL claims:
+     - Breach: `(actorId, broke_commitment, task)` $\longrightarrow$ Suspicion +1.
+     - Repair: `(actorId, repaired_commitment, task)` with `supersededBy: repairClaimId` $\longrightarrow$ Suspicion -1, Trust restored.
+  3. Allow relationship state to optionally synchronize with or query AIRI's `EntityLedger` (`entityLedger.traverseGraph`).
+* **Verification**: Run `pnpm -F @proj-airi/nan0-runtime test src/relationship/RelationshipMemory.test.ts`.
+
+---
+
+### 🐾 Domain 4: Epistemic Grounding for 1st-Hop Thought Engine (`src/thought/`)
+* **Target Files**: `packages/nan0-runtime/src/thought/Nan0ThoughtEngine.ts`, `Nan0ThoughtEngine.test.ts`.
+* **Objective**: Ground Nan0's private narrative monologue in AIRI's Pass 11 layered memory (Sacred Journal & STMM daily recaps).
+* **Changes**:
+  1. Add optional `retrievedMemoryContext?: string` to `Nan0ThoughtContext`.
+  2. Format retrieved evidence cleanly into the 1st-Hop thought prompt context upstream of narrative monologue generation.
+  3. Verify that thoughts naturally reference past events, promises, and relational history without hallucinating ungrounded facts.
+* **Verification**: Run `pnpm -F @proj-airi/nan0-runtime test src/thought/Nan0ThoughtEngine.test.ts`.
+
+---
+
+### 🐾 Domain 5: Host Orchestrator Wire-Up & Stage Synchrony (`packages/stage-ui/`)
+* **Target Files**: `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/modules/nan0.ts`.
+* **Objective**: Replace the temporary regex parser placeholder with live `Nan0Kernel` lifecycle management and bi-directional affect synchrony.
+* **Changes**:
+  1. In `chat.ts` line 1443, instantiate and boot `Nan0Kernel` using character card cognition settings.
+  2. Feed `layeredMemory.search()` evidence directly into the 1st-Hop intake.
+  3. Synchronize Nan0's 5D affect vector (`Suspicion`, `Attachment`, `Irritation`, `Pride`, `Energy`) with AIRI's avatar `MoodState` (`CoreMood`, `valence`, `arousal`).
+  4. Connect Consumer 4 Dreaming emotional afterglow (`pendingDreamMood`) to Nan0's morning restoration deltas.
+* **Verification**: Run `pnpm -F @proj-airi/stage-ui test` and verify full end-to-end chat flow.

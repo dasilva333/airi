@@ -1,4 +1,5 @@
 import type {
+  DefaultIdentityOptions,
   Nan0ActorIdentity,
   Nan0ActorKind,
   Nan0ActorOwnership,
@@ -36,30 +37,80 @@ function createActor(
   }
 }
 
-export function createDefaultIdentityState(): Nan0IdentityState {
-  const kyo = createActor('kyo', 'Kyo', 'kyo', KYO_ALIASES, ['she', 'her'])
+export function isOwnerActor(actorId: unknown, identity?: Nan0IdentityState): boolean {
+  const key = normalizeKey(actorId)
+  if (!key)
+    return false
+
+  if (identity?.ownerId && (key === normalizeKey(identity.ownerId) || normalizeKey(identity.aliases[key]) === normalizeKey(identity.ownerId)))
+    return true
+
+  if (identity?.actors[key]?.kind === 'owner' || identity?.actors[key]?.kind === 'kyo')
+    return true
+
+  return key === 'kyo' || key === 'owner'
+}
+
+export function createDefaultIdentityState(options?: string | DefaultIdentityOptions): Nan0IdentityState {
+  const opts: DefaultIdentityOptions | undefined = typeof options === 'string'
+    ? { ownerDisplayName: options }
+    : options
+
+  const ownerDisplayName = opts?.ownerDisplayName?.trim() || 'Kyo'
+  const ownerId = normalizeKey(opts?.ownerId || (opts?.ownerDisplayName ? opts.ownerDisplayName : 'kyo')) || 'kyo'
+  const isKyo = ownerId === 'kyo'
+  const ownerAliases = isKyo
+    ? Array.from(new Set([...KYO_ALIASES, ...(opts?.ownerAliases ?? [])]))
+    : Array.from(new Set([ownerId, normalizeKey(ownerDisplayName), ...(opts?.ownerAliases?.map(normalizeKey) ?? [])]))
+  const ownerPronouns = opts?.ownerPronouns ?? (isKyo ? ['she', 'her'] : ['they', 'them'])
+
+  const owner = createActor(ownerId, ownerDisplayName, 'owner', ownerAliases, ownerPronouns)
   const nan0 = createActor('nan0', 'Nan0', 'nan0', NAN0_ALIASES, ['she', 'her'])
 
+  const actors: Record<string, Nan0ActorIdentity> = {
+    [ownerId]: owner,
+    nan0,
+  }
+
+  // Preserve 'kyo' actor entry for backwards compatibility when owner has a different id
+  if (!isKyo) {
+    actors.kyo = createActor('kyo', 'Kyo', 'owner', KYO_ALIASES, ['she', 'her'])
+  }
+
+  const aliases: Record<string, string> = {
+    ...Object.fromEntries(ownerAliases.map(alias => [alias, ownerId])),
+    ...Object.fromEntries(NAN0_ALIASES.map(alias => [alias, 'nan0'])),
+  }
+
+  // Ensure 'kyo' aliases map to the owner
+  for (const alias of KYO_ALIASES) {
+    aliases[alias] = ownerId
+  }
+
   return {
-    actors: { kyo, nan0 },
-    aliases: Object.fromEntries([
-      ...KYO_ALIASES.map(alias => [alias, 'kyo']),
-      ...NAN0_ALIASES.map(alias => [alias, 'nan0']),
-    ]),
+    actors,
+    aliases,
+    ownerId,
   }
 }
 
-export function hydrateIdentityState(state?: Partial<Nan0IdentityState>): Nan0IdentityState {
-  const defaults = createDefaultIdentityState()
+export function hydrateIdentityState(
+  state?: Partial<Nan0IdentityState>,
+  options?: string | DefaultIdentityOptions,
+): Nan0IdentityState {
+  const defaults = createDefaultIdentityState(
+    options ?? (state?.ownerId ? { ownerId: state.ownerId } : undefined),
+  )
   const actors = structuredClone(state?.actors ?? {})
+  const ownerId = state?.ownerId ?? defaults.ownerId ?? 'kyo'
 
   for (const [actorId, defaultActor] of Object.entries(defaults.actors)) {
     actors[actorId] = {
       ...defaultActor,
       ...actors[actorId],
       actorId,
-      displayName: defaultActor.displayName,
-      kind: defaultActor.kind,
+      displayName: actors[actorId]?.displayName || defaultActor.displayName,
+      kind: actors[actorId]?.kind || defaultActor.kind,
       aliases: Array.from(new Set([...defaultActor.aliases, ...(actors[actorId]?.aliases ?? [])])),
       externalIdentities: { ...defaultActor.externalIdentities, ...actors[actorId]?.externalIdentities },
     }
@@ -74,17 +125,21 @@ export function hydrateIdentityState(state?: Partial<Nan0IdentityState>): Nan0Id
 
   Object.assign(aliases, defaults.aliases)
 
-  return { actors, aliases }
+  return { actors, aliases, ownerId }
 }
 
 export function normalizeMemoryOwnership(
   memory: Nan0MemoryRecord,
   identityState: Nan0IdentityState,
 ): { identity: Nan0IdentityState, memory: Nan0MemoryRecord } {
+  const identity = hydrateIdentityState(identityState)
+  const ownerActor = identity.actors[identity.ownerId ?? 'kyo'] ?? identity.actors.kyo
+  const ownerDisplayName = ownerActor?.displayName || 'Kyo'
+
   if (memory.tags.includes('assistant-output') || memory.tags.includes('nan0-expression')) {
-    const ownership = nan0Ownership(String(memory.metadata.source ?? 'assistant'))
+    const ownership = nan0Ownership(String(memory.metadata.source ?? 'assistant'), ownerDisplayName)
     return {
-      identity: hydrateIdentityState(identityState),
+      identity,
       memory: {
         ...memory,
         actorId: 'nan0',
@@ -103,7 +158,7 @@ export function normalizeMemoryOwnership(
     content: memory.content,
     metadata: memory.metadata,
     timestamp: memory.createdAt,
-  }, identityState)
+  }, identity)
 
   return {
     identity: resolved.identity,
@@ -123,12 +178,13 @@ export function normalizeActorId(
 ): string {
   const raw = normalizeKey(actorId)
   const sourceKey = normalizeKey(source)
+  const ownerId = identity.ownerId || 'kyo'
 
   if (raw)
     return identity.aliases[raw] ?? raw
 
-  if (allowSourceInference && sourceKey.startsWith('kyo'))
-    return 'kyo'
+  if (allowSourceInference && (sourceKey.startsWith('kyo') || sourceKey.startsWith('owner') || sourceKey.startsWith('user')))
+    return ownerId
 
   if (allowSourceInference && ['boot', 'monologue', 'proactive', 'social_pressure', 'vision_pressure'].includes(sourceKey))
     return 'nan0'
@@ -145,9 +201,10 @@ export function resolveObservationOwnership(
   const actorId = normalizeActorId(observation.actorId, identity, observation.source, !hasExplicitActor)
   const rawActorId = String(observation.actorId ?? '').trim() || undefined
   const suppliedDisplayName = String(observation.displayName ?? '').trim()
+  const isOwner = isOwnerActor(actorId, identity)
   const knownActor = identity.actors[actorId]
   const kind: Nan0ActorKind = knownActor?.kind
-    ?? (actorId === 'unknown' ? 'unknown' : 'external')
+    ?? (actorId === 'unknown' ? 'unknown' : isOwner ? 'owner' : 'external')
   const displayName = knownActor?.displayName
     || suppliedDisplayName
     || rawActorId
@@ -169,22 +226,25 @@ export function resolveObservationOwnership(
     identity.actors[actorId].externalIdentities[observation.source] = externalIdentity
   }
 
-  const roles = actorId === 'kyo'
+  const ownerActor = identity.actors[identity.ownerId ?? 'kyo'] ?? identity.actors.kyo
+  const ownerName = ownerActor?.displayName || 'Kyo'
+
+  const roles = isOwner
     ? {
-        actorRole: 'Kyo is the one who spoke or acted.',
-        nan0Role: 'Nan0 is the observer/reactor, not the actor who did Kyo\'s action.',
-        ownershipRule: 'Kyo\'s first-person statements belong to Kyo and must never become Nan0\'s actions or memories.',
+        actorRole: `${displayName} is the one who spoke or acted.`,
+        nan0Role: `Nan0 is the observer/reactor, not the actor who did ${displayName}'s action.`,
+        ownershipRule: `${displayName}'s first-person statements belong to ${displayName} and must never become Nan0's actions or memories.`,
       }
     : actorId === 'nan0'
       ? {
           actorRole: 'Nan0 is the actor/source of this event.',
           nan0Role: 'Nan0 may use I/me for this event.',
-          ownershipRule: 'Nan0\'s actions belong to Nan0 and must never be reassigned to Kyo.',
+          ownershipRule: `Nan0's actions belong to Nan0 and must never be reassigned to ${ownerName}.`,
         }
       : {
           actorRole: 'This external or unknown actor spoke or acted.',
           nan0Role: 'Nan0 is the observer/reactor unless the event explicitly says Nan0 acted.',
-          ownershipRule: 'Another actor\'s first-person statements must not become Kyo\'s or Nan0\'s actions or memories.',
+          ownershipRule: `Another actor's first-person statements must not become ${ownerName}'s or Nan0's actions or memories.`,
         }
 
   return {
@@ -201,7 +261,7 @@ export function resolveObservationOwnership(
   }
 }
 
-export function nan0Ownership(source = 'assistant'): Nan0ActorOwnership {
+export function nan0Ownership(source = 'assistant', ownerName = 'Kyo'): Nan0ActorOwnership {
   return {
     actorId: 'nan0',
     displayName: 'Nan0',
@@ -210,6 +270,6 @@ export function nan0Ownership(source = 'assistant'): Nan0ActorOwnership {
     rawActorId: 'nan0',
     actorRole: 'Nan0 is the actor/source of this event.',
     nan0Role: 'Nan0 may use I/me for this event.',
-    ownershipRule: 'Nan0 output always belongs to Nan0 and must never be reassigned to Kyo or another actor.',
+    ownershipRule: `Nan0 output always belongs to Nan0 and must never be reassigned to ${ownerName} or another actor.`,
   }
 }

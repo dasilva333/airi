@@ -74,7 +74,7 @@ export interface Nan0InternalObservationQueueState {
   records: Nan0InternalObservationRecord[]
 }
 
-export type Nan0ActorKind = 'kyo' | 'nan0' | 'external' | 'unknown'
+export type Nan0ActorKind = 'owner' | 'kyo' | 'nan0' | 'external' | 'unknown'
 
 export interface Nan0ExternalIdentity {
   source: string
@@ -91,9 +91,17 @@ export interface Nan0ActorIdentity {
   externalIdentities: Record<string, Nan0ExternalIdentity>
 }
 
+export interface DefaultIdentityOptions {
+  ownerId?: string
+  ownerDisplayName?: string
+  ownerAliases?: string[]
+  ownerPronouns?: string[]
+}
+
 export interface Nan0IdentityState {
   actors: Record<string, Nan0ActorIdentity>
   aliases: Record<string, string>
+  ownerId?: string
 }
 
 export interface Nan0ActorOwnership {
@@ -1410,6 +1418,7 @@ export interface Nan0KernelDependencies {
   thoughtPolicy?: Nan0ThoughtPolicy
   diagnostic?: (event: Nan0DiagnosticEvent) => void
   observatory?: Nan0KernelObservatory
+  identityOptions?: DefaultIdentityOptions
 }
 
 export interface Nan0HostBindings {

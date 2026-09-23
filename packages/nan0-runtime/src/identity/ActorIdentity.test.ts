@@ -8,7 +8,7 @@ import { InMemoryStateStore } from '../persistence/InMemoryStateStore'
 import { createEmptyRelationshipState } from '../relationship/RelationshipMemory'
 import { ControllableNan0Clock } from '../temporal/Nan0Clock'
 import { createEmptyTemporalState } from '../temporal/Nan0Temporal'
-import { createDefaultIdentityState, hydrateIdentityState, normalizeActorId, resolveObservationOwnership } from './ActorIdentity'
+import { createDefaultIdentityState, hydrateIdentityState, isOwnerActor, nan0Ownership, normalizeActorId, resolveObservationOwnership } from './ActorIdentity'
 
 const reasoningClient: Nan0ReasoningClient = {
   async generate() {
@@ -225,5 +225,151 @@ describe('actor identity ownership', () => {
     await kernel.boot()
 
     expect(kernel.getStateSnapshot().memories.map(memory => memory.actorId)).toEqual(['kyo', 'nan0'])
+  })
+
+  it('creates configurable owner anchor with custom displayName and aliases', () => {
+    const identity = createDefaultIdentityState({
+      ownerDisplayName: 'Richard',
+      ownerAliases: ['rick', 'richie'],
+      ownerPronouns: ['he', 'him'],
+    })
+
+    expect(identity.ownerId).toBe('richard')
+    expect(identity.actors.richard).toMatchObject({
+      actorId: 'richard',
+      displayName: 'Richard',
+      kind: 'owner',
+      pronouns: ['he', 'him'],
+    })
+    expect(identity.actors.richard.aliases).toEqual(expect.arrayContaining(['richard', 'rick', 'richie']))
+
+    // Normalizes custom aliases to ownerId
+    expect(normalizeActorId('rick', identity)).toBe('richard')
+    expect(normalizeActorId('richie', identity)).toBe('richard')
+    expect(normalizeActorId('Richard', identity)).toBe('richard')
+
+    // Preserves backward-compatible Kyo aliases pointing to the configured owner
+    expect(normalizeActorId('kyo', identity)).toBe('richard')
+    expect(normalizeActorId('kayok', identity)).toBe('richard')
+    expect(normalizeActorId('kayo', identity)).toBe('richard')
+
+    // Nan0 aliases remain intact
+    expect(normalizeActorId('nan0', identity)).toBe('nan0')
+    expect(normalizeActorId('nano', identity)).toBe('nan0')
+  })
+
+  it('accepts string shorthand owner name in createDefaultIdentityState', () => {
+    const identity = createDefaultIdentityState('Alice')
+
+    expect(identity.ownerId).toBe('alice')
+    expect(identity.actors.alice).toMatchObject({
+      actorId: 'alice',
+      displayName: 'Alice',
+      kind: 'owner',
+    })
+    expect(normalizeActorId('alice', identity)).toBe('alice')
+    expect(normalizeActorId('kyo', identity)).toBe('alice')
+  })
+
+  it('dynamically generates owner and observer roles with custom owner name in observation ownership', () => {
+    const identity = createDefaultIdentityState({ ownerDisplayName: 'Richard' })
+    const resolved = resolveObservationOwnership(observation({
+      actorId: 'richard',
+      displayName: 'Richard Pinedo',
+    }), identity)
+
+    expect(resolved.ownership).toMatchObject({
+      actorId: 'richard',
+      displayName: 'Richard',
+      kind: 'owner',
+      actorRole: 'Richard is the one who spoke or acted.',
+      nan0Role: 'Nan0 is the observer/reactor, not the actor who did Richard\'s action.',
+      ownershipRule: 'Richard\'s first-person statements belong to Richard and must never become Nan0\'s actions or memories.',
+    })
+  })
+
+  it('dynamically references custom owner in external and nan0 observation rules', () => {
+    const identity = createDefaultIdentityState({ ownerDisplayName: 'Richard' })
+
+    const nan0Resolved = resolveObservationOwnership(observation({
+      source: 'chat',
+      actorId: 'nan0',
+    }), identity)
+    expect(nan0Resolved.ownership.ownershipRule).toBe('Nan0\'s actions belong to Nan0 and must never be reassigned to Richard.')
+
+    const externalResolved = resolveObservationOwnership(observation({
+      source: 'discord',
+      actorId: 'guest-1',
+      displayName: 'Guest One',
+    }), identity)
+    expect(externalResolved.ownership.ownershipRule).toBe('Another actor\'s first-person statements must not become Richard\'s or Nan0\'s actions or memories.')
+
+    const nan0Direct = nan0Ownership('assistant', 'Richard')
+    expect(nan0Direct.ownershipRule).toBe('Nan0 output always belongs to Nan0 and must never be reassigned to Richard or another actor.')
+  })
+
+  it('identifies owner actors correctly with isOwnerActor across aliases and kinds', () => {
+    const identity = createDefaultIdentityState({ ownerDisplayName: 'Richard', ownerAliases: ['rick'] })
+
+    expect(isOwnerActor('richard', identity)).toBe(true)
+    expect(isOwnerActor('rick', identity)).toBe(true)
+    expect(isOwnerActor('kyo', identity)).toBe(true)
+    expect(isOwnerActor('owner', identity)).toBe(true)
+    expect(isOwnerActor('nan0', identity)).toBe(false)
+    expect(isOwnerActor('stranger', identity)).toBe(false)
+    expect(isOwnerActor(null, identity)).toBe(false)
+    expect(isOwnerActor(undefined, identity)).toBe(false)
+  })
+
+  it('hydrates custom owner state across persistence and rehydration without losing ownerId', () => {
+    const original = createDefaultIdentityState({ ownerDisplayName: 'Richard', ownerAliases: ['rick'] })
+    const hydrated = hydrateIdentityState({
+      actors: original.actors,
+      aliases: original.aliases,
+      ownerId: original.ownerId,
+    })
+
+    expect(hydrated.ownerId).toBe('richard')
+    expect(hydrated.actors.richard).toMatchObject({
+      actorId: 'richard',
+      displayName: 'Richard',
+      kind: 'owner',
+    })
+    expect(normalizeActorId('rick', hydrated)).toBe('richard')
+    expect(normalizeActorId('kyo', hydrated)).toBe('richard')
+  })
+
+  it('boots Nan0Kernel with identityOptions and owns custom user input canonically', async () => {
+    let nextId = 0
+    const kernel = new Nan0Kernel({
+      stateStore: new InMemoryStateStore(),
+      reasoningClient,
+      clock: new ControllableNan0Clock({ wallTime: 1000, monotonicTime: 1000 }),
+      createId: () => `id-${++nextId}`,
+      identityOptions: {
+        ownerDisplayName: 'Richard',
+        ownerAliases: ['rick'],
+      },
+    })
+    await kernel.boot()
+
+    const prepared = await kernel.prepareTurn(observation({
+      actorId: 'rick',
+      displayName: 'Richard P.',
+      content: 'I built the lighthouse.',
+    }))
+    const memory = kernel.getStateSnapshot().memories[0]
+
+    expect(prepared.observation.actorId).toBe('richard')
+    expect(prepared.observation.displayName).toBe('Richard')
+    expect(memory.actorId).toBe('richard')
+    expect(memory.metadata.ownership).toMatchObject({
+      actorId: 'richard',
+      displayName: 'Richard',
+      kind: 'owner',
+      actorRole: 'Richard is the one who spoke or acted.',
+      nan0Role: 'Nan0 is the observer/reactor, not the actor who did Richard\'s action.',
+    })
+    expect(kernel.getStateSnapshot().identity.ownerId).toBe('richard')
   })
 })

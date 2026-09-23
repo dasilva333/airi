@@ -75,7 +75,7 @@ import {
   createEmptyHeartbeatRuntimeState,
   normalizeHeartbeatRuntimeState,
 } from '../heartbeat/Nan0HeartbeatEngine'
-import { createDefaultIdentityState, hydrateIdentityState, nan0Ownership, normalizeActorId, normalizeMemoryOwnership, resolveObservationOwnership } from '../identity/ActorIdentity'
+import { createDefaultIdentityState, hydrateIdentityState, isOwnerActor, nan0Ownership, normalizeActorId, normalizeMemoryOwnership, resolveObservationOwnership } from '../identity/ActorIdentity'
 import {
   beginIntentionEvaluation,
   createEmptyPendingIntentionState,
@@ -215,6 +215,7 @@ function defaultInitialState(
   now: number,
   clock: import('../types').Nan0Clock,
   thoughtPolicy = NAN0_DEFAULT_THOUGHT_POLICY,
+  identityOptions?: import('../types').DefaultIdentityOptions,
 ): Nan0KernelState {
   return {
     schemaVersion: 2,
@@ -232,7 +233,7 @@ function defaultInitialState(
     heartbeat: createEmptyHeartbeatRuntimeState(),
     cognitionPolicy: cognitionPolicyIdentity(thoughtPolicy, now),
     runtimeMetadata: {},
-    identity: createDefaultIdentityState(),
+    identity: createDefaultIdentityState(identityOptions),
     memories: [],
     thoughts: [],
     decisions: [],
@@ -305,7 +306,7 @@ export class Nan0Kernel {
     this.processId = dependencies.processId ?? crypto.randomUUID()
     this.capabilities = new Nan0CapabilityRegistry(dependencies.capabilityDefinitions)
     this.state = dependencies.createInitialState?.()
-      ?? defaultInitialState(this.now(), this.clock, dependencies.thoughtPolicy)
+      ?? defaultInitialState(this.now(), this.clock, dependencies.thoughtPolicy, dependencies.identityOptions)
   }
 
   get isBooted(): boolean {
@@ -342,7 +343,7 @@ export class Nan0Kernel {
         ...heartbeat,
         revision: heartbeat.revision + 1,
         lastExternalInputAt: Math.max(heartbeat.lastExternalInputAt ?? 0, at),
-        lastKyoInteractionAt: actorId === 'kyo' ? Math.max(heartbeat.lastKyoInteractionAt ?? 0, at) : heartbeat.lastKyoInteractionAt,
+        lastKyoInteractionAt: isOwnerActor(actorId, this.state.identity) ? Math.max(heartbeat.lastKyoInteractionAt ?? 0, at) : heartbeat.lastKyoInteractionAt,
         consecutiveSilentTicks: 0,
         pressureScore: 0,
         presence: 'thinking',
@@ -596,7 +597,7 @@ export class Nan0Kernel {
       memoryCount: this.state.memories.length,
     })
     const emotionalEvents = this.updateEmotionalStateForObservation(canonicalObservation)
-    if (ownership.actorId === 'kyo') {
+    if (isOwnerActor(ownership.actorId, this.state.identity)) {
       const trackedPromiseIds = new Set(normalizeTemporalTrackingState(this.state.temporal.engine.lived).trackedPromises.map(promise => promise.promiseId))
       const lived = recordLivedTemporalObservation({
         engine: this.state.temporal.engine,
@@ -833,7 +834,7 @@ export class Nan0Kernel {
       .map(relationshipId => Object.values(this.state.relationships.records).find(record => record.relationshipId === relationshipId))
       .find(Boolean)
     const relationshipActorId = intentionRelationship?.actorId
-      ?? (options.intention?.originActorId === 'kyo' ? 'kyo' : ownership.actorId)
+      ?? (isOwnerActor(options.intention?.originActorId, this.state.identity) ? (this.state.identity.ownerId ?? 'kyo') : ownership.actorId)
     const relationshipActor = this.state.identity.actors[relationshipActorId]
     const relationshipContext = relationshipContextForActor(this.state.relationships, {
       actorId: relationshipActorId,
@@ -854,14 +855,14 @@ export class Nan0Kernel {
             ...heartbeatPresence,
             revision: heartbeatPresence.revision + 1,
             lastExternalInputAt: canonicalObservation.timestamp,
-            lastKyoInteractionAt: ownership.actorId === 'kyo'
+            lastKyoInteractionAt: isOwnerActor(ownership.actorId, identity)
               ? canonicalObservation.timestamp
               : heartbeatPresence.lastKyoInteractionAt,
             consecutiveSilentTicks: 0,
             pressureScore: 0,
             presence: 'thinking',
           },
-      temporal: ownership.actorId === 'kyo'
+      temporal: isOwnerActor(ownership.actorId, identity)
         ? {
             ...recordTemporalActivity(this.state.temporal, {
               clock: this.clock,
@@ -884,7 +885,7 @@ export class Nan0Kernel {
       updatedAt: this.now(),
     }
 
-    if (ownership.actorId === 'kyo') {
+    if (isOwnerActor(ownership.actorId, identity)) {
       const absence = this.state.temporal.engine.absence
       this.diagnostic('temporal.absence.started', {
         ...diagnosticContext,
