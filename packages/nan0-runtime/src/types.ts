@@ -1191,6 +1191,31 @@ export interface Nan0RelationshipMoment extends Nan0RelationshipProvenance {
   context?: string
 }
 
+export interface Nan0PclClaim {
+  claimId?: string
+  subject: string
+  predicate: string
+  object: string
+  action?: 'new' | 'reinforce' | 'update' | 'invalidate'
+  evidenceTurnId?: string
+  date?: string
+  supersededBy?: string | null
+  supersededAt?: number | null
+}
+
+export interface Nan0EntityLedgerAdapter {
+  getOrCreateEntity?: (label: string, type?: string, attributes?: Record<string, any>) => unknown
+  applyPCLClaim?: (claim: {
+    subject: string
+    predicate: string
+    object: string
+    action: 'new' | 'reinforce' | 'update' | 'invalidate'
+    date?: string
+    evidenceTurnId?: string
+  }) => { claimId: string, actionTaken: string }
+  queryClaims?: (subject?: string, predicate?: string, currentOnly?: boolean) => unknown[]
+}
+
 export interface Nan0RelationshipGrievance extends Nan0RelationshipProvenance {
   grievanceId: string
   description: string
@@ -1202,6 +1227,13 @@ export interface Nan0RelationshipGrievance extends Nan0RelationshipProvenance {
   resolvedAt: number | null
   triggerPhrases: string[]
   metadata: Record<string, unknown>
+  claimId?: string
+  subject?: string
+  predicate?: string
+  object?: string
+  action?: 'new' | 'reinforce' | 'update' | 'invalidate'
+  supersededBy?: string | null
+  supersededAt?: number | null
 }
 
 export interface Nan0RelationshipAnchor extends Nan0RelationshipProvenance {
@@ -1216,6 +1248,12 @@ export interface Nan0RelationshipExpectation extends Nan0RelationshipProvenance 
   description: string
   status: 'active' | 'met' | 'violated' | 'retired'
   metadata: Record<string, unknown>
+  claimId?: string
+  subject?: string
+  predicate?: string
+  object?: string
+  supersededBy?: string | null
+  supersededAt?: number | null
 }
 
 export interface Nan0RelationshipRecord {
@@ -1419,7 +1457,15 @@ export interface Nan0KernelDependencies {
   diagnostic?: (event: Nan0DiagnosticEvent) => void
   observatory?: Nan0KernelObservatory
   identityOptions?: DefaultIdentityOptions
+  entityLedger?: Nan0EntityLedgerAdapter
+  systemOneProvider?: import('./shadow/Nan0ShadowTypes').Nan0SystemOneProvider
+  jevModel?: string
 }
+
+export type {
+  Nan0SystemOneProvider,
+  Nan0SystemOneResponse,
+} from './shadow/Nan0ShadowTypes'
 
 export interface Nan0HostBindings {
   subscribeObservations: (

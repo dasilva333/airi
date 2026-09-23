@@ -1,5 +1,10 @@
 import type { Nan0HeartbeatTerminalResult } from '../diagnostics/Nan0KernelObservatory'
 import type {
+  Nan0BreachInput,
+  Nan0CommitmentInput,
+  Nan0RepairInput,
+} from '../relationship/RelationshipMemory'
+import type {
   LegacyNan0Export,
   Nan0ActionAuthority,
   Nan0ActionIntentRecord,
@@ -19,6 +24,7 @@ import type {
   Nan0ObservationSource,
   Nan0PendingIntention,
   Nan0RelationshipContext,
+  Nan0RelationshipRecord,
   Nan0TemporalEvent,
   Nan0TemporalState,
   Nan0Thought,
@@ -97,10 +103,13 @@ import {
   processAttendedObservation,
 } from '../prediction/Nan0PredictionEngine'
 import {
-  applyRelationshipEvidence,
+  applyRelationshipEvidenceAsync,
   createEmptyRelationshipState,
   inferRelationshipEvidence,
   normalizeRelationshipState,
+  recordBreach,
+  recordCommitment,
+  recordRepair,
   relationshipContextForActor,
 } from '../relationship/RelationshipMemory'
 import { SystemNan0Clock } from '../temporal/Nan0Clock'
@@ -217,6 +226,7 @@ function defaultInitialState(
   thoughtPolicy = NAN0_DEFAULT_THOUGHT_POLICY,
   identityOptions?: import('../types').DefaultIdentityOptions,
 ): Nan0KernelState {
+  const identity = createDefaultIdentityState(identityOptions)
   return {
     schemaVersion: 2,
     revision: 0,
@@ -233,7 +243,7 @@ function defaultInitialState(
     heartbeat: createEmptyHeartbeatRuntimeState(),
     cognitionPolicy: cognitionPolicyIdentity(thoughtPolicy, now),
     runtimeMetadata: {},
-    identity: createDefaultIdentityState(identityOptions),
+    identity,
     memories: [],
     thoughts: [],
     decisions: [],
@@ -245,7 +255,7 @@ function defaultInitialState(
     timeline: createEmptyTimelineState(),
     temporal: createEmptyTemporalState(clock, now),
     continuity: createEmptyContinuityState(),
-    relationships: createEmptyRelationshipState(now),
+    relationships: createEmptyRelationshipState(now, identityOptions, identity),
   }
 }
 
@@ -1447,7 +1457,7 @@ export class Nan0Kernel {
     const inputOwnership = turn.metadata.ownership as import('../types').Nan0ActorOwnership | undefined
     const relationshipEvidence = inferRelationshipEvidence(inputMemory?.content ?? '')
     const relationshipResult = inputEvent
-      ? applyRelationshipEvidence(this.state.relationships, {
+      ? await applyRelationshipEvidenceAsync(this.state.relationships, {
           actorId: turn.inputActorId,
           actorKind: inputOwnership?.kind ?? this.state.identity.actors[turn.inputActorId]?.kind ?? 'unknown',
           source: turn.source,
@@ -1461,7 +1471,12 @@ export class Nan0Kernel {
           rule: relationshipEvidence.rule,
           description: (inputMemory?.content ?? '').slice(0, 280),
           context: `Completed Nan0 turn with output event ${outputTimelineEvent.event.eventId}.`,
-        }, this.createId)
+        }, this.createId, {
+          identity: this.state.identity,
+          entityLedger: this.dependencies.entityLedger,
+          systemOneProvider: this.dependencies.systemOneProvider,
+          jevModel: this.dependencies.jevModel,
+        })
       : { relationships: this.state.relationships, record: null, applied: false }
     const intentionId = typeof turn.metadata.intentionId === 'string' ? turn.metadata.intentionId : null
     const pendingIntentions = intentionId
@@ -2606,6 +2621,60 @@ export class Nan0Kernel {
       .filter(record => !actorId || record.actorId === actorId)
       .sort((a, b) => b.updatedAt - a.updatedAt || a.relationshipId.localeCompare(b.relationshipId))
       .map(record => structuredClone(record))
+  }
+
+  async recordCommitment(input: Omit<Nan0CommitmentInput, 'timestamp'> & { timestamp?: number }): Promise<Nan0RelationshipRecord | null> {
+    this.assertBooted()
+    const at = input.timestamp ?? this.now()
+    const result = recordCommitment(this.state.relationships, { ...input, timestamp: at }, this.createId, {
+      identity: this.state.identity,
+      entityLedger: this.dependencies.entityLedger,
+    })
+    if (result.applied && result.record) {
+      this.state = {
+        ...this.state,
+        relationships: result.relationships,
+        updatedAt: at,
+      }
+      this.state = await this.dependencies.stateStore.save(this.state)
+    }
+    return result.record
+  }
+
+  async recordBreach(input: Omit<Nan0BreachInput, 'timestamp'> & { timestamp?: number }): Promise<Nan0RelationshipRecord | null> {
+    this.assertBooted()
+    const at = input.timestamp ?? this.now()
+    const result = recordBreach(this.state.relationships, { ...input, timestamp: at }, this.createId, {
+      identity: this.state.identity,
+      entityLedger: this.dependencies.entityLedger,
+    })
+    if (result.applied && result.record) {
+      this.state = {
+        ...this.state,
+        relationships: result.relationships,
+        updatedAt: at,
+      }
+      this.state = await this.dependencies.stateStore.save(this.state)
+    }
+    return result.record
+  }
+
+  async recordRepair(input: Omit<Nan0RepairInput, 'timestamp'> & { timestamp?: number }): Promise<Nan0RelationshipRecord | null> {
+    this.assertBooted()
+    const at = input.timestamp ?? this.now()
+    const result = recordRepair(this.state.relationships, { ...input, timestamp: at }, this.createId, {
+      identity: this.state.identity,
+      entityLedger: this.dependencies.entityLedger,
+    })
+    if (result.applied && result.record) {
+      this.state = {
+        ...this.state,
+        relationships: result.relationships,
+        updatedAt: at,
+      }
+      this.state = await this.dependencies.stateStore.save(this.state)
+    }
+    return result.record
   }
 
   getThoughts(filter: { sessionId?: string, actorId?: string } = {}): Nan0Thought[] {
