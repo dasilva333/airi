@@ -483,6 +483,7 @@ export const useTextJournalStore = defineStore('text-journal', () => {
             kind: res.kind,
             score: res.score,
             triage: res.triage,
+            subGoal: res.subGoal,
           }
         }
 
@@ -500,8 +501,10 @@ export const useTextJournalStore = defineStore('text-journal', () => {
           type: 'message',
           createdAt: new Date(res.timestamp).getTime(),
           updatedAt: new Date(res.timestamp).getTime(),
+          timestamp: res.timestamp,
           triage: res.triage,
-        } as unknown as TextJournalEntry & { kind: string, score?: number, triage?: any }
+          subGoal: res.subGoal,
+        } as unknown as TextJournalEntry & { kind: string, score?: number, triage?: any, subGoal?: string, timestamp?: string }
       })
     }
 

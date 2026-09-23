@@ -12,7 +12,7 @@ import {
   defaultScorerConfig,
   scoreHybridResults,
 } from './hybrid-scorer'
-import { analyzeQuery, heuristicTriage } from './query-analyzer'
+import { analyzeQuery, decomposeQuery, heuristicTriage } from './query-analyzer'
 
 const indexStorage = createStorage({
   driver: typeof indexedDB !== 'undefined' ? indexedDbDriver({ base: 'airi-search-index' }) : memoryDriver(),
@@ -28,6 +28,7 @@ export interface LayeredSearchResult extends HybridSearchResult {
   evidence?: string[]
   isKgClaim?: boolean
   triage?: TriageDecision
+  subGoal?: string
 }
 
 export interface LayeredSearchOptions {
@@ -241,26 +242,135 @@ export const layeredMemory = {
     }
 
     // 5. Candidate Retrieval from Search Web Worker (Vector + BM25)
-    const rawResults = await searchWorker.search(
-      analysis.expandedQuery,
-      workerLimit,
-      characterId,
-      analysis.temporalHooks,
-    )
-    const documents = rawResults.documents.map((document: SearchDocumentMeta & { kind: string }) => ({
-      ...document,
-      kind: resolveMemoryLayer(document.kind),
-    }))
+    const subQueries = decomposeQuery(query, triage)
+    let scoredWorkerHits: LayeredSearchResult[] = []
 
-    // 6. Hybrid RRF Scoring
-    const scoredWorkerHits = scoreHybridResults(
-      query,
-      documents,
-      rawResults.vectorHits,
-      rawResults.keywordHits,
-      categoryScorerConfig,
-      analysis.temporalHooks,
-    )
+    if (subQueries.length > 1) {
+      // Multi-Pass Sub-Query Retrieval (Pass 11 Proof Bundles)
+      const subResults = await Promise.all(
+        subQueries.map(async (sq, idx) => {
+          const isPrimary = idx === 0
+          const subAnalysis = isPrimary ? analysis : analyzeQuery(sq, { anaphoraEnabled: false })
+          const res = await searchWorker.search(
+            subAnalysis.expandedQuery,
+            workerLimit,
+            characterId,
+            subAnalysis.temporalHooks.length > 0 ? subAnalysis.temporalHooks : analysis.temporalHooks,
+          )
+          return { sq, subAnalysis, res, isPrimary }
+        }),
+      )
+
+      // Merge unique documents across all sub-queries
+      const docMap = new Map<string, SearchDocumentMeta>()
+      for (const sub of subResults) {
+        for (const doc of sub.res.documents) {
+          if (!docMap.has(doc.id)) {
+            docMap.set(doc.id, {
+              ...doc,
+              kind: resolveMemoryLayer(doc.kind),
+            })
+          }
+        }
+      }
+      const allDocs = Array.from(docMap.values())
+
+      // Score candidates per sub-query plan
+      const perSubScored = subResults.map((sub) => {
+        const hits = scoreHybridResults(
+          sub.sq,
+          allDocs,
+          sub.res.vectorHits,
+          sub.res.keywordHits,
+          categoryScorerConfig,
+          sub.subAnalysis.temporalHooks.length > 0 ? sub.subAnalysis.temporalHooks : analysis.temporalHooks,
+        )
+        return { ...sub, hits }
+      })
+
+      // Cross-Plan Reciprocal Rank Fusion & Fair-Share Quota Reservation
+      const rrfScores = new Map<string, number>()
+      const bestHitMap = new Map<string, LayeredSearchResult>()
+      const reservedHits: LayeredSearchResult[] = []
+      const reservedIds = new Set<string>()
+
+      // 1. Quota reservation: reserve top 1-2 hits from each sub-query to guarantee both clue halves
+      const quotaPerSub = isMultiHop || isTemporal ? 2 : 1
+      for (const sub of perSubScored) {
+        let reservedCount = 0
+        for (const h of sub.hits) {
+          if (reservedCount >= quotaPerSub)
+            break
+          if (!reservedIds.has(h.id)) {
+            reservedIds.add(h.id)
+            const taggedHit: LayeredSearchResult = {
+              ...h,
+              subGoal: sub.sq !== query ? sub.sq : undefined,
+              triage,
+            }
+            reservedHits.push(taggedHit)
+            reservedCount++
+          }
+        }
+      }
+
+      // 2. Compute RRF across all plans
+      const RRF_K = 60
+      for (const sub of perSubScored) {
+        const planWeight = sub.isPrimary ? 1.0 : 0.85
+        sub.hits.forEach((h, rank) => {
+          const currentRrf = rrfScores.get(h.id) ?? 0
+          rrfScores.set(h.id, currentRrf + planWeight / (RRF_K + rank + 1))
+          if (!bestHitMap.has(h.id) || (bestHitMap.get(h.id)!.score < h.score)) {
+            bestHitMap.set(h.id, {
+              ...h,
+              subGoal: sub.sq !== query ? sub.sq : undefined,
+              triage,
+            })
+          }
+        })
+      }
+
+      // 3. Assemble final candidate pool:
+      // Start with reserved quota hits to ensure complete proof bundle,
+      // then fill remaining slots with remaining documents ordered by RRF score.
+      const fusedRemaining: LayeredSearchResult[] = []
+      const sortedByRrf = Array.from(rrfScores.entries())
+        .sort((a, b) => b[1] - a[1])
+
+      for (const [id] of sortedByRrf) {
+        if (!reservedIds.has(id)) {
+          const hit = bestHitMap.get(id)
+          if (hit) {
+            fusedRemaining.push(hit)
+          }
+        }
+      }
+
+      scoredWorkerHits = [...reservedHits, ...fusedRemaining]
+    }
+    else {
+      // Standard Single-Pass Retrieval
+      const rawResults = await searchWorker.search(
+        analysis.expandedQuery,
+        workerLimit,
+        characterId,
+        analysis.temporalHooks,
+      )
+      const documents = rawResults.documents.map((document: SearchDocumentMeta & { kind: string }) => ({
+        ...document,
+        kind: resolveMemoryLayer(document.kind),
+      }))
+
+      scoredWorkerHits = scoreHybridResults(
+        query,
+        documents,
+        rawResults.vectorHits,
+        rawResults.keywordHits,
+        categoryScorerConfig,
+        analysis.temporalHooks,
+      ).map(h => ({ ...h, triage }))
+    }
 
     // 7. Merge Knowledge Graph hits + Scored Worker hits (with Date-Hook Quota)
     const mergedHits: LayeredSearchResult[] = []

@@ -148,4 +148,36 @@ describe('query-analyzer', () => {
       expect(q1.choice).toBe('c4_literal')
     })
   })
+
+  describe('decomposeQuery', () => {
+    it('decomposes bridge query with "X for the room where I found Y"', async () => {
+      const { decomposeQuery } = await import('./query-analyzer')
+      const sub = decomposeQuery('What was the door code for the room where I found the expired sardines?')
+      expect(sub.length).toBeGreaterThanOrEqual(2)
+      expect(sub.some(s => s.toLowerCase().includes('expired sardines'))).toBe(true)
+      expect(sub.some(s => s.toLowerCase().includes('door code'))).toBe(true)
+    })
+
+    it('decomposes multi-entity query with "two different X, and which Y"', async () => {
+      const { decomposeQuery } = await import('./query-analyzer')
+      const sub = decomposeQuery('What were the two different access pin codes I used at NERV, and which door did each one unlock?')
+      expect(sub.length).toBeGreaterThanOrEqual(2)
+      expect(sub.some(s => s.toLowerCase().includes('pin code') || s.toLowerCase().includes('access'))).toBe(true)
+      expect(sub.some(s => s.toLowerCase().includes('door') || s.toLowerCase().includes('unlock'))).toBe(true)
+    })
+
+    it('decomposes temporal sequence query with "before or after"', async () => {
+      const { decomposeQuery } = await import('./query-analyzer')
+      const sub = decomposeQuery('Did we sneak into the cafeteria storage before or after the ramen contest where I hid the pork belly?')
+      expect(sub.length).toBeGreaterThanOrEqual(2)
+      expect(sub.some(s => s.toLowerCase().includes('cafeteria storage'))).toBe(true)
+      expect(sub.some(s => s.toLowerCase().includes('ramen contest') || s.toLowerCase().includes('pork belly'))).toBe(true)
+    })
+
+    it('decomposes identity question with "Who or what is X and when"', async () => {
+      const { decomposeQuery } = await import('./query-analyzer')
+      const sub = decomposeQuery('Who or what is \'Asukee\', and when did I first introduce her to you?')
+      expect(sub.some(s => s.toLowerCase().includes('asukee'))).toBe(true)
+    })
+  })
 })

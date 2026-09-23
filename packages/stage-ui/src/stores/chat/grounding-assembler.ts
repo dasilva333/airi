@@ -17,6 +17,17 @@ export interface SemanticMemoryItem {
   kind?: string
   title?: string
   content: string
+  id?: string
+  createdAt?: number | string
+  timestamp?: string
+  score?: number
+  isKgClaim?: boolean
+  subject?: string
+  predicate?: string
+  object?: string
+  dateInfo?: any
+  claimId?: string
+  subGoal?: string
 }
 
 export interface RecentTopicItem {
@@ -84,16 +95,67 @@ export function formatLifetimeMemoryBlock(context: string): GroundingMessage {
 
 /**
  * 2. RAG Universe Memory Injection
- * Formats semantic long-term memory query matches.
+ * Formats semantic long-term memory query matches with support for
+ * Knowledge Graph facts, proof bundle sub-goals, and episodic verbatim turns.
  */
 export function formatSemanticMemoriesBlock(memories: SemanticMemoryItem[]): GroundingMessage {
-  const memoriesFormatted = memories
-    .map(r => `[${(r.kind || 'Journal').toUpperCase()}] ${r.title || 'Memory'}\n${r.content}`)
-    .join('\n\n')
+  const kgClaims = memories.filter(r => r.isKgClaim || r.kind === 'kg_claim')
+  const episodicMemories = memories.filter(r => !r.isKgClaim && r.kind !== 'kg_claim')
+
+  const sections: string[] = []
+
+  // 1. Knowledge Graph Facts (Deterministic Structured Triples)
+  if (kgClaims.length > 0) {
+    const claimsFormatted = kgClaims.map((c) => {
+      const dateStr = c.dateInfo?.formatted_label ? ` [${c.dateInfo.formatted_label}]` : (c.timestamp ? ` [${c.timestamp.split('T')[0]}]` : '')
+      if (c.subject && c.predicate && c.object) {
+        return `• ${c.subject} ➔ ${c.predicate} ➔ ${c.object}${dateStr}`
+      }
+      return `• ${c.content}`
+    }).join('\n')
+
+    sections.push(`[CONFIRMED KNOWLEDGE GRAPH FACTS]\n${claimsFormatted}`)
+  }
+
+  // 2. Episodic & Verbatim Dialogue Memories
+  if (episodicMemories.length > 0) {
+    const hasDialogue = episodicMemories.some(r => r.kind === 'raw' || r.kind === 'user_turn' || r.kind === 'assistant_turn')
+    const hasKg = kgClaims.length > 0
+    const sectionHeader = hasKg
+      ? (hasDialogue ? '[VERBATIM DIALOGUE MEMORIES]\n' : '[EPISODIC & JOURNAL MEMORIES]\n')
+      : ''
+
+    const itemsFormatted = episodicMemories.map((r) => {
+      const kindTag = (r.kind || 'Journal').toUpperCase()
+      const titleTag = r.title || 'Memory'
+      let metaStr = ''
+
+      const rawDate = r.timestamp || r.createdAt
+      if (rawDate) {
+        try {
+          const d = (typeof rawDate === 'string' && rawDate.includes('T')) ? new Date(rawDate) : new Date(Number(rawDate) || rawDate)
+          if (!Number.isNaN(d.getTime())) {
+            metaStr += ` [${d.toISOString().replace('T', ' ').substring(0, 16)}]`
+          }
+        }
+        catch {}
+      }
+
+      if (r.subGoal) {
+        metaStr += ` (Sub-goal: "${r.subGoal}")`
+      }
+
+      return `[${kindTag}] ${titleTag}${metaStr}\n${r.content}`
+    }).join('\n\n')
+
+    sections.push(`${sectionHeader}${itemsFormatted}`)
+  }
+
+  const content = sections.join('\n\n---\n\n')
 
   return {
     role: 'system',
-    content: `[GROUNDED LONG-TERM MEMORIES]\nThe following long-term memory records from your history were retrieved based on the user's latest query. Use these memories to inform your response and maintain context continuity. Keep references to them natural and contextual:\n---\n${memoriesFormatted}`,
+    content: `[GROUNDED LONG-TERM MEMORIES]\nThe following long-term memory records from your history were retrieved based on the user's latest query. Use these memories to inform your response and maintain context continuity. Keep references to them natural and contextual:\n---\n${content}`,
   }
 }
 

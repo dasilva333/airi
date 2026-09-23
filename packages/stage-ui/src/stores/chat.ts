@@ -770,7 +770,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           const textJournalStore = useTextJournalStore()
           const results = await textJournalStore.searchEntries({
             query: sendingMessage,
-            limit: 3,
+            limit: 6,
             characterId: activeCardId.value,
             previousTurn: previousTurnText,
             anaphoraEnabled: true,

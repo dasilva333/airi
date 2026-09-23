@@ -75,6 +75,71 @@ describe('grounding-assembler pure formatters', () => {
 
       expect(result.content).toContain('[JOURNAL] Memory\nA memorable quiet afternoon.')
     })
+
+    it('formats knowledge graph facts as structured triples with dates', () => {
+      const memories = [
+        {
+          isKgClaim: true,
+          kind: 'kg_claim',
+          subject: 'Asuka',
+          predicate: 'has_door_code',
+          object: '3-3-9-0',
+          dateInfo: { formatted_label: 'June 5, 2026' },
+          content: '[Knowledge Graph] Asuka has_door_code 3-3-9-0',
+        },
+      ]
+      const result = formatSemanticMemoriesBlock(memories)
+
+      expect(result.content).toContain('[CONFIRMED KNOWLEDGE GRAPH FACTS]')
+      expect(result.content).toContain('• Asuka ➔ has_door_code ➔ 3-3-9-0 [June 5, 2026]')
+    })
+
+    it('formats episodic dialogue memories with timestamps and sub-goal annotations', () => {
+      const memories = [
+        {
+          kind: 'raw',
+          title: 'Door Code',
+          timestamp: '2026-06-05T14:22:00.000Z',
+          subGoal: 'door code room',
+          content: 'The door code is 3-3-9-0.',
+        },
+        {
+          kind: 'raw',
+          title: 'Sardines',
+          timestamp: '2026-06-05T14:35:00.000Z',
+          subGoal: 'expired sardines',
+          content: 'NERV branded sardines.',
+        },
+      ]
+      const result = formatSemanticMemoriesBlock(memories)
+
+      expect(result.content).toContain('[RAW] Door Code [2026-06-05 14:22] (Sub-goal: "door code room")')
+      expect(result.content).toContain('[RAW] Sardines [2026-06-05 14:35] (Sub-goal: "expired sardines")')
+    })
+
+    it('combines knowledge graph facts and verbatim dialogue into distinct sections', () => {
+      const memories = [
+        {
+          isKgClaim: true,
+          kind: 'kg_claim',
+          subject: 'NERV',
+          predicate: 'has_cafeteria',
+          object: 'Sector 3',
+          content: 'NERV has_cafeteria Sector 3',
+        },
+        {
+          kind: 'user_turn',
+          timestamp: '2026-06-05T14:20:00.000Z',
+          content: 'Where did we leave the backpack?',
+        },
+      ]
+      const result = formatSemanticMemoriesBlock(memories)
+
+      expect(result.content).toContain('[CONFIRMED KNOWLEDGE GRAPH FACTS]')
+      expect(result.content).toContain('• NERV ➔ has_cafeteria ➔ Sector 3')
+      expect(result.content).toContain('[VERBATIM DIALOGUE MEMORIES]')
+      expect(result.content).toContain('[USER_TURN] Memory [2026-06-05 14:20]\nWhere did we leave the backpack?')
+    })
   })
 
   describe('formatRecentTopicsBlock', () => {

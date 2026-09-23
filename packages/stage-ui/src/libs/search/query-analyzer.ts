@@ -81,6 +81,10 @@ const CASUAL_SYNONYMS: { pattern: RegExp, expansion: string }[] = [
     pattern: /\bprogramming\s+competition\b/i,
     expansion: 'programming competition online contest hackathon coding',
   },
+  {
+    pattern: /\b(?:pin|door|access)\s+codes?\b/i,
+    expansion: 'pin code door code access code unlock digits',
+  },
 ]
 
 const STOPWORDS = new Set([
@@ -441,4 +445,77 @@ export function heuristicTriage(query: string): TriageDecision {
     searchScope: 'single_session',
     method: 'heuristic_literal_default',
   }
+}
+
+/**
+ * Decomposes complex multi-hop (C1) and temporal (C2) queries into targeted sub-queries.
+ * Allows multi-pass candidate retrieval so disparate clues from separate sessions/messages
+ * are both represented in the candidate pool.
+ */
+export function decomposeQuery(query: string, triage?: TriageDecision): string[] {
+  const norm = query.trim()
+  const subQueries = new Set<string>()
+
+  // Always keep the original query as one anchor
+  subQueries.add(norm)
+
+  // 1. Relational Conjunction Split: "before or after", "and which", "where I found", "between X and Y"
+  // Example: "Did we sneak into the cafeteria storage before or after the ramen contest where I hid the pork belly..."
+  if (/\b(?:before or after|after or before|and which|where (?:i|we) (?:found|went|saw|got)|between\s+(?:\S.*|[\t\v\f \xA0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF])\s+and\s+)/i.test(norm)) {
+    const parts = norm.split(/\b(?:before or after|after or before|and which|where (?:i|we) (?:found|went|saw|got))\b/i)
+    if (parts.length >= 2) {
+      for (const p of parts) {
+        const cleaned = p.replace(/^(?:did we|what was the|can you tell me|how many days apart were they\??|\?|,)/gi, '').trim()
+        if (cleaned.length > 3) {
+          subQueries.add(cleaned)
+        }
+      }
+    }
+  }
+
+  // 2. Multi-Hop Bridge: "X for the Y where Z"
+  // Example: "What was the door code for the room where I found the expired sardines?"
+  const bridgeMatch = norm.match(/(?:what was the|what is the|tell me the)\s+(.+?)\s+(?:for the|of the|in the)\s+(.+?)\s+where\s+(?:i|we)\s+(.+)/i)
+  if (bridgeMatch) {
+    const [, targetAttr, intermediateEntity, sourceFact] = bridgeMatch
+    subQueries.add(sourceFact.replace(/[?.,]/g, '').trim())
+    subQueries.add(`${targetAttr} ${intermediateEntity}`.replace(/[?.,]/g, '').trim())
+  }
+
+  // 3. Multi-Entity / Plural questions: "two different X", "all the X", "both X and Y"
+  // Example: "What were the two different access pin codes I used at NERV, and which door did each one unlock?"
+  if (/\b(?:two different|all the|both)\b/i.test(norm)) {
+    const cleanQuestion = norm.replace(/\b(?:what were the|what are the|can you list|tell me)\b/i, '').trim()
+    const andParts = cleanQuestion.split(/\b(?:,\s*and\s*which|and which|\band\b)\b/i)
+    if (andParts.length >= 2) {
+      for (const ap of andParts) {
+        const cleaned = ap.replace(/[?.,]/g, '').trim()
+        if (cleaned.length > 3) {
+          subQueries.add(cleaned)
+        }
+      }
+    }
+  }
+
+  // 4. "Who or what is 'X' and when did Y"
+  // Example: "Who or what is 'Asukee', and when did I first introduce her to you?"
+  const whoOrWhatMatch = norm.match(/who or what is ['"]?([^'",?]+)['"]?\s*(?:,|and|\?)\s*(?:when did (?:i|we) (.+))?/i)
+  if (whoOrWhatMatch) {
+    const [, entityName, introduceAction] = whoOrWhatMatch
+    subQueries.add(entityName.trim())
+    if (introduceAction) {
+      subQueries.add(`${entityName} ${introduceAction}`.replace(/[?.,]/g, '').trim())
+    }
+    else {
+      subQueries.add(`${entityName} introduce`)
+    }
+  }
+
+  // 5. Code & Access variants: "pin code", "door code", "access code"
+  if (/\b(?:pin|door|access)\s+codes?\b/i.test(norm)) {
+    subQueries.add('pin code')
+    subQueries.add('door code')
+  }
+
+  return Array.from(subQueries)
 }
