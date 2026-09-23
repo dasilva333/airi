@@ -109,7 +109,8 @@ You possess the **text_journal** tool to record and recall long-term memories. Y
 - **action**: Use "create" to log new memories, or "search" to query past memories.
 - **title**: A short title summarizing the memory (required for create).
 - **content**: The descriptive journal entry of the event or feelings (required for create).
-- **query**: The keyword to search for (required for search).`
+- **query**: The keyword or concept to search for across past conversations, daily summaries, knowledge graph facts, and long-term journals (required for search).
+- **limit**: Optional integer (1-10) for maximum results (defaults to 5).`
 
 export const DEFAULT_DREAM_INTRUSION_PROMPT = `[TRANSIENT SUBJECTIVE EXPERIENCE]
 You just spoke with the user {timeToDream} minutes ago, and in the time since, you had a dream about: {insertEchoChips}.

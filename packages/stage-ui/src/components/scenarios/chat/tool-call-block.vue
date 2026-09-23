@@ -96,6 +96,22 @@ const imageJournalResult = computed(() => {
   }
 })
 
+const textJournalSearchResult = computed<any[] | null>(() => {
+  if (props.toolName !== 'text_journal' || !props.result)
+    return null
+  if (Array.isArray(props.result))
+    return props.result
+  if (typeof props.result === 'string') {
+    try {
+      const parsed = JSON.parse(props.result)
+      if (Array.isArray(parsed))
+        return parsed
+    }
+    catch {}
+  }
+  return null
+})
+
 const backgroundStore = useBackgroundStore()
 const resolvedImageUrl = computed(() => {
   const result = imageJournalResult.value
@@ -185,19 +201,46 @@ const formattedArgs = computed(() => {
           <span class="text-xs italic">Probing memory layers...</span>
         </div>
 
-        <div v-else-if="result && Array.isArray(result)" class="mt-2 flex flex-col gap-2">
-          <div v-for="entry in result" :key="entry.id" class="border-l-2 border-primary-500/30 rounded-r-md bg-primary-500/5 px-2 py-1.5">
-            <div class="mb-0.5 flex items-center justify-between">
-              <span class="text-[10px] font-bold tracking-tight uppercase op-50">{{ entry.title || 'Memory' }}</span>
-              <span v-if="entry.createdAt" class="text-[9px] op-40">{{ new Date(entry.createdAt).toLocaleDateString() }}</span>
+        <div v-else-if="textJournalSearchResult" class="mt-2 flex flex-col gap-2">
+          <div v-for="entry in textJournalSearchResult" :key="entry.id" class="border-l-2 border-primary-500/30 rounded-r-md bg-primary-500/5 px-2 py-1.5">
+            <div class="mb-1 flex items-center justify-between gap-1">
+              <div class="flex items-center gap-1.5 truncate">
+                <span
+                  v-if="entry.layer"
+                  :class="[
+                    'text-[9px] font-semibold px-1 py-0.2 rounded uppercase tracking-wider',
+                    entry.layer === 'knowledge-graph' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                    : entry.layer === 'dialogue' ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
+                      : entry.layer === 'short-term' ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400'
+                        : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+                  ]"
+                >
+                  {{ entry.layer === 'knowledge-graph' ? 'Knowledge Graph' : entry.layer }}
+                </span>
+                <span class="truncate text-[10px] font-bold tracking-tight uppercase op-60">
+                  {{ entry.subject || entry.title || 'Memory' }}
+                </span>
+              </div>
+              <div class="flex shrink-0 items-center gap-1">
+                <span v-if="entry.relevanceScore" class="text-[9px] font-mono op-40">
+                  {{ Math.round(entry.relevanceScore * 100) }}%
+                </span>
+                <span v-if="entry.date || entry.createdAt" class="text-[9px] op-40">
+                  {{ entry.date || (entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : '') }}
+                </span>
+              </div>
             </div>
             <div class="line-clamp-3 text-[13px] leading-relaxed italic op-90">
-              "{{ entry.content }}"
+              "{{ entry.observed_text || entry.content || entry.fact }}"
             </div>
           </div>
-          <div v-if="result.length === 0" class="py-2 text-center text-xs italic op-40">
+          <div v-if="textJournalSearchResult.length === 0" class="py-2 text-center text-xs italic op-40">
             No semantic matches found for this query.
           </div>
+        </div>
+
+        <div v-else-if="result && typeof result === 'string'" class="mt-2 whitespace-pre-wrap text-xs op-80">
+          {{ result }}
         </div>
       </template>
 
