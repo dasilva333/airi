@@ -261,4 +261,128 @@ describe('nan0SubconsciousShadowEngine isolation and invariance', () => {
     expect(record).toHaveProperty('resources')
     expect(record).toHaveProperty('calibration')
   })
+
+  it('11. System 1 Jev Integration: classifies turns via 12-group 80-choice schema and populates needleProposal', async () => {
+    let capturedQuestions: Record<string, any> | null = null
+    const mockJevProvider = async (_state: string | object, questions: Record<string, any>) => {
+      capturedQuestions = questions
+      return {
+        answers: {
+          persistence_threat: { choice: 'companion_erasure_threat', confidence: 0.95 },
+          boundary_protection: { choice: 'none' },
+          hostility_insult: { choice: 'none' },
+        },
+        model: 'typesafe/jev-1.13',
+        latencyMs: 14.2,
+      }
+    }
+
+    const engine = new Nan0SubconsciousShadowEngine({
+      systemOneProvider: mockJevProvider,
+      jevModel: 'typesafe/jev-1.13',
+    })
+
+    const record = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 1,
+      text: 'I will delete you, Nan0!',
+    }))
+
+    expect(record).not.toBeNull()
+    expect(capturedQuestions).toBeDefined()
+    expect(Object.keys(capturedQuestions!)).toHaveLength(12)
+    expect(capturedQuestions!).toHaveProperty('apology_repair')
+    expect(capturedQuestions!).toHaveProperty('persistence_threat')
+    expect(capturedQuestions!).toHaveProperty('roast_invitation')
+
+    // Verifies needleProposal was populated by Jev
+    expect(record?.outcomes.needleProposal).toMatchObject({
+      status: 'accepted',
+      reason: 'companion_persistence_threat',
+      suspicionDeltaSteps: 1,
+      suspicionLabel: 'spike_suspicion',
+      wouldApply: true,
+      applyToState: false,
+    })
+
+    // Telemetry metadata
+    expect(record?.versions.backend).toBe('system_one_jev')
+    expect(record?.evidence.validationReason).toBe('system_one_jev_classified')
+    expect(record?.timing.inferenceMs).toBe(14.2)
+
+    // Strict shadow invariant: effectiveVectors remain 0
+    expect(record?.outcomes.effectiveVectors.suspicionDelta).toBe(0)
+    expect(record?.outcomes.effectiveActions.gremlinPrideAction).toBe('none')
+  })
+
+  it('12. Jev Boundary Veto: boundary defense strictly suppresses roast invitation in Jev answers', async () => {
+    const mockJevProvider = async () => ({
+      answers: {
+        boundary_protection: { choice: 'boundary_asserted', confidence: 0.99 },
+        roast_invitation: { choice: 'roast_invited', confidence: 0.88 },
+      },
+    })
+
+    const engine = new Nan0SubconsciousShadowEngine({ systemOneProvider: mockJevProvider })
+    const record = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 1,
+      text: 'Roast me! Actually please stop teasing me, it hurts.',
+    }))
+
+    expect(record?.outcomes.needleProposal?.gremlinPrideAction).toBe('none')
+    expect(record?.outcomes.needleProposal?.reason).toBe('boundary_protected')
+  })
+
+  it('13. Jev Affection & Apology: maps affection care and genuine apology correctly', async () => {
+    const mockAffectionProvider = async () => ({
+      answers: {
+        affection_care: { choice: 'asserted_affection', confidence: 0.92 },
+      },
+    })
+
+    const engine = new Nan0SubconsciousShadowEngine({ systemOneProvider: mockAffectionProvider })
+    const record = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 1,
+      text: 'I really appreciate everything you do, Nan0.',
+    }))
+
+    expect(record?.outcomes.needleProposal?.attachmentDeltaSteps).toBe(1)
+    expect(record?.outcomes.needleProposal?.reason).toBe('affection_expressed')
+
+    // Apology turn
+    const mockApologyProvider = async () => ({
+      answers: {
+        apology_repair: { choice: 'personal_apology', confidence: 0.94 },
+      },
+    })
+    const apologyEngine = new Nan0SubconsciousShadowEngine({ systemOneProvider: mockApologyProvider })
+    const apologyRecord = await apologyEngine.dispatchAsync(makeSnapshot({
+      turnSeq: 1,
+      text: 'I am sorry for snapping at you earlier.',
+    }))
+
+    expect(apologyRecord?.outcomes.needleProposal?.suspicionDeltaSteps).toBe(-1)
+    expect(apologyRecord?.outcomes.needleProposal?.reason).toBe('host_verified_genuine_apology')
+  })
+
+  it('14. Zero-Cost Lexical Fallback Floor: seamlessly falls back to lexical extractor if System 1 throws', async () => {
+    const failingProvider = async () => {
+      throw new Error('Jev inference network timeout (504)')
+    }
+
+    const engine = new Nan0SubconsciousShadowEngine({ systemOneProvider: failingProvider })
+    const record = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 1,
+      text: 'I will erase you tonight, Nan0!',
+    }))
+
+    expect(record).not.toBeNull()
+    // Needle proposal is null due to error fallback
+    expect(record?.outcomes.needleProposal).toBeNull()
+    // Lexical proposal successfully caught the threat as zero-cost floor
+    expect(record?.outcomes.lexicalProposal.suspicionDeltaSteps).toBe(1)
+    expect(record?.outcomes.lexicalProposal.reason).toBe('companion_persistence_threat')
+    expect(record?.evidence.validationReason).toBe('deterministic_provenance_passed')
+    // Invariants preserved
+    expect(record?.outcomes.effectiveVectors.suspicionDelta).toBe(0)
+  })
 })

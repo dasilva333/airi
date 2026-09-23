@@ -27,13 +27,30 @@ export interface Nan0TurnSnapshot {
 
 export type Nan0PragmaticGroup
   = | 'none'
-    | 'persistence_threat'
-    | 'hostility_insult'
-    | 'boundary_protection'
-    | 'admitted_false_statement'
     | 'apology_repair'
-    | 'completed_repair'
     | 'affection_care'
+    | 'boundary_protection'
+    | 'hostility_insult'
+    | 'dismissal_neglect'
+    | 'persistence_threat'
+    | 'admitted_false_statement'
+    | 'commitment_pledge'
+    | 'completed_repair'
+    | 'mystery_secret'
+    | 'glitch_system'
+    | 'roast_invitation'
+
+export interface Nan0SystemOneResponse {
+  answers: Record<string, { choice: string, confidence?: number, probabilities?: Record<string, number> }>
+  model?: string
+  latencyMs?: number
+}
+
+export type Nan0SystemOneProvider = (
+  state: string | object,
+  questions: Record<string, any>,
+  model?: string,
+) => Promise<Nan0SystemOneResponse>
 
 export type Nan0SpeakerModality
   = | 'directly_asserted'
@@ -96,7 +113,7 @@ export interface Nan0ShadowTelemetryRecord {
     schemaVersion: string
     actorMappingVersion: string
     engineRevision: string
-    backend: 'strengthened_lexical' | 'needle_san_wasm' | 'needle_native_cpu'
+    backend: 'strengthened_lexical' | 'needle_san_wasm' | 'needle_native_cpu' | 'system_one_jev'
   }
   consumption: {
     lastSeenSeq: number
