@@ -213,7 +213,7 @@ export interface Nan0MetabolismEvaluationResult {
   }
 }
 
-interface Nan0PrepareTurnOptions {
+export interface Nan0PrepareTurnOptions {
   intention?: Nan0PendingIntention
   temporalEvent?: Nan0TemporalEvent
   autonomous?: boolean
@@ -3219,6 +3219,15 @@ Respond only with Nan0's outward expression. Do not output JSON, labels, analysi
         this.diagnostic('emotion.perturbed', { eventId: event.eventId, targetEmotion: event.targetEmotion, delta: event.delta, cause: event.cause, sourceId: event.sourceId })
     }
     return applied.events
+  }
+
+  public applyEmotionalImpact(
+    impact: Readonly<Record<string, number>>,
+    cause = 'external-perturbation',
+    sourceId = 'host',
+    at = this.now(),
+  ): Nan0EmotionalEvent[] {
+    return this.applyEmotionalConsequence(impact, cause, sourceId, at)
   }
 
   private enqueueMetabolismObservation(

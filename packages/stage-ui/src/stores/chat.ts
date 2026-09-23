@@ -1,3 +1,4 @@
+import type { Nan0Observation, Nan0PreparedTurn } from '@proj-airi/nan0-runtime'
 import type { WebSocketEventInputs } from '@proj-airi/server-sdk'
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { CommonContentPart, Message, ToolMessage } from '@xsai/shared-chat'
@@ -624,6 +625,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     let effectiveProviderId = typeof options.chatProvider === 'string'
       ? options.chatProvider
       : activeProvider.value
+
+    let activeNan0PreparedTurn: Nan0PreparedTurn | null = null
 
     try {
       sending.value = true
@@ -1431,102 +1434,130 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
             })
 
             try {
-              const firstHopProvider = await providersStore.getProviderInstance(firstHopProviderId)
               const firstHopConfig = providersStore.getProviderConfig(firstHopProviderId)
               const headers = { ...(firstHopConfig?.headers as Record<string, string> | undefined) }
               if (firstHopProviderId === 'opencode-go' && sessionId && !headers['x-opencode-session']) {
                 headers['x-opencode-session'] = sessionId
               }
 
-              // Build the output guidance instructions for the 1st-Hop LLM
-              let firstHopSystemPrompt = ''
               if (processorMode === 'local_nan0') {
-                // Kyo's local rules engine instructions (System Prompt for Nan0 private thoughts)
-                firstHopSystemPrompt = `[COGNITIVE PROCESSOR: NAN0 LOCAL]
-You are the inner thoughts, attention processor, and emotional monologue generator for the character.
-Generate a thought log matching the strict Nan0 token-delimited formatting schema:
-[ATTENTION] score
-[EMOTION] state
-[MONOLOGUE]
-Your subconscious monologue.
-[DECISION] SPEAK or SILENCE`
+                const nan0Store = useNan0Store()
+                const userContentStr = typeof sendingMessage === 'string'
+                  ? sendingMessage
+                  : (inferenceUserMessage ? getMsgStringContent(inferenceUserMessage.content) : '')
+
+                const observation: Nan0Observation = {
+                  id: `obs_${nanoid()}`,
+                  source: 'chat',
+                  actorId: 'kyo',
+                  displayName: 'User',
+                  sessionId,
+                  timestamp: sendingCreatedAt || Date.now(),
+                  content: userContentStr,
+                  metadata: {
+                    sessionId,
+                    messageId: userMessageId,
+                    cardId: (activeCard.value as any)?.id || activeCardId.value,
+                    pendingDreamMood: dreamState?.pendingDreamMood,
+                  },
+                }
+
+                const prepared = await nan0Store.prepareTurn(
+                  observation,
+                  { autonomous: false },
+                  {
+                    providerId: firstHopProviderId,
+                    modelId: firstHopModelId,
+                    headers,
+                  },
+                )
+                activeNan0PreparedTurn = prepared
+
+                // Executive Decision Gate: SILENCE or Suppressed
+                if (prepared.decision.finalDecision === 'SILENCE' || !prepared.decision.allowed) {
+                  chatLog('[Cognition] Nan0 executive decision: SILENCE. Suppressing vocal response.', {
+                    reason: prepared.decision.suppressionReason || prepared.decision.reasonCodes.join(', '),
+                  })
+                  rollbackIntrusions(turnLeaseId)
+
+                  await nan0Store.recordSilenceDecision({
+                    turnId: prepared.turnId,
+                    thoughtId: prepared.thoughtId,
+                    decisionId: prepared.decision.decisionId,
+                    reason: prepared.decision.suppressionReason || 'Nan0 chose silence.',
+                    timestamp: Date.now(),
+                  })
+
+                  if (!isStaleGeneration()) {
+                    const currentMessages = chatSession.getSessionMessages(sessionId)
+                    chatSession.setSessionMessages(sessionId, [
+                      ...currentMessages,
+                      {
+                        ...toRaw(buildingMessage),
+                        role: 'assistant',
+                        content: 'NO_REPLY',
+                        rawContent: 'NO_REPLY',
+                        slices: [],
+                      } as any,
+                    ])
+                  }
+
+                  if (isForegroundSession()) {
+                    streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
+                  }
+                  await hooks.emitStreamEndHooks(streamingMessageContext)
+                  return
+                }
+
+                // Executive Decision Gate: SPEAK
+                if (prepared.systemContext?.trim()) {
+                  const systemIdx = newMessages.findIndex(m => m.role === 'system')
+                  const insertIdx = systemIdx >= 0 ? systemIdx + 1 : 0
+                  newMessages.splice(insertIdx, 0, {
+                    role: 'system',
+                    content: prepared.systemContext.trim(),
+                  })
+                }
               }
               else {
                 // Pass-through proxy/default instructions
-                firstHopSystemPrompt = cognitionConfig.outputGuidance || `[COGNITIVE PROCESSOR]
+                const firstHopProvider = await providersStore.getProviderInstance(firstHopProviderId)
+                const firstHopSystemPrompt = cognitionConfig.outputGuidance || `[COGNITIVE PROCESSOR]
 You are the inner thoughts, attention processor, and emotional monologue generator for the character.
 Analyze the conversation history and the latest user message. Generate a concise inner monologue detailing your emotional state, attention highlights, memories to fetch, and immediate conversational directives.
 Format your output as a raw thought log.`
-              }
 
-              const firstHopMessages = [
-                { role: 'system', content: firstHopSystemPrompt },
-                ...newMessages.filter(m => m.role !== 'system'),
-              ]
-
-              const nan0Store = useNan0Store()
-              if (processorMode === 'local_nan0') {
-                nan0Store.setProcessing(true)
-              }
-
-              const firstHopResponse = await llmStore.generate(
-                firstHopModelId,
-                firstHopProvider as any,
-                firstHopMessages as Message[],
-                {
-                  headers,
-                  temperature: 0.7,
-                },
-              )
-
-              const rawOutput = firstHopResponse.text || ''
-              useLiveSessionStore().recordInferenceUsage(firstHopResponse.usage)
-              chatLog('[Cognition] Raw 1st-Hop output:', rawOutput)
-
-              let monologueText = ''
-              if (processorMode === 'local_nan0') {
-                nan0Store.setProcessing(false)
-                // Parse rawOutput matching the strict token format ([EMOTION], [ATTENTION], [MONOLOGUE], [DECISION]).
-                const monologueMatch = rawOutput.match(/\[MONOLOGUE\]\s*([\s\S]*?)(?:\[DECISION\]|$)/i)
-                monologueText = monologueMatch ? monologueMatch[1].trim() : rawOutput
-                nan0Store.setInnerMonologue(monologueText)
-
-                const decisionMatch = rawOutput.match(/\[DECISION\]\s*(SPEAK|SILENCE)/i)
-                if (decisionMatch) {
-                  const decisionVal = decisionMatch[1].toUpperCase() as 'SPEAK' | 'SILENCE'
-                  nan0Store.setExecutiveState(decisionVal, decisionVal === 'SILENCE' ? 'Demands Silence' : 'Vocal Dialogue')
-                }
-
-                const emotionMatch = rawOutput.match(/\[EMOTION\]\s*([^\n\r]+)/i)
-                if (emotionMatch) {
-                  const pairs = emotionMatch[1].split(/[,;]/)
-                  for (const pair of pairs) {
-                    const [k, v] = pair.split(':').map(s => s.trim().toLowerCase())
-                    const num = Number.parseFloat(v)
-                    if (k && !Number.isNaN(num)) {
-                      nan0Store.updateEmotion(k, num)
-                    }
-                  }
-                }
-              }
-              else {
-                // Pass-through: Treat the entire output as the monologue
-                monologueText = rawOutput
-              }
-
-              if (monologueText.trim()) {
-                // Inject the monologue as a system instruction before sending to 2nd LLM
-                const system = newMessages.slice(0, 1)
-                const afterSystem = newMessages.slice(1)
-
-                newMessages = [
-                  ...system,
-                  {
-                    role: 'system',
-                    content: `[INTERNAL MONOLOGUE & ATTENTION DIRECTIVE]\n${monologueText.trim()}`,
-                  },
-                  ...afterSystem,
+                const firstHopMessages = [
+                  { role: 'system', content: firstHopSystemPrompt },
+                  ...newMessages.filter(m => m.role !== 'system'),
                 ]
+
+                const firstHopResponse = await llmStore.generate(
+                  firstHopModelId,
+                  firstHopProvider as any,
+                  firstHopMessages as Message[],
+                  {
+                    headers,
+                    temperature: 0.7,
+                  },
+                )
+
+                const rawOutput = firstHopResponse.text || ''
+                useLiveSessionStore().recordInferenceUsage(firstHopResponse.usage)
+                chatLog('[Cognition] Raw 1st-Hop output:', rawOutput)
+
+                if (rawOutput.trim()) {
+                  const system = newMessages.slice(0, 1)
+                  const afterSystem = newMessages.slice(1)
+                  newMessages = [
+                    ...system,
+                    {
+                      role: 'system',
+                      content: `[INTERNAL MONOLOGUE & ATTENTION DIRECTIVE]\n${rawOutput.trim()}`,
+                    },
+                    ...afterSystem,
+                  ]
+                }
               }
             }
             catch (err) {
@@ -1835,6 +1866,19 @@ Format your output as a raw thought log.`
         // Commit leased intrusions upon successful message persistence
         commitIntrusions(turnLeaseId)
 
+        if (activeNan0PreparedTurn) {
+          void useNan0Store().recordAssistantTurn({
+            turnId: activeNan0PreparedTurn.turnId,
+            thoughtId: activeNan0PreparedTurn.thoughtId,
+            decisionId: activeNan0PreparedTurn.decision.decisionId,
+            content: typeof buildingMessage.content === 'string' ? buildingMessage.content : '',
+            rawContent: rawFullText,
+            timestamp: Date.now(),
+          }).catch((err) => {
+            console.error('[Cognition] Failed to record Nan0 assistant turn:', err)
+          })
+        }
+
         if (hasDreamLease && activeCard.value) {
           const currentDreamState = activeCard.value.extensions?.airi?.dreamState
           void airiCardStore.updateCard((activeCard.value as any).id, {
@@ -1901,6 +1945,17 @@ Format your output as a raw thought log.`
       }
     }
     catch (error: any) {
+      if (activeNan0PreparedTurn) {
+        void useNan0Store().failTurn({
+          turnId: activeNan0PreparedTurn.turnId,
+          thoughtId: activeNan0PreparedTurn.thoughtId,
+          error: error instanceof Error ? error.message : String(error || 'Turn generation aborted'),
+          timestamp: Date.now(),
+        }).catch((err) => {
+          console.error('[Cognition] Failed to record Nan0 turn failure:', err)
+        })
+      }
+
       // User-initiated stop: stopCurrentGeneration() already bumped the session generation and
       // aborted the stream controller, persisted the partial reply (if hadContent), and emitted the finalize hooks.
       // Exit cleanly — no error bubble, no rethrow (a rethrow would reject the queued send's promise
