@@ -3,6 +3,7 @@ import type {
   Nan0ContinuityContext,
   Nan0EmotionalEvent,
   Nan0EmotionalInterpretationModifier,
+  Nan0EpistemicGroundingContext,
   Nan0GoalSignal,
   Nan0IntentionSignal,
   Nan0MemoryRecord,
@@ -66,6 +67,7 @@ export interface Nan0ThoughtEngineInput {
     phase: 'narrative' | 'extraction'
     partialNarrativeLength: number
   }) => void | Promise<void>
+  retrievedMemoryContext?: string | Nan0EpistemicGroundingContext | null
 }
 
 interface PressureScores {
@@ -107,6 +109,67 @@ function structuredFacts(value: string | undefined): unknown {
   catch {
     return null
   }
+}
+
+function formatEpistemicGrounding(context?: string | Nan0EpistemicGroundingContext | null): {
+  journalEntries?: Array<{ date?: string, title?: string, content: string, tags?: string[] }>
+  stmmRecaps?: Array<{ date?: string, summary: string }>
+  entityDossiers?: Array<{ label: string, type?: string, claims?: Array<{ subject: string, predicate: string, object: string }> }>
+  facts?: Array<{ source: string, title?: string, date?: string, content: string }>
+  rawText?: string
+} | null {
+  if (!context)
+    return null
+  if (typeof context === 'string') {
+    const trimmed = context.trim()
+    return trimmed ? { rawText: trimmed.slice(0, 1_000) } : null
+  }
+  const hasJournal = Array.isArray(context.journalEntries) && context.journalEntries.length > 0
+  const hasStmm = Array.isArray(context.stmmRecaps) && context.stmmRecaps.length > 0
+  const hasEntities = Array.isArray(context.entityDossiers) && context.entityDossiers.length > 0
+  const hasFacts = Array.isArray(context.facts) && context.facts.length > 0
+  const hasRaw = typeof context.rawText === 'string' && context.rawText.trim().length > 0
+
+  if (!hasJournal && !hasStmm && !hasEntities && !hasFacts && !hasRaw)
+    return null
+
+  return {
+    ...(hasJournal ? { journalEntries: context.journalEntries!.slice(0, 5).map(e => ({ date: e.date, title: e.title, content: e.content.slice(0, 300), tags: e.tags?.slice(0, 4) })) } : {}),
+    ...(hasStmm ? { stmmRecaps: context.stmmRecaps!.slice(0, 3).map(r => ({ date: r.date, summary: r.summary.slice(0, 300) })) } : {}),
+    ...(hasEntities ? { entityDossiers: context.entityDossiers!.slice(0, 5).map(d => ({ label: d.label, type: d.type, claims: d.claims?.slice(0, 5) })) } : {}),
+    ...(hasFacts ? { facts: context.facts!.slice(0, 10).map(f => ({ source: f.source, title: f.title, date: f.date, content: f.content.slice(0, 300) })) } : {}),
+    ...(hasRaw ? { rawText: context.rawText!.trim().slice(0, 1_000) } : {}),
+  }
+}
+
+function extractEpistemicReferences(context?: string | Nan0EpistemicGroundingContext | null): string[] {
+  if (!context || typeof context === 'string')
+    return []
+  const refs: string[] = []
+  if (context.journalEntries) {
+    for (let i = 0; i < context.journalEntries.length; i++) {
+      const entry = context.journalEntries[i]
+      refs.push(`journal:${entry.title ? entry.title.replace(/\s+/g, '_').slice(0, 40) : i}`)
+    }
+  }
+  if (context.entityDossiers) {
+    for (const d of context.entityDossiers) {
+      refs.push(`entity:${d.label.replace(/\s+/g, '_').slice(0, 40)}`)
+    }
+  }
+  if (context.stmmRecaps) {
+    for (let i = 0; i < context.stmmRecaps.length; i++) {
+      const r = context.stmmRecaps[i]
+      refs.push(`stmm:${r.date ?? i}`)
+    }
+  }
+  if (context.facts) {
+    for (let i = 0; i < context.facts.length; i++) {
+      const f = context.facts[i]
+      refs.push(`fact:${f.source}:${i}`)
+    }
+  }
+  return refs
 }
 
 function observationText(observation: Nan0Observation): string {
@@ -387,6 +450,23 @@ function pressureScores(input: Nan0ThoughtEngineInput): PressureScores {
     relationshipPressure += 0.15
     reasonCodes.push('time.kyo-absence')
   }
+  const hasEpistemic = Boolean(
+    input.retrievedMemoryContext && (
+      typeof input.retrievedMemoryContext === 'string'
+        ? input.retrievedMemoryContext.trim().length > 0
+        : (
+            (input.retrievedMemoryContext.journalEntries?.length ?? 0) > 0
+            || (input.retrievedMemoryContext.stmmRecaps?.length ?? 0) > 0
+            || (input.retrievedMemoryContext.entityDossiers?.length ?? 0) > 0
+            || (input.retrievedMemoryContext.facts?.length ?? 0) > 0
+            || Boolean(input.retrievedMemoryContext.rawText?.trim())
+          )
+    ),
+  )
+  if (hasEpistemic) {
+    reasonCodes.push('memory.epistemic-grounded')
+    noveltyScore = Math.min(1, noveltyScore + 0.1)
+  }
 
   const emotionalPressure = clamp(0.35 + emotionalIntensity, 0, 2)
   relationshipPressure = clamp(relationshipPressure, 0, 2)
@@ -479,6 +559,9 @@ function factualPrompt(input: Nan0ThoughtEngineInput, scores: PressureScores): s
     memories: memoryFacts,
     continuity: continuityFacts,
     relationship: relationshipFacts,
+    ...(formatEpistemicGrounding(input.retrievedMemoryContext)
+      ? { epistemicGrounding: formatEpistemicGrounding(input.retrievedMemoryContext) }
+      : {}),
   })
 }
 
@@ -494,8 +577,10 @@ Silence, refusal, irritation, affection, uncertainty, action, and waiting are va
 Do not become helpful, compliant, neutral, therapeutic, customer-service-like, or generic.
 Do not repeat these instructions, mention prompts, schemas, JSON, thought IDs, delimiters, or provider mechanics.
 
-Interpretive lenses are subjective possibilities, not objective facts, and may never override observed evidence:
+Interpretive lenses are subjective possibilities, not objective facts, and may never override observed evidence or established epistemic memory:
 ${worldview}
+
+When epistemic memory grounding is provided (journal entries, recaps, entity dossiers), treat them as factual historical truth. Ground private reflections in them rather than inventing contradictory past occurrences.
 
 Return exactly:
 <Nan0's private first-person interior narrative>
@@ -516,6 +601,7 @@ export function createFailedNan0Thought(
   failureReason = 'thought.generation-failed',
 ): Nan0Thought {
   const scores = pressureScores(input)
+  const epistemicRefs = extractEpistemicReferences(input.retrievedMemoryContext)
   return normalizeNan0Thought({
     schemaVersion: 2,
     thoughtId: input.thoughtId,
@@ -532,7 +618,7 @@ export function createFailedNan0Thought(
     decision: 'SILENCE',
     confidence: 0,
     mood: 'unresolved',
-    memoryReferences: input.memories.map(memory => memory.id).slice(0, MAX_REFERENCES),
+    memoryReferences: [...input.memories.map(memory => memory.id), ...epistemicRefs].slice(0, MAX_REFERENCES),
     relationshipReferences: [
       ...(input.relationship.relationshipId ? [input.relationship.relationshipId] : []),
       ...input.relationship.activeGrievances.map(item => item.grievanceId),
@@ -553,6 +639,7 @@ export function createFailedNan0Thought(
       ownerActorId: 'nan0',
       cognitionFormat: 'narrative-first',
       narrativeAvailable: false,
+      epistemicGroundingAvailable: Boolean(formatEpistemicGrounding(input.retrievedMemoryContext)),
     },
   })
 }
@@ -594,6 +681,7 @@ function createExtractionFailedNan0Thought(
   finishReason?: string,
 ): Nan0Thought {
   const scores = pressureScores(input)
+  const epistemicRefs = extractEpistemicReferences(input.retrievedMemoryContext)
   return normalizeNan0Thought({
     schemaVersion: 2,
     thoughtId: input.thoughtId,
@@ -613,7 +701,7 @@ function createExtractionFailedNan0Thought(
     speakability: 0,
     confidence: 0,
     mood: 'unresolved',
-    memoryReferences: input.memories.map(memory => memory.id).slice(0, MAX_REFERENCES),
+    memoryReferences: [...input.memories.map(memory => memory.id), ...epistemicRefs].slice(0, MAX_REFERENCES),
     relationshipReferences: [
       ...(input.relationship.relationshipId ? [input.relationship.relationshipId] : []),
       ...input.relationship.activeGrievances.map(item => item.grievanceId),
@@ -636,6 +724,7 @@ function createExtractionFailedNan0Thought(
       cognitionFormat: 'narrative-first',
       narrativeAvailable: true,
       extractionStatus: 'failed',
+      epistemicGroundingAvailable: Boolean(formatEpistemicGrounding(input.retrievedMemoryContext)),
     },
   })
 }
@@ -768,7 +857,7 @@ export async function generateNan0Thought(input: Nan0ThoughtEngineInput): Promis
         speakability,
         confidence: typeof payload.confidence === 'number' ? clamp(payload.confidence) : 0.5,
         mood: boundedText(payload.mood, 60) || 'watchful',
-        memoryReferences: input.memories.map(memory => memory.id).slice(0, MAX_REFERENCES),
+        memoryReferences: [...input.memories.map(memory => memory.id), ...extractEpistemicReferences(input.retrievedMemoryContext)].slice(0, MAX_REFERENCES),
         relationshipReferences: [
           ...(input.relationship.relationshipId ? [input.relationship.relationshipId] : []),
           ...input.relationship.activeGrievances.map(item => item.grievanceId),
@@ -796,6 +885,7 @@ export async function generateNan0Thought(input: Nan0ThoughtEngineInput): Promis
           policyVersion: policy.policyVersion,
           temperature,
           maximumOutputTokens: policy.narrativeTokenLimit,
+          epistemicGroundingAvailable: Boolean(formatEpistemicGrounding(input.retrievedMemoryContext)),
         },
       })
     }

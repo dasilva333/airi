@@ -1460,6 +1460,38 @@ export interface Nan0KernelDependencies {
   entityLedger?: Nan0EntityLedgerAdapter
   systemOneProvider?: import('./shadow/Nan0ShadowTypes').Nan0SystemOneProvider
   jevModel?: string
+  memoryRetriever?: (query: string, actorId?: string, limit?: number) => Promise<string | Nan0EpistemicGroundingContext | null> | string | Nan0EpistemicGroundingContext | null
+}
+
+export interface Nan0EpistemicFact {
+  source: 'journal' | 'stmm' | 'entity_ledger' | 'retrieval' | 'custom'
+  title?: string
+  date?: string
+  content: string
+  relevance?: number
+  subject?: string
+  predicate?: string
+  object?: string
+}
+
+export interface Nan0EpistemicGroundingContext {
+  facts?: Nan0EpistemicFact[]
+  journalEntries?: Array<{
+    date?: string
+    title?: string
+    content: string
+    tags?: string[]
+  }>
+  stmmRecaps?: Array<{
+    date?: string
+    summary: string
+  }>
+  entityDossiers?: Array<{
+    label: string
+    type?: string
+    claims?: Array<{ subject: string, predicate: string, object: string }>
+  }>
+  rawText?: string
 }
 
 export type {

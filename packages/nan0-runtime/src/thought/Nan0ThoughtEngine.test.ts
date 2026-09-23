@@ -1,4 +1,10 @@
-import type { Nan0CapabilityDefinition, Nan0Observation, Nan0ReasoningClient, Nan0Thought } from '../types'
+import type {
+  Nan0CapabilityDefinition,
+  Nan0EpistemicGroundingContext,
+  Nan0Observation,
+  Nan0ReasoningClient,
+  Nan0Thought,
+} from '../types'
 
 import { describe, expect, it, vi } from 'vitest'
 
@@ -43,6 +49,8 @@ function createKernel(
   prefix = 'id',
   availableActionIntents: readonly string[] = [],
   canBodyExpress = false,
+  memoryRetriever?: (query: string, actorId?: string, limit?: number) => Promise<string | Nan0EpistemicGroundingContext | null> | string | Nan0EpistemicGroundingContext | null,
+  diagnostic?: (event: any) => void,
 ) {
   let id = 0
   const clock = new ControllableNan0Clock({ wallTime: 1_000, monotonicTime: 1_000 })
@@ -73,6 +81,8 @@ function createKernel(
       clock,
       decisionCapabilities: { canSpeak: true, canBodyExpress, availableActionIntents },
       capabilityDefinitions,
+      memoryRetriever,
+      diagnostic,
     }),
     store,
   }
@@ -95,10 +105,13 @@ function observation(overrides: Partial<Nan0Observation> = {}): Nan0Observation 
 async function preparedKernel(
   reasoningClient: Nan0ReasoningClient = clientWith(thoughtEnvelope()),
   overrides: Partial<Nan0Observation> = {},
+  options?: Parameters<Nan0Kernel['prepareTurn']>[1],
+  memoryRetriever?: (query: string, actorId?: string, limit?: number) => Promise<string | Nan0EpistemicGroundingContext | null> | string | Nan0EpistemicGroundingContext | null,
+  diagnostic?: (event: any) => void,
 ) {
-  const setup = createKernel(reasoningClient)
+  const setup = createKernel(reasoningClient, new InMemoryStateStore(), 'id', [], false, memoryRetriever, diagnostic)
   await setup.kernel.boot()
-  const prepared = await setup.kernel.prepareTurn(observation(overrides))
+  const prepared = await setup.kernel.prepareTurn(observation(overrides), options)
   return { ...setup, prepared }
 }
 
@@ -578,5 +591,129 @@ describe('nan0ThoughtEngine thought-first contract', () => {
     const before = structuredClone(prepared.thought) as Nan0Thought
     await kernel.recordAssistantTurn({ turnId: prepared.turnId, thoughtId: prepared.thoughtId, content: 'Outward.' })
     expect(kernel.getThoughts()[0]).toEqual(before)
+  })
+})
+
+describe('nan0ThoughtEngine domain 4 epistemic grounding', () => {
+  const groundingContext: Nan0EpistemicGroundingContext = {
+    journalEntries: [{
+      date: '2026-09-20',
+      title: 'Late Night Coding',
+      content: 'Kyo stayed up until 3am refactoring the memory pipeline.',
+      tags: ['memory', 'kyo'],
+    }],
+    stmmRecaps: [{
+      date: '2026-09-22',
+      summary: 'Discussed architectural boundaries and PCL grievance tracking.',
+    }],
+    entityDossiers: [{
+      label: 'Airi',
+      type: 'character',
+      claims: [{ subject: 'Airi', predicate: 'created_by', object: 'Kyo' }],
+    }],
+    facts: [{
+      source: 'journal',
+      title: 'Fact 1',
+      content: 'Nan0 was initialized with Pass 11 layered memory architecture.',
+    }],
+  }
+
+  it('injects structured epistemic grounding into factual prompt payload and grounds system prompt', async () => {
+    let capturedPrompt = ''
+    let capturedSystem = ''
+    const { prepared } = await preparedKernel(
+      {
+        async generate(request) {
+          capturedSystem = request.system
+          capturedPrompt = request.messages[0].content
+          return { text: thoughtEnvelope(), finishReason: 'stop' }
+        },
+      },
+      {},
+      { retrievedMemoryContext: groundingContext },
+    )
+
+    expect(capturedSystem).toContain('When epistemic memory grounding is provided (journal entries, recaps, entity dossiers), treat them as factual historical truth.')
+    const payload = JSON.parse(capturedPrompt)
+    expect(payload.epistemicGrounding).toBeDefined()
+    expect(payload.epistemicGrounding.journalEntries[0].title).toBe('Late Night Coding')
+    expect(payload.epistemicGrounding.stmmRecaps[0].summary).toContain('PCL grievance')
+    expect(payload.epistemicGrounding.entityDossiers[0].label).toBe('Airi')
+    expect(payload.epistemicGrounding.facts[0].content).toContain('Pass 11')
+    expect(prepared.thought.reasonCodes).toContain('memory.epistemic-grounded')
+    expect(prepared.thought.metadata.epistemicGroundingAvailable).toBe(true)
+    expect(prepared.thought.memoryReferences).toContain('journal:Late_Night_Coding')
+    expect(prepared.thought.memoryReferences).toContain('entity:Airi')
+    expect(prepared.thought.memoryReferences).toContain('stmm:2026-09-22')
+    expect(prepared.thought.memoryReferences).toContain('fact:journal:0')
+  })
+
+  it('automatically resolves epistemic grounding via memoryRetriever dependency and formats systemContext', async () => {
+    const memoryRetriever = vi.fn().mockResolvedValue(groundingContext)
+    const { prepared } = await preparedKernel(
+      clientWith(thoughtEnvelope()),
+      { content: 'What did we talk about yesterday?' },
+      undefined,
+      memoryRetriever,
+    )
+
+    expect(memoryRetriever).toHaveBeenCalledWith('What did we talk about yesterday?', 'kyo', 5)
+    expect(prepared.epistemicGrounding).toEqual(groundingContext)
+    expect(prepared.systemContext).toContain('EPISTEMIC MEMORY GROUNDING')
+    expect(prepared.systemContext).toContain('SACRED JOURNAL (LTMM):')
+    expect(prepared.systemContext).toContain('[2026-09-20 - Late Night Coding] Kyo stayed up until 3am')
+    expect(prepared.systemContext).toContain('DAILY RECAPS (STMM):')
+    expect(prepared.systemContext).toContain('[2026-09-22] Discussed architectural boundaries')
+    expect(prepared.systemContext).toContain('ENTITY DOSSIERS:')
+    expect(prepared.systemContext).toContain('Airi (character): (Airi)-[created_by]->(Kyo)')
+    expect(prepared.systemContext).toContain('FACTS:')
+    expect(prepared.systemContext).toContain('[journal] Nan0 was initialized with Pass 11')
+  })
+
+  it('handles raw text string grounding gracefully in prompt and systemContext', async () => {
+    const rawExcerpt = 'Historical excerpt: Sacred Journal entry confirms Kyo approved autonomous proactivity.'
+    const { prepared } = await preparedKernel(
+      clientWith(thoughtEnvelope()),
+      {},
+      { retrievedMemoryContext: rawExcerpt },
+    )
+
+    expect(prepared.thought.reasonCodes).toContain('memory.epistemic-grounded')
+    expect(prepared.thought.metadata.epistemicGroundingAvailable).toBe(true)
+    expect(prepared.systemContext).toContain('EPISTEMIC MEMORY GROUNDING')
+    expect(prepared.systemContext).toContain(rawExcerpt)
+  })
+
+  it('tolerates memoryRetriever failure gracefully without interrupting turn preparation', async () => {
+    const diagnostics: Array<{ event: string, payload: unknown }> = []
+    const memoryRetriever = vi.fn().mockRejectedValue(new Error('IndexedDB storage connection timeout'))
+    const { prepared } = await preparedKernel(
+      clientWith(thoughtEnvelope()),
+      { content: 'Query during storage failure' },
+      undefined,
+      memoryRetriever,
+      (diag) => {
+        diagnostics.push({ event: diag.event, payload: diag.payload })
+      },
+    )
+
+    expect(prepared.thought.status).toBe('generated')
+    expect(prepared.epistemicGrounding).toBeNull()
+    expect(diagnostics.some(d => d.event === 'memoryRetriever.failed')).toBe(true)
+  })
+
+  it('allows options.retrievedMemoryContext to override memoryRetriever dependency', async () => {
+    const memoryRetriever = vi.fn().mockResolvedValue(groundingContext)
+    const override = 'Override text from custom caller context'
+    const { prepared } = await preparedKernel(
+      clientWith(thoughtEnvelope()),
+      {},
+      { retrievedMemoryContext: override },
+      memoryRetriever,
+    )
+
+    expect(memoryRetriever).not.toHaveBeenCalled()
+    expect(prepared.epistemicGrounding).toBe(override)
+    expect(prepared.systemContext).toContain(override)
   })
 })

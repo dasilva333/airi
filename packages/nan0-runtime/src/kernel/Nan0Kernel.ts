@@ -13,6 +13,7 @@ import type {
   Nan0ConversationTurn,
   Nan0DecisionRecord,
   Nan0EmotionalEvent,
+  Nan0EpistemicGroundingContext,
   Nan0Expression,
   Nan0Goal,
   Nan0GoalStatus,
@@ -161,6 +162,7 @@ export interface Nan0PreparedTurn {
   systemContext: string
   recalledMemories: Nan0MemoryRecord[]
   actionAuthority: Nan0ActionAuthority | null
+  epistemicGrounding?: string | Nan0EpistemicGroundingContext | null
 }
 
 export interface Nan0AutonomyEvaluationResult {
@@ -218,6 +220,7 @@ interface Nan0PrepareTurnOptions {
   hostReady?: boolean
   internalObservation?: Nan0InternalObservationRecord
   heartbeatTickId?: string
+  retrievedMemoryContext?: string | Nan0EpistemicGroundingContext | null
 }
 
 function defaultInitialState(
@@ -730,6 +733,23 @@ export class Nan0Kernel {
       ? this.retrieveRelevantMemories(text, ownership.actorId, 10)
       : []
 
+    let retrievedMemoryContext: string | Nan0EpistemicGroundingContext | null = null
+    if (options.retrievedMemoryContext !== undefined) {
+      retrievedMemoryContext = options.retrievedMemoryContext
+    }
+    else if (this.dependencies.memoryRetriever && text) {
+      try {
+        retrievedMemoryContext = await this.dependencies.memoryRetriever(text, ownership.actorId, 5)
+      }
+      catch (error) {
+        this.diagnostic('memoryRetriever.failed', {
+          ...diagnosticContext,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        retrievedMemoryContext = null
+      }
+    }
+
     const userEvent: Nan0MemoryRecord = {
       id: this.createId(),
       kind: 'event',
@@ -991,6 +1011,7 @@ export class Nan0Kernel {
       createdAt: this.now(),
       policy: thoughtPolicy,
       signal: controller.signal,
+      retrievedMemoryContext,
       onStreamProgress: async (progress: { attempt: number, phase: 'narrative' | 'extraction', partialNarrativeLength: number }) => {
         const phaseChanged = progress.phase !== persistedProgressPhase
         if (!phaseChanged && progress.partialNarrativeLength - persistedProgressLength < 128)
@@ -1322,8 +1343,9 @@ export class Nan0Kernel {
       decision,
       recalledMemories,
       actionAuthority,
+      epistemicGrounding: retrievedMemoryContext,
       systemContext: decision.finalDecision === 'SPEAK' && decision.allowed
-        ? this.composeNan0Context(thought, decision, ownership, recalledMemories, continuityContext, relationshipContext)
+        ? this.composeNan0Context(thought, decision, ownership, recalledMemories, continuityContext, relationshipContext, retrievedMemoryContext)
         : '',
     }
   }
@@ -2961,10 +2983,53 @@ export class Nan0Kernel {
     memories: Nan0MemoryRecord[],
     continuity: Nan0ContinuityContext,
     relationship: Nan0RelationshipContext,
+    epistemicGrounding?: string | Nan0EpistemicGroundingContext | null,
   ): string {
     const emotionalState = Object.entries(this.state.emotionalState)
       .map(([key, value]) => `${key}=${value.toFixed(2)}`)
       .join(', ')
+
+    let epistemicSection = ''
+    if (epistemicGrounding) {
+      if (typeof epistemicGrounding === 'string' && epistemicGrounding.trim()) {
+        epistemicSection = `\nEPISTEMIC MEMORY GROUNDING\n${epistemicGrounding.trim()}\n`
+      }
+      else if (typeof epistemicGrounding === 'object') {
+        const parts: string[] = []
+        if (epistemicGrounding.journalEntries?.length) {
+          parts.push('SACRED JOURNAL (LTMM):')
+          for (const entry of epistemicGrounding.journalEntries) {
+            const header = [entry.date, entry.title].filter(Boolean).join(' - ')
+            parts.push(`- ${header ? `[${header}] ` : ''}${entry.content}`)
+          }
+        }
+        if (epistemicGrounding.stmmRecaps?.length) {
+          parts.push('DAILY RECAPS (STMM):')
+          for (const recap of epistemicGrounding.stmmRecaps) {
+            parts.push(`- ${recap.date ? `[${recap.date}] ` : ''}${recap.summary}`)
+          }
+        }
+        if (epistemicGrounding.entityDossiers?.length) {
+          parts.push('ENTITY DOSSIERS:')
+          for (const dossier of epistemicGrounding.entityDossiers) {
+            const claimsStr = dossier.claims?.map(c => `(${c.subject})-[${c.predicate}]->(${c.object})`).join('; ')
+            parts.push(`- ${dossier.label}${dossier.type ? ` (${dossier.type})` : ''}: ${claimsStr || 'known entity'}`)
+          }
+        }
+        if (epistemicGrounding.facts?.length) {
+          parts.push('FACTS:')
+          for (const fact of epistemicGrounding.facts) {
+            parts.push(`- [${fact.source}] ${fact.content}`)
+          }
+        }
+        if (epistemicGrounding.rawText?.trim()) {
+          parts.push(epistemicGrounding.rawText.trim())
+        }
+        if (parts.length > 0) {
+          epistemicSection = `\nEPISTEMIC MEMORY GROUNDING\n${parts.join('\n')}\n`
+        }
+      }
+    }
 
     const memoryText = memories.length > 0
       ? memories.map((memory) => {
@@ -3071,7 +3136,7 @@ ${relationshipAnchors}
 ${relationshipGrievances}
 - recent_moments:
 ${relationshipMoments}
-
+${epistemicSection}
 OUTPUT RULE
 Respond only with Nan0's outward expression. Do not output JSON, labels, analysis, or the thought_id.`
   }
