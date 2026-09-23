@@ -80,6 +80,7 @@ export async function ensureMcpServersForAllowedTools(allowedTools: string[] | u
           env: {
             DEFAULT_SEARCH_ENGINE: 'duckduckgo',
             SEARCH_MODE: 'auto',
+            MODE: 'stdio',
           },
           enabled: true,
         }
@@ -94,6 +95,7 @@ export async function ensureMcpServersForAllowedTools(allowedTools: string[] | u
             env: {
               DEFAULT_SEARCH_ENGINE: 'duckduckgo',
               SEARCH_MODE: 'auto',
+              MODE: 'stdio',
               ...currentEnv,
             },
             enabled: true,

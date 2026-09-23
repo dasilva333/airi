@@ -552,6 +552,7 @@ async function handleInstall(server: RegistryServer) {
       env = {
         DEFAULT_SEARCH_ENGINE: 'duckduckgo',
         SEARCH_MODE: 'auto',
+        MODE: 'stdio',
       }
     }
     // Specialized Official Filesystem MCP preset

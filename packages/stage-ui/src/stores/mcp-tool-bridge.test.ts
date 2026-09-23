@@ -133,7 +133,7 @@ describe('mCP tool bridge lifecycle, config reconciliation & titration', () => {
             'open-websearch': {
               command: 'npx',
               enabled: true,
-              env: { DEFAULT_SEARCH_ENGINE: 'duckduckgo', SEARCH_MODE: 'auto' },
+              env: { DEFAULT_SEARCH_ENGINE: 'duckduckgo', SEARCH_MODE: 'auto', MODE: 'stdio' },
             },
           },
         }),

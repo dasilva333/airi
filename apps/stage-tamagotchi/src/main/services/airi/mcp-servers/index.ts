@@ -71,6 +71,7 @@ const defaultMcpConfig: ElectronMcpStdioConfigFile = {
       env: {
         DEFAULT_SEARCH_ENGINE: 'duckduckgo',
         SEARCH_MODE: 'auto',
+        MODE: 'stdio',
       },
       enabled: true,
     },
