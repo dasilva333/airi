@@ -136,12 +136,21 @@ export const layeredMemory = {
 
     // 3. Category Strategy Adaptation (Pass 11)
     const isLiteral = triage.choice === 'c4_literal' || triage.category === 4
-    const isMultiHop = triage.choice === 'c1_multihop' || triage.category === 1 || triage.searchScope === 'multi_session'
-    const isTemporal = triage.choice === 'c2_temporal' || triage.category === 2
+    const isMultiHop = triage.choice === 'c1_multihop'
+      || triage.category === 1
+      || triage.searchScope === 'multi_session'
+      || triage.conjunctionStructure === 'bridge_relational'
+      || triage.conjunctionStructure === 'multi_entity_plural'
+      || (triage.requiresDecomposition !== undefined && triage.requiresDecomposition >= 0.5)
+
+    const isTemporal = triage.choice === 'c2_temporal'
+      || triage.category === 2
+      || triage.conjunctionStructure === 'temporal_comparison'
+
     const isDetective = triage.choice === 'c3_detective' || triage.category === 3
 
     const workerLimit = isMultiHop ? Math.max(limit, 25) : (isDetective ? Math.max(limit, 20) : limit)
-    const returnLimit = isMultiHop ? Math.max(limit, 6) : limit
+    const returnLimit = (isMultiHop || isTemporal) ? Math.max(limit, 6) : limit
 
     const categoryScorerConfig = {
       ...defaultScorerConfig,

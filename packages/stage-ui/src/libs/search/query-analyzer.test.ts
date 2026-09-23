@@ -179,5 +179,34 @@ describe('query-analyzer', () => {
       const sub = decomposeQuery('Who or what is \'Asukee\', and when did I first introduce her to you?')
       expect(sub.some(s => s.toLowerCase().includes('asukee'))).toBe(true)
     })
+
+    it('skips decomposition when triage marks query as single_atomic with low decomposition need', async () => {
+      const { decomposeQuery } = await import('./query-analyzer')
+      const sub = decomposeQuery('What color is your plugsuit?', {
+        category: 4,
+        choice: 'c4_literal',
+        confidence: 0.9,
+        temporalSubtype: 'none',
+        searchScope: 'single_session',
+        conjunctionStructure: 'single_atomic',
+        requiresDecomposition: 0.05,
+      })
+      expect(sub).toEqual(['What color is your plugsuit?'])
+    })
+
+    it('populates conjunctionStructure and requiresDecomposition in heuristicTriage', async () => {
+      const { heuristicTriage } = await import('./query-analyzer')
+      const t1 = heuristicTriage('What was the door code for the room where I found the expired sardines?')
+      expect(t1.conjunctionStructure).toBe('bridge_relational')
+      expect(t1.requiresDecomposition).toBeGreaterThanOrEqual(0.7)
+
+      const t2 = heuristicTriage('Did we sneak into cafeteria before or after ramen contest?')
+      expect(t2.conjunctionStructure).toBe('temporal_comparison')
+      expect(t2.requiresDecomposition).toBeGreaterThanOrEqual(0.8)
+
+      const t3 = heuristicTriage('What color is your plugsuit?')
+      expect(t3.conjunctionStructure).toBe('single_atomic')
+      expect(t3.requiresDecomposition).toBeLessThanOrEqual(0.2)
+    })
   })
 })

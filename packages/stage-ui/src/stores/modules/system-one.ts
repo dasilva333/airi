@@ -34,6 +34,21 @@ export const JEV_TRIAGE_SCHEMA = {
       multi_session: 'Requires gathering, listing, or comparing entities across multiple separate sessions (e.g. list of all games played, all countries visited, all books recommended).',
     },
   },
+  conjunction_structure: {
+    type: 'choice',
+    instructions: 'Identify the primary syntactic/logical relationship connecting concepts in this user query.',
+    criteria: {
+      bridge_relational: 'Bridge query: One entity/fact specifies the location or item to look up before finding the target attribute (e.g. "where I found X", "room with Y").',
+      temporal_comparison: 'Temporal comparison: Compares the relative timing, sequence, or duration between two separate events (e.g. before/after, days apart).',
+      multi_entity_plural: 'Multi-entity aggregation: Inquires about multiple distinct instances (e.g. two codes, all items, each door).',
+      identity_temporal: 'Identity and introduction: Asks who or what an entity is and when a milestone or introduction occurred.',
+      single_atomic: 'Single atomic lookup: Can be satisfied by a single fact without logical composition.',
+    },
+  },
+  requires_decomposition: {
+    type: 'noul',
+    instructions: 'Does answering this query require retrieving two or more distinct pieces of evidence from separate events, locations, or dates?',
+  },
 }
 
 export const JEV_RERANK_CRITERIA = [
@@ -211,6 +226,8 @@ export const useSystemOneStore = defineStore('system-one', () => {
     const ansCat = res.answers?.category || {}
     const ansTemp = res.answers?.temporal_subtype || {}
     const ansScope = res.answers?.search_scope || {}
+    const ansConj = res.answers?.conjunction_structure || {}
+    const ansDecomp = res.answers?.requires_decomposition || {}
 
     const choice = ansCat.choice || 'c4_literal'
     const map: Record<string, number> = {
@@ -227,6 +244,9 @@ export const useSystemOneStore = defineStore('system-one', () => {
       probabilities: ansCat.probabilities || {},
       temporalSubtype: ansTemp.choice || 'none',
       searchScope: ansScope.choice || 'single_session',
+      conjunctionStructure: ansConj.choice || 'single_atomic',
+      conjunctionConfidence: ansConj.confidence ?? 0.8,
+      requiresDecomposition: ansDecomp.noul ?? 0.0,
       latencyMs: lastLatencyMs.value,
     }
   }

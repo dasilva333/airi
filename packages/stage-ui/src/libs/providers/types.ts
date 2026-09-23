@@ -21,10 +21,13 @@ import type { $ZodType } from 'zod/v4/core'
 export type ProviderTranslationFn = (key: string, ...args: any[]) => string
 
 export interface System1Answer {
+  type?: string
   choice?: string
   score?: number
   confidence?: number
   probabilities?: Record<string, number>
+  noul?: number
+  legend?: Record<string, string>
 }
 
 export interface System1Response {
