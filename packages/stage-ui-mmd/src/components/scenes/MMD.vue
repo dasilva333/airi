@@ -53,6 +53,7 @@ import {
 import { Emotion, EMOTION_VALUES } from '../../constants/emotions'
 import { useMMD } from '../../stores/mmd'
 import { loadMMDModelFromSource } from '../../utils/mmd-loader'
+import { parseMmdCycleAnimations, resolveBuiltinMmdAnimationUrl } from '../../utils/mmd-motion-resolver'
 
 const props = withDefaults(defineProps<{
   modelSrc?: string
@@ -486,19 +487,6 @@ function disposeModel() {
   resolved = undefined
   activePreviewMorph = undefined
   activeFinishedListener = undefined
-  mmdStore.isModelLoaded = false
-}
-
-/**
- * Returns the MMD-relevant names from the card's `idleAnimations` prop,
- * stripping foreign prefixes (live2d:, spine:) that don't apply here.
- */
-function parseMmdCycleAnimations(): string[] {
-  if (!props.idleAnimations || props.idleAnimations.length === 0)
-    return []
-  return props.idleAnimations.filter(
-    key => !key.startsWith('live2d:') && !key.startsWith('spine:'),
-  )
 }
 
 /**
@@ -519,7 +507,7 @@ function applyIdleCycle(): void {
     activeFinishedListener = undefined
   }
 
-  const cycle = parseMmdCycleAnimations().filter(name => registeredMotions.has(name))
+  const cycle = parseMmdCycleAnimations(props.idleAnimations).filter(name => registeredMotions.has(name))
 
   if (cycle.length === 0) {
     // No card-level cycle — honour the store's single idle motion.
@@ -543,7 +531,7 @@ function applyIdleCycle(): void {
   function playNext(avoidName?: string): void {
     if (!animation || !mixer)
       return
-    const current = parseMmdCycleAnimations().filter(name => registeredMotions.has(name))
+    const current = parseMmdCycleAnimations(props.idleAnimations).filter(name => registeredMotions.has(name))
     if (current.length === 0)
       return
 
@@ -609,7 +597,7 @@ async function syncMotions() {
         isBlob = true
       }
       else {
-        url = `/assets/mmd/animations/${descriptor.name}`
+        url = resolveBuiltinMmdAnimationUrl(descriptor.name)
       }
 
       const clip = await loadMMDAnimationClip(loaderCtx.loader, url, mesh)

@@ -699,11 +699,25 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
         if (!activeProviderId) {
           debug('[Proactivity] Aborted: No active LLM provider found.')
+          await eventLogStore.appendEvent({
+            category: 'proactivity',
+            type: 'heartbeat_failed',
+            source: activeCard.value?.name || 'AIRI',
+            textSummary: 'Proactive heartbeat aborted: No active LLM provider selected.',
+            payload: { reason: 'no_active_provider' },
+          })
           return
         }
 
         if (!options?.force && !providersStore.configuredProviders[activeProviderId]) {
           debug(`[Proactivity] Aborted: Active LLM provider "${activeProviderId}" is not configured or offline.`)
+          await eventLogStore.appendEvent({
+            category: 'proactivity',
+            type: 'heartbeat_failed',
+            source: activeCard.value?.name || 'AIRI',
+            textSummary: `Proactive heartbeat aborted: Active LLM provider "${activeProviderId}" is not configured or offline.`,
+            payload: { provider: activeProviderId, reason: 'provider_unconfigured_or_offline' },
+          })
           return
         }
 
@@ -712,6 +726,13 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
         if (!activeProvider) {
           debug('[Proactivity] Aborted: Failed to instantiate LLM provider.', { activeProviderId })
+          await eventLogStore.appendEvent({
+            category: 'proactivity',
+            type: 'heartbeat_failed',
+            source: activeCard.value?.name || 'AIRI',
+            textSummary: `Proactive heartbeat aborted: Failed to instantiate LLM provider "${activeProviderId}".`,
+            payload: { provider: activeProviderId, reason: 'provider_instantiation_failed' },
+          })
           return
         }
 
@@ -866,6 +887,18 @@ export const useProactivityStore = defineStore('proactivity', () => {
       }
       catch (err) {
         console.error('[Proactivity] Error during heartbeat evaluation:', err)
+        const errorMsg = err instanceof Error ? err.message : String(err)
+        await eventLogStore.appendEvent({
+          category: 'proactivity',
+          type: 'heartbeat_failed',
+          source: activeCard.value?.name || 'AIRI',
+          textSummary: `Proactive heartbeat failed: ${errorMsg}`,
+          payload: {
+            provider: consciousnessStore.activeProvider,
+            model: consciousnessStore.activeModel,
+            error: errorMsg,
+          },
+        })
       }
       finally {
         isHeartbeatEvaluating.value = false

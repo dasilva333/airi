@@ -14,6 +14,8 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 
+import { resolveProviderId } from './helpers'
+
 const router = useRouter()
 const catalogStore = useFreeAICatalogStore()
 const cloudflareStore = useCloudflareStore()
@@ -118,46 +120,6 @@ const currentApiKey = computed({
 
 function clearManualCloudflareKey() {
   delete savedApiKeys.value.cloudflare
-}
-
-function resolveProviderId(platform: string, modality?: string): string {
-  const p = platform.toLowerCase()
-  if (modality === 'transcription') {
-    switch (p) {
-      case 'deepgram':
-        return 'deepgram-transcription'
-      case 'xai':
-        return 'xai-audio-transcription'
-      case 'openai':
-        return 'openai-audio-transcription'
-      default:
-        return 'openai-compatible-audio-transcription'
-    }
-  }
-
-  switch (p) {
-    case 'cloudflare':
-      return 'cloudflare-workers-ai'
-    case 'github':
-      return 'github-models'
-    case 'lmstudio':
-      return 'lm-studio'
-    case 'groq':
-    case 'openrouter':
-    case 'deepseek':
-    case 'together':
-    case 'mistral':
-    case 'cerebras':
-    case 'siliconflow':
-    case 'cohere':
-    case 'hyperbolic':
-    case 'fireworks':
-    case 'ollama':
-    case 'ai21':
-      return p
-    default:
-      return 'openai-compatible'
-  }
 }
 
 const targetProviderId = computed(() => {
