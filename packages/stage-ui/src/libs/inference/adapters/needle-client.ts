@@ -134,15 +134,16 @@ export function createNeedleClient(): NeedleClient {
     if (!userPrompt || !userPrompt.trim())
       return null
 
-    // Auto-prime in background if not yet ready
-    if (!isInitialized && !isPreparingInternal) {
-      void prepare()
-    }
-
     const worker = ensureWorker()
     if (!worker) {
       // In non-worker environments (e.g. tests), return immediate fallback candidate
       return 'Let me see...'
+    }
+
+    // Active inference bailout: If Needle is not prepared yet, do not kick off heavy 14MB download and WASM
+    // compilation during an active streaming turn. Return null and let Tier 3 (heuristics/regex) handle it.
+    if (!isInitialized) {
+      return null
     }
 
     const requestId = createRequestId()
@@ -184,10 +185,6 @@ export function createNeedleClient(): NeedleClient {
   async function probeCotPivot(reasoningSnippet: string, budgetMs: number = 2000): Promise<string | null> {
     if (!reasoningSnippet || reasoningSnippet.length < 15)
       return null
-
-    if (!isInitialized && !isPreparingInternal) {
-      void prepare()
-    }
 
     const worker = ensureWorker()
     if (!worker) {

@@ -137,6 +137,8 @@ export class BoundedCategoryClassifier {
   private readonly maxChars: number
   private readonly lexicon: Record<SpecificThinkingCategory, Set<string>>
   private buffer = ''
+  private lastEvaluatedText = ''
+  private lastResult: ClassificationResult | null = null
 
   constructor(options?: CategoryClassifierOptions | PacingPolicyConfig) {
     this.threshold = options && 'categoryThreshold' in options && options.categoryThreshold !== undefined
@@ -184,6 +186,8 @@ export class BoundedCategoryClassifier {
    */
   public reset(): void {
     this.buffer = ''
+    this.lastEvaluatedText = ''
+    this.lastResult = null
   }
 
   /**
@@ -199,12 +203,14 @@ export class BoundedCategoryClassifier {
     }
 
     if (!this.buffer.trim()) {
-      return {
+      this.lastEvaluatedText = ''
+      this.lastResult = {
         category: 'generic',
         confidence: 0,
         scores,
         matchedTokens: [],
       }
+      return this.lastResult
     }
 
     let textToEvaluate = this.buffer
@@ -225,6 +231,11 @@ export class BoundedCategoryClassifier {
           matchedTokens: [],
         }
       }
+    }
+
+    // Memoization check: If the evaluated sub-buffer hasn't changed since last evaluation, return cached result
+    if (this.lastResult && textToEvaluate === this.lastEvaluatedText) {
+      return this.lastResult
     }
 
     // Tokenize unicode-aware words, preserving internal apostrophes (e.g. "don't")
@@ -278,12 +289,17 @@ export class BoundedCategoryClassifier {
       ? Math.min(1, Math.max(0, highestNet / totalEvidence))
       : 0
 
-    return {
+    const result: ClassificationResult = {
       category: bestCategory,
       confidence,
       scores,
       matchedTokens,
     }
+
+    this.lastEvaluatedText = textToEvaluate
+    this.lastResult = result
+
+    return result
   }
 
   /**

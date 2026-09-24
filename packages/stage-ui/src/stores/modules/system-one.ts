@@ -102,6 +102,17 @@ export const JEV_ENTITY_CLASSIFIER_SCHEMA = {
   },
 }
 
+export const JEV_COT_SALIENCE_SCHEMA = {
+  salience: {
+    type: 'choice',
+    instructions: 'Analyze this internal Chain-of-Thought reasoning snippet from an AI model. Does it contain a genuine conversational turning point (a human-like realization, breakthrough, or hesitation) that should be vocalized aloud?',
+    criteria: {
+      salient_event: 'Yes: contains an explicit, natural-language conversational realization, breakthrough, or hesitation (e.g. "Wait no", "Oh I see", "Aha, that makes sense", "Hold on"). Must be genuine human conversational phrasing, NOT code or equations.',
+      routine_computation: 'No: standard step-by-step math, LaTeX equations, code syntax, variable definitions (e.g. struct fields, pointers), technical quotes, or continuous drafting with no conversational shift.',
+    },
+  },
+}
+
 export interface CandidateItem {
   id: string
   text: string
@@ -247,6 +258,20 @@ export const useSystemOneStore = defineStore('system-one', () => {
       conjunctionStructure: ansConj.choice || 'single_atomic',
       conjunctionConfidence: ansConj.confidence ?? 0.8,
       requiresDecomposition: ansDecomp.noul ?? 0.0,
+      latencyMs: lastLatencyMs.value,
+    }
+  }
+
+  async function evaluateReasoningSalience(snippet: string) {
+    const res = await execute(`Reasoning snippet to evaluate: ${snippet}`, JEV_COT_SALIENCE_SCHEMA)
+    const ans = res.answers?.salience || {}
+    const isSalient = ans.choice === 'salient_event'
+    const confidence = typeof ans.confidence === 'number' ? ans.confidence : (isSalient ? 0.85 : 0.2)
+    return {
+      isSalient,
+      choice: ans.choice || 'routine_computation',
+      confidence,
+      probabilities: ans.probabilities || {},
       latencyMs: lastLatencyMs.value,
     }
   }
@@ -425,6 +450,7 @@ export const useSystemOneStore = defineStore('system-one', () => {
     runRerank,
     runAffect,
     classifyEntities,
+    evaluateReasoningSalience,
     resetState,
   }
 })

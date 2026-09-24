@@ -21,6 +21,8 @@ import {
 import { FieldInput } from '@proj-airi/ui'
 import { computed, onMounted, ref, watch } from 'vue'
 
+import ActingSubTabPacingPlayground from './acting/ActingSubTabPacingPlayground.vue'
+
 import { useActingCapabilities } from '../../composables/useActingCapabilities'
 
 interface Props {
@@ -133,14 +135,15 @@ const pacingMaxSynthesisBudgetMs = defineModel<number>('pacingMaxSynthesisBudget
 const pacingProfile = defineModel<string>('pacingProfile', { default: 'balanced' })
 const pacingExperimentalOrganicPivots = defineModel<boolean>('pacingExperimentalOrganicPivots', { default: false })
 
-// Sub-Tab Navigation (Consolidated 3 Hubs)
-type ActingSubTabId = 'expressions' | 'speech' | 'pacing'
+// Sub-Tab Navigation (Consolidated 4 Hubs)
+type ActingSubTabId = 'expressions' | 'speech' | 'pacing' | 'playground'
 const activeSubTab = ref<ActingSubTabId>('expressions')
 
 const subTabs = [
   { id: 'expressions' as const, label: 'Model Expressions', icon: 'i-solar:smile-circle-bold-duotone', desc: 'Emotions, motions, and idle loops' },
   { id: 'speech' as const, label: 'Speech Tags', icon: 'i-solar:soundwave-bold-duotone', desc: 'Audio expressions & caption FX' },
   { id: 'pacing' as const, label: 'Pacing & Fillers', icon: 'i-solar:hourglass-bold-duotone', desc: 'Thinking fillers, live asides & pacing' },
+  { id: 'playground' as const, label: 'Pacing Lab', icon: 'i-solar:test-tube-minimalistic-bold-duotone', desc: 'Live reasoning & pacing test harness' },
 ]
 
 const THINK_ALOUD_TEMPLATE = DEFAULT_THINK_ALOUD_PROMPT
@@ -848,6 +851,31 @@ function resetThresholdsToDefaults() {
           </span>
         </div>
 
+        <!-- Pacing Lab Interactive Test Banner -->
+        <div class="flex flex-wrap items-center justify-between gap-3 border border-primary-500/30 rounded-xl from-primary-500/10 via-primary-500/5 to-transparent bg-gradient-to-r p-3 dark:border-primary-500/20">
+          <div class="flex items-center gap-2.5">
+            <div class="h-8 w-8 flex items-center justify-center rounded-lg bg-primary-500/15 text-primary-600 dark:text-primary-400">
+              <span class="i-solar:test-tube-minimalistic-bold-duotone text-lg" />
+            </div>
+            <div>
+              <div class="text-xs text-neutral-800 font-semibold dark:text-neutral-200">
+                Pacing Lab (Interactive Thinking & Fillers Playground)
+              </div>
+              <div class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                Test multi-hop reasoning, live System 1 gating, and real-time audio playback in an interactive sandbox.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs text-white font-medium shadow-sm transition-all active:scale-98 hover:bg-primary-700"
+            @click="activeSubTab = 'playground'"
+          >
+            <span>Open Pacing Lab</span>
+            <span class="i-solar:arrow-right-bold text-xs" />
+          </button>
+        </div>
+
         <!-- 1-Click Pacing Profiles Presets -->
         <div class="border border-neutral-200/80 rounded-xl bg-white p-4 shadow-sm dark:border-neutral-700/80 dark:bg-neutral-900/60">
           <div class="mb-2 flex items-center justify-between">
@@ -1049,7 +1077,7 @@ function resetThresholdsToDefaults() {
                 </div>
               </div>
 
-              <!-- Tier 2: Semantic Extractor (Needle 2 WASM) -->
+              <!-- Tier 2: Cognitive Gating & Semantic Extraction (System 1 + Needle 2) -->
               <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3 dark:border-neutral-700/80 dark:bg-neutral-950/30">
                 <div class="flex items-start justify-between gap-2">
                   <div class="flex items-start gap-2.5">
@@ -1061,45 +1089,61 @@ function resetThresholdsToDefaults() {
                     >
                     <div class="flex flex-col gap-0.5">
                       <label for="tier-2-semantic-toggle" class="cursor-pointer text-xs text-neutral-800 font-semibold dark:text-neutral-200">
-                        Tier 2: Semantic Extractor (Needle 2 Subconscious Runtime)
+                        Tier 2: Cognitive Gating &amp; Subconscious Extraction (System 1 + Needle 2)
                       </label>
                       <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
-                        Runs on-device lightweight WebAssembly classifier to detect natural aside boundaries and internal deliberation shifts without requiring special tags.
+                        Universal System 1 (Jev / local ONNX / provider) classifies cognitive eligibility and hesitation shifts, while Needle 2 WebAssembly extracts the concise 2–8 word pivot span.
                       </p>
                     </div>
                   </div>
                   <span class="shrink-0 border border-blue-300/40 rounded bg-blue-500/10 px-1.5 py-0.5 text-[9px] text-blue-600 font-medium font-mono dark:border-blue-700/40 dark:bg-blue-400/15 dark:text-blue-300">
-                    WASM Neural Gate
+                    System 1 + Needle WASM
                   </span>
                 </div>
 
                 <!-- Inline Prep & Status Panel (visible when enabled) -->
                 <div v-if="pacingSemanticExtractorEnabled" class="mt-3 border-t border-neutral-200/70 pt-2.5 dark:border-neutral-800/70">
-                  <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-                    <div class="flex items-center gap-2">
-                      <div
-                        class="h-2 w-2 rounded-full"
-                        :class="isNeedlePrepared ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : 'bg-amber-500/70'"
-                      />
-                      <span class="text-[11px] text-neutral-700 font-medium dark:text-neutral-300">
-                        Status: <strong class="font-semibold">{{ isNeedlePrepared ? 'Ready (14 MB in Cache)' : 'Not Prepared (14 MB)' }}</strong>
+                  <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <!-- System 1 Cognitive Classifier -->
+                    <div class="flex items-center justify-between border border-neutral-200/60 rounded-lg bg-white/70 p-2 dark:border-neutral-800/60 dark:bg-neutral-900/60">
+                      <div class="flex items-center gap-2">
+                        <div class="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
+                        <div class="flex flex-col">
+                          <span class="text-[10px] text-neutral-400 font-semibold uppercase">Decision Engine</span>
+                          <span class="text-[11px] text-neutral-700 font-medium dark:text-neutral-200">System 1 (Jev / ONNX)</span>
+                        </div>
+                      </div>
+                      <span class="border border-emerald-300/40 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[9px] text-emerald-600 font-medium font-mono dark:border-emerald-700/40 dark:bg-emerald-400/15 dark:text-emerald-300">
+                        Active Gate
                       </span>
                     </div>
 
-                    <button
-                      v-if="!isNeedlePrepared"
-                      type="button"
-                      :disabled="isNeedleDownloading"
-                      class="inline-flex items-center gap-1.5 border border-primary-500/30 rounded-lg bg-primary-500/10 px-2.5 py-1 text-xs text-primary-600 font-medium transition disabled:cursor-not-allowed dark:border-primary-400/30 dark:bg-primary-400/15 hover:bg-primary-500/20 dark:text-primary-300 disabled:opacity-50"
-                      @click="downloadAndPrepareNeedle"
-                    >
-                      <span v-if="isNeedleDownloading" class="i-solar:refresh-circle-bold animate-spin text-sm" />
-                      <span v-else class="i-solar:bolt-bold text-sm" />
-                      <span>{{ isNeedleDownloading ? `Downloading (${needleDownloadProgress}%)` : 'Download & Prepare Needle 2 (14 MB)' }}</span>
-                    </button>
-                    <div v-else class="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-medium dark:text-emerald-400">
-                      <span class="i-solar:check-circle-bold text-sm" />
-                      <span>Pre-warmed in Cache</span>
+                    <!-- Needle 2 WASM Span Extractor -->
+                    <div class="flex items-center justify-between border border-neutral-200/60 rounded-lg bg-white/70 p-2 dark:border-neutral-800/60 dark:bg-neutral-900/60">
+                      <div class="flex items-center gap-2">
+                        <div
+                          class="h-2 w-2 rounded-full"
+                          :class="isNeedlePrepared ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : 'bg-amber-500/70'"
+                        />
+                        <div class="flex flex-col">
+                          <span class="text-[10px] text-neutral-400 font-semibold uppercase">Span Extractor</span>
+                          <span class="text-[11px] text-neutral-700 font-medium dark:text-neutral-200">{{ isNeedlePrepared ? 'Needle 2 WASM (14 MB)' : 'Needle 2 (Not in cache)' }}</span>
+                        </div>
+                      </div>
+                      <button
+                        v-if="!isNeedlePrepared"
+                        type="button"
+                        :disabled="isNeedleDownloading"
+                        class="inline-flex items-center gap-1 border border-primary-500/30 rounded bg-primary-500/10 px-2 py-0.5 text-[10px] text-primary-600 font-medium transition disabled:cursor-not-allowed dark:border-primary-400/30 dark:bg-primary-400/15 hover:bg-primary-500/20 dark:text-primary-300 disabled:opacity-50"
+                        @click="downloadAndPrepareNeedle"
+                      >
+                        <span v-if="isNeedleDownloading" class="i-solar:refresh-circle-bold animate-spin text-xs" />
+                        <span v-else class="i-solar:bolt-bold text-xs" />
+                        <span>{{ isNeedleDownloading ? `${needleDownloadProgress}%` : 'Pre-warm' }}</span>
+                      </button>
+                      <span v-else class="border border-emerald-300/40 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[9px] text-emerald-600 font-medium font-mono dark:border-emerald-700/40 dark:bg-emerald-400/15 dark:text-emerald-300">
+                        Pre-warmed
+                      </span>
                     </div>
                   </div>
 
@@ -1111,15 +1155,11 @@ function resetThresholdsToDefaults() {
                     />
                   </div>
 
-                  <p class="mt-2 text-[10px] text-neutral-400 leading-relaxed dark:text-neutral-500">
-                    Stored locally in browser cache. If not downloaded now, will automatically prime on first reasoning turn.
-                  </p>
-
                   <!-- Performance Advisory -->
                   <div class="mt-2.5 flex items-start gap-2 border border-amber-200/70 rounded-lg bg-amber-50/70 p-2.5 text-[11px] text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/20 dark:text-amber-300">
                     <div class="i-solar:danger-triangle-bold mt-0.5 shrink-0 text-xs text-amber-600 dark:text-amber-400" />
                     <p class="leading-relaxed">
-                      <strong class="font-semibold">Performance Advisory:</strong> Real-time on-device neural extraction (Needle 2 WASM) and dynamic speech synthesis execute in parallel during the thinking phase. On machines with integrated GPUs or limited CPU cores, this compute burst can cause brief cursor stutter or UI latency while generating. If you experience slowdown, disable this tier or choose the <strong>Snappy Chat</strong> preset (cached audio fillers only).
+                      <strong class="font-semibold">Performance Architecture:</strong> System 1 evaluates cognitive category and hesitation shifts at defined cadence intervals (~15s), while Needle 2 WebAssembly pinpoints the 2–8 word pivot span. If Needle is uninitialized, the engine automatically falls back to Tier 3 heuristic pattern extraction without blocking inference or stuttering UI.
                     </p>
                   </div>
                 </div>
@@ -1657,6 +1697,19 @@ function resetThresholdsToDefaults() {
           <span><strong>Tip:</strong> If a reasoning model deliberates before deciding to remain silent (such as during quiet background proactivity evaluations or returning <code>NO_REPLY</code>), filler phrases allow the avatar to naturally think out loud. For complete silent stealth, disable pacing for that persona.</span>
         </div>
       </div>
+
+      <!-- ================================================================= -->
+      <!-- 3. PACING LAB (PLAYGROUND) SUB-TAB                                -->
+      <!-- ================================================================= -->
+      <ActingSubTabPacingPlayground
+        v-if="activeSubTab === 'playground'"
+        :pacing-enabled="pacingEnabled"
+        :selected-speech-provider="props.selectedSpeechProvider"
+        :selected-speech-model="props.selectedSpeechModel"
+        :selected-speech-voice-id="props.selectedSpeechVoiceId"
+        @navigate-to-pacing="activeSubTab = 'pacing'"
+        @apply-preset="applyPacingProfile"
+      />
     </div>
   </div>
 </template>

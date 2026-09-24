@@ -12,7 +12,7 @@ Make waiting feel attended to without delaying an answer unnecessarily. A short 
 Three pillars share one turn owner and one speech lane:
 
 1. **Cached pacing:** category-informed, pre-rendered phrases at an adaptive initial deadline and a bounded repeat cadence.
-2. **Dynamic asides:** short, listener-facing spoken cues prepared through the selected speech provider. Formulated via a 3-tier cascade: explicit `<think_aloud>` cues, the on-device Needle WASM Semantic Extractor parsing raw reasoning streams, and keyword heuristics fallback.
+2. **Dynamic asides:** short, listener-facing spoken cues prepared through the selected speech provider. Formulated via a 3-tier cascade: explicit `<think_aloud>` cues, the Needle WASM Span Extractor with attention-guided clause parsing, and simple punctuation/regex heuristics fallback, with eligibility and category gating arbitrated by the universal System 1 decision engine.
 3. **Presentation:** transient captions, in-bubble streaming CoT drawer, avatar cues, and later visual typing effects, separate from canonical conversation records.
 
 The following product decisions are authoritative throughout this document:
@@ -264,6 +264,25 @@ Normalize phrase identity with Unicode normalization, case folding, collapsed wh
 
 Within a category, choose randomly among eligible cached phrases, with injectable RNG for tests. Avoid the immediately previous phrase across turns when an alternative exists; this small in-memory recency preference does not block speech when only one phrase is available.
 
+### 6.3 Universal System 1 Decision Gating & Classification
+
+Historically, conversational pacing conflated two distinct responsibilities:
+1. **Decision & Classification Gating:** Answering *"Should the character speak right now? What is the cognitive category of their thought (analytical, emotional, memory, uncertain, or silence)?"*
+2. **Span Extraction:** Answering *"Which specific words from the reasoning trace should be spoken aloud?"*
+
+In early iterations, on-device Needle was burdened with both tasks simultaneously. However, empirical cleanroom benchmarks established that 45M Simple Attention Networks suffer from hedging sinks and prompt interference when forced to classify sentiment and character intent, while burning significant CPU cycles.
+
+To solve this, AIRI decouples **Decision Gating** to **System 1 (`useSystemOneStore`)**:
+
+- **Universal Provider Architecture**: System 1 is **not remote-only**. It is an abstracted provider contract in `packages/stage-ui/src/stores/modules/system-one.ts` supporting:
+  - **Local On-Device Models**: e.g. Local Laya via ONNX / WebGPU / WASM, executing offline with 0 network latency.
+  - **Direct Remote Endpoints**: e.g. TypeSafe Jev API, executing calibrated contrastive classifications in ~100–180ms at $42 per billion tokens.
+  - **OpenRouter Compatibility Gateway**: Universal model routing via `typesafe/jev-1.13` or `typesafe/jev-latest`.
+- **System 1 Pacing Gates**:
+  1. **Eligibility Gate (`Boolean`)**: Evaluates whether an aside or filler is socially and contextually appropriate given the user's prompt and active conversation climate, avoiding awkward interruptions during solemn or rapid exchanges.
+  2. **Category Classification Gate (`Choice`)**: Selects the active cognitive orientation (`analytical`, `memory`, `emotional`, `uncertain`, `generic`) with calibrated probability distributions, replacing fragile keyword heuristics with robust linguistic understanding.
+- **Deterministic 0ms Fallback Floor**: When System 1 is disabled or offline, the coordinator falls back gracefully to the synchronous `BoundedCategoryClassifier` lexicon and cached Generic phrases.
+
 ## 7. Explicit spoken asides and provider routing
 
 ### 7.1 Protocol boundaries
@@ -315,71 +334,110 @@ Closing a tag creates a candidate, not a speech request. Keep one pending cue wi
 
 The first opportunity uses cached phrases only. Later opportunities, once `now - t0 >= dynamicAfterMs`, choose a valid explicit cue if dynamic synthesis is enabled and eligible; otherwise choose an experimental organic cue if enabled and eligible; otherwise use cached category selection. `dynamicAfterMs` defaults to 15000 ms. Never let tag arrival create another cadence opportunity.
 
-### 7.4 The 3-Tier Aside Extraction Cascade
+### 7.4 The 3-Tier Aside Extraction Cascade & Span Architecture
 
 When frontier reasoning models (DeepSeek-R1, QwQ, Claude thinking, OpenAI o1/o3-mini) generate reasoning traces, explicit prompt compliance varies widely: models may ignore instructions to use `<think_aloud>` tags, emit reasoning entirely in Chinese/Japanese, or interleave math proofs. Conversely, rigid keyword pattern-matching fails whenever the character speaks in a non-standard register or a foreign language.
 
-To solve this, dynamic aside extraction uses a **3-Tier Priority Cascade**:
+Dynamic aside extraction uses a **3-Tier Priority Cascade**, strictly separated from cognitive classification:
+- **Decision & Category Gating** is handled upstream by **Universal System 1** (§6.3), deciding *if* an aside is warranted and what emotional tone applies.
+- **Candidate Formulation** is handled downstream by the 3-Tier Cascade to extract the exact listener-facing words from the reasoning stream:
 
 ```
-[Reasoning Buffer Available at dynamicAfterMs]
-                    │
-                    ▼
-       ┌─────────────────────────┐
-       │ Tier 1: Explicit Tags   │
-       │ Look for <think_aloud>  │
-       └────────────┬────────────┘
-                    │ (Not Found or Disabled)
-                    ▼
-       ┌─────────────────────────┐
-       │ Tier 2: Semantic        │
-       │         Extractor       │
-       │ (Needle WASM Runtime)   │
-       └────────────┬────────────┘
-                    │ (Failed, Low Conf, or Disabled)
-                    ▼
-       ┌─────────────────────────┐
-       │ Tier 3: Heuristics      │
-       │ Keyword / Pivot Dict    │
-       └────────────┬────────────┘
-                    │ (Miss)
-                    ▼
-          [Cached Pacing Fallback]
+[Reasoning Buffer at dynamicAfterMs] ──► [System 1 Gating: Eligible?]
+                                                    │ (YES)
+                                                    ▼
+                                       ┌─────────────────────────┐
+                                       │ Tier 1: Explicit Tags   │
+                                       │ Look for <think_aloud>  │
+                                       └────────────┬────────────┘
+                                                    │ (Not Found or Disabled)
+                                                    ▼
+                                       ┌─────────────────────────┐
+                                       │ Tier 2: Span Extractor  │
+                                       │ (Needle 2 Attention SAN)│
+                                       └────────────┬────────────┘
+                                                    │ (Cold, Timeout, or Disabled)
+                                                    ▼
+                                       ┌─────────────────────────┐
+                                       │ Tier 3: Heuristics      │
+                                       │ Regex Anchor + Clause   │
+                                       └────────────┬────────────┘
+                                                    │ (Miss)
+                                                    ▼
+                                          [Cached Pacing Fallback]
 ```
 
-1. **Tier 1 (Explicit `<think_aloud>` Tags)**:
-   - Evaluates the reasoning stream for `<think_aloud>plain text</think_aloud>`.
-   - Highest priority: represents explicit, prompt-contracted intent from the primary model.
-2. **Tier 2 (Semantic Extractor / Needle 2 WASM)**:
-   - When Tier 1 yields no tags, the active reasoning buffer is evaluated by the local on-device **Needle 2** Simple Attention Network running in a WebAssembly worker.
-   - Extracts natural spoken hesitation phrases from raw unconstrained reasoning without requiring explicit model prompt compliance.
-   - Operates in ~150–250ms at 500+ tok/s, returning a constrained JSON candidate with confidence scoring.
-3. **Tier 3 (Heuristics / Keyword Fallback Dictionary)**:
-   - If Needle is disabled, encounters an error, or returns a sub-threshold candidate, the buffer scans against configured character pivot phrases and cue keywords.
-   - If all three tiers fail to produce a dynamic candidate, the opportunity falls back cleanly to pre-cached category pacing phrases.
+#### 7.4.1 Sub-Span Phrase vs. Full Sentence
+A critical design question is: *Are we capturing a whole reasoning sentence or a sub-span phrase within a sentence?*
 
-### 7.5 Needle 2 On-Device WASM Subconscious Runtime ("Daydreaming")
+- **The Answer: Sub-Span Phrases Only (2 to 8 Words).**
+- **Rationale**: Frontier reasoning models routinely produce 25–60 word sentences packed with private analytical deliberations (e.g. *"Wait, if the user is asking about relativistic orbital decay under post-Newtonian approximations, I need to make sure the perturbation terms don't cancel out the second-order secular drift before responding."*).
+- Reading an entire reasoning sentence aloud destroys the conversational illusion: it overruns the TTS latency budget, sounds like reading raw source code, and violates character persona.
+- A listener-facing thinking aside must be **bite-sized, punchy, and conversational** (e.g. *"Wait, let me double check the drift..."* or *"Hold on, let me look at that..."*). Full sentences from private reasoning traces are strictly prohibited.
 
-To avoid platform divergence, dual-maintenance debt, and native FFI crashes across desktop (Electron), browser (Web Stage), and mobile (Capacitor iOS/Android), the Semantic Extractor runs strictly as **Option B: Pure WASM Web Worker** (`packages/stage-ui/src/workers/needle/semantic-extractor.ts`).
+#### 7.4.2 Length Determinants & User Configuration
+The maximum permitted length of an aside span is governed by three coordinated controls:
+1. `asides.maxWords` (Default: **8 words**, valid range: 3–12 words): The lexical word budget for extracted candidate text.
+2. `maxFillerDurationMs` (Default: **2200–3000ms**, valid range: 400–4000ms): The physical audio duration ceiling for the synthesized speech clip.
+3. **Syntactic Clause Trimming Rule**:
+   - If an extraction model or regex pattern captures a clause longer than `asides.maxWords`, the text is trimmed at the nearest natural clause boundary (comma, semicolon, em-dash, colon) that satisfies $\le \text{maxWords}$.
+   - If no natural punctuation boundary exists within `asides.maxWords`, the span is safely clamped at word boundaries, appending an ellipsis (`...`).
+   - If clamping produces an incomplete fragment ($< 2$ words or trailing prepositions like *"with"*, *"to"*, *"of"*), the candidate is discarded in favor of cached category phrases. Mid-word clipping is strictly forbidden.
 
-- **Footprint**: 45M-parameter Simple Attention Network (SAN), 14 MB binary, ~28–60 MB session RAM.
-- **WASM Performance**: Powered by Walsh-Hadamard MLPs, engram hash tables, and 2-bit quantization, running at 500+ tokens/second on standard CPU threads without consuming GPU VRAM needed for Three.js / Live2D rendering.
-- **Constrained JSON Decoding**:
+#### 7.4.3 Vetting Needle 2: Why We Need an Attention Model vs. Regex
+While regex provides a deterministic fallback, Needle 2 (45M Simple Attention Network) provides genuine model value when properly constrained:
+- **The Value of Attention-Based Span Extraction**:
+  - Regex dictionaries require predefined anchor tokens (`wait`, `actually`, `hold on`). When characters speak with unique mannerisms, localized idioms, or foreign speech registers, regex fails completely.
+  - Needle's attention heads compute query-key correlations over token spans, naturally locating the **semantic inflection point** or pivot clause in unprompted thought traces without requiring literal keyword matches.
+- **Constrained Extraction Schema**:
+  Needle is **never** asked to classify sentiment or summarize whole dialogues. It is constrained strictly to extracting a short conversational pivot sub-span:
   ```json
   {
-    "name": "extract_spoken_aside",
-    "description": "Extract a short (2-10 word) listener-facing hesitation or thought from the reasoning buffer.",
+    "name": "extract_pivot_span",
+    "description": "Extract a bite-sized (2 to 8 word) conversational hesitation or realization sub-span from the reasoning buffer.",
     "parameters": {
       "type": "object",
       "properties": {
-        "spokenAside": { "type": "string" },
-        "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+        "span": {
+          "type": "string",
+          "description": "Concise 2-8 word pivot phrase extracted verbatim or lightly normalized from the buffer"
+        },
+        "anchor": {
+          "type": "string",
+          "enum": ["hesitation", "realization", "recalculation", "doubt"],
+          "description": "The semantic nature of the extracted pivot"
+        }
       },
-      "required": ["spokenAside", "confidence"]
+      "required": ["span", "anchor"]
     }
   }
   ```
-- **Architectural Specification**: Fully detailed in [`docs/design-needle-subconscious-runtime.md`](./design-needle-subconscious-runtime.md).
+
+#### 7.4.4 Graceful Fallback Chain (Tier 3 Regex + Cached Pacing)
+1. **Tier 1 (Explicit `<think_aloud>` Tags)**: Evaluates the buffer for explicit tags emitted by cooperative models.
+2. **Tier 2 (Needle 2 WASM Span Extractor)**: Evaluates the active reasoning window via the constrained `extract_pivot_span` grammar.
+3. **Tier 3 (Regex Anchor + Clause Punctuation Fallback)**:
+   - When Needle is uninitialized, compiling, times out, or is disabled, the buffer scans for pivot anchors:
+     `/(?:no\s+)?wait|actually|however|hold\s+on|let\s+me\s+(?:see|check|think)|the\s+catch\s+is|on\s+second\s+thought/i`
+   - Captures text from the anchor up to the first natural clause punctuation mark (`,`, `;`, `—`, `.`), clamped to `asides.maxWords`.
+4. **Cached Category Fallback**: If Tiers 1–3 all yield no candidate, the coordinator seamlessly falls back to pre-cached audio fillers in the category decided by System 1 (§6.3).
+
+### 7.5 Needle 2 Subconscious Runtime Safety & Concurrency Guarding
+
+To prevent thread starvation, high CPU utilization, and system freezes (particularly on low-power or passively cooled laptops like MacBook Air), the subconscious runtime enforces strict concurrency and debounce invariants:
+
+1. **Asynchronous Non-Blocking Pre-Warming**:
+   - Downloading the 14 MB WASM binary and compiling the WebAssembly module (`WebAssembly.compile`) MUST run in the background during idle periods or explicit settings pre-warming (`pacing-prewarm.ts`).
+   - Compilation is **NEVER** permitted on the critical path of an active conversational turn.
+2. **Active Stream Bailout**:
+   - If a reasoning stream reaches an aside opportunity while Needle is still compiling, downloading, or uninitialized (`!needleClient.isReady()`), the coordinator **immediately bails out to Tier 3 (Regex) or Cached Pacing**.
+   - It MUST NOT block the worker thread, queue jobs behind heavy compilation, or wait for initialization during live inference.
+3. **Reasoning Stream Debounce**:
+   - Ingesting streaming reasoning tokens (`reasoning-delta`) into pacing classifiers and extractors MUST be debounced:
+     - **No per-token regex loops**: Evaluating classifiers on every single incoming token delta causes severe main-thread lag and worker thrashing.
+     - **Debounce Invariant**: Background extraction probes (`probeCotPivot`) are throttled to a minimum of **3000ms** between dispatches, and category lexical scoring operates in chunk-invariant strides (minimum 100 characters or 1000ms debounce).
+4. **Constrained Worker Footprint**:
+   - Runs in a dedicated Web Worker (`packages/stage-ui/src/workers/needle/worker.ts`), consuming ~56 MB of session RAM on standard CPU threads without consuming GPU VRAM needed for Three.js / Live2D rendering.
 
 ---
 
@@ -551,9 +609,10 @@ Keep policy under `extensions.airi.acting.pacing`. Existing fields and defaults 
 | `dynamicAfterMs` | 15000 | Integer 5000–60000; only later opportunities |
 | `candidateTtlMs` | 15000 | Integer 1000–45000 |
 | `maxSynthesisBudgetMs` | 600 | Integer 100–2000; complete-clip preparation |
+| `asides.maxWords` | 8 | Integer 3–12; maximum word count for extracted aside sub-span |
 | `asides.lookForThinkAloudTags` | true | Tier 1: Look for explicit `<think_aloud>` tags in reasoning |
-| `asides.useSemanticExtractor` | false | Tier 2: Use Needle WASM Semantic Extractor on reasoning buffer |
-| `asides.useHeuristicsFallback` | true | Tier 3: Fall back to keyword/pivot heuristics dictionary |
+| `asides.useSemanticExtractor` | false | Tier 2: Use Needle WASM Span Extractor on reasoning buffer |
+| `asides.useHeuristicsFallback` | true | Tier 3: Fall back to regex/punctuation heuristics dictionary |
 | `experimentalOrganicPivots` | false | Requires dynamic asides enabled |
 | `visualTyping.enabled` | false | Presentation only |
 | `visualTyping.minIntervalMs` | 20 | Integer 0–1000 |
@@ -592,13 +651,13 @@ Consolidate the acting editor into **Model Expressions**, **Speech Tags**, and *
 │ Extraction Strategies (Cascaded Fallback):                                  │
 │   [X] Look for <think_aloud> tags                                           │
 │       Prompt contract: extracts explicit spoken thinking directives         │
-│   [X] Use Semantic Extractor (Needle WASM)                                  │
-│       Subconscious 45M SAN model parses raw unprompted CoT stream in 150ms  │
-│   [X] Use Heuristics Fallback                                               │
-│       Keyword matching dictionary fallback if model/tags are unavailable    │
+│   [X] Use Needle Span Extractor (WASM)                                      │
+│       45M SAN model extracts bite-sized 2-8 word pivot clause from stream   │
+│   [X] Use Regex Heuristics Fallback                                         │
+│       Punctuation/keyword fallback if model/tags are cold or unavailable    │
 │                                                                             │
-│ Timing & Visual Controls:                                                   │
-│   Dynamic Synthesis Threshold: [=====|=========] 3.0s                        │
+│ Timing & Span Controls:                                                     │
+│   Max Aside Words: [ 8 words ▼ ]  Dynamic Threshold: [=====|=========] 3.0s │
 │   [X] Show Live CoT Drawer in Chatbox (In-bubble thinking accordion)        │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -610,6 +669,65 @@ Suggested explicit-cue template:
 > When this connection supports spoken-aside cues, you may occasionally emit a brief `<think_aloud>...</think_aloud>` sentence intended for the listener while preparing your answer. Use your character’s voice. Keep it short and self-contained; avoid private deliberation, code, instructions, or claims about actions you have not performed. Do not repeat yourself or delay the answer to produce a cue. AIRI may skip the cue. Otherwise answer normally.
 
 Treat templates as optional behavior guidance; the parser, budgets, and owner enforce execution. Unsupported providers simply use cached pacing.
+
+### 11.2 The Pacing & Live Reasoning Playground (Lab)
+
+To eliminate the opacity of background cognitive pacing and provide an interactive test bench for creators and developers, the Acting tab includes a dedicated sub-tab: **Pacing Lab (`ActingSubTabPacingPlayground.vue`)**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ [ 🎭 Model Expressions ] [ 🗣️ Speech Tags ] [ ⏳ Pacing & Fillers ] [ 🧪 Pacing Lab ⭐ ]
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 🔗 [ ⚙️ Jump to Card Pacing Settings ]   Presets: [ 😏 Tsundere ] [ 🧐 Analyst ] │
+│                                                                             │
+│ Brain Picker (Top-Right):                                                  │
+│   Provider: [ OpenRouter ▼ ]   Model: [ deepseek/deepseek-r1 ▼ ]            │
+│                                                                             │
+│ Scenario Prompt:                                                            │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ Try to use maximum reasoning for: If a spacecraft accelerates at 1g... │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│ Chips: [ 🚀 Space Physics ] [ ♟️ Chess Endgame ] [ 💻 Kernel Deadlock ]       │
+│                                                                             │
+│ Controls: [X] Initial Cached Filler  [X] Dynamic Asides  Cadence: [ 5s ▼ ] │
+│           [ 🚀 Try It Now ]  [ ⏹️ Abort ]                                    │
+│                                                                             │
+│ 🧠 Live Reasoning & Stride Evaluation Viewport:                            │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ Let's analyze the spacecraft acceleration problem step by step. (yellow)│ │
+│ │ First, under relativistic proper time tau, coordinate time is... (yellow)│ │
+│ │ Now we must evaluate the interstellar dust perturbation... [EVAL ORANGE]│ │
+│ │ Wait, let me double check the drag equation... [ASIDE PURPLE 🎙️]        │ │
+│ │ Continuing calculation of secular drift... (white stream)                │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│ 📊 Real-Time State Ledger & Telemetry:                                      │
+│ [00:01.8] Armed initial generic filler: "Hmm..." ➔ OK (1.2s)                │
+│ [00:05.0] Evaluated stride 1 (48 words) ➔ Jev: analytical (conf: 0.94)      │
+│ [00:09.2] Stride 2 hit pivot threshold ➔ Needle extracted 5-word aside:    │
+│           "Wait, let me double check the drag..." ➔ Synthesizing (320ms) ➔ 🎙️│
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 11.2.1 Core Architectural Principles
+1. **Zero Reinvention of the Wheel (Strict DRY)**:
+   - The Playground does **not** mock or simulate the pacing pipeline with standalone `fetch` or custom timer hacks.
+   - It directly instantiates and drives the **real `useTurnPacing` composable** and **`TurnPacingCoordinator`**, exactly like `ControlStripHost.vue` on the live stage.
+   - Streaming tokens from `useLLM().stream` are fed into `turnPacing.onReasoningChunk()`, and answer tokens trigger `turnPacing.onAnswerLiteral()`. Audio playback flows through the real `PacingPlaybackBridge` and Web Audio manager.
+2. **Top-Right Brain Picker**:
+   - Allows instant switching between frontier reasoning models (DeepSeek-R1, QwQ, Claude 3.7 Thinking) and direct-answer models (GPT-4o, Llama 3) to test latency, reasoning tokens, and pacing handoffs under identical prompts.
+3. **The 5-Stage Color Pipeline (Visual Live Formula)**:
+   - **White (`text-zinc-200`)**: Freshly streamed reasoning tokens arriving in current buffer.
+   - **Orange Pulsing (`text-amber-300 bg-amber-500/20 animate-pulse`)**: Active stride being evaluated in-flight by System 1 (Jev).
+   - **Yellow (`text-yellow-200/80 bg-yellow-500/10`)**: Stride evaluated by Jev; category recorded, but sub-threshold for an interruption.
+   - **Green (`text-emerald-300 bg-emerald-500/20 font-medium`)**: Threshold reached! Jev identified an eligible thinking hesitation/pivot.
+   - **Purple / Electric Blue (`text-fuchsia-100 bg-fuchsia-500/30 font-bold border border-fuchsia-400/60 rounded px-1.5 py-0.5`)**: Extracted 2–8 word pivot span (Needle 2 Attention or Regex).
+4. **Natural Runtime Lifecycle & Tuning Knobs**:
+   - **No Artificial LLM Abort**: Playback and generation coexist naturally; playing an initial filler does not prematurely kill the LLM stream.
+   - **Initial Filler Bypass Toggle**: Allows creators to disable the initial TTFT generic filler to isolate and test *strictly* late CoT dynamic aside extraction.
+   - **Fast Test Cadence (5s vs 15s)**: Accelerated repeat intervals in the lab so testers do not have to wait 15 seconds to observe multi-hop pacing.
+5. **Handling Direct-Answer Models**:
+   - When a model emits answer text (`text-delta`) without reasoning deltas, `useTurnPacing` operates in direct TTFT mode: if the model is slow, it fires the generic filler at the deadline; if fast, it remains silent. The playground ledger documents the observed TTFT and handoff gap without breaking.
 
 ## 12. Pillar C: visual pacing and accessibility
 

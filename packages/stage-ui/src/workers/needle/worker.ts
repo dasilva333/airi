@@ -72,7 +72,7 @@ function extractCotPivotFallback(snippet: string): string | null {
 
   // Pivot trigger patterns representing internal shift, reflection, or realization
   const pivotPatterns = [
-    /(?:no\s+)?wait[,\s—-]+([^.\n?!]{4,80})/i,
+    /\b(?:no\s+)?wait[,\s—-]+([^.\n?!]{4,80})/i,
     /\b(?:actually|in\s+fact)[,\s—-]+([^.\n?!]{4,80})/i,
     /\b(?:however|on\s+the\s+other\s+hand)[,\s—-]+([^.\n?!]{4,80})/i,
     /\b(?:hold|hang)\s+on[,\s—-]+([^.\n?!]{4,80})/i,
