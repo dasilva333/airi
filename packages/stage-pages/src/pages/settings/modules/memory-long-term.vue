@@ -6,7 +6,7 @@ import { useAiriCardStore, useEntityLedgerStore, useTextJournalStore } from '@pr
 import { Button, FieldInput, FieldSelect, Progress } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 
 import EntityDetailModal from './components/EntityDetailModal.vue'
@@ -23,9 +23,15 @@ function formatTimestamp(timestamp: number) {
   })
 }
 
+const router = useRouter()
 const cardStore = useAiriCardStore()
 const textJournalStore = useTextJournalStore()
 const entityLedgerStore = useEntityLedgerStore()
+
+function navigateToWorkspaceMindMap() {
+  localStorage.setItem('airi:chat:left-panel-active', 'knowledge-graph')
+  router.push('/chat')
+}
 
 const { cards, activeCardId } = storeToRefs(cardStore)
 const { entries, loading, lastSearchTriage, lastSearchMode } = storeToRefs(textJournalStore)
@@ -681,6 +687,12 @@ watch(characterOptions, (options) => {
 
             <!-- Action Buttons -->
             <div class="flex items-center gap-3">
+              <Button
+                label="Open in Workspace"
+                icon="i-solar:square-top-down-bold-duotone"
+                variant="secondary"
+                @click="navigateToWorkspaceMindMap"
+              />
               <Button
                 label="Rebuild Knowledge Graph"
                 icon="i-solar:bolt-bold-duotone"

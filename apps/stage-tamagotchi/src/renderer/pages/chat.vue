@@ -26,6 +26,7 @@ import { electronApplySizePreset, electronOpenSettings } from '../../shared/even
 const chat_arcade = defineAsyncComponent(() => import('../components/chat/chat_arcade.vue'))
 const chat_director = defineAsyncComponent(() => import('../components/chat/chat_director.vue'))
 const chat_event_log = defineAsyncComponent(() => import('../components/chat/chat_event_log.vue'))
+const chat_knowledge_graph = defineAsyncComponent(() => import('../components/chat/chat_knowledge_graph.vue'))
 const chat_lifetime = defineAsyncComponent(() => import('../components/chat/chat_lifetime.vue'))
 const chat_media = defineAsyncComponent(() => import('../components/chat/chat_media.vue'))
 const chat_messages = defineAsyncComponent(() => import('../components/chat/chat_messages.vue'))
@@ -146,7 +147,7 @@ const isNan0Active = computed(() => {
 
 // Left Panel Routing States
 const isLeftPanelOpen = useLocalStorage('airi:chat:left-panel-open', true)
-const activeSurface = useLocalStorage<'messages' | 'director' | 'world' | 'characters' | 'media' | 'archives' | 'rehearsal' | 'event-log' | 'arcade' | 'music'>('airi:chat:left-panel-active', 'messages')
+const activeSurface = useLocalStorage<'messages' | 'director' | 'world' | 'characters' | 'media' | 'archives' | 'rehearsal' | 'event-log' | 'arcade' | 'music' | 'knowledge-graph'>('airi:chat:left-panel-active', 'messages')
 
 // Guard removed legacy surfaces
 if ((activeSurface.value as string) === 'notes') {
@@ -164,6 +165,7 @@ const SURFACE_LABELS: Record<string, string> = {
   'rehearsal': 'Rehearsal Room',
   'arcade': 'Arcade Room',
   'music': 'Sound Studio',
+  'knowledge-graph': 'Mind Map',
 }
 
 const SURFACE_ICONS: Record<string, string> = {
@@ -177,6 +179,7 @@ const SURFACE_ICONS: Record<string, string> = {
   'rehearsal': 'i-solar:clapperboard-text-bold-duotone',
   'arcade': 'i-solar:gamepad-bold-duotone',
   'music': 'i-solar:music-notes-bold-duotone',
+  'knowledge-graph': 'i-solar:share-circle-bold-duotone',
 }
 
 const NAV_SECTIONS = [
@@ -203,6 +206,7 @@ const NAV_SECTIONS = [
     items: [
       { id: 'archives', label: 'Eternal Thread', icon: 'i-solar:dna-bold-duotone' },
       { id: 'event-log', label: 'Production Log', icon: 'i-solar:document-text-bold-duotone' },
+      { id: 'knowledge-graph', label: 'Mind Map', icon: 'i-solar:share-circle-bold-duotone' },
     ],
   },
 ] as const
@@ -293,6 +297,10 @@ async function coordinateSurfaceLoad(surface: string) {
       await chatSessionStore.initialize()
     }
   }
+  else if (surface === 'knowledge-graph') {
+    coordinatorProgress.value = 40
+    coordinatorStatus.value = 'Loading knowledge graph & entity ledger...'
+  }
 
   // Begin smooth simulated progress tweening from 60% towards 95% over the course of chunk fetching & mounting
   startProgressTween(60, 95, 10000)
@@ -302,7 +310,7 @@ async function coordinateSurfaceLoad(surface: string) {
   await nextTick()
   await new Promise(r => requestAnimationFrame(r))
 
-  if (surface === 'messages') {
+  if (surface === 'messages' || surface === 'knowledge-graph') {
     if (!isSurfaceSignaledReady && !interactiveAreaRef.value) {
       await new Promise<void>((resolve) => {
         let resolved = false
@@ -318,7 +326,7 @@ async function coordinateSurfaceLoad(surface: string) {
         // Bounded deadlock guard: 12s safety timeout to accommodate cold dev module compilation
         setTimeout(() => {
           if (!resolved) {
-            console.warn('[Chat:Coordinator] Surface ready timed out after 12s; proceeding with fallback.')
+            console.warn(`[Chat:Coordinator] Surface ${surface} ready timed out after 12s; proceeding with fallback.`)
             done()
           }
         }, 12000)
@@ -384,6 +392,7 @@ const activeSurfaceComponent = computed(() => {
     'event-log': chat_event_log,
     'arcade': chat_arcade,
     'music': chat_music,
+    'knowledge-graph': chat_knowledge_graph,
   }
   return markRaw(map[activeSurface.value] || chat_messages)
 })
