@@ -8,6 +8,7 @@ import { computed, ref } from 'vue'
 const props = defineProps<{
   open: boolean
   entityId: string | null
+  highlightTurnId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -263,7 +264,12 @@ function formatTimestamp(ts?: number | string): string {
             <div
               v-for="src in sources"
               :key="src.turnId"
-              class="border border-neutral-800/60 rounded-xl bg-neutral-950/30 p-3 space-y-1.5"
+              :class="[
+                'border rounded-xl p-3 space-y-1.5 transition-all',
+                src.turnId === highlightTurnId
+                  ? 'border-primary-500/80 bg-primary-950/30 ring-1 ring-primary-500/50 shadow-md'
+                  : 'border-neutral-800/60 bg-neutral-950/30',
+              ]"
             >
               <div class="flex items-center justify-between text-[10px] text-neutral-500">
                 <span class="text-neutral-400 font-medium">{{ src.speaker }}</span>

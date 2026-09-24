@@ -27,6 +27,7 @@ const { activeCardId } = storeToRefs(airiCardStore)
 // View State
 const viewMode = ref<'constellation' | 'timeline'>('constellation')
 const selectedEntityId = ref<string | null>(null)
+const selectedTurnId = ref<string | null>(null)
 const isDrawerOpen = ref(false)
 const searchQuery = ref('')
 const selectedCategory = ref('all')
@@ -48,12 +49,12 @@ async function loadData() {
 }
 
 function calculateTimeBounds() {
-  let earliest = Date.now()
-  let latest = 0
+  let earliest = Infinity
+  let latest = -Infinity
 
   // 1. Inspect Sources
   for (const src of entityLedgerStore.sources) {
-    if (src.timestamp) {
+    if (src.timestamp && Number.isFinite(src.timestamp)) {
       earliest = Math.min(earliest, src.timestamp)
       latest = Math.max(latest, src.timestamp)
     }
@@ -61,20 +62,20 @@ function calculateTimeBounds() {
 
   // 2. Inspect 24h Short-Term memory blocks
   for (const block of shortTermStore.blocks) {
-    const ts = block.createdAt || new Date(block.date).getTime()
-    if (ts) {
+    const ts = block.createdAt || (block.date ? new Date(block.date).getTime() : 0)
+    if (ts && Number.isFinite(ts)) {
       earliest = Math.min(earliest, ts)
       latest = Math.max(latest, ts)
     }
   }
 
-  if (latest === 0) {
+  if (!Number.isFinite(earliest) || !Number.isFinite(latest) || earliest >= latest) {
     latest = Date.now()
     earliest = latest - 7 * 24 * 60 * 60 * 1000
   }
 
   minTimestamp.value = earliest
-  maxTimestamp.value = Math.max(latest, Date.now())
+  maxTimestamp.value = latest
   currentScrubTimestamp.value = maxTimestamp.value
 }
 
@@ -93,12 +94,16 @@ const graphNodes = computed<GraphNode[]>(() => {
       continue
 
     // Find earliest mention timestamp
-    let earliestMention = minTimestamp.value
+    let earliestMention = Infinity
     for (const turnId of ent.mentions) {
       const src = entityLedgerStore.activeLedger.sources.get(turnId)
-      if (src?.timestamp) {
+      if (src?.timestamp && Number.isFinite(src.timestamp)) {
         earliestMention = Math.min(earliestMention, src.timestamp)
       }
+    }
+
+    if (!Number.isFinite(earliestMention)) {
+      earliestMention = minTimestamp.value
     }
 
     const mentionsCount = ent.mentions.size
@@ -168,8 +173,9 @@ const activeEntitiesCount = computed(() => {
   return graphNodes.value.filter(n => n.firstSeenTimestamp <= currentScrubTimestamp.value).length
 })
 
-function handleSelectEntity(id: string) {
+function handleSelectEntity(id: string, turnId?: string) {
   selectedEntityId.value = id
+  selectedTurnId.value = turnId || null
   isDrawerOpen.value = true
 }
 
@@ -186,11 +192,15 @@ async function handleClear() {
   if (confirm('Are you sure you want to clear the entire Knowledge Graph for this character?')) {
     await entityLedgerStore.clearLedger(activeCardId.value)
     selectedEntityId.value = null
+    selectedTurnId.value = null
     isDrawerOpen.value = false
   }
 }
 
 watch(activeCardId, () => {
+  selectedEntityId.value = null
+  selectedTurnId.value = null
+  isDrawerOpen.value = false
   void loadData()
 })
 
@@ -203,6 +213,7 @@ onMounted(() => {
   <div class="relative h-full w-full flex flex-col select-none overflow-hidden bg-neutral-950 text-neutral-100">
     <!-- Header -->
     <MindMapHeader
+      class="relative z-30"
       :view-mode="viewMode"
       :search-query="searchQuery"
       :selected-category="selectedCategory"
@@ -221,36 +232,41 @@ onMounted(() => {
         @synthesize="handleRebuild"
       />
 
-      <!-- Mode 1: Constellation Canvas -->
-      <ConstellationCanvas
-        v-else-if="viewMode === 'constellation'"
-        :nodes="graphNodes"
-        :edges="graphEdges"
-        :selected-entity-id="selectedEntityId"
-        :current-scrub-timestamp="currentScrubTimestamp"
-        @select-entity="handleSelectEntity"
-      />
-
-      <!-- Mode 2: Chronological Timeline Stream -->
-      <ChronologicalTimelineView
-        v-else-if="viewMode === 'timeline'"
-        :entities="timelineEntities"
-        :claims="timelineClaims"
-        :sources="entityLedgerStore.sources"
-        :selected-entity-id="selectedEntityId"
-        :current-scrub-timestamp="currentScrubTimestamp"
-        :min-timestamp="minTimestamp"
-        :max-timestamp="maxTimestamp"
-        @select-entity="handleSelectEntity"
-      />
+      <!-- Keep views alive across tab toggles -->
+      <template v-else>
+        <KeepAlive>
+          <ConstellationCanvas
+            v-if="viewMode === 'constellation'"
+            :nodes="graphNodes"
+            :edges="graphEdges"
+            :selected-entity-id="selectedEntityId"
+            :current-scrub-timestamp="currentScrubTimestamp"
+            @select-entity="handleSelectEntity"
+          />
+          <ChronologicalTimelineView
+            v-else
+            :entities="timelineEntities"
+            :claims="timelineClaims"
+            :sources="entityLedgerStore.sources"
+            :selected-entity-id="selectedEntityId"
+            :current-scrub-timestamp="currentScrubTimestamp"
+            :min-timestamp="minTimestamp"
+            :max-timestamp="maxTimestamp"
+            :search-query="searchQuery"
+            @select-entity="handleSelectEntity"
+            @update:current-scrub-timestamp="currentScrubTimestamp = $event"
+          />
+        </KeepAlive>
+      </template>
 
       <!-- Slide-Out Entity Detail Inspector Drawer -->
       <EntityDetailDrawer
         :open="isDrawerOpen"
         :entity-id="selectedEntityId"
+        :highlight-turn-id="selectedTurnId"
         @update:open="isDrawerOpen = $event"
         @select-entity="handleSelectEntity"
-        @deleted="selectedEntityId = null"
+        @deleted="selectedEntityId = null; selectedTurnId = null"
       />
     </div>
 

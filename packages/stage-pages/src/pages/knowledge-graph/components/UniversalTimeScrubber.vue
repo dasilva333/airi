@@ -2,7 +2,7 @@
 import type { ShortTermMemoryBlock } from '@proj-airi/stage-ui/types/short-term-memory'
 
 import { useShortTermMemoryStore } from '@proj-airi/stage-ui/stores/memory-short-term'
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 
 const props = defineProps<{
   minTimestamp: number
@@ -55,9 +55,14 @@ const chapterMarkers = computed(() => {
 })
 
 function handleSliderInput(e: Event) {
+  stopPlay()
   const val = Number((e.target as HTMLInputElement).value)
   emit('update:modelValue', val)
 }
+
+watch(() => [props.minTimestamp, props.maxTimestamp], () => {
+  stopPlay()
+})
 
 function jumpToLive() {
   stopPlay()

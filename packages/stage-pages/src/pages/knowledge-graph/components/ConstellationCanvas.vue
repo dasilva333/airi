@@ -9,7 +9,6 @@ import {
   forceLink,
   forceManyBody,
   forceSimulation,
-
 } from 'd3-force'
 import { select } from 'd3-selection'
 import { zoom, zoomIdentity } from 'd3-zoom'
@@ -60,6 +59,11 @@ const positionCache = new Map<string, { x: number, y: number, vx?: number, vy?: 
 const renderedNodes = shallowRef<GraphNode[]>([])
 const renderedEdges = shallowRef<GraphEdge[]>([])
 
+// Hover state
+const hoveredNode = ref<GraphNode | null>(null)
+const tooltipX = ref(0)
+const tooltipY = ref(0)
+
 let simulation: Simulation<GraphNode, GraphEdge> | null = null
 let zoomBehavior: any = null
 
@@ -70,12 +74,37 @@ const timeVisibleNodes = computed(() => {
 
 const visibleNodeIds = computed(() => new Set(timeVisibleNodes.value.map(n => n.id)))
 
+// Signature of visible node IDs to avoid unnecessary restarts on scrubber ticks
+const visibleNodeSignature = computed(() => {
+  return timeVisibleNodes.value.map(n => n.id).sort().join(',')
+})
+
 const timeVisibleEdges = computed(() => {
   return props.edges.filter((e) => {
     const srcId = typeof e.source === 'object' ? (e.source as GraphNode).id : e.source
     const tgtId = typeof e.target === 'object' ? (e.target as GraphNode).id : e.target
     return visibleNodeIds.value.has(srcId) && visibleNodeIds.value.has(tgtId)
   })
+})
+
+// Connected neighborhood of selected entity
+const selectedNeighborhood = computed(() => {
+  if (!props.selectedEntityId)
+    return new Set<string>()
+
+  const neighbors = new Set<string>()
+  neighbors.add(props.selectedEntityId)
+
+  for (const e of timeVisibleEdges.value) {
+    const srcId = typeof e.source === 'object' ? (e.source as GraphNode).id : e.source
+    const tgtId = typeof e.target === 'object' ? (e.target as GraphNode).id : e.target
+    if (srcId === props.selectedEntityId)
+      neighbors.add(tgtId)
+    if (tgtId === props.selectedEntityId)
+      neighbors.add(srcId)
+  }
+
+  return neighbors
 })
 
 function nodeColor(type: EntityType): string {
@@ -90,7 +119,17 @@ function nodeColor(type: EntityType): string {
   }
 }
 
-function initSimulation() {
+// Deterministic string hash for repeatable seeding without Math.random
+function hashString(str: string): number {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash)
+}
+
+function initSimulation(fullRebuild = false) {
   if (!svgRef.value)
     return
 
@@ -100,15 +139,12 @@ function initSimulation() {
   if (rect.height > 0)
     height.value = rect.height
 
-  if (simulation) {
-    simulation.stop()
-  }
-
   const centerX = width.value / 2
   const centerY = height.value / 2
 
-  // Prepare simNodes using cached positions or radial seed
   const count = timeVisibleNodes.value.length
+
+  // Prepare simNodes using cached positions or deterministic radial seed
   const simNodes: GraphNode[] = timeVisibleNodes.value.map((n, idx) => {
     const cached = positionCache.get(n.id)
     if (cached) {
@@ -121,8 +157,9 @@ function initSimulation() {
       }
     }
 
-    // Seed in an organic spiral/cloud around center
-    const angle = (idx / Math.max(1, count)) * Math.PI * 2 * 3.5 + Math.random() * 0.4
+    // Deterministic organic seed based on node ID hash
+    const jitter = (hashString(n.id) % 1000) / 1000
+    const angle = (idx / Math.max(1, count)) * Math.PI * 2 * 3.5 + jitter * 0.4
     const radiusDist = 40 + Math.sqrt((idx + 1) / Math.max(1, count)) * (Math.min(width.value, height.value) * 0.38)
     return {
       ...n,
@@ -148,27 +185,41 @@ function initSimulation() {
     }
   }
 
-  // Immediately publish initial positions
+  // Update rendered lists
   renderedNodes.value = simNodes
   renderedEdges.value = simEdges
 
-  simulation = forceSimulation<GraphNode>(simNodes)
-    .force('link', forceLink<GraphNode, GraphEdge>(simEdges).id(d => d.id).distance(140).strength(0.35))
-    .force('charge', forceManyBody().strength(-320).distanceMax(700))
-    .force('collide', forceCollide<GraphNode>().radius(d => d.radius + 16).iterations(3))
-    .force('center', forceCenter(centerX, centerY).strength(0.04))
-    .alpha(0.6)
-    .alphaDecay(0.025)
+  if (!simulation || fullRebuild) {
+    if (simulation)
+      simulation.stop()
 
-  simulation.on('tick', () => {
-    for (const n of simNodes) {
-      if (n.x !== undefined && n.y !== undefined) {
-        positionCache.set(n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy })
+    simulation = forceSimulation<GraphNode>(simNodes)
+      .force('link', forceLink<GraphNode, GraphEdge>(simEdges).id(d => d.id).distance(140).strength(0.35))
+      .force('charge', forceManyBody().strength(-300).distanceMax(700))
+      .force('collide', forceCollide<GraphNode>().radius(d => d.radius + 16).iterations(2))
+      .force('center', forceCenter(centerX, centerY).strength(0.04))
+      .alpha(0.5)
+      .alphaDecay(0.025)
+
+    simulation.on('tick', () => {
+      for (const n of simNodes) {
+        if (n.x !== undefined && n.y !== undefined) {
+          positionCache.set(n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy })
+        }
       }
+      renderedNodes.value = [...simNodes]
+      renderedEdges.value = [...simEdges]
+    })
+  }
+  else {
+    // Gentle update without tearing down forces
+    simulation.nodes(simNodes)
+    const linkForce = simulation.force('link') as any
+    if (linkForce) {
+      linkForce.links(simEdges)
     }
-    renderedNodes.value = [...simNodes]
-    renderedEdges.value = [...simEdges]
-  })
+    simulation.alpha(0.18).restart()
+  }
 
   // Setup d3-zoom if not initialized
   if (!zoomBehavior) {
@@ -204,7 +255,6 @@ function handlePointerMove(e: PointerEvent) {
   const mouseX = e.clientX - rect.left
   const mouseY = e.clientY - rect.top
 
-  // Invert current zoom transform to get simulation coordinates
   const [simX, simY] = currentZoom.value.invert([mouseX, mouseY])
   draggedNode.fx = simX
   draggedNode.fy = simY
@@ -223,6 +273,18 @@ function handlePointerUp() {
 
 function handleNodeClick(node: GraphNode) {
   emit('selectEntity', node.id)
+}
+
+function handleNodeMouseEnter(e: MouseEvent, node: GraphNode) {
+  hoveredNode.value = node
+  const clampedX = Math.min(window.innerWidth - 300, Math.max(20, e.clientX + 14))
+  const clampedY = Math.min(window.innerHeight - 150, Math.max(20, e.clientY + 14))
+  tooltipX.value = clampedX
+  tooltipY.value = clampedY
+}
+
+function handleNodeMouseLeave() {
+  hoveredNode.value = null
 }
 
 function zoomIn() {
@@ -281,25 +343,26 @@ function fitView() {
   select(svgRef.value).call(zoomBehavior.transform, transform)
 }
 
+// Only re-run or reheat simulation when the visible node signature or topology changes
 watch(
-  () => [props.nodes.length, props.edges.length, props.currentScrubTimestamp],
-  () => {
-    initSimulation()
+  () => visibleNodeSignature.value,
+  (newSig, oldSig) => {
+    if (newSig !== oldSig) {
+      initSimulation(false)
+    }
   },
-  { deep: false },
 )
 
 onMounted(async () => {
   await nextTick()
-  initSimulation()
-  window.addEventListener('resize', initSimulation)
+  initSimulation(true)
+  window.addEventListener('resize', () => initSimulation(false))
 })
 
 onUnmounted(() => {
   if (simulation) {
     simulation.stop()
   }
-  window.removeEventListener('resize', initSimulation)
   window.removeEventListener('pointermove', handlePointerMove)
   window.removeEventListener('pointerup', handlePointerUp)
 })
@@ -308,7 +371,7 @@ onUnmounted(() => {
 <template>
   <div class="relative h-full w-full select-none overflow-hidden bg-neutral-950">
     <!-- Ambient Constellation Grid Background -->
-    <div class="[background-image:radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none absolute inset-0 opacity-20" />
+    <div class="[background-image:radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:28px_28px] pointer-events-none absolute inset-0 opacity-15" />
 
     <!-- SVG Canvas -->
     <svg
@@ -343,16 +406,24 @@ onUnmounted(() => {
           <g
             v-for="edge in renderedEdges"
             :key="edge.id"
-            class="transition-opacity duration-300"
+            :class="[
+              'transition-opacity duration-300',
+              selectedEntityId
+                ? ((typeof edge.source === 'object' ? (edge.source as GraphNode).id : edge.source) === selectedEntityId
+                  || (typeof edge.target === 'object' ? (edge.target as GraphNode).id : edge.target) === selectedEntityId
+                  ? 'opacity-100'
+                  : 'opacity-15')
+                : 'opacity-100',
+            ]"
           >
             <line
               :x1="typeof edge.source === 'object' ? (edge.source as GraphNode).x : 0"
               :y1="typeof edge.source === 'object' ? (edge.source as GraphNode).y : 0"
               :x2="typeof edge.target === 'object' ? (edge.target as GraphNode).x : 0"
               :y2="typeof edge.target === 'object' ? (edge.target as GraphNode).y : 0"
-              :stroke="edge.isSuperseded ? '#f59e0b' : 'rgba(148, 163, 184, 0.28)'"
+              :stroke="edge.isSuperseded ? '#f59e0b' : 'rgba(148, 163, 184, 0.35)'"
               :stroke-dasharray="edge.isSuperseded ? '5 4' : undefined"
-              stroke-width="1.5"
+              :stroke-width="selectedEntityId && ((typeof edge.source === 'object' ? (edge.source as GraphNode).id : edge.source) === selectedEntityId || (typeof edge.target === 'object' ? (edge.target as GraphNode).id : edge.target) === selectedEntityId) ? 2.5 : 1.2"
               marker-end="url(#arrow)"
             />
             <!-- Predicate Label -->
@@ -388,9 +459,16 @@ onUnmounted(() => {
             v-for="node in renderedNodes"
             :key="node.id"
             :transform="`translate(${node.x || 0}, ${node.y || 0})`"
-            class="group cursor-pointer"
+            :class="[
+              'group cursor-pointer transition-opacity duration-200',
+              selectedEntityId
+                ? (selectedNeighborhood.has(node.id) ? 'opacity-100' : 'opacity-25')
+                : 'opacity-100',
+            ]"
             @pointerdown="handlePointerDown($event, node)"
             @click="handleNodeClick(node)"
+            @mouseenter="handleNodeMouseEnter($event, node)"
+            @mouseleave="handleNodeMouseLeave"
           >
             <!-- Glowing Selection / Hover Aura -->
             <circle
@@ -423,21 +501,22 @@ onUnmounted(() => {
               class="transition-transform duration-200 group-hover:scale-105"
             />
 
-            <!-- Entity Label -->
+            <!-- Restrained Entity Label: Anchor nodes, selected node, hovered node, or zoomed in -->
             <text
+              v-if="selectedEntityId === node.id || hoveredNode?.id === node.id || selectedNeighborhood.has(node.id) || node.radius >= 14 || currentZoom.k >= 0.85"
               text-anchor="middle"
-              :dy="node.radius + 14"
-              class="pointer-events-none select-none fill-neutral-200 text-[11px] font-semibold tracking-wide font-sans drop-shadow-md group-hover:fill-white"
+              :dy="node.radius + 17"
+              class="pointer-events-none select-none fill-neutral-100 text-[14px] font-bold tracking-normal font-sans drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] group-hover:fill-white"
             >
               {{ node.label }}
             </text>
 
             <!-- Small Mention Badge inside large nodes -->
             <text
-              v-if="node.radius >= 20"
+              v-if="node.radius >= 18"
               text-anchor="middle"
-              dy="3.5"
-              class="pointer-events-none select-none fill-neutral-950 text-[10px] font-bold font-sans"
+              dy="4.5"
+              class="pointer-events-none select-none fill-neutral-950 text-[12px] font-extrabold font-sans"
             >
               {{ node.mentionsCount }}
             </text>
@@ -445,6 +524,34 @@ onUnmounted(() => {
         </g>
       </g>
     </svg>
+
+    <!-- Floating Node Tooltip on Hover -->
+    <Transition name="fade">
+      <div
+        v-if="hoveredNode"
+        class="pointer-events-none fixed z-50 max-w-xs border border-neutral-700/80 rounded-2xl bg-neutral-900/95 p-3 shadow-2xl backdrop-blur-md"
+        :style="{ left: `${tooltipX}px`, top: `${tooltipY}px` }"
+      >
+        <div class="flex items-center justify-between gap-3 text-xs">
+          <span
+            class="rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase"
+            :style="{ backgroundColor: `${nodeColor(hoveredNode.type)}25`, color: nodeColor(hoveredNode.type) }"
+          >
+            {{ hoveredNode.type }}
+          </span>
+          <span class="text-[10px] text-neutral-400 font-mono">
+            {{ hoveredNode.mentionsCount }} {{ hoveredNode.mentionsCount === 1 ? 'mention' : 'mentions' }}
+          </span>
+        </div>
+
+        <div class="mt-1 text-sm text-neutral-100 font-bold">
+          {{ hoveredNode.label }}
+        </div>
+        <div class="mt-1 text-[10px] text-neutral-400">
+          First seen {{ new Date(hoveredNode.firstSeenTimestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) }}
+        </div>
+      </div>
+    </Transition>
 
     <!-- Floating Canvas Controls (Bottom Right) -->
     <div class="absolute bottom-5 right-5 flex flex-col gap-1.5 border border-neutral-800/80 rounded-2xl bg-neutral-900/80 p-1.5 shadow-xl backdrop-blur-md">

@@ -58,7 +58,7 @@ function toggleGroundingMemory() {
 </script>
 
 <template>
-  <header class="flex flex-col gap-3 border-b border-neutral-200/50 bg-white/70 p-3.5 backdrop-blur-md dark:border-neutral-800/60 dark:bg-neutral-950/60">
+  <header class="relative z-30 flex flex-col gap-3 border-b border-neutral-200/50 bg-white/70 p-3.5 backdrop-blur-md dark:border-neutral-800/60 dark:bg-neutral-950/60">
     <!-- Row 1: Title, View Switcher, Live Telemetry, & Primary Controls -->
     <div class="flex flex-wrap items-center justify-between gap-3">
       <!-- Left: Title & View Mode Switcher -->
