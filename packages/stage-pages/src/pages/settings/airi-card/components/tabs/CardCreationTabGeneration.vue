@@ -3,6 +3,8 @@ import { FieldCheckbox, FieldInput, FieldTextArea, Select } from '@proj-airi/ui'
 import { watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { isThinkingPresetActive, THINKING_PRESETS, toggleThinkingPreset } from './generation-thinking-presets'
+
 defineProps<{
   providerOptions: { value: string, label: string }[]
   modelOptions: { value: string, label: string }[]
@@ -46,6 +48,10 @@ function updateGlobalContextMap() {
   catch (err) {
     console.error('[CardCreationTabGeneration] Failed to update global context map:', err)
   }
+}
+
+function onSelectThinkingPreset(presetValue: Record<string, unknown>) {
+  generationAdvancedJson.value = toggleThinkingPreset(generationAdvancedJson.value, presetValue)
 }
 
 watch([generationContextWidth, generationProvider, generationModel], () => {
@@ -212,6 +218,35 @@ watch([generationContextWidth, generationProvider, generationModel], () => {
         placeholder="{&#10;  &quot;thinking&quot;: { &quot;type&quot;: &quot;disabled&quot; }&#10;}"
         :rows="8"
       />
+
+      <div class="advanced-block mb-2 flex flex-col gap-2 -mt-4">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs text-neutral-500 font-medium dark:text-neutral-400">
+            Disable thinking variants:
+          </span>
+          <button
+            v-for="preset in THINKING_PRESETS"
+            :key="preset.label"
+            type="button"
+            :class="[
+              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-mono transition-all cursor-pointer select-none active:scale-95',
+              isThinkingPresetActive(generationAdvancedJson, preset.value)
+                ? 'border-primary-500/80 bg-primary-50 font-semibold text-primary-700 shadow-sm dark:border-primary-400/80 dark:bg-primary-950/60 dark:text-primary-300'
+                : 'border-neutral-200/80 bg-neutral-100/70 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-400 dark:hover:border-neutral-700 dark:hover:bg-neutral-800/80',
+            ]"
+            :title="preset.description"
+            @click="onSelectThinkingPreset(preset.value)"
+          >
+            <div :class="[isThinkingPresetActive(generationAdvancedJson, preset.value) ? 'i-lucide:check text-primary-600 dark:text-primary-400' : 'i-lucide:code-2 opacity-60', 'text-xs']" />
+            <span>{{ preset.label }}</span>
+          </button>
+        </div>
+
+        <div class="flex items-start gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+          <div i-lucide:info class="mt-0.5 shrink-0 text-amber-500/80 dark:text-amber-400/80" />
+          <span>Different variants are provided; they might not work when used depending on the provider or model.</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
