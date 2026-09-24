@@ -18,6 +18,130 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-09-24] Upstream Delta: `595ea726..3e8ea960` (6 commits, 37 files, 15 PR update(s))
+
+### 🎯 Executive Highlights
+* **Upstream Focus**: Upstream merged 6 commits (`595ea726..3e8ea960`) across 37 files and recorded 15 PR updates (10 new, 2 status changes, 3 discussion changes). Core focus centered on: (1) Voice input stream binding & ASR lifecycle (#2645 / `40d6ffd8df`, #2651, #2290), resolving microphone race conditions where late stream discovery or rapid toggling decoupled the Hearing VAD from active MediaStreams, with follow-ups making ASR lifecycle explicit (#2651) and streaming official ASR over WebSocket (#2290); (2) Live2D resize frame blanking fix (#2646 / `3e8ea96075`), forcing an immediate frame draw before the compositor presents and switching dimension watchers to `flush: 'post'`; (3) Consciousness sampling opt-in (#2650 / `f0fae90a0b`), resolving Issue #2628 by making temperature and top_p explicit opt-ins via UI toggles so default slider values do not override provider defaults for reasoning models (e.g. o1/o3/r1); (4) Character card editor overhaul (#2654 by @clansty), proposing to replace the cramped card editor modal with full-screen responsive routes (`/settings/airi-card/new` and `/settings/airi-card/:cardId/edit`) with linear browser back-history; (5) Deprecated Controls Island adjustments (#2649 / `eeea3a1a5a`, `b38ae4a62f`), tweaking island dock assertions and chat controls; and (6) Cloud/auth expansions (#2648, #2647), adding provider/chat cloud sync switches and Steam profile sign-in.
+* **Discussion & Community Buzz**:
+  - 💬 **#2290: `feat(server): stream official ASR over WebSocket` (58 comments)**: Heavy discussion on streaming official ASR over WebSocket vs HTTP chunking.
+  - 💬 **#2471: `feat(stage-ui): sync user providers to a cloud replica` (+2 new comments, total 67)**: Ongoing high-velocity architectural discussion regarding hosted database cloud sync of user provider configurations vs local privacy.
+  - 💬 **#2121: `chore(i18n): update translations` (+3 new comments, total 121)**: Continuous high-volume community localization updates.
+  - 💬 **#2651: `refactor(stage-ui): make voice input and ASR lifecycle explicit` (4 comments)**: Active discussion following PR #2645 on cleanly decoupling voice input stream acquisition and ASR consumer lifecycles.
+  - 💬 **#2214: `feat(tts): add Volcengine streaming BYOK` [Draft] (4 comments)**: Community discussion on adding streaming TTS for ByteDance Volcengine (Doubao).
+  - 💬 **#2613: `perf(stage-tamagotchi): remove packaging-only dependencies` (+1 new comments, total 4)**: Finalizing bundle footprint cleanup.
+* **Cherry-Pick Candidates**:
+  - ⭐ **PR #2646 (Commit `3e8ea96075`): `fix(stage-ui-live2d): draw the resized frame before the compositor takes it`**: High-value visual fix. Resizing the Live2D drawing buffer reallocates it empty; under constrained maxFPS, this caused visible black flashes/flickering. Calling `renderStage?.()` immediately inside `handleResize()` and using `{ flush: 'post' }` fixes the flash cleanly. Direct drop-in into `packages/stage-ui-live2d/src/components/scenes/live2d/Canvas.vue`.
+  - ⭐ **PR #2650 (Commit `f0fae90a0b`): `fix(stage-ui): make custom sampling parameters opt-in (#2650)`**: High value for LLM inference correctness. Fixes Issue #2628 where default slider values (0.7, 1.0) were unconditionally included in chat completion payloads, clobbering model defaults for reasoning models (OpenAI o1/o3, DeepSeek R1). Worth adapting into our `consciousness.ts` and `consciousness-settings.ts` stores, taking care to preserve our fork's composite provider key logic.
+  - 🔍 **PR #2653: `fix(stage-ui): align provider card content to top`**: Clean visual polish aligning provider card contents to the top. Low risk, simple candidate.
+  - 🔍 **PR #2654: `feat(stage-pages): replace card editor modal with full-screen routes`**: Replaces the card editor modal with dedicated full-screen routes. Architectural reference to study against our existing AnimaDex / Card Editor Wizard (`airi-card-editor-wizard`).
+  - ⚪ **Auto-Reject / Do Not Port**:
+    - **Commits `eeea3a1a5a` & `b38ae4a62f` / PR #2649 (`controls-island`)**: Modifies `controls-island` which this fork permanently deleted in favor of the decoupled Control Strip.
+    - **PR #2648 & #2647 (Cloud sync switches & Steam profile auth)**: Hosted cloud database sync and remote game profile authentication; incompatible with this fork's local-first, zero-account, client-only architecture.
+    - **Commit `40d6ffd8df` (server Aliyun NLS streaming routes)**: Server-side transcription proxying is not used in this client-direct fork.
+* **Divergence / Collision Warnings**:
+  - ⚠️ **`packages/stage-ui/src/stores/modules/consciousness.ts` & `settings/modules/consciousness.vue` (Commit `f0fae90a0b`)**: Upstream adds opt-in sampling flags. Our fork contains customized provider key mappings (`composite provider keys`), onboarding grounding persistence, and model customizer integrations. Any port must splice the opt-in computed properties without overwriting fork-specific provider structures.
+  - ⚠️ **`apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` & `chat.vue` (Commit `eeea3a1a5a`)**: Upstream altered island dock placement and chat controls. Our fork completely decoupled chat and controls from the stage window. Do not merge.
+  - ⚠️ **`packages/stage-ui/src/stores/modules/hearing.ts` & `vad.ts` (Commit `40d6ffd8df` / PR #2651)**: Upstream is actively refactoring voice input stream binding. Our fork maintains custom audio pipelines (VoiceProfiles, UST speech transformers, and Stage-Mate audio bridge). Review changes against our audio pipeline before adopting.
+
+### 📋 Upstream Commits
+- `3e8ea96075` fix(stage-ui-live2d): draw the resized frame before the compositor takes it (#2646) [#2646](https://github.com/moeru-ai/airi/pull/2646) _(蓝莓🫐, 2026-09-24)_
+- `b38ae4a62f` test(stage-tamagotchi): correct controls island dock assertions  _(RainbowBird, 2026-09-24)_
+- `f0fae90a0b` fix(stage-ui): make custom sampling parameters opt-in (#2650) [#2650](https://github.com/moeru-ai/airi/pull/2650) _(RainbowBird, 2026-09-24)_
+- `eeea3a1a5a` fix(stage-tamagotchi): correct island dock and simplify chat controls (#2649) [#2649](https://github.com/moeru-ai/airi/pull/2649) _(RainbowBird, 2026-09-24)_
+- `bdf8c0b648` docs: update behavior evidence workflow and clarify diagram usage  _(RainbowBird, 2026-09-24)_
+- `40d6ffd8df` fix(stage-ui): restore voice input after microphone changes (#2645) [#2645](https://github.com/moeru-ai/airi/pull/2645) _(RainbowBird, 2026-09-24)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 3 file(s) (+132/-36)
+- `.agents/skills/create-pr/SKILL.md` *(+10/-36)*
+- `docs/ai/adr/2026-09-23-voice-input-binding.md` *(+112/-0)*
+- `packages/stage-ui/README.md` *(+10/-0)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 2 file(s) (+108/-129)
+- `apps/stage-pocket/src/pages/index.vue` *(+53/-64)*
+- `apps/stage-web/src/pages/index.vue` *(+55/-65)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 2 file(s) (+53/-68)
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` *(+53/-55)*
+- `apps/stage-tamagotchi/src/renderer/pages/chat.vue` *(+0/-13)*
+
+#### Deprecated Surfaces (Control Island) (`⚪ ignore / rejected in fork (decoupled into Control Strip)`) — 4 file(s) (+36/-40)
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-root.test.ts` *(+16/-16)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-root.vue` *(+1/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-speech-mute.vue` *(+16/-20)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/use-controls-island-placement.ts` *(+3/-3)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 4 file(s) (+8/-0)
+- `packages/i18n/src/locales/en/settings.yaml` *(+3/-0)*
+- `packages/i18n/src/locales/en/stage.yaml` *(+1/-0)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+3/-0)*
+- `packages/i18n/src/locales/zh-Hans/stage.yaml` *(+1/-0)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 2 file(s) (+6/-14)
+- `packages/stage-layouts/src/composables/use-transcriptions.test.ts` *(+3/-5)*
+- `packages/stage-layouts/src/composables/use-transcriptions.ts` *(+3/-9)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 1 file(s) (+27/-5)
+- `packages/stage-pages/src/pages/settings/modules/consciousness.vue` *(+27/-5)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 1 file(s) (+13/-1)
+- `packages/stage-ui-live2d/src/components/scenes/live2d/Canvas.vue` *(+13/-1)*
+
+#### Audio & Speech Pipeline (`🔍 inspect`) — 4 file(s) (+155/-5)
+- `packages/stage-ui/src/libs/audio/vad-streaming-session.test.ts` *(+32/-0)*
+- `packages/stage-ui/src/libs/audio/vad-streaming-session.ts` *(+5/-5)*
+- `packages/stage-ui/src/libs/audio/voice-input-binding.test.ts` *(+60/-0)*
+- `packages/stage-ui/src/libs/audio/voice-input-binding.ts` *(+58/-0)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 12 file(s) (+437/-79)
+- `packages/stage-ui/src/stores/ai/models/vad.test.ts` *(+63/-0)*
+- `packages/stage-ui/src/stores/ai/models/vad.ts` *(+59/-23)*
+- `packages/stage-ui/src/stores/mods/api/context-bridge.contract.browser.test.ts` *(+5/-2)*
+- `packages/stage-ui/src/stores/modules/consciousness-settings.browser.test.ts` *(+22/-3)*
+- `packages/stage-ui/src/stores/modules/consciousness-settings.ts` *(+26/-9)*
+- `packages/stage-ui/src/stores/modules/consciousness.test.ts` *(+83/-0)*
+- `packages/stage-ui/src/stores/modules/consciousness.ts` *(+14/-5)*
+- `packages/stage-ui/src/stores/modules/hearing.ts` *(+104/-36)*
+- `packages/stage-ui/src/stores/modules/streaming-transcription-consumers.test.ts` *(+3/-0)*
+- `packages/stage-ui/src/stores/modules/streaming-transcription-consumers.ts` *(+5/-0)*
+- `packages/stage-ui/src/stores/settings/audio-device.test.ts` *(+44/-0)*
+- `packages/stage-ui/src/stores/settings/audio-device.ts` *(+9/-1)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 2 file(s) (+92/-7)
+- `server/apps/api/src/routes/audio-transcription-stream/session.test.ts` *(+31/-1)*
+- `server/apps/api/src/routes/audio-transcription-stream/session.ts` *(+61/-6)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (10)
+- [#2646](https://github.com/moeru-ai/airi/pull/2646) `fix(stage-ui-live2d): draw the resized frame before the compositor takes it` by **@chiba233** *(1 comments)*
+- [#2654](https://github.com/moeru-ai/airi/pull/2654) `feat(stage-pages): replace card editor modal with full-screen routes` by **@clansty** *(1 comments)*
+- [#2653](https://github.com/moeru-ai/airi/pull/2653) `fix(stage-ui): align provider card content to top` by **@clansty** *(1 comments)*
+- [#2651](https://github.com/moeru-ai/airi/pull/2651) `refactor(stage-ui): make voice input and ASR lifecycle explicit` by **@luoling8192** *(4 comments)*
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` by **@luoling8192** *(58 comments)*
+- [#2650](https://github.com/moeru-ai/airi/pull/2650) `fix(stage-ui): make custom sampling parameters opt-in` by **@luoling8192** *(2 comments)*
+- [#2214](https://github.com/moeru-ai/airi/pull/2214) `feat(tts): add Volcengine streaming BYOK` by **@luoling8192** *(Draft)* *(4 comments)*
+- [#2649](https://github.com/moeru-ai/airi/pull/2649) `fix(stage-tamagotchi): correct island dock and simplify chat controls` by **@luoling8192** *(1 comments)*
+- [#2648](https://github.com/moeru-ai/airi/pull/2648) `feat(stage-ui): add cloud sync switches for providers and chats` by **@lulu0119** *(Draft)* *(0 comments)*
+- [#2647](https://github.com/moeru-ai/airi/pull/2647) `feat(auth): fetch the Steam profile on sign-in` by **@lulu0119** *(1 comments)*
+
+#### 🔄 PR Status & Lifecycle Changes (2)
+- [#2641](https://github.com/moeru-ai/airi/pull/2641) `feat(stage-ui): show chat image analysis status` — `OPEN` ➔ `CLOSED`
+- [#2645](https://github.com/moeru-ai/airi/pull/2645) `fix(stage-ui): restore voice input after microphone changes` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (3)
+- [#2613](https://github.com/moeru-ai/airi/pull/2613) `perf(stage-tamagotchi): remove packaging-only dependencies` — *+1 comments (3 ➔ 4 total)*
+- [#2121](https://github.com/moeru-ai/airi/pull/2121) `chore(i18n): update translations` — *+3 comments (118 ➔ 121 total)*
+- [#2471](https://github.com/moeru-ai/airi/pull/2471) `feat(stage-ui): sync user providers to a cloud replica` — *+2 comments (65 ➔ 67 total)*
+
+### 👁️ Watched PRs Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(0 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2550](https://github.com/moeru-ai/airi/pull/2550) `feat(hearing): add bundled Sherpaw speech recognition` [OPEN] — *(17 comments)*
+  - *Focus*: Offline Sherpaw STT model packaging (Paraformer/Zipformer) via tsdown and Vite plugin
+- [#2641](https://github.com/moeru-ai/airi/pull/2641) `feat(stage-ui): show chat image analysis status` [CLOSED] — *(1 comments)*
+  - *Focus*: Accessible live status indicator for text-only models undergoing vision pre-processing
+
+---
 ## [2026-09-23] Upstream Delta: `308ee2b3..595ea726` (1 commits, 6 files, 7 PR update(s))
 
 ### 🎯 Executive Highlights

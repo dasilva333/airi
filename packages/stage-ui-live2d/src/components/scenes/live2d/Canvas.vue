@@ -29,6 +29,9 @@ function resolveMaxFps(limit?: number) {
   return Math.max(1, Math.round(limit))
 }
 
+/** Draws a frame the way the ticker does, so every caller shares one error path. */
+let renderStage: (() => void) | undefined
+
 function installRenderGuard(app: Application) {
   let lastErrorTime = 0
   const guardedRender = () => {
@@ -47,6 +50,7 @@ function installRenderGuard(app: Application) {
   app.ticker.remove(app.render, app)
   app.ticker.add(guardedRender)
   app.ticker.maxFPS = resolveMaxFps(props.maxFps)
+  renderStage = guardedRender
 }
 
 async function initLive2DPixiStage(parent: HTMLDivElement) {
@@ -96,17 +100,30 @@ function handleResize() {
     pixiApp.value.stage.scale.set(props.resolution)
   }
 
+  // The compositor takes whatever the drawing buffer holds when the frame paints, and
+  // resizing it reallocates it empty. The ticker repaints only on its next frame, which
+  // `settings/live2d/max-fps` makes it skip, so the resized frame is drawn here instead.
+  renderStage?.()
+
   // The CSS styles handle the display size, so we don't need to manually set view dimensions
 }
 
-watch([() => props.width, () => props.height, () => props.resolution], handleResize)
+// The model reads the same size change through its own watcher, and a child flushes after
+// its parent. Running after the flush draws it where the new size puts it.
+watch([() => props.width, () => props.height, () => props.resolution], handleResize, { flush: 'post' })
 watch(() => props.maxFps, (limit) => {
   if (pixiApp.value)
     pixiApp.value.ticker.maxFPS = resolveMaxFps(limit)
 })
 
 onMounted(async () => containerRef.value && await initLive2DPixiStage(containerRef.value))
-onUnmounted(() => pixiApp.value?.destroy())
+onUnmounted(() => {
+  // Destroy leaves the ref truthy while nulling the stage, so anything still in flight
+  // would reach for a stage that is gone.
+  pixiApp.value?.destroy()
+  pixiApp.value = undefined
+  renderStage = undefined
+})
 
 async function captureFrame() {
   const frame = new Promise<Blob | null>((resolve) => {
