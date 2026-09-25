@@ -195,6 +195,7 @@ export class Client<C = undefined> {
         }
 
         settle(() => {
+          this.stopHeartbeat()
           this.websocket = undefined
           this.connected = false
 
@@ -207,6 +208,7 @@ export class Client<C = undefined> {
           return
         }
 
+        this.stopHeartbeat()
         this.websocket = undefined
 
         if (!settled && !this.connected) {
@@ -218,7 +220,6 @@ export class Client<C = undefined> {
 
         if (this.connected) {
           this.connected = false
-          this.stopHeartbeat()
           this.opts.onClose?.()
         }
         if (this.opts.autoReconnect && !this.shouldClose) {
@@ -416,9 +417,13 @@ export class Client<C = undefined> {
   }
 
   private sendNativeHeartbeat(kind: 'ping' | 'pong') {
-    const websocket = this.websocket as WebSocket & {
+    const websocket = this.websocket as (WebSocket & {
       ping?: () => void
       pong?: () => void
+    }) | undefined
+
+    if (!websocket) {
+      return
     }
 
     if (kind === 'ping') {
@@ -430,6 +435,10 @@ export class Client<C = undefined> {
   }
 
   private sendHeartbeatPing() {
+    if (!this.connected || !this.websocket) {
+      return
+    }
+
     this.send({
       type: 'transport:connection:heartbeat',
       data: {
@@ -442,6 +451,10 @@ export class Client<C = undefined> {
   }
 
   private sendHeartbeatPong() {
+    if (!this.connected || !this.websocket) {
+      return
+    }
+
     this.send({
       type: 'transport:connection:heartbeat',
       data: {
@@ -475,6 +488,7 @@ export class Client<C = undefined> {
     if (this.shouldClose)
       return
 
+    this.stopHeartbeat()
     this.consecutiveAuthFailures += 1
     const ws = this.websocket
     this.connected = false

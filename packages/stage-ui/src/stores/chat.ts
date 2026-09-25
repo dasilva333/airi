@@ -743,9 +743,11 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       }
 
       // 2. RAG Universe Memory Injection
+      const cognitionSearch = activeCard.value?.extensions?.airi?.cognition?.searchEngine
       const isUniverseRagEnabled = activeCard.value?.extensions?.airi?.groundingMemoryEnabled
         || activeCard.value?.extensions?.airi?.universeRag?.enabled
         || activeCard.value?.extensions?.airi?.firstHopProcessor === 'universe_rag'
+        || cognitionSearch?.universeRagEnabled
 
       if (isUniverseRagEnabled && !options.triggerOnly && typeof sendingMessage === 'string' && sendingMessage.trim().length > 3) {
         chatLog('Grounding Memory active. Fetching semantic query matches with conversational anaphora...')
@@ -769,14 +771,17 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           }
 
           const textJournalStore = useTextJournalStore()
+          const searchEngineConfig = activeCard.value?.extensions?.airi?.cognition?.searchEngine
           const results = await textJournalStore.searchEntries({
             query: sendingMessage,
-            limit: 6,
+            limit: searchEngineConfig?.evidenceLimit ?? 6,
             characterId: activeCardId.value,
             previousTurn: previousTurnText,
-            anaphoraEnabled: true,
+            anaphoraEnabled: searchEngineConfig?.anaphoraEnabled ?? true,
           })
-          const minScore = activeCard.value?.extensions?.airi?.universeRag?.minScore ?? 0.25
+          const minScore = searchEngineConfig?.relevanceThreshold
+            ?? activeCard.value?.extensions?.airi?.universeRag?.minScore
+            ?? 0.25
           const filteredResults = results.filter(r => (r.score === undefined || r.score >= minScore))
           if (filteredResults && filteredResults.length > 0) {
             groundingMessages.push(formatSemanticMemoriesBlock(filteredResults))
