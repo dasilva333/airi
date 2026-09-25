@@ -29,7 +29,6 @@ import {
   formatEnvironmentalBlock,
   formatLifetimeMemoryBlock,
   formatRecentTopicsBlock,
-  formatSalienceTelemetryBlock,
   formatSemanticMemoriesBlock,
   formatShortTermMemoryBlock,
   formatVlmBlock,
@@ -58,7 +57,6 @@ import {
   formatDreamPrompt,
   formatJournalPrompt,
 } from './chat/intrusions'
-import { useChatSalienceStore } from './chat/salience'
 import { useChatSessionStore } from './chat/session-store'
 import { useChatStreamStore } from './chat/stream-store'
 import { parseBridgeArguments, recognizeToolMarker, tryParseLenientJson } from './chat/tool-bridge'
@@ -814,29 +812,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         }
       }
 
-      // 5. Salience Gate injection (Phase 6): probe the L9–L11 Δh of the turn's text and inject
-      //    a [Saliency Telemetry] system block whenever the gate is enabled and the turn wasn't
-      //    produced by trigger-only flow (voice notes/images count; empty trigger runs skip).
-      const salienceText = options.triggerOnly
-        ? null
-        : (typeof sendingMessage === 'string' && sendingMessage.trim().length > 0
-            ? sendingMessage
-            : null)
-      if (activeCard.value?.extensions?.airi?.salienceGateEnabled && salienceText) {
-        try {
-          const salienceStore = useChatSalienceStore()
-          const metrics = await salienceStore.probeTurn(salienceText)
-          if (metrics && (metrics.hot || metrics.lateLayerMean > metrics.controlMean * 1.1)) {
-            const layerReport = metrics.lateLayerDeltas.map((d, i) => `L${9 + i}=${d.toFixed(3)}`).join(' ')
-            groundingMessages.push(formatSalienceTelemetryBlock(metrics))
-            chatLog(`[salience] injected turn metrics: ${layerReport} hot=${metrics.hot}`)
-          }
-        }
-        catch (err) {
-          // Never block sending on a gate failure.
-          console.error('[ChatStore] Salience gate probe failed:', err)
-        }
-      }
+      // 5. Salience Gate injection: force-disabled for release stability to prevent WebGPU/WASM thrashing
+      // const salienceText = ... (disabled)
 
       // Splice them into the message list!
       if (groundingMessages.length > 0) {

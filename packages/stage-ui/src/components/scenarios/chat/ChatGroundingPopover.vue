@@ -243,8 +243,9 @@ function handleToggleSalienceGate() {
             </div>
           </div>
 
-          <!-- Toggle 6: Salience Gating (RWKV 0.1B) — Phase-6 late-layer Δh intensity flag -->
+          <!-- Toggle 6: Salience Gating (RWKV 0.1B) — hidden for release stability to prevent WebGPU/WASM thrashing -->
           <div
+            v-if="false"
             class="w-full flex cursor-pointer items-center justify-between rounded-xl p-2 transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800/40"
             @click="handleToggleSalienceGate"
           >

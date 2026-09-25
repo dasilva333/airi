@@ -372,6 +372,11 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     try {
       const raw = await storage.getItemRaw<[string, AiriCard][]>('local:airi-cards')
       if (raw && Array.isArray(raw)) {
+        for (const [, card] of raw) {
+          if (card.extensions?.airi?.salienceGateEnabled) {
+            card.extensions.airi.salienceGateEnabled = false
+          }
+        }
         cards.value = new Map(raw)
       }
     }
@@ -688,17 +693,8 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       return
     }
 
-    const current = card.extensions?.airi?.salienceGateEnabled ?? false
-    debug('[AiriCard] toggleSalienceGate:', { id, current, next: !current })
-    updateCard(id, {
-      extensions: {
-        ...card.extensions,
-        airi: {
-          ...card.extensions?.airi,
-          salienceGateEnabled: !current,
-        },
-      },
-    } as any)
+    // NOTICE: Force-disabled for release stability to prevent WebGPU/WASM memory runaway
+    debug('[AiriCard] toggleSalienceGate: disabled for release stability', id)
   }
 
   const setAutonomousArtistry = async (id: string, enabled: boolean) => {

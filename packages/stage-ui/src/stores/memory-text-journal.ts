@@ -1,6 +1,7 @@
 import type { ChatStreamEvent } from '../types/chat'
 import type { TextJournalEntry, TextJournalEntrySource } from '../types/text-journal'
 
+import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
@@ -59,6 +60,15 @@ function normalizeEntries(entries: TextJournalEntry[]) {
   return entries.map(normalizeEntry)
 }
 
+function isMainWindow(): boolean {
+  if (typeof window === 'undefined')
+    return true
+  if (!isStageTamagotchi())
+    return true
+  const hash = window.location.hash || ''
+  return hash === '' || hash === '#/' || hash === '#' || hash === '#!/'
+}
+
 export const useTextJournalStore = defineStore('text-journal', () => {
   const { userId } = storeToRefs(useAuthStore())
   const { activeCard, activeCardId, cards } = storeToRefs(useAiriCardStore())
@@ -114,8 +124,10 @@ export const useTextJournalStore = defineStore('text-journal', () => {
 
       initializedForUserId.value = currentUserId
 
-      // Fire-and-forget background indexing
-      backgroundIndexAll().catch(err => console.error('text_journal: background search indexing failed:', err))
+      // Fire-and-forget background indexing (strictly restricted to the primary main window)
+      if (isMainWindow()) {
+        backgroundIndexAll().catch(err => console.error('text_journal: background search indexing failed:', err))
+      }
     }
     finally {
       loading.value = false
@@ -137,126 +149,141 @@ export const useTextJournalStore = defineStore('text-journal', () => {
     return ''
   }
 
+  let indexingInProgress: Promise<void> | null = null
+
   async function backgroundIndexAll() {
-    const userId = getCurrentUserId()
-    const cardId = activeCardId.value
-    if (!userId || !cardId)
-      return
-
-    const chatSessionStore = useChatSessionStore()
-    const activeSessionId = cardId
-      ? (chatSessionStore.getCharacterIndex(cardId)?.activeSessionId || chatSessionStore.activeSessionId)
-      : chatSessionStore.activeSessionId
-    const activeSessionMeta = chatSessionStore.getSessionMeta(activeSessionId)
-    const currentUniverseId = activeSessionMeta?.universeId || 'global'
-
-    // 1. LTMM
-    const ltmm = entries.value.filter(e => e.characterId === cardId && (e.universeId || 'global') === currentUniverseId).map(e => ({
-      id: e.id,
-      characterId: cardId,
-      fact: e.content,
-      kind: 'ltmm_entry',
-      timestamp: new Date(e.createdAt).toISOString(),
-      source: e.source,
-      embedding: e.embedding,
-    }))
-
-    // 2. STMM
-    let stmm: any[] = []
-    try {
-      const stmmRaw = await shortTermMemoryRepo.getAll(userId) ?? []
-      stmm = stmmRaw.filter(b => b.characterId === cardId && (b.universeId || 'global') === currentUniverseId).map(b => ({
-        id: b.id,
-        characterId: cardId,
-        fact: b.summary,
-        kind: 'stmm_block',
-        timestamp: b.date,
-        source: b.source || 'stmm',
-      }))
-    }
-    catch (err) {
-      console.error('[TextJournal:Index] Failed to load STMM for indexing:', err)
+    if (indexingInProgress) {
+      return indexingInProgress
     }
 
-    // 3. Raw (Deduplicated entire corpus of all sessions)
-    const raw: any[] = []
-    try {
-      const index = await chatSessionsRepo.getIndex(userId)
-      if (index && index.characters[cardId]) {
-        const characterSessions = index.characters[cardId]
-        const sessions = Object.values(characterSessions.sessions)
-          .filter(s => (s.universeId || 'global') === currentUniverseId)
+    indexingInProgress = (async () => {
+      try {
+        const userId = getCurrentUserId()
+        const cardId = activeCardId.value
+        if (!userId || !cardId)
+          return
 
-        const uniqueRaw = new Map<string, any>()
+        const chatSessionStore = useChatSessionStore()
+        const activeSessionId = cardId
+          ? (chatSessionStore.getCharacterIndex(cardId)?.activeSessionId || chatSessionStore.activeSessionId)
+          : chatSessionStore.activeSessionId
+        const activeSessionMeta = chatSessionStore.getSessionMeta(activeSessionId)
+        const currentUniverseId = activeSessionMeta?.universeId || 'global'
 
-        for (const s of sessions) {
-          const session = await chatSessionsRepo.getSession(s.sessionId)
-          if (session) {
-            for (const m of session.messages) {
-              if (m.role === 'user' || m.role === 'assistant') {
-                const text = extractTextContent(m.content).trim()
-                if (text.length > 10) {
-                  if (!uniqueRaw.has(text)) {
-                    uniqueRaw.set(text, {
-                      id: m.id,
-                      characterId: cardId,
-                      fact: text,
-                      kind: 'raw_turn',
-                      timestamp: new Date(m.createdAt || Date.now()).toISOString(),
-                      source: `chat:${s.sessionId}`,
-                    })
+        // 1. LTMM
+        const ltmm = entries.value.filter(e => e.characterId === cardId && (e.universeId || 'global') === currentUniverseId).map(e => ({
+          id: e.id,
+          characterId: cardId,
+          fact: e.content,
+          kind: 'ltmm_entry',
+          timestamp: new Date(e.createdAt).toISOString(),
+          source: e.source,
+          embedding: e.embedding,
+        }))
+
+        // 2. STMM
+        let stmm: any[] = []
+        try {
+          const stmmRaw = await shortTermMemoryRepo.getAll(userId) ?? []
+          stmm = stmmRaw.filter(b => b.characterId === cardId && (b.universeId || 'global') === currentUniverseId).map(b => ({
+            id: b.id,
+            characterId: cardId,
+            fact: b.summary,
+            kind: 'stmm_block',
+            timestamp: b.date,
+            source: b.source || 'stmm',
+          }))
+        }
+        catch (err) {
+          console.error('[TextJournal:Index] Failed to load STMM for indexing:', err)
+        }
+
+        // 3. Raw (Deduplicated entire corpus of all sessions)
+        const raw: any[] = []
+        try {
+          const index = await chatSessionsRepo.getIndex(userId)
+          if (index && index.characters[cardId]) {
+            const characterSessions = index.characters[cardId]
+            const sessions = Object.values(characterSessions.sessions)
+              .filter(s => (s.universeId || 'global') === currentUniverseId)
+
+            const uniqueRaw = new Map<string, any>()
+
+            for (const s of sessions) {
+              const session = await chatSessionsRepo.getSession(s.sessionId)
+              if (session) {
+                for (const m of session.messages) {
+                  if (m.role === 'user' || m.role === 'assistant') {
+                    const text = extractTextContent(m.content).trim()
+                    if (text.length > 10) {
+                      if (!uniqueRaw.has(text)) {
+                        uniqueRaw.set(text, {
+                          id: m.id,
+                          characterId: cardId,
+                          fact: text,
+                          kind: 'raw_turn',
+                          timestamp: new Date(m.createdAt || Date.now()).toISOString(),
+                          source: `chat:${s.sessionId}`,
+                        })
+                      }
+                    }
                   }
                 }
               }
             }
+            raw.push(...uniqueRaw.values())
           }
         }
-        raw.push(...uniqueRaw.values())
+        catch (err) {
+          console.error('[TextJournal:Index] Failed to load Chat Sessions for indexing:', err)
+        }
+
+        // 4. Echo Chips (Dreamstate)
+        let echoes: any[] = []
+        try {
+          const echoRaw = await echoChipsRepo.getAll(userId) ?? []
+          echoes = echoRaw.filter(c => c.characterId === cardId && (c.universeId || 'global') === currentUniverseId).map(c => ({
+            id: c.id,
+            characterId: cardId,
+            fact: c.content,
+            kind: 'echo_chip',
+            timestamp: new Date(c.createdAt || Date.now()).toISOString(),
+            source: `echo:${c.type}`,
+          }))
+        }
+        catch (err) {
+          console.error('[TextJournal:Index] Failed to load Echo Chips for indexing:', err)
+        }
+
+        // 5. Lifetime Memory (Eternal Thread)
+        const lifetime: any[] = []
+        try {
+          const lifetimeRaw = await lifetimeMemoryRepo.getByCharacter(cardId, currentUniverseId)
+          if (lifetimeRaw) {
+            lifetime.push({
+              id: lifetimeRaw.id,
+              characterId: cardId,
+              fact: lifetimeRaw.distilledContent,
+              kind: 'lifetime_entry',
+              timestamp: new Date(lifetimeRaw.updatedAt || Date.now()).toISOString(),
+              source: 'lifetime',
+            })
+          }
+        }
+        catch (err) {
+          console.error('[TextJournal:Index] Failed to load Lifetime Memory for indexing:', err)
+        }
+
+        console.info(`[TextJournal:Index] Indexing counts for ${cardId} in universe ${currentUniverseId}: LTMM=${ltmm.length}, STMM=${stmm.length}, Raw=${raw.length}, Echoes=${echoes.length}, Lifetime=${lifetime.length}`)
+
+        await layeredMemory.indexDocuments([...ltmm, ...stmm, ...raw, ...echoes, ...lifetime])
       }
-    }
-    catch (err) {
-      console.error('[TextJournal:Index] Failed to load Chat Sessions for indexing:', err)
-    }
-
-    // 4. Echo Chips (Dreamstate)
-    let echoes: any[] = []
-    try {
-      const echoRaw = await echoChipsRepo.getAll(userId) ?? []
-      echoes = echoRaw.filter(c => c.characterId === cardId && (c.universeId || 'global') === currentUniverseId).map(c => ({
-        id: c.id,
-        characterId: cardId,
-        fact: c.content,
-        kind: 'echo_chip',
-        timestamp: new Date(c.createdAt || Date.now()).toISOString(),
-        source: `echo:${c.type}`,
-      }))
-    }
-    catch (err) {
-      console.error('[TextJournal:Index] Failed to load Echo Chips for indexing:', err)
-    }
-
-    // 5. Lifetime Memory (Eternal Thread)
-    const lifetime: any[] = []
-    try {
-      const lifetimeRaw = await lifetimeMemoryRepo.getByCharacter(cardId, currentUniverseId)
-      if (lifetimeRaw) {
-        lifetime.push({
-          id: lifetimeRaw.id,
-          characterId: cardId,
-          fact: lifetimeRaw.distilledContent,
-          kind: 'lifetime_entry',
-          timestamp: new Date(lifetimeRaw.updatedAt || Date.now()).toISOString(),
-          source: 'lifetime',
-        })
+      finally {
+        indexingInProgress = null
       }
-    }
-    catch (err) {
-      console.error('[TextJournal:Index] Failed to load Lifetime Memory for indexing:', err)
-    }
+    })()
 
-    console.info(`[TextJournal:Index] Indexing counts for ${cardId} in universe ${currentUniverseId}: LTMM=${ltmm.length}, STMM=${stmm.length}, Raw=${raw.length}, Echoes=${echoes.length}, Lifetime=${lifetime.length}`)
-
-    await layeredMemory.indexDocuments([...ltmm, ...stmm, ...raw, ...echoes, ...lifetime])
+    return indexingInProgress
   }
 
   async function persist(nextEntries: TextJournalEntry[]) {
@@ -716,7 +743,9 @@ ${input.instructions ? `\nAdditional Instructions: ${input.instructions}\n` : ''
     await persist(nextEntries)
 
     // Re-index search layer without the deleted entry
-    backgroundIndexAll().catch(err => console.error('text_journal: background search indexing failed after delete:', err))
+    if (isMainWindow()) {
+      backgroundIndexAll().catch(err => console.error('text_journal: background search indexing failed after delete:', err))
+    }
 
     // Emit deletion event to Event Ledger
     try {

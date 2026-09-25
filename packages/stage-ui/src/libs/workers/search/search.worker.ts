@@ -113,9 +113,17 @@ const STOPWORDS = new Set([
 
 async function getEmbedder() {
   if (!embedder) {
-    embedder = await pipeline('feature-extraction', MODEL_ID, {
-      device: 'webgpu',
-    })
+    try {
+      embedder = await pipeline('feature-extraction', MODEL_ID, {
+        device: 'webgpu',
+      })
+    }
+    catch (e) {
+      console.warn('search.worker: WebGPU pipeline failed, falling back to wasm/cpu:', e)
+      embedder = await pipeline('feature-extraction', MODEL_ID, {
+        device: 'wasm',
+      })
+    }
   }
   return embedder
 }
@@ -123,7 +131,14 @@ async function getEmbedder() {
 async function getVector(text: string) {
   const extractor = await getEmbedder()
   const output = await extractor(text, { pooling: 'mean', normalize: true })
-  return Array.from(output.data as number[])
+  try {
+    return Array.from(output.data as number[])
+  }
+  finally {
+    if (typeof (output as any)?.dispose === 'function') {
+      ;(output as any).dispose()
+    }
+  }
 }
 
 function getDocumentContent(document: SearchDocument) {
@@ -384,6 +399,10 @@ globalThis.addEventListener('message', async (e) => {
             }
             else {
               embedding = await getVector(getDocumentContent(document))
+              // Throttled batching: yield to event loop every 5 neural embeddings to allow GC and keep thread responsive
+              if (indexedCount > 0 && indexedCount % 5 === 0) {
+                await new Promise(resolve => setTimeout(resolve, 20))
+              }
             }
           }
 

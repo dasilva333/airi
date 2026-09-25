@@ -418,22 +418,7 @@ function handleToggleGroundingDirectorScratchpad() {
 }
 
 async function handleToggleSalienceGate() {
-  if (!activeCardId.value)
-    return
-  await airiCardStore.toggleSalienceGate(activeCardId.value)
-  const isEnabled = !!activeCard.value?.extensions?.airi?.salienceGateEnabled
-  if (isEnabled) {
-    const { getWebRwkvAdapter, DEFAULT_WEB_RWKV_MODEL } = await import('@proj-airi/stage-ui/libs/inference')
-    const { useProvidersStore } = await import('@proj-airi/stage-ui/stores/providers')
-    const adapter = await getWebRwkvAdapter()
-    if (adapter.state === 'idle') {
-      const providersStore = useProvidersStore()
-      const config = providersStore.getProviderConfig('web-rwkv')
-      const modelUrl = (config?.model as string) || DEFAULT_WEB_RWKV_MODEL
-      const vocab = (config?.vocab as string) || undefined
-      void adapter.loadModel(modelUrl, vocab).catch((err: unknown) => console.error('[SalienceGate] Error loading web-rwkv model on toggle:', err))
-    }
-  }
+  // NOTICE: Force-disabled for release stability to prevent WebGPU/WASM memory runaway
 }
 
 const hasTextJournal = computed(() => {
@@ -1537,7 +1522,9 @@ function selectSurface(surface: typeof activeSurface.value) {
                 </div>
 
                 <!-- Toggle: Salience Gating (RWKV 0.1B) -->
+                <!-- Salience Gating: Hidden for release stability -->
                 <div
+                  v-if="false"
                   class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   @click="handleToggleSalienceGate"
                 >

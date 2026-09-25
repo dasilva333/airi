@@ -27,7 +27,7 @@ const isGroundingDirectorScratchpadEnabled = computed(() => {
 })
 
 const isSalienceGateEnabled = computed(() => {
-  return activeCard.value?.extensions?.airi?.salienceGateEnabled ?? false
+  return false
 })
 
 // --- Intrusions ---
@@ -121,18 +121,7 @@ function handleToggleGroundingDirectorScratchpad() {
 }
 
 function handleToggleSalienceGate() {
-  if (!activeCardId.value || !activeCard.value)
-    return
-  const current = isSalienceGateEnabled.value
-  airiCardStore.updateCard(activeCardId.value, {
-    extensions: {
-      ...activeCard.value.extensions,
-      airi: {
-        ...activeCard.value.extensions?.airi,
-        salienceGateEnabled: !current,
-      },
-    },
-  } as any)
+  // NOTICE: Force-disabled for release stability to prevent WebGPU/WASM memory runaway
 }
 
 function handleToggleDreamIntrusion() {
@@ -402,8 +391,9 @@ function handleToggleHeartbeats() {
             </div>
           </div>
 
-          <!-- Toggle: Salience Gating (RWKV) -->
+          <!-- Toggle: Salience Gating (RWKV) - Hidden for release stability -->
           <div
+            v-if="false"
             class="flex cursor-pointer items-center justify-between rounded-xl p-2 transition-all hover:bg-neutral-100/80 dark:hover:bg-neutral-900/80"
             @click="handleToggleSalienceGate"
           >
