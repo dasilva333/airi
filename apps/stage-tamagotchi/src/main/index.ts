@@ -948,9 +948,11 @@ app.whenReady().then(async () => {
         if (chatWin && !chatWin.isDestroyed() && chatWin.isVisible()) {
           chatWin.setBounds(chatBounds)
         }
-        const capWin = await deps.captionWindow.getWindow()
-        if (capWin && !capWin.isDestroyed()) {
-          capWin.setBounds(captionBounds)
+        if (deps.captionWindow.hasWindow()) {
+          const capWin = await deps.captionWindow.getWindow()
+          if (capWin && !capWin.isDestroyed() && deps.captionWindow.isVisible()) {
+            capWin.setBounds(captionBounds)
+          }
         }
       }
 

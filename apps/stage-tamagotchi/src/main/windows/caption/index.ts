@@ -665,16 +665,18 @@ export function setupCaptionWindowManager(params: {
 
   async function setFollowStagePosition(shouldFollow: boolean) {
     followStagePosition = shouldFollow
-    const window = await reusable.getWindow()
-    if (followStagePosition) {
-      const rel = computeRelativeOffset(window)
-      const cfg = getConfig() ?? { followStagePosition, followStageVisibility, matrices: {} }
-      cfg.matrices[matrixHash] = { ...cfg.matrices[matrixHash], relativeToMain: rel }
-      updateConfig(cfg)
-      followStageWindow(window)
-    }
-    else {
-      detachFromMain()
+    if (reusable.hasWindow()) {
+      const window = await reusable.getWindow()
+      if (followStagePosition) {
+        const rel = computeRelativeOffset(window)
+        const cfg = getConfig() ?? { followStagePosition, followStageVisibility, matrices: {} }
+        cfg.matrices[matrixHash] = { ...cfg.matrices[matrixHash], relativeToMain: rel }
+        updateConfig(cfg)
+        followStageWindow(window)
+      }
+      else {
+        detachFromMain()
+      }
     }
 
     const config = getConfig() ?? { followStagePosition, followStageVisibility, matrices: {} }
@@ -710,6 +712,8 @@ export function setupCaptionWindowManager(params: {
   }
 
   async function resetToSide() {
+    if (!reusable.hasWindow())
+      return
     const window = await reusable.getWindow()
     lastProgrammaticMoveAt = Date.now()
     const initialBounds = computeInitialCaptionBounds({ stageWindow: params.stageWindow })
@@ -732,7 +736,9 @@ export function setupCaptionWindowManager(params: {
     if (enabled === undefined) {
       if (isVisible()) {
         setCaptionVisibleState(false)
-        currentWindow?.hide()
+        if (currentWindow && !currentWindow.isDestroyed()) {
+          currentWindow.destroy()
+        }
       }
       else {
         setCaptionVisibleState(true)
@@ -757,7 +763,9 @@ export function setupCaptionWindowManager(params: {
     }
     else {
       setCaptionVisibleState(false)
-      currentWindow?.hide()
+      if (currentWindow && !currentWindow.isDestroyed()) {
+        currentWindow.destroy()
+      }
     }
   }
 
@@ -769,6 +777,8 @@ export function setupCaptionWindowManager(params: {
   }
 
   async function triggerMove(forcedDock?: 'top' | 'bottom') {
+    if (!reusable.hasWindow())
+      return
     const window = await reusable.getWindow()
     if (window.isDestroyed())
       return
@@ -791,6 +801,7 @@ export function setupCaptionWindowManager(params: {
 
   return {
     getWindow,
+    hasWindow: reusable.hasWindow,
     setFollowStagePosition,
     setFollowStageVisibility,
     getIsFollowingStagePosition,

@@ -260,8 +260,9 @@ onMounted(async () => {
 
   logStep('Initializing Analytics & Card stores')
   analyticsStore.initialize()
-  cardStore.initialize()
-  await textJournalStore.load()
+  if (isMainWindow.value) {
+    await textJournalStore.load()
+  }
 
   logStep('Initializing chat session')
   await chatSessionStore.initialize()

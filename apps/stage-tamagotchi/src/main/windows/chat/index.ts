@@ -16,7 +16,6 @@ import icon from '../../../../resources/icon.png?asset'
 import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
 import { createReusableWindow } from '../../libs/electron/window-manager'
 import { ensureWindowInVisibleBounds } from '../shared/display'
-import { toggleWindowShow } from '../shared/window'
 import { setupChatWindowElectronInvokes } from './rpc/index.electron'
 
 let isChatVisible = false
@@ -228,7 +227,9 @@ export function setupChatWindowReusableFunc(params: {
       }
       const win = await reusable.getWindow()
       setChatVisibleState(false)
-      win.hide()
+      if (!win.isDestroyed()) {
+        win.destroy()
+      }
       return
     }
 
@@ -252,7 +253,15 @@ export function setupChatWindowReusableFunc(params: {
     const win = await reusable.getWindow()
     const nextState = !win.isVisible()
     setChatVisibleState(nextState)
-    toggleWindowShow(win)
+    if (!nextState) {
+      if (!win.isDestroyed()) {
+        win.destroy()
+      }
+    }
+    else {
+      win.show()
+      win.focus()
+    }
   }
 
   return {
