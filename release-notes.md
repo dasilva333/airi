@@ -1,50 +1,60 @@
-# 🚀 AIRI v0.9.33-stable.20260919 — Release Notes
+# 🚀 AIRI v0.9.34-stable.20260924 — Release Notes
 
-This release introduces the brand new **Arcade Retro Gaming Agent (WIP preview)** with over 8,000+ classic DOS titles, the dedicated **Sound Studio & Generative Music Playground** powered by MiniMax M3 and YuE 2.0, the **Free AI Hub V2 Upgrade** with one-click model activation and Cloudflare Workers AI integration, comprehensive **Step-by-Step Polish & Hardware Telemetry in Onboarding V3** featuring the new **⭐ Real-Time Text-to-Motion VRM Finale Preview**, the **Phase 2 ZIP Data Vault**, and cross-window **Desktop Settings Navigation**.
+This release marks the full arrival of the **Nan0 Living Cognition Architecture**, graduating from an early design preview into an operational multi-domain cognitive core featuring subconscious shadow reflexes, long-term relationship memory, and epistemic grounding. Alongside Nan0, we introduce the **Mind Map 4D Cognitive Graph & Dual-View Memory Explorer**, providing rich visual insight into AIRI's evolving memory through both an interactive chronological timeline and a force-directed celestial constellation view.
+
+Under the hood, this release debuts the **System 1 Coprocessor Engine**, pairing the remote **Jev** model with the local, free **Laya** runtime—offering users two flexible paths for intelligence (high-speed remote execution or completely free on-device processing) to power instant semantic triage, entity classification, and relational memory retrieval. In addition, creators gain access to the interactive **Conversational Pacing & Thinking Fillers Lab** for fine-tuning natural speech cadences, an **External VLM Vision Tier** for Screen Watching with hourly quota safeguards, robust **Serialized Voice Input Recovery** across microphone hardware changes, and vital companion animation restorations for both Live2D and MMD models.
 
 ---
 
 ## ✨ Key Highlights
 
-### 🕹️ Arcade: Autonomous Retro Gaming (Brand New Experimental Feature — WIP)
-*Note: This is an early-access Work in Progress (WIP) preview of the upcoming Arcade system.*
-- **8,000+ Classic DOS Games**: Instant browser and desktop emulation library powered by integrated DOSBox.
-- **Autonomous VLM Game Agent**: Multi-turn visual game perception allowing AIRI to observe, analyze, and play retro titles alongside you.
-- **Precision Tool Calibration & Controls**: Calibrated mouse and pointer dispatch, AI drag density, and SimCity building grid coordinate overlays.
-- **Companion Deck & Quickload**: Integrated turn memory, quickload game state preservation, and custom per-game prompt tuning modals.
+### 🧠 Nan0 Living Cognition: Subconscious Shadow Engine & Relationship Memory
+*Graduated from experimental UI preview to active cognitive architecture.*
+- **Full 5-Domain Architecture**: Transitioned Nan0 from a conceptual interface preview into an active cognitive kernel fully synchronized with chat turns and stage expressions.
+- **System 1 80-Choice Schema**: Subconscious reflex schema that evaluates immediate reactions, behavioral impulses, and emotional undertones in milliseconds across remote Jev and local Laya coprocessors before conscious response synthesis.
+- **PCL Grievance Ledger & Semantic Salience**: Long-term interpersonal relationship tracking that records mutual rapport, boundary respect, emotional warmth, and resolved friction over time.
+- **Epistemic Memory Grounding**: 1st-hop thought engine ensuring that inner monologues, self-reflections, and unspoken musings are strictly anchored to verified autobiographical memories.
+- **Configurable Owner Anchor**: Dynamic identity boundary protection within character definitions, enforcing clear companion versus owner distinctions while preventing persona drift.
 
-### 🎵 Sound Studio: Generative Music Playground (Brand New Feature)
-- **Co-Creation Music Studio**: Brand new dedicated Sound Studio workspace for real-time generative music composition and exploration.
-- **High-Fidelity Model Support**: Native support and benchmarks for cutting-edge music generation models including **MiniMax Music-01 (M3)** and **YuE 2.0**.
-- **`airi-audio-server` Architecture**: Direct integration with the `audio.cpp` backend for fast, local/remote audio and musical synthesis.
+### 🌌 Mind Map: 4D Cognitive Graph & Dual-View Memory Explorer
+- **Dual-View Explorer**: Seamless toggle between a Chronological Timeline and a force-directed Constellation Canvas directly from Chat and Long-Term Memory settings.
+- **Chronological Timeline View**: High-fidelity visual memory ledger strictly bounded to actual interaction timestamps. Features deterministic vertical event packing (+N overflow badges), closest-zoom (4.0x) playhead default, direct canvas ruler scrubbing, and smart camera follow.
+- **Constellation Canvas**: Dynamic force-directed relational graph displaying memories, entities, and conceptual connections as celestial stars and interconnected clusters.
+- **Universal Time Scrubber & Entity Detail Drawer**: Scrub through past dates to inspect relational triples, semantic confidence scores, and historical memory evidence.
 
-### 🌐 Free AI Hub & Cloudflare Workers AI (V2 Interactive Upgrade)
-- **One-Click "Save Provider" & "Use as Active Model"**: Immediately configure and activate working free models into your active LLM runtime directly from the hub without manual copying.
-- **"Configured Only" Filter & STT Integration**: Added quick toggle filters for existing active providers, instant STT engine activation, and deep-link shortcuts to provider settings.
-- **Cloudflare Workers AI Integration**: Connect your existing Cloudflare account via OAuth PKCE to unlock free access to high-performance models (such as GLM-4.7, Llama 3.3, and DeepSeek) with zero setup friction.
-- **Live Endpoint Validator & Automated Refresh**: Built-in endpoint health probing and automated catalog refresh tooling.
+### ⚡ System 1 Coprocessor Engine: Jev, Laya & LoCoMo Memory Architecture
+- **Dual-Deployment Coprocessor**: Choose between the high-throughput remote **Jev** model (via TypeSafe AI and OpenRouter Decisions) or the completely free, zero-token local **Laya** runtime for instant on-device classification and reranking.
+- **LoCoMo Memory Architecture (75.97% F1 Score)**: Benchmark results achieve an outstanding **75.97% F1 score** with remote Jev and **72.74% F1 score** with local Laya, powered by a Dual-Searcher architecture uniting vector document retrieval with Knowledge Graph relational triples, automatic query triage (C1–C4), and zero-shot entity taxonomy classification.
+- **Interactive Coprocessor Lab**: Built-in 3-tab playground in Settings (`/settings/modules/system-one`) for live testing of Query Triage, Semantic Reranking, and Emotional Affect deltas.
 
-### 🧙 Onboarding V3: Step-by-Step Experience Polish & Hardware Intelligence
-- **Step 1 (Triage)**: Enhanced high-contrast card layouts to ensure zero background or avatar bleed-through on Account Sign-In vs Local Air-Gapped options.
-- **Step 4 (User Profile)**: Enforced strict draft isolation and added smart username preservation when switching user archetypes.
-- **Step 6 (Persona)**: Added section 1 reset default buttons for quick character restoration and automated persona tag extraction.
-- **Step 8 (Consciousness)**: Redesigned into a 3-Tier Brain Selection (Free Cloudflare/Community AI, Local on-device WebGPU, and Custom BYOK Providers) with hardware capability detection and auto-detected reasoning models.
-- **Step 7 (Hearing)**: Added persistent microphone permission helpers and inline access grant actions.
-- **Step 9 (Speech)**: Expanded Deepgram voice presets and reinforced voice draft synchronization.
-- **Step 10 (Thinking)**: Added custom token ceiling controls and an interactive Response Cadence Simulator to live-test turn latencies, token lengths, and sentence counts.
-- **Step 12 (Vision)**: Integrated full character persona context into the 2-hop VLM visual simulation.
-- **Step 15 (Artistry)**: Character persona tags now automatically seed and synthesize into visual style generation prompts.
-- **Step 17 (Automation & Tools)**: Added on-demand engine prewarming with download progress bars and VRM avatar compatibility alerts.
-- **⭐ Step 18 (Stage Finale & Motion Preview)**: Added an interactive **Text-to-Motion Kinetic Finale Widget** — when selecting a 3D VRM vessel, you can prompt and preview custom procedural dances and skeletal gestures live on stage before completing setup; bundled with automated voice profile synthesis and non-blocking launch closure.
+### 🎙️ Conversational Pacing & Thinking Fillers Lab
+- **Dedicated Acting Sub-Tab Lab**: Interactive testing playground built into the Character Card Editor under the Acting tab.
+- **Spontaneous Spoken Asides & Thinking Fillers**: Natural vocal pauses, hums, and context-aware thinking fillers seamlessly generated during extended chain-of-thought deliberations.
+- **Interactive Scenario Presets**: Built-in challenging prompts (Relativistic Spacecraft, Chess Endgame, Kernel Deadlock, Riemann Hypothesis) to simulate complex reasoning latency and cadence handoffs.
+- **One-Click Pacing Profiles**: Quick presets (`Snappy`, `Balanced`, `Deep CoT`) with live waveform visualization, latency stopwatches, and cognitive gating diagnostics.
 
-### 📦 Data Vault, Memory & Cloud Sync
-- **Phase 2 ZIP Data Vault**: Full companion export/import archive with universal smart data migration and LevelDB integrity fixes.
-- **Unlinked Memory Bridge**: Modernized orphaned memory management with zero-custody cloud sync support.
-- **Engine Optimization**: Eliminated DuckDB memory accumulation on stage reload and purged legacy unused modules.
+### 🎭 Avatar Runtimes: Live2D Flicker Fix & MMD Animation Recovery
+- **MMD Models Break Free from T-Pose**: Fixed an issue in packaged desktop releases where 3D MMD companions were frozen in a T-pose due to unresolved motion assets under desktop protocols. Built-in dances and motions now load and play smoothly!
+- **Restored Live2D Idle Animation Cycles**: Fixed an issue where companion idle animation loops configured in the Avatar Customizer failed to trigger. 2D models now seamlessly cycle through their designated idle motions.
+- **Live2D Resize Buffer Repaint**: Ported canvas buffer repaint synchrony during window resizing, eliminating blank canvas flashing when resizing the avatar stage.
+- **Smooth MMD Motion Cycling**: Corrected animation playlist filtering so MMD companions cycle through their full repertoire of dances and motions without skipping tracks.
 
-### 🖥️ Desktop UX, Chat Navigation & Nan0 Early UI Preview
-- **Cross-Window Settings Access**: Jump directly into specific settings tabs and provider pages straight from the desktop chat workspace.
-- **Lightweight Update Checker**: Built-in desktop release notification banner with inline release notes.
-- **Cognition Playground**: Redesigned cognition tab featuring a guided personality questionnaire and playground-first layout.
-- **Prompt Hierarchy Invariants**: Enforced strict persona prompt priority and eliminated redundant boilerplate context.
-- **Nan0 Living Cognition (Early UI Preview)**: Shipped an early-access non-functional UI mockup for the upcoming 3-segment Living Cognition system (underlying Subconscious Reflex & TypeSafe Jev research progressing in background).
+### 👁️ Screen Watcher: External VLM Vision Tier & Visual Quota Safeguards
+- **3-Tier Visual Engine**: Added support for **External VLM** (routing through your configured global Vision model such as Claude 3.5 Sonnet, GPT-4o, or Gemini 2.0 Flash) alongside Lightweight WebGPU and Local Moondream.
+- **Direct Screen Commentary**: Switched to direct commentary (`screen:interpret`) for rich, human-like visual awareness of your desktop activities.
+- **Hourly Quota Tracking & Budget Safeguards**: Live intervention counters and automated cooldown timers to protect rate limits and prevent unexpected API usage.
+
+### 🌐 Free AI Hub & Proactivity Diagnostics
+- **Remote Ollama Authentication & URL Routing**: Fixed an issue where cloud-hosted or remote Ollama endpoints failed with 401 Unauthorized errors during conversations. Custom base URLs and authentication tokens are now fully respected.
+- **Heartbeat Failure Logging**: If proactive background heartbeats encounter network timeouts, rate limits, or unconfigured providers, errors are now explicitly reported to the Event Log instead of failing silently.
+
+### 🔊 Audio Pipeline & Hardware Recovery
+- **Serialized Voice Input Lifecycle**: Ported upstream hardware recovery (PR #2645) with an explicit state machine preventing dropped microphone streams, audio crashes, or UI freezes during microphone hardware changes.
+- **Persistent VAD & Push-to-Talk Recording**: Saved voice activity detection sensitivity thresholds across restarts and restored manual push-to-talk recording fallbacks.
+
+### 🎨 Desktop Chat UI, Search & Onboarding Polish
+- **Side-by-Side Media Gallery**: Modernized chat interactive area with compact 85px thumbnails, leading control endcaps, and tighter padding.
+- **Diacritic-Normalized Search & Nickname Lookups**: Character switcher, Card Gallery, and Discord bot now seamlessly match diacritics, character nicknames, and fuzzy queries.
+- **Reasoning Stream Persistence**: Preserved multi-turn reasoning metadata across continuous message streaming and tool executions.
+- **Onboarding V3 Cloud Sync Registration**: Newly committed starter companion cards created during onboarding are now immediately enrolled into selective BYOS cloud synchronization upon completion.
+- **Onboarding Triage Locale Parity**: Fixed localized text keys for air-gapped and local companion setup paths across multiple languages.
