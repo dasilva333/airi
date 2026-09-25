@@ -10,6 +10,9 @@ const router = useRouter()
 const cardId = computed(() => {
   return (route.query.id as string) || (route.query.cardId as string) || undefined
 })
+const initialTab = computed(() => {
+  return (route.query.tab as string) || undefined
+})
 
 function handleCancel() {
   if (window.history.length > 1) {
@@ -41,6 +44,7 @@ function handleStudio(targetCardId: string) {
   <div class="mx-auto max-w-5xl w-full pb-20 pt-1">
     <CardEditorForm
       :card-id="cardId"
+      :initial-tab="initialTab"
       mode="page"
       @cancel="handleCancel"
       @save="handleSave"

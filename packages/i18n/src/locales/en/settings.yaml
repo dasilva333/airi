@@ -277,6 +277,9 @@ pages:
     try_different_search: Try a different search term
     upload: Upload
     upload_desc: Click or drag file to upload
+    loading_tab: Loading {tab}...
+    loading_tab_subtitle: Preparing configuration fields and options
+    loading_tab_failed: Failed to load {tab}
   memory:
     description: Manage active awareness context, idle summaries, episodic logs, and
       lifetime relational bonds.

@@ -30,7 +30,13 @@ import { computed, defineAsyncComponent, onMounted, ref, toRaw, watch } from 'vu
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
-import CardCreationTabIdentity from './tabs/CardCreationTabIdentity.vue'
+import TabLoadingPlaceholder from './TabLoadingPlaceholder.vue'
+
+interface Props {
+  cardId?: string
+  mode?: 'page' | 'dialog'
+  initialTab?: string
+}
 
 const props = withDefaults(defineProps<Props>(), {
   mode: 'page',
@@ -42,18 +48,58 @@ const emit = defineEmits<{
 }>()
 const FieldAiGeneratorModal = defineAsyncComponent(() => import('./FieldAiGeneratorModal.vue'))
 const ImageTagExtractorModal = defineAsyncComponent(() => import('./ImageTagExtractorModal.vue'))
-const CardCreationTabActing = defineAsyncComponent(() => import('./tabs/CardCreationTabActing.vue'))
-const CardCreationTabArtistry = defineAsyncComponent(() => import('./tabs/CardCreationTabArtistry.vue'))
-const CardCreationTabCognition = defineAsyncComponent(() => import('./tabs/CardCreationTabCognition.vue'))
-const CardCreationTabGeneration = defineAsyncComponent(() => import('./tabs/CardCreationTabGeneration.vue'))
-const CardCreationTabModules = defineAsyncComponent(() => import('./tabs/CardCreationTabModules.vue'))
-const CardCreationTabProactivity = defineAsyncComponent(() => import('./tabs/CardCreationTabProactivity.vue'))
-const CardCreationTabTools = defineAsyncComponent(() => import('./tabs/CardCreationTabTools.vue'))
 
-interface Props {
-  cardId?: string
-  mode?: 'page' | 'dialog'
+const tabLoaders: Record<string, () => Promise<any>> = {
+  identity: () => import('./tabs/CardCreationTabIdentity.vue'),
+  generation: () => import('./tabs/CardCreationTabGeneration.vue'),
+  acting: () => import('./tabs/CardCreationTabActing.vue'),
+  modules: () => import('./tabs/CardCreationTabModules.vue'),
+  cognition: () => import('./tabs/CardCreationTabCognition.vue'),
+  artistry: () => import('./tabs/CardCreationTabArtistry.vue'),
+  proactivity: () => import('./tabs/CardCreationTabProactivity.vue'),
+  tools: () => import('./tabs/CardCreationTabTools.vue'),
 }
+
+const CardCreationTabIdentity = defineAsyncComponent({
+  loader: tabLoaders.identity,
+  loadingComponent: TabLoadingPlaceholder,
+  delay: 0,
+})
+const CardCreationTabActing = defineAsyncComponent({
+  loader: tabLoaders.acting,
+  loadingComponent: TabLoadingPlaceholder,
+  delay: 0,
+})
+const CardCreationTabArtistry = defineAsyncComponent({
+  loader: tabLoaders.artistry,
+  loadingComponent: TabLoadingPlaceholder,
+  delay: 0,
+})
+const CardCreationTabCognition = defineAsyncComponent({
+  loader: tabLoaders.cognition,
+  loadingComponent: TabLoadingPlaceholder,
+  delay: 0,
+})
+const CardCreationTabGeneration = defineAsyncComponent({
+  loader: tabLoaders.generation,
+  loadingComponent: TabLoadingPlaceholder,
+  delay: 0,
+})
+const CardCreationTabModules = defineAsyncComponent({
+  loader: tabLoaders.modules,
+  loadingComponent: TabLoadingPlaceholder,
+  delay: 0,
+})
+const CardCreationTabProactivity = defineAsyncComponent({
+  loader: tabLoaders.proactivity,
+  loadingComponent: TabLoadingPlaceholder,
+  delay: 0,
+})
+const CardCreationTabTools = defineAsyncComponent({
+  loader: tabLoaders.tools,
+  loadingComponent: TabLoadingPlaceholder,
+  delay: 0,
+})
 
 function kebabcase(str: string): string {
   return str
@@ -785,7 +831,7 @@ interface Tab {
 }
 
 // Active tab ID state
-const activeTabId = ref('')
+const activeTabId = ref(props.initialTab || '')
 
 // Tabs for card details
 const tabs: Tab[] = [
@@ -812,8 +858,50 @@ const activeTab = computed({
   },
 })
 
+const currentTabInfo = computed(() => tabs.find(tab => tab.id === activeTab.value))
+
+// Tab lazy loading tracking
+const loadedTabs = ref(new Set<string>())
+const isTabLoading = ref(false)
+const tabLoadError = ref<string | null>(null)
+
+async function loadTab(tabId: string) {
+  if (!tabId)
+    return
+  if (loadedTabs.value.has(tabId)) {
+    isTabLoading.value = false
+    tabLoadError.value = null
+    return
+  }
+
+  const loader = tabLoaders[tabId]
+  if (!loader) {
+    isTabLoading.value = false
+    return
+  }
+
+  isTabLoading.value = true
+  tabLoadError.value = null
+  try {
+    await loader()
+    loadedTabs.value.add(tabId)
+  }
+  catch (err: any) {
+    if (activeTab.value === tabId) {
+      console.error(`[CardEditorForm] Failed to load tab "${tabId}":`, err)
+      tabLoadError.value = err?.message || 'Failed to load tab component'
+    }
+  }
+  finally {
+    if (activeTab.value === tabId) {
+      isTabLoading.value = false
+    }
+  }
+}
+
 // Defer loading provider models/voices until user navigates away from the Identity tab
 watch(activeTab, (tab) => {
+  void loadTab(tab)
   if (tab !== 'identity') {
     void ensureProviderModelsAndVoices()
     if (tab === 'modules') {
@@ -1601,7 +1689,7 @@ function handleGeneratorSave(newValue: string) {
       </div>
 
       <!-- Action Buttons (Right) -->
-      <div class="flex shrink-0 items-center gap-2">
+      <div v-if="!isTabLoading && !tabLoadError" class="flex shrink-0 items-center gap-2">
         <Button
           v-if="isEditMode && props.cardId"
           variant="secondary"
@@ -1683,244 +1771,255 @@ function handleGeneratorSave(newValue: string) {
       </p>
     </div>
 
+    <!-- Tab Loading / Error State -->
+    <TabLoadingPlaceholder
+      v-if="isTabLoading || tabLoadError"
+      :tab-name="currentTabInfo?.label"
+      :tab-icon="currentTabInfo?.icon"
+      :error="tabLoadError"
+      @retry="loadTab(activeTab)"
+    />
+
     <!-- Actual content -->
-    <CardCreationTabIdentity
-      v-if="activeTab === 'identity'"
-      v-model:card-name="cardName"
-      v-model:card-nickname="cardNickname"
-      v-model:card-description="cardDescription"
-      v-model:card-notes="cardNotes"
-      v-model:card-system-prompt="cardSystemPrompt"
-      v-model:card-version="cardVersion"
-      v-model:card-personality="cardPersonality"
-      v-model:card-scenario="cardScenario"
-      v-model:card-greetings="cardGreetings"
-      @sparkle-click="openSparkleGenerator"
-    />
-    <CardCreationTabGeneration
-      v-else-if="activeTab === 'generation'"
-      v-model:generation-enabled="generationEnabled"
-      v-model:generation-provider="generationProvider"
-      v-model:generation-model="generationModel"
-      v-model:generation-max-tokens="generationMaxTokens"
-      v-model:generation-temperature="generationTemperature"
-      v-model:generation-top-p="generationTopP"
-      v-model:generation-context-width="generationContextWidth"
-      v-model:generation-advanced-json="generationAdvancedJson"
-      v-model:generation-reasoning-fallback="generationReasoningFallback"
-      v-model:card-post-history-instructions="cardPostHistoryInstructions"
-      v-model:compaction-strategy="compactionStrategy"
-      v-model:compaction-min-keep-turns="compactionMinKeepTurns"
-      :provider-options="generationProviderOptions"
-      :model-options="generationModelOptions"
-      :provider-placeholder="getDefaultPlaceholder(selectedConsciousnessProvider || consciousnessProvider)"
-      :model-placeholder="getDefaultPlaceholder(selectedConsciousnessModel || defaultConsciousnessModel)"
-      @sparkle-click="openSparkleGenerator"
-    />
-    <CardCreationTabActing
-      v-else-if="activeTab === 'acting'"
-      v-model:selected-acting-model-expression-prompt="selectedActingModelExpressionPrompt"
-      v-model:selected-acting-speech-expression-prompt="selectedActingSpeechExpressionPrompt"
-      v-model:selected-acting-speech-mannerism-prompt="selectedActingSpeechMannerismPrompt"
-      v-model:selected-acting-idle-animations="selectedActingIdleAnimations"
-      v-model:pacing-enabled="pacingEnabled"
-      v-model:pacing-arm-min-ms="pacingArmMinMs"
-      v-model:pacing-arm-max-ms="pacingArmMaxMs"
-      v-model:pacing-max-filler-duration-ms="pacingMaxFillerDurationMs"
-      v-model:pacing-category-threshold="pacingCategoryThreshold"
-      v-model:pacing-max-fillers-per-turn="pacingMaxFillersPerTurn"
-      v-model:pacing-interval-ms="pacingIntervalMs"
-      v-model:pacing-fillers="pacingFillers"
-      v-model:pacing-dynamic-asides-enabled="pacingDynamicAsidesEnabled"
-      v-model:pacing-semantic-extractor-enabled="pacingSemanticExtractorEnabled"
-      v-model:pacing-dynamic-after-ms="pacingDynamicAfterMs"
-      v-model:pacing-candidate-ttl-ms="pacingCandidateTtlMs"
-      v-model:pacing-max-filler-synthesis-budget-ms="pacingMaxFillerSynthesisBudgetMs"
-      v-model:pacing-max-synthesis-budget-ms="pacingMaxSynthesisBudgetMs"
-      v-model:pacing-profile="pacingProfile"
-      v-model:pacing-experimental-organic-pivots="pacingExperimentalOrganicPivots"
-      :acting-idle-animation-options="actingIdleAnimationOptions"
-      :acting-model-emotion-options="actingModelEmotionOptions"
-      :acting-model-motion-options="actingModelMotionOptions"
-      :acting-grouped-expression-tags="actingGroupedExpressionTags"
-      :acting-mannerism-options="actingMannerismOptions"
-      :acting-speech-capabilities-loading="actingSpeechCapabilitiesLoading"
-      :selected-speech-provider-label="selectedSpeechProvider || speechProvider || 'none'"
-      :selected-speech-provider="selectedSpeechProvider || speechProvider"
-      :selected-speech-model="selectedSpeechModel || defaultSpeechModel"
-      :selected-speech-voice-id="selectedSpeechVoiceId || defaultSpeechVoiceId"
-      :is-live2d="isLive2d"
-      :is-vrma-expression="isVrmaExpression"
-      :insert-model-emotion="insertModelEmotion"
-      :insert-model-motion="insertModelMotion"
-      :insert-model-vfx="insertModelVfx"
-      :insert-speech-tag="insertSpeechTag"
-      :insert-speech-mannerism="insertSpeechMannerism"
-      @sparkle-click="openSparkleGenerator"
-    />
-    <CardCreationTabModules
-      v-else-if="activeTab === 'modules'"
-      v-model:selected-consciousness-provider="selectedConsciousnessProvider"
-      v-model:selected-consciousness-model="selectedConsciousnessModel"
-      v-model:selected-speech-provider="selectedSpeechProvider"
-      v-model:selected-speech-model="selectedSpeechModel"
-      v-model:selected-speech-voice-id="selectedSpeechVoiceId"
-      v-model:selected-display-model-id="selectedDisplayModelId"
-      v-model:selected-active-background-id="selectedActiveBackgroundId"
-      :consciousness-provider-options="consciousnessProviderOptions"
-      :consciousness-model-options="consciousnessModelOptions"
-      :speech-provider-options="speechProviderOptions"
-      :speech-model-options="speechModelOptions"
-      :speech-voice-options="speechVoiceOptions"
-      :display-model-options="displayModelOptions"
-      :scene-options="sceneOptions"
-      :consciousness-provider-placeholder="getDefaultPlaceholder(consciousnessProvider)"
-      :default-consciousness-model-placeholder="getDefaultPlaceholder(defaultConsciousnessModel)"
-      :speech-provider-placeholder="getDefaultPlaceholder(speechProvider)"
-      :default-speech-model-placeholder="getDefaultPlaceholder(defaultSpeechModel)"
-      :default-speech-voice-id-placeholder="getDefaultPlaceholder(defaultSpeechVoiceId)"
-      :default-display-model-id-placeholder="getDefaultPlaceholder(defaultDisplayModelId)"
-      :consciousness-provider-active="Boolean(consciousnessProvider)"
-      :speech-provider-active="Boolean(speechProvider)"
-      :has-visual-assets="Object.keys(visualAssets).length > 0"
-      @studio="emit('studio', props.cardId || '')"
-    />
-    <CardCreationTabCognition
-      v-else-if="activeTab === 'cognition'"
-      v-model:cognitive-pipeline-enabled="cognitivePipelineEnabled"
-      v-model:first-hop-processor="firstHopProcessor"
-      v-model:selected-first-hop-provider="selectedFirstHopProvider"
-      v-model:selected-first-hop-model="selectedFirstHopModel"
-      v-model:selected-consciousness-provider="selectedConsciousnessProvider"
-      v-model:selected-consciousness-model="selectedConsciousnessModel"
-      v-model:selected-mood-preset="selectedMoodPreset"
-      v-model:baseline-suspicion="baselineSuspicion"
-      v-model:baseline-attachment="baselineAttachment"
-      v-model:baseline-pride="baselinePride"
-      v-model:suspicion-sensitivity="suspicionSensitivity"
-      v-model:irritation-half-life-minutes="irritationHalfLifeMinutes"
-      v-model:metabolic-rest-enabled="metabolicRestEnabled"
-      v-model:companion-anchor-override="companionAnchorOverride"
-      v-model:grievance-tracking-enabled="grievanceTrackingEnabled"
-      v-model:grievance-threshold="grievanceThreshold"
-      v-model:daily-forgiveness-rate="dailyForgivenessRate"
-      v-model:silence-threshold="silenceThreshold"
-      v-model:tier1-local-reflex-enabled="tier1LocalReflexEnabled"
-      v-model:tier2-jev-challenger-enabled="tier2JevChallengerEnabled"
-      v-model:trigger-overrides="triggerOverrides"
-      v-model:universe-rag-grounding-enabled="universeRagGroundingEnabled"
-      v-model:precision-reranker-enabled="precisionRerankerEnabled"
-      v-model:selected-reranker-provider="selectedRerankerProvider"
-      v-model:system2-escalation-enabled="system2EscalationEnabled"
-      v-model:deep-memory-reasoning-model="deepMemoryReasoningModel"
-      v-model:evidence-limit="evidenceLimit"
-      v-model:memory-relevance-threshold="memoryRelevanceThreshold"
-      v-model:turn1-anaphora-enabled="turn1AnaphoraEnabled"
-      v-model:timeline-date-priority-enabled="timelineDatePriorityEnabled"
-      :consciousness-provider-options="consciousnessProviderOptions"
-      :consciousness-model-options="consciousnessModelOptions"
-      :first-hop-model-options="firstHopModelOptions"
-      :default-consciousness-model-placeholder="getDefaultPlaceholder(defaultConsciousnessModel)"
-      :default-first-hop-model-placeholder="getDefaultPlaceholder(defaultConsciousnessModel)"
-      :consciousness-provider-active="Boolean(consciousnessProvider)"
-      :first-hop-provider-active="Boolean(selectedFirstHopProvider || consciousnessProvider)"
-    />
-    <CardCreationTabArtistry
-      v-else-if="activeTab === 'artistry'"
-      v-model:selected-artistry-provider="selectedArtistryProvider"
-      v-model:selected-artistry-model="selectedArtistryModel"
-      v-model:selected-artistry-prompt-prefix="selectedArtistryPromptPrefix"
-      v-model:selected-artistry-widget-instruction="selectedArtistryWidgetInstruction"
-      v-model:selected-artistry-autonomous-enabled="selectedArtistryAutonomousEnabled"
-      v-model:selected-artistry-autonomous-threshold="selectedArtistryAutonomousThreshold"
-      v-model:selected-artistry-autonomous-monitor-enabled="selectedArtistryAutonomousMonitorEnabled"
-      v-model:selected-artistry-autonomous-monitor-discord-enabled="selectedArtistryAutonomousMonitorDiscordEnabled"
-      v-model:selected-artistry-autonomous-history-depth="selectedArtistryAutonomousHistoryDepth"
-      v-model:selected-artistry-autonomous-model-mode="selectedArtistryAutonomousModelMode"
-      v-model:selected-artistry-autonomous-provider="selectedArtistryAutonomousProvider"
-      v-model:selected-artistry-autonomous-model="selectedArtistryAutonomousModel"
-      v-model:selected-artistry-autonomous-target="selectedArtistryAutonomousTarget"
-      v-model:selected-artistry-spawn-mode="selectedArtistrySpawnMode"
-      v-model:selected-artistry-config-str="selectedArtistryConfigStr"
-      :artistry-provider-options="artistryProviderOptions"
-      :default-artistry-provider-placeholder="getDefaultPlaceholder(defaultArtistryProvider)"
-      @sparkle-click="openSparkleGenerator"
-      @extract-tags-click="openTagExtractor"
-    />
-    <CardCreationTabProactivity
-      v-else-if="activeTab === 'proactivity'"
-      v-model:heartbeats-enabled="heartbeatsEnabled"
-      v-model:heartbeats-interval-minutes="heartbeatsIntervalMinutes"
-      v-model:heartbeats-prompt="heartbeatsPrompt"
-      v-model:heartbeats-inject-into-prompt="heartbeatsInjectIntoPrompt"
-      v-model:heartbeats-schedule-start="heartbeatsScheduleStart"
-      v-model:heartbeats-schedule-end="heartbeatsScheduleEnd"
-      v-model:heartbeats-context-window-history="heartbeatsContextWindowHistory"
-      v-model:heartbeats-context-system-load="heartbeatsContextSystemLoad"
-      v-model:heartbeats-context-usage-metrics="heartbeatsContextUsageMetrics"
-      v-model:heartbeats-respect-schedule="heartbeatsRespectSchedule"
-      v-model:presence-pause-when-afk="presencePauseWhenAfk"
-      v-model:presence-afk-threshold-minutes="presenceAfkThresholdMinutes"
-      v-model:dream-state-enabled="dreamStateEnabled"
-      v-model:dream-state-strict-afk-gating="dreamStateStrictAfkGating"
-      v-model:dream-state-richness="dreamStateRichness"
-      v-model:dream-state-afk-threshold-minutes="dreamStateAfkThresholdMinutes"
-      v-model:dream-state-session-timeout-minutes="dreamStateSessionTimeoutMinutes"
-      v-model:dream-state-max-sessions-per-day="dreamStateMaxSessionsPerDay"
-      v-model:dream-state-min-conversation-turns="dreamStateMinConversationTurns"
-      v-model:dream-state-inject-dream-context="dreamStateInjectDreamContext"
-      v-model:screen-watching-enabled="screenWatchingEnabled"
-      v-model:screen-watching-delivery-mode="screenWatchingDeliveryMode"
-      v-model:screen-watching-source-type="screenWatchingSourceType"
-      v-model:screen-watching-source-id="screenWatchingSourceId"
-      v-model:screen-watching-capture-interval-ms="screenWatchingCaptureIntervalMs"
-      v-model:screen-watching-downscale-percent="screenWatchingDownscalePercent"
-      v-model:screen-watching-workload="screenWatchingWorkload"
-      v-model:screen-watching-publish-to-context="screenWatchingPublishToContext"
-      v-model:screen-watching-interest-tags="screenWatchingInterestTags"
-      v-model:screen-watching-max-per-hour="screenWatchingMaxPerHour"
-      v-model:screen-watching-hysteresis-minutes="screenWatchingHysteresisMinutes"
-      v-model:screen-watching-enable-vlm="screenWatchingEnableVlm"
-      v-model:screen-watching-vlm-tier="screenWatchingVlmTier"
-      v-model:screen-watching-respect-schedule="screenWatchingRespectSchedule"
-      v-model:event-ledger-enabled="eventLedgerEnabled"
-      v-model:event-ledger-sample-depth="eventLedgerSampleDepth"
-      v-model:event-ledger-domains="eventLedgerDomains"
-      v-model:short-term-memory-enabled="shortTermMemoryEnabled"
-      v-model:short-term-memory-window-size="shortTermMemoryWindowSize"
-      v-model:short-term-memory-token-budget="shortTermMemoryTokenBudget"
-      v-model:grounding-enabled="groundingEnabled"
-      :sensor-payload="sensorPayload"
-      :static-sample-payload="staticSamplePayload"
-      @sparkle-click="openSparkleGenerator"
-    />
-    <CardCreationTabTools
-      v-else-if="activeTab === 'tools'"
-      v-model:selected-allowed-tools="generationAllowedTools"
-      v-model:selected-image-journal-instruction="selectedArtistryWidgetInstruction"
-      v-model:selected-text-journal-instruction="selectedTextJournalInstruction"
-      v-model:selected-inject-dream-context="selectedInjectDreamContext"
-      v-model:selected-inject-journal-context="selectedInjectJournalContext"
-      v-model:selected-inject-artistry-context="selectedInjectArtistryContext"
-      v-model:selected-dream-intrusion-prompt="selectedDreamIntrusionPrompt"
-      v-model:selected-journal-intrusion-prompt="selectedJournalIntrusionPrompt"
-      v-model:selected-artistry-intrusion-prompt="selectedArtistryIntrusionPrompt"
-      :dream-state-enabled="dreamStateEnabled"
-    />
-    <div class="mt-4 flex flex-row justify-end gap-2">
-      <Button
-        variant="secondary"
-        icon="i-solar:undo-left-bold-duotone"
-        :label="t('settings.pages.card.cancel')"
-        @click="emit('cancel')"
+    <template v-else>
+      <CardCreationTabIdentity
+        v-if="activeTab === 'identity'"
+        v-model:card-name="cardName"
+        v-model:card-nickname="cardNickname"
+        v-model:card-description="cardDescription"
+        v-model:card-notes="cardNotes"
+        v-model:card-system-prompt="cardSystemPrompt"
+        v-model:card-version="cardVersion"
+        v-model:card-personality="cardPersonality"
+        v-model:card-scenario="cardScenario"
+        v-model:card-greetings="cardGreetings"
+        @sparkle-click="openSparkleGenerator"
       />
-      <Button
-        variant="primary"
-        icon="i-solar:check-circle-bold-duotone"
-        :label="isEditMode ? t('settings.pages.card.save') : t('settings.pages.card.creation.create')"
-        @click="saveCard(card)"
+      <CardCreationTabGeneration
+        v-else-if="activeTab === 'generation'"
+        v-model:generation-enabled="generationEnabled"
+        v-model:generation-provider="generationProvider"
+        v-model:generation-model="generationModel"
+        v-model:generation-max-tokens="generationMaxTokens"
+        v-model:generation-temperature="generationTemperature"
+        v-model:generation-top-p="generationTopP"
+        v-model:generation-context-width="generationContextWidth"
+        v-model:generation-advanced-json="generationAdvancedJson"
+        v-model:generation-reasoning-fallback="generationReasoningFallback"
+        v-model:card-post-history-instructions="cardPostHistoryInstructions"
+        v-model:compaction-strategy="compactionStrategy"
+        v-model:compaction-min-keep-turns="compactionMinKeepTurns"
+        :provider-options="generationProviderOptions"
+        :model-options="generationModelOptions"
+        :provider-placeholder="getDefaultPlaceholder(selectedConsciousnessProvider || consciousnessProvider)"
+        :model-placeholder="getDefaultPlaceholder(selectedConsciousnessModel || defaultConsciousnessModel)"
+        @sparkle-click="openSparkleGenerator"
       />
-    </div>
+      <CardCreationTabActing
+        v-else-if="activeTab === 'acting'"
+        v-model:selected-acting-model-expression-prompt="selectedActingModelExpressionPrompt"
+        v-model:selected-acting-speech-expression-prompt="selectedActingSpeechExpressionPrompt"
+        v-model:selected-acting-speech-mannerism-prompt="selectedActingSpeechMannerismPrompt"
+        v-model:selected-acting-idle-animations="selectedActingIdleAnimations"
+        v-model:pacing-enabled="pacingEnabled"
+        v-model:pacing-arm-min-ms="pacingArmMinMs"
+        v-model:pacing-arm-max-ms="pacingArmMaxMs"
+        v-model:pacing-max-filler-duration-ms="pacingMaxFillerDurationMs"
+        v-model:pacing-category-threshold="pacingCategoryThreshold"
+        v-model:pacing-max-fillers-per-turn="pacingMaxFillersPerTurn"
+        v-model:pacing-interval-ms="pacingIntervalMs"
+        v-model:pacing-fillers="pacingFillers"
+        v-model:pacing-dynamic-asides-enabled="pacingDynamicAsidesEnabled"
+        v-model:pacing-semantic-extractor-enabled="pacingSemanticExtractorEnabled"
+        v-model:pacing-dynamic-after-ms="pacingDynamicAfterMs"
+        v-model:pacing-candidate-ttl-ms="pacingCandidateTtlMs"
+        v-model:pacing-max-filler-synthesis-budget-ms="pacingMaxFillerSynthesisBudgetMs"
+        v-model:pacing-max-synthesis-budget-ms="pacingMaxSynthesisBudgetMs"
+        v-model:pacing-profile="pacingProfile"
+        v-model:pacing-experimental-organic-pivots="pacingExperimentalOrganicPivots"
+        :acting-idle-animation-options="actingIdleAnimationOptions"
+        :acting-model-emotion-options="actingModelEmotionOptions"
+        :acting-model-motion-options="actingModelMotionOptions"
+        :acting-grouped-expression-tags="actingGroupedExpressionTags"
+        :acting-mannerism-options="actingMannerismOptions"
+        :acting-speech-capabilities-loading="actingSpeechCapabilitiesLoading"
+        :selected-speech-provider-label="selectedSpeechProvider || speechProvider || 'none'"
+        :selected-speech-provider="selectedSpeechProvider || speechProvider"
+        :selected-speech-model="selectedSpeechModel || defaultSpeechModel"
+        :selected-speech-voice-id="selectedSpeechVoiceId || defaultSpeechVoiceId"
+        :is-live2d="isLive2d"
+        :is-vrma-expression="isVrmaExpression"
+        :insert-model-emotion="insertModelEmotion"
+        :insert-model-motion="insertModelMotion"
+        :insert-model-vfx="insertModelVfx"
+        :insert-speech-tag="insertSpeechTag"
+        :insert-speech-mannerism="insertSpeechMannerism"
+        @sparkle-click="openSparkleGenerator"
+      />
+      <CardCreationTabModules
+        v-else-if="activeTab === 'modules'"
+        v-model:selected-consciousness-provider="selectedConsciousnessProvider"
+        v-model:selected-consciousness-model="selectedConsciousnessModel"
+        v-model:selected-speech-provider="selectedSpeechProvider"
+        v-model:selected-speech-model="selectedSpeechModel"
+        v-model:selected-speech-voice-id="selectedSpeechVoiceId"
+        v-model:selected-display-model-id="selectedDisplayModelId"
+        v-model:selected-active-background-id="selectedActiveBackgroundId"
+        :consciousness-provider-options="consciousnessProviderOptions"
+        :consciousness-model-options="consciousnessModelOptions"
+        :speech-provider-options="speechProviderOptions"
+        :speech-model-options="speechModelOptions"
+        :speech-voice-options="speechVoiceOptions"
+        :display-model-options="displayModelOptions"
+        :scene-options="sceneOptions"
+        :consciousness-provider-placeholder="getDefaultPlaceholder(consciousnessProvider)"
+        :default-consciousness-model-placeholder="getDefaultPlaceholder(defaultConsciousnessModel)"
+        :speech-provider-placeholder="getDefaultPlaceholder(speechProvider)"
+        :default-speech-model-placeholder="getDefaultPlaceholder(defaultSpeechModel)"
+        :default-speech-voice-id-placeholder="getDefaultPlaceholder(defaultSpeechVoiceId)"
+        :default-display-model-id-placeholder="getDefaultPlaceholder(defaultDisplayModelId)"
+        :consciousness-provider-active="Boolean(consciousnessProvider)"
+        :speech-provider-active="Boolean(speechProvider)"
+        :has-visual-assets="Object.keys(visualAssets).length > 0"
+        @studio="emit('studio', props.cardId || '')"
+      />
+      <CardCreationTabCognition
+        v-else-if="activeTab === 'cognition'"
+        v-model:cognitive-pipeline-enabled="cognitivePipelineEnabled"
+        v-model:first-hop-processor="firstHopProcessor"
+        v-model:selected-first-hop-provider="selectedFirstHopProvider"
+        v-model:selected-first-hop-model="selectedFirstHopModel"
+        v-model:selected-consciousness-provider="selectedConsciousnessProvider"
+        v-model:selected-consciousness-model="selectedConsciousnessModel"
+        v-model:selected-mood-preset="selectedMoodPreset"
+        v-model:baseline-suspicion="baselineSuspicion"
+        v-model:baseline-attachment="baselineAttachment"
+        v-model:baseline-pride="baselinePride"
+        v-model:suspicion-sensitivity="suspicionSensitivity"
+        v-model:irritation-half-life-minutes="irritationHalfLifeMinutes"
+        v-model:metabolic-rest-enabled="metabolicRestEnabled"
+        v-model:companion-anchor-override="companionAnchorOverride"
+        v-model:grievance-tracking-enabled="grievanceTrackingEnabled"
+        v-model:grievance-threshold="grievanceThreshold"
+        v-model:daily-forgiveness-rate="dailyForgivenessRate"
+        v-model:silence-threshold="silenceThreshold"
+        v-model:tier1-local-reflex-enabled="tier1LocalReflexEnabled"
+        v-model:tier2-jev-challenger-enabled="tier2JevChallengerEnabled"
+        v-model:trigger-overrides="triggerOverrides"
+        v-model:universe-rag-grounding-enabled="universeRagGroundingEnabled"
+        v-model:precision-reranker-enabled="precisionRerankerEnabled"
+        v-model:selected-reranker-provider="selectedRerankerProvider"
+        v-model:system2-escalation-enabled="system2EscalationEnabled"
+        v-model:deep-memory-reasoning-model="deepMemoryReasoningModel"
+        v-model:evidence-limit="evidenceLimit"
+        v-model:memory-relevance-threshold="memoryRelevanceThreshold"
+        v-model:turn1-anaphora-enabled="turn1AnaphoraEnabled"
+        v-model:timeline-date-priority-enabled="timelineDatePriorityEnabled"
+        :consciousness-provider-options="consciousnessProviderOptions"
+        :consciousness-model-options="consciousnessModelOptions"
+        :first-hop-model-options="firstHopModelOptions"
+        :default-consciousness-model-placeholder="getDefaultPlaceholder(defaultConsciousnessModel)"
+        :default-first-hop-model-placeholder="getDefaultPlaceholder(defaultConsciousnessModel)"
+        :consciousness-provider-active="Boolean(consciousnessProvider)"
+        :first-hop-provider-active="Boolean(selectedFirstHopProvider || consciousnessProvider)"
+      />
+      <CardCreationTabArtistry
+        v-else-if="activeTab === 'artistry'"
+        v-model:selected-artistry-provider="selectedArtistryProvider"
+        v-model:selected-artistry-model="selectedArtistryModel"
+        v-model:selected-artistry-prompt-prefix="selectedArtistryPromptPrefix"
+        v-model:selected-artistry-widget-instruction="selectedArtistryWidgetInstruction"
+        v-model:selected-artistry-autonomous-enabled="selectedArtistryAutonomousEnabled"
+        v-model:selected-artistry-autonomous-threshold="selectedArtistryAutonomousThreshold"
+        v-model:selected-artistry-autonomous-monitor-enabled="selectedArtistryAutonomousMonitorEnabled"
+        v-model:selected-artistry-autonomous-monitor-discord-enabled="selectedArtistryAutonomousMonitorDiscordEnabled"
+        v-model:selected-artistry-autonomous-history-depth="selectedArtistryAutonomousHistoryDepth"
+        v-model:selected-artistry-autonomous-model-mode="selectedArtistryAutonomousModelMode"
+        v-model:selected-artistry-autonomous-provider="selectedArtistryAutonomousProvider"
+        v-model:selected-artistry-autonomous-model="selectedArtistryAutonomousModel"
+        v-model:selected-artistry-autonomous-target="selectedArtistryAutonomousTarget"
+        v-model:selected-artistry-spawn-mode="selectedArtistrySpawnMode"
+        v-model:selected-artistry-config-str="selectedArtistryConfigStr"
+        :artistry-provider-options="artistryProviderOptions"
+        :default-artistry-provider-placeholder="getDefaultPlaceholder(defaultArtistryProvider)"
+        @sparkle-click="openSparkleGenerator"
+        @extract-tags-click="openTagExtractor"
+      />
+      <CardCreationTabProactivity
+        v-else-if="activeTab === 'proactivity'"
+        v-model:heartbeats-enabled="heartbeatsEnabled"
+        v-model:heartbeats-interval-minutes="heartbeatsIntervalMinutes"
+        v-model:heartbeats-prompt="heartbeatsPrompt"
+        v-model:heartbeats-inject-into-prompt="heartbeatsInjectIntoPrompt"
+        v-model:heartbeats-schedule-start="heartbeatsScheduleStart"
+        v-model:heartbeats-schedule-end="heartbeatsScheduleEnd"
+        v-model:heartbeats-context-window-history="heartbeatsContextWindowHistory"
+        v-model:heartbeats-context-system-load="heartbeatsContextSystemLoad"
+        v-model:heartbeats-context-usage-metrics="heartbeatsContextUsageMetrics"
+        v-model:heartbeats-respect-schedule="heartbeatsRespectSchedule"
+        v-model:presence-pause-when-afk="presencePauseWhenAfk"
+        v-model:presence-afk-threshold-minutes="presenceAfkThresholdMinutes"
+        v-model:dream-state-enabled="dreamStateEnabled"
+        v-model:dream-state-strict-afk-gating="dreamStateStrictAfkGating"
+        v-model:dream-state-richness="dreamStateRichness"
+        v-model:dream-state-afk-threshold-minutes="dreamStateAfkThresholdMinutes"
+        v-model:dream-state-session-timeout-minutes="dreamStateSessionTimeoutMinutes"
+        v-model:dream-state-max-sessions-per-day="dreamStateMaxSessionsPerDay"
+        v-model:dream-state-min-conversation-turns="dreamStateMinConversationTurns"
+        v-model:dream-state-inject-dream-context="dreamStateInjectDreamContext"
+        v-model:screen-watching-enabled="screenWatchingEnabled"
+        v-model:screen-watching-delivery-mode="screenWatchingDeliveryMode"
+        v-model:screen-watching-source-type="screenWatchingSourceType"
+        v-model:screen-watching-source-id="screenWatchingSourceId"
+        v-model:screen-watching-capture-interval-ms="screenWatchingCaptureIntervalMs"
+        v-model:screen-watching-downscale-percent="screenWatchingDownscalePercent"
+        v-model:screen-watching-workload="screenWatchingWorkload"
+        v-model:screen-watching-publish-to-context="screenWatchingPublishToContext"
+        v-model:screen-watching-interest-tags="screenWatchingInterestTags"
+        v-model:screen-watching-max-per-hour="screenWatchingMaxPerHour"
+        v-model:screen-watching-hysteresis-minutes="screenWatchingHysteresisMinutes"
+        v-model:screen-watching-enable-vlm="screenWatchingEnableVlm"
+        v-model:screen-watching-vlm-tier="screenWatchingVlmTier"
+        v-model:screen-watching-respect-schedule="screenWatchingRespectSchedule"
+        v-model:event-ledger-enabled="eventLedgerEnabled"
+        v-model:event-ledger-sample-depth="eventLedgerSampleDepth"
+        v-model:event-ledger-domains="eventLedgerDomains"
+        v-model:short-term-memory-enabled="shortTermMemoryEnabled"
+        v-model:short-term-memory-window-size="shortTermMemoryWindowSize"
+        v-model:short-term-memory-token-budget="shortTermMemoryTokenBudget"
+        v-model:grounding-enabled="groundingEnabled"
+        :sensor-payload="sensorPayload"
+        :static-sample-payload="staticSamplePayload"
+        @sparkle-click="openSparkleGenerator"
+      />
+      <CardCreationTabTools
+        v-else-if="activeTab === 'tools'"
+        v-model:selected-allowed-tools="generationAllowedTools"
+        v-model:selected-image-journal-instruction="selectedArtistryWidgetInstruction"
+        v-model:selected-text-journal-instruction="selectedTextJournalInstruction"
+        v-model:selected-inject-dream-context="selectedInjectDreamContext"
+        v-model:selected-inject-journal-context="selectedInjectJournalContext"
+        v-model:selected-inject-artistry-context="selectedInjectArtistryContext"
+        v-model:selected-dream-intrusion-prompt="selectedDreamIntrusionPrompt"
+        v-model:selected-journal-intrusion-prompt="selectedJournalIntrusionPrompt"
+        v-model:selected-artistry-intrusion-prompt="selectedArtistryIntrusionPrompt"
+        :dream-state-enabled="dreamStateEnabled"
+      />
+      <div class="mt-4 flex flex-row justify-end gap-2">
+        <Button
+          variant="secondary"
+          icon="i-solar:undo-left-bold-duotone"
+          :label="t('settings.pages.card.cancel')"
+          @click="emit('cancel')"
+        />
+        <Button
+          variant="primary"
+          icon="i-solar:check-circle-bold-duotone"
+          :label="isEditMode ? t('settings.pages.card.save') : t('settings.pages.card.creation.create')"
+          @click="saveCard(card)"
+        />
+      </div>
+    </template>
   </div>
 
   <!-- Sparkle AI Generator Modal -->
