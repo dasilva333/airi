@@ -2,7 +2,7 @@
 
 This release marks the full arrival of the **Nan0 Living Cognition Architecture**, graduating from an early design preview into an operational multi-domain cognitive core featuring subconscious shadow reflexes, long-term relationship memory, and epistemic grounding. Alongside Nan0, we introduce the **Mind Map 4D Cognitive Graph & Dual-View Memory Explorer**, providing rich visual insight into AIRI's evolving memory through both an interactive chronological timeline and a force-directed celestial constellation view.
 
-Under the hood, this release debuts the **System 1 Coprocessor Engine**, pairing the remote **Jev** model with the local, free **Laya** runtime—offering users two flexible paths for intelligence (high-speed remote execution or completely free on-device processing) to power instant semantic triage, entity classification, and relational memory retrieval. In addition, creators gain access to the interactive **Conversational Pacing & Thinking Fillers Lab** for fine-tuning natural speech cadences, an **External VLM Vision Tier** for Screen Watching with hourly quota safeguards, robust **Serialized Voice Input Recovery** across microphone hardware changes, and vital companion animation restorations for both Live2D and MMD models.
+Under the hood, this release debuts the **System 1 Coprocessor Engine**, pairing the remote **Jev** model with the local, free **Laya** runtime—offering users two flexible paths for intelligence (high-speed remote execution or completely free on-device processing) to power instant semantic triage, entity classification, and relational memory retrieval. In addition, creators gain access to the interactive **Conversational Pacing & Thinking Fillers Lab** for fine-tuning natural speech cadences, an **External VLM Vision Tier** for Screen Watching with hourly quota safeguards, robust **Serialized Voice Input Recovery** across microphone hardware changes, desktop window memory disposal, and vital companion animation restorations for both Live2D and MMD models.
 
 ---
 
@@ -14,7 +14,7 @@ Under the hood, this release debuts the **System 1 Coprocessor Engine**, pairing
 - **System 1 80-Choice Schema**: Subconscious reflex schema that evaluates immediate reactions, behavioral impulses, and emotional undertones in milliseconds across remote Jev and local Laya coprocessors before conscious response synthesis.
 - **PCL Grievance Ledger & Semantic Salience**: Long-term interpersonal relationship tracking that records mutual rapport, boundary respect, emotional warmth, and resolved friction over time.
 - **Epistemic Memory Grounding**: 1st-hop thought engine ensuring that inner monologues, self-reflections, and unspoken musings are strictly anchored to verified autobiographical memories.
-- **Configurable Owner Anchor**: Dynamic identity boundary protection within character definitions, enforcing clear companion versus owner distinctions while preventing persona drift.
+- **Configurable Owner Anchor & State Persistence**: Dynamic identity boundary protection within character definitions, enforcing clear companion versus owner distinctions while safeguarding cognition state across restarts.
 
 ### 🌌 Mind Map: 4D Cognitive Graph & Dual-View Memory Explorer
 - **Dual-View Explorer**: Seamless toggle between a Chronological Timeline and a force-directed Constellation Canvas directly from Chat and Long-Term Memory settings.
@@ -51,6 +51,12 @@ Under the hood, this release debuts the **System 1 Coprocessor Engine**, pairing
 ### 🔊 Audio Pipeline & Hardware Recovery
 - **Serialized Voice Input Lifecycle**: Ported upstream hardware recovery (PR #2645) with an explicit state machine preventing dropped microphone streams, audio crashes, or UI freezes during microphone hardware changes.
 - **Persistent VAD & Push-to-Talk Recording**: Saved voice activity detection sensitivity thresholds across restarts and restored manual push-to-talk recording fallbacks.
+
+### ⚡ Performance, Card Editor & Stability
+- **Desktop Lazy Window Creation & Memory Disposal**: Electron secondary windows (Chat and Subtitles/Captions) are now created lazily on-demand and cleanly disposed when closed, releasing substantial V8 and GPU memory during long desktop sessions.
+- **Thinking Mode Preset Chips**: Added convenient click-to-merge preset chips in Card Generation settings to easily disable reasoning overhead or adjust thinking budgets per model.
+- **Fluid Card Editor Tab Transitions**: Integrated dedicated tab loading placeholders and state guards to prevent accidental saves or half-rendered forms when switching card editor tabs.
+- **Search Indexing Concurrency Lock**: Added an asynchronous queue lock to ensure safe, corruption-free text journal writes during rapid back-to-back chat interactions.
 
 ### 🎨 Desktop Chat UI, Search & Onboarding Polish
 - **Side-by-Side Media Gallery**: Modernized chat interactive area with compact 85px thumbnails, leading control endcaps, and tighter padding.
