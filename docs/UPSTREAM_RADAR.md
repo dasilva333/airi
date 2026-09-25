@@ -18,6 +18,65 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-09-25] Upstream Delta: `3e8ea960..a142a053` (1 commits, 8 files, 7 PR update(s))
+
+### 🎯 Executive Highlights
+* **Upstream Focus**: Upstream merged 1 commit (`a142a053fd` / PR #2656) and logged 7 PR updates (3 new PRs, 1 status change, 3 discussion changes). Core focus centered on: (1) Auth leader/follower synchronization (#2656 / `a142a053fd`), resolving a race condition where Pinia sync followers (e.g. the onboarding dialog) toggled `needsLogin = true` before the leader could consume it, introducing a leader-owned `requestLogin()` action; (2) In-canvas dynamic presence bubbles (#2657 by @chiba233), introducing dynamic presence bubble tracking anchored to character head positions (Live2D & VRM) via `@proj-airi/stage-shared` with spring physics and devtools controls—converging toward patterns already implemented in this fork via `HeadTetheredCaption` and `HeadTetheredCanvas2D`; (3) Stage canvas sizing & minimum constraint cleanups (#2658 by @chiba233), streamlining `screen.vue` to rely exclusively on `useElementSize(containerRef)` and removing conflicting `min-h="100 sm:100"` constraints from `Stage.vue` scenes that caused avatar models to bounce/jump during window resizes; (4) Linux Electron CI hardening (#2519 by @gg582), moving PR #2519 from Draft to Ready for headless Linux X11 (Xvfb) and Wayland (Weston) smoke testing in GitHub Actions via CDP remote debugging; and (5) Community localization & audio streams (#2121, #2290), continuing rolling translation updates (+2 comments, 123 total) and server-side WebSocket ASR streaming discussions (+1 comment, 59 total).
+* **Discussion & Community Buzz**:
+  - 💬 **#2121: `chore(i18n): update translations` (+2 new comments, total 123)**: Continuous high-volume community localization updates across locales.
+  - 💬 **#2290: `feat(server): stream official ASR over WebSocket` (+1 new comments, total 59)**: Sustained architectural discussion regarding server-side streaming ASR protocol.
+  - 💬 **#2519: `test(stage-tamagotchi): verify linux window rendering in CI` (+1 new comments, total 14)**: Author marked PR ready for review after passing all remote debugging CDP assertion suites under headless Weston/Xvfb.
+  - 💬 **#2657: `feat(stage-ui): show a dynamic presence bubble beside the character` (3 comments)**: Active mathematical and testing discussion detailing ablation runs, hysteresis band feedback, and spring stiffness/damping across head anchors.
+* **Cherry-Pick Candidates**:
+  - ⭐ **PR #2658: `fix(ui): size the stage canvas from the Screen box alone`**: High-value candidate for stage layout stability. Eliminates model jumping during window resizing caused by conflicting `min-h-100 sm:100` (400px minimum) constraints across avatar scene renderers and replaces complex bounding/breakpoint guesses in `screen.vue` with a simple `useElementSize`. In our fork, `RendererStage.vue` still retains `:class="['min-w-50% <lg:full min-h-100 sm:100', 'h-full w-full flex-1']"` on VRM, Spine, and MMD scenes; stripping those minimums aligns with this fix.
+  - 🔍 **PR #2519: `test(stage-tamagotchi): verify linux window rendering in CI`**: Valuable CI infrastructure candidate. Introduces headless Electron smoke tests via Chrome DevTools Protocol (`remote-debug.ts`) under Xvfb and Weston to detect window creation, Ozone platform flags (`--ozone-platform=wayland|x11`), and transparent rendering regressions without manual Linux hardware testing.
+  - 🔍 **PR #2657: `feat(stage-ui): show a dynamic presence bubble beside the character`**: Conceptual reference candidate. Our fork already implemented in-scene head-following comic bubbles (`HeadTetheredCaption` for Live2D and `HeadTetheredCanvas2D` for 3D/VRM/MMD/Spine). The physics advancer (`PresenceBubbleAdvancer`) and spring placement math in `@proj-airi/stage-shared/src/presence-bubble` can be reviewed for smoothing our tethered bubble spring dynamics.
+  - ⚪ **Auto-Reject / Do Not Port**:
+    - **Commit `a142a053fd` / PR #2656 (`fix(auth): publish login requests on the leader`)**: Pertains directly to upstream's hosted cloud authentication, OIDC redirects, and remote user accounts. Our fork strictly adheres to offline-first, zero-account BYOS persistence.
+* **Divergence / Collision Warnings**:
+  - ⚠️ **`packages/stage-ui/src/components/scenes/Stage.vue` vs `RendererStage.vue` (PR #2658)**: Upstream modifies `Stage.vue` to remove `min-h="100 sm:100"`. In our fork, `Stage.vue` was decoupled and replaced by `RendererStage.vue` in the dedicated Actor Stage window (`apps/stage-tamagotchi/src/renderer/windows/stage`). Do not attempt a direct git patch; port the removal of `min-h-100 sm:100` specifically into `RendererStage.vue`.
+  - ⚠️ **`packages/stage-ui/src/stores/auth.ts` & `step-welcome.vue` (Commit `a142a053fd`)**: Touches cloud authentication stores and onboarding dialogs. Our fork does not route logins or store cloud auth tokens; keep fork's local onboarding intact.
+  - ⚠️ **`packages/stage-shared` & Head Anchors (PR #2657)**: Upstream's presence bubble introduces new files in `@proj-airi/stage-shared` and modifies `packages/stage-ui-live2d/src/components/scenes/Live2D.vue`. Our fork already hooks the Live2D PIXI app and Three.js scene refs via `HeadTetheredCaption` and `HeadTetheredCanvas2D` with radial menu controls. Avoid clobbering existing head-tethered caption wiring.
+
+### 📋 Upstream Commits
+- `a142a053fd` fix(auth): publish login requests on the leader (#2656) [#2656](https://github.com/moeru-ai/airi/pull/2656) _(RainbowBird, 2026-09-25)_
+
+### 🔬 Subsystem Breakdown
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 2 file(s) (+4/-4)
+- `apps/stage-pocket/src/pages/settings/account/index.vue` *(+2/-2)*
+- `apps/stage-web/src/pages/settings/account/index.vue` *(+2/-2)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 6 file(s) (+91/-9)
+- `packages/stage-ui/src/components/scenarios/dialogs/onboarding/onboarding.browser.test.ts` *(+19/-0)*
+- `packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-welcome.browser.test.ts` *(+26/-1)*
+- `packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-welcome.vue` *(+2/-2)*
+- `packages/stage-ui/src/components/scenarios/hologram/holo-coupon.vue` *(+2/-2)*
+- `packages/stage-ui/src/stores/auth.browser.test.ts` *(+31/-0)*
+- `packages/stage-ui/src/stores/auth.ts` *(+11/-4)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (3)
+- [#2657](https://github.com/moeru-ai/airi/pull/2657) `feat(stage-ui): show a dynamic presence bubble beside the character` by **@chiba233** *(3 comments)*
+- [#2658](https://github.com/moeru-ai/airi/pull/2658) `fix(ui): size the stage canvas from the Screen box alone` by **@chiba233** *(1 comments)*
+- [#2656](https://github.com/moeru-ai/airi/pull/2656) `fix(auth): publish login requests on the leader` by **@luoling8192** *(1 comments)*
+
+#### 🔄 PR Status & Lifecycle Changes (1)
+- [#2519](https://github.com/moeru-ai/airi/pull/2519) `test(stage-tamagotchi): verify linux window rendering in CI` — `Draft` ➔ `Ready`
+
+#### 💬 Discussion Activity (3)
+- [#2519](https://github.com/moeru-ai/airi/pull/2519) `test(stage-tamagotchi): verify linux window rendering in CI` — *+1 comments (13 ➔ 14 total)*
+- [#2121](https://github.com/moeru-ai/airi/pull/2121) `chore(i18n): update translations` — *+2 comments (121 ➔ 123 total)*
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` — *+1 comments (58 ➔ 59 total)*
+
+### 👁️ Watched PRs Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(0 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2550](https://github.com/moeru-ai/airi/pull/2550) `feat(hearing): add bundled Sherpaw speech recognition` [OPEN] — *(17 comments)*
+  - *Focus*: Offline Sherpaw STT model packaging (Paraformer/Zipformer) via tsdown and Vite plugin
+- [#2641](https://github.com/moeru-ai/airi/pull/2641) `feat(stage-ui): show chat image analysis status` [CLOSED] — *(1 comments)*
+  - *Focus*: Accessible live status indicator for text-only models undergoing vision pre-processing
+
+---
 ## [2026-09-24] Upstream Delta: `595ea726..3e8ea960` (6 commits, 37 files, 15 PR update(s))
 
 ### 🎯 Executive Highlights

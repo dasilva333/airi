@@ -33,7 +33,8 @@
     "dev:linux": "node scripts/ensure-electron.js && ELECTRON_RUN_AS_NODE= ELECTRON_DISABLE_SANDBOX=1 electron-vite dev",
     "rename-artifacts": "mkdir -p bundle && tsx scripts/rename-artifacts.ts",
     "merge-latest-mac": "tsx scripts/merge-latest-mac.ts",
-    "artifacts-metadata": "tsx scripts/artifacts-metadata.ts"
+    "artifacts-metadata": "tsx scripts/artifacts-metadata.ts",
+    "smoke:linux-window-render": "NODE_OPTIONS='--experimental-websocket' tsx scripts/linux-window-render-smoke.ts"
   },
   "dependencies": {
     "@discordjs/voice": "^0.19.0",
