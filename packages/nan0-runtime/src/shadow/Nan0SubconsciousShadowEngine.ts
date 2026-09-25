@@ -83,6 +83,11 @@ export class Nan0SubconsciousShadowEngine {
       this.dispatchInternalSync(snapshot)
     }
     else {
+      if (this.activeJobs > 0) {
+        // Concurrency circuit breaker: drop overlapping async shadow dispatch to prevent inference stampedes
+        this.droppedRecords++
+        return
+      }
       void this.dispatchAsync(snapshot).catch((err) => {
         console.error('[Nan0SubconsciousShadowEngine] error in shadow dispatch:', err)
       })
@@ -94,6 +99,11 @@ export class Nan0SubconsciousShadowEngine {
    * while recording lexical fallback telemetry and enforcing strict shadow invariants.
    */
   public async dispatchAsync(snapshot: Nan0TurnSnapshot): Promise<Nan0ShadowTelemetryRecord | null> {
+    if (this.activeJobs > 0) {
+      this.droppedRecords++
+      return null
+    }
+
     try {
       this.pendingJobs++
       const state = this.getOrCreateSessionState(snapshot.sessionId)
@@ -121,49 +131,52 @@ export class Nan0SubconsciousShadowEngine {
       this.activeJobs++
       this.pendingJobs--
 
-      const queueMs = 0
-      const t0 = performance.now()
+      try {
+        const queueMs = 0
+        const t0 = performance.now()
 
-      // 3. Resolve lexical proposal as baseline floor
-      const { proposal: lexicalProposal, durationMs: resolutionMs } = this.lexicalExtractor.resolve(snapshot)
+        // 3. Resolve lexical proposal as baseline floor
+        const { proposal: lexicalProposal, durationMs: resolutionMs } = this.lexicalExtractor.resolve(snapshot)
 
-      // 4. Resolve System 1 Jev proposal if provider is configured
-      let needleProposal: Nan0PolicyProposal | null = null
-      let inferenceMs = 0
-      let backend = this.versions.backend
+        // 4. Resolve System 1 Jev proposal if provider is configured
+        let needleProposal: Nan0PolicyProposal | null = null
+        let inferenceMs = 0
+        let backend = this.versions.backend
 
-      if (this.systemOneProvider) {
-        const j0 = performance.now()
-        try {
-          const res = await this.systemOneProvider(snapshot.text, NAN0_JEV_12_GROUP_QUESTIONS, this.jevModel)
-          inferenceMs = res.latencyMs ?? (performance.now() - j0)
-          needleProposal = mapJevAnswersToProposal(res.answers, snapshot)
-          backend = 'system_one_jev'
+        if (this.systemOneProvider) {
+          const j0 = performance.now()
+          try {
+            const res = await this.systemOneProvider(snapshot.text, NAN0_JEV_12_GROUP_QUESTIONS, this.jevModel)
+            inferenceMs = res.latencyMs ?? (performance.now() - j0)
+            needleProposal = mapJevAnswersToProposal(res.answers, snapshot)
+            backend = 'system_one_jev'
+          }
+          catch (err) {
+            console.warn('[Nan0SubconsciousShadowEngine] System 1 Jev dispatch failed, falling back to lexical floor:', err)
+            needleProposal = null
+          }
         }
-        catch (err) {
-          console.warn('[Nan0SubconsciousShadowEngine] System 1 Jev dispatch failed, falling back to lexical floor:', err)
-          needleProposal = null
-        }
+
+        const totalMs = performance.now() - t0
+        const record = this.finalizeRecord(
+          snapshot,
+          state,
+          lexicalProposal,
+          needleProposal,
+          backend,
+          queueMs,
+          resolutionMs,
+          inferenceMs,
+          totalMs,
+        )
+
+        return record
       }
-
-      const totalMs = performance.now() - t0
-      const record = this.finalizeRecord(
-        snapshot,
-        state,
-        lexicalProposal,
-        needleProposal,
-        backend,
-        queueMs,
-        resolutionMs,
-        inferenceMs,
-        totalMs,
-      )
-
-      this.activeJobs--
-      return record
+      finally {
+        this.activeJobs = Math.max(0, this.activeJobs - 1)
+      }
     }
     catch (err) {
-      this.activeJobs = Math.max(0, this.activeJobs - 1)
       this.pendingJobs = Math.max(0, this.pendingJobs - 1)
       console.error('[Nan0SubconsciousShadowEngine] error in shadow dispatch:', err)
       return null

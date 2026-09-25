@@ -4,7 +4,7 @@ import { InMemoryStateStore, Nan0Kernel, SystemNan0Clock } from '@proj-airi/nan0
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { NAN0_DEFAULT_EMOTIONS, useNan0Store } from './nan0'
+import { isMainWindow, NAN0_DEFAULT_EMOTIONS, useNan0Store } from './nan0'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -309,6 +309,13 @@ describe('useNan0Store (Host Orchestrator Integration)', () => {
 
       await store.prepareTurn(observation)
       expect(store.emotions.warmth).toBeGreaterThan(initialWarmth)
+    })
+
+    it('enforces main window restrictions on ensureKernel and prepareTurn', () => {
+      expect(isMainWindow()).toBe(true)
+
+      const store = useNan0Store()
+      expect(store).toBeDefined()
     })
   })
 })

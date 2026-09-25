@@ -1014,7 +1014,7 @@ export class Nan0Kernel {
       retrievedMemoryContext,
       onStreamProgress: async (progress: { attempt: number, phase: 'narrative' | 'extraction', partialNarrativeLength: number }) => {
         const phaseChanged = progress.phase !== persistedProgressPhase
-        if (!phaseChanged && progress.partialNarrativeLength - persistedProgressLength < 128)
+        if (!phaseChanged && progress.partialNarrativeLength - persistedProgressLength < 512)
           return
         const progressAt = this.now()
         const streamingComputation = {

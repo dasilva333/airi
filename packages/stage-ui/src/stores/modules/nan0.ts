@@ -21,8 +21,10 @@ import {
   Nan0SubconsciousShadowEngine,
   SystemNan0Clock,
 } from '@proj-airi/nan0-runtime'
+import { isStageTamagotchi } from '@proj-airi/stage-shared'
+import { useBroadcastChannel } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 
 import { useEntityLedgerStore } from '../entity-ledger'
 import { useLLM } from '../llm'
@@ -30,12 +32,30 @@ import { useTextJournalStore } from '../memory-text-journal'
 import { useProvidersStore } from '../providers'
 import { useSystemOneStore } from './system-one'
 
+export function isMainWindow(): boolean {
+  if (typeof window === 'undefined')
+    return true
+  if (!isStageTamagotchi())
+    return true
+  const hash = window.location.hash || ''
+  return hash === '' || hash === '#/' || hash === '#' || hash === '#!/'
+}
+
 export interface Nan0ReflexInfo {
   group: string
   label: string
   confidence: number
   cluster: 'conflict' | 'relational' | 'system'
   icon: string
+}
+
+export interface Nan0StateSyncMessage {
+  emotions: Record<string, number>
+  lastReflex: Nan0ReflexInfo | null
+  decision: 'SPEAK' | 'SILENCE' | 'WAIT'
+  decisionReason: string
+  innerMonologue: string
+  isProcessing: boolean
 }
 
 export const NAN0_DEFAULT_EMOTIONS: Readonly<Record<string, number>> = {
@@ -152,6 +172,45 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
     }
   })
 
+  // Cross-window BroadcastChannel synchronization
+  const isLeader = isMainWindow()
+  const { post: broadcastState, data: incomingState } = useBroadcastChannel<Nan0StateSyncMessage, Nan0StateSyncMessage>({
+    name: 'airi:nan0:state-sync',
+  })
+
+  // In secondary windows, listen for synchronized Nan0 state from the main stage window
+  if (typeof window !== 'undefined' && !isLeader) {
+    watch(incomingState, (msg) => {
+      if (!msg)
+        return
+      if (msg.emotions)
+        emotions.value = msg.emotions
+      if (msg.lastReflex !== undefined)
+        lastReflex.value = msg.lastReflex
+      if (msg.decision)
+        decision.value = msg.decision
+      if (msg.decisionReason !== undefined)
+        decisionReason.value = msg.decisionReason
+      if (msg.innerMonologue !== undefined)
+        innerMonologue.value = msg.innerMonologue
+      if (msg.isProcessing !== undefined)
+        isProcessing.value = msg.isProcessing
+    }, { immediate: true })
+  }
+
+  function broadcastCurrentState() {
+    if (isLeader && typeof window !== 'undefined') {
+      broadcastState({
+        emotions: emotions.value,
+        lastReflex: lastReflex.value,
+        decision: decision.value,
+        decisionReason: decisionReason.value,
+        innerMonologue: innerMonologue.value,
+        isProcessing: isProcessing.value,
+      })
+    }
+  }
+
   // Nan0Kernel & Shadow Engine references
   const kernel = shallowRef<Nan0Kernel | null>(null)
   const shadowEngine = shallowRef<Nan0SubconsciousShadowEngine | null>(null)
@@ -159,6 +218,7 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
 
   function updateEmotion(dimension: string, value: number) {
     emotions.value[dimension] = Math.min(1, Math.max(0, value))
+    broadcastCurrentState()
   }
 
   function setEmotions(newEmotions: Record<string, number>) {
@@ -166,30 +226,36 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
       ...emotions.value,
       ...newEmotions,
     }
+    broadcastCurrentState()
   }
 
   function setReflex(reflex: Nan0ReflexInfo | null) {
     lastReflex.value = reflex
+    broadcastCurrentState()
   }
 
   function setExecutiveState(newDecision: 'SPEAK' | 'SILENCE' | 'WAIT', reason = '') {
     decision.value = newDecision
     if (reason)
       decisionReason.value = reason
+    broadcastCurrentState()
   }
 
   function setInnerMonologue(text: string) {
     innerMonologue.value = text
+    broadcastCurrentState()
   }
 
   function setProcessing(processing: boolean) {
     isProcessing.value = processing
+    broadcastCurrentState()
   }
 
   function resetToBaseline() {
     emotions.value = { ...NAN0_DEFAULT_EMOTIONS }
     decision.value = 'SPEAK'
     decisionReason.value = 'Baseline Reset'
+    broadcastCurrentState()
   }
 
   function applyDreamMoodRestoration(dreamMood: string) {
@@ -248,6 +314,11 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
   }
 
   async function ensureKernel(cardId?: string, config?: Nan0KernelConfig): Promise<Nan0Kernel> {
+    if (!isMainWindow()) {
+      console.warn('[Nan0Store] Secondary renderer window detected. Nan0Kernel orchestration is restricted to the main stage window.')
+      return kernel.value as any
+    }
+
     const targetCardId = cardId || activeCardId.value || 'default'
     if (kernel.value && (activeCardId.value === targetCardId || !cardId) && kernel.value.isBooted) {
       return kernel.value
@@ -322,11 +393,15 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
     const textJournalStore = useTextJournalStore()
     const memoryRetriever = async (query: string, _actorId?: string, limit?: number): Promise<Nan0EpistemicGroundingContext | null> => {
       try {
-        const results = await textJournalStore.searchEntries({
+        const searchPromise = textJournalStore.searchEntries({
           query,
           limit: limit ?? 5,
           characterId: targetCardId,
         })
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Memory retrieval timed out (3000ms)')), 3000),
+        )
+        const results = await Promise.race([searchPromise, timeoutPromise])
         const facts: Nan0EpistemicFact[] = results.map(res => ({
           source: (res as any).isKgClaim ? 'entity_ledger' : (res as any).kind === 'stmm_summary' ? 'stmm' : 'journal',
           title: res.title,
@@ -340,7 +415,7 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
         return { facts }
       }
       catch (err) {
-        console.warn('[Nan0Store] Epistemic memory retrieval failed:', err)
+        console.warn('[Nan0Store] Epistemic memory retrieval failed or timed out:', err)
         return null
       }
     }
@@ -405,6 +480,10 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
     options?: Nan0PrepareTurnOptions,
     kernelConfig?: Nan0KernelConfig,
   ): Promise<Nan0PreparedTurn> {
+    if (!isMainWindow()) {
+      throw new Error('[Nan0Store] prepareTurn must be orchestrated from the main stage window.')
+    }
+
     setProcessing(true)
     try {
       const cardId = observation.metadata?.cardId as string | undefined
@@ -449,6 +528,8 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
         reason,
       )
 
+      broadcastCurrentState()
+
       return prepared
     }
     finally {
@@ -472,6 +553,7 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
     if (snapshot.emotionalState) {
       setEmotions(snapshot.emotionalState)
     }
+    broadcastCurrentState()
     return res
   }
 
@@ -490,6 +572,7 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
     if (snapshot.emotionalState) {
       setEmotions(snapshot.emotionalState)
     }
+    broadcastCurrentState()
     return res
   }
 
@@ -509,6 +592,7 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
     if (snapshot.emotionalState) {
       setEmotions(snapshot.emotionalState)
     }
+    broadcastCurrentState()
     return res
   }
 
@@ -522,7 +606,9 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
     setProcessing(false)
     if (!kernel.value)
       return null
-    return await kernel.value.failTurn(input)
+    const res = await kernel.value.failTurn(input)
+    broadcastCurrentState()
+    return res
   }
 
   return {

@@ -254,6 +254,37 @@ function tempBucket(qtype: string, k: number): string {
 let activeSession: ort.InferenceSession | null = null
 let activeSessionPrecision: 'int8' | 'fp16' | null = null
 let activeTokenizer: any = null
+let loadSessionPromise: Promise<ort.InferenceSession> | null = null
+let loadTokenizerPromise: Promise<any> | null = null
+
+// Serial async execution queue for ONNX Runtime WASM session.run
+let layaSessionRunLock: Promise<unknown> = Promise.resolve()
+
+/**
+ * Execute a task with exclusive ownership of the Laya ONNX inference session.
+ * Prevents re-entrancy and concurrent session.run memory corruption in WebAssembly.
+ */
+export async function withLayaSessionLock<T>(task: () => Promise<T>, timeoutMs = 15000): Promise<T> {
+  let release: () => void
+  const nextLock = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const previousLock = layaSessionRunLock
+  layaSessionRunLock = nextLock
+
+  await previousLock.catch(() => {})
+
+  try {
+    let timer: ReturnType<typeof setTimeout>
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`[LayaEngine] Inference session.run timed out after ${timeoutMs}ms`)), timeoutMs)
+    })
+    return await Promise.race([task(), timeoutPromise]).finally(() => clearTimeout(timer))
+  }
+  finally {
+    release!()
+  }
+}
 
 /**
  * Configure ONNX Runtime WebAssembly environment.
@@ -277,68 +308,90 @@ ensureOrtConfigured()
 /**
  * Reset in-memory active Laya ONNX session.
  */
-export function resetLayaSession(): void {
+export async function resetLayaSession(): Promise<void> {
+  if (activeSession) {
+    try {
+      await (activeSession as any).release?.()
+    }
+    catch (e) {
+      console.warn('[LayaEngine] Error releasing ONNX session:', e)
+    }
+  }
   activeSession = null
   activeSessionPrecision = null
+  loadSessionPromise = null
 }
 
 /**
  * Load the active Laya ONNX session from CacheStorage or network.
+ * Guaranteed singleton promise ensures only one model is loaded/compiled into WASM at a time.
  */
 export async function loadLayaSession(precision: 'int8' | 'fp16' = 'int8'): Promise<ort.InferenceSession> {
   if (activeSession && activeSessionPrecision === precision)
     return activeSession
 
-  ensureOrtConfigured()
+  if (loadSessionPromise)
+    return loadSessionPromise
 
-  const targetFile = precision === 'fp16' ? LAYA_FP16_MODEL_FILE : LAYA_INT8_MODEL_FILE
-  const fileUrl = `https://huggingface.co/${LAYA_HF_REPO}/resolve/main/${targetFile}`
+  loadSessionPromise = (async () => {
+    try {
+      ensureOrtConfigured()
 
-  let buffer: ArrayBuffer
+      const targetFile = precision === 'fp16' ? LAYA_FP16_MODEL_FILE : LAYA_INT8_MODEL_FILE
+      const fileUrl = `https://huggingface.co/${LAYA_HF_REPO}/resolve/main/${targetFile}`
 
-  if (typeof caches !== 'undefined') {
-    const cache = await caches.open(LAYA_CACHE_NAME)
-    const match = await cache.match(fileUrl)
-    if (match) {
-      buffer = await match.arrayBuffer()
-      // Integrity check: if buffer is truncated (< 50MB), evict and re-download
-      if (buffer.byteLength < 50_000_000) {
-        console.warn(`[LayaEngine] Cached model buffer is truncated (${buffer.byteLength} bytes). Evicting from cache and re-downloading...`)
-        await cache.delete(fileUrl)
-        await downloadLayaModel({ precision })
-        const reMatch = await cache.match(fileUrl)
-        if (!reMatch)
-          throw new Error('Failed to retrieve freshly downloaded Laya model from cache.')
-        buffer = await reMatch.arrayBuffer()
+      let buffer: ArrayBuffer
+
+      if (typeof caches !== 'undefined') {
+        const cache = await caches.open(LAYA_CACHE_NAME)
+        const match = await cache.match(fileUrl)
+        if (match) {
+          buffer = await match.arrayBuffer()
+          // Integrity check: if buffer is truncated (< 50MB), evict and re-download
+          if (buffer.byteLength < 50_000_000) {
+            console.warn(`[LayaEngine] Cached model buffer is truncated (${buffer.byteLength} bytes). Evicting from cache and re-downloading...`)
+            await cache.delete(fileUrl)
+            await downloadLayaModel({ precision })
+            const reMatch = await cache.match(fileUrl)
+            if (!reMatch)
+              throw new Error('Failed to retrieve freshly downloaded Laya model from cache.')
+            buffer = await reMatch.arrayBuffer()
+          }
+        }
+        else {
+          // Auto-download if not cached
+          console.info(`[LayaEngine] Model not cached. Starting download of ${targetFile}...`)
+          await downloadLayaModel({ precision })
+          const downloadedMatch = await cache.match(fileUrl)
+          if (!downloadedMatch)
+            throw new Error('Failed to retrieve downloaded Laya model from cache.')
+          buffer = await downloadedMatch.arrayBuffer()
+        }
       }
+      else {
+        const res = await fetch(fileUrl)
+        buffer = await res.arrayBuffer()
+      }
+
+      console.info(`[LayaEngine] Instantiating ONNX session for ${targetFile} (${(buffer.byteLength / 1024 / 1024).toFixed(1)} MB, threads=${ort.env.wasm?.numThreads}, simd=${ort.env.wasm?.simd})...`)
+
+      const modelBytes = new Uint8Array(buffer)
+
+      activeSession = await ort.InferenceSession.create(modelBytes, {
+        executionProviders: ['wasm'],
+        graphOptimizationLevel: 'all',
+      })
+      activeSessionPrecision = precision
+
+      console.info(`[LayaEngine] ✅ ONNX session successfully created for ${targetFile}.`)
+      return activeSession
     }
-    else {
-      // Auto-download if not cached
-      console.info(`[LayaEngine] Model not cached. Starting download of ${targetFile}...`)
-      await downloadLayaModel({ precision })
-      const downloadedMatch = await cache.match(fileUrl)
-      if (!downloadedMatch)
-        throw new Error('Failed to retrieve downloaded Laya model from cache.')
-      buffer = await downloadedMatch.arrayBuffer()
+    finally {
+      loadSessionPromise = null
     }
-  }
-  else {
-    const res = await fetch(fileUrl)
-    buffer = await res.arrayBuffer()
-  }
+  })()
 
-  console.info(`[LayaEngine] Instantiating ONNX session for ${targetFile} (${(buffer.byteLength / 1024 / 1024).toFixed(1)} MB, threads=${ort.env.wasm?.numThreads}, simd=${ort.env.wasm?.simd})...`)
-
-  const modelBytes = new Uint8Array(buffer)
-
-  activeSession = await ort.InferenceSession.create(modelBytes, {
-    executionProviders: ['wasm'],
-    graphOptimizationLevel: 'all',
-  })
-  activeSessionPrecision = precision
-
-  console.info(`[LayaEngine] ✅ ONNX session successfully created for ${targetFile}.`)
-  return activeSession
+  return loadSessionPromise
 }
 
 /**
@@ -348,8 +401,20 @@ export async function loadLayaTokenizer(): Promise<any> {
   if (activeTokenizer)
     return activeTokenizer
 
-  activeTokenizer = await AutoTokenizer.from_pretrained(LAYA_HF_REPO)
-  return activeTokenizer
+  if (loadTokenizerPromise)
+    return loadTokenizerPromise
+
+  loadTokenizerPromise = (async () => {
+    try {
+      activeTokenizer = await AutoTokenizer.from_pretrained(LAYA_HF_REPO)
+      return activeTokenizer
+    }
+    finally {
+      loadTokenizerPromise = null
+    }
+  })()
+
+  return loadTokenizerPromise
 }
 
 /**
@@ -452,54 +517,81 @@ export async function runLayaSystemOne(
   })
 
   console.info(`[LayaEngine] Step 3/4: Executing ONNX session.run (batch=${n}, seqLen=${L}, maxMarkers=${K})...`)
-  const out = await session.run({
-    input_ids: new ort.Tensor('int64', inputIds, [n, L]),
-    attention_mask: new ort.Tensor('int64', attention, [n, L]),
-    marker_pos: new ort.Tensor('int64', markerPos, [n, K]),
-    marker_mask: new ort.Tensor('bool', markerMask, [n, K]),
-    qtype: new ort.Tensor('int64', qtype, [n]),
-  })
+  const inputTensor = new ort.Tensor('int64', inputIds, [n, L])
+  const attentionTensor = new ort.Tensor('int64', attention, [n, L])
+  const markerPosTensor = new ort.Tensor('int64', markerPos, [n, K])
+  const markerMaskTensor = new ort.Tensor('bool', markerMask, [n, K])
+  const qtypeTensor = new ort.Tensor('int64', qtype, [n])
 
-  console.info(`[LayaEngine] Step 4/4: Decoding logits and applying temperature scaling (keys: ${Object.keys(out).join(', ')})...`)
-  const logitsTensor = out.logits || out.logits
-  const logits = logitsTensor?.data
+  let out: Record<string, ort.Tensor> | null = null
+  try {
+    out = await withLayaSessionLock(async () => {
+      return await session.run({
+        input_ids: inputTensor,
+        attention_mask: attentionTensor,
+        marker_pos: markerPosTensor,
+        marker_mask: markerMaskTensor,
+        qtype: qtypeTensor,
+      })
+    }, 15000)
+  }
+  finally {
+    inputTensor.dispose?.()
+    attentionTensor.dispose?.()
+    markerPosTensor.dispose?.()
+    markerMaskTensor.dispose?.()
+    qtypeTensor.dispose?.()
+  }
+
   const answers: Record<string, any> = {}
+  try {
+    console.info(`[LayaEngine] Step 4/4: Decoding logits and applying temperature scaling (keys: ${Object.keys(out).join(', ')})...`)
+    const logitsTensor = out.logits || (out as any).output
+    const logits = logitsTensor?.data
 
-  if (logits instanceof Float32Array) {
-    items.forEach((it, r) => {
-      const qid = qids[r]
-      const k = it.markers.length
-      const slice = Array.from(logits.subarray(r * K, r * K + k))
-      const temp = DEFAULT_TEMPERATURES[tempBucket(it.q.t, k)] ?? 1.0
-      const p = softmax(slice.map(v => v / temp))
-      const q = it.q
+    if (logits instanceof Float32Array) {
+      items.forEach((it, r) => {
+        const qid = qids[r]
+        const k = it.markers.length
+        const slice = Array.from(logits.subarray(r * K, r * K + k))
+        const temp = DEFAULT_TEMPERATURES[tempBucket(it.q.t, k)] ?? 1.0
+        const p = softmax(slice.map(v => v / temp))
+        const q = it.q
 
-      if (q.t === 'choice') {
-        const keys = Object.keys(q.crit)
-        const best = p.indexOf(Math.max(...p))
-        answers[qid] = {
-          type: 'choice',
-          choice: keys[best] || 'unknown',
-          probabilities: Object.fromEntries(keys.map((kk, idx) => [kk, round4(p[idx] ?? 0)])),
-          confidence: round4(confidenceFromProbs(p)),
+        if (q.t === 'choice') {
+          const keys = Object.keys(q.crit)
+          const best = p.indexOf(Math.max(...p))
+          answers[qid] = {
+            type: 'choice',
+            choice: keys[best] || 'unknown',
+            probabilities: Object.fromEntries(keys.map((kk, idx) => [kk, round4(p[idx] ?? 0)])),
+            confidence: round4(confidenceFromProbs(p)),
+          }
         }
-      }
-      else if (q.t === 'score') {
-        answers[qid] = {
-          type: 'score',
-          score: round4(p.reduce((s, v, idx) => s + idx * v, 0)),
-          probabilities: Object.fromEntries(p.map((v, idx) => [String(idx), round4(v)])),
-          confidence: round4(confidenceFromProbs(p)),
+        else if (q.t === 'score') {
+          answers[qid] = {
+            type: 'score',
+            score: round4(p.reduce((s, v, idx) => s + idx * v, 0)),
+            probabilities: Object.fromEntries(p.map((v, idx) => [String(idx), round4(v)])),
+            confidence: round4(confidenceFromProbs(p)),
+          }
         }
-      }
-      else {
-        answers[qid] = {
-          type: 'noul',
-          noul: round4(p[1] ?? 0),
-          confidence: round4(confidenceFromProbs(p)),
+        else {
+          answers[qid] = {
+            type: 'noul',
+            noul: round4(p[1] ?? 0),
+            confidence: round4(confidenceFromProbs(p)),
+          }
         }
+      })
+    }
+  }
+  finally {
+    if (out) {
+      for (const tensor of Object.values(out)) {
+        (tensor as any)?.dispose?.()
       }
-    })
+    }
   }
 
   const latencyMs = Math.round(performance.now() - startTime)
