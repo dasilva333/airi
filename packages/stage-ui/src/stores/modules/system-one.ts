@@ -147,7 +147,7 @@ export const useSystemOneStore = defineStore('system-one', () => {
 
   // Computed
   const configured = computed(() => {
-    if (!activeProvider.value)
+    if (!activeProvider.value || activeProvider.value === 'none')
       return false
     if (activeProvider.value === 'laya-local')
       return true

@@ -83,8 +83,6 @@ This document tracks all active pending items, architectural roadmaps, and featu
         *   *Real-Time SSE Streaming (Nanori Style)*: Live token streaming via Discord `message.edit()` with a mandatory 2,500ms rate-limit safety floor to prevent HTTP 429 locks.
     *   **Conversational Appetite Slider**: Configurable modes (Reserved / Natural Conversationalist / Hyper-Enthusiastic) with `NO_REPLY` silence sentinel drop routing.
 
----
-
 ## Consciousness & Cognitive Pipeline
 
 ### Conversational Pacing, Dynamic Thinking Fillers & Post-CoT Text Velocity
@@ -95,6 +93,24 @@ This document tracks all active pending items, architectural roadmaps, and featu
     *   Cascaded timing state machine masking high Time-to-First-Token (TTFT) and reasoning pauses during DeepSeek R1 / OpenAI o1/o3 thinking turns.
 *   **Pillar B — Post-CoT Expressive Text Pacing & Hesitation**:
     *   Chatbox text velocity modulation, simulated human retyping/backspacing, emotional pauses, and non-verbal avatar reaction hooks.
+
+### TypeSafe Jev System-1 Cognitive Engine & Multi-Subsystem Wiring
+*Reference: [proposal-jev-integration.md](../../../../../proposal-jev-integration.md)*
+*   **Programmable Visual Attention Gate (Attention Ecology)**:
+    *   Streamline screen perception into a 3-stage pipeline: `pHash` delta check $\rightarrow$ local visual descriptor (WASM OCR / micro-captioner) $\rightarrow$ sub-150ms Jev Natural Language Gate, replacing rigid predefined tag groups.
+    *   Expose a user-programmable natural language trigger prompt directly in Settings > Vision (e.g. *"Did a compiler error occur?"*, *"Is the user shopping for headphones?"*), waking the primary LLM only when confidence threshold is met.
+*   **Streaming Speech-to-Motion & Expression Classifier**:
+    *   Evaluate streaming sentence strides in real time (~110–140ms) via Jev `choice` and `score` primitives during TTS pre-synthesis.
+    *   Dynamically dispatch Live2D/VRM/Stage-Mate facial expressions (`smug`, `flustered`, `tender`) and ACT motion triggers (`nod`, `lean_forward`, `tilt`) with zero inline XML token generation overhead in the primary LLM.
+*   **AnimaDex Wizard Fast Voice Matching & Acoustic Assignment [SHIPPED]**:
+    *   Completed via `AutoVoiceConfigModal.vue` utilizing System 1 (`typesafe-ai`, `openrouter-ai`, or `laya-local`) for concurrent categorical voice matching, pitch tuning, speed rate selection, and bound model idle motion assignment with seamless LLM fallback.
+    *   Resolves cast voice profiles in ~400ms without freezing the UI or suffering LLM markdown formatting failures.
+*   **Memory Token Compaction & Pre-Summary Salience Curation**:
+    *   Pre-filter raw multi-turn conversation logs before invoking heavy System-2 daily/lifetime summarizers.
+    *   Strip routine banter and transient small-talk, compacting transcript token volume by ~70% and isolating high-salience biographical anchors and emotional milestones.
+*   **Arcade Room Retro Games & Interactive Backseat Gaming (`chat_arcade.vue`)**:
+    *   Run 10 Hz carry-hold game actuation loops (JS-DOS retro titles / ViZDoom) while the companion streams gameplay in the Arcade Room.
+    *   Inject live user chat/voice suggestions into dynamic `standingOrders` situation reports at the next 100ms cycle, enabling interactive backseat gaming and contextual audio-ducked banter.
 
 ### Prefix Cache Alignment & Prompt Compilation Controls
 *Reference: [proposal-prefix-cache-alignment.md](../../../../../proposal-prefix-cache-alignment.md)*

@@ -54,7 +54,7 @@ The five groups below organize navigation. Historical “Phase” labels do not 
 
 ## 3. Domain skill catalog
 
-The catalog contains 66 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
+The catalog contains 67 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
 
 ### 🟢 Phase 1: Core Plumbing & Infrastructure
 
@@ -290,6 +290,11 @@ The catalog contains 66 discoverable skills. Desktop chatbox and interaction pip
 - **Target Domain**: Autonomous Director and Studio concept decisions.
 - **Key Paths**: `packages/stage-ui/src/stores/modules/artistry-autonomous.ts`, `docs/content/en/docs/manual/config/studio.md`.
 - **Content**: Base/Layer stack resolution, Setups A/B/C ownership, actor manifestations, pure speech override resolution, scratchpad/note persistence, and asynchronous target identity. Image transport stays in artistry widgets.
+
+#### 3.23 `airi-jev-decision-engine`
+- **Target Domain**: TypeSafe Jev System-1 Decision Engine & Discrete Classification Coprocessor.
+- **Key Paths**: `packages/stage-ui/src/stores/modules/system-one.ts`, `packages/stage-ui/src/stores/modules/system-one.test.ts`, `docs/proposal-jev-integration.md`, `packages/stage-ui/src/stores/modules/vision/orchestrator.ts`, `packages/stage-pages/src/pages/settings/airi-card/guided.vue`.
+- **Content**: Sub-150ms parallel non-autoregressive decision network ($42/Btok); OpenRouter Decisions API transport (`POST /api/alpha/decisions`, `"type": "noul"` compatibility contract); `useSystemOneStore` Pinia architecture; question schemas (zero-shot memory triage, candidate reranking, affect & suspicion reflex, entity classification); and multi-domain coprocessor wiring: Attention Ecology Programmable Visual Attention Gate (Domain C), AnimaDex fast voice matching & pitch/speed tuning (Domain E), streaming speech-to-motion expression gating (Domain F), memory token compaction & pre-summary curation (Domain G), and Arcade Room retro gaming co-pilot (Domain A). Peer skills: `airi-attention-ecology-vision`, `airi-animadex-wizard`, `airi-acting-cue-act-tokens`, `airi-memory-short-term`.
 
 ---
 

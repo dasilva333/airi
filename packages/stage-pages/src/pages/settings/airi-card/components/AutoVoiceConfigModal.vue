@@ -5,6 +5,7 @@ import { voicePresets } from '@proj-airi/stage-ui/constants/voices'
 import { useLLM } from '@proj-airi/stage-ui/stores/llm'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
+import { useSystemOneStore } from '@proj-airi/stage-ui/stores/modules/system-one'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { Button } from '@proj-airi/ui'
 import {
@@ -44,6 +45,14 @@ const llmStore = useLLM()
 const providersStore = useProvidersStore()
 const speechStore = useSpeechStore()
 const consciousnessStore = useConsciousnessStore()
+const systemOneStore = useSystemOneStore()
+
+const isSystemOneConfigured = computed(() => {
+  if (!systemOneStore.configured)
+    return false
+  const p = systemOneStore.activeProvider
+  return Boolean(p && p !== 'none' && (p === 'laya-local' || p === 'typesafe-ai' || p === 'openrouter-ai'))
+})
 
 const state = ref<'idle' | 'loading' | 'results' | 'error'>('idle')
 const errorMessage = ref('')
@@ -324,6 +333,132 @@ function stopAudio() {
 async function runAutoConfiguration() {
   state.value = 'loading'
   try {
+    if (props.selectedCharacters.length === 0) {
+      recommendations.value = []
+      state.value = 'results'
+      return
+    }
+
+    // Path 1: System 1 fast non-autoregressive decision engine
+    if (isSystemOneConfigured.value) {
+      try {
+        const results = await Promise.all(
+          props.selectedCharacters.map(async (c) => {
+            const series = props.copyrights[c.copyrightIndex] || 'Unknown Series'
+            const gender = props.genders[Number(c.traits[0] || 0)] || 'Unknown'
+            const charGender = gender.toLowerCase()
+
+            let candidateVoices = currentVoicePresets.value
+            if (charGender.includes('female')) {
+              const filtered = currentVoicePresets.value.filter(v => v.gender?.toLowerCase() === 'female')
+              if (filtered.length > 0)
+                candidateVoices = filtered
+            }
+            else if (charGender.includes('male')) {
+              const filtered = currentVoicePresets.value.filter(v => v.gender?.toLowerCase() === 'male')
+              if (filtered.length > 0)
+                candidateVoices = filtered
+            }
+
+            const voiceCriteria: Record<string, string> = {}
+            for (const v of candidateVoices) {
+              voiceCriteria[v.id] = `${v.name}: ${v.gender || ''}${v.accent ? ` (${v.accent})` : ''}. ${v.description || ''}`.trim()
+            }
+
+            const modelId = props.boundModels[c.id]
+            const motions = getAvailableModelMotions(modelId)
+
+            const questions: Record<string, any> = {
+              best_voice_id: {
+                type: 'choice',
+                instructions: `Which voice ID best captures the acoustic profile and character traits of ${c.name}?`,
+                criteria: voiceCriteria,
+              },
+              pitch_modifier: {
+                type: 'choice',
+                instructions: `What speech pitch multiplier best fits ${c.name}'s vocal range and canon traits?`,
+                criteria: {
+                  '0.70': 'Extremely low / heavy bass pitch (0.70x).',
+                  '0.75': 'Deep growling / imposing low pitch (0.75x).',
+                  '0.80': 'Noticeably lowered / resonant pitch (0.80x).',
+                  '0.85': 'Moderate baritone pitch reduction (0.85x).',
+                  '0.90': 'Slightly deeper pitch (0.90x).',
+                  '0.95': 'Slightly lower pitch (0.95x).',
+                  '1.00': 'Default natural pitch without shifting (1.00x).',
+                  '1.05': 'Slightly higher pitch (1.05x).',
+                  '1.10': 'Noticeably higher / bright pitch (1.10x).',
+                  '1.15': 'Youthful / higher pitch (1.15x).',
+                  '1.20': 'Very high / childlike pitch (1.20x).',
+                },
+              },
+              speed_rate: {
+                type: 'choice',
+                instructions: `What delivery speed multiplier best conveys ${c.name}'s speaking cadence?`,
+                criteria: {
+                  '0.80': 'Very slow, ponderous delivery (0.80x).',
+                  '0.85': 'Slow, deliberate, measured cadence (0.85x).',
+                  '0.90': 'Measured, calm pacing (0.90x).',
+                  '0.95': 'Slightly relaxed pace (0.95x).',
+                  '1.00': 'Standard natural conversational speed (1.00x).',
+                  '1.05': 'Brisk, lively cadence (1.05x).',
+                  '1.10': 'Fast, energetic cadence (1.10x).',
+                  '1.15': 'Very rapid delivery (1.15x).',
+                },
+              },
+            }
+
+            if (motions.length > 0) {
+              const motionCriteria: Record<string, string> = {}
+              for (const m of motions.slice(0, 25)) {
+                motionCriteria[m] = `Animation: ${m}`
+              }
+              questions.idle_motion = {
+                type: 'choice',
+                instructions: `Which idle motion animation best conveys ${c.name}'s personality and physical demeanor?`,
+                criteria: motionCriteria,
+              }
+            }
+
+            const statePayload = `Character Profile:
+Name: ${c.name}
+Series: ${series}
+Gender: ${gender}
+Description/Traits: ${c.tags}`
+
+            const res = await systemOneStore.execute(statePayload, questions)
+            const matchedVoiceId = res.answers?.best_voice_id?.choice || candidateVoices[0]?.id || currentVoicePresets.value[0]?.id || ''
+            const rawPitch = res.answers?.pitch_modifier?.choice
+            const matchedPitch = rawPitch ? Number.parseFloat(rawPitch) : 1.0
+            const rawRate = res.answers?.speed_rate?.choice
+            const matchedRate = rawRate ? Number.parseFloat(rawRate) : 1.0
+            const chosenMotion = res.answers?.idle_motion?.choice
+            const idleAnimations = chosenMotion ? [chosenMotion] : (motions.length > 0 ? [motions[0]] : [])
+            const confidence = res.answers?.best_voice_id?.confidence
+            const provName = systemOneStore.activeProvider === 'typesafe-ai' ? 'TypeSafe Jev' : systemOneStore.activeProvider === 'openrouter-ai' ? 'OpenRouter Jev' : 'Laya Local'
+
+            return {
+              characterId: c.id,
+              name: c.name,
+              voiceId: matchedVoiceId,
+              rate: Number.isNaN(matchedRate) ? 1.0 : matchedRate,
+              pitch: Number.isNaN(matchedPitch) ? 1.0 : matchedPitch,
+              idleAnimations,
+              reasoning: `Matched via System 1 (${provName})${confidence ? ` (${Math.round(confidence * 100)}% conf)` : ''}.`,
+            }
+          }),
+        )
+
+        recommendations.value = results
+        state.value = 'results'
+        return
+      }
+      catch (sysErr) {
+        console.warn('[AutoVoiceConfigModal] System 1 matching failed, falling back to LLM:', sysErr)
+        // Graceful fallback to autoregressive LLM below
+      }
+    }
+
+    // Path 2: Graceful fallback to autoregressive LLM
     const activeModel = consciousnessStore.activeModel
     const activeProviderName = consciousnessStore.activeProvider
     if (!activeModel || !activeProviderName) {
@@ -400,7 +535,7 @@ Return ONLY a raw JSON array matching this schema (no markdown formatting, no wr
         rate: typeof item.rate === 'number' ? item.rate : 1.0,
         pitch: typeof item.pitch === 'number' ? item.pitch : 1.0,
         idleAnimations: Array.isArray(item.idleAnimations) ? item.idleAnimations : [],
-        reasoning: item.reasoning || 'Automatically matched.',
+        reasoning: item.reasoning || 'Automatically matched via LLM.',
       }
     })
 
@@ -625,6 +760,24 @@ function handleApply() {
                     Amazon Polly (Cloud Engine)
                   </option>
                 </select>
+              </div>
+
+              <!-- Decision Engine Badge -->
+              <div class="flex items-center justify-between border-t border-neutral-200/60 pt-2 dark:border-neutral-800/60">
+                <span class="dark:text-neutral-450 text-[10px] text-neutral-500 font-bold tracking-wider uppercase">Engine</span>
+                <span
+                  v-if="isSystemOneConfigured"
+                  class="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-semibold dark:text-emerald-400"
+                >
+                  <div class="i-solar:bolt-bold text-xs" />
+                  System 1 ({{ systemOneStore.activeProvider }})
+                </span>
+                <span
+                  v-else
+                  class="inline-flex items-center gap-1 rounded-md bg-neutral-500/10 px-2 py-0.5 text-[10px] text-neutral-500 font-semibold dark:text-neutral-400"
+                >
+                  LLM Fallback ({{ consciousnessStore.activeModel || 'Standard' }})
+                </span>
               </div>
 
               <div class="flex items-center gap-2 pt-2">

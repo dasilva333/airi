@@ -2,9 +2,12 @@
 
 > **Status**: Proposed Architecture & Evaluation RFC
 > **Target Subsystems**:
-> - `packages/stage-ui/src/composables/arcade/use-arcade-agent.ts` & Gaming Show Harness (`docs/proposal-generic-gaming-agent-runtime.md`, `docs/proposal-gaming-show-harness-copilot.md`)
+> - `packages/stage-ui/src/composables/arcade/use-arcade-agent.ts` & Arcade Room Retro Games (`chat_arcade.vue`, `docs/proposal-generic-gaming-agent-runtime.md`, `docs/proposal-gaming-show-harness-copilot.md`)
 > - `packages/nan0-runtime/` & Living Cognition Pre-Processor (`docs/nan0/design-nan0-cognition-runtime.md`, `docs/nan0/shadow-boundary-specification.md`)
-> - `packages/stage-ui/src/stores/proactivity.ts` & Attention Ecology Gate (`docs/proposal-prefix-cache-alignment.md`)
+> - `packages/stage-ui/src/stores/proactivity.ts` & Attention Ecology Programmable Gate (`docs/proposal-prefix-cache-alignment.md`, `docs/proposal-attention-ecology-local-webgpu-guard.md`)
+> - `packages/stage-ui/src/pages/characters/guided.vue` & AnimaDex Wizard Fast Voice Matching (`docs/proposal-animadex-wizard.md`)
+> - `packages/stage-ui/src/stores/speech.ts` & Real-Time Expression/Motion Dispatch (`docs/airi-acting-cue-act-tokens/SKILL.md`)
+> - `packages/stage-ui/src/stores/memory/` & Token Compaction / Pre-Summary Curation (`docs/design-subconscious-system1-inference-providers.md`)
 > - `packages/stage-ui/src/stores/chat/recent-topics.ts` (Toggle 4) & Salience Gating (`docs/proposal-toggle4-rework-and-rwkv-harness.md`, `docs/proposal-salience-gate-ui-integration.md`)
 > **Key External References**:
 > - TypeSafe Jev API (`https://typesafe.ai/`, `https://docs.typesafe.ai/`)
@@ -32,7 +35,7 @@ Autoregressive models operate as **"System 2"** engines (in Daniel Kahneman's *T
   - Every primitive returns an explicit **confidence score** alongside probabilities.
 - **Latency & Economics**: ~100–180ms round-trip latency at **$42 per billion tokens** (20×–200× cheaper than frontier LLMs, and 6× faster than Gemini 2.5 Flash Lite).
 
-This document analyzes how TypeSafe Jev can serve as the missing high-speed decision substrate across the four core subsystems recently evaluated in AIRI.
+This document analyzes how TypeSafe Jev can serve as the missing high-speed decision substrate across seven core subsystems in AIRI.
 
 ---
 
@@ -56,43 +59,64 @@ AIRI currently leverages three distinct model categories. Jev defines an entirel
 
 ```mermaid
 flowchart TD
-    subgraph "Perceptual & Sensor Streams"
-        Screen[Screen Capture / HUD Crops]
+    subgraph "Perceptual, Sensory & State Streams"
+        Screen[Screen Capture / pHash Delta]
+        VisualDesc[Visual Descriptor / Local OCR]
         Sensors[OS Telemetry / Idle State]
-        ChatIn[User Chat Input]
-        GameFrame[Arcade / JS-DOS Frame]
+        ChatIn[User Chat / Streaming Stride]
+        GameFrame[Arcade / JS-DOS State]
+        AnimaDexTags[AnimaDex Character Catalog & Tags]
+        RawHistory[Raw Multi-Turn Conversation Log]
     end
 
-    subgraph "System 1 Fast Decision Gate (TypeSafe Jev)"
-        JevGate{"Jev Decision Layer\n(~100ms, $42/Btok)"}
-        ActionPicker["Action Primitive (Choice)\n[UP, FIRE, JUMP]"]
-        SalienceFilter["Salience / Mood (Score)\n[0.0 - 1.0]"]
-        TruthVerifier["Reflex Gate (Boolean)\n[P(Pledge), P(Urgent)]"]
+    Screen --> VisualDesc
+
+    subgraph "System 1 Fast Decision Gate (TypeSafe Jev ~100-150ms)"
+        JevGate{"Jev Parallel Decision Substrate\n($42/Btok)"}
+        ActionPicker["Gaming Action Picker (Choice)\n[ENGAGE, RETREAT, ITEM]"]
+        ProgScreenGate["Programmable Vision Gate (Boolean)\n['Is entry interesting?' / Custom]"]
+        VoiceMatcher["Voice & Pitch Matcher (Choice/Score)\n[Voice ID, Pitch Semi, Speed]"]
+        ExprDispatch["Streaming Expression & Motion (Choice)\n[Smug, LeanForward, Nod]"]
+        TokenCompactor["Token Compaction Gate (Choice/Score)\n[Filter Routine Banter]"]
+        TruthVerifier["Reflex Gate (Boolean/Choice)\n[12 Speech-Act Groups]"]
+        TopicFilter["Salience Topic Classifier (Choice)\n[Recent Topics Toggle 4]"]
     end
 
-    subgraph "System 2 Deliberate Consciousness (Frontier LLMs)"
+    subgraph "Actuation & System 2 Consciousness"
+        GameInput[JS-DOS Engine / Virtual Gamepad]
         MainLLM["Primary Chat & Persona LLM\n(Prefix-Cache Aligned)"]
-        Nan0Mono["Nan0 1st-Hop Private Monologue"]
-        Speech["AIRI Contextual Speech Runtime (TTS)"]
+        VoiceBinding[TTS Voice Binding & Pitch Tuning]
+        AvatarRig[Live2D / VRM / Stage-Mate Blendshapes]
+        MemorySummarizer[System-2 Daily / Lifetime Summarizer]
+        Nan0Mono[Nan0 1st-Hop Private Monologue]
+        SpeechTTS[AIRI Contextual Speech Runtime]
     end
 
-    Screen --> JevGate
+    GameFrame --> JevGate
+    VisualDesc --> JevGate
     Sensors --> JevGate
     ChatIn --> JevGate
-    GameFrame --> JevGate
+    AnimaDexTags --> JevGate
+    RawHistory --> JevGate
 
-    JevGate -->|Game Action Selected| ActionPicker
-    JevGate -->|Turn Intensity Evaluated| SalienceFilter
-    JevGate -->|Commitment / Boundary Detected| TruthVerifier
+    JevGate -->|Game Macro Decision| ActionPicker
+    JevGate -->|Visual Delta Evaluated| ProgScreenGate
+    JevGate -->|Archetype Match| VoiceMatcher
+    JevGate -->|Streaming Stride Intent| ExprDispatch
+    JevGate -->|Salience Retention Score| TokenCompactor
+    JevGate -->|Speech-Act & Perturbation| TruthVerifier
+    JevGate -->|Turn Topic Clustered| TopicFilter
 
-    ActionPicker -->|Execute Key/Pad| GameInput[Virtual Gamepad / JS-DOS]
-    SalienceFilter -->|Illuminate Amber Pill| GroundingUI[Pre-Flight UI / Toggle 4]
+    ActionPicker -->|Execute 10 Hz Key Vector| GameInput
+    ProgScreenGate -->|Pass Custom Condition| MainLLM
+    VoiceMatcher -->|Bind Profile & Offsets| VoiceBinding
+    ExprDispatch -->|Trigger Expression/Motion| AvatarRig
+    TokenCompactor -->|Curated High-Signal Turns| MemorySummarizer
     TruthVerifier -->|Calibrated Suspicion Delta| Nan0Mono
-    TruthVerifier -->|Pass Gating Threshold| MainLLM
-    MainLLM --> Speech
+    MainLLM --> SpeechTTS
 ```
 
-### Domain A: The Gaming Initiative (Show Harness & Arcade Room)
+### Domain A: The Gaming Initiative (Arcade Room Retro Games & Show Harness)
 *Relevant Docs: [`proposal-generic-gaming-agent-runtime.md`](./proposal-generic-gaming-agent-runtime.md), [`proposal-gaming-show-harness-copilot.md`](./proposal-gaming-show-harness-copilot.md)*
 
 #### 1. The Bottleneck
@@ -101,7 +125,7 @@ The Show Harness architecture aims to convert live video feeds (DXGI desktop str
 #### 2. The Jev Solution & Blueprint: `AmoghCreator/doom-jev`
 The open-source reference implementation [`AmoghCreator/doom-jev`](https://github.com/AmoghCreator/doom-jev) validates this exact architecture, demonstrating a real-time ViZDoom agent that plays Doom continuously for an hour for only ~$7.
 
-Its architecture establishes three crucial design patterns for AIRI's Arcade Room (`chat_arcade.vue`) and Show Harness:
+Its architecture establishes four crucial design patterns for AIRI's Arcade Room (`chat_arcade.vue`) and Show Harness:
 
 1. **Decoupled Asynchronous Control Loop & Carry-Hold Pattern**:
    - Instead of locking the game simulation while waiting for API responses, the engine renders at native 35–60 ticks/second while Jev queries fire asynchronously at **~10 Hz** (e.g. every 4 ticks).
@@ -111,10 +135,13 @@ Its architecture establishes three crucial design patterns for AIRI's Arcade Roo
      - **Macro Guidance (Jev)**: Answers structured `choice` questions for high-level tactical goals (`engage`, `explore`, `flee`, `collect_health`, `collect_weapon`), target focus, and movement direction.
      - **Micro Geometry (Local TypeScript/Wasm)**: Uses trigonometric angle calculations (`_get_target_bearing`) against rendered line-of-sight label buffers to steer crosshairs onto targets with zero latency.
      - **Zero-Hesitation Trigger Lock**: Automatically asserts fire when crosshair bearing and line-of-sight intersect with an enemy.
-3. **Dynamic Standing Orders & Interactive Backseat Gaming**:
+3. **Interactive Arcade Room: "Talking to the AI While It's Kinda Playing"**:
+   - In `packages/stage-ui/src/pages/chat_arcade.vue`, users can launch and install classic retro titles (via JS-DOS / WASM emulators or native ViZDoom ports).
+   - The companion streams the game canvas in real time while maintaining conversational dialogue in the chat panel. The user experiences an AI companion that is actively *playing* alongside them, reacting to in-game surprises and hazards in parallel.
+4. **Dynamic Standing Orders & Interactive Backseat Gaming**:
    - `doom-jev` introduces dynamic `STANDING_ORDERS` (e.g. *"survive encounters, collect health if critical, eliminate visible hostiles"*), serializing them into YAML situation reports for Jev.
    - In AIRI, this directly binds to **Backseat Gaming**: user voice/chat suggestions (*"Watch out behind you!"*, *"Grab that medkit!"*, *"Use the plasma rifle!"*) immediately update the active `standingOrders` context injected into Jev's next 10 Hz state payload.
-4. **Contextual Banter Gating (`Boolean`)**:
+5. **Contextual Banter Gating (`Boolean`)**:
    - Problem: AIRI should not speak over tense firefights or react to static corridors.
    - Query: `"Did a clutch victory, fatal mistake, or sudden ambush just occur?"`
    - If probability > 0.85, game audio ducks via the WebAudio gain node and AIRI's speech runtime triggers contextual banter.
@@ -152,26 +179,97 @@ Jev is an exact match for Nan0's **Pre-Processor Reflex Engine** operating insid
 
 ---
 
-### Domain C: Prefix Cache Alignment & Proactivity Attention Ecology
-*Relevant Docs: [`proposal-prefix-cache-alignment.md`](./proposal-prefix-cache-alignment.md), [`proposal-attention-ecology-local-webgpu-guard.md`](./proposal-attention-ecology-local-webgpu-guard.md)*
+### Domain C: Attention Ecology & Programmable Visual Attention Gate
+*Relevant Docs: [`proposal-prefix-cache-alignment.md`](./proposal-prefix-cache-alignment.md), [`proposal-attention-ecology-local-webgpu-guard.md`](./proposal-attention-ecology-local-webgpu-guard.md), [`airi-attention-ecology-vision/SKILL.md`](../.agents/skills/airi-attention-ecology-vision/SKILL.md)*
 
-#### 1. The Bottleneck
-AIRI's proactivity heartbeat (`proactivity.ts`) wakes up every 30–60 seconds to inspect OS sensory telemetry (active window titles, idle seconds, audio output).
-- In traditional setups, checking whether to speak requires invoking a full LLM call, consuming 2,000+ cached tokens even when the decision is `NO_REPLY`.
-- While prefix cache alignment minimizes the re-tokenization cost of `messages[0]`, executing 60 full LLM inferences per hour adds up to substantial monthly API bills.
+#### 1. The Bottleneck: Static Tag Lists & Costly Full VLM Polling
+- **Rigid Predefined Tag Groups**: The legacy Cascaded Salience Gate attempted to map screen contents against static, hardcoded tag dictionaries (e.g. `"coding"`, `"gaming"`, `"reading"`). This approach is brittle, misses contextual nuances, fails on arbitrary user tasks, and requires tedious dictionary maintenance.
+- **Prohibitive VLM Cost**: Querying a heavy cloud Vision-Language Model (GPT-4o / Claude 3.5 Sonnet) on every visual delta costs $5.00–$15.00 per million tokens and imposes 1,500ms–3,000ms latency, making continuous screen-awareness financially impractical.
 
-#### 2. The Jev Solution
-Jev acts as the **Stage 1 Cognitive Attention Sentry**:
-- Before dispatching a cached conversation turn to Claude or GPT-4o, Jev evaluates the sensory delta:
-  ```json
-  {
-    "type": "boolean",
-    "question": "Based on user idle duration (310s) and active app ('Xcode'), is an autonomous proactivity interruption socially appropriate?",
-    "criteria": ["YES", "NO"]
+#### 2. The Jev Solution: Streamlined Pipeline with Programmable Natural Language Gate
+We replace rigid tag groupings with a clean, 3-stage attention pipeline:
+
+$$\text{Screen Frame} \xrightarrow[\text{Delta Check}]{\text{Stage 0: pHash}} \text{Changed Crop} \xrightarrow[\text{Local Text/OCR}]{\text{Stage 1: Visual Descriptor}} \text{Summary Text} \xrightarrow[\sim 100\text{ms / } \$0.000004]{\text{Stage 2: Jev Natural Language Gate}} \text{Proactive Turn Dispatch}$$
+
+1. **Stage 0 (`pHash` Delta)**: Ultrafast pixel-hash comparison running every 2–5 seconds. If desktop changes are below perceptual threshold (e.g. cursor blink or static reading), the cycle exits at 0% CPU/cost.
+2. **Stage 1 (Visual Descriptor)**: When significant change occurs, a lightweight local model (WASM OCR, local Moondream micro-VLM, or CLIP captioner) produces a concise single-sentence summary of the active screen region:
+   - *Example*: `"VS Code terminal displayed: 'TypeError: Cannot read properties of undefined (reading calculateBalance)'"`.
+   - *Example*: `"Chrome browser tab switched to Zillow showing a 2-bedroom apartment in Tokyo for ¥180,000/mo"`.
+3. **Stage 2 (Jev Programmable Natural Language Gate)**:
+   Instead of testing against a dictionary of tags, Jev evaluates natural language questions directly against the visual descriptor in **~100ms for ~$0.000004**:
+   - **Zero-Config Smart Gate**:
+     ```json
+     {
+       "type": "noul",
+       "instructions": "Given the visual descriptor of the user's screen ('{visual_descriptor}'), did a notable, unexpected, or socially meaningful event occur that warrants companion proactive dialogue?"
+     }
+     ```
+   - **Fully User-Programmable Natural Language Gate**:
+     Power users can literally type their own custom question trigger directly into Settings > Vision, turning Jev into a programmable visual sentinel without editing code:
+     - *"Did my code compilation or test suite fail with an error?"*
+     - *"Did the player character die, encounter a boss, or drop to critical health?"*
+     - *"Is the user browsing for flights, hotels, or vacation rentals?"*
+   - Only when Jev returns `probability > 0.75` does AIRI wake the primary System-2 LLM to generate spoken dialogue grounded in the visual event.
+
+#### 3. Code Anchors & Integration Surface Map
+- **Vision Orchestrator Store**: [`packages/stage-ui/src/stores/modules/vision/orchestrator.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/vision/orchestrator.ts)
+  - Method: `processCapture(payload: VisionCapturePayload)` (:240). Currently routes to `adapter.process(...)` with `payload.interestTags`.
+  - Dispatches context promotions via `publishContext(summary, workloadId, sourceId)` (:209) and tracks promotion discipline via `recordPromotion()` (:202).
+- **Vision Store & Settings**: [`packages/stage-ui/src/stores/modules/vision.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/vision.ts)
+  - Key to persist user custom gate prompt: `settings/vision/programmable-gate-question` (defaults to empty string for zero-config smart mode).
+- **System 1 Decision Store**: [`packages/stage-ui/src/stores/modules/system-one.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/system-one.ts)
+  - Composable: `useSystemOneStore()`. Evaluates `execute(state, questions)` via OpenRouter Decisions or TypeSafe direct.
+
+#### 4. Developer Blueprint: Wiring the Programmable Gate into `orchestrator.ts`
+
+```typescript
+// packages/stage-ui/src/stores/modules/vision/orchestrator.ts
+import { useSystemOneStore } from '../system-one'
+import { useVisionStore } from '../vision'
+
+export async function evaluateJevVisualAttentionGate(
+  visualDescriptor: string,
+): Promise<{ shouldPromote: boolean, confidence: number, reasoning?: string }> {
+  const systemOneStore = useSystemOneStore()
+  const visionStore = useVisionStore()
+
+  // Graceful fallback if System 1 is unconfigured or disabled
+  if (!systemOneStore.configured) {
+    return { shouldPromote: false, confidence: 0 }
   }
-  ```
-- Cost per check: **~$0.000004** (essentially free).
-- Only when Jev returns `probability > 0.80` does AIRI invoke the primary LLM to compose the actual dialogue turn.
+
+  // Read user programmable trigger question, or fallback to zero-config smart question
+  const customQuestion = visionStore.programmableGateQuestion?.trim()
+  const questionPrompt = customQuestion && customQuestion.length > 0
+    ? customQuestion
+    : 'Did a notable, unexpected, or socially meaningful event occur that warrants companion proactive dialogue?'
+
+  try {
+    const res = await systemOneStore.execute(
+      `Current Screen Observation: "${visualDescriptor}"`,
+      {
+        gate_decision: {
+          type: 'noul',
+          instructions: `Given this user screen activity summary, evaluate truth probability for: ${questionPrompt}`,
+        },
+      },
+    )
+
+    const prob = res.answers?.gate_decision?.noul ?? 0.0
+    const confidence = res.answers?.gate_decision?.confidence ?? prob
+
+    return {
+      shouldPromote: prob >= 0.75,
+      confidence,
+      reasoning: `Jev gate evaluated [${questionPrompt}] with probability ${prob.toFixed(2)}`,
+    }
+  }
+  catch (err) {
+    console.warn('[Vision Orchestrator] Jev attention gate evaluation failed, falling back:', err)
+    return { shouldPromote: false, confidence: 0 }
+  }
+}
+```
 
 ---
 
@@ -194,6 +292,268 @@ Jev acts as the **Stage 1 Cognitive Attention Sentry**:
   }
   ```
   Directly updates `recentTopics` in `packages/stage-ui/src/stores/chat/recent-topics.ts` without stopword parsing or card state mutation.
+
+---
+
+### Domain E: AnimaDex Wizard Fast Voice Matching & Acoustic Fine-Tuning [SHIPPED]
+*Relevant Docs: [`proposal-animadex-wizard.md`](./proposal-animadex-wizard.md), [`airi-animadex-wizard/SKILL.md`](../.agents/skills/airi-animadex-wizard/SKILL.md)*
+*Implementation: [`packages/stage-pages/src/pages/settings/airi-card/components/AutoVoiceConfigModal.vue`](file:///Users/richardpinedo/Projects.nosync/airi/packages/stage-pages/src/pages/settings/airi-card/components/AutoVoiceConfigModal.vue)*
+
+#### 1. The Bottleneck
+In the AnimaDex Guided Creation Wizard (`packages/stage-ui/src/pages/characters/guided.vue`), selecting a multi-character cast (e.g. "Beauty and the Beast" / Belle and Beast) requires binding each character to an installed voice profile and tuning speech acoustics.
+- Currently, this step either forces manual user configuration across dozens of installed voices or invokes an autoregressive LLM to parse character names and tags, resulting in a 2–4 second UI freeze while parsing Markdown preambles or guessing audio parameters.
+- Users find this transition step sluggish and tedious.
+
+#### 2. The Jev Solution: Sub-150ms Parallel Voice Assignment
+When the user confirms their cast selection, the Step 1 $\rightarrow$ Step 2 transition hook (`prefillRosterBindings`) dispatches a single batched payload to Jev:
+- **Input State**: Character tuple metadata (name, tags e.g. `["beast", "monstrous", "deep voice", "regal", "cursed"]`) + Roster of available voice descriptors `{ id, name, description, gender, age }`.
+- **Jev Multi-Query Dispatch**:
+  ```json
+  {
+    "state": {
+      "character": { "name": "Beast", "tags": ["monstrous", "deep voice", "regal", "cursed"] },
+      "availableVoices": [
+        { "id": "eleven_adam", "name": "Adam", "description": "Deep, gravelly, dominant male narration" },
+        { "id": "eleven_rachel", "name": "Rachel", "description": "Calm, gentle young woman" },
+        { "id": "kokoro_bm_george", "name": "George", "description": "Warm, mature British gentleman" }
+      ]
+    },
+    "questions": [
+      {
+        "type": "choice",
+        "question": "Which candidate voice ID best matches the acoustic persona and archetype of character 'Beast'?",
+        "options": ["eleven_adam", "eleven_rachel", "kokoro_bm_george"]
+      },
+      {
+        "type": "choice",
+        "question": "What pitch offset (in semitones) best conveys the character's physical stature?",
+        "options": ["-6", "-4", "-2", "0", "+2", "+4"]
+      },
+      {
+        "type": "score",
+        "question": "Score the optimal speech delivery speed multiplier from 0.80 (slow/deliberate) to 1.20 (rapid/energetic)",
+        "min": 0.80,
+        "max": 1.20
+      }
+    ]
+  }
+  ```
+- **Architectural Advantages**:
+  - **Latency**: Resolves in **~120ms**, executing instantly during the wizard stepper transition.
+  - **Zero Parser Breakage**: Returns verified, existing voice IDs by construction.
+  - **Auto-Persistent Bindings**: Directly writes into `settings/airi-card/character-bindings` with pitch and speed modifiers pre-configured.
+
+#### 3. Code Anchors & Integration Surface Map
+- **Guided Creation Wizard**: [`packages/stage-pages/src/pages/settings/airi-card/guided.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/airi-card/guided.vue)
+  - Navigation Handler: `handleNext()` (:384). Navigates from Step 1 (character select) to Step 2 (voice/model bindings) and calls `prefillRosterBindings()`.
+  - Prefill Hook: `prefillRosterBindings()` (:361). Reads `getBindingsMap()` and iterates through `selectedCharacters`. Currently does nothing if `binding.voice` is unset.
+  - Voice Writeback: `writeBackVoiceBinding(characterId, voice)` (:156). Serializes assigned voice into `localStorage` under `settings/airi-card/character-bindings`.
+- **AnimaDex Wizard Store**: [`packages/stage-ui/src/stores/animadex-wizard.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/animadex-wizard.ts)
+  - Composable: `useAnimaDexWizardStore()`.
+  - State: `boundVoices: ref<Record<string, { baseProvider: string, baseModel: string, baseVoice: string }>>` (:48).
+  - Method: `bindVoiceToCharacter(characterId: string, voice: { baseProvider, baseModel, baseVoice })`.
+- **Speech Runtime Store**: [`packages/stage-ui/src/stores/modules/speech.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/speech.ts)
+  - Composable: `useSpeechStore()`.
+  - State: `availableVoices: refManualReset<Record<string, VoiceInfo[]>>` (:41), `savedVoiceProfiles: useLocalStorageManualReset<VoiceProfile[]>` (:46).
+- **System 1 Decision Store**: [`packages/stage-ui/src/stores/modules/system-one.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/system-one.ts)
+  - Composable: `useSystemOneStore()`. Evaluates `execute(state, questions)` via Jev.
+
+#### 4. Developer Blueprint: Wiring Fast Voice Matching into `prefillRosterBindings()`
+
+```typescript
+// packages/stage-pages/src/pages/settings/airi-card/guided.vue
+import { useAnimaDexWizardStore } from '@proj-airi/stage-ui/stores'
+import { useSpeechStore } from '@proj-airi/stage-ui/stores'
+import { useSystemOneStore } from '@proj-airi/stage-ui/stores'
+
+export async function autoMatchCharacterVoiceWithJev(character: CharacterItem) {
+  const wizardStore = useAnimaDexWizardStore()
+  const speechStore = useSpeechStore()
+  const systemOneStore = useSystemOneStore()
+
+  // 1. Skip if already manually bound or System 1 is not configured
+  if (wizardStore.boundVoices[character.id] || !systemOneStore.configured) {
+    return
+  }
+
+  // 2. Gather candidates from installed speech providers and virtual voice profiles
+  const candidatePool: Array<{ id: string, provider: string, voiceId: string, name: string, desc: string }> = []
+
+  // Add virtual audio studio profiles
+  speechStore.savedVoiceProfiles.forEach((p) => {
+    candidatePool.push({
+      id: `virtual::${p.id}`,
+      provider: 'virtual-audio-studio',
+      voiceId: p.id,
+      name: p.name,
+      desc: p.description || 'Custom crafted voice profile',
+    })
+  })
+
+  // Add provider installed voices (e.g. Kokoro, ElevenLabs, Edge)
+  Object.entries(speechStore.availableVoices).forEach(([provider, voices]) => {
+    voices.slice(0, 10).forEach((v) => {
+      candidatePool.push({
+        id: `${provider}::${v.id}`,
+        provider,
+        voiceId: v.id,
+        name: v.name,
+        desc: v.description || `${v.gender || 'neutral'} ${v.locale || 'en'} voice`,
+      })
+    })
+  })
+
+  if (candidatePool.length === 0)
+    return
+
+  // 3. Dispatch parallel Jev decision queries
+  try {
+    const questions = {
+      matched_voice: {
+        type: 'choice',
+        instructions: `Which installed voice ID best fits character '${character.name}' (Archetype Tags: ${character.tags || 'none'})?`,
+        criteria: Object.fromEntries(candidatePool.map(c => [c.id, `${c.name} (${c.desc})`])),
+      },
+      pitch_offset: {
+        type: 'choice',
+        instructions: `Estimate the semitone pitch shift to match character physical build and vocal weight.`,
+        criteria: {
+          '-4': 'Low / deep / imposing (-4 semitones)',
+          '-2': 'Slightly deeper voice (-2 semitones)',
+          '0': 'Standard baseline pitch (0 semitones)',
+          '+2': 'Slightly higher / lighter voice (+2 semitones)',
+          '+4': 'High / youthful / fairy-like (+4 semitones)',
+        },
+      },
+      speed_rate: {
+        type: 'score',
+        instructions: `Score delivery speed multiplier (0.85 = slow/deliberate, 1.0 = normal, 1.25 = energetic/fast).`,
+        min: 0.85,
+        max: 1.25,
+      },
+    }
+
+    const res = await systemOneStore.execute(
+      {
+        character: {
+          name: character.name,
+          trigger: character.trigger,
+          tags: character.tags,
+          traits: character.traits,
+        },
+        availableVoices: candidatePool.map(c => ({ id: c.id, name: c.name, description: c.desc })),
+      },
+      questions,
+    )
+
+    const selectedComposite = res.answers?.matched_voice?.choice
+    const matched = candidatePool.find(c => c.id === selectedComposite) || candidatePool[0]
+    const pitchOffset = Number.parseInt(res.answers?.pitch_offset?.choice || '0', 10)
+    const speedRate = res.answers?.speed_rate?.score ?? 1.0
+
+    // 4. Bind into wizard reactive store
+    wizardStore.bindVoiceToCharacter(character.id, {
+      baseProvider: matched.provider,
+      baseModel: '',
+      baseVoice: matched.voiceId,
+    })
+
+    // 5. Write back persistent binding map with acoustic parameters
+    writeBackVoiceBinding(character.id, {
+      baseProvider: matched.provider,
+      baseModel: '',
+      baseVoice: matched.voiceId,
+      pitch: pitchOffset,
+      rate: speedRate,
+    })
+  }
+  catch (err) {
+    console.warn(`[AnimaDex] Jev voice matching failed for ${character.name}:`, err)
+  }
+}
+```
+
+---
+
+### Domain F: Real-Time Speech-to-Motion & Expression Gating (Streaming ACT Dispatch)
+*Relevant Docs: [`airi-acting-cue-act-tokens/SKILL.md`](../.agents/skills/airi-acting-cue-act-tokens/SKILL.md), [`airi-character-rendering/SKILL.md`](../.agents/skills/airi-character-rendering/SKILL.md)*
+
+#### 1. The Bottleneck: XML Generation Overhead & Out-of-Sync Acting
+- Standard avatar interaction requires the character to dynamically change facial expressions (smile, frown, blush, smirk) and physical motions (nod, tilt head, lean in) while speaking.
+- Today, this relies on the System-2 LLM generating inline markers such as `<act emotion="smug" motion="lean_forward"/>`. This approach suffers from:
+  1. **Token Cost & Latency**: Generates 15–30 extra tokens per response, slowing Time-to-First-Token (TTFT).
+  2. **Model Non-Compliance**: Smaller or local models (e.g. 7B/8B) frequently hallucinate invalid emotion names or omit tags entirely.
+  3. **Temporal Desync**: Motions arrive bundled inside text chunks rather than aligned to real-time speech delivery cadence.
+
+#### 2. The Jev Solution: Decoupled Real-Time Sentence-Stride Classification
+We decouple physical acting from the primary LLM dialogue generator. As the LLM streams tokens, the Contextual Speech Runtime (`speech.ts`) slices text into sentence strides:
+- **Pipeline Timing**:
+  1. LLM emits sentence: *"You actually thought you could sneak past me without saying anything?"*
+  2. Text sent concurrently to TTS audio synthesizer AND Jev decision gateway.
+  3. **TTS Synthesis**: Takes ~250–500ms before raw PCM audio is ready for playback.
+  4. **Jev Classification**: Takes **~110–140ms**, completing *well before* audio playback begins!
+- **Jev Dispatch Signature**:
+  ```json
+  {
+    "state": "You actually thought you could sneak past me without saying anything?",
+    "questions": [
+      {
+        "type": "choice",
+        "question": "What facial expression best conveys the companion's emotional tone for this spoken sentence?",
+        "options": ["neutral", "smug", "flustered", "angry", "tender", "pout", "shocked"]
+      },
+      {
+        "type": "choice",
+        "question": "What physical gesture or head motion should accompany this delivery?",
+        "options": ["idle_subtle", "head_tilt", "nod_agreement", "lean_forward", "arms_crossed", "giggle"]
+      },
+      {
+        "type": "score",
+        "question": "What is the emotional intensity of this line (0.0 = subtle, 1.0 = exaggerated)?",
+        "min": 0.0,
+        "max": 1.0
+      }
+    ]
+  }
+  ```
+- **Immediate Actuation**:
+  - The Live2D/VRM/Stage-Mate renderer transitions blendshapes to `smug` (intensity `0.85`) and triggers `lean_forward` at the exact millisecond audio playback starts.
+  - Zero XML tokens generated by the LLM; 100% clean prompt caching; universal support across any local or cloud LLM.
+
+---
+
+### Domain G: Token Compaction & Pre-Summary Salience Curation
+*Relevant Docs: [`design-subconscious-system1-inference-providers.md`](./design-subconscious-system1-inference-providers.md), [`airi-memory-short-term/SKILL.md`](../.agents/skills/airi-memory-short-term/SKILL.md), [`airi-memory-lifetime/SKILL.md`](../.agents/skills/airi-memory-lifetime/SKILL.md)*
+
+#### 1. The Bottleneck: Raw Transcript Bloat in Memory Summarization
+At the end of a session or when context windows hit budget limits, AIRI compiles daily Short-Term Memory (STMM) summaries and distills Lifetime Memory artifacts.
+- Dumping dozens of raw conversational turns into a large LLM prompt wastes tens of thousands of tokens.
+- Crucially, 60–75% of raw chat logs consist of routine conversational boilerplate (*"Hello!", "Can you hear me?", "Haha yeah", "Hold on a sec"*). Passing this noise dilutes the LLM's attention, causing it to hallucinate or omit core autobiographical facts.
+
+#### 2. The Jev Solution: Curative Pre-Summary Compaction Filter
+Before invoking the heavy System-2 summarizer, raw conversation chunks pass through Jev's high-speed salience filter:
+- **Jev Compaction Evaluation**:
+  ```json
+  {
+    "state": { "turn": "User: By the way, I finally signed the lease on that apartment in Shibuya today. Companion: Wow, congratulations! When do you move in?" },
+    "questions": [
+      {
+        "type": "choice",
+        "question": "Classify the biographical and narrative significance of this exchange",
+        "options": ["core_personal_fact", "shared_milestone", "emotional_anchor", "routine_banter", "transient_chitchat"]
+      },
+      {
+        "type": "score",
+        "question": "Score the long-term memory retention priority (0.0 = forget, 1.0 = permanent fact)",
+        "min": 0.0,
+        "max": 1.0
+      }
+    ]
+  }
+  ```
+- **Filter Outcome**:
+  - Turns categorized as `routine_banter` or with retention priority $< 0.45$ are stripped from the summarization payload.
+  - The System-2 summarizer receives a pristine, high-density transcript with **~70% fewer tokens**, yielding faster execution, lower API costs, and drastically sharper memory synthesis.
 
 ---
 
@@ -254,6 +614,84 @@ Because **OpenRouter already natively hosts `typesafe/jev-1.13` (and `typesafe/j
 
 ---
 
+### 4.2 System-1 Universal Consumer Pattern (Developer Cookbook)
+
+When wiring any future subsystem or composable to TypeSafe Jev in AIRI, developers should use the canonical `useSystemOneStore` Pinia store located in [`packages/stage-ui/src/stores/modules/system-one.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/system-one.ts).
+
+#### Step 1: Import the Store
+```typescript
+import { useSystemOneStore } from '@proj-airi/stage-ui/stores'
+
+// Or within stage-ui internal modules:
+import { useSystemOneStore } from '../system-one' // or relative path
+```
+
+#### Step 2: Check Availability & Readiness
+Always check `systemOneStore.configured` before dispatching. If false, gracefully degrade to offline heuristics or skip the enhancement:
+```typescript
+const systemOneStore = useSystemOneStore()
+
+if (!systemOneStore.configured) {
+  // Graceful degradation: run local heuristic, fallback regex, or proceed with defaults
+  return fallbackAction()
+}
+```
+
+#### Step 3: Define State and Typed Questions
+Jev accepts an arbitrary `state` string or structured JSON object, alongside a dictionary of typed questions evaluated in parallel:
+```typescript
+const state = {
+  activeContext: 'User just failed the level 3 boss fight for the 4th time.',
+  healthPercent: 0.0,
+  recentDialogue: 'Companion: \'Don\'t give up! We almost had him that time!\'',
+}
+
+const questions = {
+  // 1. Categorical Classification (Choice)
+  recommended_emotion: {
+    type: 'choice',
+    instructions: 'What emotional tone should the companion adopt next?',
+    criteria: {
+      comforting: 'Warm, encouraging, gentle reassurance.',
+      playful_tease: 'Lighthearted teasing or banter.',
+      stoic: 'Silent determination, focus on next attempt.',
+    },
+  },
+  // 2. Truth Verification (Noul / Probability)
+  is_tilt_risk: {
+    type: 'noul',
+    instructions: 'Is the user at immediate risk of gamer rage or frustration burnout?',
+  },
+  // 3. Scalar Evaluation (Score)
+  intervention_urgency: {
+    type: 'score',
+    instructions: 'Score how urgently the companion should intervene with spoken advice (0.0 = passive, 1.0 = immediate).',
+    min: 0.0,
+    max: 1.0,
+  },
+}
+```
+
+#### Step 4: Dispatch and Read Typed Results
+```typescript
+const res = await systemOneStore.execute(state, questions)
+
+// Read choice primitive
+const chosenEmotion = res.answers?.recommended_emotion?.choice // 'comforting' | 'playful_tease' | 'stoic'
+const emotionConfidence = res.answers?.recommended_emotion?.confidence // 0.0 - 1.0
+
+// Read probability primitive (noul)
+const tiltProbability = res.answers?.is_tilt_risk?.noul // 0.0 - 1.0 probability
+
+// Read scalar primitive (score)
+const urgency = res.answers?.intervention_urgency?.score // 0.0 - 1.0 scalar
+
+// Read round-trip latency
+console.log(`System 1 evaluated in ${systemOneStore.lastLatencyMs}ms`)
+```
+
+---
+
 ## 5. Potential Risks & Nuances to Vet
 
 1. **Cloud Network Dependency**:
@@ -271,12 +709,20 @@ Because **OpenRouter already natively hosts `typesafe/jev-1.13` (and `typesafe/j
 - [x] **Phase 1: Isolated Cleanroom Benchmark (`scripts/tests/rwkv-harness/experiments/`)**
   - Executed 6 canonical scenarios (`jev-nan0-intent-cleanroom.py`): 6/6 climate, 5/6 intent, 5/6 suspicion.
   - Executed complete 43-case pragmatic shootout (`jev-nan0-pragmatic-benchmark.py`): **90.7% full-vector accuracy, 100% true spike recall, 2.6% false spike rate, 5.5s total wall time**.
-- [ ] **Phase 2: Gaming Show Harness Co-Pilot Integration**
-  - Wire Jev's `Choice` primitive into `packages/stage-ui/src/composables/arcade/use-arcade-agent.ts` to drive real-time JS-DOS actions in `chat_arcade.vue`.
+- [ ] **Phase 2: Gaming Show Harness & Arcade Room Retro Integration**
+  - Wire Jev's `Choice` primitive into `packages/stage-ui/src/composables/arcade/use-arcade-agent.ts` to drive real-time JS-DOS / ViZDoom actions at 10 Hz in `chat_arcade.vue`.
+  - Implement dynamic `standingOrders` backseat gaming voice/chat context injection and contextual audio banter ducking.
 - [ ] **Phase 3: Nan0 Pre-Processor Shadow Boundary Wire-Up**
   - Wire Jev as asynchronous shadow challenger in `Nan0SubconsciousShadowEngine.ts` alongside synchronous `StrengthenedLexicalExtractor.ts`.
-- [ ] **Phase 4: Proactivity Sentry Gate**
-  - Add Jev pre-filter to `proactivity.ts` before the primary LLM is triggered.
+- [ ] **Phase 4: Attention Ecology Programmable Visual Attention Gate**
+  - Connect `pHash` delta $\rightarrow$ local visual descriptor (OCR / micro-caption) $\rightarrow$ Jev natural language gate in `orchestrator.ts`.
+  - Add user-programmable natural language trigger prompt input to Settings > Vision.
+- [ ] **Phase 5: AnimaDex Wizard Fast Voice Matching & Acoustic Assignment**
+  - Implement Jev batched voice selection, pitch semitone offset, and rate multiplier prediction in `guided.vue` Step 1 $\rightarrow$ Step 2 transition (`prefillRosterBindings`).
+- [ ] **Phase 6: Streaming Speech-to-Motion & Expression Gating**
+  - Add sentence-stride Jev classifier hook to `packages/stage-ui/src/stores/speech.ts` to trigger Live2D/VRM/Stage-Mate expressions and motions before TTS audio playback starts.
+- [ ] **Phase 7: Memory Token Compaction & Pre-Summary Salience Curation**
+  - Implement Jev pre-summary salience filter in memory consolidation pipeline to strip routine banter and compress raw dialogue transcripts by ~70% before invoking System-2 summary LLMs.
 
 ---
 
