@@ -21,30 +21,39 @@ const {
  * relative to the primary display's native size.
  */
 function resolveThumbnailSize(options?: ScreenCaptureOptions): { width: number, height: number } {
+  // Hard ceiling to protect Chromium GPU compositor and Web Worker VRAM from runaway allocation.
+  // 1920x1080 is more than enough for CLIP (224x224 input) and localized OCR crops.
+  const MAX_CAPTURE_WIDTH = 1920
+  const MAX_CAPTURE_HEIGHT = 1080
+
   if (!options?.native && options?.width && options?.height) {
+    const scale = Math.min(1, MAX_CAPTURE_WIDTH / options.width, MAX_CAPTURE_HEIGHT / options.height)
     return {
-      width: Math.max(1, Math.round(options.width)),
-      height: Math.max(1, Math.round(options.height)),
+      width: Math.max(1, Math.round(options.width * scale)),
+      height: Math.max(1, Math.round(options.height * scale)),
     }
   }
 
   try {
     const display = screen.getPrimaryDisplay()
     const scaleFactor = display.scaleFactor || 1
-    const physicalWidth = Math.round(display.size.width * scaleFactor)
-    const physicalHeight = Math.round(display.size.height * scaleFactor)
+    let physicalWidth = Math.round(display.size.width * scaleFactor)
+    let physicalHeight = Math.round(display.size.height * scaleFactor)
 
     if (!options?.native) {
       const percent = options?.downscalePercent
       if (percent != null && percent > 0 && percent < 100) {
-        return {
-          width: Math.max(1, Math.round(physicalWidth * percent / 100)),
-          height: Math.max(1, Math.round(physicalHeight * percent / 100)),
-        }
+        physicalWidth = Math.round(physicalWidth * percent / 100)
+        physicalHeight = Math.round(physicalHeight * percent / 100)
       }
     }
 
-    return { width: physicalWidth, height: physicalHeight }
+    // Cap to safe maximum bounds while preserving display aspect ratio
+    const scale = Math.min(1, MAX_CAPTURE_WIDTH / physicalWidth, MAX_CAPTURE_HEIGHT / physicalHeight)
+    return {
+      width: Math.max(1, Math.round(physicalWidth * scale)),
+      height: Math.max(1, Math.round(physicalHeight * scale)),
+    }
   }
   catch {
     return { width: 1920, height: 1080 }
@@ -129,7 +138,15 @@ export function createVisionService(params: { context: any }) {
         return null
       }
 
-      const dataUrl = selectedSource.thumbnail.toDataURL()
+      let dataUrl: string | null = null
+      try {
+        dataUrl = selectedSource.thumbnail.toDataURL()
+      }
+      finally {
+        // Explicitly dereference and empty sources to release native bitmap handles in Chromium's GPU process
+        sources.length = 0
+        selectedSource = null as any
+      }
 
       // If the dataUrl is too short, it's likely a transparent or failed capture
       if (!dataUrl || dataUrl.length < 1000) {
