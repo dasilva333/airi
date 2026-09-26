@@ -353,10 +353,23 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
         lastResultAt.value = Date.now()
         lastError.value = null
 
-        const currentCaption = result.caption
+        let currentCaption = result.caption
           || (result.summary ? result.summary.replace(/\[Visual Event\]\s*/g, '').trim() : '')
           || (result.ocrErrorPatterns?.length ? `Terminal/code patterns: ${result.ocrErrorPatterns.join(', ')}` : '')
-          || (result.interestKeywords?.length ? `Keywords: ${result.interestKeywords.join(', ')}` : 'Screen activity observed')
+          || (result.interestKeywords?.length ? `Keywords: ${result.interestKeywords.join(', ')}` : '')
+
+        if (result.ocrSnippet && result.ocrSnippet !== currentCaption) {
+          if (currentCaption) {
+            currentCaption = `${currentCaption} (OCR: "${result.ocrSnippet}")`
+          }
+          else {
+            currentCaption = `On-screen text: "${result.ocrSnippet}"`
+          }
+        }
+
+        if (!currentCaption) {
+          currentCaption = payload.activeWindow ? `Working in ${payload.activeWindow}` : 'Screen activity observed'
+        }
 
         if (result.decision !== 'IGNORE') {
           appendChronoLogEntry({
@@ -382,7 +395,7 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
 
               const stateText = [
                 `CURRENT SCREEN OBSERVATION:`,
-                currentCaption,
+                payload.activeWindow ? `[Active Window: ${payload.activeWindow}] ${currentCaption}` : currentCaption,
                 `\nRECENT VISUAL CHRONO-LOG (LAST ${chronoLogBuffer.length} FRAMES):`,
                 formattedHistory || `[0s ago] ${currentCaption}`,
                 attachedEvidence.length > 0 ? `\nRELEVANT ENTITY & RELATIONAL EVIDENCE:\n${attachedEvidence.join('\n')}` : '',

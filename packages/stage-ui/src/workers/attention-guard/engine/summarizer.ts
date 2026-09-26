@@ -70,17 +70,27 @@ export async function generateCaption(
       return count
     })()
 
-    const prompt = `${'<image>'.repeat(imageTokens)}\n\nQuestion: Describe what is happening in this screenshot in one short sentence.\n\nAnswer:`
+    const prompt = `${'<image>'.repeat(imageTokens)}\n\nQuestion: What application or website is open, and what specific window title, active tabs, buttons, code, or text are visible? Do not say "a computer screen displays". Be specific and cite concrete names and text.\n\nAnswer:`
     textInputs = await tokenizer(prompt)
 
     const started = performance.now()
-    output = await model.generate({ ...visionInputs, ...textInputs, max_new_tokens: 48, do_sample: false })
+    output = await model.generate({ ...visionInputs, ...textInputs, max_new_tokens: 96, do_sample: false })
     const decoded = tokenizer.batch_decode(output, { skip_special_tokens: false }) as string[]
     const raw = decoded[0] ?? ''
     const answerIdx = raw.lastIndexOf('Answer:')
-    const caption = (answerIdx >= 0 ? raw.slice(answerIdx + 'Answer:'.length) : raw)
+    let caption = (answerIdx >= 0 ? raw.slice(answerIdx + 'Answer:'.length) : raw)
       .replace(/<\|endoftext\|>/g, '')
       .trim()
+
+    // Strip generic filler preambles commonly emitted by VLMs
+    caption = caption
+      .replace(/^(A|The)\s+(computer\s+)?(screen|screenshot|desktop|display|image)\s+(displays?|shows?|depicts?|features?)\s+(a|an)?\s*/i, '')
+      .trim()
+
+    if (caption) {
+      caption = caption.charAt(0).toUpperCase() + caption.slice(1)
+    }
+
     if (!caption)
       return null
     return { caption, ms: performance.now() - started }

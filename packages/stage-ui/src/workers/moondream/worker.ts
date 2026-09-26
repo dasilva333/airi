@@ -155,7 +155,7 @@ defineInvokeHandler(context, moondreamProcessEvent, async ({ imageUrl, prompt })
 
     const userPrompt = prompt && prompt.trim()
       ? prompt.trim()
-      : 'Describe what is happening in this image in detail.'
+      : 'What application or website is open, and what specific window title, active tabs, buttons, code, or text are visible? Do not say "a computer screen displays". Name concrete applications, tabs, and visible text directly.'
 
     const formattedPrompt = `${'<image>'.repeat(imageTokens)}\n\nQuestion: ${userPrompt}\n\nAnswer:`
     textInputs = await tokenizer(formattedPrompt)
@@ -170,9 +170,17 @@ defineInvokeHandler(context, moondreamProcessEvent, async ({ imageUrl, prompt })
     const decoded = tokenizer.batch_decode(output, { skip_special_tokens: false }) as string[]
     const raw = decoded[0] ?? ''
     const answerIdx = raw.lastIndexOf('Answer:')
-    const text = (answerIdx >= 0 ? raw.slice(answerIdx + 'Answer:'.length) : raw)
+    let text = (answerIdx >= 0 ? raw.slice(answerIdx + 'Answer:'.length) : raw)
       .replace(/<\|endoftext\|>/g, '')
       .trim()
+
+    text = text
+      .replace(/^(A|The)\s+(computer\s+)?(screen|screenshot|desktop|display|image)\s+(displays?|shows?|depicts?|features?)\s+(a|an)?\s*/i, '')
+      .trim()
+
+    if (text) {
+      text = text.charAt(0).toUpperCase() + text.slice(1)
+    }
 
     return { text }
   }

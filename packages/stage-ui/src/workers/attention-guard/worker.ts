@@ -291,30 +291,31 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
     state.prevGray = gray
     state.prevHash = curHash
 
-    // -- Stage 3: summary for promoted frames ---------------------------------
+    // -- Stage 3: semantic forwarder & summary synthesis --------------------
     let summary: string | undefined
     let caption: string | null = null
     let vlmStatus: 'ok' | 'degraded' | 'error' | undefined
+    const snippet = extractRelevantSnippet(ocrText, ocrErrorPatterns, ocrInterestTags)
+
+    if (state.enableVlm) {
+      const captionResult = await generateCaption(rawImage, state.device)
+      if (captionResult) {
+        caption = captionResult.caption
+        vlmStatus = 'ok'
+      }
+      else {
+        vlmStatus = 'error'
+      }
+    }
+    else {
+      vlmStatus = 'degraded'
+    }
+
     if (promote) {
       const t3 = performance.now()
       const zeroShot = await classifyZeroShot(embedding, state.device)
-      const snippet = extractRelevantSnippet(ocrText, ocrErrorPatterns, ocrInterestTags)
       const window = activeWindowLabel(zeroShot.topLabel)
       const theme = themeFromGray(gray32)
-
-      if (state.enableVlm) {
-        const captionResult = await generateCaption(rawImage, state.device)
-        if (captionResult) {
-          caption = captionResult.caption
-          vlmStatus = 'ok'
-        }
-        else {
-          vlmStatus = 'error'
-        }
-      }
-      else {
-        vlmStatus = 'degraded'
-      }
 
       summary = buildSummary({
         window,
@@ -343,6 +344,7 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
       interestKeywords: ocrInterestTags,
       summary,
       caption,
+      ocrSnippet: snippet || undefined,
       vlmStatus,
       stageMs,
     } satisfies AttentionGuardProcessResult

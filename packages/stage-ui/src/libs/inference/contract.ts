@@ -551,6 +551,7 @@ export interface AttentionGuardProcessResult {
   /** Stage-3 [Visual Event] summary block (attached on PROMOTE). */
   summary?: string
   caption?: string | null
+  ocrSnippet?: string | null
   vlmStatus?: 'ok' | 'degraded' | 'error'
   stageMs: AttentionGuardStageMs
 }
