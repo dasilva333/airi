@@ -26,6 +26,8 @@ import { createContext } from '@moeru/eventa/adapters/webworkers'
 import { defaultPerfTracer } from '@proj-airi/stage-shared'
 import { Mutex } from 'async-mutex'
 
+import webLlmWorkerUrl from '../../../workers/web-llm/worker.ts?worker&url'
+
 import { removeInferenceStatus, updateInferenceStatus } from '../../../composables/use-inference-status'
 import { MODEL_NAMES, TIMEOUTS } from '../constants'
 import { consumeLoadStream, createIdleTimeout, signalWithTimeout, webLlmGenerateEvent, webLlmLoadEvent } from '../contract'
@@ -109,10 +111,7 @@ export function createWebLlmAdapter(): WebLlmAdapter {
 
   const host = createGpuWorkerHost<WebLlmRpc>({
     modelId: MODEL_NAMES.WEB_LLM,
-    createWorker: () => new Worker(
-      new URL('../../../workers/web-llm/worker.ts', import.meta.url),
-      { type: 'module' },
-    ),
+    createWorker: () => new Worker(webLlmWorkerUrl, { type: 'module' }),
     createRpc: createWebLlmRpc,
     onTerminate: () => {
       removeInferenceStatus(MODEL_NAMES.WEB_LLM)

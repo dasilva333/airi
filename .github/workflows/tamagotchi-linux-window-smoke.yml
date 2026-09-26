@@ -75,11 +75,11 @@ jobs:
             ${{ runner.os }}-turbo-
 
       # Same Node.js pin as ci.yml; see the NOTICE there for why it is pinned.
-      - uses: pnpm/setup@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
         with:
-          runtime: node@26.7.0
-          cache: true
-          install: false
+          node-version: 26.7.0
+          cache: pnpm
 
       - name: Install Electron runtime + Xvfb dependencies
         run: |
@@ -149,11 +149,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - uses: pnpm/setup@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
         with:
-          runtime: node@26.7.0
-          cache: true
-          install: false
+          node-version: 26.7.0
+          cache: pnpm
 
       - name: Install Electron runtime + Weston dependencies
         run: |

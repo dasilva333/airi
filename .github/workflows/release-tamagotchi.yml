@@ -137,6 +137,7 @@ jobs:
         run: pnpm run -F @proj-airi/stage-tamagotchi build && pnpm -F @proj-airi/stage-tamagotchi exec electron-builder build ${{ matrix.builder-args }} --publish=${{ (inputs.build_only || inputs.artifacts_only) && 'never' || 'onTagOrDraft' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--stack-size=16384 --max-old-space-size=12288'
 
       - name: Build (macOS Only) # macOS
         if: matrix.os == 'macos-15-intel' || matrix.os == 'macos-26'
