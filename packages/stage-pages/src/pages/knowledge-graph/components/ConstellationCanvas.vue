@@ -193,20 +193,37 @@ function initSimulation(fullRebuild = false) {
     if (simulation)
       simulation.stop()
 
+    const isLargeGraph = simNodes.length > 1500
+    const chargeStrength = isLargeGraph ? -140 : -300
+    const chargeDistanceMax = isLargeGraph ? 350 : 700
+    const collideIterations = isLargeGraph ? 1 : 2
+
     simulation = forceSimulation<GraphNode>(simNodes)
       .force('link', forceLink<GraphNode, GraphEdge>(simEdges).id(d => d.id).distance(140).strength(0.35))
-      .force('charge', forceManyBody().strength(-300).distanceMax(700))
-      .force('collide', forceCollide<GraphNode>().radius(d => d.radius + 16).iterations(2))
+      .force('charge', forceManyBody().strength(chargeStrength).distanceMax(chargeDistanceMax).theta(0.9))
+      .force('collide', forceCollide<GraphNode>().radius(d => d.radius + 14).iterations(collideIterations))
       .force('center', forceCenter(centerX, centerY).strength(0.04))
       .alpha(0.5)
       .alphaDecay(0.025)
 
+    let renderFrameScheduled = false
     simulation.on('tick', () => {
       for (const n of simNodes) {
         if (n.x !== undefined && n.y !== undefined) {
           positionCache.set(n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy })
         }
       }
+      if (!renderFrameScheduled) {
+        renderFrameScheduled = true
+        requestAnimationFrame(() => {
+          renderedNodes.value = [...simNodes]
+          renderedEdges.value = [...simEdges]
+          renderFrameScheduled = false
+        })
+      }
+    })
+
+    simulation.on('end', () => {
       renderedNodes.value = [...simNodes]
       renderedEdges.value = [...simEdges]
     })
@@ -285,6 +302,45 @@ function handleNodeMouseEnter(e: MouseEvent, node: GraphNode) {
 
 function handleNodeMouseLeave() {
   hoveredNode.value = null
+}
+
+/**
+ * Dynamic Level-of-Detail (LOD) and Frustum Culling for Node Labels.
+ * Prevents massive DOM text-rendering thrashing across thousands of nodes while
+ * preserving immediate visibility for interactive focus and galactic hubs.
+ */
+function isNodeLabelVisible(node: GraphNode): boolean {
+  // 1. Direct interactive priority: selected node, hovered node, or direct 1st-degree neighbors
+  if (props.selectedEntityId === node.id || hoveredNode.value?.id === node.id || selectedNeighborhood.value.has(node.id)) {
+    return true
+  }
+
+  const k = currentZoom.value.k
+
+  // 2. Viewport Frustum Culling: discard off-screen labels with padding
+  if (node.x !== undefined && node.y !== undefined) {
+    const screenX = node.x * k + currentZoom.value.x
+    const screenY = node.y * k + currentZoom.value.y
+    if (screenX < -100 || screenX > width.value + 100 || screenY < -100 || screenY > height.value + 100) {
+      return false
+    }
+  }
+
+  // 3. Scale-dependent Level-of-Detail (LOD) thresholds
+  if (k < 0.5) {
+    // Macro galaxy view: only major galactic hubs and landmark clusters
+    return node.mentionsCount >= 30 || node.radius >= 26
+  }
+  if (k < 0.85) {
+    // Low zoom: prominent and well-connected entities
+    return node.mentionsCount >= 10 || node.radius >= 20
+  }
+  if (k < 1.35) {
+    // Standard viewing zoom: notable entities
+    return node.mentionsCount >= 3 || node.radius >= 15
+  }
+  // Deep close-up zoom: render all entities in local viewport
+  return true
 }
 
 function zoomIn() {
@@ -501,9 +557,9 @@ onUnmounted(() => {
               class="transition-transform duration-200 group-hover:scale-105"
             />
 
-            <!-- Restrained Entity Label: Anchor nodes, selected node, hovered node, or zoomed in -->
+            <!-- Restrained Entity Label with Dynamic LOD and Frustum Culling -->
             <text
-              v-if="selectedEntityId === node.id || hoveredNode?.id === node.id || selectedNeighborhood.has(node.id) || node.radius >= 14 || currentZoom.k >= 0.85"
+              v-if="isNodeLabelVisible(node)"
               text-anchor="middle"
               :dy="node.radius + 17"
               class="pointer-events-none select-none fill-neutral-100 text-[14px] font-bold tracking-normal font-sans drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] group-hover:fill-white"

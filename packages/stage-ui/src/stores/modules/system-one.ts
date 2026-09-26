@@ -89,15 +89,15 @@ export const JEV_AFFECT_SCHEMA = {
 export const JEV_ENTITY_CLASSIFIER_SCHEMA = {
   entity_type: {
     type: 'choice',
-    instructions: 'Classify the referent of the target mention in this dialogue context. If it is conversational syntax, a reaction, filler, or not a genuine entity/concept, select conversational_artifact.',
+    instructions: 'Classify the referent of the target mention in this dialogue context. If it is conversational syntax, a reaction, filler, pronoun, common verb/adverb, or not a genuine entity/concept, select conversational_artifact.',
     criteria: {
-      person: 'A named human being, friend, family member, or character (e.g. Asuka, Shinji, John, User).',
+      person: 'A named human being, friend, family member, or character (e.g. Asuka, Shinji, John, User, Nords, Airi).',
       animal: 'A pet, animal species, or pet name (e.g. penguin, Pen-Pen, dog, cat, Max, rabbit).',
       place: 'A city, country, venue, or geographic location (e.g. Tokyo-3, Germany, Stamford).',
       organization: 'An organization, agency, rescue, military branch, or company (e.g. NERV, WILLE, NASA).',
       activity: 'A game, sport, hobby, academic subject, or project (e.g. CS:GO, Apex Legends, Trigonometry).',
       concept: 'An abstract idea, philosophical concept, key lore element, or topic (e.g. Human Instrumentality, AT Field).',
-      conversational_artifact: 'Grammar words, sentence starters, conversational reactions, adverbs, or non-entity phrases (e.g. Obviously, Which, Deal, Goodnight, Disappear).',
+      conversational_artifact: 'Grammar words, pronouns (e.g. They, Now, Then, Why, Before, Them), sentence starters, conversational reactions/fillers (e.g. Hey, Well, Obviously, Which, Deal, Maybe, Could, Goodnight), vocalizations (e.g. Kyaa, Eeeep, Wahhh, Ahhhh), or non-entity phrases.',
     },
   },
 }
