@@ -47,6 +47,7 @@ import { useSettingsControlStrip } from '../../stores/settings/control-strip'
 import { useSettingsUserProfile } from '../../stores/settings/user-profile'
 import { useSpeechRuntimeStore } from '../../stores/speech-runtime'
 import { useVHackStore } from '../../stores/vhack'
+import { logMemoryProbe } from '../../utils/memory-sentinel'
 import { StageWidgetsContainer } from '../widgets'
 
 withDefaults(defineProps<{
@@ -1136,7 +1137,18 @@ async function generateSpeechBuffered(request: TtsRequest, signal: AbortSignal):
     // Save it temporarily in the map to maintain exact sequence ordering
     rawAudioBuffers.set(request.segmentId, res.slice(0))
 
+    logMemoryProbe('TTS:DECODE_START', {
+      action: 'Decoding synthesized TTS chunk',
+      extra: { bytes: res.byteLength, provider: targetProviderId, model },
+    })
+
     const audioBuffer = await audioContext.decodeAudioData(res)
+
+    logMemoryProbe('TTS:DECODE_DONE', {
+      action: 'Decoded synthesized TTS chunk',
+      extra: { durationSec: audioBuffer.duration, sampleRate: audioBuffer.sampleRate },
+    })
+
     return audioBuffer
   }
   catch {

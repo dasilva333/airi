@@ -11,6 +11,7 @@ import { nextTick, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { directorNotesRepo } from '../../database/repos/director-notes.repo'
+import { logMemoryProbe } from '../../utils/memory-sentinel'
 import { useBackgroundStore } from '../background'
 import { useChatSessionStore } from '../chat/session-store'
 import { useDatingSimStore } from '../dating-sim'
@@ -764,9 +765,18 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
           throw new Error('IPC invokers not available')
         }
 
-        // Safety: ensure payload is a plain object for IPC serialization
+        logMemoryProbe('ARTISTRY:HEADLESS_START', {
+          action: 'Autonomous Artistry triggering headless generation',
+          extra: { provider: resolvedProvider, model: resolvedModel },
+        })
+
         const plainPayload = JSON.parse(JSON.stringify(toRaw(generationPayload)))
         const result = await invokers.generate(plainPayload)
+
+        logMemoryProbe('ARTISTRY:HEADLESS_DONE', {
+          action: 'Autonomous Artistry headless generation returned',
+          extra: { hasUrl: !!result.imageUrl, hasBase64: !!result.base64 },
+        })
 
         if (result.error) {
           throw new Error(result.error)

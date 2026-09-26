@@ -4,6 +4,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import Tres from '@tresjs/core'
 
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
+import { initMemorySentinel } from '@proj-airi/stage-ui/utils'
 import { MotionPlugin } from '@vueuse/motion'
 import { createPinia } from 'pinia'
 import { setupLayouts } from 'virtual:generated-layouts'
@@ -52,6 +53,8 @@ router.beforeEach((to, from) => {
   if (from.meta?.rootOfSettings && to.path === '/')
     return false
 })
+
+initMemorySentinel(10000)
 
 createApp(App)
   .use(MotionPlugin)

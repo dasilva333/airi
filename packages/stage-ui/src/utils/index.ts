@@ -1,4 +1,5 @@
 export { getEventSourceKey } from './event-source'
+export { initMemorySentinel, logMemoryProbe } from './memory-sentinel'
 export { buildVRMA } from './vrmaBuilder'
 export { VRMA_SYSTEM_PROMPT, type VRMAMotionSpec, VRMAMotionSpecSchema } from './vrmaSchema'
 export { randomSaccadeInterval } from '@proj-airi/stage-ui-live2d/utils/eye-motions'

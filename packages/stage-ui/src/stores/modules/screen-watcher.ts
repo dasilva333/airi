@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, onUnmounted, ref, toRaw, watch } from 'vue'
 
+import { logMemoryProbe } from '../../utils/memory-sentinel'
 import { useChatOrchestratorStore } from '../chat'
 import { useChatSessionStore } from '../chat/session-store'
 import { useEventLogStore } from '../event-log'
@@ -154,6 +155,10 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
 
   async function dispatchPromotedReaction(events: VisualObservationItem[] | string, config: ScreenWatchingConfig) {
     const deliveryMode = config.deliveryMode ?? 'both'
+    logMemoryProbe('SCREEN_WATCHER:REACTION_START', {
+      action: 'Dispatching promoted screen reaction',
+      extra: { deliveryMode, itemCount: typeof events === 'string' ? 1 : events.length },
+    })
     console.log(`[ScreenWatcher:Reaction] 🎙️ Dispatching real-time reaction (deliveryMode="${deliveryMode}")...`)
 
     if (deliveryMode === 'off') {

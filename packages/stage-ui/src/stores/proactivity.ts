@@ -22,6 +22,7 @@ import { computed, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useLlmmarkerParser } from '../composables/llm-marker-parser'
 import { categorizeResponse, createStreamingCategorizer } from '../composables/response-categoriser'
 import { chatSessionsRepo } from '../database/repos/chat-sessions.repo'
+import { logMemoryProbe } from '../utils/memory-sentinel'
 import { useAuthStore } from './auth'
 import { useBackgroundStore } from './background'
 import { useChatOrchestratorStore } from './chat'
@@ -609,6 +610,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
       lastHeartbeatTime.value = now.getTime()
       isHeartbeatEvaluating.value = true
+      logMemoryProbe('PROACTIVITY:START', { action: 'Proactive heartbeat evaluation triggered' })
 
       try {
         const messages: { role: 'system' | 'user' | 'assistant', content: string }[] = []
@@ -902,6 +904,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
       }
       finally {
         isHeartbeatEvaluating.value = false
+        logMemoryProbe('PROACTIVITY:END', { action: 'Proactive heartbeat evaluation finished' })
       }
     }
     finally {
