@@ -18,6 +18,108 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-09-26] Upstream Delta: `a142a053..c83fae45` (4 commits, 37 files, 10 PR update(s))
+
+### 🎯 Executive Highlights
+* **Upstream Focus**: Upstream merged 4 commits (`c83fae45f2`, `fab2dbeafa`, `7abffaee58`, `d1d594e785`) across 37 files and registered 10 PR updates (6 new PRs, 2 status changes, 2 discussion changes). Core focus centered on: (1) **Full-Screen Card Editor Migration (#2654 / `d1d594e785`)**: Replaced the legacy narrow `CardCreationDialog.vue` modal with dedicated full-screen routes (`/settings/airi-card/new` and `/settings/airi-card/:cardId/edit`), introducing `CardEditor.vue`, `UnsavedChangesDialog.vue`, and route-based navigation with guarded discard flow; (2) **Provider Card Alignment Polish (#2653 / `7abffaee58`)**: Fixed provider card grid vertical alignment in `icon-status-item.vue` (`items-start` instead of `items-center`) so cards lacking descriptions remain top-aligned; (3) **Commercial Apple IAP Backend (#2665 / `fab2dbeafa`, #2664)**: Added Apple App Store In-App Purchase verification and certificate validation in `server/apps/api`, followed by PR #2664 adding multi-app bundle ID support; (4) **Floating Chat Window Experimentation (#2663 by @chiba233)**: Major desktop PR proposing an attached floating chat window alongside the character stage (`chat-floating.vue`, `floating-placement.ts`), coupled to upstream's legacy `controls-island`; and (5) **Provider & Ecosystem Additions (#2661, #2662, #2666)**: New PRs adding the Cheaper Inference provider (`#2661`), Indonesian language support (`#2662`), and Nix dependency hash updates (`#2666`).
+* **Discussion & Community Buzz**:
+  - 💬 **#2121: `chore(i18n): update translations` (+2 new comments, total 125)**: Continued high-volume community localization updates across locales.
+  - 💬 **#2657: `feat(stage-ui): show a dynamic presence bubble beside the character` (+1 new comments, total 4)**: Ongoing discussion regarding spring dampening and head-tracking anchor math.
+  - 💬 **#2550: `feat(hearing): add bundled Sherpaw speech recognition` (17 total comments)**: Sustained community interest in offline bundled Sherpaw STT model packaging (Paraformer/Zipformer).
+  - 💬 **#2644: `feat(api): add provider cost billing with OpenRouter adapter` (11 total comments)**: Active discussion around upstream server-side billing metering.
+* **Cherry-Pick Candidates**:
+  - ⭐ **Commit `7abffaee58` / PR #2653 (`fix(stage-ui): align provider card content to top`)**: High-value, zero-risk visual polish candidate. A clean 4-line adjustment in `packages/stage-ui/src/components/menu/icon-status-item.vue` (`items-start` + `flex-1` / `h-full`) that prevents provider cards without descriptions from sagging vertically relative to neighbor cards in the provider settings grid.
+  - 🔍 **PR #2661: `feat(provider-inference): add Cheaper Inference provider`**: Low-risk provider candidate. Adds an OpenAI-compatible cloud router (`cheaperinference`) with standard API endpoint validation. Can be cherry-picked if additional budget router options are desired.
+  - 🔍 **PR #2662: `feat(i18n): add Indonesian language support`**: Additive localization candidate once merged upstream.
+  - ⚪ **Auto-Reject / Do Not Port**:
+    - **Commit `fab2dbeafa` / PR #2665 & PR #2664 (`feat(api): add Apple IAP payment channel backend`)**: Hosted commercial billing/IAP in `server/apps/api`. Directly violates our fork's local-first, zero-account BYOS architecture.
+    - **Commit `d1d594e785` / PR #2654 (`feat(stage-pages): replace card editor modal with full-screen routes`)**: While structurally interesting, our fork has already heavily diverged with the custom AnimaDex Wizard (`guided.vue`), multi-actor tabs, and `extensions.airi` schema bindings. Direct porting would wipe out our multi-actor and persona customization extensions.
+    - **PR #2663 (`feat(stage-tamagotchi): add a floating chat window beside the character`)**: Heavily coupled to `controls-island` (`controls-island-chat-button.vue`), which our fork completely deleted in favor of the decoupled Control Strip ribbon architecture. The window placement logic can be studied for architectural reference, but the code itself is an auto-reject.
+* **Divergence / Collision Warnings**:
+  - ⚠️ **`packages/stage-pages/src/pages/settings/airi-card/*` (Commit `d1d594e785`)**: Upstream completely rewrote the card editor from a modal to route pages, deleting `CardCreationDialog.vue` and creating `CardEditor.vue`. Our fork has `guided.vue` and custom card wizard tabs. Any future upstream card editor sync will cause extensive merge conflicts; our custom extensions must be preserved.
+  - ⚠️ **`apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/*` (PR #2663)**: Touches controls-island, which does not exist in our fork (decoupled into Control Strip). Do NOT attempt to cherry-pick or merge this PR directly.
+  - ⚠️ **`server/apps/api/*` (Commit `fab2dbeafa`, PR #2664, PR #2665)**: Upstream continues expanding hosted Apple IAP and Stripe payment processors. Keep our fork entirely disconnected from hosted server billing.
+
+### 📋 Upstream Commits
+- `c83fae45f2` chore(nix): update pnpmDeps hash (#2666) [#2666](https://github.com/moeru-ai/airi/pull/2666) _(Weathercold, 2026-09-26)_
+- `fab2dbeafa` feat(api): add Apple IAP payment channel backend (#2665) [#2665](https://github.com/moeru-ai/airi/pull/2665) _(Lulu, 2026-09-26)_
+- `7abffaee58` fix(stage-ui): align provider card content to top (#2653) [#2653](https://github.com/moeru-ai/airi/pull/2653) _(凌莞~(=^▽^=), 2026-09-26)_
+- `d1d594e785` feat(stage-pages): replace card editor modal with full-screen routes (#2654) [#2654](https://github.com/moeru-ai/airi/pull/2654) _(凌莞~(=^▽^=), 2026-09-26)_
+
+### 🔬 Subsystem Breakdown
+#### Other / Uncategorized (`🔍 inspect`) — 4 file(s) (+25/-18)
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/stage-ui/src/components/menu/icon-status-item.vue` *(+2/-2)*
+- `packages/stage-ui/src/stores/modules/speech-card-preview.browser.test.ts` *(+21/-15)*
+- `pnpm-workspace.yaml` *(+1/-0)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 2 file(s) (+52/-34)
+- `packages/i18n/src/locales/en/settings.yaml` *(+11/-0)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+41/-34)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 9 file(s) (+1463/-915)
+- `packages/stage-pages/src/pages/settings/airi-card/[cardId]/edit.vue` *(+47/-0)*
+- `packages/stage-pages/src/pages/settings/airi-card/components/CardCreationDialog.vue` *(+0/-882)*
+- `packages/stage-pages/src/pages/settings/airi-card/components/CardEditor.vue` *(+1097/-0)*
+- `packages/stage-pages/src/pages/settings/airi-card/components/UnsavedChangesDialog.vue` *(+85/-0)*
+- `packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabArtistry.vue` *(+4/-4)*
+- `packages/stage-pages/src/pages/settings/airi-card/composables/use-airi-card-editor-page.browser.test.ts` *(+77/-0)*
+- `packages/stage-pages/src/pages/settings/airi-card/composables/use-airi-card-editor-page.ts` *(+105/-0)*
+- `packages/stage-pages/src/pages/settings/airi-card/index.vue` *(+7/-29)*
+- `packages/stage-pages/src/pages/settings/airi-card/new.vue` *(+41/-0)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 1 file(s) (+55/-0)
+- `pnpm-lock.yaml` *(+55/-0)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 21 file(s) (+1249/-6)
+- `server/apps/api/README.md` *(+8/-1)*
+- `server/apps/api/assets/apple-root-ca/AppleRootCA-G2.cer` *(+0/-0)*
+- `server/apps/api/assets/apple-root-ca/AppleRootCA-G3.cer` *(+0/-0)*
+- `server/apps/api/assets/apple-root-ca/README.md` *(+25/-0)*
+- `server/apps/api/package.json` *(+1/-0)*
+- `server/apps/api/src/app.test.ts` *(+1/-0)*
+- `server/apps/api/src/app.ts` *(+35/-0)*
+- `server/apps/api/src/libs/env.ts` *(+25/-1)*
+- `server/apps/api/src/libs/tests/env.test.ts` *(+13/-0)*
+- `server/apps/api/src/routes/apple-iap/evidence.ts` *(+128/-0)*
+- `server/apps/api/src/routes/apple-iap/index.ts` *(+59/-0)*
+- `server/apps/api/src/routes/apple-iap/operations/account-token.ts` *(+38/-0)*
+- `server/apps/api/src/routes/apple-iap/operations/notifications.ts` *(+92/-0)*
+- `server/apps/api/src/routes/apple-iap/operations/transactions.ts` *(+76/-0)*
+- `server/apps/api/src/routes/apple-iap/route.test.ts` *(+348/-0)*
+- `server/apps/api/src/routes/apple-iap/verifier.test.ts` *(+69/-0)*
+- `server/apps/api/src/routes/apple-iap/verifier.ts` *(+162/-0)*
+- `server/apps/api/src/services/adapters/config-kv/definitions.ts` *(+9/-1)*
+- `server/apps/api/src/services/domain/payment/index.ts` *(+81/-2)*
+- `server/apps/api/src/services/domain/payment/tests/payment.test.ts` *(+57/-1)*
+- `server/apps/api/src/services/domain/payment/types.ts` *(+22/-0)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (6)
+- [#2666](https://github.com/moeru-ai/airi/pull/2666) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(1 comments)*
+- [#2665](https://github.com/moeru-ai/airi/pull/2665) `feat(api): add Apple IAP payment channel backend` by **@lulu0119** *(1 comments)*
+- [#2664](https://github.com/moeru-ai/airi/pull/2664) `feat(api): evolve Apple IAP channel on payment CORE with multi-app support` by **@lulu0119** *(0 comments)*
+- [#2663](https://github.com/moeru-ai/airi/pull/2663) `feat(stage-tamagotchi): add a floating chat window beside the character` by **@chiba233** *(1 comments)*
+- [#2662](https://github.com/moeru-ai/airi/pull/2662) `feat(i18n): add Indonesian language support` by **@kaisaaru** *(0 comments)*
+- [#2661](https://github.com/moeru-ai/airi/pull/2661) `feat(provider-inference): add Cheaper Inference provider` by **@aiapienthusiast** *(0 comments)*
+
+#### 🔄 PR Status & Lifecycle Changes (2)
+- [#2653](https://github.com/moeru-ai/airi/pull/2653) `fix(stage-ui): align provider card content to top` — `OPEN` ➔ `MERGED`
+- [#2654](https://github.com/moeru-ai/airi/pull/2654) `feat(stage-pages): replace card editor modal with full-screen routes` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (2)
+- [#2121](https://github.com/moeru-ai/airi/pull/2121) `chore(i18n): update translations` — *+2 comments (123 ➔ 125 total)*
+- [#2657](https://github.com/moeru-ai/airi/pull/2657) `feat(stage-ui): show a dynamic presence bubble beside the character` — *+1 comments (3 ➔ 4 total)*
+
+### 👁️ Watched PRs Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(0 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2550](https://github.com/moeru-ai/airi/pull/2550) `feat(hearing): add bundled Sherpaw speech recognition` [OPEN] — *(17 comments)*
+  - *Focus*: Offline Sherpaw STT model packaging (Paraformer/Zipformer) via tsdown and Vite plugin
+- [#2641](https://github.com/moeru-ai/airi/pull/2641) `feat(stage-ui): show chat image analysis status` [CLOSED] — *(1 comments)*
+  - *Focus*: Accessible live status indicator for text-only models undergoing vision pre-processing
+
+---
 ## [2026-09-25] Upstream Delta: `3e8ea960..a142a053` (1 commits, 8 files, 7 PR update(s))
 
 ### 🎯 Executive Highlights
