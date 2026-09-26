@@ -404,9 +404,10 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       const rawTags = config.interestTags ? toRaw(config.interestTags) : []
       const cleanTags = Array.isArray(rawTags) ? Array.from(rawTags).map(t => String(t)) : []
 
+      let dataUrl: string | undefined = snapshot.dataUrl
       const tickStart = performance.now()
       const processed = await visionOrchestrator.processCapture({
-        dataUrl: snapshot.dataUrl,
+        dataUrl: dataUrl!,
         width,
         height,
         sourceId,
@@ -424,6 +425,10 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
         sentinelEvidenceEnabled: config.sentinelEvidenceEnabled ?? true,
         activeWindow: proactivityStore.activeWinStr,
       })
+      // NOTICE: Immediately release large base64 screen capture frame to reclaim V8 heap / PartitionAlloc memory
+      dataUrl = undefined
+      snapshot.dataUrl = ''
+
       lastLatencyMs.value = Math.round(performance.now() - tickStart)
       lastDecision.value = processed?.decision || 'UNKNOWN'
       const logSummary = processed?.summary ? ` | summary="${processed.summary.replace(/\n/g, ' ')}"` : ''

@@ -116,14 +116,14 @@ function stretchContrast(image: ImageData): ImageData {
  *   - in-sweet-spot   -> keep 1x
  * then stretch contrast with smooth interpolation before `worker.recognize()`.
  */
-async function prepareOcrInput(imageData: ImageData): Promise<ImageData | Blob> {
+async function prepareOcrInput(imageData: ImageData): Promise<{ targetInput: ImageData | Blob, dispose: () => void }> {
   if (typeof OffscreenCanvas === 'undefined')
-    return imageData
+    return { targetInput: imageData, dispose: () => {} }
 
   const srcCanvas = new OffscreenCanvas(imageData.width, imageData.height)
   const srcCtx = srcCanvas.getContext('2d')
   if (!srcCtx)
-    return imageData
+    return { targetInput: imageData, dispose: () => {} }
   srcCtx.putImageData(imageData, 0, 0)
 
   const maxEdge = Math.max(imageData.width, imageData.height)
@@ -144,8 +144,11 @@ async function prepareOcrInput(imageData: ImageData): Promise<ImageData | Blob> 
   const outHeight = Math.max(1, Math.round(imageData.height * scale))
   const outCanvas = new OffscreenCanvas(outWidth, outHeight)
   const outCtx = outCanvas.getContext('2d')
-  if (!outCtx)
-    return imageData
+  if (!outCtx) {
+    srcCanvas.width = 0
+    srcCanvas.height = 0
+    return { targetInput: imageData, dispose: () => {} }
+  }
 
   outCtx.imageSmoothingEnabled = true
   try {
@@ -154,6 +157,10 @@ async function prepareOcrInput(imageData: ImageData): Promise<ImageData | Blob> 
   catch {}
   outCtx.drawImage(srcCanvas, 0, 0, outWidth, outHeight)
 
+  // srcCanvas is no longer needed; release backing texture immediately
+  srcCanvas.width = 0
+  srcCanvas.height = 0
+
   try {
     const conditioned = stretchContrast(outCtx.getImageData(0, 0, outWidth, outHeight))
     outCtx.putImageData(conditioned, 0, 0)
@@ -161,7 +168,14 @@ async function prepareOcrInput(imageData: ImageData): Promise<ImageData | Blob> 
   catch {}
 
   // Blob is a valid tesseract `ImageLike`; avoids an extra ArrayBuffer hop.
-  return outCanvas.convertToBlob({ type: 'image/png' })
+  const blob = await outCanvas.convertToBlob({ type: 'image/png' })
+
+  const dispose = () => {
+    outCanvas.width = 0
+    outCanvas.height = 0
+  }
+
+  return { targetInput: blob, dispose }
 }
 
 /** OCR of a delta-region crop (ImageData). Returns raw text + wall-clock ms. */
@@ -171,9 +185,11 @@ export async function ocrImageData(imageData: ImageData): Promise<{ text: string
     return { text: '', ocrMs: 0 }
   }
 
+  let cleanup: (() => void) | null = null
   try {
     const worker = await getWorker()
-    const targetInput = await prepareOcrInput(imageData)
+    const { targetInput, dispose } = await prepareOcrInput(imageData)
+    cleanup = dispose
     // NOTICE: tesseract's `ImageLike` type omits `ImageData`, and the raw
     // ImageData fallback is only hit when OffscreenCanvas is unavailable.
     const { data: { text } } = await worker.recognize(targetInput as any)
@@ -182,6 +198,14 @@ export async function ocrImageData(imageData: ImageData): Promise<{ text: string
   catch (err) {
     console.warn('[Attention Guard OCR] OCR failed on delta crop:', err)
     return { text: '', ocrMs: performance.now() - started }
+  }
+  finally {
+    if (cleanup) {
+      try {
+        cleanup()
+      }
+      catch {}
+    }
   }
 }
 

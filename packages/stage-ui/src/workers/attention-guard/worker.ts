@@ -357,7 +357,7 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
       state.centroid = centroidOf(state.accepted)
     }
 
-    return {
+    const result: AttentionGuardProcessResult = {
       decision: promote ? 'PROMOTE' : 'NOTE',
       stage0Delta: normDistance,
       novelty,
@@ -370,7 +370,9 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
       ocrSnippet: snippet || undefined,
       vlmStatus,
       stageMs,
-    } satisfies AttentionGuardProcessResult
+    }
+
+    return result
   }
   catch (err: any) {
     console.error('[attention-guard:worker] Process tick error:', err)
