@@ -6,6 +6,7 @@ import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { resolveAtmosphereComponent } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
 import { ChatBrainPopover, ChatMemoryPopover, ChatSessionModal } from '@proj-airi/stage-ui/components'
+import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
@@ -14,13 +15,13 @@ import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-ses
 import { useBroadcastChannel, useLocalStorage, useWindowSize } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { computed, defineAsyncComponent, markRaw, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, markRaw, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import LogoDark from '../../../../../packages/stage-layouts/src/assets/logo-dark.svg'
 import ChatNan0CognitionPanel from '../components/chat/ChatNan0CognitionPanel.vue'
 import ChatWorkspaceCoordinator from '../components/chat/ChatWorkspaceCoordinator.vue'
 
-import { electronApplySizePreset, electronOpenSettings } from '../../shared/eventa'
+import { electronApplySizePreset, electronOpenSettings, electronStageToggleVisibility } from '../../shared/eventa'
 
 // Code-split workspace sub-surfaces to eliminate heavy initial bundle evaluation
 const chat_arcade = defineAsyncComponent(() => import('../components/chat/chat_arcade.vue'))
@@ -134,6 +135,28 @@ const rightPanelMemoriesCollapsed = useLocalStorage('airi:chat:rp-memories-colla
 const rightPanelCurrentSceneCollapsed = useLocalStorage('airi:chat:rp-current-scene-collapsed', false)
 const rightPanelMediaCollapsed = useLocalStorage('airi:chat:rp-media-collapsed', false)
 const rightPanelNan0Collapsed = useLocalStorage('airi:chat:rp-nan0-collapsed', false)
+const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
+const rightPanelStageCollapsed = useLocalStorage('airi:chat:rp-stage-collapsed', true)
+const stageXOffset = ref(0)
+const stageYOffset = ref(0)
+const stageScale = ref(1)
+
+function toggleRightPanelStage() {
+  rightPanelStageCollapsed.value = !rightPanelStageCollapsed.value
+  void toggleStageVisibility(!!rightPanelStageCollapsed.value)
+}
+
+onMounted(() => {
+  if (!rightPanelStageCollapsed.value) {
+    void toggleStageVisibility(false)
+  }
+})
+
+onUnmounted(() => {
+  if (!rightPanelStageCollapsed.value) {
+    void toggleStageVisibility(true)
+  }
+})
 
 // Nan0 Cognition Pipeline Seam
 const isNan0Active = computed(() => {
@@ -1805,6 +1828,40 @@ function selectSurface(surface: typeof activeSurface.value) {
           >
             <!-- Panel Body -->
             <div class="flex flex-col gap-4 p-4">
+              <!-- Stage Section (Right at the Top) -->
+              <div class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <span
+                    :class="['flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase transition-colors',
+                             rightPanelStageCollapsed
+                               ? 'bg-neutral-100/50 text-neutral-400 dark:bg-neutral-800/50'
+                               : 'bg-primary-50/50 text-primary-500 dark:bg-primary-950/30 dark:text-primary-400']"
+                    @click="toggleRightPanelStage"
+                  >
+                    Stage
+                    <span :class="rightPanelStageCollapsed ? 'i-solar:eye-closed-linear' : 'i-solar:eye-linear'" class="text-xs" />
+                  </span>
+                </div>
+                <div
+                  v-if="!rightPanelStageCollapsed"
+                  class="relative aspect-[3/4] w-full overflow-hidden border border-neutral-200/40 rounded-xl bg-transparent dark:border-neutral-800/40"
+                >
+                  <RendererStage
+                    :paused="rightPanelStageCollapsed"
+                    :focus-at="{ x: 0, y: 0 }"
+                    :x-offset="stageXOffset"
+                    :y-offset="stageYOffset"
+                    :scale="stageScale"
+                    :show-background="false"
+                    :radial-menu-enabled="false"
+                    :draggable="true"
+                    class="absolute inset-0 h-full w-full"
+                    @offset-change="({ x, y }) => { stageXOffset = x; stageYOffset = y }"
+                    @scale-change="(s) => stageScale = s"
+                  />
+                </div>
+              </div>
+
               <!-- Nan0 Cognition Section (Conditionally Mounted) -->
               <div v-if="isNan0Active" class="flex flex-col gap-2">
                 <div class="flex items-center justify-between">

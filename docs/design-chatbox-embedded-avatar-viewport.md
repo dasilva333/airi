@@ -52,73 +52,79 @@ In `step-finale.vue` (lines 592–606), the avatar is embedded directly as a chi
 
 ---
 
-## 3. Component & Layout Topology
+## 3. Component & Layout Topology: The Expandable Header Pattern
+
+Rather than introducing an artificial tab switcher that segments the right panel, we align with the established design pattern already powering the right-hand panel in `apps/stage-tamagotchi/src/renderer/pages/chat.vue`:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ Desktop Chat Window (`apps/stage-tamagotchi/src/renderer/pages/chat.vue`)    │
 ├────────────────────────────────────────┬────────────────────────────────────┤
-│ Left Column: Chat Conversation Stream  │ Right Dynamic Collapsible Panel    │
+│ Left Column: Chat Conversation Stream  │ Right Collapsible Sidebar Panel    │
 │                                        ├────────────────────────────────────┤
-│ • Session history & bubbles            │ [Avatar Vessel] [Memory] [Context] │
-│ • Composer input & attachments         ├────────────────────────────────────┤
-│ • Voice transcript pills               │ ┌────────────────────────────────┐ │
-│ • Stop / Cancel buttons                │ │ Embedded <RendererStage />     │ │
-│                                        │ │ (Lazy-mounted on tab activate) │ │
-│                                        │ │                                │ │
-│                                        │ │   [ Live Avatar Viewport ]     │ │
-│                                        │ │                                │ │
-│                                        │ │ Format: VRM 3D (af_bella)      │ │
+│ • Session history & bubbles            │ COMPANION STAGE [👁️ Open / Closed]  │
+│ • Composer input & attachments         │ ┌────────────────────────────────┐ │
+│ • Voice transcript pills               │ │ Embedded <RendererStage />     │ │
+│ • Grounding telemetry banner           │ │ (Mounted only when expanded)   │ │
+│ • Stop / Cancel buttons                │ │   [ Live Avatar Viewport ]     │ │
+│                                        │ │   (Aspect 3:4 or Bust Frame)   │ │
 │                                        │ └────────────────────────────────┘ │
-│                                        │ • Wardrobe quick switcher          │
-│                                        │ • ACT emotion / motion beacon      │
+│                                        ├────────────────────────────────────┤
+│                                        │ MEMORIES [👁️]                + New │
+│                                        │ • 9/26 Journal Entry              │
+│                                        ├────────────────────────────────────┤
+│                                        │ CURRENT SCENE [👁️]                 │
+│                                        │ • Active background thumbnail     │
+│                                        ├────────────────────────────────────┤
+│                                        │ MEDIA GALLERY [👁️]    + Add / View │
+│                                        │ • Grid of art assets / selfies     │
 └────────────────────────────────────────┴────────────────────────────────────┘
 ```
 
-### Segmented Drawer Layout
-* The right panel tab strip gains an **Avatar Vessel** segment alongside existing tabs (Grounding, Echo Chips, Memory).
-* When active, the panel allocates a 320px–420px column (responsive or user-resizable via a split drag handle).
-* The viewport respects aspect ratio constraints, framing the character from bust to waist with default camera framing.
+### Expandable Header Anatomy
+* **Header Structure**: Matches `MEMORIES`, `CURRENT SCENE`, and `MEDIA GALLERY`:
+  ```vue
+  <div class="flex items-center justify-between">
+    <span
+      :class="['flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase transition-colors',
+               rightPanelCompanionCollapsed
+                 ? 'bg-neutral-100/50 text-neutral-400 dark:bg-neutral-800/50'
+                 : 'bg-primary-50/50 text-primary-500 dark:bg-primary-950/30 dark:text-primary-400']"
+      @click="toggleCompanionStage"
+    >
+      Companion Stage
+      <span :class="rightPanelCompanionCollapsed ? 'i-solar:eye-closed-linear' : 'i-solar:eye-linear'" class="text-xs" />
+    </span>
+  </div>
+  ```
+* **Persistent State**: Managed via `useLocalStorage('airi:chat:rp-companion-collapsed', true)` so user preference persists across chat launches.
+* **Viewport Frame**: When expanded (`!rightPanelCompanionCollapsed`), an aspect-ratio container (`aspect-[3/4]` or `h-72 w-full`) mounts `RendererStage.vue` cleanly with rounded borders and subtle backdrop shadow.
 
 ---
 
 ## 4. Lazy Loading & Resource Management
 
 ### 4.1 WebGL Context Conservation
-* **Strict Lazy Mounting**: The `<RendererStage />` component is strictly guarded behind `v-if="activeTab === 'avatar' && isPanelExpanded"`.
-* **Render Loop Freezing**: If the user minimizes the chat window, collapses the side panel, or switches tabs to "Memory":
-  - Set `:paused="true"` on `RendererStage`.
-  - Three.js / Pixi render loops stop calling `requestAnimationFrame()`.
-  - CPU and GPU idle usage drops to 0%.
+* **Strict Lazy Mounting**: `<RendererStage />` is strictly guarded behind `v-if="!rightPanelCompanionCollapsed"`.
+* **Zero Idle GPU Overhead**: When the section is collapsed (`rightPanelCompanionCollapsed === true`), the component is unmounted, its WebGL context is torn down or held suspended, and the standalone stage window is restored.
 
 ### 4.2 Texture and Memory Footprint
-* Because textures and meshes are loaded via cached stores (`displayModelsStore` / indexedDB `localforage`), unmounting and remounting does not cause network re-fetches.
+* Because textures and meshes are loaded via cached stores (`displayModelsStore` / indexedDB `localforage`), expanding the card does not incur network latency.
+
 * Models remain cached in memory via the existing model store LRU cache.
 
 ---
-
-## 5. The "Open Twice" / Babysitter Policy
-
-One critical question is: **What happens if the detached Actor Stage window is ALREADY open when the user opens the embedded avatar in the Chat window?**
-
-### Tradeoff Analysis:
-
-| Strategy | Mechanism | Pros | Cons / Risks |
-| :--- | :--- | :--- | :--- |
-| **Strategy A: Exclusive Handoff (Recommended)** | When the Chat companion panel is expanded, the detached Stage window automatically minimizes or delegates primary status. Closing the panel restores the Stage. | • Single WebGL canvas active.<br>• Zero audio/lip-sync event collisions.<br>• Minimal GPU/VRAM overhead. | Requires IPC communication between Chat window and Stage window to coordinate visibility. |
-| **Strategy B: Independent Dual Rendering** | Allow both windows to render simultaneously. Both canvases run independent WebGL contexts. | • Maximum flexibility for users with multi-monitor setups. | • 2x VRAM consumption.<br>• Lip-sync audio analysers running twice.<br>• Potential WebGL context limit exhaustion on low-end machines. |
-| **Strategy C: Snapping Dock (No 2nd Canvas)** | Chat window detects proximity to Stage window and "magnetically snaps" to its side; no avatar is rendered inside Chat. | • Pure window manager solution.<br>• Zero duplicate resources. | • Requires fragile Electron window bounds polling.<br>• Does not work for Web or Pocket shells. |
 
 ## 5. The "Open Twice" / Babysitter Policy: Concrete Consensus
 
 ### 5.1 Agreed Mechanism: `toggleStage(false)` / `toggleStage(true)`
 Rather than maintaining two competing WebGL contexts or complex window proximity polling, we adopt a clean, declarative visibility handoff:
-1. **Entering In-Chat Avatar Mode**: When the user opens or selects the **Avatar Vessel** segment in the Chat window's right-side panel:
-   - Call `toggleStage(false)` (or dispatch `electronToggleStageVisibility(false)`) to hide the standalone detached Actor Stage window.
+1. **Expanding the Companion Stage**: When the user clicks the eye icon to expand `COMPANION STAGE` in the right panel (`!rightPanelCompanionCollapsed`):
+   - Call `toggleStageVisibility(false)` to hide the standalone detached Actor Stage window.
    - The embedded `<RendererStage />` lazily mounts, becomes the active viewport, and claims the avatar stage.
-2. **Leaving In-Chat Avatar Mode**: When the user switches to another tab (e.g. Memory / Grounding), collapses the side panel, or closes the Chat window:
+2. **Collapsing the Companion Stage / Closing Chat**: When the user clicks the eye icon to collapse the section (`rightPanelCompanionCollapsed === true`) or closes the Chat window:
    - Unmount / pause the embedded `<RendererStage />`.
-   - Call `toggleStage(true)` to restore the floating Actor Stage back to its desktop coordinates.
+   - Call `toggleStageVisibility(true)` to restore the floating Actor Stage back to its desktop coordinates.
 
 This guarantees:
 - **Zero VRAM Duplication**: Never runs two concurrent WebGL renderers for the same companion.
