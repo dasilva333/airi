@@ -44,6 +44,7 @@
         background: radial-gradient(circle at 50% 35%, #1e1e24, #121212 75%);
         user-select: none;
         -webkit-app-region: drag;
+        perspective: 750px;
       }
       html.airi-solid-window .airi-pre-bootstrap {
         display: flex;
@@ -57,16 +58,20 @@
         height: 52px;
         border-radius: 16px;
         background: rgba(244, 114, 182, 0.08);
-        border: 1px solid rgba(244, 114, 182, 0.22);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(244, 114, 182, 0.3);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 0 15px rgba(244, 114, 182, 0.2);
+        transform-style: preserve-3d;
+        animation: airi-flip-levitate 2.6s ease-in-out infinite;
       }
       .airi-pre-halo {
         position: absolute;
         inset: -6px;
         border-radius: 22px;
-        background: rgba(244, 114, 182, 0.16);
+        background: rgba(244, 114, 182, 0.18);
         filter: blur(8px);
-        animation: airi-pulse 2s ease-in-out infinite;
+        animation: airi-halo-float 2.6s ease-in-out infinite;
       }
       .airi-pre-dot {
         position: relative;
@@ -74,11 +79,29 @@
         height: 16px;
         border-radius: 6px;
         background: linear-gradient(135deg, #f472b6, #ec4899);
-        box-shadow: 0 0 12px rgba(244, 114, 182, 0.6);
+        box-shadow: 0 0 14px rgba(244, 114, 182, 0.75);
       }
-      @keyframes airi-pulse {
-        0%, 100% { transform: scale(0.92); opacity: 0.4; }
-        50% { transform: scale(1.08); opacity: 0.9; }
+      @keyframes airi-flip-levitate {
+        0% {
+          transform: translateY(0px) rotateY(0deg) scale(0.95);
+        }
+        50% {
+          transform: translateY(-8px) rotateY(180deg) scale(1.05);
+          box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(244, 114, 182, 0.35);
+        }
+        100% {
+          transform: translateY(0px) rotateY(360deg) scale(0.95);
+        }
+      }
+      @keyframes airi-halo-float {
+        0%, 100% {
+          opacity: 0.35;
+          transform: scale(0.9);
+        }
+        50% {
+          opacity: 0.85;
+          transform: scale(1.1);
+        }
       }
     </style>
   </head>
