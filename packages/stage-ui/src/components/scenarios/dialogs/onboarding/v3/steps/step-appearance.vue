@@ -37,6 +37,7 @@ const languages: LanguageItem[] = [
   { code: 'fr', name: 'French', native: 'Français', badge: 'FR', region: 'France / CA' },
   { code: 'ru', name: 'Russian', native: 'Русский', badge: 'RU', region: 'Eurasia' },
   { code: 'vi', name: 'Vietnamese', native: 'Tiếng Việt', badge: 'VI', region: 'Vietnam' },
+  { code: 'id', name: 'Indonesian', native: 'Bahasa Indonesia', badge: 'ID', region: 'Indonesia' },
 ]
 
 function selectLanguage(code: string) {

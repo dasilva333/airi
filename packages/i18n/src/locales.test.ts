@@ -14,6 +14,7 @@ const SUPPORTED_LOCALES = [
   'en',
   'es',
   'fr',
+  'id',
   'ja',
   'ko',
   'ru',
@@ -65,7 +66,7 @@ function checkDuplicateKeys(filePath: string): string[] {
 }
 
 describe('@proj-airi/i18n locale integrity', () => {
-  it('has all 9 canonical locales present in locales directory', () => {
+  it('has all 10 canonical locales present in locales directory', () => {
     const dirs = fs.readdirSync(LOCALES_DIR, { withFileTypes: true })
       .filter(d => d.isDirectory())
       .map(d => d.name)
@@ -103,6 +104,12 @@ describe('@proj-airi/i18n locale integrity', () => {
         continue
       const targetPath = path.join(LOCALES_DIR, locale, 'onboarding.yaml')
       expect(fs.existsSync(targetPath), `Missing onboarding.yaml for locale: ${locale}`).toBe(true)
+
+      const targetIndexPath = path.join(LOCALES_DIR, locale, 'index.ts')
+      if (fs.existsSync(targetIndexPath)) {
+        const indexContent = fs.readFileSync(targetIndexPath, 'utf8')
+        expect(indexContent, `Locale ${locale}/index.ts must register onboarding module`).toContain('onboarding')
+      }
 
       const targetData = yaml.parse(fs.readFileSync(targetPath, 'utf8')) || {}
       const targetKeys = new Set(extractLeafKeys(targetData))

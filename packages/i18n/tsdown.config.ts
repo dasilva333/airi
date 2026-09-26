@@ -9,6 +9,7 @@ export default defineConfig({
     'locales/en/index': 'src/locales/en/index.ts',
     'locales/es/index': 'src/locales/es/index.ts',
     'locales/fr/index': 'src/locales/fr/index.ts',
+    'locales/id/index': 'src/locales/id/index.ts',
     'locales/ja/index': 'src/locales/ja/index.ts',
     'locales/ko/index': 'src/locales/ko/index.ts',
     'locales/ru/index': 'src/locales/ru/index.ts',
