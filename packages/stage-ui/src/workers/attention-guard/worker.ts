@@ -204,7 +204,24 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
 
   try {
     // -- decode + Stage 0 perceptual hash -------------------------------------
-    const rawImage = await RawImage.fromURL(dataUrl)
+    let rawImage: RawImage
+    try {
+      rawImage = await RawImage.fromURL(dataUrl)
+    }
+    catch (decodeErr: any) {
+      console.warn('[attention-guard:worker] Invalid capture frame skipped (could not decode):', decodeErr?.message || decodeErr)
+      return {
+        decision: 'IGNORE',
+        stage0Delta: 0,
+        novelty: 0,
+        ocrErrorPatternHits: 0,
+        ocrErrorPatterns: [],
+        interestKeywordHits: 0,
+        interestKeywords: [],
+        stageMs,
+      } satisfies AttentionGuardProcessResult
+    }
+
     const raw = rawImage.data as Uint8Array
     const channels = rawImage.channels
     const gray = toGray(raw, rawImage.width, rawImage.height, channels)
@@ -298,12 +315,18 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
     const snippet = extractRelevantSnippet(ocrText, ocrErrorPatterns, ocrInterestTags)
 
     if (state.enableVlm) {
-      const captionResult = await generateCaption(rawImage, state.device)
-      if (captionResult) {
-        caption = captionResult.caption
-        vlmStatus = 'ok'
+      try {
+        const captionResult = await generateCaption(rawImage, state.device)
+        if (captionResult) {
+          caption = captionResult.caption
+          vlmStatus = 'ok'
+        }
+        else {
+          vlmStatus = 'error'
+        }
       }
-      else {
+      catch (vlmErr: any) {
+        console.warn('[attention-guard:worker] generateCaption error caught:', vlmErr?.message || vlmErr)
         vlmStatus = 'error'
       }
     }

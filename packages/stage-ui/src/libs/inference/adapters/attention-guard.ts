@@ -149,8 +149,8 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
   ): Promise<AttentionGuardProcessResult> {
     throwIfAborted(options?.signal)
 
-    // Load-on-demand recovery: if idle or bare worker, load before acquiring execution lock
-    if (host.phase === 'idle' || host.phase === 'loading' || !host.rpc) {
+    // Load-on-demand recovery: if not ready, idle, error, or bare worker, load before acquiring execution lock
+    if (host.phase !== 'ready' || !host.rpc) {
       await load({ enableVlm: lastLoadConfig?.enableVlm, modelId: lastLoadConfig?.modelId, signal: options?.signal })
     }
 

@@ -390,11 +390,11 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       const snapshot = await visionStore.captureSnapshot(
         useNative ? { native: true } : { downscalePercent: downscale },
       )
-      if (!snapshot?.dataUrl) {
+      if (!snapshot?.dataUrl || snapshot.dataUrl.length < 1000) {
         lastError.value = snapshot?.error === 'permission_denied'
           ? 'Screen capture permission denied.'
-          : 'Capture returned no frame.'
-        console.warn('[ScreenWatcher:Tick] ⚠️ Capture returned no frame:', lastError.value)
+          : 'Capture returned no valid frame.'
+        console.warn('[ScreenWatcher:Tick] ⚠️ Capture returned no valid frame:', lastError.value)
         return
       }
 

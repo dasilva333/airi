@@ -124,11 +124,17 @@ export function createVisionService(params: { context: any }) {
 
       console.log(`[Vision Service] Capturing from: "${selectedSource.name}" (ID: ${selectedSource.id})`)
 
+      if (selectedSource.thumbnail.isEmpty()) {
+        console.warn('[Vision Service] Selected capture source thumbnail is empty.')
+        return null
+      }
+
       const dataUrl = selectedSource.thumbnail.toDataURL()
 
       // If the dataUrl is too short, it's likely a transparent or failed capture
-      if (dataUrl.length < 1000) {
-        console.warn('[Vision Service] Captured thumbnail data is suspiciously small or empty.')
+      if (!dataUrl || dataUrl.length < 1000) {
+        console.warn('[Vision Service] Captured thumbnail data is suspiciously small or empty, skipping frame.')
+        return null
       }
 
       return {
