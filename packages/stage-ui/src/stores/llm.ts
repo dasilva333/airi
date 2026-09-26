@@ -2,7 +2,6 @@ import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { CommonContentPart, CompletionToolCall, Message, Tool } from '@xsai/shared-chat'
 
 import { debug } from '@proj-airi/stage-shared'
-import { useLocalStorage } from '@vueuse/core'
 import { generateText } from '@xsai/generate-text'
 import { listModels } from '@xsai/model'
 import { streamText } from '@xsai/stream-text'
@@ -224,13 +223,6 @@ function combineSystemMessagesIfNeeded(messages: Message[], chatConfig: any, set
   ]
 }
 
-function streamOptionsToolsCompatibilityOk(model: string, chatProvider: ChatProvider, _: Message[], options?: StreamOptions): boolean {
-  if (options?.supportsTools)
-    return true
-  const key = `${getChatConfig(model, chatProvider).baseURL}-${model}`
-  return options?.toolsCompatibility?.[key] !== false
-}
-
 // Runtime auto-degrade: patterns that indicate the model/provider does not support tool calling.
 const TOOLS_RELATED_ERROR_PATTERNS: RegExp[] = [
   /does not support tools/i, // Ollama
@@ -305,8 +297,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
     return tools ?? []
   }
 
-  const supportedTools = streamOptionsToolsCompatibilityOk(model, chatProvider, messages, options)
-  const rawResolvedTools = supportedTools ? await resolveTools() : undefined
+  const rawResolvedTools = options?.tools ? await resolveTools() : undefined
   const sanitizedTools = sanitizeTools(rawResolvedTools)
 
   if (sanitizedTools && sanitizedTools.length > 0) {
@@ -437,8 +428,7 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
     return tools ?? []
   }
 
-  const supportedTools = streamOptionsToolsCompatibilityOk(model, chatProvider, messages, options)
-  const rawResolvedTools = supportedTools ? await resolveTools() : undefined
+  const rawResolvedTools = options?.tools ? await resolveTools() : undefined
   const sanitizedTools = sanitizeTools(rawResolvedTools)
 
   if (sanitizedTools && sanitizedTools.length > 0) {
@@ -538,24 +528,17 @@ export async function attemptForToolsCompatibilityDiscovery(model: string, chatP
 }
 
 export const useLLM = defineStore('llm', () => {
-  const toolsCompatibility = useLocalStorage<Record<string, boolean>>('settings/llm/tools-compatibility-v3', {})
+  // Clear any legacy auto-degraded / poisoned tool compatibility cache from localStorage
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.removeItem('settings/llm/tools-compatibility-v3')
+  }
 
   async function stream(model: string, chatProvider: ChatProvider, messages: Message[], options?: StreamOptions) {
-    const key = `${getChatConfig(model, chatProvider).baseURL}-${model}`
-    try {
-      await streamFrom(model, chatProvider, messages, { ...options, toolsCompatibility: toolsCompatibility.value })
-    }
-    catch (err) {
-      if (isToolRelatedError(err)) {
-        debug(`[llm] Auto-disabling tools for "${key}" due to tool-related error`)
-        toolsCompatibility.value[key] = false
-      }
-      throw err
-    }
+    await streamFrom(model, chatProvider, messages, options)
   }
 
   function generate(model: string, chatProvider: ChatProvider, messages: Message[], options?: StreamOptions) {
-    return generateFrom(model, chatProvider, messages, { ...options, toolsCompatibility: toolsCompatibility.value })
+    return generateFrom(model, chatProvider, messages, options)
   }
 
   async function generateObject<T>(
@@ -578,15 +561,10 @@ export const useLLM = defineStore('llm', () => {
     })
   }
 
-  async function discoverToolsCompatibility(model: string, chatProvider: ChatProvider, _: Message[], options?: Omit<StreamOptions, 'supportsTools'>) {
-    // Cached, no need to discover again
-    const key = `${getChatConfig(model, chatProvider).baseURL}-${model}`
-    if (key in toolsCompatibility.value) {
-      return
-    }
-
-    const res = await attemptForToolsCompatibilityDiscovery(model, chatProvider, _, { ...options, toolsCompatibility: toolsCompatibility.value })
-    toolsCompatibility.value[key] = res
+  async function discoverToolsCompatibility(_model: string, _chatProvider: ChatProvider, _: Message[], _options?: Omit<StreamOptions, 'supportsTools'>) {
+    // No-op: tool usage is controlled explicitly by user settings / card configuration,
+    // avoiding wasteful probe requests and silent runtime degradation.
+    return Promise.resolve()
   }
 
   async function models(apiUrl: string, apiKey: string) {
