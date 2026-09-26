@@ -19,19 +19,31 @@ export interface TextJournalEvidenceItem {
 export const textJournalParams = z.object({
   action: z.enum(['create', 'search']).describe('Choose one: "create" to log a new memory entry, or "search" to query memories.'),
   title: z.string().nullish().describe('Short human-readable label for the journal entry when creating.'),
-  content: z.string().nullish().describe('The journal entry text to append for the active character when creating.'),
-  query: z.string().nullish().describe('Keyword or concept query to search within memories (dialogue history, recaps, knowledge graph, journal).'),
+  content: z.string().nullish().describe('The journal entry text to append for the active character when creating. Required when action is "create".'),
+  entry: z.string().nullish().describe('Alias for content when action is "create".'),
+  text: z.string().nullish().describe('Alias for content when action is "create".'),
+  query: z.string().nullish().describe('Keyword or concept query to search within memories (dialogue history, recaps, knowledge graph, journal). Required when action is "search".'),
   limit: z.number().int().min(1).max(10).nullish().describe('Maximum number of search results to return (1-10, default 5).'),
 })
 
-export async function executeCreateTextJournalEntry(params: { title?: string, content?: string }) {
-  if (!params.content?.trim())
+export async function executeCreateTextJournalEntry(params: {
+  title?: string
+  content?: string
+  entry?: string
+  text?: string
+}) {
+  const contentCandidate = params.content?.trim() || params.entry?.trim() || params.text?.trim()
+  const titleCandidate = params.title?.trim()
+  const resolvedContent = contentCandidate || titleCandidate || ''
+
+  if (!resolvedContent)
     return 'Error: content is required for text_journal.create. Please provide the content you wish to save.'
 
+  const resolvedTitle = titleCandidate || resolvedContent.slice(0, 40)
   const store = useTextJournalStore()
   const entry = await store.createEntry({
-    title: params.title,
-    content: params.content,
+    title: resolvedTitle,
+    content: resolvedContent,
     source: 'tool',
   })
 
@@ -117,6 +129,8 @@ export async function executeTextJournalAction(params: {
   action: 'create' | 'search'
   title?: string | null
   content?: string | null
+  entry?: string | null
+  text?: string | null
   query?: string | null
   limit?: number | null
 }) {
@@ -124,6 +138,8 @@ export async function executeTextJournalAction(params: {
     action: params.action,
     title: params.title ?? undefined,
     content: params.content ?? undefined,
+    entry: params.entry ?? undefined,
+    text: params.text ?? undefined,
     query: params.query ?? undefined,
     limit: params.limit ?? undefined,
   }
@@ -145,6 +161,8 @@ export function createTextJournalTool(): Promise<Tool> {
       action: 'create' | 'search'
       title?: string
       content?: string
+      entry?: string
+      text?: string
       query?: string
       limit?: number
     }),

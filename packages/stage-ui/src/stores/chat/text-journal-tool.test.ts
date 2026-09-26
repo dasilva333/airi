@@ -132,6 +132,43 @@ describe('text_journal tool (Consumer 3)', () => {
       })
       expect(res).toBe('Saved text journal entry "EVA Unit 02 Maintenance" for Asuka Langley.')
     })
+
+    it('falls back to title when content is omitted or empty', async () => {
+      mockCreateEntry.mockResolvedValueOnce({
+        title: 'Rick and Richard\'s Dynamic',
+        characterName: 'rick-sanchez',
+      })
+
+      const res = await executeCreateTextJournalEntry({
+        title: 'Rick and Richard\'s Dynamic',
+      })
+
+      expect(mockCreateEntry).toHaveBeenCalledWith({
+        title: 'Rick and Richard\'s Dynamic',
+        content: 'Rick and Richard\'s Dynamic',
+        source: 'tool',
+      })
+      expect(res).toBe('Saved text journal entry "Rick and Richard\'s Dynamic" for rick-sanchez.')
+    })
+
+    it('supports entry and text aliases when content is omitted', async () => {
+      mockCreateEntry.mockResolvedValueOnce({
+        title: 'Portal Gun Coordinates',
+        characterName: 'rick-sanchez',
+      })
+
+      const res = await executeCreateTextJournalEntry({
+        title: 'Portal Gun Coordinates',
+        entry: 'Dimension C-137 calibration values',
+      })
+
+      expect(mockCreateEntry).toHaveBeenCalledWith({
+        title: 'Portal Gun Coordinates',
+        content: 'Dimension C-137 calibration values',
+        source: 'tool',
+      })
+      expect(res).toBe('Saved text journal entry "Portal Gun Coordinates" for rick-sanchez.')
+    })
   })
 
   describe('executeSearchTextJournalEntries', () => {

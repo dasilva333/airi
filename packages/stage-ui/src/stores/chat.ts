@@ -896,7 +896,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           const cardFallback = activeCard.value?.extensions?.airi?.generation?.known?.reasoningFallback
           const current = categorizer.getCurrent()
           if (current) {
-            const finalSpeech = current.speech || (cardFallback !== false && current.reasoning ? current.reasoning : '')
+            const hasToolCalls = buildingMessage.slices.some(s => s.type === 'tool-call') || needsBridgedFollowUp
+            const finalSpeech = current.speech || (cardFallback !== false && !hasToolCalls && current.reasoning ? current.reasoning : '')
             const existingCategorization = (buildingMessage as any).categorization || {}
             const finalReasoning = current.reasoning && existingCategorization.reasoning && !existingCategorization.reasoning.includes(current.reasoning)
               ? `${existingCategorization.reasoning}\n\n${current.reasoning}`
@@ -1771,7 +1772,8 @@ Format your output as a raw thought log.`
 
       // Turn loop ended
       const cardFallback = activeCard.value?.extensions?.airi?.generation?.known?.reasoningFallback
-      const fallbackActive = cardFallback !== false
+      const hasTurnToolCalls = buildingMessage.slices.some(s => s.type === 'tool-call') || needsBridgedFollowUp
+      const fallbackActive = cardFallback !== false && !hasTurnToolCalls
       const speechText = typeof buildingMessage.content === 'string' ? buildingMessage.content : ''
       if (!speechText.trim() && (buildingMessage as any).categorization?.reasoning?.trim() && fallbackActive) {
         const fallbackText = (buildingMessage as any).categorization.reasoning
