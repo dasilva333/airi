@@ -392,9 +392,18 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
         : `${width}×${height} (${downscale}% of native)`
       console.log(`[ScreenWatcher:Tick] 📸 Capturing screen frame #${captureCount.value + 1} (${resLabel}, source="${sourceId}")...`)
 
-      const snapshot = await visionStore.captureSnapshot(
-        useNative ? { native: true } : { downscalePercent: downscale },
-      )
+      let snapshot: any
+      try {
+        snapshot = await visionStore.captureSnapshot(
+          useNative ? { native: true } : { downscalePercent: downscale },
+        )
+      }
+      catch (captureErr: any) {
+        lastError.value = captureErr?.message || String(captureErr)
+        console.warn('[ScreenWatcher:Tick] ⚠️ Screen snapshot capture threw error:', lastError.value)
+        return
+      }
+
       if (!snapshot?.dataUrl || snapshot.dataUrl.length < 1000) {
         lastError.value = snapshot?.error === 'permission_denied'
           ? 'Screen capture permission denied.'
@@ -535,12 +544,20 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
     const intervalMs = activeConfig.value?.captureIntervalMs || 2000
     console.log(`[ScreenWatcher:Lifecycle] 🟢 Starting ambient screen watcher (interval=${intervalMs}ms)...`)
 
-    // Warm guard worker before first tick if using attention guard
+    // Warm guard worker before first tick if using attention guard and currently within schedule
     if (!activeConfig.value?.workload || activeConfig.value.workload === 'attention-guard') {
-      const isMoondream = activeConfig.value?.vlmTier === 'moondream' || (Boolean(activeConfig.value?.enableVlm) && activeConfig.value?.vlmTier !== 'external')
-      void visionOrchestrator.ensureGuardLoaded({ enableVlm: isMoondream })
-        .then(() => console.log('[ScreenWatcher:Init] 🚀 Attention Ecology Guard ready.'))
-        .catch((err: any) => console.warn('[ScreenWatcher:Init] Guard pre-warm in progress or failed:', err))
+      const schedule = activeCard.value?.extensions?.airi?.heartbeats?.schedule
+      const respectSchedule = activeConfig.value?.respectSchedule ?? true
+      const isAwake = !respectSchedule || !schedule?.start || !schedule?.end || isWithinSchedule(schedule.start, schedule.end)
+      if (isAwake) {
+        const isMoondream = activeConfig.value?.vlmTier === 'moondream' || (Boolean(activeConfig.value?.enableVlm) && activeConfig.value?.vlmTier !== 'external')
+        void visionOrchestrator.ensureGuardLoaded({ enableVlm: isMoondream })
+          .then(() => console.log('[ScreenWatcher:Init] 🚀 Attention Ecology Guard ready.'))
+          .catch((err: any) => console.warn('[ScreenWatcher:Init] Guard pre-warm in progress or failed:', err))
+      }
+      else {
+        console.log('[ScreenWatcher:Init] 🌙 Character is currently asleep; deferring Attention Guard model pre-warm until awake.')
+      }
     }
 
     isRunning.value = true
@@ -556,6 +573,7 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       timerHandle = null
     }
     isRunning.value = false
+    visionOrchestrator.terminate()
   }
 
   function isPrimaryHostWindow(): boolean {
