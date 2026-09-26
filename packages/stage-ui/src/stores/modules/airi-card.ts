@@ -126,6 +126,13 @@ export interface CharacterGenerationConfig {
   }
 }
 
+export interface SentinelQuestionConfig {
+  id: string
+  text: string
+  enabled: boolean
+  threshold?: number
+}
+
 export interface ScreenWatchingConfig {
   enabled: boolean
   deliveryMode?: 'both' | 'bubble_only' | 'tts_only' | 'off'
@@ -144,6 +151,13 @@ export interface ScreenWatchingConfig {
   respectSchedule?: boolean
   pauseWhenAfk?: boolean
   afkThresholdMinutes?: number
+  gatingMode?: 'trigger_tags' | 'system1_sentinel'
+  sentinelProvider?: 'laya-local' | 'typesafe-ai' | 'openrouter-ai'
+  sentinelModel?: string
+  sentinelQuestions?: SentinelQuestionConfig[]
+  sentinelPolicy?: 'any' | 'all'
+  sentinelThreshold?: number
+  sentinelEvidenceEnabled?: boolean
 }
 
 export interface EventLedgerConfig {

@@ -324,14 +324,39 @@ To solve this, Attention Ecology establishes a **Dual Push/Pull Architecture** f
       • Immediately interrupts pipe       crafting (silence if uninteresting)
 ```
 
-### 11.1 The PUSH Model: Keyword-Driven Triggers & Busy Pipe Deferral
-Promoted visual novelties alone do not immediately trigger a cloud LLM call. Instead, Push events are evaluated against **Semantic Interest Tags**:
+### 11.1 The Push Trigger Models: Keyword Matching vs. System-1 Cognitive Sentinel
 
+Promoted visual novelties evaluate through one of two user-selectable gating architectures:
+
+#### Route A: Trigger-Based Keyword Matching (Legacy Heuristic)
+Push events are filtered against **Semantic Interest Tags**:
 * **System High-Priority Tags**: `terminal_error`, `code_exception`, `red_alert_ratio > 0.05`.
 * **User/Character Interest Keywords**: `antigravity`, `youtube`, `discord`, `blender`, `unity`.
+* Evaluates exact tag/string hits from OCR or CLIP classification.
+
+#### Route B: System-1 Cognitive Sentinel (TypeSafe Jev / Laya ModernBERT)
+Instead of guessing static tags, recent visual captures are evaluated continuously against **User-Configured Natural Language Sentinel Questions** via non-autoregressive parallel classification heads (~100–120ms):
+1. **Sliding VLM Chrono-Log**: Maintains a 3–5 frame rolling ring buffer of recent visual captions:
+   ```text
+   [30s ago] Active window: VS Code. Terminal displayed build failed in auth.ts.
+   [15s ago] Active window: Chrome. YouTube tab: "Tiny Desk Concert".
+   [0s ago]  Active window: Discord. Chat with "kyo": "Hey, can you review this PR before the release?"
+   ```
+2. **Semantic Search & Evidence Attachment**:
+   Extracts recognized entities from the stream and cross-references AIRI's **Entity Ledger** (`useEntityLedgerStore`) and episodic memory:
+   - Recognizes `"kyo"` $\rightarrow$ queries entity ledger $\rightarrow$ resolves: *"Kyo: Close collaborator, frequent contributor, friend with user"*.
+   - Injects the contextual anchor directly into the state packet before invoking System 1. Jev understands *who* is on screen and the social weight of the interaction.
+3. **Parallel Sentinel Question Triage**:
+   Evaluates user sentinel questions simultaneously:
+   - *"Did a notable, unexpected, or socially meaningful event occur that warrants proactive dialogue?"*
+   - *"Did my code compilation or test run fail with an error?"*
+   - *"Is the user messaging or collaborating with a colleague or friend?"*
+4. **Trigger Policies**:
+   - **`Any (max(prob) >= threshold)`** *(Recommended Default)*: Fires if any single active question crosses the threshold (e.g. 75%). Perfect for independent sentinel tripwires.
+   - **`All (min(prob) >= threshold)`**: Strict composite mode requiring all active questions to be concurrently satisfied.
 
 #### The Busy Pipe Safeguard (Deferral & Batching)
-When a Push Candidate matches an interest keyword while AIRI is currently generating LLM text or speaking via TTS (`isBusy = true`):
+When a Push Candidate matches an interest keyword or sentinel trigger while AIRI is currently generating LLM text or speaking via TTS (`isBusy = true`):
 1. The candidate is **NOT** spammed and does **NOT** interrupt active speech.
 2. It accumulates in a **Pending Push Batch**.
 3. When the pipeline clears (`isBusy = false`), the batch is consolidated into a single clean summary:
@@ -360,19 +385,42 @@ The Pull route operates as an ambient companion model without event noise:
 
 To prevent fragmentation across DevTools and global system settings, all Push and Pull configuration parameters are integrated directly into the **Character Card Editor** (`packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabProactivity.vue`).
 
-### 12.1 Proposed UI Structure for `CardCreationTabProactivity.vue`
+### 12.1 Section 3 Redesign: Segmented Salience Gating & Sentinel Modes
+
+Section 3 of `CardCreationTabProactivity.vue` is segmented into two operational modes via a top-level segmented button control:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 🧠 Cognition & Proactivity                                                  │
-│ Configure how this character observes your screen, logs activity, and       │
-│ proactively initiates dialogue.                                             │
+│ 3. SALIENCE GATING & SCREEN SENTINEL                                        │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ 📥 PUSH MECHANICS (Event-Driven Interventions)                              │
-│ [x] Enable Keyword-Driven Instant Push                                      │
+│ Gating Architecture: [ # Tag / Keyword Matching ]  [ ⚡ System-1 Sentinel ] │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ (When Segment = ⚡ System-1 Cognitive Sentinel)                             │
 │                                                                             │
-│ Custom Interest Keywords / Tags:                                            │
-│ [ antigravity ✖ ] [ terminal_error ✖ ] [ youtube ✖ ] [ + Add Tag ]          │
+│ COGNITIVE ENGINE SETUP (Reused from Cognition Subtab):                      │
+│ Provider: [ TypeSafe Jev (Cloud) ▾ ]  Model: [ jev-latest ]                 │
+│ • If Laya Local is selected: shows [ Download Weights (424 MB) ] / Cached  │
+│                                                                             │
+│ SENTINEL QUESTION TRIPWIRES:                                                │
+│ [x] "Did a notable or socially meaningful event occur on screen?"           │
+│     Sensitivity: [───■────────] 0.75                                        │
+│ [x] "Did a compiler error, failed build, or terminal exception occur?"      │
+│     Sensitivity: [──────■─────] 0.85                                        │
+│ [x] "Is the user messaging or chatting with a friend or colleague?"        │
+│     Sensitivity: [───■────────] 0.75                                        │
+│ [ + Add Custom Sentinel Question ]                                          │
+│                                                                             │
+│ TRIGGER SENSITIVITY & POLICY:                                               │
+│ Policy: [ Any Trigger Met (OR) ▾ ]    Global Threshold: [ 75% Balanced ]    │
+│                                                                             │
+│ [x] Enrich Visual History with Entity Ledger Context (Semantic Evidence)    │
+│     Cross-references on-screen names ("kyo") against character memory       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 4. REAL-TIME REACTIONS & DELIVERY                                           │
+│ [x] React Immediately to Screen Highlights (Real-Time Push)                 │
+│ Max Interventions per Hour: [ 4 ]    Cooldown: [ 10 min ]                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 │                                                                             │
 │ [x] Defer & Batch Push Candidates While Speaking (Busy Pipe Safeguard)      │
 ├─────────────────────────────────────────────────────────────────────────────┤

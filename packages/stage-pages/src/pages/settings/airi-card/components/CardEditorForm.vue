@@ -388,6 +388,47 @@ const screenWatchingEnableVlm = ref<boolean>(false)
 const screenWatchingVlmTier = ref<'lightweight' | 'moondream' | 'external'>('lightweight')
 const screenWatchingRespectSchedule = ref<boolean>(true)
 
+export interface SentinelQuestionItem {
+  id: string
+  text: string
+  enabled: boolean
+  threshold?: number
+}
+
+const DEFAULT_SENTINEL_QUESTIONS: SentinelQuestionItem[] = [
+  {
+    id: 'general_novelty',
+    text: 'Did a notable, unexpected, or socially meaningful event occur on screen that warrants companion proactive dialogue?',
+    enabled: true,
+    threshold: 0.75,
+  },
+  {
+    id: 'build_error',
+    text: 'Did the user encounter a compiler error, broken build, failing test run, or terminal exception?',
+    enabled: true,
+    threshold: 0.80,
+  },
+  {
+    id: 'social_chat',
+    text: 'Is the user messaging, chatting, or collaborating with a friend or colleague?',
+    enabled: true,
+    threshold: 0.75,
+  },
+  {
+    id: 'media_consumption',
+    text: 'Did the user start watching a notable video, live stream, or music release?',
+    enabled: false,
+    threshold: 0.70,
+  },
+]
+
+const screenWatchingGatingMode = ref<'trigger_tags' | 'system1_sentinel'>('trigger_tags')
+const screenWatchingSentinelProvider = ref<'laya-local' | 'typesafe-ai' | 'openrouter-ai'>('laya-local')
+const screenWatchingSentinelQuestions = ref<SentinelQuestionItem[]>(JSON.parse(JSON.stringify(DEFAULT_SENTINEL_QUESTIONS)))
+const screenWatchingSentinelPolicy = ref<'any' | 'all'>('any')
+const screenWatchingSentinelThreshold = ref<number>(0.75)
+const screenWatchingSentinelEvidenceEnabled = ref<boolean>(true)
+
 // Sensors & Event Ledger
 const eventLedgerEnabled = ref<boolean>(true)
 const eventLedgerSampleDepth = ref<number>(6)
@@ -1088,6 +1129,12 @@ async function saveCard(card: Card): Promise<boolean> {
           respectSchedule: screenWatchingRespectSchedule.value,
           pauseWhenAfk: presencePauseWhenAfk.value,
           afkThresholdMinutes: presenceAfkThresholdMinutes.value,
+          gatingMode: screenWatchingGatingMode.value,
+          sentinelProvider: screenWatchingSentinelProvider.value,
+          sentinelQuestions: screenWatchingSentinelQuestions.value,
+          sentinelPolicy: screenWatchingSentinelPolicy.value,
+          sentinelThreshold: screenWatchingSentinelThreshold.value,
+          sentinelEvidenceEnabled: screenWatchingSentinelEvidenceEnabled.value,
         },
         eventLedger: {
           ...existingAiriExt?.eventLedger,
@@ -1414,6 +1461,14 @@ function initializeCard(): Card {
   screenWatchingVlmTier.value = airiExt?.screenWatching?.vlmTier
     ?? (screenWatchingEnableVlm.value ? 'moondream' : 'lightweight')
   screenWatchingRespectSchedule.value = airiExt?.screenWatching?.respectSchedule ?? true
+  screenWatchingGatingMode.value = airiExt?.screenWatching?.gatingMode ?? 'trigger_tags'
+  screenWatchingSentinelProvider.value = airiExt?.screenWatching?.sentinelProvider ?? 'laya-local'
+  screenWatchingSentinelQuestions.value = airiExt?.screenWatching?.sentinelQuestions
+    ? JSON.parse(JSON.stringify(airiExt.screenWatching.sentinelQuestions))
+    : JSON.parse(JSON.stringify(DEFAULT_SENTINEL_QUESTIONS))
+  screenWatchingSentinelPolicy.value = airiExt?.screenWatching?.sentinelPolicy ?? 'any'
+  screenWatchingSentinelThreshold.value = airiExt?.screenWatching?.sentinelThreshold ?? 0.75
+  screenWatchingSentinelEvidenceEnabled.value = airiExt?.screenWatching?.sentinelEvidenceEnabled ?? true
 
   // Sensors & Event Ledger
   eventLedgerEnabled.value = airiExt?.eventLedger?.enabled ?? true
@@ -1981,6 +2036,12 @@ function handleGeneratorSave(newValue: string) {
         v-model:screen-watching-enable-vlm="screenWatchingEnableVlm"
         v-model:screen-watching-vlm-tier="screenWatchingVlmTier"
         v-model:screen-watching-respect-schedule="screenWatchingRespectSchedule"
+        v-model:screen-watching-gating-mode="screenWatchingGatingMode"
+        v-model:screen-watching-sentinel-provider="screenWatchingSentinelProvider"
+        v-model:screen-watching-sentinel-questions="screenWatchingSentinelQuestions"
+        v-model:screen-watching-sentinel-policy="screenWatchingSentinelPolicy"
+        v-model:screen-watching-sentinel-threshold="screenWatchingSentinelThreshold"
+        v-model:screen-watching-sentinel-evidence-enabled="screenWatchingSentinelEvidenceEnabled"
         v-model:event-ledger-enabled="eventLedgerEnabled"
         v-model:event-ledger-sample-depth="eventLedgerSampleDepth"
         v-model:event-ledger-domains="eventLedgerDomains"

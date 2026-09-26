@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { isWithinSchedule } from '@proj-airi/stage-shared'
 import { useVisionSources } from '@proj-airi/stage-ui/composables'
-import { isModelCached } from '@proj-airi/stage-ui/libs/inference'
+import { downloadLayaModel, formatBytes, getLayaCacheSize, isLayaDownloaded, isModelCached } from '@proj-airi/stage-ui/libs/inference'
 import { useProactivityStore, useScreenWatcherStore } from '@proj-airi/stage-ui/stores'
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useVisionOrchestratorStore } from '@proj-airi/stage-ui/stores/modules/vision/orchestrator'
+import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
+import { Progress } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import {
   TooltipArrow,
@@ -82,6 +84,7 @@ const activeSubTab = ref<SubTabId>('schedule')
 watch(activeSubTab, (subTab) => {
   if (subTab === 'screen') {
     void checkModelCaches()
+    void checkLayaCache()
   }
   else if (subTab === 'ledger') {
     void refreshTelemetry()
@@ -91,6 +94,7 @@ watch(activeSubTab, (subTab) => {
 onMounted(() => {
   if (activeSubTab.value === 'screen') {
     void checkModelCaches()
+    void checkLayaCache()
   }
   else if (activeSubTab.value === 'ledger') {
     void refreshTelemetry()
@@ -152,6 +156,166 @@ const screenWatchingVlmTier = defineModel<'lightweight' | 'moondream' | 'externa
   default: 'lightweight',
 })
 const screenWatchingRespectSchedule = defineModel<boolean>('screenWatchingRespectSchedule', { default: true })
+
+export interface SentinelQuestionConfig {
+  id: string
+  text: string
+  enabled: boolean
+  threshold?: number
+}
+
+const screenWatchingGatingMode = defineModel<'trigger_tags' | 'system1_sentinel'>('screenWatchingGatingMode', { default: 'trigger_tags' })
+const screenWatchingSentinelProvider = defineModel<'laya-local' | 'typesafe-ai' | 'openrouter-ai'>('screenWatchingSentinelProvider', { default: 'laya-local' })
+const screenWatchingSentinelQuestions = defineModel<SentinelQuestionConfig[]>('screenWatchingSentinelQuestions', {
+  default: () => [
+    {
+      id: 'general_novelty',
+      text: 'Did a notable, unexpected, or socially meaningful event occur on screen that warrants companion proactive dialogue?',
+      enabled: true,
+      threshold: 0.75,
+    },
+    {
+      id: 'build_error',
+      text: 'Did the user encounter a compiler error, broken build, failing test run, or terminal exception?',
+      enabled: true,
+      threshold: 0.80,
+    },
+    {
+      id: 'social_chat',
+      text: 'Is the user messaging, chatting, or collaborating with a friend or colleague?',
+      enabled: true,
+      threshold: 0.75,
+    },
+    {
+      id: 'media_consumption',
+      text: 'Did the user start watching a notable video, live stream, or music release?',
+      enabled: false,
+      threshold: 0.70,
+    },
+  ],
+})
+const screenWatchingSentinelPolicy = defineModel<'any' | 'all'>('screenWatchingSentinelPolicy', { default: 'any' })
+const screenWatchingSentinelThreshold = defineModel<number>('screenWatchingSentinelThreshold', { default: 0.75 })
+const screenWatchingSentinelEvidenceEnabled = defineModel<boolean>('screenWatchingSentinelEvidenceEnabled', { default: true })
+
+const providersStore = useProvidersStore()
+const isLayaCached = ref(false)
+const layaCacheSize = ref(0)
+const isDownloadingLaya = ref(false)
+const layaProgress = ref(0)
+const layaDownloadError = ref('')
+
+const isTypeSafeConfigured = computed(() => Boolean(providersStore.configuredProviders['typesafe-ai']))
+const isOpenRouterConfigured = computed(() => Boolean(providersStore.configuredProviders['openrouter-ai']))
+
+async function checkLayaCache() {
+  try {
+    isLayaCached.value = await isLayaDownloaded('int8')
+    layaCacheSize.value = await getLayaCacheSize()
+  }
+  catch (e) {
+    console.warn('[CardCreationTabProactivity] Laya cache check error:', e)
+  }
+}
+
+async function handleDownloadLaya() {
+  if (isDownloadingLaya.value)
+    return
+
+  isDownloadingLaya.value = true
+  layaProgress.value = 0
+  layaDownloadError.value = ''
+
+  try {
+    await downloadLayaModel({
+      precision: 'int8',
+      onProgress: (p) => {
+        layaProgress.value = p.percentage
+      },
+    })
+    await checkLayaCache()
+    providersStore.forceProviderConfigured('laya-local')
+  }
+  catch (err: any) {
+    console.error('[CardCreationTabProactivity] Failed to download Laya:', err)
+    layaDownloadError.value = err?.message || 'Download failed'
+  }
+  finally {
+    isDownloadingLaya.value = false
+  }
+}
+
+const DEFAULT_PRESET_QUESTIONS = [
+  {
+    id: 'general_novelty',
+    label: 'Novelty & Social Events',
+    icon: 'i-solar:sparkles-bold-duotone',
+    text: 'Did a notable, unexpected, or socially meaningful event occur on screen that warrants companion proactive dialogue?',
+    threshold: 0.75,
+  },
+  {
+    id: 'build_error',
+    label: 'Compiler / Build Error',
+    icon: 'i-solar:danger-triangle-bold-duotone',
+    text: 'Did the user encounter a compiler error, broken build, failing test run, or terminal exception?',
+    threshold: 0.80,
+  },
+  {
+    id: 'social_chat',
+    label: 'Direct Messaging / Chat',
+    icon: 'i-solar:chat-round-line-bold-duotone',
+    text: 'Is the user messaging, chatting, or collaborating with a friend or colleague?',
+    threshold: 0.75,
+  },
+  {
+    id: 'media_consumption',
+    label: 'Video / Stream Watching',
+    icon: 'i-solar:play-circle-bold-duotone',
+    text: 'Did the user start watching a notable video, live stream, or music release?',
+    threshold: 0.70,
+  },
+]
+
+const newQuestionInput = ref('')
+
+function addCustomSentinelQuestion() {
+  const text = newQuestionInput.value.trim()
+  if (!text)
+    return
+  const id = `custom_${Date.now()}`
+  const questions = screenWatchingSentinelQuestions.value ? [...screenWatchingSentinelQuestions.value] : []
+  questions.push({
+    id,
+    text,
+    enabled: true,
+    threshold: screenWatchingSentinelThreshold.value || 0.75,
+  })
+  screenWatchingSentinelQuestions.value = questions
+  newQuestionInput.value = ''
+}
+
+function addPresetQuestion(preset: typeof DEFAULT_PRESET_QUESTIONS[number]) {
+  const questions = screenWatchingSentinelQuestions.value ? [...screenWatchingSentinelQuestions.value] : []
+  const existing = questions.find(q => q.id === preset.id)
+  if (existing) {
+    existing.enabled = true
+  }
+  else {
+    questions.push({
+      id: preset.id,
+      text: preset.text,
+      enabled: true,
+      threshold: preset.threshold,
+    })
+  }
+  screenWatchingSentinelQuestions.value = questions
+}
+
+function removeSentinelQuestion(index: number) {
+  const questions = screenWatchingSentinelQuestions.value ? [...screenWatchingSentinelQuestions.value] : []
+  questions.splice(index, 1)
+  screenWatchingSentinelQuestions.value = questions
+}
 
 // If user switches to direct commentary (screen:interpret), promote lightweight to external or moondream
 // since direct commentary requires full visual comprehension.
@@ -1128,14 +1292,50 @@ const intervalPresets = [2, 5, 10, 20]
             </div>
           </div>
 
-          <!-- 3. Salience Gating & Interest Keywords -->
-          <div class="flex flex-col gap-3 border-t border-neutral-100 pt-4 dark:border-neutral-800">
-            <span class="text-xs text-neutral-700 font-semibold tracking-wider uppercase dark:text-neutral-300">
-              3. Salience Gating & Interest Keywords
-            </span>
+          <!-- 3. Salience Gating & Screen Sentinel -->
+          <div class="flex flex-col gap-4 border-t border-neutral-100 pt-4 dark:border-neutral-800">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-neutral-700 font-semibold tracking-wider uppercase dark:text-neutral-300">
+                3. Salience Gating & Screen Sentinel
+              </span>
+              <span class="text-[10px] text-neutral-400 font-mono">
+                {{ screenWatchingGatingMode === 'system1_sentinel' ? '⚡ System-1 Cognitive Sentinel' : 'Keyword & Tag Matching' }}
+              </span>
+            </div>
 
-            <!-- Interest Tags -->
-            <div class="flex flex-col gap-2.5">
+            <!-- Segmented Mode Switcher -->
+            <div class="grid grid-cols-2 gap-1.5 border border-neutral-200/80 rounded-xl bg-neutral-100/70 p-1 dark:border-neutral-800 dark:bg-neutral-900/60">
+              <button
+                type="button"
+                :class="[
+                  'flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all',
+                  screenWatchingGatingMode === 'trigger_tags'
+                    ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
+                    : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200',
+                ]"
+                @click="screenWatchingGatingMode = 'trigger_tags'"
+              >
+                <div class="i-solar:hashtag-bold text-sm" />
+                <span>Trigger-Based (Tags & Keywords)</span>
+              </button>
+
+              <button
+                type="button"
+                :class="[
+                  'flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all',
+                  screenWatchingGatingMode === 'system1_sentinel'
+                    ? 'bg-primary-500 text-white shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200',
+                ]"
+                @click="screenWatchingGatingMode = 'system1_sentinel'"
+              >
+                <div class="i-solar:bolt-bold text-sm" />
+                <span>⚡ System-1 Cognitive Sentinel</span>
+              </button>
+            </div>
+
+            <!-- MODE 1: Trigger-Based (Tags & Keywords) -->
+            <div v-if="screenWatchingGatingMode === 'trigger_tags'" class="flex flex-col gap-2.5">
               <div class="flex items-center justify-between">
                 <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
                   High-Salience Interest Keywords & Filter Tags
@@ -1207,6 +1407,354 @@ const intervalPresets = [2, 5, 10, 20]
               </div>
 
               <span class="text-[11px] text-neutral-400">Frames matching these tags are automatically promoted and written to the Unified Event Ledger.</span>
+            </div>
+
+            <!-- MODE 2: System-1 Cognitive Sentinel -->
+            <div v-else class="flex flex-col gap-4">
+              <!-- Cognitive Engine Setup Panel -->
+              <div class="flex flex-col gap-2.5 border border-neutral-200/80 rounded-xl bg-neutral-50/70 p-3.5 dark:border-neutral-800 dark:bg-neutral-900/40">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="i-solar:cpu-bolt-bold-duotone text-sm text-primary-500" />
+                    <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-300">
+                      Cognitive Engine Backend
+                    </span>
+                  </div>
+                  <span class="text-[10px] text-neutral-400 font-mono">
+                    Non-Autoregressive Classifier (~100ms)
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <!-- Provider 1: Local Laya (ONNX) -->
+                  <button
+                    type="button"
+                    :class="[
+                      'flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all duration-150',
+                      screenWatchingSentinelProvider === 'laya-local'
+                        ? 'border-primary-500 bg-primary-50/40 text-primary-900 shadow-sm dark:bg-primary-950/30 dark:text-primary-200'
+                        : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300',
+                    ]"
+                    @click="screenWatchingSentinelProvider = 'laya-local'"
+                  >
+                    <div class="w-full flex items-center justify-between">
+                      <div class="flex items-center gap-1.5 text-xs font-semibold">
+                        <span class="i-solar:laptop-bold-duotone text-primary-500" />
+                        <span>Local Laya</span>
+                      </div>
+                      <span class="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[9px] text-emerald-600 font-medium dark:text-emerald-400">
+                        Zero Cost
+                      </span>
+                    </div>
+                    <p class="text-[11px] text-neutral-500 leading-snug dark:text-neutral-400">
+                      Local ModernBERT ONNX. 100% private, on-device screening.
+                    </p>
+                    <div class="mt-auto w-full pt-1">
+                      <span
+                        v-if="isLayaCached"
+                        class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400"
+                      >
+                        <span class="i-solar:check-circle-bold text-emerald-500" />
+                        Ready Offline ({{ formatBytes(layaCacheSize) }})
+                      </span>
+                      <div v-else class="flex flex-col gap-1.5">
+                        <div class="flex items-center justify-between gap-1">
+                          <span class="inline-flex items-center gap-1 text-[10px] text-amber-600 font-medium dark:text-amber-400">
+                            <span class="i-solar:danger-triangle-bold text-amber-500" />
+                            Not Cached
+                          </span>
+                          <button
+                            type="button"
+                            class="inline-flex items-center gap-1 rounded bg-primary-600 px-2 py-0.5 text-[10px] text-white font-medium hover:bg-primary-500 disabled:opacity-50"
+                            :disabled="isDownloadingLaya"
+                            @click.stop="handleDownloadLaya"
+                          >
+                            <span v-if="isDownloadingLaya" class="i-solar:restart-bold animate-spin text-[10px]" />
+                            <span v-else class="i-solar:download-square-bold text-[10px]" />
+                            <span>{{ isDownloadingLaya ? `${layaProgress}%` : 'Download' }}</span>
+                          </button>
+                        </div>
+                        <Progress v-if="isDownloadingLaya" :progress="layaProgress" class="h-1.5" />
+                        <span v-if="layaDownloadError" class="text-[9px] text-red-500">
+                          {{ layaDownloadError }}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+
+                  <!-- Provider 2: TypeSafe Jev (Cloud) -->
+                  <button
+                    type="button"
+                    :class="[
+                      'flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all duration-150',
+                      screenWatchingSentinelProvider === 'typesafe-ai'
+                        ? 'border-primary-500 bg-primary-50/40 text-primary-900 shadow-sm dark:bg-primary-950/30 dark:text-primary-200'
+                        : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300',
+                    ]"
+                    @click="screenWatchingSentinelProvider = 'typesafe-ai'"
+                  >
+                    <div class="w-full flex items-center justify-between">
+                      <div class="flex items-center gap-1.5 text-xs font-semibold">
+                        <span class="i-solar:cloud-bold-duotone text-violet-500" />
+                        <span>TypeSafe Jev</span>
+                      </div>
+                      <span class="rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-600 font-medium dark:text-violet-400">
+                        Cloud Fast
+                      </span>
+                    </div>
+                    <p class="text-[11px] text-neutral-500 leading-snug dark:text-neutral-400">
+                      Ultra-fast discrete logits triage. Sub-120ms latency.
+                    </p>
+                    <div class="mt-auto w-full pt-1">
+                      <span
+                        v-if="isTypeSafeConfigured"
+                        class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400"
+                      >
+                        <span class="i-solar:check-circle-bold text-emerald-500" />
+                        Configured
+                      </span>
+                      <span
+                        v-else
+                        class="inline-flex items-center gap-1 text-[10px] text-amber-600 font-medium dark:text-amber-400"
+                      >
+                        <span class="i-solar:danger-triangle-bold text-amber-500" />
+                        API Key Required in Providers
+                      </span>
+                    </div>
+                  </button>
+
+                  <!-- Provider 3: OpenRouter Decisions -->
+                  <button
+                    type="button"
+                    :class="[
+                      'flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all duration-150',
+                      screenWatchingSentinelProvider === 'openrouter-ai'
+                        ? 'border-primary-500 bg-primary-50/40 text-primary-900 shadow-sm dark:bg-primary-950/30 dark:text-primary-200'
+                        : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300',
+                    ]"
+                    @click="screenWatchingSentinelProvider = 'openrouter-ai'"
+                  >
+                    <div class="w-full flex items-center justify-between">
+                      <div class="flex items-center gap-1.5 text-xs font-semibold">
+                        <span class="i-solar:server-square-bold-duotone text-sky-500" />
+                        <span>OpenRouter</span>
+                      </div>
+                      <span class="rounded bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-600 font-medium dark:text-sky-400">
+                        Alpha Decisions
+                      </span>
+                    </div>
+                    <p class="text-[11px] text-neutral-500 leading-snug dark:text-neutral-400">
+                      OpenRouter alpha decisions endpoint using Jev models.
+                    </p>
+                    <div class="mt-auto w-full pt-1">
+                      <span
+                        v-if="isOpenRouterConfigured"
+                        class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400"
+                      >
+                        <span class="i-solar:check-circle-bold text-emerald-500" />
+                        Configured
+                      </span>
+                      <span
+                        v-else
+                        class="inline-flex items-center gap-1 text-[10px] text-amber-600 font-medium dark:text-amber-400"
+                      >
+                        <span class="i-solar:danger-triangle-bold text-amber-500" />
+                        API Key Required in Providers
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Sentinel Question Tripwire Manager -->
+              <div class="flex flex-col gap-2.5">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                      Active Sentinel Questions (Natural Language Tripwires)
+                    </label>
+                  </div>
+                  <span class="text-[10px] text-neutral-400 font-mono">
+                    {{ (screenWatchingSentinelQuestions || []).filter(q => q.enabled).length }} active tripwire{{ (screenWatchingSentinelQuestions || []).filter(q => q.enabled).length === 1 ? '' : 's' }}
+                  </span>
+                </div>
+
+                <!-- Questions List -->
+                <div class="flex flex-col gap-2">
+                  <div
+                    v-for="(q, idx) in screenWatchingSentinelQuestions"
+                    :key="q.id"
+                    :class="[
+                      'flex flex-col gap-2 rounded-xl border p-3 transition-all',
+                      q.enabled
+                        ? 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900'
+                        : 'border-neutral-200/60 bg-neutral-100/60 opacity-60 dark:border-neutral-800 dark:bg-neutral-950/40',
+                    ]"
+                  >
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="flex flex-1 items-start gap-2.5">
+                        <input
+                          v-model="q.enabled"
+                          type="checkbox"
+                          class="mt-1 h-4 w-4 border-neutral-300 rounded text-primary-600 dark:border-neutral-700 focus:ring-primary-500"
+                        >
+                        <div class="flex flex-1 flex-col gap-1">
+                          <input
+                            v-model="q.text"
+                            type="text"
+                            class="w-full border border-transparent rounded-lg bg-transparent px-2 py-1 text-xs text-neutral-800 font-medium transition-colors focus:border-primary-400 hover:border-neutral-200 focus:bg-white dark:text-neutral-200 focus:outline-none dark:focus:bg-neutral-800"
+                            placeholder="Sentinel prompt / question..."
+                          >
+                        </div>
+                      </div>
+
+                      <div class="flex items-center gap-2">
+                        <!-- Per-question sensitivity threshold -->
+                        <div class="flex items-center gap-1.5 rounded-lg bg-neutral-100 px-2 py-1 dark:bg-neutral-800">
+                          <span class="text-[10px] text-neutral-500 font-medium dark:text-neutral-400">
+                            Sensitivity:
+                          </span>
+                          <span class="text-[10px] text-primary-600 font-semibold font-mono dark:text-primary-400">
+                            {{ Math.round((q.threshold ?? screenWatchingSentinelThreshold ?? 0.75) * 100) }}%
+                          </span>
+                        </div>
+
+                        <!-- Delete button -->
+                        <button
+                          type="button"
+                          title="Remove Sentinel Question"
+                          class="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40"
+                          @click="removeSentinelQuestion(idx)"
+                        >
+                          <span class="i-lucide:trash text-xs" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Add Custom Question Input -->
+                <div class="flex items-center gap-2 border border-neutral-200 rounded-xl bg-neutral-50/80 p-2 dark:border-neutral-700 dark:bg-neutral-950">
+                  <input
+                    v-model="newQuestionInput"
+                    type="text"
+                    placeholder="+ Add custom sentinel tripwire question (e.g. 'Is the user looking at flight tickets?')..."
+                    class="flex-1 bg-transparent px-2.5 py-1.5 text-xs text-neutral-800 outline-none dark:text-neutral-200 placeholder-neutral-400"
+                    @keydown.enter.prevent="addCustomSentinelQuestion()"
+                  >
+                  <button
+                    type="button"
+                    class="rounded-lg bg-neutral-200/80 px-3 py-1.5 text-xs text-neutral-700 font-semibold transition-colors dark:bg-neutral-800 hover:bg-primary-500 dark:text-neutral-300 hover:text-white dark:hover:bg-primary-600 dark:hover:text-white"
+                    @click="addCustomSentinelQuestion()"
+                  >
+                    Add Tripwire
+                  </button>
+                </div>
+
+                <!-- Quick-Add Presets -->
+                <div class="mt-1 flex flex-col gap-2 border-t border-neutral-100 pt-2.5 dark:border-neutral-800">
+                  <span class="text-[11px] text-neutral-500 font-medium dark:text-neutral-400">Quick-Add Presets</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="preset in DEFAULT_PRESET_QUESTIONS"
+                      :key="preset.id"
+                      type="button"
+                      class="flex cursor-pointer items-center gap-1.5 border border-neutral-300 rounded-lg border-dashed bg-white px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-all dark:border-neutral-700 hover:border-primary-400 dark:bg-neutral-800/80 hover:bg-primary-50 dark:text-neutral-300 hover:text-primary-600 dark:hover:border-primary-600 dark:hover:bg-primary-950/50 dark:hover:text-primary-300"
+                      @click="addPresetQuestion(preset)"
+                    >
+                      <div :class="[preset.icon, 'text-xs text-primary-500']" />
+                      <span>+ {{ preset.label }}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Trigger Policy, Sensitivity & Semantic Evidence Settings -->
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <!-- Trigger Policy -->
+                <div class="flex flex-col gap-1.5 border border-neutral-200 rounded-xl bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                      Trigger Policy
+                    </label>
+                    <span class="text-[10px] text-neutral-400 font-mono">
+                      {{ screenWatchingSentinelPolicy === 'any' ? 'OR' : 'AND' }}
+                    </span>
+                  </div>
+                  <div class="grid grid-cols-2 gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      :class="[
+                        'rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-center',
+                        screenWatchingSentinelPolicy === 'any'
+                          ? 'bg-primary-500 text-white font-semibold'
+                          : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+                      ]"
+                      @click="screenWatchingSentinelPolicy = 'any'"
+                    >
+                      Any Question (OR)
+                    </button>
+                    <button
+                      type="button"
+                      :class="[
+                        'rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-center',
+                        screenWatchingSentinelPolicy === 'all'
+                          ? 'bg-primary-500 text-white font-semibold'
+                          : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+                      ]"
+                      @click="screenWatchingSentinelPolicy = 'all'"
+                    >
+                      All Questions (AND)
+                    </button>
+                  </div>
+                  <span class="text-[10px] text-neutral-400 leading-tight">
+                    {{ screenWatchingSentinelPolicy === 'any' ? 'Promote if at least one active tripwire exceeds threshold.' : 'Promote only if all active tripwires agree.' }}
+                  </span>
+                </div>
+
+                <!-- Global Sensitivity Slider -->
+                <div class="flex flex-col gap-1.5 border border-neutral-200 rounded-xl bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                      Default Trigger Sensitivity
+                    </label>
+                    <span class="text-xs text-primary-600 font-semibold font-mono dark:text-primary-400">
+                      {{ Math.round((screenWatchingSentinelThreshold || 0.75) * 100) }}%
+                    </span>
+                  </div>
+                  <input
+                    v-model.number="screenWatchingSentinelThreshold"
+                    type="range"
+                    min="0.50"
+                    max="0.95"
+                    step="0.05"
+                    class="mt-2 h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-neutral-200 accent-primary-600 dark:bg-neutral-700"
+                  >
+                  <div class="flex justify-between text-[10px] text-neutral-400 font-mono">
+                    <span>50% (Chatty)</span>
+                    <span>75% (Balanced)</span>
+                    <span>95% (Strict)</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Semantic Evidence Attachment Toggle -->
+              <div class="flex items-start gap-2.5 border border-primary-200/70 rounded-xl bg-primary-50/40 p-3.5 dark:border-primary-900/60 dark:bg-primary-950/20">
+                <input
+                  id="sentinel-evidence-enabled"
+                  v-model="screenWatchingSentinelEvidenceEnabled"
+                  type="checkbox"
+                  class="mt-0.5 h-4 w-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
+                >
+                <div class="flex flex-col gap-0.5">
+                  <label for="sentinel-evidence-enabled" class="text-xs text-neutral-800 font-semibold dark:text-neutral-100">
+                    Semantic Evidence Attachment (Entity Ledger Grounding)
+                  </label>
+                  <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+                    Cross-references recognized on-screen names (e.g. "Kyo", "GitHub PR") against character memory and Unified Event Ledger so System-1 understands personal and social significance.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

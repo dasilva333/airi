@@ -186,37 +186,50 @@ Jev is an exact match for Nan0's **Pre-Processor Reflex Engine** operating insid
 - **Rigid Predefined Tag Groups**: The legacy Cascaded Salience Gate attempted to map screen contents against static, hardcoded tag dictionaries (e.g. `"coding"`, `"gaming"`, `"reading"`). This approach is brittle, misses contextual nuances, fails on arbitrary user tasks, and requires tedious dictionary maintenance.
 - **Prohibitive VLM Cost**: Querying a heavy cloud Vision-Language Model (GPT-4o / Claude 3.5 Sonnet) on every visual delta costs $5.00–$15.00 per million tokens and imposes 1,500ms–3,000ms latency, making continuous screen-awareness financially impractical.
 
-#### 2. The Jev Solution: Streamlined Pipeline with Programmable Natural Language Gate
+#### 2. The Jev Solution: Streamlined Pipeline with Programmable Natural Language Gate & Semantic Evidence
 We replace rigid tag groupings with a clean, 3-stage attention pipeline:
 
-$$\text{Screen Frame} \xrightarrow[\text{Delta Check}]{\text{Stage 0: pHash}} \text{Changed Crop} \xrightarrow[\text{Local Text/OCR}]{\text{Stage 1: Visual Descriptor}} \text{Summary Text} \xrightarrow[\sim 100\text{ms / } \$0.000004]{\text{Stage 2: Jev Natural Language Gate}} \text{Proactive Turn Dispatch}$$
+$$\text{Screen Frame} \xrightarrow[\text{Delta Check}]{\text{Stage 0: pHash}} \text{Changed Crop} \xrightarrow[\text{Local Text/OCR}]{\text{Stage 1: Chrono-Log}} \text{Buffer + Entity Evidence} \xrightarrow[\sim 100\text{ms / } \$0.000004]{\text{Stage 2: Jev Parallel Tripwire Gate}} \text{Proactive Turn Dispatch}$$
 
 1. **Stage 0 (`pHash` Delta)**: Ultrafast pixel-hash comparison running every 2–5 seconds. If desktop changes are below perceptual threshold (e.g. cursor blink or static reading), the cycle exits at 0% CPU/cost.
-2. **Stage 1 (Visual Descriptor)**: When significant change occurs, a lightweight local model (WASM OCR, local Moondream micro-VLM, or CLIP captioner) produces a concise single-sentence summary of the active screen region:
-   - *Example*: `"VS Code terminal displayed: 'TypeError: Cannot read properties of undefined (reading calculateBalance)'"`.
-   - *Example*: `"Chrome browser tab switched to Zillow showing a 2-bedroom apartment in Tokyo for ¥180,000/mo"`.
-3. **Stage 2 (Jev Programmable Natural Language Gate)**:
-   Instead of testing against a dictionary of tags, Jev evaluates natural language questions directly against the visual descriptor in **~100ms for ~$0.000004**:
-   - **Zero-Config Smart Gate**:
-     ```json
-     {
-       "type": "noul",
-       "instructions": "Given the visual descriptor of the user's screen ('{visual_descriptor}'), did a notable, unexpected, or socially meaningful event occur that warrants companion proactive dialogue?"
-     }
+2. **Stage 1 (VLM Chrono-Log & Semantic Evidence Attachment)**:
+   Instead of evaluating isolated single frames, the system maintains a rolling ring buffer of recent visual captions:
+   ```text
+   [30s ago] Active window: VS Code. Terminal displayed build failed in auth.ts.
+   [15s ago] Active window: Chrome. YouTube tab: "Tiny Desk Concert".
+   [0s ago]  Active window: Discord. Chat with "kyo": "Hey, can you review this PR before the release?"
+   ```
+   **Semantic Search & Evidence Attachment**:
+   Before dispatching to System 1, the pipeline scans recognized tokens against AIRI's **Entity Ledger** (`useEntityLedgerStore`) and episodic memory:
+   - Recognizes `"kyo"` on screen $\rightarrow$ resolves: *"Kyo: Close friend, collaborator on release PR"*.
+   - Injects the contextual anchor directly into the Jev state packet:
+     ```text
+     OBSERVED CONTEXT:
+     - 30s ago: Broken build in VS Code.
+     - 15s ago: YouTube stream.
+     - 0s ago: Discord chat with Kyo asking for PR review.
+     ENTITY EVIDENCE:
+     - Kyo is a close collaborator working with the user on this project.
      ```
-   - **Fully User-Programmable Natural Language Gate**:
-     Power users can literally type their own custom question trigger directly into Settings > Vision, turning Jev into a programmable visual sentinel without editing code:
-     - *"Did my code compilation or test suite fail with an error?"*
-     - *"Did the player character die, encounter a boss, or drop to critical health?"*
-     - *"Is the user browsing for flights, hotels, or vacation rentals?"*
-   - Only when Jev returns `probability > 0.75` does AIRI wake the primary System-2 LLM to generate spoken dialogue grounded in the visual event.
+3. **Stage 2 (Jev Multi-Question Sentinel Tripwires)**:
+   Jev evaluates user-configured sentinel questions simultaneously in a single forward pass:
+   - `meaningful_event`: *"Did a notable, unexpected, or socially meaningful event occur that warrants proactive companion dialogue?"*
+   - `build_error`: *"Did my code compilation or test suite fail with an error?"*
+   - `social_milestone`: *"Is the user messaging or collaborating with a close friend or colleague?"*
+4. **Trigger Policies**:
+   - **`Any (max(prob) >= threshold)`** *(Recommended Default)*: Evaluates as a multi-tripwire sentinel. If *any* active question crosses the sensitivity threshold (e.g. $\ge 0.75$), the event is promoted to LLM.
+   - **`All (min(prob) >= threshold)`**: Composite mode requiring all active conditions to hold simultaneously.
 
 #### 3. Code Anchors & Integration Surface Map
+- **Character Card Proactivity Tab**: [`packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabProactivity.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabProactivity.vue)
+  - Section 3: Segmented control between `Trigger-Based (Tags & Keywords)` and `System-1 Cognitive Sentinel (Jev / Laya)`.
+  - Reuses the **Cognitive Engine Setup Control** from [`CognitionSubTabMemory.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/airi-card/components/tabs/cognition/CognitionSubTabMemory.vue) (provider selector `typesafe-ai` / `openrouter-ai` / `laya-local` + Laya model download/cache indicator).
+  - Exposes natural-language Question Manager (add/edit/delete questions, toggle active, per-question sensitivity).
 - **Vision Orchestrator Store**: [`packages/stage-ui/src/stores/modules/vision/orchestrator.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/vision/orchestrator.ts)
   - Method: `processCapture(payload: VisionCapturePayload)` (:240). Currently routes to `adapter.process(...)` with `payload.interestTags`.
   - Dispatches context promotions via `publishContext(summary, workloadId, sourceId)` (:209) and tracks promotion discipline via `recordPromotion()` (:202).
-- **Vision Store & Settings**: [`packages/stage-ui/src/stores/modules/vision.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/vision.ts)
-  - Key to persist user custom gate prompt: `settings/vision/programmable-gate-question` (defaults to empty string for zero-config smart mode).
+- **Entity Ledger Store**: [`packages/stage-ui/src/stores/entity-ledger.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/entity-ledger.ts)
+  - Provides semantic entity resolution to enrich visual chrono-logs with biographical and relational context.
 - **System 1 Decision Store**: [`packages/stage-ui/src/stores/modules/system-one.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/system-one.ts)
   - Composable: `useSystemOneStore()`. Evaluates `execute(state, questions)` via OpenRouter Decisions or TypeSafe direct.
 

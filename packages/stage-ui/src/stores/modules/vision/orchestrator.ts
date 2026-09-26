@@ -14,6 +14,7 @@
 
 import type { AttentionGuardAdapter } from '../../../libs/inference/adapters/attention-guard'
 import type { AttentionGuardProcessResult } from '../../../libs/inference/contract'
+import type { SentinelQuestionConfig } from '../airi-card'
 
 import { ContextUpdateStrategy } from '@proj-airi/server-sdk'
 import { defineStore } from 'pinia'
@@ -22,10 +23,12 @@ import { ref } from 'vue'
 import { ATTENTION_GUARD_WORKLOAD_ID } from '../../../composables/vision/use-vision-workloads'
 import { createAttentionGuardAdapter } from '../../../libs/inference/adapters/attention-guard'
 import { useChatOrchestratorStore } from '../../chat'
+import { useEntityLedgerStore } from '../../entity-ledger'
 import { useLLM } from '../../llm'
 import { useModsServerChannelStore } from '../../mods/api/channel-server'
 import { useProvidersStore } from '../../providers'
 import { useLiveSessionStore } from '../live-session'
+import { useSystemOneStore } from '../system-one'
 import { useVisionStore } from '../vision'
 
 export { ATTENTION_GUARD_WORKLOAD_ID, useVisionWorkloads, VISION_WORKLOADS } from '../../../composables/vision/use-vision-workloads'
@@ -34,6 +37,13 @@ export { ATTENTION_GUARD_WORKLOAD_ID, useVisionWorkloads, VISION_WORKLOADS } fro
 const ATTENTION_BUDGET_PER_HOUR = 3
 /** §6: hysteresis cooldown after a promotion (threshold spikes, then decays). */
 const HYSTERESIS_COOLDOWN_MS = 60_000
+
+export interface ChronoLogEntry {
+  timestamp: number
+  activeWindow?: string
+  caption: string
+  rawOcrSnippet?: string
+}
 
 export interface VisionCapturePayload {
   /** Base64/URL-encoded capture frame. */
@@ -46,6 +56,94 @@ export interface VisionCapturePayload {
   interestTags?: string[]
   enableVlm?: boolean
   vlmTier?: 'lightweight' | 'moondream' | 'external'
+  gatingMode?: 'trigger_tags' | 'system1_sentinel'
+  sentinelProvider?: 'laya-local' | 'typesafe-ai' | 'openrouter-ai'
+  sentinelModel?: string
+  sentinelQuestions?: SentinelQuestionConfig[]
+  sentinelPolicy?: 'any' | 'all'
+  sentinelThreshold?: number
+  sentinelEvidenceEnabled?: boolean
+  activeWindow?: string
+}
+
+const CHRONO_LOG_MAX_ENTRIES = 5
+const chronoLogBuffer: ChronoLogEntry[] = []
+
+export function appendChronoLogEntry(entry: ChronoLogEntry): void {
+  chronoLogBuffer.push(entry)
+  while (chronoLogBuffer.length > CHRONO_LOG_MAX_ENTRIES) {
+    chronoLogBuffer.shift()
+  }
+}
+
+export function getChronoLogEntries(): readonly ChronoLogEntry[] {
+  return chronoLogBuffer
+}
+
+export function clearChronoLog(): void {
+  chronoLogBuffer.length = 0
+}
+
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+export async function enrichChronoLogWithEntities(
+  chronoEntries: ChronoLogEntry[],
+): Promise<{ formattedHistory: string, attachedEvidence: string[] }> {
+  const attachedEvidence: string[] = []
+  const now = Date.now()
+
+  try {
+    const entityLedgerStore = useEntityLedgerStore()
+    const combinedText = chronoEntries.map(e => `${e.activeWindow || ''} ${e.caption}`).join(' ')
+
+    const entities = entityLedgerStore.entities || []
+    if (entities.length > 0) {
+      const matched = entities.filter((entity) => {
+        if (!entity.label)
+          return false
+        const labelRegex = new RegExp(`\\b${escapeRegExp(entity.label)}\\b`, 'i')
+        if (labelRegex.test(combinedText))
+          return true
+        if (entity.mentions) {
+          for (const mention of entity.mentions) {
+            if (mention && new RegExp(`\\b${escapeRegExp(mention)}\\b`, 'i').test(combinedText))
+              return true
+          }
+        }
+        return false
+      })
+
+      const claims = entityLedgerStore.claims || []
+      for (const ent of matched.slice(0, 3)) {
+        const relatedClaims = claims
+          .filter(c => c.subject === ent.label || c.object === ent.label)
+          .slice(0, 2)
+          .map(c => `${c.subject} ${c.predicate} ${c.object}`)
+
+        const contextDetail = relatedClaims.length > 0
+          ? relatedClaims.join('; ')
+          : (ent.attributes?.summary || ent.attributes?.relationship || 'Recognized entity in memory')
+
+        attachedEvidence.push(`- Entity: ${ent.label} (${ent.type || 'Entity'}). Context: ${contextDetail}`)
+      }
+    }
+  }
+  catch (e) {
+    console.warn('[Vision Orchestrator] Entity ledger scan error:', e)
+  }
+
+  const formattedHistory = chronoEntries.map((e) => {
+    const elapsedSec = Math.max(0, Math.round((now - e.timestamp) / 1000))
+    const windowPrefix = e.activeWindow ? `[App: ${e.activeWindow}] ` : ''
+    return `[${elapsedSec}s ago] ${windowPrefix}${e.caption}`
+  }).join('\n')
+
+  return {
+    formattedHistory,
+    attachedEvidence,
+  }
 }
 
 export interface VisionOrchestratorResult {
@@ -254,6 +352,104 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
 
         lastResultAt.value = Date.now()
         lastError.value = null
+
+        const currentCaption = result.caption
+          || (result.summary ? result.summary.replace(/\[Visual Event\]\s*/g, '').trim() : '')
+          || (result.ocrErrorPatterns?.length ? `Terminal/code patterns: ${result.ocrErrorPatterns.join(', ')}` : '')
+          || (result.interestKeywords?.length ? `Keywords: ${result.interestKeywords.join(', ')}` : 'Screen activity observed')
+
+        if (result.decision !== 'IGNORE') {
+          appendChronoLogEntry({
+            timestamp: payload.timestamp || Date.now(),
+            activeWindow: payload.activeWindow,
+            caption: currentCaption,
+          })
+        }
+
+        // System-1 Cognitive Sentinel evaluation
+        if (payload.gatingMode === 'system1_sentinel') {
+          const systemOneStore = useSystemOneStore()
+          const activeQuestions = (payload.sentinelQuestions || []).filter(q => q.enabled)
+
+          if (activeQuestions.length > 0 && systemOneStore.configured) {
+            try {
+              const { formattedHistory, attachedEvidence } = payload.sentinelEvidenceEnabled !== false
+                ? await enrichChronoLogWithEntities(chronoLogBuffer)
+                : {
+                    formattedHistory: chronoLogBuffer.map(e => `[${Math.max(0, Math.round((Date.now() - e.timestamp) / 1000))}s ago] ${e.activeWindow ? `[${e.activeWindow}] ` : ''}${e.caption}`).join('\n'),
+                    attachedEvidence: [],
+                  }
+
+              const stateText = [
+                `CURRENT SCREEN OBSERVATION:`,
+                currentCaption,
+                `\nRECENT VISUAL CHRONO-LOG (LAST ${chronoLogBuffer.length} FRAMES):`,
+                formattedHistory || `[0s ago] ${currentCaption}`,
+                attachedEvidence.length > 0 ? `\nRELEVANT ENTITY & RELATIONAL EVIDENCE:\n${attachedEvidence.join('\n')}` : '',
+              ].filter(Boolean).join('\n')
+
+              const questionsMap: Record<string, { type: 'noul', instructions: string }> = {}
+              for (const q of activeQuestions) {
+                questionsMap[q.id] = {
+                  type: 'noul',
+                  instructions: `Given this screen observation and historical context, evaluate truth probability: ${q.text}`,
+                }
+              }
+
+              console.log(`[Vision Orchestrator] ⚡ Evaluating System-1 Sentinel (${activeQuestions.length} tripwires, provider=${payload.sentinelProvider || 'laya-local'})...`)
+              const res = await systemOneStore.execute(
+                stateText,
+                questionsMap,
+                payload.sentinelModel,
+              )
+
+              let shouldPromote = false
+              let maxConfidence = 0
+              let triggeringQuestionText = ''
+              const fallbackThreshold = payload.sentinelThreshold ?? 0.75
+
+              if (payload.sentinelPolicy === 'all') {
+                shouldPromote = activeQuestions.every((q) => {
+                  const ans = res.answers?.[q.id]
+                  const prob = ans?.noul ?? 0
+                  const targetThreshold = q.threshold ?? fallbackThreshold
+                  return prob >= targetThreshold
+                })
+                if (shouldPromote) {
+                  triggeringQuestionText = 'All sentinel conditions satisfied'
+                  maxConfidence = Math.min(...activeQuestions.map(q => res.answers?.[q.id]?.noul ?? 0))
+                }
+              }
+              else {
+                // Default: 'any'
+                for (const q of activeQuestions) {
+                  const ans = res.answers?.[q.id]
+                  const prob = ans?.noul ?? 0
+                  const targetThreshold = q.threshold ?? fallbackThreshold
+                  if (prob >= targetThreshold) {
+                    shouldPromote = true
+                    if (prob > maxConfidence) {
+                      maxConfidence = prob
+                      triggeringQuestionText = q.text
+                    }
+                  }
+                }
+              }
+
+              if (shouldPromote) {
+                result.decision = 'PROMOTE'
+                result.summary = `[System-1 Sentinel Alert: "${triggeringQuestionText}" (${Math.round(maxConfidence * 100)}%)]\n${currentCaption}`
+                console.log(`[Vision Orchestrator] 🚨 System-1 Sentinel TRIPWIRE TRIGGERED: "${triggeringQuestionText}" (${Math.round(maxConfidence * 100)}% >= threshold)`)
+              }
+              else {
+                result.decision = 'NOTE'
+              }
+            }
+            catch (sentinelErr) {
+              console.warn('[Vision Orchestrator] System-1 Sentinel evaluation failed, falling back to heuristic tags:', sentinelErr)
+            }
+          }
+        }
 
         if (result.decision === 'PROMOTE') {
           // If external VLM tier is selected, query the global VLM for a rich scene caption

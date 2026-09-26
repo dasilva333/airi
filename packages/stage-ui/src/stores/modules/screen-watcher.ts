@@ -415,6 +415,14 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
         enableVlm: isMoondream,
         vlmTier: config.vlmTier || (config.enableVlm ? 'moondream' : 'lightweight'),
         timestamp: snapshot.timestamp || Date.now(),
+        gatingMode: config.gatingMode || 'trigger_tags',
+        sentinelProvider: config.sentinelProvider || 'laya-local',
+        sentinelModel: config.sentinelModel,
+        sentinelQuestions: config.sentinelQuestions ? toRaw(config.sentinelQuestions) : undefined,
+        sentinelPolicy: config.sentinelPolicy || 'any',
+        sentinelThreshold: config.sentinelThreshold ?? 0.75,
+        sentinelEvidenceEnabled: config.sentinelEvidenceEnabled ?? true,
+        activeWindow: proactivityStore.activeWinStr,
       })
       lastLatencyMs.value = Math.round(performance.now() - tickStart)
       lastDecision.value = processed?.decision || 'UNKNOWN'
