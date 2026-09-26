@@ -119,7 +119,7 @@ function resetToDefault() {
           :class="[
             'h-6 w-11 rounded-full bg-neutral-200 dark:bg-neutral-600',
             'after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white',
-            'after:transition-all after:content-[\'\']',
+            'after:transition-all after:content-empty',
             'peer-checked:bg-primary-500 peer-checked:after:translate-x-full peer-checked:after:border-white',
           ]"
         />
