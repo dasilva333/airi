@@ -351,7 +351,6 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       return
     }
 
-    isCapturing.value = true
     lastError.value = null
 
     try {
@@ -386,6 +385,8 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
           return
         }
       }
+
+      isCapturing.value = true
 
       const resLabel = useNative
         ? (displaySize ? `native ${displaySize.width}×${displaySize.height}` : 'native')
