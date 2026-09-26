@@ -48,23 +48,23 @@ function handleMouseMove(event: MouseEvent) {
   const pAngle = (50 - xPercent) + (50 - yPercent)
   const opacity = 0.5 + (Math.abs(pAngle) * 0.008 * props.intensity)
 
-  // Update style values
-  transformStyle.value = `perspective(1200px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(${1 + 0.015 * props.intensity}, ${1 + 0.015 * props.intensity}, ${1 + 0.015 * props.intensity})`
+  // Update style values without fractional scale3d to prevent GPU texture blur
+  transformStyle.value = `perspective(1200px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`
   gradientPosition.value = `${leftPos}% ${topPos}%`
   sparklePosition.value = `${sparkleX}% ${sparkleY}%`
   sparkleOpacity.value = opacity
 }
 
 function resetCard() {
-  transformStyle.value = 'perspective(1200px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)'
+  transformStyle.value = ''
   gradientPosition.value = '50% 50%'
   sparklePosition.value = '50% 50%'
   sparkleOpacity.value = 0.5
 }
 
 onMounted(() => {
-  // Initialize with default transform to ensure smooth transitions
-  transformStyle.value = 'perspective(1200px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)'
+  // Clear transform when resting to allow native subpixel rendering
+  transformStyle.value = ''
 })
 </script>
 
@@ -87,8 +87,13 @@ onMounted(() => {
 .card-hover-effect {
   transform-style: preserve-3d;
   transform-origin: center;
-  will-change: transform;
   transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.card-hover-effect:hover {
+  will-change: transform;
 }
 
 .card-hover-effect::before,
