@@ -31,10 +31,23 @@ const DELTA_PIXEL_THRESHOLD = 24
 const DELTA_PROJECTION_RATIO = 0.004
 const BBOX_PAD = 40
 
-/** Grayscale luminance from an RGB/RGBA/grayscale raw buffer. */
-export function toGray(raw: Uint8Array, width: number, height: number, channels: number): GrayBuffer {
-  const data = new Uint8Array(width * height)
-  for (let i = 0; i < data.length; i++) {
+/**
+ * Grayscale luminance from an RGB/RGBA/grayscale raw buffer.
+ * Reuses target.data if passed and dimensions match, avoiding multi-megabyte allocations per tick.
+ */
+export function toGray(
+  raw: Uint8Array,
+  width: number,
+  height: number,
+  channels: number,
+  target?: GrayBuffer | null,
+): GrayBuffer {
+  const total = width * height
+  const data = (target && target.width === width && target.height === height && target.data.length === total)
+    ? target.data
+    : new Uint8Array(total)
+
+  for (let i = 0; i < total; i++) {
     const base = i * channels
     if (channels >= 3) {
       const r = raw[base]
@@ -50,9 +63,15 @@ export function toGray(raw: Uint8Array, width: number, height: number, channels:
   return { width, height, data }
 }
 
-/** Box-average downscale of a grayscale buffer (aHash front-end). */
-export function boxResizeGray(src: GrayBuffer, targetWidth: number, targetHeight: number): Uint8Array {
-  const out = new Uint8Array(targetWidth * targetHeight)
+/** Box-average downscale of a grayscale buffer (aHash front-end). Reuses target buffer if supplied. */
+export function boxResizeGray(
+  src: GrayBuffer,
+  targetWidth: number,
+  targetHeight: number,
+  targetOut?: Uint8Array | null,
+): Uint8Array {
+  const total = targetWidth * targetHeight
+  const out = (targetOut && targetOut.length === total) ? targetOut : new Uint8Array(total)
   const xScale = src.width / targetWidth
   const yScale = src.height / targetHeight
   for (let ty = 0; ty < targetHeight; ty++) {
@@ -76,12 +95,12 @@ export function boxResizeGray(src: GrayBuffer, targetWidth: number, targetHeight
 }
 
 /** 1024-bit average-hash (aHash) over a 32x32 luma grid. */
-export function computeAHash(gray32: Uint8Array): { bits: Uint8Array, hex: string } {
+export function computeAHash(gray32: Uint8Array, targetBits?: Uint8Array | null): { bits: Uint8Array, hex: string } {
   let mean = 0
   for (let i = 0; i < gray32.length; i++) mean += gray32[i]
   mean /= gray32.length
 
-  const bits = new Uint8Array(HASH_BITS)
+  const bits = (targetBits && targetBits.length === HASH_BITS) ? targetBits : new Uint8Array(HASH_BITS)
   const hexBytes: number[] = []
   let byteAcc = 0
   for (let i = 0; i < HASH_BITS; i++) {
@@ -110,14 +129,29 @@ export function hammingDistance(a: Uint8Array, b: Uint8Array): number {
 /** Fraction of changed pixels above which the frame is treated as a full redraw (window/app switch). */
 const FULL_FRAME_CHANGE_RATIO = 0.5
 
-/** Bounding box of pixels that changed between two same-dims frames. */
+// Reusable scratch typed arrays for computeDeltaBBox projection to avoid V8 array churn
+let sharedRows: Uint32Array | null = null
+let sharedCols: Uint32Array | null = null
+
+/** Bounding box of pixels that changed between two same-dims frames. Reuses scratch projection buffers. */
 export function computeDeltaBBox(prev: GrayBuffer, curr: GrayBuffer): DeltaBBox | null {
   if (prev.width !== curr.width || prev.height !== curr.height)
     return null
   const width = prev.width
   const height = prev.height
-  const rows = new Array(height).fill(0)
-  const cols = new Array(width).fill(0)
+
+  if (!sharedRows || sharedRows.length < height)
+    sharedRows = new Uint32Array(height)
+  else
+    sharedRows.fill(0, 0, height)
+
+  if (!sharedCols || sharedCols.length < width)
+    sharedCols = new Uint32Array(width)
+  else
+    sharedCols.fill(0, 0, width)
+
+  const rows = sharedRows
+  const cols = sharedCols
 
   let changedCount = 0
   for (let y = 0; y < height; y++) {

@@ -48,6 +48,9 @@ const { context } = createContext()
 
 interface GuardState {
   prevGray: GrayBuffer | null
+  currentGray: GrayBuffer | null
+  scratchGray32: Uint8Array
+  scratchCurHash: Uint8Array
   prevHash: Uint8Array | null
   centroid: Float32Array | null
   accepted: Float32Array[]
@@ -57,6 +60,9 @@ interface GuardState {
 
 const state: GuardState = {
   prevGray: null,
+  currentGray: null,
+  scratchGray32: new Uint8Array(32 * 32),
+  scratchCurHash: new Uint8Array(1024),
   prevHash: null,
   centroid: null,
   accepted: [],
@@ -79,6 +85,7 @@ async function detectWebGPUInWorker(): Promise<boolean> {
 
 function resetTickState(): void {
   state.prevGray = null
+  state.currentGray = null
   state.prevHash = null
   state.centroid = null
   state.accepted = []
@@ -201,10 +208,10 @@ defineStreamInvokeHandler(context, attentionGuardLoadEvent, toStreamHandler<any,
 
 defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, interestTags }) => {
   const stageMs = { stage0Ms: 0, stage1Ms: 0, stage2Ms: 0, stage3Ms: 0 }
+  let rawImage: RawImage | null = null
 
   try {
     // -- decode + Stage 0 perceptual hash -------------------------------------
-    let rawImage: RawImage
     try {
       rawImage = await RawImage.fromURL(dataUrl)
     }
@@ -224,9 +231,16 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
 
     const raw = rawImage.data as Uint8Array
     const channels = rawImage.channels
-    const gray = toGray(raw, rawImage.width, rawImage.height, channels)
-    const gray32 = boxResizeGray(gray, 32, 32)
-    const { bits: curHash } = computeAHash(gray32)
+
+    // Ping-pong buffer reuse: write into currentGray, reusing allocated Uint8Array
+    state.currentGray = toGray(raw, rawImage.width, rawImage.height, channels, state.currentGray)
+    const gray = state.currentGray
+
+    // Reuse preallocated 32x32 luma buffer
+    const gray32 = boxResizeGray(gray, 32, 32, state.scratchGray32)
+
+    // Reuse preallocated 1024-bit hash buffer
+    const { bits: curHash } = computeAHash(gray32, state.scratchCurHash)
 
     if (state.prevHash === null) {
       // First tick: seed the baseline work centroid v0.
@@ -235,8 +249,11 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
       stageMs.stage1Ms = performance.now() - t1
       state.centroid = embedding
       state.accepted = [embedding]
-      state.prevGray = gray
-      state.prevHash = curHash
+
+      // Clone current into prev for the initial baseline
+      state.prevGray = { width: gray.width, height: gray.height, data: new Uint8Array(gray.data) }
+      state.prevHash = new Uint8Array(curHash)
+
       return {
         decision: 'BASELINE',
         stage0Delta: 0,
@@ -256,8 +273,12 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
 
     if (normDistance < STAGE0_HAMMING_MIN) {
       // Static tick: 0-cost drop before any neural model.
-      state.prevGray = gray
-      state.prevHash = curHash
+      // Swap current into prev without allocating new memory
+      const temp = state.prevGray
+      state.prevGray = state.currentGray
+      state.currentGray = temp
+      state.prevHash.set(curHash)
+
       return {
         decision: 'IGNORE',
         stage0Delta: normDistance,
@@ -303,10 +324,11 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
     const isInterestMatch = ocrInterestTags.length >= OCR_INTEREST_KEYWORD_MIN
     const promote = isErrorCascade || isInterestMatch
 
-    // Update rolling state. NOTE-level frames join the centroid (routine drift
-    // becomes the new "normal"); event frames never shift it.
-    state.prevGray = gray
-    state.prevHash = curHash
+    // Update rolling state via zero-allocation buffer swap.
+    const temp = state.prevGray
+    state.prevGray = state.currentGray
+    state.currentGray = temp
+    state.prevHash.set(curHash)
 
     // -- Stage 3: semantic forwarder & summary synthesis --------------------
     let summary: string | undefined
@@ -386,6 +408,10 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
       interestKeywords: [],
       stageMs,
     } satisfies AttentionGuardProcessResult
+  }
+  finally {
+    // Explicitly release 20MB RawImage Uint8Array reference so it can be GC'd immediately
+    rawImage = null
   }
 })
 
