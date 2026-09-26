@@ -126,7 +126,7 @@ const { t } = useI18n()
       </div>
 
       <!-- Greetings (Merged from Behavior) -->
-      <div class="max-w-full">
+      <div class="full-width-field">
         <FieldValues v-model="cardGreetings" :label="t('settings.pages.card.creation.greetings')" :description="t('settings.pages.card.creation.fields_info.greetings')">
           <template #label>
             <div class="flex items-center gap-2">
@@ -199,6 +199,12 @@ const { t } = useI18n()
 <style scoped>
 .input-list > * {
   min-width: 45%;
+}
+
+.input-list > .full-width-field {
+  min-width: 100%;
+  width: 100%;
+  flex-basis: 100%;
 }
 
 @media (max-width: 641px) {
