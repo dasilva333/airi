@@ -77,13 +77,13 @@ function handleNextBatch() {
   <nav
     :aria-label="t('onboarding.stepper.ariaLabel')"
     style="-webkit-app-region: no-drag;"
-    :class="['flex items-center space-x-1.5 bg-black/5 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-white/5 rounded-full px-2 py-1 text-xs select-none']"
+    :class="['flex items-center space-x-1.5 bg-[#EDF2F6] dark:bg-neutral-900/60 border border-[#D8E6EF] dark:border-white/5 rounded-full px-2 py-1 text-xs select-none']"
   >
     <!-- Left Overflow Chevron / Clickable Skip Back -->
     <button
       v-if="windowRange.hasLeftOverflow"
       type="button"
-      :class="['p-0.5 rounded-full text-neutral-400 hover:text-primary-500 dark:text-neutral-500 dark:hover:text-primary-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors flex items-center justify-center']"
+      :class="['p-0.5 rounded-full text-[#50657D] hover:text-[#007FA3] dark:text-neutral-500 dark:hover:text-cyan-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors flex items-center justify-center']"
       :title="t('onboarding.stepper.prevStep')"
       @click="handlePrevBatch"
     >
@@ -99,8 +99,8 @@ function handleNextBatch() {
         :class="[
           'px-2.5 py-0.5 rounded-full text-xs transition-all whitespace-nowrap cursor-pointer',
           step.index === props.currentIndex
-            ? 'bg-primary-600 text-white font-semibold shadow-md shadow-primary-600/25'
-            : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white font-medium hover:bg-black/5 dark:hover:bg-white/5',
+            ? 'bg-[#007FA3] text-white font-semibold shadow-md shadow-[#007FA3]/25'
+            : 'text-[#50657D] hover:text-[#142333] dark:text-neutral-400 dark:hover:text-white font-medium hover:bg-black/5 dark:hover:bg-white/5',
         ]"
         @click="handleStepClick(step.index)"
       >
@@ -112,7 +112,7 @@ function handleNextBatch() {
     <button
       v-if="windowRange.hasRightOverflow"
       type="button"
-      :class="['p-0.5 rounded-full text-neutral-400 hover:text-primary-500 dark:text-neutral-500 dark:hover:text-primary-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors flex items-center justify-center']"
+      :class="['p-0.5 rounded-full text-[#50657D] hover:text-[#007FA3] dark:text-neutral-500 dark:hover:text-cyan-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors flex items-center justify-center']"
       :title="t('onboarding.stepper.nextStep')"
       @click="handleNextBatch"
     >
@@ -125,7 +125,7 @@ function handleNextBatch() {
         <button
           type="button"
           :class="[
-            'ml-0.5 p-1 rounded-full text-neutral-400 hover:text-neutral-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer flex items-center justify-center',
+            'ml-0.5 p-1 rounded-full text-[#50657D] hover:text-[#142333] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer flex items-center justify-center',
           ]"
           :title="t('onboarding.stepper.jumpToStep')"
         >

@@ -189,8 +189,7 @@ function handleSetupSkipped() {
   <!-- First Time Setup Dialog -->
   <div
     v-if="showingSetup"
-    class="fixed inset-0 z-[9999] overflow-hidden bg-neutral-900/40 backdrop-blur-2xl"
-    style="-webkit-backdrop-filter: blur(30px);"
+    class="fixed inset-0 z-[9999] overflow-hidden bg-[#F6F9FC] dark:bg-neutral-950"
   >
     <OnboardingV3
       @close="handleSetupSkipped"

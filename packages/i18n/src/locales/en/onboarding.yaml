@@ -13,28 +13,27 @@ shell:
   next: Continue
   skip: Setup Later
   brand: AIRI Companion Setup
-  stageReady: Stage Ready
+  stageReady: Ready
   closeSetup: Close Setup (Save for Later)
-  placeholderNotice: This module configuration is being provisioned. You can proceed to the next
-    step.
+  placeholderNotice: This module configuration is being provisioned. You can
+    proceed to the next step.
 
 steps:
   welcome:
     label: Welcome
     subtitle: Private Companion Studio
     heroTitle: Welcome to AIRI
-    heroSubtitle: Your companion's stage — set up in minutes, 100% on your machine.
-    companionQuote: Hello! I’m your autonomous digital companion. Whether you want
-      voice conversation, creative stage performances, or a quiet desktop
-      presence, I’m ready to adapt to your world.
+    heroSubtitle: Your digital companion, made your own.
+    companionQuote: Hi, I'm AIRI. We can talk, create, or simply share a quiet
+      moment. Let's make this space feel like you.
     pills:
-      webgpu: Local WebGPU Core
-      offline: 100% Offline & Private
-      souls: Mix & Match Souls + Bodies
+      webgpu: Local AI support
+      offline: Offline options
+      souls: Custom voices & avatars
     actions:
-      quickStart: Quick Start (60s)
-      guidedSetup: Guided Setup
-      setupLater: Setup Later
+      quickStart: Quick start ≈ 1 min
+      guidedSetup: Guided setup
+      setupLater: Set up later
     dialog:
       savedTitle: Setup Saved for Later
       savedDescription: 'You can reopen your companion setup anytime by clicking the
@@ -75,13 +74,13 @@ steps:
       restoring: Restoring companions...
       restoreAll: Restore & Launch Stage
     stepBadge: Architecture Triage · Step {current} of {total}
-    companionGreeting: Welcome to AIRI! Choose how you'd like to set up your stage. You can run
-      100% locally and offline, or sign in to sync across devices.
+    companionGreeting: Welcome to AIRI! Choose how you'd like to set up your stage.
+      You can run 100% locally and offline, or sign in to sync across devices.
     local:
       badge: Offline First
       title: Local Companion (Air-Gapped)
-      description: 100% offline and private. All companion cards, memories, and state are
-        stored locally in your browser/desktop database with zero cloud
+      description: 100% offline and private. All companion cards, memories, and state
+        are stored locally in your browser/desktop database with zero cloud
         telemetry.
       selectedCta: Selected (Air-Gapped)
       selectCta: Choose Local Mode
@@ -92,8 +91,8 @@ steps:
     cloud:
       badge: 10 GB Free + Cloud Sync
       title: Account Sign-In (Cloudflare)
-      description: Connect your account to unlock 10 GB of free storage, daily edge
-        AI credits, and 24/7 companion presence across devices.
+      description: Connect your account to unlock 10 GB of free storage, daily edge AI
+        credits, and 24/7 companion presence across devices.
       selectedCta: Selected (Cloud-Backed)
       selectCta: Choose Cloud Sync
       features:
@@ -104,29 +103,46 @@ steps:
         f5: Private CORS Proxy & Zero-Custody
         storage:
           title: 10 GB Free Cloud Storage
-          desc: Back up 3D models, custom backgrounds, and full memory vaults with zero egress fees.
+          desc: Back up 3D models, custom backgrounds, and full memory vaults with zero
+            egress fees.
           howItWorks: Powered by user-owned Cloudflare R2 object storage.
-          whyItMatters: Generous free tier with plenty of room for dozens of VRM/Live2D models and years of chat history. Unlike AWS S3, downloading your assets is 100% free with $0 bandwidth fees.
+          whyItMatters: Generous free tier with plenty of room for dozens of VRM/Live2D
+            models and years of chat history. Unlike AWS S3, downloading your
+            assets is 100% free with $0 bandwidth fees.
         ai:
           title: Free Daily Edge AI Credits
-          desc: 10,000 free daily Neurons for DeepSeek, Qwen & Llama (no API key required).
-          howItWorks: Directly connects to Cloudflare Workers AI during Step 8 (Consciousness).
-          whyItMatters: Chat immediately with cutting-edge open models at the edge without needing an OpenAI subscription, paid credit card, or a high-end local gaming GPU.
+          desc: 10,000 free daily Neurons for DeepSeek, Qwen & Llama (no API key
+            required).
+          howItWorks: Directly connects to Cloudflare Workers AI during Step 8
+            (Consciousness).
+          whyItMatters: Chat immediately with cutting-edge open models at the edge without
+            needing an OpenAI subscription, paid credit card, or a high-end
+            local gaming GPU.
         relay:
           title: 24/7 Discord Cloud Relay
-          desc: Keep your companion awake in your Discord server even when your PC is turned off.
-          howItWorks: Runs as a serverless Cloudflare Worker (@proj-airi/stage-edge) handling Discord interaction webhooks.
-          whyItMatters: Your companion stays alive 24/7 to chat in Discord, stores context in Edge KV, and syncs conversations back to your desktop when you reopen AIRI.
+          desc: Keep your companion awake in your Discord server even when your PC is
+            turned off.
+          howItWorks: Runs as a serverless Cloudflare Worker (@proj-airi/stage-edge)
+            handling Discord interaction webhooks.
+          whyItMatters: Your companion stays alive 24/7 to chat in Discord, stores context
+            in Edge KV, and syncs conversations back to your desktop when you
+            reopen AIRI.
         sync:
           title: Multi-Device Sync & 1-Click Restore
           desc: Seamlessly sync Desktop, Web, and Mobile; restore companions in one click.
-          howItWorks: Edge Key Vault (airi-edge-vault) securely tracks your active companion state.
-          whyItMatters: Reinstalling AIRI or moving to a new laptop/phone automatically brings back your companion, settings, and memories without manual key entry.
+          howItWorks: Edge Key Vault (airi-edge-vault) securely tracks your active
+            companion state.
+          whyItMatters: Reinstalling AIRI or moving to a new laptop/phone automatically
+            brings back your companion, settings, and memories without manual
+            key entry.
         proxy:
           title: Private CORS Proxy & Zero-Custody
           desc: Access tricky local & remote AI APIs with 100% zero-custody data privacy.
-          howItWorks: Deploys a personal edge reverse proxy to bypass browser CORS headers for Web & Mobile stages.
-          whyItMatters: Everything runs in your personal Cloudflare account. AIRI operates zero intermediate servers and never reads, stores, or harvests your conversations.
+          howItWorks: Deploys a personal edge reverse proxy to bypass browser CORS headers
+            for Web & Mobile stages.
+          whyItMatters: Everything runs in your personal Cloudflare account. AIRI operates
+            zero intermediate servers and never reads, stores, or harvests your
+            conversations.
     auth:
       connected: Connected to Cloudflare
       disconnect: Disconnect
@@ -212,20 +228,20 @@ steps:
         title: The Quiet Observer
         badge: ⚡ Fastest · Minimalist
         subtitle: Text, Expressions & Memory
-        description: Zero audio overhead, avatar emotions, thinking pacing, and long-term
-          memory.
+        description: Zero audio overhead, avatar emotions, thinking pacing, and
+          long-term memory.
       casual:
         title: The Casual Companion
         badge: ✨ Popular Choice
         subtitle: Voice Dialogue & Vision
-        description: Live speech transcription (STT), emotional voice (TTS), photo vision,
-          natural pacing, and memory.
+        description: Live speech transcription (STT), emotional voice (TTS), photo
+          vision, natural pacing, and memory.
       muse:
         title: The Creative Muse
         badge: 🎨 Visual Focus
         subtitle: Voice, Vision & Artistry
-        description: Spoken dialogue, image generation (Pollinations/ComfyUI), chat vision,
-          and expressive morphs.
+        description: Spoken dialogue, image generation (Pollinations/ComfyUI), chat
+          vision, and expressive morphs.
       copilot:
         title: The Executive Copilot
         badge: 💼 Productivity
