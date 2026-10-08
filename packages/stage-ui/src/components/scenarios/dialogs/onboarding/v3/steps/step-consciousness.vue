@@ -13,6 +13,7 @@ import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
 import CloudflareConnectDialog from '../../../cloudflare/CloudflareConnectDialog.vue'
+import ProviderPickerGrid from '../components/provider-picker-grid.vue'
 
 import { DEFAULT_WEB_LLM_FP32_MODEL, WEB_LLM_MODELS } from '../../../../../../libs/inference/constants'
 import { NativeAI } from '../../../../../../libs/native-ai'
