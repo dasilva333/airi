@@ -421,6 +421,8 @@ steps:
     subconsciousAsides: Subconscious Spoken Asides (Needle 2 WASM)
     asidesDescription: Permit companion to vocalize inner train-of-thought
       mutterings while generating complex answers.
+    companionGreeting: Tune how your companion pauses and speaks while thinking. Choose a cadence
+      that matches your model's reasoning speed.
 
   emotions:
     label: Emotions

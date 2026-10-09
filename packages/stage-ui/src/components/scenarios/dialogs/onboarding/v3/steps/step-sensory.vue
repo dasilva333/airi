@@ -18,7 +18,7 @@ const screenWatcherEnabled = ref<boolean>(draft.state.screenWatcherEnabled !== f
 const screenWatcherMode = ref<'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'>(
   draft.state.screenWatcherMode || 'voice-and-bubble',
 )
-const screenWatcherTier = ref<'lightweight' | 'moondream'>(
+const screenWatcherTier = ref<'lightweight' | 'moondream' | 'external'>(
   draft.state.screenWatcherTier || 'lightweight',
 )
 const screenWatcherInterval = ref<number>(

@@ -455,11 +455,11 @@ export function populateAiriExtensions(
     airi.screenWatching = {
       enabled: Boolean(draft.screenWatcherEnabled),
       deliveryMode: draft.screenWatcherMode === 'voice-and-bubble' ? 'both' : draft.screenWatcherMode === 'bubble-only' ? 'bubble_only' : draft.screenWatcherMode === 'voice-only' ? 'tts_only' : 'off',
-      sourceType: 'displays',
-      sourceId: 'primary',
+      sourceType: draft.screenWatcherSourceType || 'displays',
+      sourceId: draft.screenWatcherSourceId || 'primary',
       captureIntervalMs: draft.screenWatcherInterval || 2000,
       downscalePercent: 50,
-      workload: draft.screenWatcherTier === 'moondream' ? 'screen:interpret' : 'screen:ocr',
+      workload: draft.screenWatcherTier === 'external' ? 'attention-guard' : draft.screenWatcherTier === 'moondream' ? 'screen:interpret' : 'screen:ocr',
       publishToContext: true,
       interestTags: [],
       deferWhileSpeaking: true,
@@ -468,6 +468,7 @@ export function populateAiriExtensions(
       respectSchedule: Boolean(draft.operatingScheduleEnabled),
       pauseWhenAfk: Boolean(draft.pauseOnAfk),
       afkThresholdMinutes: draft.afkMinutes || 5,
+      vlmTier: draft.screenWatcherTier || 'lightweight',
     }
   }
 

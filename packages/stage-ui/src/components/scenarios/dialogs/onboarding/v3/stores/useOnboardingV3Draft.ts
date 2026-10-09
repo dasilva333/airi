@@ -87,8 +87,10 @@ export interface OnboardingV3DraftState {
   artistryImageJournalToolEnabled?: boolean
   screenWatcherEnabled?: boolean
   screenWatcherMode?: 'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'
-  screenWatcherTier?: 'lightweight' | 'moondream'
+  screenWatcherTier?: 'lightweight' | 'moondream' | 'external'
   screenWatcherInterval?: number
+  screenWatcherSourceType?: 'displays' | 'applications'
+  screenWatcherSourceId?: string
   heartbeatsEnabled?: boolean
   heartbeatsInterval?: number
   operatingScheduleEnabled?: boolean
@@ -279,7 +281,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     toolMotionGeneratorEnabled: false,
     artistryImageJournalToolEnabled: false,
     personaCardId: 'default',
-    personaSource: 'preset',
+    personaSource: 'creator',
     sttProvider: 'whisper-local',
     sttModel: 'onnx-community/whisper-tiny',
     sttTriggerKey: 'Caps',
@@ -313,7 +315,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
   }
   if (!state.value.personaCardId) {
     state.value.personaCardId = 'default'
-    state.value.personaSource = 'preset'
+    state.value.personaSource = 'creator'
   }
   if (!state.value.sttProvider) {
     state.value.sttProvider = 'whisper-local'
@@ -567,7 +569,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
   function setSensory(sensory: {
     screenWatcherEnabled?: boolean
     screenWatcherMode?: 'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'
-    screenWatcherTier?: 'lightweight' | 'moondream'
+    screenWatcherTier?: 'lightweight' | 'moondream' | 'external'
     screenWatcherInterval?: number
     heartbeatsEnabled?: boolean
     heartbeatsInterval?: number
@@ -650,8 +652,10 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
   function setScreen(screen: {
     screenWatcherEnabled?: boolean
     screenWatcherMode?: 'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'
-    screenWatcherTier?: 'lightweight' | 'moondream'
+    screenWatcherTier?: 'lightweight' | 'moondream' | 'external'
     screenWatcherInterval?: number
+    screenWatcherSourceType?: 'displays' | 'applications'
+    screenWatcherSourceId?: string
   }) {
     if (screen.screenWatcherEnabled !== undefined)
       state.value.screenWatcherEnabled = screen.screenWatcherEnabled
@@ -661,6 +665,10 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.screenWatcherTier = screen.screenWatcherTier
     if (screen.screenWatcherInterval !== undefined)
       state.value.screenWatcherInterval = screen.screenWatcherInterval
+    if (screen.screenWatcherSourceType !== undefined)
+      state.value.screenWatcherSourceType = screen.screenWatcherSourceType
+    if (screen.screenWatcherSourceId !== undefined)
+      state.value.screenWatcherSourceId = screen.screenWatcherSourceId
   }
 
   function setProactivity(proactivity: {

@@ -11,6 +11,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ArtPreviewModal from '../components/art-preview-modal.vue'
+import AssistantBubble from '../components/assistant-bubble.vue'
 import ComfyuiWorkflowModal from '../components/comfyui-workflow-modal.vue'
 
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
@@ -49,16 +50,6 @@ const activeVesselName = computed(() => {
 })
 
 const hasPersonaTags = computed(() => (draft.state.customCharacterTags?.length ?? 0) > 0)
-
-const promptSourceLabel = computed(() => {
-  if (hasPersonaTags.value) {
-    const name = draft.state.companionName
-      || draft.state.customCharacterCardBundle?.data?.name
-      || activeVesselName.value
-    return `${name} (Persona Tags)`
-  }
-  return activeVesselName.value
-})
 
 function buildPromptFromPersona(): string {
   const charName = draft.state.companionName
@@ -131,6 +122,7 @@ const providers = [
   {
     id: 'pollinations' as const,
     name: 'Pollinations AI',
+    secondary: 'Hosted service',
     badge: '100% Free / Zero-Config',
     badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
     desc: 'Instant cloud image generation without API keys or accounts.',
@@ -138,7 +130,8 @@ const providers = [
   },
   {
     id: 'comfyui' as const,
-    name: 'ComfyUI (Local)',
+    name: 'ComfyUI',
+    secondary: 'Your server',
     badge: 'Local Node',
     badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
     desc: 'Execute custom workflows on localhost:8188 or WSL node.',
@@ -147,6 +140,7 @@ const providers = [
   {
     id: 'nanobanana' as const,
     name: 'Nano Banana',
+    secondary: 'Google AI Studio',
     badge: 'Google AI Studio',
     badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
     desc: 'Native Google Gemini image synthesis models.',
@@ -155,6 +149,7 @@ const providers = [
   {
     id: 'replicate' as const,
     name: 'Replicate.ai',
+    secondary: 'Cloud service',
     badge: 'Cloud API',
     badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
     desc: 'High-resolution LoRAs, FLUX, and specialized checkpoints.',
@@ -162,7 +157,8 @@ const providers = [
   },
   {
     id: 'none' as const,
-    name: 'None (Disabled)',
+    name: 'None',
+    secondary: 'Image generation off',
     badge: 'Disabled',
     badgeColor: 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20',
     desc: 'Bypass all image generation and visual manifestations.',
@@ -345,90 +341,118 @@ function handleNext() {
 </script>
 
 <template>
-  <div :class="['w-full max-w-4xl mx-auto flex flex-col justify-between flex-1 space-y-4 my-auto animate-fadeIn select-none']">
-    <!-- Top Header -->
-    <div>
-      <div :class="['flex items-center gap-2 text-xs text-neutral-400 mb-0.5']">
-        <span :class="['text-primary-500 dark:text-primary-400 font-medium']">{{ t('onboarding.steps.artistry.label') }}</span>
-        <span>• {{ t('onboarding.steps.artistry.subtitle') }}</span>
+  <div :class="['w-full h-full flex flex-col justify-between select-none animate-fadeIn']">
+    <!-- Scrollable Content Body -->
+    <div :class="['flex-1 min-h-0 min-w-0 overflow-y-auto px-4 sm:px-6 pt-2 pb-5 flex flex-col gap-4']">
+      <!-- Shared centered header -->
+      <div :class="['flex flex-col items-center text-center gap-3 flex-shrink-0']">
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            Artistry
+          </h1>
+        </div>
+
+        <AssistantBubble
+          message="Choose how I create images, and when I bring our stories to life."
+          step-key="artistry"
+          tone="primary"
+        />
       </div>
-      <h2 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
-        {{ t('onboarding.steps.artistry.title') }}
-      </h2>
-      <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
-        {{ t('onboarding.steps.artistry.description') }}
-      </p>
-    </div>
 
-    <!-- Scrollable Workspace Container -->
-    <div :class="['space-y-4 overflow-y-auto max-h-[58vh] pr-1.5 custom-scrollbar']">
-      <!-- 1. BACKEND PROVIDER & DYNAMIC SETUP ROW -->
-      <div :class="['rounded-2xl border border-neutral-200 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] p-4.5 space-y-4 shadow-sm']">
-        <div :class="['flex items-center justify-between']">
-          <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-2']">
-            <span>🎨</span> Image Generation Backend & Engine
-          </span>
-          <span :class="['text-[10px] text-neutral-400']">Global Synthesizer</span>
-        </div>
-
-        <!-- Provider Selection Horizontal Grid -->
-        <div :class="['grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs']">
-          <div
-            v-for="p in providers"
-            :key="p.id"
-            :class="[
-              'cursor-pointer p-3 rounded-xl border transition-all text-left flex flex-col justify-between',
-              selectedProvider === p.id
-                ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10 shadow-sm'
-                : 'border-neutral-200 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.01] hover:border-neutral-300 dark:hover:border-white/20',
-            ]"
-            @click="selectedProvider = p.id"
-          >
-            <div>
-              <div :class="['flex items-center justify-between gap-1']">
-                <div :class="[p.icon, 'text-lg', selectedProvider === p.id ? 'text-primary-500' : 'text-neutral-400']" />
-                <div v-if="selectedProvider === p.id" :class="['i-solar:check-circle-bold text-primary-500 text-sm shrink-0']" />
-              </div>
-              <div :class="['text-xs font-bold mt-2 text-neutral-900 dark:text-neutral-100 line-clamp-1']">
-                {{ p.name }}
-              </div>
-              <span :class="['mt-1 inline-block rounded px-1.5 py-0.5 text-[9px] font-medium border', p.badgeColor]">
-                {{ p.badge }}
-              </span>
+      <!-- Two-panel workspace -->
+      <div :class="['w-full max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,48fr)_minmax(0,52fr)] gap-4 lg:gap-5 items-stretch']">
+        <!-- Left panel: image generation -->
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :delay="100"
+          :class="[
+            'rounded-[20px] border p-5 sm:p-6 min-w-0 min-h-0 flex flex-col gap-4',
+            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
+          ]"
+        >
+          <div :class="['flex items-start gap-2.5']">
+            <div :class="['h-8 w-8 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center flex-shrink-0']">
+              <div :class="['i-solar:gallery-round-bold-duotone h-4 w-4']" />
+            </div>
+            <div :class="['min-w-0']">
+              <h2 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+                Image generation
+              </h2>
+              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                Choose the service that creates your images.
+              </p>
             </div>
           </div>
-        </div>
 
-        <!-- Dynamic Contextual Credentials / Setup Row -->
-        <div v-if="selectedProvider !== 'none'" :class="['pt-2 border-t border-neutral-200 dark:border-white/5 space-y-3']">
-          <!-- Pollinations AI: Optional Pollen Token -->
-          <div v-if="selectedProvider === 'pollinations'" :class="['space-y-1.5']">
-            <div :class="['flex items-center justify-between text-xs']">
-              <label :class="['font-medium text-neutral-700 dark:text-neutral-300']">
-                Pollinations API Key / Pollen Token <span :class="['text-neutral-400 text-[10px]']">(Optional)</span>
-              </label>
-              <span :class="['text-[10px] text-emerald-500 dark:text-emerald-400 font-mono']">✓ Free mode active without key</span>
-            </div>
-            <input
-              v-model="apiKey"
-              type="password"
-              placeholder="Leave blank for 100% free mode, or enter token for FLUX/Grok"
-              :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-primary-500 focus:outline-none font-mono']"
-              @input="syncDraft"
+          <!-- Provider rows -->
+          <div :class="['flex flex-col gap-2']">
+            <button
+              v-for="p in providers"
+              :key="p.id"
+              type="button"
+              :class="[
+                'w-full p-3 rounded-xl border text-left flex items-center gap-3 transition-all cursor-pointer min-w-0',
+                selectedProvider === p.id
+                  ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10 ring-1 ring-primary-500/30'
+                  : 'border-neutral-200/80 dark:border-neutral-800 bg-white/60 dark:bg-white/[0.02] hover:border-neutral-300 dark:hover:border-neutral-700',
+              ]"
+              @click="selectedProvider = p.id"
             >
+              <div :class="['w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg', selectedProvider === p.id ? 'bg-primary-500/15 text-primary-500' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500']">
+                <div :class="[p.icon]" />
+              </div>
+              <div :class="['flex-1 min-w-0']">
+                <div :class="['text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate']">
+                  {{ p.name }}
+                </div>
+                <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 truncate']">
+                  {{ p.secondary }}
+                </div>
+              </div>
+              <div :class="['w-4 h-4 rounded-full border flex items-center justify-center shrink-0', selectedProvider === p.id ? 'border-primary-500 bg-primary-500' : 'border-neutral-300 dark:border-neutral-700']">
+                <div v-if="selectedProvider === p.id" :class="['w-1.5 h-1.5 rounded-full bg-white']" />
+              </div>
+            </button>
           </div>
 
-          <!-- ComfyUI: Server URL + Health Test + Workflow JSON Uploader -->
-          <div v-else-if="selectedProvider === 'comfyui'" :class="['space-y-3']">
-            <div :class="['grid grid-cols-1 sm:grid-cols-12 gap-3 items-end']">
-              <div :class="['sm:col-span-7 space-y-1']">
-                <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">ComfyUI Server URL</label>
+          <!-- Dynamic Contextual Credentials / Setup Row -->
+          <div v-if="selectedProvider !== 'none'" :class="['pt-2 border-t border-neutral-200 dark:border-white/5 space-y-3']">
+            <!-- Pollinations AI: Optional Pollen Token -->
+            <div v-if="selectedProvider === 'pollinations'" :class="['space-y-1.5']">
+              <div :class="['flex items-center justify-between text-xs']">
+                <label :class="['font-medium text-neutral-700 dark:text-neutral-300']">
+                  Pollinations API Key / Pollen Token <span :class="['text-neutral-400 text-[10px]']">(Optional)</span>
+                </label>
+                <span :class="['text-[10px] text-emerald-500 dark:text-emerald-400 font-mono']">✓ Free mode active without key</span>
+              </div>
+              <input
+                v-model="apiKey"
+                type="password"
+                placeholder="Leave blank for 100% free mode, or enter token for FLUX/Grok"
+                :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-primary-500 focus:outline-none font-mono']"
+                @input="syncDraft"
+              >
+            </div>
+
+            <!-- ComfyUI: Server URL + Workflow + JSON Upload -->
+            <div v-else-if="selectedProvider === 'comfyui'" :class="['space-y-3']">
+              <div :class="['space-y-1.5']">
+                <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">ComfyUI server:</label>
                 <div :class="['flex gap-2']">
                   <input
                     v-model="comfyServerUrl"
                     type="text"
                     placeholder="http://127.0.0.1:8188"
-                    :class="['flex-1 rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 focus:border-primary-500 focus:outline-none font-mono']"
+                    :class="['flex-1 min-w-0 rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 focus:border-primary-500 focus:outline-none font-mono']"
                     @input="syncDraft"
                   >
                   <button
@@ -443,8 +467,21 @@ function handleNext() {
                 </div>
               </div>
 
-              <!-- Upload workflow_api.json Button -->
-              <div :class="['sm:col-span-5']">
+              <div :class="['space-y-1.5']">
+                <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">Workflow:</label>
+                <select
+                  v-model="selectedModel"
+                  :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2.5 text-xs text-neutral-800 dark:text-neutral-200 focus:border-primary-500 focus:outline-none cursor-pointer']"
+                  @change="syncDraft"
+                >
+                  <option v-for="opt in currentModelOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Upload workflow_api.json -->
+              <div :class="['space-y-1.5']">
                 <input
                   ref="fileInputRef"
                   type="file"
@@ -454,112 +491,125 @@ function handleNext() {
                 >
                 <button
                   type="button"
-                  :class="['w-full px-3.5 py-2.5 rounded-xl border border-dashed border-primary-500/50 hover:border-primary-500 bg-primary-500/5 hover:bg-primary-500/10 text-primary-600 dark:text-primary-300 text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer']"
+                  :class="['w-full px-3.5 py-2 rounded-xl border border-dashed border-primary-500/50 hover:border-primary-500 bg-primary-500/5 hover:bg-primary-500/10 text-primary-600 dark:text-primary-300 text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer']"
                   @click="fileInputRef?.click()"
                 >
                   <div :class="['i-solar:upload-track-bold-duotone text-base']" />
                   <span>Upload workflow_api.json</span>
                 </button>
+                <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+                  Use an API-format workflow exported from ComfyUI.
+                </p>
+              </div>
+
+              <!-- Comfy Connection Status Banner -->
+              <div v-if="connectionInfo" :class="['text-xs px-3 py-1.5 rounded-lg font-mono flex items-center gap-2', connectionStatus === 'connected' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20']">
+                <div :class="[connectionStatus === 'connected' ? 'i-solar:check-circle-bold' : 'i-solar:danger-triangle-bold']" />
+                <span>{{ connectionInfo }}</span>
               </div>
             </div>
 
-            <!-- Comfy Connection Status Banner -->
-            <div v-if="connectionInfo" :class="['text-xs px-3 py-1.5 rounded-lg font-mono flex items-center gap-2', connectionStatus === 'connected' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20']">
-              <div :class="[connectionStatus === 'connected' ? 'i-solar:check-circle-bold' : 'i-solar:danger-triangle-bold']" />
-              <span>{{ connectionInfo }}</span>
+            <!-- Nano Banana: Google AI Studio Key -->
+            <div v-else-if="selectedProvider === 'nanobanana'" :class="['space-y-1.5']">
+              <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">Google AI Studio API Key</label>
+              <input
+                v-model="apiKey"
+                type="password"
+                placeholder="AIzaSy..."
+                :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-primary-500 focus:outline-none font-mono']"
+                @input="syncDraft"
+              >
+            </div>
+
+            <!-- Replicate: Replicate Token -->
+            <div v-else-if="selectedProvider === 'replicate'" :class="['space-y-1.5']">
+              <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">Replicate API Token</label>
+              <input
+                v-model="apiKey"
+                type="password"
+                placeholder="r8_..."
+                :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-primary-500 focus:outline-none font-mono']"
+                @input="syncDraft"
+              >
+            </div>
+
+            <!-- Unified Model Dropdown (non-ComfyUI providers; ComfyUI has its own Workflow selector above) -->
+            <div v-if="selectedProvider !== 'comfyui'" :class="['space-y-1.5 pt-1']">
+              <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">
+                Synthesizer Model
+              </label>
+              <select
+                v-model="selectedModel"
+                :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2.5 text-xs text-neutral-800 dark:text-neutral-200 focus:border-primary-500 focus:outline-none cursor-pointer']"
+                @change="syncDraft"
+              >
+                <option v-for="opt in currentModelOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <!-- Right panel: character visual style + creation schedule -->
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :delay="150"
+          :class="[
+            'rounded-[20px] border p-5 sm:p-6 min-w-0 min-h-0 flex flex-col gap-4',
+            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
+          ]"
+        >
+          <div :class="['flex items-start gap-2.5']">
+            <div :class="['h-8 w-8 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center flex-shrink-0']">
+              <div :class="['i-solar:palette-bold-duotone h-4 w-4']" />
+            </div>
+            <div :class="['min-w-0']">
+              <h2 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+                Character visual style
+              </h2>
+              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                Keep your companion’s appearance consistent across generated images.
+              </p>
             </div>
           </div>
 
-          <!-- Nano Banana: Google AI Studio Key -->
-          <div v-else-if="selectedProvider === 'nanobanana'" :class="['space-y-1.5']">
-            <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">Google AI Studio API Key</label>
-            <input
-              v-model="apiKey"
-              type="password"
-              placeholder="AIzaSy..."
-              :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-primary-500 focus:outline-none font-mono']"
-              @input="syncDraft"
-            >
-          </div>
-
-          <!-- Replicate: Replicate Token -->
-          <div v-else-if="selectedProvider === 'replicate'" :class="['space-y-1.5']">
-            <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">Replicate API Token</label>
-            <input
-              v-model="apiKey"
-              type="password"
-              placeholder="r8_..."
-              :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-primary-500 focus:outline-none font-mono']"
-              @input="syncDraft"
-            >
-          </div>
-
-          <!-- Unified Model / Active Workflow Dropdown -->
-          <div :class="['space-y-1.5 pt-1']">
-            <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">
-              {{ selectedProvider === 'comfyui' ? 'Active Workflow Template' : 'Synthesizer Model' }}
-            </label>
-            <select
-              v-model="selectedModel"
-              :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2.5 text-xs text-neutral-800 dark:text-neutral-200 focus:border-primary-500 focus:outline-none cursor-pointer']"
-              @change="syncDraft"
-            >
-              <option v-for="opt in currentModelOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- 2. CHARACTER VISUAL STYLE & LIVE PREVIEW -->
-      <div :class="['rounded-2xl border border-neutral-200 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] p-4.5 space-y-3 shadow-sm']">
-        <div :class="['flex items-center justify-between']">
-          <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-2']">
-            <span>👗</span> Character Visual Style & LoRA Prefix
-          </span>
-          <span :class="['text-[10px] bg-primary-500/10 text-primary-600 dark:text-primary-300 px-2 py-0.5 rounded-full border border-primary-500/20 font-medium']">
-            ✨ Auto-injected from {{ promptSourceLabel }}
-          </span>
-        </div>
-        <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-normal']">
-          Pre-pended to every image generation prompt for consistent character appearance, hair, eye color, and art style across generated scenes and selfies.
-        </p>
-
-        <!-- Prompt Field with Bottom Right Preview Button -->
-        <div :class="['relative']">
+          <!-- Editable prompt prefix -->
           <textarea
             v-model="visualPrompt"
-            rows="3"
-            :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-3 pb-10 text-xs text-neutral-800 dark:text-neutral-200 font-mono leading-relaxed focus:border-primary-500 focus:outline-none resize-none']"
+            rows="6"
+            :class="['w-full min-h-[150px] rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-3 text-xs text-neutral-800 dark:text-neutral-200 font-mono leading-relaxed focus:border-primary-500 focus:outline-none resize-y']"
             placeholder="e.g. masterpiece, best quality, 1girl, blue eyes..."
             @input="syncDraft"
           />
-          <div :class="['absolute bottom-2.5 left-3 right-3 flex items-center justify-between']">
-            <div :class="['flex items-center gap-2']">
-              <button
-                v-if="hasPersonaTags"
-                type="button"
-                :class="['text-[10px] text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium transition-colors cursor-pointer flex items-center gap-1']"
-                @click="resetToPersonaPrompt"
-              >
-                <span>✨</span>
-                <span>Reset to Persona Tags</span>
-              </button>
-              <span v-if="hasPersonaTags" :class="['text-neutral-300 dark:text-neutral-700 text-xs']">•</span>
-              <button
-                type="button"
-                :class="['text-[10px] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer']"
-                @click="resetToDefaultPrompt"
-              >
-                ↺ Reset to Vessel Default
-              </button>
-            </div>
+
+          <!-- Reset + Preview toolbar -->
+          <div :class="['flex items-center gap-2']">
+            <button
+              v-if="hasPersonaTags"
+              type="button"
+              :class="['text-[11px] text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium transition-colors cursor-pointer flex items-center gap-1']"
+              @click="resetToPersonaPrompt"
+            >
+              <span>✨</span>
+              <span>Reset to persona tags</span>
+            </button>
+            <span v-if="hasPersonaTags" :class="['text-neutral-300 dark:text-neutral-700 text-xs']">•</span>
+            <button
+              type="button"
+              :class="['text-[11px] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer']"
+              @click="resetToDefaultPrompt"
+            >
+              ↺ Reset to avatar default
+            </button>
+            <span :class="['flex-1']" />
             <button
               type="button"
               :disabled="selectedProvider === 'none'"
               :class="[
-                'px-3 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer',
+                'px-4 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer',
                 selectedProvider !== 'none'
                   ? 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/30'
                   : 'bg-neutral-200 dark:bg-white/10 text-neutral-400 cursor-not-allowed',
@@ -570,184 +620,179 @@ function handleNext() {
               <span>Preview</span>
             </button>
           </div>
-        </div>
 
-        <!-- Preset Style Chips -->
-        <div :class="['flex items-center gap-1.5 flex-wrap pt-0.5 text-[10px]']">
-          <span :class="['text-neutral-400 mr-1']">Add Aesthetic:</span>
-          <button
-            type="button"
-            :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
-            @click="appendStyle('Studio Ghibli meadow lighting,')"
-          >
-            + Ghibli Meadow
-          </button>
-          <button
-            type="button"
-            :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
-            @click="appendStyle('Cyberpunk neon rim lighting, night rain,')"
-          >
-            + Cyberpunk Neon
-          </button>
-          <button
-            type="button"
-            :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
-            @click="appendStyle('Makoto Shinkai volumetric clouds, radiant sky,')"
-          >
-            + Shinkai Sky
-          </button>
-          <button
-            type="button"
-            :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
-            @click="appendStyle('Cozy warm cafe interior, soft bokeh,')"
-          >
-            + Cozy Cafe
-          </button>
-        </div>
-      </div>
-
-      <!-- 3. CINEMATIC AUTONOMY (AUTONOMOUS DIRECTOR) -->
-      <div :class="['rounded-2xl border border-neutral-200 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] p-4.5 space-y-3.5 shadow-sm']">
-        <div :class="['flex items-start justify-between gap-4']">
-          <div :class="['flex items-start gap-3']">
-            <span :class="['text-2xl mt-0.5']">🎬</span>
-            <div>
-              <div :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
-                <span>Cinematic Autonomy (Autonomous Director)</span>
-                <span :class="['text-[9px] bg-primary-500/10 text-primary-500 dark:text-primary-400 px-2 py-0.5 rounded-full border border-primary-500/20 font-medium']">
-                  Background Loop
-                </span>
-              </div>
-              <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 max-w-xl leading-normal']">
-                A parallel 2nd-LLM evaluator that analyzes ongoing conversation and autonomously synthesizes background imagery and selfies during emotional story climaxes.
-              </p>
-            </div>
-          </div>
-
-          <!-- Switch Toggle -->
-          <button
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-              directorEnabled ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
-            ]"
-            @click="directorEnabled = !directorEnabled; syncDraft()"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                directorEnabled ? 'translate-x-5' : 'translate-x-0',
-              ]"
-            />
-          </button>
-        </div>
-
-        <!-- Input Trigger Mode Selector (Enabled only when Director is ON) -->
-        <div v-if="directorEnabled" :class="['pt-3 border-t border-neutral-200 dark:border-white/5 space-y-2']">
-          <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 block']">
-            Evaluation Trigger Mode
-          </span>
-          <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs']">
-            <!-- Companion Reaction / Output (Default) -->
-            <div
-              :class="[
-                'cursor-pointer p-3 rounded-xl border transition-all text-left',
-                directorTarget === 'assistant'
-                  ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10'
-                  : 'border-neutral-200 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.01]',
-              ]"
-              @click="directorTarget = 'assistant'; syncDraft()"
+          <!-- Preset Style Chips -->
+          <div :class="['flex items-center gap-1.5 flex-wrap text-xs']">
+            <span :class="['text-neutral-500 dark:text-neutral-400 font-semibold mr-1']">Add an aesthetic</span>
+            <button
+              type="button"
+              :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
+              @click="appendStyle('Studio Ghibli meadow lighting,')"
             >
-              <div :class="['flex items-center justify-between font-bold text-neutral-900 dark:text-white']">
-                <span>🌟 Companion Reaction (Default)</span>
-                <span :class="['text-[9px] bg-primary-500/20 text-primary-600 dark:text-primary-300 px-1.5 py-0.2 rounded font-medium']">Impact Focus</span>
-              </div>
-              <p :class="['text-[10px] text-neutral-500 dark:text-neutral-400 mt-1 leading-normal']">
-                Evaluates what the companion replied: <code>User &rarr; LLM Reply &rarr; Director</code>. Best for natural scene reactivity.
-              </p>
-            </div>
-
-            <!-- User Input (Standard) -->
-            <div
-              :class="[
-                'cursor-pointer p-3 rounded-xl border transition-all text-left',
-                directorTarget === 'user'
-                  ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10'
-                  : 'border-neutral-200 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.01]',
-              ]"
-              @click="directorTarget = 'user'; syncDraft()"
+              + Ghibli Meadow
+            </button>
+            <button
+              type="button"
+              :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
+              @click="appendStyle('Cyberpunk neon rim lighting, night rain,')"
             >
-              <div :class="['flex items-center justify-between font-bold text-neutral-900 dark:text-white']">
-                <span>👤 User Input</span>
-                <span :class="['text-[9px] bg-neutral-200 dark:bg-white/10 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.2 rounded font-medium']">Prompt Focus</span>
+              + Cyberpunk Neon
+            </button>
+            <button
+              type="button"
+              :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
+              @click="appendStyle('Makoto Shinkai volumetric clouds, radiant sky,')"
+            >
+              + Shinkai Sky
+            </button>
+            <button
+              type="button"
+              :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
+              @click="appendStyle('Cozy warm cafe interior, soft bokeh,')"
+            >
+              + Cozy Cafe
+            </button>
+          </div>
+
+          <!-- When to create images -->
+          <div :class="['border-t border-neutral-200/70 dark:border-white/10']" />
+
+          <div :class="['flex flex-col gap-2.5']">
+            <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
+              When to create images
+            </h3>
+
+            <!-- Autonomous director row -->
+            <div :class="['flex items-center justify-between gap-3 p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white/60 dark:bg-white/[0.02]']">
+              <div :class="['flex items-center gap-2.5 min-w-0']">
+                <span :class="['text-xl shrink-0']">🎬</span>
+                <div :class="['min-w-0']">
+                  <div :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                    Autonomous director
+                  </div>
+                  <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug']">
+                    Creates scene images and selfies as conversations unfold.
+                  </p>
+                </div>
               </div>
-              <p :class="['text-[10px] text-neutral-500 dark:text-neutral-400 mt-1 leading-normal']">
-                Evaluates user's incoming message immediately before the companion speaks.
-              </p>
+
+              <!-- Switch Toggle -->
+              <button
+                type="button"
+                :class="[
+                  'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                  directorEnabled ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+                ]"
+                @click="directorEnabled = !directorEnabled; syncDraft()"
+              >
+                <span
+                  :class="[
+                    'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                    directorEnabled ? 'translate-x-5' : 'translate-x-0',
+                  ]"
+                />
+              </button>
+            </div>
+
+            <!-- Input Trigger Mode Selector (Enabled only when Director is ON) -->
+            <div v-if="directorEnabled" :class="['pt-3 border-t border-neutral-200 dark:border-white/5 space-y-2']">
+              <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 block']">
+                Evaluation Trigger Mode
+              </span>
+              <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs']">
+                <!-- Companion Reaction / Output (Default) -->
+                <div
+                  :class="[
+                    'cursor-pointer p-3 rounded-xl border transition-all text-left',
+                    directorTarget === 'assistant'
+                      ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10'
+                      : 'border-neutral-200 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.01]',
+                  ]"
+                  @click="directorTarget = 'assistant'; syncDraft()"
+                >
+                  <div :class="['flex items-center justify-between font-bold text-neutral-900 dark:text-white']">
+                    <span>🌟 Companion Reaction (Default)</span>
+                    <span :class="['text-[9px] bg-primary-500/20 text-primary-600 dark:text-primary-300 px-1.5 py-0.2 rounded font-medium']">Impact Focus</span>
+                  </div>
+                  <p :class="['text-[10px] text-neutral-500 dark:text-neutral-400 mt-1 leading-normal']">
+                    Evaluates what the companion replied: <code>User &rarr; LLM Reply &rarr; Director</code>. Best for natural scene reactivity.
+                  </p>
+                </div>
+
+                <!-- User Input (Standard) -->
+                <div
+                  :class="[
+                    'cursor-pointer p-3 rounded-xl border transition-all text-left',
+                    directorTarget === 'user'
+                      ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10'
+                      : 'border-neutral-200 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.01]',
+                  ]"
+                  @click="directorTarget = 'user'; syncDraft()"
+                >
+                  <div :class="['flex items-center justify-between font-bold text-neutral-900 dark:text-white']">
+                    <span>👤 User Input</span>
+                    <span :class="['text-[9px] bg-neutral-200 dark:bg-white/10 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.2 rounded font-medium']">Prompt Focus</span>
+                  </div>
+                  <p :class="['text-[10px] text-neutral-500 dark:text-neutral-400 mt-1 leading-normal']">
+                    Evaluates user's incoming message immediately before the companion speaks.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <!-- Companion image creation row -->
+            <div :class="['flex items-center justify-between gap-3 p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white/60 dark:bg-white/[0.02]']">
+              <div :class="['flex items-center gap-2.5 min-w-0']">
+                <span :class="['text-xl shrink-0']">🖌️</span>
+                <div :class="['min-w-0']">
+                  <div :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                    Companion image creation
+                  </div>
+                  <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug']">
+                    Lets your companion create images when you ask.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Switch Toggle -->
+              <button
+                type="button"
+                :class="[
+                  'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                  imageJournalToolEnabled ? 'bg-purple-600' : 'bg-neutral-200 dark:bg-neutral-700',
+                ]"
+                @click="imageJournalToolEnabled = !imageJournalToolEnabled; syncDraft()"
+              >
+                <span
+                  :class="[
+                    'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                    imageJournalToolEnabled ? 'translate-x-5' : 'translate-x-0',
+                  ]"
+                />
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 4. IN-CHARACTER GENERATION TOOL (IMAGE_JOURNAL) -->
-      <div :class="['rounded-2xl border border-neutral-200 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] p-4.5 space-y-3 shadow-sm']">
-        <div :class="['flex items-start justify-between gap-4']">
-          <div :class="['flex items-start gap-3']">
-            <span :class="['text-2xl mt-0.5']">🖌️</span>
-            <div>
-              <div :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
-                <span>In-Character Generation Tool</span>
-                <span :class="['text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/15 text-purple-600 dark:text-purple-300 font-semibold']">
-                  image_journal
-                </span>
-                <span :class="['text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20 font-medium']">
-                  Direct Tool Call
-                </span>
-              </div>
-              <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 max-w-xl leading-normal']">
-                Equips your companion with the direct <code>image_journal</code> tool schema so they can actively paint illustrations or take selfies on request. When disabled, the autonomous Director can still paint background scenes, but the companion's prompt context remains completely pristine without tool schema pollution.
-              </p>
-            </div>
-          </div>
+      <!-- Modals -->
+      <ComfyuiWorkflowModal
+        v-model:open="isWorkflowModalOpen"
+        :raw-workflow="pendingWorkflowRaw"
+        :default-name="pendingWorkflowFileName"
+        @save="handleWorkflowSaved"
+      />
 
-          <!-- Switch Toggle -->
-          <button
-            type="button"
-            :class="[
-              'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none mt-1',
-              imageJournalToolEnabled ? 'bg-purple-600' : 'bg-neutral-200 dark:bg-neutral-700',
-            ]"
-            @click="imageJournalToolEnabled = !imageJournalToolEnabled; syncDraft()"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                imageJournalToolEnabled ? 'translate-x-5' : 'translate-x-0',
-              ]"
-            />
-          </button>
-        </div>
-      </div>
+      <ArtPreviewModal
+        v-model:open="isPreviewModalOpen"
+        :prompt="visualPrompt"
+        :provider="selectedProvider"
+        :model="selectedModel"
+        :api-key="apiKey"
+      />
     </div>
 
-    <!-- Modals -->
-    <ComfyuiWorkflowModal
-      v-model:open="isWorkflowModalOpen"
-      :raw-workflow="pendingWorkflowRaw"
-      :default-name="pendingWorkflowFileName"
-      @save="handleWorkflowSaved"
-    />
-
-    <ArtPreviewModal
-      v-model:open="isPreviewModalOpen"
-      :prompt="visualPrompt"
-      :provider="selectedProvider"
-      :model="selectedModel"
-      :api-key="apiKey"
-    />
-
     <!-- Bottom Navigation Buttons -->
-    <div :class="['flex items-center justify-between pt-2 border-t border-neutral-200 dark:border-white/5']">
+    <div :class="['flex items-center justify-between pt-4 px-4 sm:px-6 border-t border-neutral-200 dark:border-white/5 shrink-0']">
       <button
         type="button"
         :class="['px-4 py-2 rounded-xl bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
