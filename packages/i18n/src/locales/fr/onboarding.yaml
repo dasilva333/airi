@@ -15,8 +15,8 @@ shell:
   brand: Configuration du Compagnon AIRI
   stageReady: Scène Prête
   closeSetup: Fermer la configuration (Enregistrer pour plus tard)
-  placeholderNotice: Ce module est en cours de configuration. Vous pouvez passer à l'étape
-    suivante.
+  placeholderNotice: Ce module est en cours de configuration. Vous pouvez passer à
+    l'étape suivante.
 
 steps:
   welcome:
@@ -79,9 +79,9 @@ steps:
       restoring: Restauration des compagnons...
       restoreAll: Restaurer et Lancer la Scène
     stepBadge: Triage de l'Architecture · Étape {current} sur {total}
-    companionGreeting: Bienvenue sur AIRI ! Choisissez la méthode de configuration de votre
-      scène. Vous pouvez fonctionner à 100% en local hors ligne, ou vous
-      connecter pour synchroniser vos appareils.
+    companionGreeting: Bienvenue sur AIRI ! Choisissez la méthode de configuration
+      de votre scène. Vous pouvez fonctionner à 100% en local hors ligne, ou
+      vous connecter pour synchroniser vos appareils.
     local:
       badge: Hors Ligne d'Abord
       title: Compagnon Local (Air-Gapped)
@@ -96,7 +96,9 @@ steps:
     cloud:
       badge: 10 Go Gratuits + Sync Cloud
       title: Connexion Cloudflare
-      description: Connectez votre compte pour débloquer 10 Go de stockage gratuit, des crédits IA edge quotidiens et une présence 24/7 de votre compagnon sur tous vos appareils.
+      description: Connectez votre compte pour débloquer 10 Go de stockage gratuit,
+        des crédits IA edge quotidiens et une présence 24/7 de votre compagnon
+        sur tous vos appareils.
       selectedCta: Sélectionné (Cloud)
       selectCta: Choisir la Synchronisation Cloud
       features:
@@ -107,29 +109,50 @@ steps:
         f5: Proxy CORS Privé et Zéro Rétention
         storage:
           title: 10 Go de Stockage Cloud Gratuit
-          desc: Sauvegardez modèles 3D, arrière-plans personnalisés et coffres de mémoire sans aucun frais de transfert sortant.
-          howItWorks: Propulsé par le stockage d'objets Cloudflare R2 détenu par l'utilisateur.
-          whyItMatters: Forfait gratuit généreux suffisant pour des dizaines de modèles VRM/Live2D et des années d'historique de chat. Contrairement à AWS S3, le téléchargement de vos ressources est 100% gratuit sans frais de bande passante.
+          desc: Sauvegardez modèles 3D, arrière-plans personnalisés et coffres de mémoire
+            sans aucun frais de transfert sortant.
+          howItWorks: Propulsé par le stockage d'objets Cloudflare R2 détenu par
+            l'utilisateur.
+          whyItMatters: Forfait gratuit généreux suffisant pour des dizaines de modèles
+            VRM/Live2D et des années d'historique de chat. Contrairement à AWS
+            S3, le téléchargement de vos ressources est 100% gratuit sans frais
+            de bande passante.
         ai:
           title: Crédits IA Edge Quotidiens Gratuits
-          desc: 10 000 Neurons quotidiens gratuits pour DeepSeek, Qwen et Llama (sans clé API requise).
-          howItWorks: Se connecte directement à Cloudflare Workers AI lors de l'Étape 8 (Conscience).
-          whyItMatters: Échangez immédiatement avec des modèles ouverts de pointe à la périphérie sans abonnement payant à OpenAI, carte bancaire ou GPU de jeu local haut de gamme.
+          desc: 10 000 Neurons quotidiens gratuits pour DeepSeek, Qwen et Llama (sans clé
+            API requise).
+          howItWorks: Se connecte directement à Cloudflare Workers AI lors de l'Étape 8
+            (Conscience).
+          whyItMatters: Échangez immédiatement avec des modèles ouverts de pointe à la
+            périphérie sans abonnement payant à OpenAI, carte bancaire ou GPU de
+            jeu local haut de gamme.
         relay:
           title: Relais Cloud Discord 24/7
-          desc: Gardez votre compagnon éveillé sur votre serveur Discord même lorsque votre PC est éteint.
-          howItWorks: Fonctionne comme un Cloudflare Worker sans serveur (@proj-airi/stage-edge) gérant les webhooks d'interaction Discord.
-          whyItMatters: Votre compagnon reste disponible 24/7 pour discuter sur Discord, stocke le contexte dans Edge KV et synchronise les conversations sur votre bureau à la réouverture d'AIRI.
+          desc: Gardez votre compagnon éveillé sur votre serveur Discord même lorsque
+            votre PC est éteint.
+          howItWorks: Fonctionne comme un Cloudflare Worker sans serveur
+            (@proj-airi/stage-edge) gérant les webhooks d'interaction Discord.
+          whyItMatters: Votre compagnon reste disponible 24/7 pour discuter sur Discord,
+            stocke le contexte dans Edge KV et synchronise les conversations sur
+            votre bureau à la réouverture d'AIRI.
         sync:
           title: Synchronisation Multi-Appareils et Restauration en 1 Clic
-          desc: Synchronisez harmonieusement Bureau, Web et Mobile ; restaurez vos compagnons en un clic.
-          howItWorks: Le coffre de clés Edge (airi-edge-vault) enregistre en toute sécurité l'état actif de votre compagnon.
-          whyItMatters: Réinstaller AIRI ou changer d'appareil rétablit automatiquement votre compagnon, vos paramètres et vos souvenirs sans saisie manuelle de clés.
+          desc: Synchronisez harmonieusement Bureau, Web et Mobile ; restaurez vos
+            compagnons en un clic.
+          howItWorks: Le coffre de clés Edge (airi-edge-vault) enregistre en toute
+            sécurité l'état actif de votre compagnon.
+          whyItMatters: Réinstaller AIRI ou changer d'appareil rétablit automatiquement
+            votre compagnon, vos paramètres et vos souvenirs sans saisie
+            manuelle de clés.
         proxy:
           title: Proxy CORS Privé et Zéro Rétention
-          desc: Accédez aux API IA locales et distantes complexes avec une confidentialité totale à zéro garde.
-          howItWorks: Déploie un proxy inverse edge personnel pour contourner les en-têtes CORS du navigateur pour les scènes Web et Mobile.
-          whyItMatters: Tout fonctionne sur votre compte Cloudflare personnel. AIRI n'exploite aucun serveur intermédiaire et ne lit, ne stocke ni ne collecte jamais vos conversations.
+          desc: Accédez aux API IA locales et distantes complexes avec une confidentialité
+            totale à zéro garde.
+          howItWorks: Déploie un proxy inverse edge personnel pour contourner les en-têtes
+            CORS du navigateur pour les scènes Web et Mobile.
+          whyItMatters: Tout fonctionne sur votre compte Cloudflare personnel. AIRI
+            n'exploite aucun serveur intermédiaire et ne lit, ne stocke ni ne
+            collecte jamais vos conversations.
     auth:
       connected: Connecté à Cloudflare
       disconnect: Déconnecter
@@ -219,27 +242,27 @@ steps:
       quiet:
         title: L'Observateur Silencieux
         badge: ⚡ Le Plus Rapide · Minimaliste
-        subtitle: Texte, Expressions & Mémoire
+        subtitle: Texte, Outils & Mémoire
         description: Zéro surcharge audio, émotions d'avatar, pauses de réflexion et
           mémoire à long terme.
       casual:
         title: Le Compagnon Décontracté
         badge: ✨ Choix Populaire
         subtitle: Dialogue Vocal & Vision
-        description: Transcription vocale en direct (STT), voix émotionnelle (TTS), vision
-          photo, rythme naturel et mémoire.
+        description: Transcription vocale en direct (STT), voix émotionnelle (TTS),
+          vision photo, rythme naturel et mémoire.
       muse:
         title: La Muse Créative
         badge: 🎨 Accent Visuel
         subtitle: Voix, Vision & Créativité
-        description: Dialogue vocal, génération d’images (Pollinations/ComfyUI), vision par
-          chat et métamorphoses expressives.
+        description: Dialogue vocal, génération d’images (Pollinations/ComfyUI), vision
+          par chat et métamorphoses expressives.
       copilot:
         title: Le Copilote Exécutif
         badge: 💼 Productivité
         subtitle: Voix + Outils d'Action
-        description: Dialogue vocal, observation de l'écran, outils système MCP locaux et
-          recherche web en temps réel.
+        description: Dialogue vocal, observation de l'écran, outils système MCP locaux
+          et recherche web en temps réel.
       roommate:
         title: Le Colocataire Ambiant
         badge: 🌙 Présence Proactive
@@ -249,10 +272,10 @@ steps:
       swiss-army:
         title: Le Couteau Suisse
         badge: 🔥 Toutes Options · Tout-en-un
-        subtitle: Multimodal Autonome Complet
-        description: Le compagnon tout-en-un par excellence. Ouïe, voix neuronale, pauses
-          de réflexion, émotions ACT en 2 passes, vision d'écran, art et mémoire
-          cognitive.
+        subtitle: Voix, Vision & Action
+        description: Le compagnon tout-en-un par excellence. Ouïe, voix neuronale,
+          pauses de réflexion, émotions ACT en 2 passes, vision d'écran, art et
+          mémoire cognitive.
     advanced:
       toggle: 'Avancé : Personnaliser les modules individuels'
       description: Activez ou désactivez manuellement les différents modules
@@ -442,7 +465,8 @@ steps:
       custom: Fournisseurs Cloud
     cloudflare:
       connected: 'Cloudflare Connecté : 10 000 Neurons gratuits/jour actifs'
-      notConnected: Connectez votre compte Cloudflare pour profiter d'une vision edge gratuite sans configuration.
+      notConnected: Connectez votre compte Cloudflare pour profiter d'une vision edge
+        gratuite sans configuration.
       signIn: Se connecter avec Cloudflare
     engineTitle: Modèle d'analyse visuelle
     testImage: Tester la perception visuelle

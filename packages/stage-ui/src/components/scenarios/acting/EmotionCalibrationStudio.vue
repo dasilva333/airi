@@ -843,8 +843,6 @@ function requestDemoModel() {
   emit('request-model', props.demoModelId)
 }
 
-const demoSurpriseKey = computed(() => expressionMappings.value.surprise || '')
-
 function handleMeetDemo() {
   if (isAdvancing.value) {
     return
@@ -1163,7 +1161,7 @@ onBeforeUnmount(() => {
       <!-- Tactile 6-Emotion Soundboard -->
       <div :class="['rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/70 dark:bg-neutral-900/60 p-3 shadow-sm shrink-0']">
         <div :class="['text-[10px] font-bold tracking-wider uppercase text-neutral-400 dark:text-neutral-500 mb-2 flex items-center justify-between']">
-          <span>Tactile Soundboard</span>
+          <span>Expression preview</span>
           <span :class="['text-[9px] font-normal text-neutral-400 lowercase']">click to preview</span>
         </div>
 
@@ -1254,7 +1252,7 @@ onBeforeUnmount(() => {
               <img v-if="GUIDE_ART.press" :src="GUIDE_ART.press" alt="" :class="['w-full h-24 object-contain rounded-lg']">
               <span v-else :class="['text-lg']">😊</span>
               <div :class="['text-[11px] font-bold text-neutral-800 dark:text-neutral-100']">
-                Press a candidate
+                Try an expression
               </div>
               <div :class="['text-[10px] text-neutral-500 dark:text-neutral-400 leading-snug']">
                 Tap an expression button to preview it on your avatar.
@@ -1280,7 +1278,7 @@ onBeforeUnmount(() => {
                 Keep what works
               </div>
               <div :class="['text-[10px] text-neutral-500 dark:text-neutral-400 leading-snug']">
-                Survivors become the clean list your character learns from.
+                The expressions you keep will be available to your companion.
               </div>
             </div>
           </div>
@@ -1288,7 +1286,7 @@ onBeforeUnmount(() => {
           <!-- Deterministic demo CTA -->
           <div :class="['rounded-xl border border-primary-500/25 bg-primary-500/5 p-3 flex flex-col gap-2 shrink-0']">
             <div :class="['text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed']">
-              Try it now — press the button and watch her face:
+              Try an expression and watch your avatar:
             </div>
             <button
               type="button"
@@ -1296,12 +1294,9 @@ onBeforeUnmount(() => {
               :class="['w-full py-2.5 rounded-xl bg-primary-500 hover:bg-primary-400 text-white text-sm font-semibold shadow-md shadow-primary-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60']"
               @click="handleMeetDemo"
             >
-              <span>{{ isAdvancing ? "Nice — that's a keeper! ✨" : '😲 Show me — try Surprise →' }}</span>
+              <span>{{ isAdvancing ? "Nice — that's a keeper! ✨" : 'Try Surprise →' }}</span>
             </button>
-            <div :class="['flex items-center justify-between gap-2']">
-              <div v-if="demoSurpriseKey" :class="['text-[10px] text-neutral-400 font-mono']">
-                anchor: {{ demoSurpriseKey }}
-              </div>
+            <div :class="['flex items-center justify-end gap-2']">
               <button
                 v-if="allowModelSwitch && modelId !== demoModelId"
                 type="button"

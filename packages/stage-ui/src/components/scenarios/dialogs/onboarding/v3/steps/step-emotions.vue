@@ -5,6 +5,7 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import EmotionCalibrationStudio from '../../../../acting/EmotionCalibrationStudio.vue'
+import AssistantBubble from '../components/assistant-bubble.vue'
 
 import { resolvePersona } from '../composables/useStarterCardCommit'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
@@ -88,39 +89,49 @@ function handleContinue() {
 </script>
 
 <template>
-  <div :class="['w-full max-w-5xl mx-auto flex flex-col gap-3.5 py-2 my-auto animate-fadeIn select-none']">
-    <!-- Top Header -->
-    <div>
-      <div :class="['flex items-center gap-2 text-xs text-neutral-400 mb-0.5']">
-        <span :class="['text-primary-500 dark:text-primary-400 font-medium']">{{ t('onboarding.steps.emotions.label') }}</span>
-        <span>• {{ t('onboarding.steps.emotions.subtitle') }}</span>
+  <div :class="['w-full h-full flex flex-col justify-between select-none animate-fadeIn']">
+    <!-- Scrollable Content Body -->
+    <div :class="['flex-1 min-h-0 min-w-0 overflow-y-auto px-4 sm:px-6 pt-2 pb-5 flex flex-col gap-3.5']">
+      <!-- Shared centered header -->
+      <div :class="['flex flex-col items-center text-center gap-3 flex-shrink-0']">
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            Emotions & Expressions
+          </h1>
+        </div>
+
+        <AssistantBubble
+          message="Let’s discover how your companion expresses emotion. Preview your avatar’s expressions, keep the ones that work, and connect them to emotional cues."
+          step-key="emotions"
+          tone="primary"
+        />
       </div>
-      <h2 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
-        {{ t('onboarding.steps.emotions.title') }}
-      </h2>
-      <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
-        {{ t('onboarding.steps.emotions.description') }}
-      </p>
+
+      <EmotionCalibrationStudio
+        :model-id="activeModelId"
+        :initial-mappings="draft.state.expressionMappings"
+        :initial-directives="draft.state.actingModelExpressionPrompt"
+        :initial-calibrated="draft.state.emotionsCurated"
+        :companion-name="characterPersona.name"
+        :persona-personality="characterPersona.personality"
+        :persona-description="characterPersona.description"
+        :persona-scenario="characterPersona.scenario"
+        :persona-system-prompt="characterPersona.systemPrompt"
+        finish-context="onboarding"
+        stage-update-reason="onboarding-v3-emotions"
+        @sync="handleStudioSync"
+        @finish="handleContinue"
+      />
     </div>
 
-    <EmotionCalibrationStudio
-      :model-id="activeModelId"
-      :initial-mappings="draft.state.expressionMappings"
-      :initial-directives="draft.state.actingModelExpressionPrompt"
-      :initial-calibrated="draft.state.emotionsCurated"
-      :companion-name="characterPersona.name"
-      :persona-personality="characterPersona.personality"
-      :persona-description="characterPersona.description"
-      :persona-scenario="characterPersona.scenario"
-      :persona-system-prompt="characterPersona.systemPrompt"
-      finish-context="onboarding"
-      stage-update-reason="onboarding-v3-emotions"
-      @sync="handleStudioSync"
-      @finish="handleContinue"
-    />
-
     <!-- Bottom Navigation Bar -->
-    <div :class="['flex items-center justify-between pt-2.5 border-t border-neutral-200/60 dark:border-white/5 shrink-0']">
+    <div :class="['flex items-center justify-between pt-4 px-4 sm:px-6 border-t border-neutral-200/60 dark:border-white/5 shrink-0']">
       <button
         type="button"
         :class="['px-5 py-2 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer']"

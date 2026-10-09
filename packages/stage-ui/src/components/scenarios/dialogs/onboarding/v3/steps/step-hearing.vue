@@ -18,6 +18,7 @@ import LevelMeter from '../../../../../gadgets/level-meter.vue'
 import RadioCardDetail from '../../../../../menu/radio-card-detail.vue'
 import RadioCardSimple from '../../../../../menu/radio-card-simple.vue'
 import StepProviderConfiguration from '../../step-provider-configuration.vue'
+import AssistantBubble from '../components/assistant-bubble.vue'
 
 import { getWhisperAdapter } from '../../../../../../libs/inference/adapters/whisper'
 import { WHISPER_MODELS } from '../../../../../../libs/inference/constants'
@@ -349,6 +350,44 @@ const canStartTest = computed(() => {
   return true
 })
 
+// Effective engine summary for the listening-check panel (bound to committed draft state)
+const effectiveEngineLabel = computed(() => {
+  if (isWebSpeechSelected.value)
+    return 'Web Speech API'
+  if (isWhisperSelected.value)
+    return 'Local Whisper'
+  const meta = allAudioTranscriptionProvidersMetadata.value.find(p => p.id === draft.state.sttProvider)
+  return meta?.name || draft.state.sttProvider || 'No engine'
+})
+
+const effectiveModelLabel = computed(() => {
+  if (isWebSpeechSelected.value)
+    return 'web-speech-api'
+  return (draft.state.sttModel || '').trim() || 'No model'
+})
+
+type CheckStatus = 'empty' | 'not-ready' | 'ready' | 'listening' | 'heard' | 'verified' | 'failed'
+const checkStatus = computed<CheckStatus>(() => {
+  if (!draft.state.sttProvider)
+    return 'empty'
+  if (testError.value)
+    return 'failed'
+  if (isVerified.value)
+    return 'verified'
+  if (verification.value === 'listening')
+    return 'listening'
+  if (verification.value === 'transcribed' || testStreamingText.value.trim())
+    return 'heard'
+  if (isWhisperSelected.value && whisperDownloadState.value !== 'ready') {
+    if (whisperDownloadState.value === 'downloading')
+      return 'listening'
+    if (whisperDownloadState.value === 'error')
+      return 'failed'
+    return 'not-ready'
+  }
+  return 'ready'
+})
+
 watch([transcribedText, testStreamingText], ([text, streaming]) => {
   if (text.trim() || streaming.trim())
     verification.value = 'verified'
@@ -542,520 +581,596 @@ watch(selectedAudioInput, async () => {
 </script>
 
 <template>
-  <div :class="['w-full max-w-4xl mx-auto h-full flex flex-col justify-between select-none animate-fadeIn']">
+  <div :class="['w-full h-full flex flex-col justify-between select-none animate-fadeIn']">
     <!-- Scrollable Content Body -->
-    <div :class="['flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-4']">
-      <!-- Step Subtitle & Header -->
-      <div :class="['flex items-center justify-between text-xs text-neutral-400 font-medium']">
-        <span>{{ t('onboarding.steps.hearing.label') }}</span>
-        <span>{{ t('onboarding.steps.hearing.subtitle') }}</span>
-      </div>
-
-      <div class="flex-shrink-0">
-        <h2 class="text-xl text-neutral-800 font-bold md:text-2xl dark:text-neutral-100">
-          {{ t('onboarding.steps.hearing.title') }}
-        </h2>
-        <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          {{ t('onboarding.steps.hearing.description') }}
-        </p>
-      </div>
-
-      <!-- Blue Companion Alert Bubble -->
-      <div :class="['flex items-center gap-3 p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-700 dark:text-sky-300 text-xs backdrop-blur-md']">
-        <div :class="['h-8 w-8 rounded-xl bg-sky-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-sky-500/30']">
-          <div :class="['i-solar:chat-round-dots-bold text-base']" />
+    <div :class="['flex-1 min-h-0 min-w-0 overflow-y-auto px-4 sm:px-6 pt-2 pb-5 flex flex-col gap-4']">
+      <!-- Shared centered header -->
+      <div :class="['flex flex-col items-center text-center gap-3']">
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            {{ t('onboarding.steps.hearing.title') }}
+          </h1>
         </div>
-        <p :class="['leading-relaxed font-medium']">
-          Pick a speech engine below, then talk to me! The big button unlocks as soon as I actually hear you — no mock progress bars here.
-        </p>
-      </div>
 
-      <!-- Microphone Device Selection & Active Device Transparency -->
-      <!-- Case A: Multiple Microphone Devices Detected (> 1) -->
-      <div
-        v-if="audioInputs.length > 1"
-        :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md']"
-      >
-        <FieldSelect
-          v-model="selectedAudioInput"
-          label="Microphone Input Device"
-          description="Select which physical microphone device to use for speech verification."
-          :options="micOptions"
-          placeholder="Select an audio input device"
-          layout="vertical"
+        <AssistantBubble
+          message="Choose how I’ll hear you, then test your microphone. Once your speech is recognized, you can continue."
+          step-key="hearing"
+          tone="primary"
         />
       </div>
 
-      <!-- Case B: Single Active Microphone Detected (1 Device) -->
-      <div
-        v-else-if="audioInputs.length === 1"
-        :class="[
-          'p-3.5 rounded-xl flex items-center justify-between gap-3',
-          'bg-white/40 dark:bg-neutral-900/40',
-          'border border-neutral-200/60 dark:border-neutral-800/80 backdrop-blur-md',
-        ]"
-      >
-        <div :class="['flex items-center gap-3 min-w-0']">
-          <div :class="['h-9 w-9 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0']">
-            <div :class="['i-solar:microphone-3-bold-duotone text-lg']" />
-          </div>
-          <div :class="['flex flex-col min-w-0']">
-            <div :class="['flex items-center gap-2 font-bold text-xs text-neutral-800 dark:text-neutral-100']">
-              <span>Active Microphone Input</span>
-              <span :class="['w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse']" />
-            </div>
-            <span :class="['text-xs text-neutral-500 dark:text-neutral-400 truncate font-mono']">
-              {{ activeMicLabel }}
-            </span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          title="Rescan audio devices"
-          :class="['p-2 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors cursor-pointer shrink-0']"
-          @click="startStream"
-        >
-          <div :class="['i-solar:restart-bold w-4 h-4']" />
-        </button>
-      </div>
-
-      <!-- Case C: 0 Devices Detected or Permission Unprompted -->
-      <div
-        v-else
-        :class="[
-          'p-3.5 rounded-xl flex items-center justify-between gap-3',
-          'bg-amber-500/10 border border-amber-500/30 backdrop-blur-md',
-        ]"
-      >
-        <div :class="['flex items-center gap-3 min-w-0']">
-          <div :class="['h-9 w-9 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0']">
-            <div :class="['i-solar:shield-warning-bold text-lg']" />
-          </div>
-          <div :class="['flex flex-col min-w-0']">
-            <span :class="['font-bold text-xs text-amber-900 dark:text-amber-200']">
-              Microphone Access Required
-            </span>
-            <span :class="['text-[11px] text-amber-700/80 dark:text-amber-300/80']">
-              Click below to grant microphone permission in your browser/app.
-            </span>
-          </div>
-        </div>
-
-        <Button
-          variant="primary"
-          class="h-8 shrink-0 px-3 text-xs font-semibold"
-          @click="startStream"
-        >
-          <span>Grant Access</span>
-        </Button>
-      </div>
-
-      <!-- Choose Speech Engine: Hero Cards -->
-      <div class="flex flex-col gap-2.5">
-        <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
-          Choose a Speech Engine
-        </span>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <!-- Hero Card 1: Web Speech API -->
+      <!-- Two-column workspace -->
+      <div :class="['w-full max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,65%)_minmax(0,35%)] gap-5 lg:gap-6 items-start']">
+        <!-- Left: scrollable provider selection -->
+        <div :class="['flex flex-col gap-4 min-w-0 min-h-0']">
+          <!-- Microphone Device Selection & Active Device Transparency -->
+          <!-- Case A: Multiple Microphone Devices Detected (> 1) -->
           <div
-            :class="[
-              'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
-              'backdrop-blur-md',
-              isWebSpeechSelected
-                ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
-                : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
-            ]"
-            @click="selectWebSpeech"
+            v-if="audioInputs.length > 1"
+            :class="['p-4 sm:p-5 rounded-[20px]', 'bg-white/70 dark:bg-neutral-900/60', 'border border-neutral-200/80 dark:border-neutral-800/80', 'backdrop-blur-md']"
           >
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex items-center gap-3">
-                <div
-                  :class="[
-                    'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
-                    isWebSpeechSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
-                  ]"
-                >
-                  <div class="i-solar:microphone-3-bold-duotone h-5 w-5" />
-                </div>
-                <div class="flex flex-col">
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">Web Speech API</span>
-                    <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400">
-                      Built-in
-                    </span>
-                  </div>
-                  <span class="text-xs text-neutral-500 dark:text-neutral-400">Zero Setup · Realtime Streaming</span>
-                </div>
-              </div>
-              <div
-                v-if="isWebSpeechSelected"
-                class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
-              />
-            </div>
-            <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
-              Uses your browser & OS speech recognition engine. Instant streaming transcription with zero downloads and zero API keys.
-            </p>
-          </div>
-
-          <!-- Hero Card 2: App (Local) Whisper -->
-          <div
-            :class="[
-              'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
-              'backdrop-blur-md',
-              isWhisperSelected
-                ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
-                : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
-            ]"
-            @click="selectLocalWhisper"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex items-center gap-3">
-                <div
-                  :class="[
-                    'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
-                    isWhisperSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
-                  ]"
-                >
-                  <div class="i-solar:cpu-bolt-bold-duotone h-5 w-5" />
-                </div>
-                <div class="flex flex-col">
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">App (Local) Whisper</span>
-                    <span class="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-600 font-medium dark:text-purple-400">
-                      WebGPU Offline
-                    </span>
-                  </div>
-                  <span class="text-xs text-neutral-500 dark:text-neutral-400">100% Private · On-Device</span>
-                </div>
-              </div>
-              <div
-                v-if="isWhisperSelected"
-                class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
-              />
-            </div>
-            <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
-              Runs OpenAI Whisper locally in your browser/app. Complete offline privacy with zero telemetry.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Whisper WebGPU Model Shard & In-Context Download Panel -->
-      <div
-        v-if="isWhisperSelected"
-        :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3.5']"
-      >
-        <div class="flex flex-col gap-1">
-          <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">Whisper WebGPU Model</span>
-          <p class="text-xs text-neutral-500 dark:text-neutral-400">
-            Larger models offer higher accuracy; smaller models download faster with less VRAM.
-          </p>
-        </div>
-
-        <div class="flex flex-col gap-2.5 sm:flex-row sm:items-end">
-          <div class="flex-1">
             <FieldSelect
-              v-model="selectedWhisperModel"
-              label="Model Shard"
-              :options="availableWhisperModels.map(m => ({ label: `${m.name} (${getWhisperModelSpec(m.id)})`, value: m.id }))"
+              v-model="selectedAudioInput"
+              label="Microphone"
+              description="Choose the microphone you’ll use to talk with your companion."
+              :options="micOptions"
+              placeholder="Select an audio input device"
               layout="vertical"
-              :disabled="whisperDownloadState === 'downloading'"
             />
           </div>
-          <div class="flex flex-shrink-0 items-center gap-2">
+
+          <!-- Case B: Single Active Microphone Detected (1 Device) -->
+          <div
+            v-else-if="audioInputs.length === 1"
+            :class="[
+              'p-3.5 sm:p-4 rounded-[20px] flex items-center justify-between gap-3',
+              'bg-white/70 dark:bg-neutral-900/60',
+              'border border-neutral-200/80 dark:border-neutral-800/80 backdrop-blur-md',
+            ]"
+          >
+            <div :class="['flex items-center gap-3 min-w-0']">
+              <div :class="['h-9 w-9 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0']">
+                <div :class="['i-solar:microphone-3-bold-duotone text-lg']" />
+              </div>
+              <div :class="['flex flex-col min-w-0']">
+                <div :class="['flex items-center gap-2 font-bold text-xs text-neutral-800 dark:text-neutral-100']">
+                  <span>Active Microphone Input</span>
+                  <span :class="['w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse']" />
+                </div>
+                <span :class="['text-xs text-neutral-500 dark:text-neutral-400 truncate font-mono']">
+                  {{ activeMicLabel }}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              title="Rescan audio devices"
+              :class="['p-2 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors cursor-pointer shrink-0']"
+              @click="startStream"
+            >
+              <div :class="['i-solar:restart-bold w-4 h-4']" />
+            </button>
+          </div>
+
+          <!-- Case C: 0 Devices Detected or Permission Unprompted -->
+          <div
+            v-else
+            :class="[
+              'p-3.5 sm:p-4 rounded-[20px] flex items-center justify-between gap-3',
+              'bg-amber-500/10 border border-amber-500/30 backdrop-blur-md',
+            ]"
+          >
+            <div :class="['flex items-center gap-3 min-w-0']">
+              <div :class="['h-9 w-9 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0']">
+                <div :class="['i-solar:shield-warning-bold text-lg']" />
+              </div>
+              <div :class="['flex flex-col min-w-0']">
+                <span :class="['font-bold text-xs text-amber-900 dark:text-amber-200']">
+                  Microphone Access Required
+                </span>
+                <span :class="['text-[11px] text-amber-700/80 dark:text-amber-300/80']">
+                  Click below to grant microphone permission in your browser/app.
+                </span>
+              </div>
+            </div>
+
             <Button
-              v-if="whisperDownloadState === 'idle'"
               variant="primary"
-              class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
-              @click="startWhisperDownload"
+              class="h-8 shrink-0 px-3 text-xs font-semibold"
+              @click="startStream"
             >
-              <div class="i-solar:cloud-download-bold-duotone text-base" />
-              <span>Download Model</span>
+              <span>Grant Access</span>
             </Button>
+          </div>
 
-            <Button
-              v-else-if="whisperDownloadState === 'downloading'"
-              variant="secondary"
-              class="h-[38px] flex items-center gap-1.5 px-4 text-xs font-medium"
-              @click="cancelWhisperDownload"
-            >
-              <div class="i-solar:close-circle-bold-duotone text-base" />
-              <span>Cancel</span>
-            </Button>
+          <!-- Choose Speech Engine: Hero Cards -->
+          <div class="flex flex-col gap-2.5">
+            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
+              Speech recognition
+            </span>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <!-- Hero Card 1: Web Speech API -->
+              <div
+                :class="[
+                  'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
+                  'backdrop-blur-md',
+                  isWebSpeechSelected
+                    ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
+                    : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
+                ]"
+                @click="selectWebSpeech"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <div
+                      :class="[
+                        'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
+                        isWebSpeechSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+                      ]"
+                    >
+                      <div class="i-solar:microphone-3-bold-duotone h-5 w-5" />
+                    </div>
+                    <div class="flex flex-col">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">Web Speech API</span>
+                        <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400">
+                          Built-in
+                        </span>
+                      </div>
+                      <span class="text-xs text-neutral-500 dark:text-neutral-400">Zero Setup · No Download</span>
+                    </div>
+                  </div>
+                  <div
+                    v-if="isWebSpeechSelected"
+                    class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
+                  />
+                </div>
+                <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
+                  Uses speech recognition provided by your browser or operating system. No model download or API key required.
+                </p>
+              </div>
 
-            <Button
-              v-else-if="whisperDownloadState === 'ready'"
-              variant="secondary"
-              class="h-[38px] flex items-center gap-1.5 px-3.5 text-xs font-medium"
-              @click="startWhisperDownload(true)"
-            >
-              <div class="i-solar:refresh-circle-bold-duotone text-base" />
-              <span>Re-download</span>
-            </Button>
+              <!-- Hero Card 2: Local Whisper -->
+              <div
+                :class="[
+                  'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
+                  'backdrop-blur-md',
+                  isWhisperSelected
+                    ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
+                    : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
+                ]"
+                @click="selectLocalWhisper"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <div
+                      :class="[
+                        'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
+                        isWhisperSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+                      ]"
+                    >
+                      <div class="i-solar:cpu-bolt-bold-duotone h-5 w-5" />
+                    </div>
+                    <div class="flex flex-col">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">Local Whisper</span>
+                        <span class="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-600 font-medium dark:text-purple-400">
+                          WebGPU Offline
+                        </span>
+                      </div>
+                      <span class="text-xs text-neutral-500 dark:text-neutral-400">Speech processed on your device</span>
+                    </div>
+                  </div>
+                  <div
+                    v-if="isWhisperSelected"
+                    class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
+                  />
+                </div>
+                <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
+                  Runs OpenAI Whisper locally in your browser/app. Speech processed on your device.
+                </p>
+              </div>
+            </div>
+          </div>
 
-            <Button
-              v-else-if="whisperDownloadState === 'error'"
-              variant="primary"
-              class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
-              @click="startWhisperDownload(true)"
-            >
-              <div class="i-solar:restart-bold-duotone text-base" />
-              <span>Retry Download</span>
-            </Button>
+          <!-- Whisper WebGPU Model & In-Context Download Panel -->
+          <div
+            v-if="isWhisperSelected"
+            :class="['p-4 sm:p-5 rounded-[20px]', 'bg-white/70 dark:bg-neutral-900/60', 'border border-neutral-200/80 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3.5']"
+          >
+            <div class="flex flex-col gap-1">
+              <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">Whisper WebGPU Model</span>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                Larger models offer higher accuracy; smaller models download faster with less VRAM.
+              </p>
+            </div>
+
+            <div class="flex flex-col gap-2.5 sm:flex-row sm:items-end">
+              <div class="flex-1">
+                <FieldSelect
+                  v-model="selectedWhisperModel"
+                  label="Model"
+                  :options="availableWhisperModels.map(m => ({ label: `${m.name} (${getWhisperModelSpec(m.id)})`, value: m.id }))"
+                  layout="vertical"
+                  :disabled="whisperDownloadState === 'downloading'"
+                />
+              </div>
+              <div class="flex flex-shrink-0 items-center gap-2">
+                <Button
+                  v-if="whisperDownloadState === 'idle'"
+                  variant="primary"
+                  class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
+                  @click="startWhisperDownload"
+                >
+                  <div class="i-solar:cloud-download-bold-duotone text-base" />
+                  <span>Download Model</span>
+                </Button>
+
+                <Button
+                  v-else-if="whisperDownloadState === 'downloading'"
+                  variant="secondary"
+                  class="h-[38px] flex items-center gap-1.5 px-4 text-xs font-medium"
+                  @click="cancelWhisperDownload"
+                >
+                  <div class="i-solar:close-circle-bold-duotone text-base" />
+                  <span>Cancel</span>
+                </Button>
+
+                <Button
+                  v-else-if="whisperDownloadState === 'ready'"
+                  variant="secondary"
+                  class="h-[38px] flex items-center gap-1.5 px-3.5 text-xs font-medium"
+                  @click="startWhisperDownload(true)"
+                >
+                  <div class="i-solar:refresh-circle-bold-duotone text-base" />
+                  <span>Re-download</span>
+                </Button>
+
+                <Button
+                  v-else-if="whisperDownloadState === 'error'"
+                  variant="primary"
+                  class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
+                  @click="startWhisperDownload(true)"
+                >
+                  <div class="i-solar:restart-bold-duotone text-base" />
+                  <span>Retry Download</span>
+                </Button>
+              </div>
+            </div>
+
+            <!-- Download Progress Display -->
+            <div v-if="whisperDownloadState === 'downloading'" class="flex flex-col gap-2 border border-primary-500/20 rounded-xl bg-primary-500/5 p-3">
+              <div class="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-300">
+                <div class="flex items-center gap-1.5">
+                  <div class="i-solar:cloud-download-bold-duotone animate-pulse text-primary-500" />
+                  <span>{{ whisperPhaseMessage }}</span>
+                </div>
+                <span class="font-medium font-mono">
+                  {{ Math.floor(whisperProgress) }}%
+                  <template v-if="whisperProgress > 0"> ({{ formatMB((whisperProgress / 100) * selectedModelInfo.downloadBytes) }} / {{ formatMB(selectedModelInfo.downloadBytes) }})</template>
+                </span>
+              </div>
+              <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+                <div class="h-full rounded-full from-primary-500 to-indigo-500 bg-gradient-to-r transition-all duration-150" :style="{ width: `${whisperProgress}%` }" />
+              </div>
+            </div>
+
+            <!-- Ready Status -->
+            <div v-else-if="whisperDownloadState === 'ready'" class="flex items-center gap-2 border border-emerald-500/20 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-700 font-medium dark:text-emerald-300">
+              <div class="i-solar:check-circle-bold-duotone h-4 w-4 flex-shrink-0 text-emerald-500" />
+              <span>Whisper model shard is cached & resident in memory — ready to transcribe.</span>
+            </div>
+
+            <!-- Error Status -->
+            <div v-else-if="whisperDownloadState === 'error'" class="flex flex-col gap-1 border border-red-500/20 rounded-xl bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-300">
+              <div class="flex items-center gap-2 font-bold">
+                <div class="i-solar:danger-circle-bold-duotone h-4 w-4 text-red-500" />
+                <span>Download failed or connection interrupted.</span>
+              </div>
+              <span v-if="whisperErrorMessage" class="break-all text-[11px] text-red-600/80 dark:text-red-400/80">
+                {{ whisperErrorMessage }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Cloud & Remote Engines (API Key Required) -->
+          <div
+            v-if="cloudProviders.length > 0"
+            :class="['p-4 sm:p-5 rounded-[20px]', 'bg-white/70 dark:bg-neutral-900/60', 'border border-neutral-200/80 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']"
+          >
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
+                Cloud & Remote Engines (API Key Required)
+              </span>
+              <span class="text-[11px] text-neutral-400">Optional</span>
+            </div>
+
+            <!-- Deployment / Pricing Filter Pills -->
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div class="flex flex-col gap-1.5">
+                <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">Deployment</span>
+                <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
+                  <button
+                    v-for="opt in [
+                      { label: 'All', value: 'all' },
+                      { label: 'Cloud', value: 'cloud' },
+                      { label: 'Local', value: 'local' },
+                    ]"
+                    :key="opt.value"
+                    type="button"
+                    class="cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-all"
+                    :class="[
+                      deploymentFilter === opt.value
+                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-white'
+                        : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+                    ]"
+                    @click="deploymentFilter = opt.value as any"
+                  >
+                    {{ opt.label }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">Pricing</span>
+                <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
+                  <button
+                    v-for="opt in [
+                      { label: 'All', value: 'all' },
+                      { label: 'Free', value: 'free' },
+                      { label: 'Paid', value: 'paid' },
+                    ]"
+                    :key="opt.value"
+                    type="button"
+                    class="cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-all"
+                    :class="[
+                      pricingFilter === opt.value
+                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-white'
+                        : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+                    ]"
+                    @click="pricingFilter = opt.value as any"
+                  >
+                    {{ opt.label }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cloud Providers Grid -->
+            <div v-if="filteredCloudProviders.length > 0" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <RadioCardDetail
+                v-for="provider in filteredCloudProviders"
+                :id="provider.id"
+                :key="provider.id"
+                v-model="selectedCloudProviderId"
+                name="onboarding-v3-stt-provider"
+                :value="provider.id"
+                :title="provider.localizedName || provider.name || provider.id"
+                :description="provider.localizedDescription || provider.description || ''"
+                :pricing="provider.pricing"
+                :deployment="provider.deployment"
+                :beginner-recommended="provider.beginnerRecommended"
+              />
+            </div>
+          </div>
+
+          <!-- Inline Cloud Credential Configuration -->
+          <div
+            v-if="showInlineConfig && inlineConfigProvider"
+            :class="['border border-dashed border-amber-300/60 rounded-[20px]', 'bg-amber-50/60 dark:bg-amber-900/10 dark:border-amber-700/60', 'backdrop-blur-md']"
+          >
+            <StepProviderConfiguration
+              :selected-provider-id="inlineConfigProvider.id"
+              :selected-provider="inlineConfigProvider"
+              :on-next="handleConfigured"
+              :on-previous="handleCancelConfig"
+            />
+          </div>
+
+          <!-- Cloud Model Sub-Picker Dropdown -->
+          <div
+            v-if="!isWhisperSelected && !isWebSpeechSelected && providerModels.length > 0"
+            :class="['p-4 sm:p-5 rounded-[20px]', 'bg-white/70 dark:bg-neutral-900/60', 'border border-neutral-200/80 dark:border-neutral-800/80', 'backdrop-blur-md']"
+          >
+            <FieldSelect
+              v-model="activeCloudModel"
+              label="Model"
+              :options="providerModels.map((m: any) => ({ label: m.name || m.id, value: m.id }))"
+              placeholder="Select a transcription model"
+              layout="vertical"
+            />
+          </div>
+
+          <!-- Push-to-Talk Trigger Key (Desktop Electron Only) -->
+          <div
+            v-if="isElectron"
+            :class="['p-4 sm:p-5 rounded-[20px]', 'bg-white/70 dark:bg-neutral-900/60', 'border border-neutral-200/80 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <div class="text-sm text-neutral-800 font-bold dark:text-neutral-100">
+                  Push-to-Talk Trigger Key
+                </div>
+                <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                  Pick a lock key to toggle the microphone hands-free.
+                </p>
+              </div>
+              <span
+                v-if="lastPressAt"
+                class="flex animate-pulse items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-600 font-bold dark:text-emerald-400"
+              >
+                <div class="i-solar:check-circle-bold-duotone h-3.5 w-3.5" />
+                Key detected
+              </span>
+            </div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <RadioCardSimple
+                v-for="opt in hotkeyOptions"
+                :id="`onboarding-v3-hotkey-${opt.id}`"
+                :key="opt.id"
+                v-model="selectedHotkey"
+                name="onboarding-v3-hotkey"
+                :value="opt.id"
+                :title="opt.label"
+              />
+            </div>
           </div>
         </div>
 
-        <!-- Download Progress Display -->
-        <div v-if="whisperDownloadState === 'downloading'" class="flex flex-col gap-2 border border-primary-500/20 rounded-xl bg-primary-500/5 p-3">
-          <div class="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-300">
-            <div class="flex items-center gap-1.5">
-              <div class="i-solar:cloud-download-bold-duotone animate-pulse text-primary-500" />
-              <span>{{ whisperPhaseMessage }}</span>
+        <!-- Right: listening check -->
+        <aside
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :delay="150"
+          :class="[
+            'rounded-[20px] border p-4 sm:p-5 flex flex-col gap-3 min-w-0 lg:sticky lg:top-0 self-start w-full',
+            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
+          ]"
+        >
+          <div :class="['flex items-start gap-2.5']">
+            <div :class="['h-8 w-8 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm']">
+              <div :class="['i-solar:microphone-3-bold-duotone text-sm']" />
             </div>
-            <span class="font-medium font-mono">
-              {{ Math.floor(whisperProgress) }}%
-              <template v-if="whisperProgress > 0"> ({{ formatMB((whisperProgress / 100) * selectedModelInfo.downloadBytes) }} / {{ formatMB(selectedModelInfo.downloadBytes) }})</template>
+            <div :class="['min-w-0']">
+              <h2 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+                Listening check
+              </h2>
+              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
+                Speak to verify your microphone and engine.
+              </p>
+            </div>
+            <span
+              v-if="isVerified"
+              :class="['ml-auto flex flex-shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-600 font-bold dark:text-emerald-400']"
+            >
+              <div :class="['i-solar:verified-check-bold-duotone h-4 w-4']" />
+              Verified
             </span>
           </div>
-          <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-            <div class="h-full rounded-full from-primary-500 to-indigo-500 bg-gradient-to-r transition-all duration-150" :style="{ width: `${whisperProgress}%` }" />
-          </div>
-        </div>
 
-        <!-- Ready Status -->
-        <div v-else-if="whisperDownloadState === 'ready'" class="flex items-center gap-2 border border-emerald-500/20 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-700 font-medium dark:text-emerald-300">
-          <div class="i-solar:check-circle-bold-duotone h-4 w-4 flex-shrink-0 text-emerald-500" />
-          <span>Whisper model shard is cached & resident in memory — ready to transcribe.</span>
-        </div>
+          <div :class="['border-t border-neutral-200/70 dark:border-white/10']" />
 
-        <!-- Error Status -->
-        <div v-else-if="whisperDownloadState === 'error'" class="flex flex-col gap-1 border border-red-500/20 rounded-xl bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-300">
-          <div class="flex items-center gap-2 font-bold">
-            <div class="i-solar:danger-circle-bold-duotone h-4 w-4 text-red-500" />
-            <span>Download failed or connection interrupted.</span>
-          </div>
-          <span v-if="whisperErrorMessage" class="break-all text-[11px] text-red-600/80 dark:text-red-400/80">
-            {{ whisperErrorMessage }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Cloud & Remote Engines (API Key Required) -->
-      <div
-        v-if="cloudProviders.length > 0"
-        :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']"
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
-            Cloud & Remote Engines (API Key Required)
-          </span>
-          <span class="text-[11px] text-neutral-400">Optional</span>
-        </div>
-
-        <!-- Deployment / Pricing Filter Pills -->
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
-          <div class="flex flex-col gap-1.5">
-            <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">Deployment</span>
-            <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
-              <button
-                v-for="opt in [
-                  { label: 'All', value: 'all' },
-                  { label: 'Cloud', value: 'cloud' },
-                  { label: 'Local', value: 'local' },
-                ]"
-                :key="opt.value"
-                type="button"
-                class="cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-all"
-                :class="[
-                  deploymentFilter === opt.value
-                    ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-white'
-                    : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-                ]"
-                @click="deploymentFilter = opt.value as any"
-              >
-                {{ opt.label }}
-              </button>
-            </div>
+          <!-- Effective engine summary (bound to committed draft state) -->
+          <div :class="['rounded-xl border border-neutral-200/70 dark:border-white/10 bg-neutral-50/70 dark:bg-black/20 px-3 py-2.5 flex flex-col gap-1']">
+            <span :class="['text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500']">
+              Testing
+            </span>
+            <span :title="effectiveModelLabel" :class="['text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate']">
+              {{ effectiveModelLabel }}
+            </span>
+            <span :title="effectiveEngineLabel" :class="['text-[11px] text-neutral-500 dark:text-neutral-400 truncate']">
+              {{ effectiveEngineLabel }}
+            </span>
           </div>
 
-          <div class="flex flex-col gap-1.5">
-            <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">Pricing</span>
-            <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
-              <button
-                v-for="opt in [
-                  { label: 'All', value: 'all' },
-                  { label: 'Free', value: 'free' },
-                  { label: 'Paid', value: 'paid' },
-                ]"
-                :key="opt.value"
-                type="button"
-                class="cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-all"
-                :class="[
-                  pricingFilter === opt.value
-                    ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-white'
-                    : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-                ]"
-                @click="pricingFilter = opt.value as any"
-              >
-                {{ opt.label }}
-              </button>
-            </div>
+          <LevelMeter :level="volumeLevel" label="Microphone level" />
+
+          <div v-if="testStatusMessage" class="flex items-center gap-2 border border-primary-200 rounded-lg bg-primary-50 p-3 text-primary-700 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-300">
+            <div v-if="isTesting" class="i-solar:spinner-line-duotone animate-spin text-sm" />
+            <div v-else class="i-solar:info-circle-line-duotone text-sm" />
+            <span class="text-sm font-medium">{{ testStatusMessage }}</span>
           </div>
-        </div>
 
-        <!-- Cloud Providers Grid -->
-        <div v-if="filteredCloudProviders.length > 0" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <RadioCardDetail
-            v-for="provider in filteredCloudProviders"
-            :id="provider.id"
-            :key="provider.id"
-            v-model="selectedCloudProviderId"
-            name="onboarding-v3-stt-provider"
-            :value="provider.id"
-            :title="provider.localizedName || provider.name || provider.id"
-            :description="provider.localizedDescription || provider.description || ''"
-            :pricing="provider.pricing"
-            :deployment="provider.deployment"
-            :beginner-recommended="provider.beginnerRecommended"
-          />
-        </div>
-      </div>
-
-      <!-- Inline Cloud Credential Configuration -->
-      <div
-        v-if="showInlineConfig && inlineConfigProvider"
-        :class="['border border-dashed border-amber-300/60 rounded-xl', 'bg-amber-50/60 dark:bg-amber-900/10 dark:border-amber-700/60', 'backdrop-blur-md']"
-      >
-        <StepProviderConfiguration
-          :selected-provider-id="inlineConfigProvider.id"
-          :selected-provider="inlineConfigProvider"
-          :on-next="handleConfigured"
-          :on-previous="handleCancelConfig"
-        />
-      </div>
-
-      <!-- Cloud Model Sub-Picker Dropdown -->
-      <div
-        v-if="!isWhisperSelected && !isWebSpeechSelected && providerModels.length > 0"
-        :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md']"
-      >
-        <FieldSelect
-          v-model="activeCloudModel"
-          label="Model"
-          :options="providerModels.map((m: any) => ({ label: m.name || m.id, value: m.id }))"
-          placeholder="Select a transcription model"
-          layout="vertical"
-        />
-      </div>
-
-      <!-- Push-to-Talk Trigger Key (Desktop Electron Only) -->
-      <div
-        v-if="isElectron"
-        :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <div>
-            <div class="text-sm text-neutral-800 font-bold dark:text-neutral-100">
-              Push-to-Talk Trigger Key
-            </div>
-            <p class="text-xs text-neutral-500 dark:text-neutral-400">
-              Pick a lock key to toggle the microphone hands-free.
-            </p>
-          </div>
-          <span
-            v-if="lastPressAt"
-            class="flex animate-pulse items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-600 font-bold dark:text-emerald-400"
+          <Button
+            variant="primary"
+            :disabled="!canStartTest && !isTesting"
+            :class="[
+              'w-full flex items-center justify-center gap-2 rounded-xl px-4 min-h-[44px]',
+              'text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
+            ]"
+            @click="isTesting ? stopTest() : startTest()"
           >
-            <div class="i-solar:check-circle-bold-duotone h-3.5 w-3.5" />
-            Key detected
-          </span>
-        </div>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <RadioCardSimple
-            v-for="opt in hotkeyOptions"
-            :id="`onboarding-v3-hotkey-${opt.id}`"
-            :key="opt.id"
-            v-model="selectedHotkey"
-            name="onboarding-v3-hotkey"
-            :value="opt.id"
-            :title="opt.label"
-          />
-        </div>
-      </div>
+            <div :class="[isTesting ? 'i-solar:stop-circle-bold-duotone' : 'i-solar:microphone-3-bold-duotone', 'h-4 w-4']" />
+            <span>{{ isTesting ? 'Stop Test' : 'Start listening test' }}</span>
+          </Button>
 
-      <!-- Live Transcription Test -->
-      <div :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-4']">
-        <div class="flex items-center justify-between">
-          <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">Live Transcription Test</span>
-          <span
-            v-if="isVerified"
-            class="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-600 font-bold dark:text-emerald-400"
-          >
-            <div class="i-solar:verified-check-bold-duotone h-4 w-4" />
-            Verified Working
-          </span>
-        </div>
+          <div v-if="testError" class="border border-red-200 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+            {{ testError }}
+          </div>
 
-        <LevelMeter :level="volumeLevel" label="Input Level" />
-
-        <div v-if="testStatusMessage" class="flex items-center gap-2 border border-primary-200 rounded-lg bg-primary-50 p-3 text-primary-700 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-300">
-          <div v-if="isTesting" class="i-solar:spinner-line-duotone animate-spin text-sm" />
-          <div v-else class="i-solar:info-circle-line-duotone text-sm" />
-          <span class="text-sm font-medium">{{ testStatusMessage }}</span>
-        </div>
-
-        <button
-          type="button"
-          class="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm text-white font-semibold shadow-lg shadow-primary-500/25 transition-all active:scale-95 disabled:cursor-not-allowed hover:bg-primary-600 disabled:opacity-50"
-          :disabled="!canStartTest && !isTesting"
-          @click="isTesting ? stopTest() : startTest()"
-        >
-          <div :class="isTesting ? 'i-solar:stop-circle-bold-duotone' : 'i-solar:microphone-3-bold-duotone'" class="h-4 w-4" />
-          {{ isTesting ? 'Stop Test' : 'Start Speaking Test' }}
-        </button>
-
-        <div v-if="testError" class="border border-red-200 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-          {{ testError }}
-        </div>
-
-        <!-- Real-time Transcription Stream Result -->
-        <div
-          class="min-h-[96px] border rounded-lg p-3 text-sm"
-          :class="transcribedText || testStreamingText ? 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900' : 'border-dashed border-neutral-300 bg-neutral-50 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-900/50 dark:text-neutral-500'"
-        >
-          <template v-if="testStreamingText && supportsStreamInput">
-            <div class="mb-1 text-xs text-neutral-400 font-medium">
-              Hearing you…
+          <!-- Transcription result -->
+          <div :class="['flex flex-col gap-1.5 min-w-0']">
+            <span :class="['text-xs font-semibold text-neutral-700 dark:text-neutral-300']">
+              Recognized speech
+            </span>
+            <div
+              class="max-h-64 min-h-[96px] overflow-y-auto border rounded-lg p-3 text-sm"
+              :class="transcribedText || testStreamingText ? 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900' : 'border-dashed border-neutral-300 bg-neutral-50 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-900/50 dark:text-neutral-500'"
+            >
+              <template v-if="testStreamingText && supportsStreamInput">
+                <div class="mb-1 text-xs text-neutral-400 font-medium">
+                  Hearing you…
+                </div>
+                <div class="whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">
+                  {{ testStreamingText }}
+                </div>
+              </template>
+              <template v-if="transcribedText">
+                <div class="mb-1 text-xs text-emerald-600 font-bold dark:text-emerald-400" :class="{ 'mt-2 border-t border-neutral-200 pt-2 dark:border-neutral-700': testStreamingText && supportsStreamInput }">
+                  Final transcription:
+                </div>
+                <div class="whitespace-pre-wrap text-neutral-700 dark:text-neutral-200">
+                  {{ transcribedText }}
+                </div>
+              </template>
+              <span v-if="!transcribedText && !testStreamingText">No transcription yet. Start the test and speak into your microphone.</span>
             </div>
-            <div class="whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">
-              {{ testStreamingText }}
-            </div>
-          </template>
-          <template v-if="transcribedText">
-            <div class="mb-1 text-xs text-emerald-600 font-bold dark:text-emerald-400" :class="{ 'mt-2 border-t border-neutral-200 pt-2 dark:border-neutral-700': testStreamingText && supportsStreamInput }">
-              Final transcription:
-            </div>
-            <div class="whitespace-pre-wrap text-neutral-700 dark:text-neutral-200">
-              {{ transcribedText }}
-            </div>
-          </template>
-          <span v-if="!transcribedText && !testStreamingText">No transcription yet. Start the test and speak into your microphone.</span>
-        </div>
+          </div>
+
+          <!-- Check status -->
+          <div :class="['flex items-center gap-1.5 text-xs font-semibold']">
+            <span v-if="checkStatus === 'empty'" :class="['flex items-center gap-1.5 text-neutral-400']">
+              <span :class="['h-2 w-2 rounded-full bg-neutral-300 dark:bg-neutral-600']" />
+              <span>Not configured</span>
+            </span>
+            <span v-else-if="checkStatus === 'not-ready'" :class="['flex items-center gap-1.5 text-amber-600 dark:text-amber-400']">
+              <span :class="['h-2 w-2 rounded-full bg-amber-500']" />
+              <span>Download required</span>
+            </span>
+            <span v-else-if="checkStatus === 'ready'" :class="['flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400']">
+              <span :class="['h-2 w-2 rounded-full bg-emerald-500']" />
+              <span>Ready to test</span>
+            </span>
+            <span v-else-if="checkStatus === 'listening'" :class="['flex items-center gap-1.5 text-primary-600 dark:text-primary-400']">
+              <span :class="['h-2 w-2 rounded-full bg-primary-500 animate-pulse']" />
+              <span>Listening…</span>
+            </span>
+            <span v-else-if="checkStatus === 'heard'" :class="['flex items-center gap-1.5 text-primary-600 dark:text-primary-400']">
+              <span :class="['h-2 w-2 rounded-full bg-primary-500']" />
+              <span>Heard you — finishing…</span>
+            </span>
+            <span v-else-if="checkStatus === 'verified'" :class="['flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400']">
+              <span :class="['h-2 w-2 rounded-full bg-emerald-500']" />
+              <span>Ear verified</span>
+            </span>
+            <span v-else :class="['flex items-center gap-1.5 text-red-600 dark:text-red-400']">
+              <span :class="['h-2 w-2 rounded-full bg-red-500']" />
+              <span>Check failed</span>
+            </span>
+          </div>
+        </aside>
       </div>
     </div>
 
-    <!-- Bottom Navigation Bar -->
+    <!-- Shared footer -->
     <div
       :class="[
-        'h-14 border-t border-neutral-200/80 dark:border-neutral-800/80',
-        'flex items-center justify-between flex-shrink-0 pt-2 mt-2',
+        'flex-shrink-0 pt-4 px-4 sm:px-6 flex items-center justify-between border-t border-neutral-200/80 dark:border-neutral-800/80 gap-2',
       ]"
     >
       <button
         type="button"
         :class="[
-          'flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium cursor-pointer',
+          'flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium cursor-pointer flex-shrink-0',
           'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
           'hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors',
         ]"
@@ -1066,9 +1181,21 @@ watch(selectedAudioInput, async () => {
       </button>
 
       <!-- Center Status Hint -->
-      <div :class="['text-[11px] text-neutral-400 font-medium italic hidden sm:block text-center truncate max-w-sm']">
+      <div :class="['text-[11px] text-neutral-400 font-medium italic hidden sm:block text-center truncate max-w-sm min-w-0']">
         <span v-if="isVerified" class="text-emerald-500 font-semibold not-italic dark:text-emerald-400">
           Ear verified! Ready to proceed.
+        </span>
+        <span v-else-if="checkStatus === 'not-ready'">
+          Download your selected model to start the listening test.
+        </span>
+        <span v-else-if="checkStatus === 'listening'">
+          Speak into your microphone now.
+        </span>
+        <span v-else-if="checkStatus === 'heard'">
+          Hearing you — finishing up…
+        </span>
+        <span v-else-if="checkStatus === 'ready'">
+          Start the listening test to verify your microphone.
         </span>
         <span v-else>
           Speak into your microphone — Next unlocks once we hear you.
@@ -1076,7 +1203,7 @@ watch(selectedAudioInput, async () => {
       </div>
 
       <!-- Action Group: Skip Step + Next -->
-      <div :class="['flex items-center gap-3']">
+      <div :class="['flex items-center gap-3 flex-shrink-0']">
         <button
           type="button"
           :class="[

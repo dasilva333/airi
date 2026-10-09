@@ -193,7 +193,7 @@ const archetypes: ArchetypeCard[] = [
   {
     id: 'quiet',
     title: 'The Quiet Observer',
-    subtitle: 'Text-only minimalist companion',
+    subtitle: 'Text, Tools & Memory',
     description: 'Text conversation, thoughtful pacing, and memory—without a rendered avatar.',
     icon: 'i-solar:chat-round-line-bold',
     chips: [
@@ -309,7 +309,7 @@ const archetypes: ArchetypeCard[] = [
   {
     id: 'swiss-army',
     title: 'The Swiss Army Companion',
-    subtitle: 'Full-spectrum multimodal companion',
+    subtitle: 'Voice, Vision & Action',
     description: 'A companion that talks, sees, creates, and takes action—with memory and an ongoing presence.',
     icon: 'i-solar:stars-minimalistic-bold',
     chips: [

@@ -78,14 +78,14 @@ steps:
       restoring: Restaurando acompañantes...
       restoreAll: Restaurar e Iniciar Escenario
     stepBadge: Triaje de Arquitectura · Paso {current} de {total}
-    companionGreeting: ¡Te damos la bienvenida a AIRI! Elige cómo deseas configurar tu escenario.
-      Puedes ejecutarlo 100% local y fuera de línea, o iniciar sesión para
-      sincronizar entre dispositivos.
+    companionGreeting: ¡Te damos la bienvenida a AIRI! Elige cómo deseas configurar
+      tu escenario. Puedes ejecutarlo 100% local y fuera de línea, o iniciar
+      sesión para sincronizar entre dispositivos.
     local:
       badge: Sin Conexión Primero
       title: Acompañante Local (Aislado)
-      description: 100% fuera de línea y privado. Todas las tarjetas, memorias y estado se
-        guardan localmente sin telemetría en la nube.
+      description: 100% fuera de línea y privado. Todas las tarjetas, memorias y
+        estado se guardan localmente sin telemetría en la nube.
       selectedCta: Seleccionado (Aislado)
       selectCta: Elegir Modo Local
       features:
@@ -95,8 +95,9 @@ steps:
     cloud:
       badge: 10 GB Gratis + Sincronización en Nube
       title: Iniciar Sesión (Cloudflare)
-      description: Conecta tu cuenta para desbloquear 10 GB de almacenamiento gratuito,
-        créditos diarios de IA en el borde y presencia 24/7 de tu acompañante en todos tus dispositivos.
+      description: Conecta tu cuenta para desbloquear 10 GB de almacenamiento
+        gratuito, créditos diarios de IA en el borde y presencia 24/7 de tu
+        acompañante en todos tus dispositivos.
       selectedCta: Seleccionado (Con Nube)
       selectCta: Elegir Sincronización en Nube
       features:
@@ -107,29 +108,52 @@ steps:
         f5: Proxy CORS Privado y Cero Custodia
         storage:
           title: 10 GB de Almacenamiento Gratuito en la Nube
-          desc: Respalda modelos 3D, fondos personalizados y bóvedas completas de memoria sin costes de transferencia saliente.
-          howItWorks: Impulsado por el almacenamiento de objetos Cloudflare R2 propiedad del usuario.
-          whyItMatters: Nivel gratuito generoso con espacio suficiente para docenas de modelos VRM/Live2D y años de historial de chat. A diferencia de AWS S3, descargar tus recursos es 100% gratuito con $0 en cargos de ancho de banda.
+          desc: Respalda modelos 3D, fondos personalizados y bóvedas completas de memoria
+            sin costes de transferencia saliente.
+          howItWorks: Impulsado por el almacenamiento de objetos Cloudflare R2 propiedad
+            del usuario.
+          whyItMatters: Nivel gratuito generoso con espacio suficiente para docenas de
+            modelos VRM/Live2D y años de historial de chat. A diferencia de AWS
+            S3, descargar tus recursos es 100% gratuito con $0 en cargos de
+            ancho de banda.
         ai:
           title: Créditos Diarios Gratuitos de IA en el Borde
-          desc: 10.000 Neurons gratuitas al día para DeepSeek, Qwen y Llama (sin requerir clave de API).
-          howItWorks: Se conecta directamente con Cloudflare Workers AI durante el Paso 8 (Consciencia).
-          whyItMatters: Chatea de inmediato con modelos abiertos de vanguardia en el borde sin necesidad de una suscripción a OpenAI, tarjeta de crédito de pago o una GPU local para juegos de gama alta.
+          desc: 10.000 Neurons gratuitas al día para DeepSeek, Qwen y Llama (sin requerir
+            clave de API).
+          howItWorks: Se conecta directamente con Cloudflare Workers AI durante el Paso 8
+            (Consciencia).
+          whyItMatters: Chatea de inmediato con modelos abiertos de vanguardia en el borde
+            sin necesidad de una suscripción a OpenAI, tarjeta de crédito de
+            pago o una GPU local para juegos de gama alta.
         relay:
           title: Retransmisión en la Nube de Discord 24/7
-          desc: Mantén a tu acompañante despierto en tu servidor de Discord incluso cuando tu PC esté apagado.
-          howItWorks: Se ejecuta como un Cloudflare Worker sin servidor (@proj-airi/stage-edge) gestionando los webhooks de interacción de Discord.
-          whyItMatters: Tu acompañante permanece activo las 24 horas para conversar en Discord, almacena el contexto en Edge KV y sincroniza las conversaciones de vuelta a tu escritorio cuando vuelves a abrir AIRI.
+          desc: Mantén a tu acompañante despierto en tu servidor de Discord incluso cuando
+            tu PC esté apagado.
+          howItWorks: Se ejecuta como un Cloudflare Worker sin servidor
+            (@proj-airi/stage-edge) gestionando los webhooks de interacción de
+            Discord.
+          whyItMatters: Tu acompañante permanece activo las 24 horas para conversar en
+            Discord, almacena el contexto en Edge KV y sincroniza las
+            conversaciones de vuelta a tu escritorio cuando vuelves a abrir
+            AIRI.
         sync:
           title: Sincronización Multidispositivo y Restauración en 1 Clic
-          desc: Sincroniza fluidamente Escritorio, Web y Móvil; restaura acompañantes con un solo clic.
-          howItWorks: Edge Key Vault (airi-edge-vault) rastrea de forma segura el estado activo de tu acompañante.
-          whyItMatters: Reinstalar AIRI o migrar a un nuevo portátil o teléfono recupera automáticamente tu acompañante, ajustes y recuerdos sin tener que introducir claves manualmente.
+          desc: Sincroniza fluidamente Escritorio, Web y Móvil; restaura acompañantes con
+            un solo clic.
+          howItWorks: Edge Key Vault (airi-edge-vault) rastrea de forma segura el estado
+            activo de tu acompañante.
+          whyItMatters: Reinstalar AIRI o migrar a un nuevo portátil o teléfono recupera
+            automáticamente tu acompañante, ajustes y recuerdos sin tener que
+            introducir claves manualmente.
         proxy:
           title: Proxy CORS Privado y Cero Custodia
-          desc: Accede a APIs de IA locales y remotas complejas con privacidad de datos 100% cero custodia.
-          howItWorks: Despliega un proxy inverso perimetral personal para sortear los encabezados CORS del navegador en los escenarios Web y Móvil.
-          whyItMatters: Todo se ejecuta en tu cuenta personal de Cloudflare. AIRI no opera servidores intermediarios y nunca lee, almacena ni recopila tus conversaciones.
+          desc: Accede a APIs de IA locales y remotas complejas con privacidad de datos
+            100% cero custodia.
+          howItWorks: Despliega un proxy inverso perimetral personal para sortear los
+            encabezados CORS del navegador en los escenarios Web y Móvil.
+          whyItMatters: Todo se ejecuta en tu cuenta personal de Cloudflare. AIRI no opera
+            servidores intermediarios y nunca lee, almacena ni recopila tus
+            conversaciones.
     auth:
       connected: Conectado a Cloudflare
       disconnect: Desconectar
@@ -218,7 +242,7 @@ steps:
       quiet:
         title: El Observador Silencioso
         badge: ⚡ Más Rápido · Minimalista
-        subtitle: Texto, Expresiones y Memoria
+        subtitle: Texto, Herramientas y Memoria
         description: Cero sobrecarga de audio, emociones de avatar, pausas reflexivas y
           memoria a largo plazo.
       casual:
@@ -231,8 +255,8 @@ steps:
         title: La Musa Creativa
         badge: 🎨 Enfoque Visual
         subtitle: Voz, Visión y Arte
-        description: Diálogo hablado, generación de imágenes (Pollinations/ComfyUI), visión
-          de chat y morfologías expresivas.
+        description: Diálogo hablado, generación de imágenes (Pollinations/ComfyUI),
+          visión de chat y morfologías expresivas.
       copilot:
         title: El Copiloto Ejecutivo
         badge: 💼 Productividad
@@ -243,12 +267,12 @@ steps:
         title: El Compañero de Cuarto
         badge: 🌙 Presencia Proactiva
         subtitle: Rutina Viva y Presencia
-        description: Voz hablada, latidos ambientales, horario de sueño, horas silenciosas
-          y percepción de pantalla.
+        description: Voz hablada, latidos ambientales, horario de sueño, horas
+          silenciosas y percepción de pantalla.
       swiss-army:
         title: El Compañero Navaja Suiza
         badge: 🔥 Más Pasos · Todo en Uno
-        subtitle: Multimodal Autónomo Completo
+        subtitle: Voz, Visión y Acción
         description: El compañero definitivo todo en uno. Audición, voz neural, pausas
           reflexivas, emociones ACT de 2 pasos, observación de pantalla, arte y
           memoria cognitiva.
@@ -441,7 +465,8 @@ steps:
       custom: Proveedores en la Nube
     cloudflare:
       connected: 'Cloudflare Conectado: 10.000 Neurons gratuitas/día activas'
-      notConnected: Conecta tu cuenta de Cloudflare para usar visión en el borde gratuita sin configuración.
+      notConnected: Conecta tu cuenta de Cloudflare para usar visión en el borde
+        gratuita sin configuración.
       signIn: Iniciar sesión con Cloudflare
     engineTitle: Modelo de análisis visual
     testImage: Probar percepción visual

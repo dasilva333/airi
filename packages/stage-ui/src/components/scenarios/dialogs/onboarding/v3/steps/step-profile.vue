@@ -134,14 +134,22 @@ const displayName = computed(() => draft.state.userName?.trim() || 'Richie')
 </script>
 
 <template>
-  <div :class="['w-full h-full flex flex-col justify-between select-none animate-fadeIn']">
+  <div :class="['w-full max-w-[1280px] mx-auto h-full flex flex-col justify-between select-none animate-fadeIn']">
     <!-- Scrollable Content Body -->
-    <div :class="['flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-2 flex flex-col gap-4 sm:gap-6']">
+    <div :class="['flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-4']">
       <!-- Shared Centered Header -->
-      <div :class="['flex flex-col items-center text-center gap-3 sm:gap-3.5']">
-        <h1 :class="['text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white']">
-          {{ t('onboarding.steps.profile.title') }}
-        </h1>
+      <div :class="['flex flex-col items-center text-center gap-3']">
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            {{ t('onboarding.steps.profile.title') }}
+          </h1>
+        </div>
 
         <AssistantBubble
           :message="t('onboarding.steps.profile.companionGreeting')"
@@ -151,7 +159,7 @@ const displayName = computed(() => draft.state.userName?.trim() || 'Richie')
       </div>
 
       <!-- Centered Two-Column Content Container (~1280px wide) -->
-      <div :class="['w-full max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,34fr)_minmax(0,66fr)] gap-4 lg:gap-5 items-stretch']">
+      <div :class="['w-full grid grid-cols-1 lg:grid-cols-[minmax(0,34fr)_minmax(0,66fr)] gap-4 lg:gap-5 items-stretch']">
         <!-- Left Panel: Quick templates -->
         <div
           v-motion
@@ -478,7 +486,7 @@ const displayName = computed(() => draft.state.userName?.trim() || 'Richie')
       :duration="350"
       :delay="200"
       :class="[
-        'flex-shrink-0 pt-4 px-4 sm:px-6 flex items-center justify-between border-t border-neutral-200/80 dark:border-white/5',
+        'flex-shrink-0 pt-4 flex items-center justify-between border-t border-neutral-200/80 dark:border-white/5',
       ]"
     >
       <button

@@ -69,8 +69,8 @@ steps:
       restoring: 컴패니언 복원 중...
       restoreAll: 복원 후 스테이지 시작
     stepBadge: 아키텍처 선별 · 단계 {current} / {total}
-    companionGreeting: AIRI에 오신 것을 환영합니다! 스테이지 설정 방식을 선택하세요. 100% 로컬 오프라인으로 실행하거나 계정에 로그인하여 기기 간
-      동기화를 활성화할 수 있습니다.
+    companionGreeting: AIRI에 오신 것을 환영합니다! 스테이지 설정 방식을 선택하세요. 100% 로컬 오프라인으로 실행하거나
+      계정에 로그인하여 기기 간 동기화를 활성화할 수 있습니다.
     local:
       badge: 오프라인 우선
       title: 로컬 컴패니언 (완전 격리)
@@ -97,27 +97,33 @@ steps:
           title: 10 GB 무료 클라우드 저장 공간
           desc: 하향 전송 수수료 없이 3D 모델, 커스텀 배경, 전체 메모리 볼트를 백업합니다.
           howItWorks: 사용자 소유의 Cloudflare R2 객체 스토리지를 기반으로 작동합니다.
-          whyItMatters: 수십 개의 VRM/Live2D 모델과 수년 치의 대화 기록을 보관할 수 있는 넉넉한 무료 공간을 제공합니다. AWS S3와 달리 자산 다운로드는 대역폭 요금 $0으로 100% 무료입니다.
+          whyItMatters: 수십 개의 VRM/Live2D 모델과 수년 치의 대화 기록을 보관할 수 있는 넉넉한 무료 공간을 제공합니다. AWS
+            S3와 달리 자산 다운로드는 대역폭 요금 $0으로 100% 무료입니다.
         ai:
           title: 일일 무료 엣지 AI 크레딧
           desc: DeepSeek, Qwen, Llama용 일일 10,000 무료 뉴런 제공(API 키 불필요).
           howItWorks: 8단계(의식) 진행 중 Cloudflare Workers AI에 직접 연결됩니다.
-          whyItMatters: OpenAI 유료 구독, 신용카드 등록, 고사양 로컬 게이밍 GPU 없이도 엣지에서 최신 오픈 모델과 즉시 대화할 수 있습니다.
+          whyItMatters: OpenAI 유료 구독, 신용카드 등록, 고사양 로컬 게이밍 GPU 없이도 엣지에서 최신 오픈 모델과 즉시 대화할 수
+            있습니다.
         relay:
           title: 24/7 Discord 클라우드 릴레이
           desc: PC가 꺼져 있어도 Discord 서버에서 컴패니언이 항상 깨어 있도록 유지합니다.
-          howItWorks: Discord 인터랙션 웹훅을 처리하는 서버리스 Cloudflare Worker(@proj-airi/stage-edge)로 실행됩니다.
-          whyItMatters: 컴패니언이 24시간 내내 Discord에서 대화하고 Edge KV에 기억을 저장하며, AIRI를 다시 열었을 때 데스크톱으로 자동 동기화합니다.
+          howItWorks: Discord 인터랙션 웹훅을 처리하는 서버리스 Cloudflare Worker(@proj-airi/stage-edge)로
+            실행됩니다.
+          whyItMatters: 컴패니언이 24시간 내내 Discord에서 대화하고 Edge KV에 기억을 저장하며, AIRI를 다시 열었을 때
+            데스크톱으로 자동 동기화합니다.
         sync:
           title: 다중 기기 동기화 및 1클릭 복구
           desc: 데스크톱, 웹, 모바일을 매끄럽게 동기화하고 한 번의 클릭으로 컴패니언을 복구하세요.
           howItWorks: Edge Key Vault(airi-edge-vault)가 활성 컴패니언 상태를 안전하게 추적합니다.
-          whyItMatters: AIRI를 재설치하거나 새 노트북/휴대폰으로 변경해도 키를 수동으로 입력할 필요 없이 컴패니언, 설정, 기억이 자동으로 복원됩니다.
+          whyItMatters: AIRI를 재설치하거나 새 노트북/휴대폰으로 변경해도 키를 수동으로 입력할 필요 없이 컴패니언, 설정, 기억이 자동으로
+            복원됩니다.
         proxy:
           title: 비공개 CORS 프록시 및 제로 수탁 프라이버시
           desc: 100% 제로 수탁 데이터 프라이버시로 까다로운 로컬 및 원격 AI API에 접근합니다.
           howItWorks: 웹 및 모바일 스테이지를 위해 브라우저 CORS 헤더를 우회하는 개인용 엣지 리버스 프록시를 배포합니다.
-          whyItMatters: 모든 것은 개인 Cloudflare 계정 내에서 실행됩니다. AIRI는 중간 서버를 두지 않으며 사용자의 대화를 결코 읽거나 저장하거나 수집하지 않습니다.
+          whyItMatters: 모든 것은 개인 Cloudflare 계정 내에서 실행됩니다. AIRI는 중간 서버를 두지 않으며 사용자의 대화를 결코
+            읽거나 저장하거나 수집하지 않습니다.
     auth:
       connected: Cloudflare 연결 완료
       disconnect: 연결 해제
@@ -193,7 +199,7 @@ steps:
       quiet:
         title: 조용한 관찰자
         badge: ⚡ 가장 빠름 · 미니멀
-        subtitle: 텍스트, 표정 & 기억
+        subtitle: 텍스트, 도구 & 기억
         description: 오디오 오버헤드 제로, 아바타 감정 표현, 생각 호흡 및 장기 기억을 갖춘 초경량 텍스트 컴패니언.
       casual:
         title: 캐주얼 컴패니언
@@ -218,9 +224,9 @@ steps:
       swiss-army:
         title: 만능 맥가이버 컴패니언
         badge: 🔥 풀옵션 · 올인원
-        subtitle: 완전 자율형 멀티모달
-        description: 모든 기능을 갖춘 플래그십 컴패니언. 청각, 뉴럴 보이스, 생각 템포, 2-패스 ACT 감정, 화면 감지, 아트 생성 및 인지
-          기억 계층.
+        subtitle: 음성, 비전 & 행동
+        description: 모든 기능을 갖춘 플래그십 컴패니언. 청각, 뉴럴 보이스, 생각 템포, 2-패스 ACT 감정, 화면 감지, 아트 생성 및
+          인지 기억 계층.
     advanced:
       toggle: '고급: 개별 모듈 직접 설정'
       description: 특정 감각 및 인지 기능 모듈을 켜거나 끌 수 있습니다.

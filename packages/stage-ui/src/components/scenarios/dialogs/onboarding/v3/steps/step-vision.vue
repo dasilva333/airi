@@ -5,6 +5,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
+import AssistantBubble from '../components/assistant-bubble.vue'
+
 import { useLLM } from '../../../../../../stores/llm'
 import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
 import { useCloudflareStore } from '../../../../../../stores/modules/cloudflare'
@@ -39,6 +41,7 @@ const { cfOAuthTokens, cfAccountId, isAuthenticated: isCloudflareAuthenticated }
 const cloudflareAccountId = computed(() => cloudflareStore.activeAccountId || cfAccountId.value || cfOAuthTokens.value?.accountId || '')
 
 const activeTab = ref<'cloudflare' | 'local' | 'custom'>('cloudflare')
+const showResponseInstructions = ref(false)
 
 const localProviderIds = new Set(['moondream-local', 'blip-local', 'ollama', 'lm-studio'])
 
@@ -167,6 +170,14 @@ const promptShimDirect = ref<string>(
 const promptShimForward = ref<string>(
   draftStore.state.visionPromptShimForward || visionStore.promptShimForward || 'You are an objective image analysis model. Analyze the provided image in the context of the conversation and the user\'s latest message. Describe the key visual details, subjects, actions, colors, text, or any specific elements mentioned or asked about by the user, so that the primary chat LLM can respond appropriately. Keep your analysis descriptive and objective, and avoid any conversational filler.',
 )
+
+const activeProviderLabel = computed(() => {
+  if (!activeProvider.value)
+    return 'No provider'
+  if (activeProvider.value === 'cloudflare-workers-ai')
+    return 'Cloudflare'
+  return providersStore.getProviderMetadata(activeProvider.value)?.name || activeProvider.value
+})
 
 const userName = computed(() => draftStore.state.userName?.trim() || 'Richy')
 const resolvedPersona = computed(() => resolvePersona(draftStore.state, userName.value))
@@ -535,409 +546,413 @@ async function runSimulation() {
 </script>
 
 <template>
-  <div :class="['w-full max-w-5xl mx-auto flex flex-col gap-4 py-1 select-none']">
-    <!-- Header Section -->
-    <div :class="['flex items-start justify-between gap-4 pb-2 border-b border-neutral-200/80 dark:border-white/10']">
-      <div :class="['flex items-start gap-3']">
-        <div :class="['w-10 h-10 rounded-2xl bg-primary-500/10 text-primary-500 flex items-center justify-center text-xl flex-shrink-0 mt-0.5 border border-primary-500/20 shadow-xs']">
-          <div :class="['i-solar:camera-bold-duotone w-5 h-5']" />
+  <div :class="['w-full h-full flex flex-col justify-between select-none animate-fadeIn']">
+    <!-- Scrollable Content Body -->
+    <div :class="['flex-1 min-h-0 min-w-0 overflow-y-auto px-4 sm:px-6 pt-2 pb-5 flex flex-col gap-4']">
+      <!-- Shared centered header -->
+      <div :class="['flex flex-col items-center text-center gap-3 flex-shrink-0']">
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            Vision & Image Understanding
+          </h1>
         </div>
-        <div>
-          <div :class="['flex items-center gap-2']">
-            <h2 :class="['text-lg font-bold text-neutral-900 dark:text-white tracking-tight']">
-              {{ t('onboarding.steps.vision.title') }}
-            </h2>
-            <span :class="['text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400']">
-              {{ t('onboarding.steps.vision.subtitle') }}
-            </span>
-          </div>
-          <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            {{ t('onboarding.steps.vision.description') }}
-          </p>
-        </div>
+
+        <AssistantBubble
+          message="Choose how I’ll understand images, then send a picture to try it."
+          step-key="vision"
+          tone="primary"
+        />
       </div>
 
-      <!-- Active Status Badge -->
-      <div :class="['flex items-center gap-2 flex-shrink-0']">
-        <span
+      <!-- Two-panel workspace -->
+      <div :class="['w-full max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] gap-5 lg:gap-6 items-start']">
+        <!-- Left panel: vision setup -->
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :delay="100"
           :class="[
-            'text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full font-mono border flex items-center gap-1.5',
-            activeProvider && activeModel
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-              : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border-neutral-200 dark:border-neutral-700',
+            'rounded-[20px] border p-5 sm:p-6 min-w-0 min-h-0 flex flex-col gap-4',
+            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
           ]"
         >
-          <span :class="['w-1.5 h-1.5 rounded-full', activeProvider && activeModel ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400']" />
-          <span>{{ activeProvider && activeModel ? 'VISION CONFIGURED' : 'PENDING SETUP' }}</span>
-        </span>
-      </div>
-    </div>
-
-    <!-- Main Content: 2-Column Responsive Grid -->
-    <div :class="['grid grid-cols-1 lg:grid-cols-12 gap-5 items-start']">
-      <!-- Left Column (7 cols): Vision Provider, Model, and Strategy Configuration -->
-      <div :class="['lg:col-span-7 flex flex-col gap-4']">
-        <!-- 3-Tier Segmented Tab Bar -->
-        <div :class="['flex items-center gap-1 rounded-xl bg-neutral-200/50 dark:bg-neutral-800/50 p-1 backdrop-blur-md']">
-          <button
-            type="button"
-            :class="[
-              'flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer',
-              activeTab === 'cloudflare'
-                ? 'bg-white text-primary-600 shadow-xs dark:bg-neutral-900 dark:text-primary-400'
-                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-            ]"
-            @click="setTab('cloudflare')"
-          >
-            <div :class="['i-simple-icons:cloudflare text-[#F38020] text-sm']" />
-            <span>{{ t('onboarding.steps.vision.tabs.cloudflare', 'Cloudflare Edge') }}</span>
-            <span :class="['hidden sm:inline-block rounded-full bg-amber-500/10 dark:bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400 border border-amber-500/20']">
-              {{ t('onboarding.steps.vision.tabs.cloudflareBadge', '10k Free Daily') }}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            :class="[
-              'flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer',
-              activeTab === 'local'
-                ? 'bg-white text-primary-600 shadow-xs dark:bg-neutral-900 dark:text-primary-400'
-                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-            ]"
-            @click="setTab('local')"
-          >
-            <div :class="['i-solar:cpu-bolt-bold-duotone text-emerald-500 text-sm']" />
-            <span>{{ t('onboarding.steps.vision.tabs.local', 'Local & Offline') }}</span>
-            <span :class="['hidden sm:inline-block rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 px-1.5 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20']">
-              {{ t('onboarding.steps.vision.tabs.localBadge', 'Air-Gapped') }}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            :class="[
-              'flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer',
-              activeTab === 'custom'
-                ? 'bg-white text-primary-600 shadow-xs dark:bg-neutral-900 dark:text-primary-400'
-                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-            ]"
-            @click="setTab('custom')"
-          >
-            <div :class="['i-solar:key-minimalistic-square-bold-duotone text-indigo-500 text-sm']" />
-            <span>{{ t('onboarding.steps.vision.tabs.custom', 'Cloud Providers') }}</span>
-          </button>
-        </div>
-
-        <!-- TAB 1: CLOUDFLARE EDGE (Curated 3-Model Vision Hub) -->
-        <div v-if="activeTab === 'cloudflare'" :class="['flex flex-col gap-3']">
-          <!-- Connection Status Banner -->
-          <div
-            v-if="isCloudflareAuthenticated"
-            :class="['flex items-center justify-between p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 text-xs']"
-          >
-            <div :class="['flex items-center gap-2 min-w-0']">
-              <span :class="['w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0']" />
-              <span :class="['text-emerald-700 dark:text-emerald-300 font-medium truncate']">
-                {{ t('onboarding.steps.vision.cloudflare.connected', 'Cloudflare Connected: 10,000 free Neurons/day active') }}
-              </span>
+          <div :class="['flex items-start gap-2.5']">
+            <div :class="['h-8 w-8 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center flex-shrink-0']">
+              <div :class="['i-solar:eye-scan-bold-duotone h-4 w-4']" />
             </div>
-            <span v-if="cloudflareAccountId" :class="['text-[10px] font-mono text-neutral-400 shrink-0 ml-2 hidden sm:inline']">
-              {{ cloudflareAccountId.slice(0, 8) }}...
-            </span>
-          </div>
-
-          <div
-            v-else
-            :class="['flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 text-xs']"
-          >
-            <div :class="['flex items-center gap-2.5']">
-              <div :class="['i-simple-icons:cloudflare text-[#F38020] text-base shrink-0']" />
-              <p :class="['text-amber-800 dark:text-amber-300 leading-snug']">
-                {{ t('onboarding.steps.vision.cloudflare.notConnected', 'Connect your Cloudflare account to use free edge vision with zero setup.') }}
+            <div :class="['min-w-0']">
+              <h2 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+                Vision setup
+              </h2>
+              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                Choose a provider, model, and how image analysis should be handled.
               </p>
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              :class="['shrink-0 flex items-center gap-1.5 rounded-xl font-semibold cursor-pointer text-xs']"
-              @click="handleStartCloudflareAuth"
-            >
-              <div :class="['i-simple-icons:cloudflare text-xs']" />
-              <span>{{ t('onboarding.steps.vision.cloudflare.signIn', 'Sign In with Cloudflare') }}</span>
-            </Button>
           </div>
 
-          <!-- 3 Curated Model Cards -->
-          <div :class="['flex flex-col gap-2.5']">
+          <!-- Mode segments -->
+          <div :class="['flex items-center gap-1 rounded-xl bg-neutral-200/50 dark:bg-neutral-800/50 p-1 backdrop-blur-md']">
             <button
-              v-for="preset in cloudflareVisionPresets"
-              :key="preset.id"
               type="button"
               :class="[
-                'p-3.5 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer relative',
-                activeProvider === 'cloudflare-workers-ai' && activeModel === preset.id
-                  ? 'border-primary-500 bg-primary-500/10 ring-1 ring-primary-500/30 shadow-xs'
-                  : 'border-neutral-200/80 dark:border-neutral-800 bg-white/60 dark:bg-white/[0.02] hover:border-neutral-300 dark:hover:border-neutral-700',
+                'flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer min-h-[44px]',
+                activeTab === 'cloudflare'
+                  ? 'bg-white text-primary-600 shadow-sm dark:bg-neutral-900 dark:text-primary-400'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
               ]"
-              @click="selectCloudflareVisionModel(preset.id)"
+              @click="setTab('cloudflare')"
             >
-              <!-- Icon -->
-              <div
-                :class="[
-                  'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-colors',
-                  activeProvider === 'cloudflare-workers-ai' && activeModel === preset.id
-                    ? 'bg-primary-500/20 text-primary-500'
-                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500',
-                ]"
-              >
-                <div :class="[preset.icon, 'text-lg']" />
-              </div>
-
-              <!-- Content -->
-              <div :class="['flex-1 min-w-0 flex flex-col gap-1']">
-                <div :class="['flex items-center justify-between gap-2']">
-                  <div :class="['flex items-center gap-2 min-w-0']">
-                    <span :class="['text-xs font-bold text-neutral-900 dark:text-white truncate']">
-                      {{ preset.name }}
-                    </span>
-                    <span :class="['text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-500 font-semibold shrink-0']">
-                      {{ preset.context }}
-                    </span>
-                  </div>
-
-                  <span :class="['text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0', preset.badgeColor]">
-                    {{ preset.badge }}
-                  </span>
-                </div>
-
-                <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug']">
-                  {{ preset.description }}
-                </p>
-
-                <!-- Recommendation / Strategy Badge -->
-                <div :class="['flex items-center gap-1.5 mt-0.5']">
-                  <span :class="['text-[10px] text-neutral-400 font-medium']">Auto-sets Strategy:</span>
-                  <span
-                    :class="[
-                      'text-[10px] font-semibold font-mono px-1.5 py-0.2 rounded',
-                      preset.recommendedStrategy === 'forward'
-                        ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-                        : 'bg-primary-500/10 text-primary-600 dark:text-primary-400',
-                    ]"
-                  >
-                    {{ preset.strategyLabel }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Selected Radio Circle Indicator -->
-              <div :class="['w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-1', activeProvider === 'cloudflare-workers-ai' && activeModel === preset.id ? 'border-primary-500 bg-primary-500' : 'border-neutral-300 dark:border-neutral-700']">
-                <div v-if="activeProvider === 'cloudflare-workers-ai' && activeModel === preset.id" :class="['w-1.5 h-1.5 rounded-full bg-white']" />
-              </div>
+              <div :class="['i-simple-icons:cloudflare text-[#F38020] text-sm']" />
+              <span>Cloudflare</span>
             </button>
-          </div>
-        </div>
 
-        <!-- TAB 2: LOCAL & OFFLINE PROVIDERS -->
-        <div v-else-if="activeTab === 'local'" :class="['flex flex-col gap-3 p-4.5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] shadow-xs backdrop-blur-md']">
-          <div :class="['flex items-center justify-between']">
-            <label :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
+            <button
+              type="button"
+              :class="[
+                'flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer min-h-[44px]',
+                activeTab === 'local'
+                  ? 'bg-white text-primary-600 shadow-sm dark:bg-neutral-900 dark:text-primary-400'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+              ]"
+              @click="setTab('local')"
+            >
               <div :class="['i-solar:cpu-bolt-bold-duotone text-emerald-500 text-sm']" />
-              <span>Local Vision Provider</span>
-            </label>
-            <span :class="['text-[11px] text-neutral-400 font-medium']">
-              {{ localVisionProviders.length }} Available
-            </span>
-          </div>
+              <span>Local</span>
+            </button>
 
-          <div :class="['grid grid-cols-2 sm:grid-cols-2 gap-2']">
             <button
-              v-for="provider in localVisionProviders"
-              :key="provider.id"
               type="button"
               :class="[
-                'p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer',
-                activeProvider === provider.id
-                  ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-300 ring-1 ring-primary-500/30 font-semibold'
-                  : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700',
+                'flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer min-h-[44px]',
+                activeTab === 'custom'
+                  ? 'bg-white text-primary-600 shadow-sm dark:bg-neutral-900 dark:text-primary-400'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
               ]"
-              @click="activeProvider = provider.id"
+              @click="setTab('custom')"
             >
-              <div :class="['h-6 w-6 rounded-lg flex items-center justify-center bg-neutral-200/60 dark:bg-neutral-800 shrink-0 text-sm']">
-                <div v-if="provider.icon" :class="provider.icon" />
-                <div v-else :class="['i-solar:shield-star-bold']" />
-              </div>
-              <span :class="['text-xs truncate font-medium']">{{ provider.name }}</span>
+              <div :class="['i-solar:key-minimalistic-square-bold-duotone text-indigo-500 text-sm']" />
+              <span>Cloud</span>
             </button>
           </div>
-        </div>
 
-        <!-- TAB 3: CUSTOM CLOUD PROVIDERS -->
-        <div v-else-if="activeTab === 'custom'" :class="['flex flex-col gap-3 p-4.5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] shadow-xs backdrop-blur-md']">
-          <div :class="['flex items-center justify-between']">
-            <label :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
-              <div :class="['i-solar:widget-add-bold-duotone text-indigo-500 text-sm']" />
-              <span>Cloud Vision Provider</span>
-            </label>
-            <span :class="['text-[11px] text-neutral-400 font-medium']">
-              {{ customVisionProviders.length }} Available
-            </span>
-          </div>
-
-          <div :class="['grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1']">
-            <button
-              v-for="provider in customVisionProviders"
-              :key="provider.id"
-              type="button"
-              :class="[
-                'p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer',
-                activeProvider === provider.id
-                  ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-300 ring-1 ring-primary-500/30 font-semibold'
-                  : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700',
-              ]"
-              @click="activeProvider = provider.id"
+          <!-- Cloudflare mode -->
+          <div v-if="activeTab === 'cloudflare'" :class="['flex flex-col gap-3 min-w-0']">
+            <div
+              v-if="isCloudflareAuthenticated"
+              :class="['flex items-center justify-between p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 text-xs']"
             >
-              <div :class="['h-6 w-6 rounded-lg flex items-center justify-center bg-neutral-200/60 dark:bg-neutral-800 shrink-0 text-sm']">
-                <div v-if="provider.icon" :class="provider.icon" />
-                <div v-else :class="['i-solar:shield-star-bold']" />
+              <div :class="['flex items-center gap-2 min-w-0']">
+                <span :class="['w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0']" />
+                <span :class="['text-emerald-700 dark:text-emerald-300 font-medium truncate']">
+                  {{ t('onboarding.steps.vision.cloudflare.connected', 'Cloudflare Connected: 10,000 free Neurons/day active') }}
+                </span>
               </div>
-              <span :class="['text-xs truncate font-medium']">{{ provider.name }}</span>
-            </button>
-          </div>
-        </div>
+              <span v-if="cloudflareAccountId" :class="['text-[10px] font-mono text-neutral-400 shrink-0 ml-2 hidden sm:inline']">
+                {{ cloudflareAccountId.slice(0, 8) }}...
+              </span>
+            </div>
 
-        <!-- Model Selection Card (For Local and Custom Cloud Providers) -->
-        <div v-if="activeTab !== 'cloudflare' && activeProvider" :class="['flex flex-col gap-3 p-4.5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] shadow-xs backdrop-blur-md animate-fadeIn']">
-          <div :class="['flex items-center justify-between']">
-            <label :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
-              <div :class="['i-solar:layers-minimalistic-bold text-primary-500 text-sm']" />
-              <span>Vision Model</span>
-            </label>
-            <span v-if="isLoadingActiveProviderModels" :class="['text-[11px] text-neutral-400 flex items-center gap-1']">
-              <div :class="['i-solar:refresh-line-duotone animate-spin text-xs']" />
-              Loading models...
-            </span>
-          </div>
+            <div
+              v-else
+              :class="['flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 text-xs']"
+            >
+              <div :class="['flex items-center gap-2.5']">
+                <div :class="['i-simple-icons:cloudflare text-[#F38020] text-base shrink-0']" />
+                <p :class="['text-amber-800 dark:text-amber-300 leading-snug']">
+                  {{ t('onboarding.steps.vision.cloudflare.notConnected', 'Connect your Cloudflare account to use free edge vision with zero setup.') }}
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                :class="['shrink-0 flex items-center gap-1.5 rounded-xl font-semibold cursor-pointer text-xs']"
+                @click="handleStartCloudflareAuth"
+              >
+                <div :class="['i-simple-icons:cloudflare text-xs']" />
+                <span>{{ t('onboarding.steps.vision.cloudflare.signIn', 'Sign In with Cloudflare') }}</span>
+              </Button>
+            </div>
 
-          <!-- Model Picker -->
-          <div v-if="filteredModels.length > 0" :class="['flex flex-col gap-2']">
-            <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1']">
+            <!-- Curated model choices -->
+            <div :class="['flex flex-col gap-2']">
               <button
-                v-for="model in filteredModels"
-                :key="model.id"
+                v-for="preset in cloudflareVisionPresets"
+                :key="preset.id"
                 type="button"
                 :class="[
-                  'p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between',
-                  activeModel === model.id
-                    ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-300 ring-1 ring-primary-500/30'
+                  'p-3 rounded-2xl border text-left flex items-center gap-3 transition-all cursor-pointer',
+                  activeProvider === 'cloudflare-workers-ai' && activeModel === preset.id
+                    ? 'border-primary-500 bg-primary-500/10 ring-1 ring-primary-500/30 shadow-xs'
+                    : 'border-neutral-200/80 dark:border-neutral-800 bg-white/60 dark:bg-white/[0.02] hover:border-neutral-300 dark:hover:border-neutral-700',
+                ]"
+                @click="selectCloudflareVisionModel(preset.id)"
+              >
+                <div
+                  :class="[
+                    'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors',
+                    activeProvider === 'cloudflare-workers-ai' && activeModel === preset.id
+                      ? 'bg-primary-500/20 text-primary-500'
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500',
+                  ]"
+                >
+                  <div :class="[preset.icon, 'text-lg']" />
+                </div>
+
+                <div :class="['flex-1 min-w-0']">
+                  <div :class="['text-xs font-bold text-neutral-900 dark:text-white truncate']">
+                    {{ preset.name }}
+                  </div>
+                  <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug line-clamp-2 mt-0.5']">
+                    {{ preset.description }}
+                  </p>
+                </div>
+
+                <div :class="['w-4 h-4 rounded-full border flex items-center justify-center shrink-0', activeProvider === 'cloudflare-workers-ai' && activeModel === preset.id ? 'border-primary-500 bg-primary-500' : 'border-neutral-300 dark:border-neutral-700']">
+                  <div v-if="activeProvider === 'cloudflare-workers-ai' && activeModel === preset.id" :class="['w-1.5 h-1.5 rounded-full bg-white']" />
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Local mode -->
+          <div v-else-if="activeTab === 'local'" :class="['flex flex-col gap-3 min-w-0']">
+            <div :class="['flex items-center justify-between']">
+              <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                Local vision provider
+              </span>
+              <span :class="['text-[11px] text-neutral-400 font-medium']">
+                {{ localVisionProviders.length }} available
+              </span>
+            </div>
+
+            <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2']">
+              <button
+                v-for="provider in localVisionProviders"
+                :key="provider.id"
+                type="button"
+                :class="[
+                  'p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer min-w-0',
+                  activeProvider === provider.id
+                    ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-300 ring-1 ring-primary-500/30 font-semibold'
                     : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700',
                 ]"
-                @click="activeModel = model.id"
+                @click="activeProvider = provider.id"
               >
-                <span :class="['text-xs font-bold truncate']">{{ model.name || model.id }}</span>
-                <span v-if="model.description" :class="['text-[10px] text-neutral-400 truncate mt-0.5']">{{ model.description }}</span>
+                <div :class="['h-6 w-6 rounded-lg flex items-center justify-center bg-neutral-200/60 dark:bg-neutral-800 shrink-0 text-sm']">
+                  <div v-if="provider.icon" :class="provider.icon" />
+                  <div v-else :class="['i-solar:shield-star-bold']" />
+                </div>
+                <span :class="['text-xs truncate font-medium flex-1 min-w-0']">{{ provider.name }}</span>
+                <div :class="['w-4 h-4 rounded-full border flex items-center justify-center shrink-0', activeProvider === provider.id ? 'border-primary-500 bg-primary-500' : 'border-neutral-300 dark:border-neutral-700']">
+                  <div v-if="activeProvider === provider.id" :class="['w-1.5 h-1.5 rounded-full bg-white']" />
+                </div>
               </button>
             </div>
           </div>
-          <div v-else :class="['text-xs text-neutral-400 py-2']">
-            <input
-              v-model="activeModel"
-              type="text"
-              placeholder="e.g. gpt-4o, claude-3-5-sonnet, moondream2"
-              :class="['w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/40']"
-            >
-          </div>
-        </div>
 
-        <!-- Strategy Selection Card -->
-        <div :class="['flex flex-col gap-3 p-4.5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] shadow-xs backdrop-blur-md']">
-          <label :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
-            <div :class="['i-solar:route-line-duotone text-primary-500 text-sm']" />
-            <span>Routing & Strategy</span>
-          </label>
-
-          <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2.5']">
-            <!-- Option 1: Direct Stand-in -->
-            <button
-              type="button"
-              :class="[
-                'p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer',
-                strategy === 'direct'
-                  ? 'border-primary-500 bg-primary-500/10 text-neutral-900 dark:text-white ring-1 ring-primary-500/30'
-                  : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700',
-              ]"
-              @click="strategy = 'direct'"
-            >
-              <div :class="['flex items-center justify-between']">
-                <span :class="['text-xs font-bold']">Direct VLM Stand-in</span>
-                <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.2 rounded bg-primary-500/10 text-primary-500']">1-Hop</span>
-              </div>
-              <p :class="['text-[11px] text-neutral-400 leading-snug']">
-                The vision model directly synthesizes dialogue answers in-character.
-              </p>
-            </button>
-
-            <!-- Option 2: Forward to LLM (2-Hop) -->
-            <button
-              type="button"
-              :class="[
-                'p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer',
-                strategy === 'forward'
-                  ? 'border-primary-500 bg-primary-500/10 text-neutral-900 dark:text-white ring-1 ring-primary-500/30'
-                  : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700',
-              ]"
-              @click="strategy = 'forward'"
-            >
-              <div :class="['flex items-center justify-between']">
-                <span :class="['text-xs font-bold']">Forward to Brain</span>
-                <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-500']">2-Hop (Recommended)</span>
-              </div>
-              <p :class="['text-[11px] text-neutral-400 leading-snug']">
-                VLM generates objective perception tags, injected into character consciousness.
-              </p>
-            </button>
-          </div>
-
-          <!-- Prompt Shim Textarea -->
-          <div :class="['flex flex-col gap-1.5 mt-1 pt-2 border-t border-neutral-100 dark:border-neutral-800/80']">
+          <!-- Cloud mode -->
+          <div v-else-if="activeTab === 'custom'" :class="['flex flex-col gap-3 min-w-0']">
             <div :class="['flex items-center justify-between']">
-              <span :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
-                {{ strategy === 'forward' ? 'Perception Analysis Directive' : 'Stand-in Character Persona Directive' }}
+              <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                Cloud vision provider
               </span>
+              <span :class="['text-[11px] text-neutral-400 font-medium']">
+                {{ customVisionProviders.length }} available
+              </span>
+            </div>
+
+            <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1']">
+              <button
+                v-for="provider in customVisionProviders"
+                :key="provider.id"
+                type="button"
+                :class="[
+                  'p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer min-w-0',
+                  activeProvider === provider.id
+                    ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-300 ring-1 ring-primary-500/30 font-semibold'
+                    : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700',
+                ]"
+                @click="activeProvider = provider.id"
+              >
+                <div :class="['h-6 w-6 rounded-lg flex items-center justify-center bg-neutral-200/60 dark:bg-neutral-800 shrink-0 text-sm']">
+                  <div v-if="provider.icon" :class="provider.icon" />
+                  <div v-else :class="['i-solar:shield-star-bold']" />
+                </div>
+                <span :class="['text-xs truncate font-medium flex-1 min-w-0']">{{ provider.name }}</span>
+                <div :class="['w-4 h-4 rounded-full border flex items-center justify-center shrink-0', activeProvider === provider.id ? 'border-primary-500 bg-primary-500' : 'border-neutral-300 dark:border-neutral-700']">
+                  <div v-if="activeProvider === provider.id" :class="['w-1.5 h-1.5 rounded-full bg-white']" />
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Vision model (local and cloud providers) -->
+          <div v-if="activeTab !== 'cloudflare' && activeProvider" :class="['flex flex-col gap-3 animate-fadeIn']">
+            <div :class="['flex items-center justify-between']">
+              <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                Vision model
+              </span>
+              <span v-if="isLoadingActiveProviderModels" :class="['text-[11px] text-neutral-400 flex items-center gap-1']">
+                <div :class="['i-solar:refresh-line-duotone animate-spin text-xs']" />
+                Loading models...
+              </span>
+            </div>
+
+            <div v-if="filteredModels.length > 0" :class="['flex flex-col gap-2']">
+              <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1']">
+                <button
+                  v-for="model in filteredModels"
+                  :key="model.id"
+                  type="button"
+                  :class="[
+                    'p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between min-w-0',
+                    activeModel === model.id
+                      ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-300 ring-1 ring-primary-500/30'
+                      : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700',
+                  ]"
+                  @click="activeModel = model.id"
+                >
+                  <span :class="['text-xs font-bold truncate']">{{ model.name || model.id }}</span>
+                  <span v-if="model.description" :class="['text-[10px] text-neutral-400 truncate mt-0.5']">{{ model.description }}</span>
+                </button>
+              </div>
+            </div>
+            <div v-else :class="['text-xs text-neutral-400 py-2']">
+              <input
+                v-model="activeModel"
+                type="text"
+                placeholder="e.g. gpt-4o, claude-3-5-sonnet, moondream2"
+                :class="['w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/40']"
+              >
+            </div>
+          </div>
+
+          <!-- Image handling route -->
+          <div :class="['flex flex-col gap-2.5']">
+            <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+              How should images be handled?
+            </span>
+
+            <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2.5']">
               <button
                 type="button"
-                :class="['text-[10px] text-neutral-400 hover:text-primary-500 cursor-pointer transition-colors']"
-                @click="resetActivePromptShim"
+                :class="[
+                  'p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer min-w-0',
+                  strategy === 'direct'
+                    ? 'border-primary-500 bg-primary-500/10 ring-1 ring-primary-500/30'
+                    : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700',
+                ]"
+                @click="strategy = 'direct'"
               >
-                Reset Default
+                <div :class="['flex-1 min-w-0 flex flex-col gap-1']">
+                  <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">Vision answers directly</span>
+                  <p :class="['text-[11px] text-neutral-400 leading-snug']">
+                    The vision model replies as your companion.
+                  </p>
+                </div>
+                <div :class="['w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5', strategy === 'direct' ? 'border-primary-500 bg-primary-500' : 'border-neutral-300 dark:border-neutral-700']">
+                  <div v-if="strategy === 'direct'" :class="['w-1.5 h-1.5 rounded-full bg-white']" />
+                </div>
+              </button>
+
+              <button
+                type="button"
+                :class="[
+                  'p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer min-w-0',
+                  strategy === 'forward'
+                    ? 'border-primary-500 bg-primary-500/10 ring-1 ring-primary-500/30'
+                    : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700',
+                ]"
+                @click="strategy = 'forward'"
+              >
+                <div :class="['flex-1 min-w-0 flex flex-col gap-1']">
+                  <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">Pass to your brain</span>
+                  <p :class="['text-[11px] text-neutral-400 leading-snug']">
+                    Your main brain uses the image analysis to reply.
+                  </p>
+                </div>
+                <div :class="['w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5', strategy === 'forward' ? 'border-primary-500 bg-primary-500' : 'border-neutral-300 dark:border-neutral-700']">
+                  <div v-if="strategy === 'forward'" :class="['w-1.5 h-1.5 rounded-full bg-white']" />
+                </div>
               </button>
             </div>
-            <textarea
-              v-model="activePromptShim"
-              rows="2"
-              :class="['w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-800 dark:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500/30 resize-none']"
-            />
+
+            <!-- Response instructions disclosure -->
+            <div :class="['rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40']">
+              <button
+                type="button"
+                :class="['w-full flex items-center gap-2 p-3 text-left cursor-pointer']"
+                @click="showResponseInstructions = !showResponseInstructions"
+              >
+                <div :class="['i-solar:alt-arrow-right-line-duotone h-3.5 w-3.5 text-neutral-400 transition-transform', showResponseInstructions && 'rotate-90']" />
+                <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
+                  Response instructions
+                </span>
+                <span :class="['text-[11px] text-neutral-400 truncate']">
+                  Customize how direct replies stay in character.
+                </span>
+              </button>
+              <div v-if="showResponseInstructions" :class="['px-3 pb-3 flex flex-col gap-1.5']">
+                <div :class="['flex items-center justify-between']">
+                  <span :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
+                    {{ strategy === 'forward' ? 'Perception Analysis Directive' : 'Stand-in Character Persona Directive' }}
+                  </span>
+                  <button
+                    type="button"
+                    :class="['text-[10px] text-neutral-400 hover:text-primary-500 cursor-pointer transition-colors']"
+                    @click="resetActivePromptShim"
+                  >
+                    Reset Default
+                  </button>
+                </div>
+                <textarea
+                  v-model="activePromptShim"
+                  rows="3"
+                  :class="['w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs text-neutral-800 dark:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500/30 resize-y']"
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Right Column (5 cols): Interactive Faux-Chat Simulator -->
-      <div :class="['lg:col-span-5 flex flex-col gap-4']">
-        <div :class="['p-4.5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] shadow-xs backdrop-blur-md flex flex-col gap-3.5']">
-          <div :class="['flex items-center justify-between']">
-            <label :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
-              <div :class="['i-solar:chat-round-dots-bold text-primary-500 text-sm']" />
-              <span>Vision Chat Simulator</span>
-            </label>
-            <span :class="['text-[10px] font-mono px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-500']">
-              {{ strategy === 'direct' ? '1-Hop Stand-in' : '2-Hop Forward' }}
+        <!-- Right panel: try vision -->
+        <aside
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :delay="150"
+          :class="[
+            'rounded-[20px] border p-5 sm:p-6 min-w-0 min-h-0 flex flex-col gap-3.5 lg:sticky lg:top-0 self-start w-full',
+            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
+          ]"
+        >
+          <div :class="['flex items-start justify-between gap-2']">
+            <div :class="['min-w-0']">
+              <h2 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+                Try vision
+              </h2>
+              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                Send an image and ask a question.
+              </p>
+            </div>
+            <span :title="`${activeProviderLabel} · ${strategy === 'direct' ? 'Direct reply' : 'Forward to brain'}`" :class="['shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400 truncate max-w-[45%]']">
+              {{ activeProviderLabel }} · {{ strategy === 'direct' ? 'Direct reply' : 'Forward to brain' }}
             </span>
           </div>
 
-          <!-- Image Dropzone / File Picker -->
+          <!-- Image upload -->
           <div
             :class="[
-              'relative rounded-xl border-2 border-dashed p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer',
+              'relative rounded-xl border-2 border-dashed p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer min-h-[140px]',
               testImageUrl
                 ? 'border-primary-500/40 bg-primary-500/5'
                 : 'border-neutral-300 dark:border-neutral-700 bg-neutral-50/60 dark:bg-neutral-900/40 hover:border-primary-400',
@@ -967,103 +982,129 @@ async function runSimulation() {
                 <div :class="['i-solar:gallery-add-bold-duotone text-xl']" />
               </div>
               <p :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-                Drop test image or click to browse
+                Drop an image or <span :class="['text-primary-500']">choose a file</span>
               </p>
               <p :class="['text-[10px] text-neutral-400 mt-0.5']">
-                PNG, JPG, or WebP to simulate chat attachment
+                PNG, JPG or WebP
               </p>
             </template>
           </div>
 
-          <!-- Simulated User Input -->
-          <div :class="['flex flex-col gap-1']">
-            <span :class="['text-[10px] font-semibold text-neutral-500 dark:text-neutral-400']">Simulated Message</span>
+          <!-- Question -->
+          <div :class="['flex flex-col gap-1.5']">
+            <span :class="['text-xs font-semibold text-neutral-700 dark:text-neutral-300']">Your question</span>
             <input
               v-model="simulatedUserQuestion"
               type="text"
               placeholder="What do you think of this picture?"
-              :class="['w-full px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500']"
+              :class="['w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500']"
             >
           </div>
 
-          <!-- Run Simulation Button -->
-          <Button
-            variant="primary"
-            size="sm"
-            :disabled="!testImageUrl || isSimulating || !activeProvider || !activeModel"
-            :class="['w-full flex items-center justify-center gap-2 rounded-xl py-2 cursor-pointer font-bold text-xs']"
-            @click="runSimulation"
-          >
-            <div v-if="isSimulating" :class="['i-solar:refresh-line-duotone animate-spin text-sm']" />
-            <div v-else :class="['i-solar:play-bold text-sm']" />
-            <span>{{ isSimulating ? 'Analyzing Scene...' : 'Test Vision Understanding' }}</span>
-          </Button>
+          <!-- Test action -->
+          <div :class="['flex flex-col gap-1.5']">
+            <Button
+              variant="primary"
+              size="sm"
+              :disabled="!testImageUrl || isSimulating || !activeProvider || !activeModel"
+              :class="['w-full flex items-center justify-center gap-2 rounded-xl py-2.5 cursor-pointer font-bold text-xs min-h-[44px]']"
+              @click="runSimulation"
+            >
+              <div v-if="isSimulating" :class="['i-solar:refresh-line-duotone animate-spin text-sm']" />
+              <div v-else :class="['i-solar:play-bold text-sm']" />
+              <span>{{ isSimulating ? 'Analyzing Scene...' : 'Test vision' }}</span>
+            </Button>
+            <p v-if="!testImageUrl" :class="['text-[11px] text-neutral-400 text-center']">
+              Choose an image to start.
+            </p>
+          </div>
 
           <!-- Error Alert -->
           <div v-if="simulationError" :class="['p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs']">
             {{ simulationError }}
           </div>
 
-          <!-- Results Presentation -->
-          <div v-if="hop1Result || hop2Result || isSimulating" :class="['flex flex-col gap-2.5 pt-1']">
-            <!-- Hop 1 Output -->
-            <div :class="['p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/60 flex flex-col gap-1']">
-              <div :class="['flex items-center justify-between text-[10px] font-mono']">
-                <span :class="['text-neutral-500 font-bold uppercase']">
-                  {{ strategy === 'direct' ? 'Hop 1 · Character Reply' : 'Hop 1 · Vision Scene Analysis' }}
-                </span>
-                <span v-if="hop1Latency" :class="['text-emerald-500 font-bold']">{{ hop1Latency }}ms</span>
-                <span v-else-if="hop1Processing" :class="['text-primary-500 animate-pulse']">Processing...</span>
+          <!-- Reserved result area -->
+          <div :class="['flex flex-col gap-2.5 min-h-[120px]']">
+            <span :class="['text-xs font-semibold text-neutral-700 dark:text-neutral-300']">Response</span>
+            <div v-if="hop1Result || hop2Result || isSimulating" :class="['flex flex-col gap-2.5']">
+              <div :class="['p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/60 flex flex-col gap-1']">
+                <div :class="['flex items-center justify-between text-[10px] font-mono']">
+                  <span :class="['text-neutral-500 font-bold uppercase']">
+                    {{ strategy === 'direct' ? 'Hop 1 · Character Reply' : 'Hop 1 · Vision Scene Analysis' }}
+                  </span>
+                  <span v-if="hop1Latency" :class="['text-emerald-500 font-bold']">{{ hop1Latency }}ms</span>
+                  <span v-else-if="hop1Processing" :class="['text-primary-500 animate-pulse']">Processing...</span>
+                </div>
+                <p :class="['text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap']">
+                  {{ hop1Result || '...' }}
+                </p>
               </div>
-              <p :class="['text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap']">
-                {{ hop1Result || '...' }}
-              </p>
-            </div>
 
-            <!-- Hop 2 Output (If 2-Hop Forward) -->
-            <div v-if="strategy === 'forward'" :class="['p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 flex flex-col gap-1 animate-fadeIn']">
-              <div :class="['flex items-center justify-between text-[10px] font-mono']">
-                <span :class="['text-indigo-500 font-bold uppercase']">Hop 2 · {{ characterName }}'s Dialogue</span>
-                <span v-if="hop2Latency" :class="['text-emerald-500 font-bold']">{{ hop2Latency }}ms</span>
-                <span v-else-if="hop2Processing" :class="['text-indigo-500 animate-pulse']">Thinking in character...</span>
+              <div v-if="strategy === 'forward'" :class="['p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 flex flex-col gap-1 animate-fadeIn']">
+                <div :class="['flex items-center justify-between text-[10px] font-mono']">
+                  <span :class="['text-indigo-500 font-bold uppercase']">Hop 2 · {{ characterName }}'s Dialogue</span>
+                  <span v-if="hop2Latency" :class="['text-emerald-500 font-bold']">{{ hop2Latency }}ms</span>
+                  <span v-else-if="hop2Processing" :class="['text-indigo-500 animate-pulse']">Thinking in character...</span>
+                </div>
+                <p :class="['text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap font-medium']">
+                  {{ hop2Result || '...' }}
+                </p>
               </div>
-              <p :class="['text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap font-medium']">
-                {{ hop2Result || '...' }}
-              </p>
             </div>
           </div>
-        </div>
+        </aside>
       </div>
     </div>
 
-    <!-- Navigation Action Bar -->
-    <div :class="['flex items-center justify-between pt-3 border-t border-neutral-200/80 dark:border-white/5']">
+    <!-- Shared footer -->
+    <div
+      :class="[
+        'flex-shrink-0 pt-4 px-4 sm:px-6 flex items-center justify-between border-t border-neutral-200/80 dark:border-neutral-800/80 gap-2',
+      ]"
+    >
       <button
         type="button"
-        :class="['flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer']"
+        :class="[
+          'flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium cursor-pointer flex-shrink-0',
+          'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+          'hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors',
+        ]"
         @click="props.onPrevious"
       >
         <div :class="['i-solar:alt-arrow-left-line-duotone h-4 w-4']" />
         <span>{{ t('onboarding.shell.previous') }}</span>
       </button>
 
-      <div :class="['text-[11px] text-neutral-400 font-medium']">
+      <div :class="['text-[11px] text-neutral-400 font-medium truncate px-2 min-w-0']">
         Model: <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ activeModel || 'None Selected' }}</span>
-        <span v-if="strategy === 'forward'" :class="['text-indigo-500 ml-1 font-bold']">(2-Hop)</span>
       </div>
 
-      <Button
-        variant="primary"
-        size="md"
-        :class="[
-          'flex items-center gap-2 rounded-xl bg-primary-600 hover:bg-primary-500 px-5 py-2',
-          'text-xs font-semibold text-white shadow-md shadow-primary-600/25 transition-all active:scale-95 cursor-pointer',
-        ]"
-        @click="handleContinue"
-      >
-        <span>{{ t('onboarding.shell.next') }}</span>
-        <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
-      </Button>
+      <div :class="['flex items-center gap-3 flex-shrink-0']">
+        <button
+          type="button"
+          :class="[
+            'px-3.5 py-2 text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+            'hover:bg-neutral-100 dark:hover:bg-white/5 rounded-xl transition-colors cursor-pointer',
+          ]"
+          @click="props.onNext"
+        >
+          {{ t('onboarding.shell.skip') }}
+        </button>
+
+        <Button
+          variant="primary"
+          size="md"
+          :class="[
+            'flex items-center gap-2 rounded-xl bg-primary-600 hover:bg-primary-500 px-5 py-2',
+            'text-xs font-semibold text-white shadow-md shadow-primary-600/25 transition-all active:scale-95 cursor-pointer',
+          ]"
+          @click="handleContinue"
+        >
+          <span>{{ t('onboarding.shell.next') }}</span>
+          <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
+        </Button>
+      </div>
     </div>
   </div>
 </template>

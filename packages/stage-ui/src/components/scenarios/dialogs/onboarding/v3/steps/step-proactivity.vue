@@ -3,6 +3,8 @@ import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { Button } from '@proj-airi/ui'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
+import AssistantBubble from '../components/assistant-bubble.vue'
+
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
 
 const props = defineProps<{
@@ -241,406 +243,384 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div :class="['w-full max-w-5xl mx-auto flex flex-col gap-4 py-1 select-none']">
-    <!-- Header Section -->
-    <div :class="['flex items-start justify-between gap-4 pb-2 border-b border-neutral-200/80 dark:border-white/10']">
-      <div :class="['flex items-start gap-3']">
-        <div :class="['w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center text-xl flex-shrink-0 mt-0.5 border border-rose-500/20 shadow-xs']">
-          <div :class="['i-solar:radar-bold-duotone w-5 h-5']" />
+  <div :class="['w-full h-full flex flex-col justify-between select-none animate-fadeIn']">
+    <!-- Scrollable Content Body -->
+    <div :class="['flex-1 min-h-0 min-w-0 overflow-y-auto px-4 sm:px-6 pt-2 pb-5 flex flex-col gap-4']">
+      <!-- Shared centered header -->
+      <div :class="['flex flex-col items-center text-center gap-3 flex-shrink-0']">
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            Proactive Presence & Awareness
+          </h1>
         </div>
+
+        <AssistantBubble
+          message="Decide when your companion can reach out and how proactive it should be. Set quiet hours first, then tune each engine."
+          step-key="proactivity"
+          tone="primary"
+        />
+      </div>
+
+      <!-- Section 1: Operating Schedule & Quiet Hours (Universal Safety Boundary) -->
+      <div :class="['flex flex-col gap-3.5 p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] shadow-sm backdrop-blur-md']">
+        <div :class="['flex items-start justify-between gap-4']">
+          <div :class="['flex items-start gap-3']">
+            <div :class="['w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-base flex-shrink-0 mt-0.5']">
+              <div :class="['i-solar:clock-circle-bold-duotone w-4 h-4']" />
+            </div>
+            <div>
+              <div :class="['flex items-center gap-2']">
+                <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
+                  Operating Schedule & Quiet Hours
+                </h3>
+                <span
+                  :class="[
+                    'text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded border',
+                    isQuietHoursActive
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+                  ]"
+                >
+                  {{ isQuietHoursActive ? 'QUIET HOURS (ASLEEP)' : 'ACTIVE WAKING HOURS' }}
+                </span>
+              </div>
+              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
+                Boundaries governing when your companion can reach out. Guarantees 100% display privacy and silence at bedtime.
+              </p>
+            </div>
+          </div>
+
+          <!-- Master Schedule Switch -->
+          <button
+            type="button"
+            :class="[
+              'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+              operatingScheduleEnabled ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+            ]"
+            @click="operatingScheduleEnabled = !operatingScheduleEnabled; syncDraft()"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                operatingScheduleEnabled ? 'translate-x-5' : 'translate-x-0',
+              ]"
+            />
+          </button>
+        </div>
+
+        <!-- Schedule Inputs -->
+        <div v-if="operatingScheduleEnabled" :class="['flex flex-col gap-3 pt-2.5 border-t border-neutral-200/60 dark:border-white/5 animate-fadeIn']">
+          <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-3']">
+            <!-- Wake Up Time -->
+            <div :class="['flex flex-col gap-1.5 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
+              <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
+                <div :class="['i-solar:sun-2-bold-duotone text-amber-500']" />
+                <span>Wake-Up Time</span>
+              </label>
+              <input
+                v-model="wakeUpTime"
+                type="time"
+                :class="['px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500']"
+                @change="syncDraft()"
+              >
+            </div>
+
+            <!-- Bed Time -->
+            <div :class="['flex flex-col gap-1.5 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
+              <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
+                <div :class="['i-solar:moon-bold-duotone text-indigo-500']" />
+                <span>Bedtime / Quiet Hours Start</span>
+              </label>
+              <input
+                v-model="bedTime"
+                type="time"
+                :class="['px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500']"
+                @change="syncDraft()"
+              >
+            </div>
+          </div>
+
+          <!-- AFK Presence Gate -->
+          <div :class="['flex items-center justify-between p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
+            <div :class="['flex items-center gap-2.5']">
+              <input
+                id="afk-pause-toggle"
+                v-model="pauseOnAfk"
+                type="checkbox"
+                :class="['h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 cursor-pointer']"
+                @change="syncDraft()"
+              >
+              <label for="afk-pause-toggle" :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 cursor-pointer']">
+                Pause Proactive Messages When Away (AFK)
+              </label>
+            </div>
+            <div v-if="pauseOnAfk" :class="['flex items-center gap-1.5 text-xs text-neutral-500']">
+              <span>after</span>
+              <input
+                v-model.number="afkMinutes"
+                type="number"
+                min="1"
+                max="60"
+                :class="['w-12 px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs text-center font-mono']"
+                @change="syncDraft()"
+              >
+              <span>min</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Proactivity Engine Selection (4 Mode Cards) -->
+      <div :class="['flex flex-col gap-3.5 p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] shadow-sm backdrop-blur-md']">
         <div>
           <div :class="['flex items-center gap-2']">
-            <h2 :class="['text-lg font-bold text-neutral-900 dark:text-white tracking-tight']">
-              Proactive Presence & Awareness
-            </h2>
-            <span :class="['text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400']">
-              SCHEDULE & SENSORY ENGINES
+            <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
+              Proactivity Engine
+            </h3>
+            <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20']">
+              INTERACTION STYLE
             </span>
           </div>
           <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            Define when your companion is active and how they proactively interact with your day.
+            Select how your companion perceives and initiates interactions throughout the day.
           </p>
         </div>
-      </div>
 
-      <!-- Active Mode Status Badge -->
-      <div :class="['flex items-center gap-2 flex-shrink-0']">
-        <span
-          :class="[
-            'text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full font-mono border flex items-center gap-1.5',
-            proactivityEngineMode === 'dual'
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-              : proactivityEngineMode === 'screen'
-                ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20'
-                : proactivityEngineMode === 'heartbeats'
-                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border-neutral-200 dark:border-neutral-700',
-          ]"
-        >
-          <span
-            :class="[
-              'w-1.5 h-1.5 rounded-full',
-              proactivityEngineMode !== 'on-demand' ? 'bg-current animate-pulse' : 'bg-neutral-400',
-            ]"
-          />
-          <span>{{ proactivityEngineMode.toUpperCase() }} ACTIVE</span>
-        </span>
-      </div>
-    </div>
-
-    <!-- Section 1: Operating Schedule & Quiet Hours (Universal Safety Boundary) -->
-    <div :class="['flex flex-col gap-3.5 p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] shadow-sm backdrop-blur-md']">
-      <div :class="['flex items-start justify-between gap-4']">
-        <div :class="['flex items-start gap-3']">
-          <div :class="['w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-base flex-shrink-0 mt-0.5']">
-            <div :class="['i-solar:clock-circle-bold-duotone w-4 h-4']" />
-          </div>
-          <div>
-            <div :class="['flex items-center gap-2']">
-              <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                Operating Schedule & Quiet Hours
-              </h3>
-              <span
-                :class="[
-                  'text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded border',
-                  isQuietHoursActive
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-                ]"
-              >
-                {{ isQuietHoursActive ? 'QUIET HOURS (ASLEEP)' : 'ACTIVE WAKING HOURS' }}
-              </span>
-            </div>
-            <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-              Boundaries governing when your companion can reach out. Guarantees 100% display privacy and silence at bedtime.
-            </p>
-          </div>
-        </div>
-
-        <!-- Master Schedule Switch -->
-        <button
-          type="button"
-          :class="[
-            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-            operatingScheduleEnabled ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
-          ]"
-          @click="operatingScheduleEnabled = !operatingScheduleEnabled; syncDraft()"
-        >
-          <span
-            :class="[
-              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-              operatingScheduleEnabled ? 'translate-x-5' : 'translate-x-0',
-            ]"
-          />
-        </button>
-      </div>
-
-      <!-- Schedule Inputs -->
-      <div v-if="operatingScheduleEnabled" :class="['flex flex-col gap-3 pt-2.5 border-t border-neutral-200/60 dark:border-white/5 animate-fadeIn']">
-        <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-3']">
-          <!-- Wake Up Time -->
-          <div :class="['flex flex-col gap-1.5 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
-            <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
-              <div :class="['i-solar:sun-2-bold-duotone text-amber-500']" />
-              <span>Wake-Up Time</span>
-            </label>
-            <input
-              v-model="wakeUpTime"
-              type="time"
-              :class="['px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500']"
-              @change="syncDraft()"
-            >
-          </div>
-
-          <!-- Bed Time -->
-          <div :class="['flex flex-col gap-1.5 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
-            <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
-              <div :class="['i-solar:moon-bold-duotone text-indigo-500']" />
-              <span>Bedtime / Quiet Hours Start</span>
-            </label>
-            <input
-              v-model="bedTime"
-              type="time"
-              :class="['px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-mono text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500']"
-              @change="syncDraft()"
-            >
-          </div>
-        </div>
-
-        <!-- AFK Presence Gate -->
-        <div :class="['flex items-center justify-between p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
-          <div :class="['flex items-center gap-2.5']">
-            <input
-              id="afk-pause-toggle"
-              v-model="pauseOnAfk"
-              type="checkbox"
-              :class="['h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 cursor-pointer']"
-              @change="syncDraft()"
-            >
-            <label for="afk-pause-toggle" :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 cursor-pointer']">
-              Pause Proactive Messages When Away (AFK)
-            </label>
-          </div>
-          <div v-if="pauseOnAfk" :class="['flex items-center gap-1.5 text-xs text-neutral-500']">
-            <span>after</span>
-            <input
-              v-model.number="afkMinutes"
-              type="number"
-              min="1"
-              max="60"
-              :class="['w-12 px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs text-center font-mono']"
-              @change="syncDraft()"
-            >
-            <span>min</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 2: Proactivity Engine Selection (4 Mode Cards) -->
-    <div :class="['flex flex-col gap-3.5 p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] shadow-sm backdrop-blur-md']">
-      <div>
-        <div :class="['flex items-center gap-2']">
-          <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-            Proactivity Engine
-          </h3>
-          <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20']">
-            INTERACTION STYLE
-          </span>
-        </div>
-        <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-          Select how your companion perceives and initiates interactions throughout the day.
-        </p>
-      </div>
-
-      <!-- 4 Engine Cards Grid -->
-      <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1']">
-        <button
-          v-for="mode in engineModes"
-          :key="mode.id"
-          type="button"
-          :class="[
-            'flex flex-col justify-between p-3.5 rounded-xl border text-left transition-all duration-150 cursor-pointer select-none',
-            proactivityEngineMode === mode.id
-              ? 'border-primary-500 bg-primary-500/10 dark:bg-primary-950/30 text-neutral-900 dark:text-white ring-1 ring-primary-500/30 shadow-xs'
-              : 'border-neutral-200/80 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.02] hover:border-neutral-300 dark:hover:border-white/20 text-neutral-600 dark:text-neutral-400',
-          ]"
-          @click="selectEngineMode(mode.id)"
-        >
-          <div>
-            <div :class="['flex items-center justify-between mb-2']">
-              <div
-                :class="[
-                  'w-8 h-8 rounded-lg flex items-center justify-center text-base transition-colors',
-                  proactivityEngineMode === mode.id
-                    ? 'bg-primary-500 text-white shadow-xs'
-                    : 'bg-neutral-200/60 dark:bg-neutral-800 text-neutral-500',
-                ]"
-              >
-                <div :class="mode.icon" />
-              </div>
-              <span :class="['text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border', mode.badgeColor]">
-                {{ mode.badge }}
-              </span>
-            </div>
-            <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white mb-1']">
-              {{ mode.title }}
-            </h4>
-            <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug']">
-              {{ mode.desc }}
-            </p>
-          </div>
-
-          <div :class="['mt-3 pt-2 border-t border-neutral-200/50 dark:border-white/5 flex items-center justify-between text-[10px] font-medium']">
-            <span :class="proactivityEngineMode === mode.id ? 'text-primary-600 dark:text-primary-400 font-bold' : 'text-neutral-400'">
-              {{ proactivityEngineMode === mode.id ? 'Active' : 'Select' }}
-            </span>
-            <div :class="[proactivityEngineMode === mode.id ? 'i-solar:check-circle-bold text-primary-500' : 'i-solar:circle-linear text-neutral-400', 'w-3.5 h-3.5']" />
-          </div>
-        </button>
-      </div>
-    </div>
-
-    <!-- Section 3: Contextual Tuning (Only displayed when active) -->
-    <div
-      v-if="proactivityEngineMode !== 'on-demand'"
-      :class="['flex flex-col gap-4 p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] shadow-sm backdrop-blur-md animate-fadeIn']"
-    >
-      <div>
-        <div :class="['flex items-center gap-2']">
-          <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-            Engine Fine-Tuning
-          </h3>
-          <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20']">
-            CADENCE & SENSORS
-          </span>
-        </div>
-        <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-          Fine-tune reaction behavior, capture resolution, and smart silence guarantees.
-        </p>
-      </div>
-
-      <!-- Subsection A: Screen Watching Settings (If Screen or Dual) -->
-      <div v-if="screenWatcherEnabled" :class="['flex flex-col gap-3 pt-2 border-t border-neutral-200/60 dark:border-white/5']">
-        <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
-          <div :class="['i-solar:videocamera-record-bold-duotone text-sky-500']" />
-          <span>Screen Reaction Delivery Mode</span>
-        </label>
-        <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2']">
+        <!-- 4 Engine Cards Grid -->
+        <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1']">
           <button
-            v-for="mode in reactionModes"
+            v-for="mode in engineModes"
             :key="mode.id"
             type="button"
             :class="[
-              'p-2.5 rounded-xl border text-left transition-all cursor-pointer select-none',
-              screenWatcherMode === mode.id
-                ? 'border-primary-500 bg-primary-500/10 text-neutral-900 dark:text-white font-medium ring-1 ring-primary-500/30'
-                : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/20',
+              'flex flex-col justify-between p-3.5 rounded-xl border text-left transition-all duration-150 cursor-pointer select-none',
+              proactivityEngineMode === mode.id
+                ? 'border-primary-500 bg-primary-500/10 dark:bg-primary-950/30 text-neutral-900 dark:text-white ring-1 ring-primary-500/30 shadow-xs'
+                : 'border-neutral-200/80 dark:border-white/10 bg-neutral-50/50 dark:bg-white/[0.02] hover:border-neutral-300 dark:hover:border-white/20 text-neutral-600 dark:text-neutral-400',
             ]"
-            @click="screenWatcherMode = mode.id; syncDraft()"
+            @click="selectEngineMode(mode.id)"
           >
-            <div :class="['flex items-center gap-1.5 mb-1']">
-              <div :class="[mode.icon, 'w-3.5 h-3.5 text-primary-500']" />
-              <span :class="['text-xs font-bold']">{{ mode.title }}</span>
+            <div>
+              <div :class="['flex items-center justify-between mb-2']">
+                <div
+                  :class="[
+                    'w-8 h-8 rounded-lg flex items-center justify-center text-base transition-colors',
+                    proactivityEngineMode === mode.id
+                      ? 'bg-primary-500 text-white shadow-xs'
+                      : 'bg-neutral-200/60 dark:bg-neutral-800 text-neutral-500',
+                  ]"
+                >
+                  <div :class="mode.icon" />
+                </div>
+                <span :class="['text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border', mode.badgeColor]">
+                  {{ mode.badge }}
+                </span>
+              </div>
+              <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white mb-1']">
+                {{ mode.title }}
+              </h4>
+              <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug']">
+                {{ mode.desc }}
+              </p>
             </div>
-            <p :class="['text-[10px] text-neutral-400 leading-snug line-clamp-2']">
-              {{ mode.desc }}
-            </p>
+
+            <div :class="['mt-3 pt-2 border-t border-neutral-200/50 dark:border-white/5 flex items-center justify-between text-[10px] font-medium']">
+              <span :class="proactivityEngineMode === mode.id ? 'text-primary-600 dark:text-primary-400 font-bold' : 'text-neutral-400'">
+                {{ proactivityEngineMode === mode.id ? 'Active' : 'Select' }}
+              </span>
+              <div :class="[proactivityEngineMode === mode.id ? 'i-solar:check-circle-bold text-primary-500' : 'i-solar:circle-linear text-neutral-400', 'w-3.5 h-3.5']" />
+            </div>
           </button>
-        </div>
-
-        <!-- Vision Perception Tier & Interval -->
-        <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1']">
-          <!-- Perception Engine Tier -->
-          <div :class="['flex flex-col gap-1.5']">
-            <label :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
-              Perception Engine Tier
-            </label>
-            <div :class="['grid grid-cols-2 gap-1.5']">
-              <button
-                v-for="tier in visionTiers"
-                :key="tier.id"
-                type="button"
-                :class="[
-                  'p-2 rounded-xl border text-left transition-all cursor-pointer',
-                  screenWatcherTier === tier.id
-                    ? 'border-primary-500 bg-primary-500/10 text-neutral-900 dark:text-white ring-1 ring-primary-500/30'
-                    : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] text-neutral-600 dark:text-neutral-400',
-                ]"
-                @click="screenWatcherTier = tier.id; syncDraft()"
-              >
-                <div :class="['text-xs font-bold truncate']">
-                  {{ tier.title }}
-                </div>
-                <div :class="['text-[9px] font-mono text-primary-500 font-semibold']">
-                  {{ tier.vram }}
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <!-- Screen Sampling Cadence -->
-          <div :class="['flex flex-col gap-1.5']">
-            <label :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
-              Screen Sampling Cadence
-            </label>
-            <div :class="['grid grid-cols-4 gap-1.5']">
-              <button
-                v-for="preset in screenIntervalPresets"
-                :key="preset.value"
-                type="button"
-                :class="[
-                  'py-2 px-1 rounded-xl border text-[11px] font-medium transition-all text-center cursor-pointer',
-                  screenWatcherInterval === preset.value
-                    ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400 font-semibold'
-                    : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] text-neutral-600 dark:text-neutral-400',
-                ]"
-                @click="screenWatcherInterval = preset.value; syncDraft()"
-              >
-                {{ preset.label }}
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
-      <!-- Subsection B: Ambient Heartbeats Cadence (If Heartbeats or Dual) -->
-      <div v-if="heartbeatsEnabled" :class="['flex flex-col gap-3 pt-2 border-t border-neutral-200/60 dark:border-white/5']">
-        <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
-          <div :class="['i-solar:heart-pulse-2-bold-duotone text-rose-500']" />
-          <span>Ambient Check-In Cadence</span>
-        </label>
-        <div :class="['grid grid-cols-2 sm:grid-cols-4 gap-2']">
+      <!-- Section 3: Contextual Tuning (Only displayed when active) -->
+      <div
+        v-if="proactivityEngineMode !== 'on-demand'"
+        :class="['flex flex-col gap-4 p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.02] shadow-sm backdrop-blur-md animate-fadeIn']"
+      >
+        <div>
+          <div :class="['flex items-center gap-2']">
+            <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
+              Engine Fine-Tuning
+            </h3>
+            <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20']">
+              CADENCE & SENSORS
+            </span>
+          </div>
+          <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
+            Fine-tune reaction behavior, capture resolution, and smart silence guarantees.
+          </p>
+        </div>
+
+        <!-- Subsection A: Screen Watching Settings (If Screen or Dual) -->
+        <div v-if="screenWatcherEnabled" :class="['flex flex-col gap-3 pt-2 border-t border-neutral-200/60 dark:border-white/5']">
+          <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
+            <div :class="['i-solar:videocamera-record-bold-duotone text-sky-500']" />
+            <span>Screen Reaction Delivery Mode</span>
+          </label>
+          <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2']">
+            <button
+              v-for="mode in reactionModes"
+              :key="mode.id"
+              type="button"
+              :class="[
+                'p-2.5 rounded-xl border text-left transition-all cursor-pointer select-none',
+                screenWatcherMode === mode.id
+                  ? 'border-primary-500 bg-primary-500/10 text-neutral-900 dark:text-white font-medium ring-1 ring-primary-500/30'
+                  : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/20',
+              ]"
+              @click="screenWatcherMode = mode.id; syncDraft()"
+            >
+              <div :class="['flex items-center gap-1.5 mb-1']">
+                <div :class="[mode.icon, 'w-3.5 h-3.5 text-primary-500']" />
+                <span :class="['text-xs font-bold']">{{ mode.title }}</span>
+              </div>
+              <p :class="['text-[10px] text-neutral-400 leading-snug line-clamp-2']">
+                {{ mode.desc }}
+              </p>
+            </button>
+          </div>
+
+          <!-- Vision Perception Tier & Interval -->
+          <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1']">
+            <!-- Perception Engine Tier -->
+            <div :class="['flex flex-col gap-1.5']">
+              <label :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
+                Perception Engine Tier
+              </label>
+              <div :class="['grid grid-cols-2 gap-1.5']">
+                <button
+                  v-for="tier in visionTiers"
+                  :key="tier.id"
+                  type="button"
+                  :class="[
+                    'p-2 rounded-xl border text-left transition-all cursor-pointer',
+                    screenWatcherTier === tier.id
+                      ? 'border-primary-500 bg-primary-500/10 text-neutral-900 dark:text-white ring-1 ring-primary-500/30'
+                      : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] text-neutral-600 dark:text-neutral-400',
+                  ]"
+                  @click="screenWatcherTier = tier.id; syncDraft()"
+                >
+                  <div :class="['text-xs font-bold truncate']">
+                    {{ tier.title }}
+                  </div>
+                  <div :class="['text-[9px] font-mono text-primary-500 font-semibold']">
+                    {{ tier.vram }}
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Screen Sampling Cadence -->
+            <div :class="['flex flex-col gap-1.5']">
+              <label :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
+                Screen Sampling Cadence
+              </label>
+              <div :class="['grid grid-cols-4 gap-1.5']">
+                <button
+                  v-for="preset in screenIntervalPresets"
+                  :key="preset.value"
+                  type="button"
+                  :class="[
+                    'py-2 px-1 rounded-xl border text-[11px] font-medium transition-all text-center cursor-pointer',
+                    screenWatcherInterval === preset.value
+                      ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400 font-semibold'
+                      : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] text-neutral-600 dark:text-neutral-400',
+                  ]"
+                  @click="screenWatcherInterval = preset.value; syncDraft()"
+                >
+                  {{ preset.label }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subsection B: Ambient Heartbeats Cadence (If Heartbeats or Dual) -->
+        <div v-if="heartbeatsEnabled" :class="['flex flex-col gap-3 pt-2 border-t border-neutral-200/60 dark:border-white/5']">
+          <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
+            <div :class="['i-solar:heart-pulse-2-bold-duotone text-rose-500']" />
+            <span>Ambient Check-In Cadence</span>
+          </label>
+          <div :class="['grid grid-cols-2 sm:grid-cols-4 gap-2']">
+            <button
+              v-for="preset in heartbeatIntervalPresets"
+              :key="preset.value"
+              type="button"
+              :class="[
+                'py-2 px-3 rounded-xl border text-xs font-medium transition-all text-center cursor-pointer',
+                heartbeatsInterval === preset.value
+                  ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400 font-semibold'
+                  : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/20',
+              ]"
+              @click="heartbeatsInterval = preset.value; syncDraft()"
+            >
+              {{ preset.label }}
+            </button>
+          </div>
+
+          <!-- Telemetry Grounding Checkboxes -->
+          <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1']">
+            <label :class="['flex items-center gap-2 border border-neutral-200/80 dark:border-white/10 rounded-xl bg-neutral-50/70 dark:bg-white/[0.02] p-2.5 text-xs cursor-pointer']">
+              <input
+                v-model="heartbeatsContextWindowHistory"
+                type="checkbox"
+                :class="['h-3.5 w-3.5 rounded text-primary-600 focus:ring-primary-500 cursor-pointer']"
+                @change="syncDraft()"
+              >
+              <span :class="['text-neutral-700 dark:text-neutral-300 font-medium']">Active Window & App History</span>
+            </label>
+
+            <label :class="['flex items-center gap-2 border border-neutral-200/80 dark:border-white/10 rounded-xl bg-neutral-50/70 dark:bg-white/[0.02] p-2.5 text-xs cursor-pointer']">
+              <input
+                v-model="heartbeatsContextSystemLoad"
+                type="checkbox"
+                :class="['h-3.5 w-3.5 rounded text-primary-600 focus:ring-primary-500 cursor-pointer']"
+                @change="syncDraft()"
+              >
+              <span :class="['text-neutral-700 dark:text-neutral-300 font-medium']">CPU & System Load Telemetry</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Subsection C: Smart Silence (NO_REPLY Directive) -->
+        <div :class="['flex items-center justify-between p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] mt-1']">
+          <div :class="['flex flex-col pr-3']">
+            <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
+              Smart Silence (NO_REPLY Directive)
+            </span>
+            <span :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+              Instructs the companion to stay completely silent via NO_REPLY unless there is a genuine, contextually relevant observation.
+            </span>
+          </div>
           <button
-            v-for="preset in heartbeatIntervalPresets"
-            :key="preset.value"
             type="button"
             :class="[
-              'py-2 px-3 rounded-xl border text-xs font-medium transition-all text-center cursor-pointer',
-              heartbeatsInterval === preset.value
-                ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400 font-semibold'
-                : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-white/20',
+              'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+              smartSilenceDirectiveEnabled ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
             ]"
-            @click="heartbeatsInterval = preset.value; syncDraft()"
+            @click="smartSilenceDirectiveEnabled = !smartSilenceDirectiveEnabled; syncDraft()"
           >
-            {{ preset.label }}
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                smartSilenceDirectiveEnabled ? 'translate-x-5' : 'translate-x-0',
+              ]"
+            />
           </button>
         </div>
-
-        <!-- Telemetry Grounding Checkboxes -->
-        <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1']">
-          <label :class="['flex items-center gap-2 border border-neutral-200/80 dark:border-white/10 rounded-xl bg-neutral-50/70 dark:bg-white/[0.02] p-2.5 text-xs cursor-pointer']">
-            <input
-              v-model="heartbeatsContextWindowHistory"
-              type="checkbox"
-              :class="['h-3.5 w-3.5 rounded text-primary-600 focus:ring-primary-500 cursor-pointer']"
-              @change="syncDraft()"
-            >
-            <span :class="['text-neutral-700 dark:text-neutral-300 font-medium']">Active Window & App History</span>
-          </label>
-
-          <label :class="['flex items-center gap-2 border border-neutral-200/80 dark:border-white/10 rounded-xl bg-neutral-50/70 dark:bg-white/[0.02] p-2.5 text-xs cursor-pointer']">
-            <input
-              v-model="heartbeatsContextSystemLoad"
-              type="checkbox"
-              :class="['h-3.5 w-3.5 rounded text-primary-600 focus:ring-primary-500 cursor-pointer']"
-              @change="syncDraft()"
-            >
-            <span :class="['text-neutral-700 dark:text-neutral-300 font-medium']">CPU & System Load Telemetry</span>
-          </label>
-        </div>
-      </div>
-
-      <!-- Subsection C: Smart Silence (NO_REPLY Directive) -->
-      <div :class="['flex items-center justify-between p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] mt-1']">
-        <div :class="['flex flex-col pr-3']">
-          <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-            Smart Silence (NO_REPLY Directive)
-          </span>
-          <span :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
-            Instructs the companion to stay completely silent via NO_REPLY unless there is a genuine, contextually relevant observation.
-          </span>
-        </div>
-        <button
-          type="button"
-          :class="[
-            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-            smartSilenceDirectiveEnabled ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
-          ]"
-          @click="smartSilenceDirectiveEnabled = !smartSilenceDirectiveEnabled; syncDraft()"
-        >
-          <span
-            :class="[
-              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-              smartSilenceDirectiveEnabled ? 'translate-x-5' : 'translate-x-0',
-            ]"
-          />
-        </button>
       </div>
     </div>
 
     <!-- Navigation Action Bar -->
-    <div :class="['flex items-center justify-between pt-3 border-t border-neutral-200/80 dark:border-white/5']">
+    <div :class="['flex items-center justify-between pt-4 px-4 sm:px-6 border-t border-neutral-200/80 dark:border-white/5 shrink-0']">
       <Button
         variant="ghost"
         :class="['text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white cursor-pointer']"

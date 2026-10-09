@@ -15,16 +15,19 @@ shell:
   brand: AIRI Companion Setup
   stageReady: Stage Ready
   closeSetup: Close Setup (Save for Later)
-  placeholderNotice: This module configuration is being provisioned. You can proceed to the next
-    step.
+  placeholderNotice: This module configuration is being provisioned. You can
+    proceed to the next step.
 
 steps:
   welcome:
     label: Selamat Datang
     subtitle: Studio Pendamping Pribadi
     heroTitle: Selamat Datang di AIRI
-    heroSubtitle: Panggung pendamping Anda — disiapkan dalam hitungan menit, 100% di komputer Anda.
-    companionQuote: Halo! Saya pendamping digital otonom Anda. Baik Anda menginginkan percakapan suara, pertunjukan kreatif, atau kehadiran desktop yang tenang, saya siap beradaptasi dengan dunia Anda.
+    heroSubtitle: Panggung pendamping Anda — disiapkan dalam hitungan menit, 100% di
+      komputer Anda.
+    companionQuote: Halo! Saya pendamping digital otonom Anda. Baik Anda
+      menginginkan percakapan suara, pertunjukan kreatif, atau kehadiran desktop
+      yang tenang, saya siap beradaptasi dengan dunia Anda.
     pills:
       webgpu: Inti WebGPU Lokal
       offline: 100% Offline & Pribadi
@@ -35,7 +38,8 @@ steps:
       setupLater: Siapkan Nanti
     dialog:
       savedTitle: Penyiapan Disimpan untuk Nanti
-      savedDescription: 'Anda dapat membuka kembali penyiapan pendamping kapan saja dengan mengeklik ikon AIRI di bilah menu / baki sistem:'
+      savedDescription: 'Anda dapat membuka kembali penyiapan pendamping kapan saja
+        dengan mengeklik ikon AIRI di bilah menu / baki sistem:'
       trayItem: Penyiapan & Masuk Pendamping (V3)
       continue: Lanjutkan Penyiapan
       closeToTray: Tutup ke Baki Sistem
@@ -44,16 +48,20 @@ steps:
     label: Akun
     subtitle: Masuk Akun & Arsitektur
     title: Masuk Akun & Arsitektur
-    description: Pilih apakah ingin berjalan sepenuhnya terisolasi di mesin ini, atau hubungkan akun untuk sinkronisasi awan dan cadangan yang lancar.
+    description: Pilih apakah ingin berjalan sepenuhnya terisolasi di mesin ini,
+      atau hubungkan akun untuk sinkronisasi awan dan cadangan yang lancar.
     zeroTrustBadge: Zero-Trust
     localOption:
       title: Pendamping Lokal (Air-Gapped)
-      description: 100% offline dan pribadi. Semua kartu pendamping, memori, dan status disimpan secara lokal di basis data peramban/desktop Anda tanpa telemetri awan.
+      description: 100% offline dan pribadi. Semua kartu pendamping, memori, dan
+        status disimpan secara lokal di basis data peramban/desktop Anda tanpa
+        telemetri awan.
       badge: Offline Pertama
       action: Lanjutkan Secara Lokal
     cloudOption:
       title: Masuk Akun (Cloudflare)
-      description: Hubungkan akun Anda untuk menyinkronkan pendamping, pengaturan, dan brankas memori lintas perangkat dengan enkripsi end-to-end.
+      description: Hubungkan akun Anda untuk menyinkronkan pendamping, pengaturan, dan
+        brankas memori lintas perangkat dengan enkripsi end-to-end.
       badge: Sinkronisasi Multi-Perangkat
       connect: Masuk dengan Cloudflare
       connected: Connected to Cloudflare
@@ -68,13 +76,13 @@ steps:
       restoring: Restoring companions...
       restoreAll: Restore & Launch Stage
     stepBadge: Architecture Triage · Step {current} of {total}
-    companionGreeting: Welcome to AIRI! Choose how you'd like to set up your stage. You can run
-      100% locally and offline, or sign in to sync across devices.
+    companionGreeting: Welcome to AIRI! Choose how you'd like to set up your stage.
+      You can run 100% locally and offline, or sign in to sync across devices.
     local:
       badge: Offline First
       title: Local Companion (Air-Gapped)
-      description: 100% offline and private. All companion cards, memories, and state are
-        stored locally in your browser/desktop database with zero cloud
+      description: 100% offline and private. All companion cards, memories, and state
+        are stored locally in your browser/desktop database with zero cloud
         telemetry.
       selectedCta: Selected (Air-Gapped)
       selectCta: Choose Local Mode
@@ -85,7 +93,8 @@ steps:
     cloud:
       badge: 10 GB Gratis + Sinkronisasi Cloud
       title: Masuk Akun (Cloudflare)
-      description: Hubungkan akun Anda untuk membuka 10 GB penyimpanan gratis, kredit harian AI edge, dan kehadiran pendamping 24/7 di semua perangkat.
+      description: Hubungkan akun Anda untuk membuka 10 GB penyimpanan gratis, kredit
+        harian AI edge, dan kehadiran pendamping 24/7 di semua perangkat.
       selectedCta: Dipilih (Didukung Cloud)
       selectCta: Pilih Sinkronisasi Cloud
       features:
@@ -96,29 +105,48 @@ steps:
         f5: Proksi CORS Pribadi & Nol Penitipan Data
         storage:
           title: 10 GB Penyimpanan Cloud Gratis
-          desc: Cadangkan model 3D, latar belakang kustom, dan brankas memori penuh tanpa biaya transfer keluar.
+          desc: Cadangkan model 3D, latar belakang kustom, dan brankas memori penuh tanpa
+            biaya transfer keluar.
           howItWorks: Didukung oleh penyimpanan objek Cloudflare R2 milik pengguna.
-          whyItMatters: Tingkat gratis yang melimpah untuk puluhan model VRM/Live2D dan riwayat obrolan bertahun-tahun. Tidak seperti AWS S3, mengunduh aset Anda 100% gratis dengan biaya bandwidth $0.
+          whyItMatters: Tingkat gratis yang melimpah untuk puluhan model VRM/Live2D dan
+            riwayat obrolan bertahun-tahun. Tidak seperti AWS S3, mengunduh aset
+            Anda 100% gratis dengan biaya bandwidth $0.
         ai:
           title: Kredit Harian AI Edge Gratis
-          desc: 10.000 Neuron harian gratis untuk DeepSeek, Qwen & Llama (tanpa perlu kunci API).
-          howItWorks: Terhubung langsung ke Cloudflare Workers AI pada Langkah 8 (Kesadaran).
-          whyItMatters: Mengobrol langsung dengan model terbuka mutakhir di edge tanpa perlu langganan OpenAI, kartu kredit berbayar, atau GPU gaming lokal kelas atas.
+          desc: 10.000 Neuron harian gratis untuk DeepSeek, Qwen & Llama (tanpa perlu
+            kunci API).
+          howItWorks: Terhubung langsung ke Cloudflare Workers AI pada Langkah 8
+            (Kesadaran).
+          whyItMatters: Mengobrol langsung dengan model terbuka mutakhir di edge tanpa
+            perlu langganan OpenAI, kartu kredit berbayar, atau GPU gaming lokal
+            kelas atas.
         relay:
           title: Relai Cloud Discord 24/7
-          desc: Biarkan pendamping Anda tetap aktif di server Discord bahkan saat PC Anda dimatikan.
-          howItWorks: Berjalan sebagai Cloudflare Worker nirserver (@proj-airi/stage-edge) yang menangani webhook interaksi Discord.
-          whyItMatters: Pendamping Anda tetap siaga 24/7 untuk mengobrol di Discord, menyimpan konteks di Edge KV, dan menyinkronkan percakapan kembali ke desktop saat Anda membuka kembali AIRI.
+          desc: Biarkan pendamping Anda tetap aktif di server Discord bahkan saat PC Anda
+            dimatikan.
+          howItWorks: Berjalan sebagai Cloudflare Worker nirserver (@proj-airi/stage-edge)
+            yang menangani webhook interaksi Discord.
+          whyItMatters: Pendamping Anda tetap siaga 24/7 untuk mengobrol di Discord,
+            menyimpan konteks di Edge KV, dan menyinkronkan percakapan kembali
+            ke desktop saat Anda membuka kembali AIRI.
         sync:
           title: Sinkronisasi Multi-Perangkat & Pemulihan 1-Klik
-          desc: Sinkronkan Desktop, Web, dan Seluler dengan mulus; pulihkan pendamping dalam satu klik.
-          howItWorks: Brankas Kunci Edge (airi-edge-vault) melacak status aktif pendamping Anda secara aman.
-          whyItMatters: Memasang ulang AIRI atau berpindah ke laptop/ponsel baru secara otomatis memulihkan pendamping, pengaturan, dan memori tanpa perlu memasukkan kunci secara manual.
+          desc: Sinkronkan Desktop, Web, dan Seluler dengan mulus; pulihkan pendamping
+            dalam satu klik.
+          howItWorks: Brankas Kunci Edge (airi-edge-vault) melacak status aktif pendamping
+            Anda secara aman.
+          whyItMatters: Memasang ulang AIRI atau berpindah ke laptop/ponsel baru secara
+            otomatis memulihkan pendamping, pengaturan, dan memori tanpa perlu
+            memasukkan kunci secara manual.
         proxy:
           title: Proksi CORS Pribadi & Nol Penitipan Data
-          desc: Akses API AI lokal & jarak jauh yang kompleks dengan privasi data nol penitipan 100%.
-          howItWorks: Menerapkan proksi terbalik edge pribadi untuk melewati header CORS peramban bagi stage Web & Seluler.
-          whyItMatters: Semuanya berjalan di akun Cloudflare pribadi Anda. AIRI tidak mengoperasikan server perantara dan tidak pernah membaca, menyimpan, atau mengambil percakapan Anda.
+          desc: Akses API AI lokal & jarak jauh yang kompleks dengan privasi data nol
+            penitipan 100%.
+          howItWorks: Menerapkan proksi terbalik edge pribadi untuk melewati header CORS
+            peramban bagi stage Web & Seluler.
+          whyItMatters: Semuanya berjalan di akun Cloudflare pribadi Anda. AIRI tidak
+            mengoperasikan server perantara dan tidak pernah membaca, menyimpan,
+            atau mengambil percakapan Anda.
     auth:
       connected: Connected to Cloudflare
       disconnect: Disconnect
@@ -147,7 +175,8 @@ steps:
       lightDesc: Nuansa studio terang benderang
     colorSection:
       title: Palet Aksen Khas
-      description: Pilih nada aksen untuk mempersonalisasi tombol, sorotan, dan efek cahaya avatar.
+      description: Pilih nada aksen untuk mempersonalisasi tombol, sorotan, dan efek
+        cahaya avatar.
       defaultColor: Sian Default
       custom: Hex Kustom
       groups:
@@ -156,7 +185,8 @@ steps:
         ocean: Samudra & Langit
         royal: Megah & Mekar
       activeColor: 'Aktif: {color}'
-    perDeviceToggle: Pertahankan tampilan lokal di perangkat ini (kecualikan dari sinkronisasi awan)
+    perDeviceToggle: Pertahankan tampilan lokal di perangkat ini (kecualikan dari
+      sinkronisasi awan)
 
   experience:
     label: Experience
@@ -202,21 +232,21 @@ steps:
       quiet:
         title: The Quiet Observer
         badge: ⚡ Fastest · Minimalist
-        subtitle: Text, Expressions & Memory
-        description: Zero audio overhead, avatar emotions, thinking pacing, and long-term
-          memory.
+        subtitle: Text, Tools & Memory
+        description: Zero audio overhead, avatar emotions, thinking pacing, and
+          long-term memory.
       casual:
         title: The Casual Companion
         badge: ✨ Popular Choice
         subtitle: Voice Dialogue & Vision
-        description: Live speech transcription (STT), emotional voice (TTS), photo vision,
-          natural pacing, and memory.
+        description: Live speech transcription (STT), emotional voice (TTS), photo
+          vision, natural pacing, and memory.
       muse:
         title: The Creative Muse
         badge: 🎨 Visual Focus
         subtitle: Voice, Vision & Artistry
-        description: Spoken dialogue, image generation (Pollinations/ComfyUI), chat vision,
-          and expressive morphs.
+        description: Spoken dialogue, image generation (Pollinations/ComfyUI), chat
+          vision, and expressive morphs.
       copilot:
         title: The Executive Copilot
         badge: 💼 Productivity
@@ -232,7 +262,7 @@ steps:
       swiss-army:
         title: The Swiss Army Companion
         badge: 🔥 Most Steps · All-In-One
-        subtitle: Full Autonomous Multimodal
+        subtitle: Voice, Vision & Action
         description: The quintessential all-in-one companion. Hearing, neural voice,
           thinking pacing, 2-pass ACT emotions, screen watching, artistry, and
           cognitive memory.
@@ -413,7 +443,8 @@ steps:
     label: Penglihatan
     subtitle: Foto Obrolan & Analisis Gambar
     title: Persepsi Visual (Chat VLM)
-    description: Izinkan pendamping Anda memeriksa, memahami, dan bereaksi terhadap gambar yang Anda kirim dalam obrolan.
+    description: Izinkan pendamping Anda memeriksa, memahami, dan bereaksi terhadap
+      gambar yang Anda kirim dalam obrolan.
     tabs:
       cloudflare: Cloudflare Edge
       cloudflareBadge: 10k Gratis Harian
@@ -422,7 +453,8 @@ steps:
       custom: Penyedia Cloud
     cloudflare:
       connected: 'Cloudflare Terhubung: 10.000 Neuron gratis/hari aktif'
-      notConnected: Hubungkan akun Cloudflare Anda untuk menggunakan visi edge gratis tanpa konfigurasi.
+      notConnected: Hubungkan akun Cloudflare Anda untuk menggunakan visi edge gratis
+        tanpa konfigurasi.
       signIn: Masuk dengan Cloudflare
     engineTitle: Model Analisis Penglihatan
     testImage: Uji Persepsi Visual

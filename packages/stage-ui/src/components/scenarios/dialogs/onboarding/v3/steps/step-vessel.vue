@@ -177,6 +177,21 @@ const isActiveCommitted = computed(() => {
   return draft.state?.vesselDisplayModelId === activeModel.value.id
 })
 
+// Editable visual-style descriptor: seeded from the browsed model's prompt on
+// selection (via applyVesselToDraft), then freely editable. Stored in the draft
+// and consumed by Artistry, so moving/editing it never changes the pipeline.
+const descriptorText = computed({
+  get: () => draft.state.artistryVisualPrompt ?? activeModel.value.prompt,
+  set: (val: string) => {
+    if (typeof (draft as any).setArtistry === 'function') {
+      draft.setArtistry({ visualPrompt: val })
+    }
+    else {
+      draft.state.artistryVisualPrompt = val
+    }
+  },
+})
+
 function applyVesselToDraft(modelId: string, visualPrompt?: string) {
   if (typeof (draft as any).setVessel === 'function') {
     draft.setVessel(modelId, visualPrompt)
@@ -275,41 +290,44 @@ function handleDrop(e: DragEvent) {
 <template>
   <div :class="['w-full h-full flex flex-col justify-between select-none animate-fadeIn']">
     <!-- Scrollable Content Body -->
-    <div :class="['flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-2 flex flex-col gap-4']">
-      <!-- Two-column composition -->
-      <div :class="['w-full max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-[350px_minmax(0,1fr)] gap-5 lg:gap-6 items-start']">
-        <!-- Left column: heading, guidance, inspector -->
-        <div :class="['flex flex-col gap-4 min-w-0']">
-          <div
-            v-motion
-            :initial="{ opacity: 0, y: -6 }"
-            :enter="{ opacity: 1, y: 0 }"
-            :duration="350"
-            :class="['text-left']"
-          >
-            <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white text-left text-balance']">
-              {{ t('onboarding.steps.vessel.title') }}
-            </h1>
-          </div>
+    <div :class="['flex-1 min-h-0 min-w-0 overflow-y-auto px-4 sm:px-6 pt-2 pb-5 flex flex-col gap-4']">
+      <!-- Shared centered header -->
+      <div :class="['flex flex-col items-center text-center gap-3']">
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            {{ t('onboarding.steps.vessel.title') }}
+          </h1>
+        </div>
 
-          <AssistantBubble
-            message="Let’s find a look that feels right. Browse the collection or import your own avatar, then preview it on the stage."
-            step-key="vessel"
-            tone="primary"
-          />
+        <AssistantBubble
+          message="Let’s find a look that feels right. Browse the collection or import your own avatar, then preview it on the stage."
+          step-key="vessel"
+          tone="primary"
+        />
+      </div>
 
-          <!-- Selected-avatar inspector card -->
-          <div
-            v-motion
-            :initial="{ opacity: 0, y: 8 }"
-            :enter="{ opacity: 1, y: 0 }"
-            :duration="300"
-            :delay="150"
-            :class="[
-              'p-5 rounded-[20px] border transition-all',
-              'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md flex flex-col gap-3 min-w-0',
-            ]"
-          >
+      <!-- Two-panel content grid -->
+      <div :class="['w-full max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,32fr)_minmax(0,68fr)] gap-5 lg:gap-6 items-stretch flex-1 min-h-0 min-w-0']">
+        <!-- Left panel: selected-avatar inspector -->
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="300"
+          :delay="100"
+          :class="[
+            'rounded-[20px] border p-5 sm:p-6 transition-all flex flex-col gap-4 min-w-0 min-h-0',
+            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
+          ]"
+        >
+          <!-- Avatar identity and metadata -->
+          <div :class="['flex flex-col gap-3']">
             <span :class="['text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400']">
               Selected avatar
             </span>
@@ -361,7 +379,10 @@ function handleDrop(e: DragEvent) {
                 </div>
               </div>
             </div>
+          </div>
 
+          <!-- Description and selection state -->
+          <div :class="['flex flex-col gap-2']">
             <p :class="['text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed break-words']">
               <span v-if="activeModel.author" :class="['text-neutral-700 dark:text-neutral-300 font-medium']">{{ activeModel.author }} • </span>
               <span>{{ activeModel.description }}</span>
@@ -393,22 +414,28 @@ function handleDrop(e: DragEvent) {
                 <span>Download model</span>
               </Button>
             </div>
+          </div>
 
-            <div :class="['border-t border-neutral-200/70 dark:border-white/10 pt-3 flex flex-col gap-1.5']">
-              <span :class="['text-xs font-semibold text-neutral-700 dark:text-neutral-300']">
-                Visual style descriptor
-              </span>
-              <div :class="['p-2 px-2.5 rounded-lg bg-neutral-100/70 dark:bg-black/30 border border-neutral-200/50 dark:border-white/5 font-mono text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400 break-words whitespace-pre-wrap max-h-24 overflow-y-auto']">
-                {{ activeModel.prompt }}
-              </div>
-              <span :class="['text-[11px] text-neutral-400 dark:text-neutral-500']">
-                Used when generating images of your companion.
-              </span>
-            </div>
+          <div :class="['border-t border-neutral-200/70 dark:border-white/10']" />
+
+          <!-- Visual-style descriptor -->
+          <div :class="['flex flex-col gap-1.5 flex-1 min-h-0']">
+            <label :class="['text-xs font-semibold text-neutral-700 dark:text-neutral-300']" for="vessel-visual-descriptor">
+              Visual style descriptor
+            </label>
+            <textarea
+              id="vessel-visual-descriptor"
+              v-model="descriptorText"
+              rows="4"
+              :class="['w-full flex-1 min-h-28 resize-y rounded-lg border border-neutral-200/80 dark:border-white/10 bg-white/80 dark:bg-black/30 px-3 py-2 font-mono text-xs leading-relaxed text-neutral-700 dark:text-neutral-300 outline-none transition focus:border-primary-500 break-words']"
+            />
+            <span :class="['text-[11px] text-neutral-400 dark:text-neutral-500']">
+              Used when generating images of your companion.
+            </span>
           </div>
         </div>
 
-        <!-- Right column: browsing panel -->
+        <!-- Right panel: avatar gallery -->
         <div
           v-motion
           :initial="{ opacity: 0, y: 8 }"
@@ -416,7 +443,7 @@ function handleDrop(e: DragEvent) {
           :duration="350"
           :delay="100"
           :class="[
-            'rounded-[20px] border p-4 sm:p-5 min-w-0 flex flex-col gap-3',
+            'rounded-[20px] border p-4 sm:p-5 min-w-0 min-h-0 flex flex-col gap-3',
             'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
           ]"
         >
@@ -578,13 +605,19 @@ function handleDrop(e: DragEvent) {
             </Button>
           </div>
 
-          <!-- Existing carousel in narrower container -->
-          <div :class="['min-w-0 w-full']">
+          <!-- Flexible carousel stage (renderer sizes from this container) -->
+          <div :class="['min-w-0 min-h-0 w-full flex-1 flex items-center']">
             <VesselCoverflow
               :models="filteredModels"
               :model-value="selectedModelId"
               @select="handleSelectModel"
             />
+          </div>
+
+          <!-- Selected-avatar caption -->
+          <div :class="['text-center text-xs text-neutral-500 dark:text-neutral-400 truncate px-2']">
+            <span :title="activeModel.name" :class="['font-bold text-neutral-800 dark:text-neutral-100']">{{ activeModel.name }}</span>
+            <span> · {{ activeModel.formatLabel || activeModel.format.toUpperCase() }} · {{ activeModel.isInstalled ? 'Installed' : 'Download' }}</span>
           </div>
         </div>
       </div>

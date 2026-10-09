@@ -229,7 +229,7 @@ steps:
       quiet:
         title: The Quiet Observer
         badge: ⚡ Fastest · Minimalist
-        subtitle: Text, Expressions & Memory
+        subtitle: Text, Tools & Memory
         description: Text conversation, thoughtful pacing, and memory—without a rendered
           avatar.
       casual:
@@ -259,7 +259,7 @@ steps:
       swiss-army:
         title: The Swiss Army Companion
         badge: 🔥 Most Steps · All-In-One
-        subtitle: Full Autonomous Multimodal
+        subtitle: Voice, Vision & Action
         description: A companion that talks, sees, creates, and takes action—with memory
           and an ongoing presence.
     advanced:

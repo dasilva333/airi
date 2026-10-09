@@ -75,14 +75,14 @@ steps:
       restoring: Đang khôi phục bạn đồng hành...
       restoreAll: Khôi phục & Khởi chạy sân khấu
     stepBadge: Phân loại kiến trúc · Bước {current} / {total}
-    companionGreeting: Chào mừng bạn đến với AIRI! Hãy chọn cách bạn muốn thiết lập sân khấu của
-      mình. Bạn có thể chạy hoàn toàn cục bộ ngoại tuyến hoặc đăng nhập để đồng
-      bộ hóa trên nhiều thiết bị.
+    companionGreeting: Chào mừng bạn đến với AIRI! Hãy chọn cách bạn muốn thiết lập
+      sân khấu của mình. Bạn có thể chạy hoàn toàn cục bộ ngoại tuyến hoặc đăng
+      nhập để đồng bộ hóa trên nhiều thiết bị.
     local:
       badge: Ưu tiên ngoại tuyến
       title: Bạn đồng hành cục bộ (Biệt lập)
-      description: 100% ngoại tuyến và riêng tư. Tất cả thẻ nhân vật, ký ức và trạng thái
-        được lưu trữ cục bộ, không có dữ liệu từ xa lên đám mây.
+      description: 100% ngoại tuyến và riêng tư. Tất cả thẻ nhân vật, ký ức và trạng
+        thái được lưu trữ cục bộ, không có dữ liệu từ xa lên đám mây.
       selectedCta: Đã chọn (Cục bộ)
       selectCta: Chọn chế độ cục bộ
       features:
@@ -92,7 +92,9 @@ steps:
     cloud:
       badge: 10 GB Miễn phí + Đồng bộ Đám mây
       title: Đăng nhập tài khoản (Cloudflare)
-      description: Kết nối tài khoản của bạn để mở khóa 10 GB dung lượng lưu trữ miễn phí, tín dụng AI edge hàng ngày và sự hiện diện 24/7 của bạn đồng hành trên các thiết bị.
+      description: Kết nối tài khoản của bạn để mở khóa 10 GB dung lượng lưu trữ miễn
+        phí, tín dụng AI edge hàng ngày và sự hiện diện 24/7 của bạn đồng hành
+        trên các thiết bị.
       selectedCta: Đã chọn (Đám mây)
       selectCta: Chọn đồng bộ đám mây
       features:
@@ -103,29 +105,48 @@ steps:
         f5: Proxy CORS riêng tư & Không lưu giữ dữ liệu
         storage:
           title: 10 GB lưu trữ đám mây miễn phí
-          desc: Sao lưu mô hình 3D, hình nền tùy chỉnh và toàn bộ kho lưu trữ ký ức mà không mất phí truyền tải ra ngoài.
-          howItWorks: Được hỗ trợ bởi bộ lưu trữ đối tượng Cloudflare R2 thuộc sở hữu của người dùng.
-          whyItMatters: Gói miễn phí hào phóng với không gian đủ cho hàng chục mô hình VRM/Live2D và nhiều năm lịch sử trò chuyện. Không giống như AWS S3, tải xuống tài nguyên là 100% miễn phí với $0 phí băng thông.
+          desc: Sao lưu mô hình 3D, hình nền tùy chỉnh và toàn bộ kho lưu trữ ký ức mà
+            không mất phí truyền tải ra ngoài.
+          howItWorks: Được hỗ trợ bởi bộ lưu trữ đối tượng Cloudflare R2 thuộc sở hữu của
+            người dùng.
+          whyItMatters: Gói miễn phí hào phóng với không gian đủ cho hàng chục mô hình
+            VRM/Live2D và nhiều năm lịch sử trò chuyện. Không giống như AWS S3,
+            tải xuống tài nguyên là 100% miễn phí với $0 phí băng thông.
         ai:
           title: Tín dụng Edge AI miễn phí hàng ngày
-          desc: 10.000 Neurons miễn phí mỗi ngày cho DeepSeek, Qwen & Llama (không yêu cầu khóa API).
+          desc: 10.000 Neurons miễn phí mỗi ngày cho DeepSeek, Qwen & Llama (không yêu cầu
+            khóa API).
           howItWorks: Kết nối trực tiếp với Cloudflare Workers AI trong Bước 8 (Ý thức).
-          whyItMatters: Trò chuyện ngay với các mô hình nguồn mở tiên tiến ở rìa mạng mà không cần đăng ký OpenAI trả phí, thẻ tín dụng hoặc card đồ họa chơi game đắt đỏ.
+          whyItMatters: Trò chuyện ngay với các mô hình nguồn mở tiên tiến ở rìa mạng mà
+            không cần đăng ký OpenAI trả phí, thẻ tín dụng hoặc card đồ họa chơi
+            game đắt đỏ.
         relay:
           title: Tiếp sức đám mây Discord 24/7
-          desc: Giữ cho bạn đồng hành luôn thức trên máy chủ Discord ngay cả khi máy tính của bạn đã tắt.
-          howItWorks: Chạy dưới dạng Cloudflare Worker không máy chủ (@proj-airi/stage-edge) xử lý webhook tương tác Discord.
-          whyItMatters: Bạn đồng hành luôn sẵn sàng 24/7 để trò chuyện trên Discord, lưu trữ ngữ cảnh trong Edge KV và đồng bộ các cuộc trò chuyện về máy tính khi bạn mở lại AIRI.
+          desc: Giữ cho bạn đồng hành luôn thức trên máy chủ Discord ngay cả khi máy tính
+            của bạn đã tắt.
+          howItWorks: Chạy dưới dạng Cloudflare Worker không máy chủ
+            (@proj-airi/stage-edge) xử lý webhook tương tác Discord.
+          whyItMatters: Bạn đồng hành luôn sẵn sàng 24/7 để trò chuyện trên Discord, lưu
+            trữ ngữ cảnh trong Edge KV và đồng bộ các cuộc trò chuyện về máy
+            tính khi bạn mở lại AIRI.
         sync:
           title: Đồng bộ đa thiết bị & Khôi phục 1 lần nhấp
-          desc: Đồng bộ hóa liền mạch Máy tính, Web và Di động; khôi phục bạn đồng hành chỉ bằng một cú nhấp chuột.
-          howItWorks: Kho khóa Edge Key Vault (airi-edge-vault) theo dõi an toàn trạng thái hoạt động của bạn đồng hành.
-          whyItMatters: Cài đặt lại AIRI hoặc chuyển sang máy tính xách tay/điện thoại mới sẽ tự động khôi phục bạn đồng hành, cài đặt và ký ức mà không cần nhập khóa thủ công.
+          desc: Đồng bộ hóa liền mạch Máy tính, Web và Di động; khôi phục bạn đồng hành
+            chỉ bằng một cú nhấp chuột.
+          howItWorks: Kho khóa Edge Key Vault (airi-edge-vault) theo dõi an toàn trạng
+            thái hoạt động của bạn đồng hành.
+          whyItMatters: Cài đặt lại AIRI hoặc chuyển sang máy tính xách tay/điện thoại mới
+            sẽ tự động khôi phục bạn đồng hành, cài đặt và ký ức mà không cần
+            nhập khóa thủ công.
         proxy:
           title: Proxy CORS riêng tư & Không lưu giữ dữ liệu
-          desc: Truy cập các API AI cục bộ & từ xa phức tạp với quyền riêng tư dữ liệu không lưu giữ 100%.
-          howItWorks: Triển khai proxy ngược biên cá nhân để vượt qua tiêu đề CORS của trình duyệt cho các phiên bản Web & Di động.
-          whyItMatters: Mọi thứ đều chạy trong tài khoản Cloudflare cá nhân của bạn. AIRI không vận hành máy chủ trung gian và không bao giờ đọc, lưu trữ hoặc thu thập các cuộc trò chuyện của bạn.
+          desc: Truy cập các API AI cục bộ & từ xa phức tạp với quyền riêng tư dữ liệu
+            không lưu giữ 100%.
+          howItWorks: Triển khai proxy ngược biên cá nhân để vượt qua tiêu đề CORS của
+            trình duyệt cho các phiên bản Web & Di động.
+          whyItMatters: Mọi thứ đều chạy trong tài khoản Cloudflare cá nhân của bạn. AIRI
+            không vận hành máy chủ trung gian và không bao giờ đọc, lưu trữ hoặc
+            thu thập các cuộc trò chuyện của bạn.
     auth:
       connected: Đã kết nối với Cloudflare
       disconnect: Ngắt kết nối
@@ -212,9 +233,9 @@ steps:
       quiet:
         title: Người quan sát tĩnh lặng
         badge: ⚡ Nhanh nhất · Tối giản
-        subtitle: Văn bản, Biểu cảm & Ký ức
-        description: Không tiêu tốn tài nguyên âm thanh, biểu cảm avatar, nhịp suy nghĩ và
-          bộ nhớ dài hạn.
+        subtitle: Văn bản, Công cụ & Ký ức
+        description: Không tiêu tốn tài nguyên âm thanh, biểu cảm avatar, nhịp suy nghĩ
+          và bộ nhớ dài hạn.
       casual:
         title: Bạn đồng hành thường ngày
         badge: ✨ Lựa chọn phổ biến
@@ -225,14 +246,14 @@ steps:
         title: Nàng thơ sáng tạo
         badge: 🎨 Tiêu điểm hình ảnh
         subtitle: Giọng nói, Thị giác & Nghệ thuật
-        description: Đối thoại giọng nói, tạo ảnh (Pollinations/ComfyUI), thị giác ảnh chat
-          và biến đổi biểu cảm avatar.
+        description: Đối thoại giọng nói, tạo ảnh (Pollinations/ComfyUI), thị giác ảnh
+          chat và biến đổi biểu cảm avatar.
       copilot:
         title: Trợ lý điều hành
         badge: 💼 Năng suất công việc
         subtitle: Giọng nói + Công cụ hành động
-        description: Đối thoại giọng nói, theo dõi màn hình máy tính, công cụ tệp MCP cục
-          bộ và tìm kiếm web trực tiếp.
+        description: Đối thoại giọng nói, theo dõi màn hình máy tính, công cụ tệp MCP
+          cục bộ và tìm kiếm web trực tiếp.
       roommate:
         title: Bạn cùng phòng
         badge: 🌙 Hiện diện chủ động
@@ -242,7 +263,7 @@ steps:
       swiss-army:
         title: Dao đa năng Thụy Sĩ
         badge: 🔥 Đầy đủ tính năng · Tất cả trong một
-        subtitle: Đa phương thức tự chủ toàn diện
+        subtitle: Giọng nói, Thị giác & Hành động
         description: Bạn đồng hành toàn năng đỉnh cao. Lắng nghe, giọng nói nơ-ron, nhịp
           suy nghĩ, biểu cảm ACT 2 giai đoạn, theo dõi màn hình, vẽ tranh và ký
           ức nhận thức.
@@ -436,7 +457,8 @@ steps:
       custom: Nhà cung cấp Đám mây
     cloudflare:
       connected: 'Cloudflare Đã kết nối: 10.000 Neurons miễn phí/ngày đang hoạt động'
-      notConnected: Kết nối tài khoản Cloudflare của bạn để sử dụng thị giác edge miễn phí mà không cần thiết lập.
+      notConnected: Kết nối tài khoản Cloudflare của bạn để sử dụng thị giác edge miễn
+        phí mà không cần thiết lập.
       signIn: Đăng nhập bằng Cloudflare
     engineTitle: Mô hình phân tích thị giác
     testImage: Thử nhận diện hình ảnh

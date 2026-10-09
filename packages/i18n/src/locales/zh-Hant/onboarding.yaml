@@ -103,7 +103,8 @@ steps:
         relay:
           title: 24/7 Discord 雲端接力
           desc: 即使電腦關機或休眠，伴侶也能在你的專屬 Discord 伺服器中保持清醒。
-          howItWorks: 作為無伺服器 Cloudflare Worker (@proj-airi/stage-edge) 運行並處理 Discord 互動 Webhook。
+          howItWorks: 作為無伺服器 Cloudflare Worker (@proj-airi/stage-edge) 運行並處理 Discord 互動
+            Webhook。
           whyItMatters: 伴侶全天候回應 Discord 訊息並在邊緣保存記憶，當你再次打開電腦時自動回傳同步。
         sync:
           title: 多裝置同步與一鍵復原
@@ -187,7 +188,7 @@ steps:
       quiet:
         title: 靜默觀察者
         badge: ⚡ 極速 · 極簡主義
-        subtitle: 文字、表情與記憶
+        subtitle: 文字、工具與記憶
         description: 零音訊開銷，具備舞台化身表情、思考節奏與長期記憶的輕量級文字夥伴。
       casual:
         title: 日常夥伴
@@ -212,7 +213,7 @@ steps:
       swiss-army:
         title: 全能瑞士刀
         badge: 🔥 全功能 · 應有盡有
-        subtitle: 全功能自主多模態
+        subtitle: 語音、視覺與行動
         description: 旗艦級全能數位夥伴。聽覺、神經語音、思考節奏、雙階段ACT表情、螢幕觀察、藝術生成與認知記憶層級。
     advanced:
       toggle: '高級：自訂各個模組開關'

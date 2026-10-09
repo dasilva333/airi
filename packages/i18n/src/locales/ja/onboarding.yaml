@@ -96,27 +96,32 @@ steps:
           title: 10 GB 無料クラウドストレージ
           desc: 3Dモデル、カスタム背景、完全な記憶保管庫を下り転送手数料ゼロでバックアップします。
           howItWorks: ユーザー所有の Cloudflare R2 オブジェクトストレージを活用しています。
-          whyItMatters: 数十の VRM/Live2D モデルや数年分のチャット履歴を保存できる十分な無料枠を提供します。AWS S3 と異なり、アセットのダウンロードは帯域料金 $0 で 100% 無料です。
+          whyItMatters: 数十の VRM/Live2D モデルや数年分のチャット履歴を保存できる十分な無料枠を提供します。AWS S3
+            と異なり、アセットのダウンロードは帯域料金 $0 で 100% 無料です。
         ai:
           title: 毎日の無料エッジ AI クレジット
           desc: DeepSeek、Qwen、Llama 用に毎日 10,000 ニューロンを無料提供（API キー不要）。
           howItWorks: ステップ 8（意識）で Cloudflare Workers AI に直接接続します。
-          whyItMatters: OpenAI の有料サブスクやクレジットカード、高価なローカルゲーミング GPU がなくても、最先端のオープンモデルとエッジで即座に会話できます。
+          whyItMatters: OpenAI の有料サブスクやクレジットカード、高価なローカルゲーミング GPU
+            がなくても、最先端のオープンモデルとエッジで即座に会話できます。
         relay:
           title: 24/7 Discord クラウドリレー
           desc: PC の電源を切っても、Discord サーバーでコンパニオンが常時アクティブに待機します。
-          howItWorks: サーバーレスの Cloudflare Worker (@proj-airi/stage-edge) として動作し、Discord インタラクション Webhook を処理します。
+          howItWorks: サーバーレスの Cloudflare Worker (@proj-airi/stage-edge) として動作し、Discord
+            インタラクション Webhook を処理します。
           whyItMatters: コンパニオンが 24 時間体制でチャットに応答し、Edge KV に記憶を蓄積、AIRI を再起動した際にデスクトップへ自動同期します。
         sync:
           title: 複数デバイス同期＆1クリック復元
           desc: デスクトップ、Web、モバイルをシームレスに同期。ワンクリックでコンパニオンを復元できます。
           howItWorks: Edge Key Vault (airi-edge-vault) がアクティブなコンパニオン状態を安全に保持します。
-          whyItMatters: AIRI の再インストールや新しいノート PC / スマートフォンへの移行時も、手動でキーを入力することなくコンパニオン、設定、記憶を自動復元します。
+          whyItMatters: AIRI の再インストールや新しいノート PC /
+            スマートフォンへの移行時も、手動でキーを入力することなくコンパニオン、設定、記憶を自動復元します。
         proxy:
           title: プライベート CORS プロキシ＆ゼロカストディ
           desc: 完全なゼロカストディのデータプライバシーで、複雑なローカルおよびリモート AI API にアクセスします。
           howItWorks: 個人用エッジリバースプロキシをデプロイし、Web およびモバイルステージ向けのブラウザ CORS 制限を回避します。
-          whyItMatters: すべてが個人の Cloudflare アカウント内で動作します。AIRI は中間サーバーを介さず、会話を盗み見たり保存したりすることは一切ありません。
+          whyItMatters: すべてが個人の Cloudflare アカウント内で動作します。AIRI
+            は中間サーバーを介さず、会話を盗み見たり保存したりすることは一切ありません。
     auth:
       connected: Cloudflare に接続完了
       disconnect: 接続解除
@@ -189,7 +194,7 @@ steps:
       quiet:
         title: 静かな観察者
         badge: ⚡ 最速 · ミニマリスト
-        subtitle: テキスト・表情・記憶
+        subtitle: テキスト・ツール・記憶
         description: 音声オーバーヘッドゼロ。アバターの表情、思考の間、長期記憶を備えた超高速テキストコンパニオン。
       casual:
         title: カジュアルコンパニオン
@@ -214,7 +219,7 @@ steps:
       swiss-army:
         title: 万能アーミーナイフ
         badge: 🔥 全機能 · オールインワン
-        subtitle: フルスペック自律型マルチモーダル
+        subtitle: 音声・視覚・アクション
         description: すべてを備えた最高峰コンパニオン。聴覚、ニューラル音声、思考テンポ、2パスACT表情、画面認識、アート生成、認知記憶階層。
     advanced:
       toggle: '高度な設定：個別モジュールのカスタマイズ'
