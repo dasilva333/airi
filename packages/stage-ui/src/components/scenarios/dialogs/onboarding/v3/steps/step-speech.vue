@@ -9,6 +9,7 @@ import AssistantBubble from '../components/assistant-bubble.vue'
 import { parseActor } from '../../../../../../composables/queues'
 import { stripMarkers, stripPacingEnvelopes } from '../../../../../../composables/response-categoriser'
 import { useLocalVoiceClone } from '../../../../../../composables/use-local-voice-clone'
+import { useProcessSpawner } from '../../../../../../composables/use-process-spawner'
 import { getStarterCharacter, STARTER_CHARACTERS } from '../../../../../../constants/prompts/character-defaults'
 import { STARTER_VOICE_CATALOG } from '../../../../../../constants/voices/starter-voice-catalog'
 import { getKokoroAdapter } from '../../../../../../libs/inference/adapters/kokoro'
@@ -60,21 +61,18 @@ const selectedVoice = ref<string>(draftStore.state.ttsVoiceId || defaultInitialV
 const speed = ref<number>(draftStore.state.ttsRate ?? 1.0)
 const pitch = ref<number>(draftStore.state.ttsPitch ?? 1.0)
 
-const activeEngineTab = ref<'local' | 'cloud'>(
-  ['kokoro-local', 'pocket-tts-local', 'moss-nano-local', 'pocket', 'kokoro', 'moss'].includes(selectedProvider.value)
-    ? 'local'
-    : 'cloud',
-)
+type EngineSegment = 'builtin' | 'server' | 'cloud'
 
-// Auto-switch provider when switching between Local and Cloud tabs
-watch(activeEngineTab, (tab) => {
-  if (tab === 'cloud' && isLocalProvider.value) {
-    selectedProvider.value = cloudProviders.value[0]?.id || 'elevenlabs'
-  }
-  else if (tab === 'local' && !isLocalProvider.value) {
-    selectedProvider.value = 'pocket'
-  }
-})
+function resolveInitialSegment(prov: string): EngineSegment {
+  const norm = normalizeProviderId(prov)
+  if (norm === 'airi-audio-server')
+    return 'server'
+  if (['kokoro-local', 'pocket-tts-local', 'moss-nano-local', 'pocket', 'kokoro', 'moss'].includes(norm))
+    return 'builtin'
+  return 'cloud'
+}
+
+const activeEngineSegment = ref<EngineSegment>(resolveInitialSegment(selectedProvider.value))
 
 // API credentials
 const showApiKey = ref(false)
@@ -211,6 +209,185 @@ async function handleAudioDrop(e: DragEvent) {
 }
 
 const audioServerPromptTranscript = ref('')
+const showTranscriptDisclosure = ref(false)
+const showServerSetup = ref(false)
+const copiedStep = ref<number | null>(null)
+
+function copyCommand(cmd: string, stepIndex: number) {
+  if (typeof navigator !== 'undefined') {
+    void navigator.clipboard.writeText(cmd)
+    copiedStep.value = stepIndex
+    setTimeout(() => {
+      if (copiedStep.value === stepIndex)
+        copiedStep.value = null
+    }, 2000)
+  }
+}
+
+function isLocalServerAddress(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return ['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(parsed.hostname)
+  }
+  catch {
+    return url.includes('localhost') || url.includes('127.0.0.1')
+  }
+}
+
+function normalizeServerUrl(url: string): string {
+  let trimmed = url.trim()
+  if (!trimmed)
+    return 'http://127.0.0.1:8095/v1/'
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    trimmed = `http://${trimmed}`
+  }
+  return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
+}
+
+const serverAddress = ref<string>(
+  (providersStore.providers['airi-audio-server']?.baseUrl as string) || 'http://127.0.0.1:8095/v1/',
+)
+
+function persistServerAddress(url: string) {
+  const norm = normalizeServerUrl(url)
+  if (!providersStore.providers['airi-audio-server']) {
+    providersStore.providers['airi-audio-server'] = {}
+  }
+  providersStore.providers['airi-audio-server'].baseUrl = norm
+}
+
+watch(serverAddress, (newVal) => {
+  persistServerAddress(newVal)
+})
+
+const serverStatus = ref<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected')
+const serverError = ref('')
+const serverModels = ref<Array<{ id: string, label: string }>>([])
+const serverVoices = ref<Array<{ id: string, label: string, type?: string }>>([])
+
+const audioSpawner = useProcessSpawner({
+  storageKeyPrefix: 'settings/providers/airi-audio-server',
+  defaultSpawnCommand: (providersStore.providers['airi-audio-server']?.spawnCommand as string) || '',
+  defaultStopCommand: (providersStore.providers['airi-audio-server']?.stopCommand as string) || '',
+  defaultAutoSpawn: false,
+  spawnSuccessDelayMs: 1500,
+  stopSuccessDelayMs: 1000,
+  onSpawnSuccess: () => connectAudioServer(false),
+  onStopSuccess: () => {
+    serverStatus.value = 'disconnected'
+  },
+})
+
+async function connectAudioServer(isSilent = false) {
+  serverStatus.value = 'connecting'
+  serverError.value = ''
+
+  const rawUrl = normalizeServerUrl(serverAddress.value)
+  const rootUrl = rawUrl.replace(/\/v1\/?$/, '/')
+
+  try {
+    const config = providersStore.getProviderConfig('airi-audio-server')
+    const apiKey = typeof config?.apiKey === 'string' ? config.apiKey.trim() : ''
+    const headers: Record<string, string> = apiKey ? { Authorization: `Bearer ${apiKey}` } : {}
+
+    const [modelsRes, healthRes] = await Promise.all([
+      fetch(`${rawUrl}models`, { headers }).catch(() => null),
+      fetch(`${rootUrl}health`, { headers }).catch(() => null),
+    ])
+
+    if ((modelsRes && modelsRes.ok) || (healthRes && healthRes.ok)) {
+      serverStatus.value = 'connected'
+      selectedProvider.value = 'airi-audio-server'
+      providersStore.markProviderAdded('airi-audio-server')
+
+      // Query models
+      if (modelsRes && modelsRes.ok) {
+        const data = await modelsRes.json().catch(() => ({}))
+        const list = Array.isArray(data?.data) ? data.data : []
+        if (list.length > 0) {
+          serverModels.value = list.map((m: any) => ({
+            id: m.id,
+            label: m.name || m.display_name || m.id,
+          }))
+        }
+      }
+
+      if (serverModels.value.length === 0) {
+        serverModels.value = [
+          { id: 'omnivoice-tts', label: 'OmniVoice Q8_0 (Recommended)' },
+          { id: 'higgs-audio-tts', label: 'Higgs Audio v3 TTS Q8_0' },
+          { id: 'fish-audio-tts', label: 'Fish Audio S2 Pro Q8_0' },
+          { id: 'chatterbox-tts', label: 'Chatterbox TTS Q8_0' },
+          { id: 'moss-tts', label: 'MOSS TTS Local v1.5 Q8_0' },
+        ]
+      }
+
+      if (!serverModels.value.some(m => m.id === selectedModel.value)) {
+        selectedModel.value = serverModels.value[0].id
+      }
+
+      // Query voices
+      const voicesRes = await fetch(`${rawUrl}voices`, { headers }).catch(() => null)
+      if (voicesRes && voicesRes.ok) {
+        const data = await voicesRes.json().catch(() => ({}))
+        const list = Array.isArray(data?.voices) ? data.voices : []
+        if (list.length > 0) {
+          serverVoices.value = list.map((v: any) => ({
+            id: v.voice_id || v.id || v.name,
+            label: v.name || v.voice_id || v.id,
+            type: v.type,
+          }))
+        }
+      }
+
+      if (serverVoices.value.length === 0) {
+        serverVoices.value = [
+          { id: 'omnivoice-default', label: 'OmniVoice Default (Female Warm)' },
+          { id: 'female-calm', label: 'Female Calm' },
+          { id: 'male-deep', label: 'Male Deep' },
+          { id: 'anime-girl', label: 'Anime Girl (Energetic)' },
+          { id: 'chatterbox-default', label: 'Chatterbox Default' },
+        ]
+      }
+
+      if (!serverVoices.value.some(v => v.id === selectedVoice.value)) {
+        selectedVoice.value = serverVoices.value[0].id
+      }
+      if (!serverVoices.value.some(v => v.id === selectedUserVoice.value)) {
+        selectedUserVoice.value = serverVoices.value[1]?.id || serverVoices.value[0].id
+      }
+
+      void speechStore.loadVoicesForProvider('airi-audio-server')
+
+      if (!isSilent) {
+        toast.success('Connected to AIRI Audio Server!')
+      }
+    }
+    else {
+      serverStatus.value = 'error'
+      serverError.value = 'Server did not respond on configured port. Is airi-audio-server running?'
+      if (!isSilent) {
+        toast.error(serverError.value)
+      }
+    }
+  }
+  catch (err: any) {
+    serverStatus.value = 'error'
+    serverError.value = err?.message || 'Failed to connect to audio server.'
+    if (!isSilent) {
+      toast.error(serverError.value)
+    }
+  }
+}
+
+async function refreshServerVoices() {
+  if (serverStatus.value !== 'connected') {
+    await connectAudioServer(false)
+    return
+  }
+  await connectAudioServer(false)
+  toast.success('Voice catalog updated from server')
+}
 
 async function processAudioClone(file: File) {
   const normId = normalizeProviderId(selectedProvider.value)
@@ -222,6 +399,9 @@ async function processAudioClone(file: File) {
     audioServerPromptTranscript.value = ''
     // Refresh voices catalog
     await speechStore.loadVoicesForProvider(normId)
+    if (normId === 'airi-audio-server') {
+      await connectAudioServer(true)
+    }
     // Select newly cloned voice
     if (activeVoiceTab.value === 'user') {
       selectedUserVoice.value = cloned.id
@@ -337,6 +517,8 @@ const INTERNAL_PROVIDERS = [
   'kokoro-local',
   'pocket-tts-local',
   'moss-nano-local',
+  'airi-audio-server',
+  'chatterbox',
 ]
 
 const cloudProviders = computed(() => {
@@ -389,6 +571,10 @@ const activeProviderDisplayName = computed(() => {
 })
 
 const selectedProviderName = computed(() => {
+  const norm = normalizeProviderId(selectedProvider.value)
+  if (norm === 'airi-audio-server') {
+    return 'AIRI Audio Server'
+  }
   if (isLocalProvider.value) {
     const local = localEngines.find(e => e.id === selectedProvider.value || e.normId === selectedProvider.value)
     return local?.name || 'Local TTS'
@@ -606,7 +792,6 @@ const resolvedPersona = computed(() => {
 
 const companionName = computed(() => resolvedPersona.value.name || 'Companion')
 const userName = computed(() => draftStore.state.userName || userProfileStore.name || 'Richy')
-const activeProfileName = computed(() => activeVoiceTab.value === 'user' ? userName.value : companionName.value)
 
 const sampleGreeting = computed(() => {
   if (resolvedPersona.value.greeting)
@@ -647,8 +832,13 @@ onMounted(() => {
   if (!sampleText.value || sampleText.value.includes('<|')) {
     sampleText.value = sampleGreeting.value
   }
-  void checkEngineReadiness()
-  void speechStore.loadVoicesForProvider(normalizeProviderId(selectedProvider.value))
+  if (selectedProvider.value === 'airi-audio-server' || activeEngineSegment.value === 'server') {
+    void connectAudioServer(true)
+  }
+  else {
+    void checkEngineReadiness()
+    void speechStore.loadVoicesForProvider(normalizeProviderId(selectedProvider.value))
+  }
 })
 
 // 5. Engine Readiness & Weights Download
@@ -765,10 +955,22 @@ async function togglePreview(target: 'companion' | 'user' = 'companion') {
       : (sampleText.value || sampleGreeting.value)
     const textToSpeak = stripPacingEnvelopes(stripMarkers(rawTextToSpeak)).trim()
     const providerId = normalizeProviderId(selectedProvider.value)
-    const voiceId = target === 'user'
+    let voiceId = target === 'user'
       ? (selectedUserVoice.value || availableVoices.value[1]?.id || availableVoices.value[0]?.id || 'adam')
       : (selectedVoice.value || availableVoices.value[0]?.id || 'anna')
-    const modelId = selectedModel.value || availableModels.value[0]?.id || 'english_2026-04'
+    let modelId = selectedModel.value || availableModels.value[0]?.id || 'english_2026-04'
+
+    if (activeEngineSegment.value === 'server') {
+      if (serverStatus.value !== 'connected') {
+        toast.info('Connect to your audio server to load a model and voice.')
+        isPlayingTarget.value = null
+        return
+      }
+      voiceId = target === 'user'
+        ? (selectedUserVoice.value || serverVoices.value[1]?.id || serverVoices.value[0]?.id || 'omnivoice-default')
+        : (selectedVoice.value || serverVoices.value[0]?.id || 'omnivoice-default')
+      modelId = selectedModel.value || serverModels.value[0]?.id || 'omnivoice-tts'
+    }
 
     const providerInstance = await providersStore.getProviderInstance(providerId)
     if (!providerInstance) {
@@ -778,11 +980,17 @@ async function togglePreview(target: 'companion' | 'user' = 'companion') {
     }
 
     toast.info(`Synthesizing ${target === 'user' ? userName.value : companionName.value}'s voice...`)
+    const targetSpeed = target === 'user' ? userSpeed.value : speed.value
+    const targetPitch = target === 'user' ? userPitch.value : pitch.value
     const audioData = await speechStore.speech(
       providerInstance as any,
       modelId,
       textToSpeak,
       voiceId,
+      {
+        speed: targetSpeed,
+        pitch: targetPitch,
+      },
     )
 
     if (!audioData || audioData.byteLength === 0) {
@@ -908,43 +1116,56 @@ function handleContinue() {
                 Speech engine
               </h2>
               <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
-                Choose a speech engine for your companion.
+                Choose how speech runs for your companion.
               </p>
             </div>
           </div>
 
-          <!-- Engine route segments -->
+          <!-- Engine route segments: Built-in · AIRI server · Cloud -->
           <div :class="['flex items-center gap-1 rounded-xl bg-neutral-200/50 p-1 dark:bg-neutral-800/50']">
             <button
               type="button"
               :class="[
-                'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer min-h-[44px]',
-                activeEngineTab === 'local'
-                  ? 'bg-white text-primary-600 shadow-sm dark:bg-neutral-900 dark:text-primary-400'
-                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+                'flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs transition-all cursor-pointer min-h-[44px]',
+                activeEngineSegment === 'builtin'
+                  ? 'border border-primary-500/80 bg-primary-500/10 text-primary-600 dark:text-primary-400 ring-1 ring-primary-500/30 font-bold shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 border border-transparent font-medium',
               ]"
-              @click="activeEngineTab = 'local'"
+              @click="activeEngineSegment = 'builtin'"
             >
-              <div :class="['i-solar:cpu-bolt-bold-duotone h-4 w-4']" />
-              <span>Local</span>
+              <div :class="['i-solar:monitor-outline h-4 w-4']" />
+              <span>Built-in</span>
             </button>
             <button
               type="button"
               :class="[
-                'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer min-h-[44px]',
-                activeEngineTab === 'cloud'
-                  ? 'bg-white text-primary-600 shadow-sm dark:bg-neutral-900 dark:text-primary-400'
-                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+                'flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs transition-all cursor-pointer min-h-[44px]',
+                activeEngineSegment === 'server'
+                  ? 'border border-primary-500/80 bg-primary-500/10 text-primary-600 dark:text-primary-400 ring-1 ring-primary-500/30 font-bold shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 border border-transparent font-medium',
               ]"
-              @click="activeEngineTab = 'cloud'"
+              @click="activeEngineSegment = 'server'"
             >
-              <div :class="['i-solar:cloud-bold-duotone h-4 w-4']" />
+              <div :class="['i-solar:server-square-bold-duotone h-4 w-4']" />
+              <span>AIRI server</span>
+            </button>
+            <button
+              type="button"
+              :class="[
+                'flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs transition-all cursor-pointer min-h-[44px]',
+                activeEngineSegment === 'cloud'
+                  ? 'border border-primary-500/80 bg-primary-500/10 text-primary-600 dark:text-primary-400 ring-1 ring-primary-500/30 font-bold shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 border border-transparent font-medium',
+              ]"
+              @click="activeEngineSegment = 'cloud'"
+            >
+              <div :class="['i-solar:cloud-outline h-4 w-4']" />
               <span>Cloud</span>
             </button>
           </div>
 
-          <!-- Local engine cards -->
-          <div v-if="activeEngineTab === 'local'" :class="['flex flex-col gap-2.5']">
+          <!-- Built-in engine cards -->
+          <div v-if="activeEngineSegment === 'builtin'" :class="['flex flex-col gap-2.5']">
             <div
               v-for="engine in localEngines"
               :key="engine.id"
@@ -965,12 +1186,6 @@ function handleContinue() {
                   <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white truncate']">
                     {{ engine.name }}
                   </h3>
-                  <span
-                    v-if="engine.tag.includes('RECOMMENDED')"
-                    :class="['text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-400 flex-shrink-0']"
-                  >
-                    Recommended
-                  </span>
                 </div>
                 <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate']">
                   {{ engine.desc }}
@@ -1000,10 +1215,436 @@ function handleContinue() {
                 />
               </div>
             </div>
+
+            <!-- Built-in Model Selection & Weights Activation Bar -->
+            <div v-if="isLocalProvider" :class="['flex flex-col gap-3 p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] mt-1']">
+              <div :class="['flex flex-col sm:flex-row sm:items-center justify-between gap-2']">
+                <div>
+                  <label :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide']">
+                    Model
+                  </label>
+                  <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+                    Select the underlying neural checkpoint or speech synthesis model.
+                  </p>
+                </div>
+                <select
+                  v-model="selectedModel"
+                  :class="['w-full sm:w-64 px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer shadow-sm']"
+                >
+                  <option
+                    v-for="model in availableModels"
+                    :key="model.id"
+                    :value="model.id"
+                  >
+                    {{ model.label }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Local Provisioning & Weights Activation Bar -->
+              <div :class="['flex flex-col gap-2.5 pt-2 border-t border-neutral-200/60 dark:border-white/5']">
+                <!-- Optional Hugging Face Token Accordion for Gated Models (Pocket-TTS) -->
+                <div :class="['flex flex-col gap-2 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white/60 dark:bg-neutral-900/40']">
+                  <button
+                    type="button"
+                    :class="['flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white cursor-pointer transition-colors w-full']"
+                    @click="showHfTokenInput = !showHfTokenInput"
+                  >
+                    <div :class="['flex items-center gap-2']">
+                      <div :class="['i-lobe-icons:huggingface w-4 h-4 text-amber-500']" />
+                      <span :class="['font-semibold']">Hugging Face Access Token (for Pocket-TTS gated voices)</span>
+                    </div>
+                    <div :class="[showHfTokenInput ? 'i-solar:alt-arrow-down-line-duotone' : 'i-solar:alt-arrow-right-line-duotone', 'w-4 h-4 text-neutral-400']" />
+                  </button>
+
+                  <div v-if="showHfTokenInput" :class="['flex flex-col gap-2 pt-1']">
+                    <div :class="['flex flex-wrap items-center gap-2']">
+                      <input
+                        v-model="hfTokenInput"
+                        type="password"
+                        placeholder="hf_..."
+                        :class="[
+                          'flex-1 min-w-[200px] px-3 py-1.5 rounded-xl text-xs font-mono bg-white dark:bg-neutral-900 border outline-none transition',
+                          hfTokenStatus.state === 'error' ? 'border-red-400 dark:border-red-500/60 focus:border-red-500' : 'border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white focus:border-primary-500',
+                        ]"
+                        @input="saveHfToken"
+                      >
+                      <a
+                        href="https://huggingface.co/kyutai/pocket-tts"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        :class="['flex items-center gap-1 px-2.5 py-1 text-xs text-amber-600 dark:text-amber-400 font-semibold hover:underline cursor-pointer']"
+                      >
+                        <span>Accept Gate</span>
+                        <div :class="['i-solar:square-top-down-bold w-3.5 h-3.5']" />
+                      </a>
+                      <a
+                        href="https://huggingface.co/settings/tokens"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        :class="['flex items-center gap-1 px-2.5 py-1 text-xs text-primary-500 font-semibold hover:underline cursor-pointer']"
+                      >
+                        <span>Get Token</span>
+                        <div :class="['i-solar:square-top-down-bold w-3.5 h-3.5']" />
+                      </a>
+                    </div>
+
+                    <div v-if="hfTokenStatus.message || hfTokenStatus.tip" :class="['text-[11px] leading-tight flex items-start gap-1', hfTokenStatus.state === 'error' ? 'text-red-500' : hfTokenStatus.state === 'warning' ? 'text-amber-500' : 'text-emerald-500']">
+                      <div :class="[hfTokenStatus.state === 'error' ? 'i-solar:danger-triangle-bold' : hfTokenStatus.state === 'warning' ? 'i-solar:info-circle-bold' : 'i-solar:check-circle-bold', 'w-3.5 h-3.5 flex-shrink-0 mt-0.2']" />
+                      <span>{{ hfTokenStatus.tip || hfTokenStatus.message }}</span>
+                    </div>
+
+                    <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 pt-0.5']">
+                      <div :class="['i-solar:shield-check-bold-duotone w-3.5 h-3.5 text-emerald-500 flex-shrink-0']" />
+                      <span>Tip: All <strong>★ Starter Voices</strong> (such as ★ Sakura and ★ ReLU) run 100% offline without needing any HF token.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Activation / Readiness Trigger Row -->
+                <div :class="['flex flex-wrap items-center justify-between gap-3 pt-1']">
+                  <div :class="['flex items-center gap-2']">
+                    <button
+                      v-if="!isEngineReady && !isDownloading"
+                      type="button"
+                      :class="['flex items-center gap-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold px-4 py-2 shadow-sm shadow-primary-600/30 transition-all cursor-pointer']"
+                      @click="activateAndDownloadEngine"
+                    >
+                      <div :class="['i-solar:download-square-bold-duotone w-4 h-4']" />
+                      <span>Activate & download</span>
+                    </button>
+
+                    <button
+                      v-else-if="isDownloading"
+                      type="button"
+                      disabled
+                      :class="['flex cursor-wait items-center gap-2 rounded-xl bg-primary-500/80 text-white text-xs font-semibold px-4 py-2']"
+                    >
+                      <div :class="['i-solar:restart-square-bold w-4 h-4 animate-spin']" />
+                      <span>Downloading Weights ({{ downloadProgress }}%)...</span>
+                    </button>
+
+                    <div v-else :class="['flex items-center gap-2']">
+                      <span :class="['flex items-center gap-1.5 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-3 py-1.5 ring-1 ring-emerald-500/20']">
+                        <div :class="['i-solar:check-circle-bold-duotone w-4 h-4']" />
+                        <span>Engine Initialized & Ready</span>
+                      </span>
+                      <button
+                        type="button"
+                        :class="['rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer']"
+                        title="Force re-download weights"
+                        @click="activateAndDownloadEngine"
+                      >
+                        Re-download
+                      </button>
+                    </div>
+                  </div>
+
+                  <span v-if="isDownloading" :class="['text-xs text-primary-500 font-mono font-semibold']">
+                    {{ downloadProgress }}%
+                  </span>
+                </div>
+
+                <!-- Download Progress Bar -->
+                <div v-if="isDownloading" :class="['flex flex-col gap-1 mt-1']">
+                  <div :class="['w-full h-2 rounded-full bg-primary-500/20 overflow-hidden']">
+                    <div
+                      :class="['h-full bg-primary-500 transition-all duration-200 rounded-full']"
+                      :style="{ width: `${downloadProgress}%` }"
+                    />
+                  </div>
+                  <span v-if="downloadStatusText" :class="['truncate text-[11px] text-neutral-400 font-mono']">
+                    {{ downloadStatusText }}
+                  </span>
+                </div>
+
+                <!-- Download Error Box -->
+                <div
+                  v-if="downloadError"
+                  :class="['flex items-start gap-2.5 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400']"
+                >
+                  <div :class="['i-solar:danger-triangle-bold-duotone w-4 h-4 flex-shrink-0 mt-0.5 text-red-500']" />
+                  <div :class="['flex-1 min-w-0']">
+                    <span :class="['font-bold']">Download Failed:</span>
+                    <p :class="['text-[11px] break-all leading-snug mt-0.5']">
+                      {{ downloadError }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    :class="['px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-300 font-semibold cursor-pointer text-xs transition-colors']"
+                    @click="activateAndDownloadEngine"
+                  >
+                    Retry
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AIRI Audio Server Segment -->
+          <div v-else-if="activeEngineSegment === 'server'" :class="['flex flex-col gap-4']">
+            <!-- Header Block -->
+            <div :class="['flex items-start gap-3']">
+              <div :class="['w-9 h-9 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center flex-shrink-0']">
+                <div :class="['i-solar:server-square-bold-duotone w-5 h-5']" />
+              </div>
+              <div :class="['min-w-0 flex-1']">
+                <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white leading-tight']">
+                  AIRI Audio Server
+                </h3>
+                <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-snug']">
+                  Run speech through a separate server on this computer or another machine.
+                </p>
+              </div>
+            </div>
+
+            <!-- Server Address -->
+            <div :class="['flex flex-col gap-1.5']">
+              <label :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide']">
+                Server address
+              </label>
+              <input
+                v-model="serverAddress"
+                type="text"
+                placeholder="http://127.0.0.1:8095/v1/"
+                :class="['w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 font-mono shadow-sm']"
+              >
+            </div>
+
+            <!-- Status Indicator and Connect Action -->
+            <div :class="['flex items-center justify-between gap-3']">
+              <div :class="['flex items-center gap-2 min-w-0']">
+                <span
+                  :class="[
+                    'w-2.5 h-2.5 rounded-full flex-shrink-0',
+                    serverStatus === 'connected'
+                      ? 'bg-emerald-500 animate-pulse'
+                      : serverStatus === 'connecting'
+                        ? 'bg-primary-500 animate-pulse'
+                        : serverStatus === 'error'
+                          ? 'bg-amber-500'
+                          : 'bg-neutral-400 dark:bg-neutral-600',
+                  ]"
+                />
+                <span
+                  :class="[
+                    'text-xs font-medium truncate',
+                    serverStatus === 'connected'
+                      ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                      : serverStatus === 'connecting'
+                        ? 'text-primary-500'
+                        : serverStatus === 'error'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-neutral-500 dark:text-neutral-400',
+                  ]"
+                >
+                  {{
+                    serverStatus === 'connected'
+                      ? 'Connected'
+                      : serverStatus === 'connecting'
+                        ? 'Connecting...'
+                        : serverStatus === 'error'
+                          ? (serverError || 'Connection failed')
+                          : 'Not connected'
+                  }}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                :disabled="serverStatus === 'connecting'"
+                :class="[
+                  'flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-sm',
+                  serverStatus === 'connecting'
+                    ? 'bg-primary-500/70 text-white cursor-wait'
+                    : 'bg-primary-500 hover:bg-primary-600 text-white shadow-primary-500/20 active:scale-95',
+                ]"
+                @click="connectAudioServer(false)"
+              >
+                <div :class="[serverStatus === 'connecting' ? 'i-solar:restart-bold animate-spin' : 'i-solar:link-bold', 'w-3.5 h-3.5']" />
+                <span>{{ serverStatus === 'connecting' ? 'Connecting...' : 'Connect' }}</span>
+              </button>
+            </div>
+
+            <!-- Speech Model Dropdown -->
+            <div :class="['flex flex-col gap-1.5']">
+              <label :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide']">
+                Speech model
+              </label>
+              <div :class="['relative']">
+                <select
+                  v-if="serverStatus === 'connected'"
+                  v-model="selectedModel"
+                  :class="['w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer shadow-sm appearance-none pr-8']"
+                >
+                  <option
+                    v-for="m in serverModels"
+                    :key="m.id"
+                    :value="m.id"
+                  >
+                    {{ m.label }}
+                  </option>
+                </select>
+                <select
+                  v-else
+                  disabled
+                  :class="['w-full px-3 py-2 rounded-xl text-xs bg-neutral-100/60 dark:bg-neutral-900/40 border border-neutral-200/60 dark:border-white/5 text-neutral-400 dark:text-neutral-500 cursor-not-allowed appearance-none pr-8']"
+                >
+                  <option selected>
+                    Connect to load models
+                  </option>
+                </select>
+                <div :class="['pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 i-solar:alt-arrow-down-line-duotone w-4 h-4 text-neutral-400']" />
+              </div>
+              <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+                Models are discovered from your server.
+              </p>
+            </div>
+
+            <!-- Server Setup Disclosure -->
+            <div :class="['rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] overflow-hidden transition-all']">
+              <button
+                type="button"
+                :class="[
+                  'w-full p-3.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer',
+                  'hover:bg-neutral-100/60 dark:hover:bg-white/[0.04]',
+                ]"
+                @click="showServerSetup = !showServerSetup"
+              >
+                <div :class="['flex items-center gap-3 min-w-0 flex-1']">
+                  <div :class="['w-8 h-8 rounded-xl bg-neutral-200/60 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 flex items-center justify-center flex-shrink-0']">
+                    <div :class="['i-solar:settings-minimalistic-bold-duotone w-4 h-4']" />
+                  </div>
+                  <div :class="['min-w-0 flex flex-col']">
+                    <span :class="['text-xs font-bold text-neutral-900 dark:text-white truncate']">
+                      Server setup
+                    </span>
+                    <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5']">
+                      Startup options and installation guidance
+                    </p>
+                  </div>
+                </div>
+                <div :class="[showServerSetup ? 'i-solar:alt-arrow-down-line-duotone' : 'i-solar:alt-arrow-right-line-duotone', 'w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform']" />
+              </button>
+
+              <div v-if="showServerSetup" :class="['p-4 pt-1 flex flex-col gap-4 border-t border-neutral-200/40 dark:border-white/5']">
+                <!-- Auto-start with AIRI toggle (Electron + Local server address only) -->
+                <div
+                  v-if="audioSpawner.isElectron.value && isLocalServerAddress(serverAddress)"
+                  :class="['flex items-center justify-between gap-3 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white/60 dark:bg-neutral-900/40']"
+                >
+                  <div :class="['min-w-0 flex flex-col']">
+                    <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                      Start automatically with AIRI
+                    </span>
+                    <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-tight']">
+                      Launch audio server sidecar when the desktop app opens.
+                    </p>
+                  </div>
+                  <label :class="['relative inline-flex items-center cursor-pointer flex-shrink-0']">
+                    <input
+                      v-model="audioSpawner.autoSpawnOnLaunch.value"
+                      type="checkbox"
+                      :class="['sr-only peer']"
+                    >
+                    <div
+                      :class="[
+                        'w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer dark:bg-neutral-700',
+                        'peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[\'\']',
+                        'after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full',
+                        'after:h-4 after:w-4 after:transition-all dark:border-neutral-600 peer-checked:bg-primary-600',
+                      ]"
+                    />
+                  </label>
+                </div>
+
+                <!-- Quick Setup Guide -->
+                <div :class="['flex flex-col gap-2.5']">
+                  <div :class="['flex items-center justify-between']">
+                    <span :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide']">
+                      Quick Setup (Local Machine)
+                    </span>
+                    <a
+                      href="https://github.com/dasilva333/airi-audio-server"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      :class="['text-[11px] text-primary-500 hover:underline flex items-center gap-1 font-semibold']"
+                    >
+                      <span :class="['i-simple-icons:github text-xs']" />
+                      <span>GitHub</span>
+                      <span :class="['i-solar:arrow-right-up-linear text-[10px]']" />
+                    </a>
+                  </div>
+
+                  <div :class="['grid grid-cols-1 gap-2 text-xs']">
+                    <!-- Step 1 -->
+                    <div :class="['flex items-center justify-between p-2.5 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white/60 dark:bg-neutral-900/40']">
+                      <div :class="['min-w-0 flex-1 pr-2']">
+                        <span :class="['text-[10px] font-bold text-primary-600 dark:text-primary-400 block']">1. Clone repository</span>
+                        <code :class="['text-[10px] text-neutral-700 dark:text-neutral-300 font-mono block truncate mt-0.5']">git clone https://github.com/dasilva333/airi-audio-server.git</code>
+                      </div>
+                      <button
+                        type="button"
+                        :class="['text-[11px] font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-white px-2 py-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer flex-shrink-0']"
+                        @click="copyCommand('git clone https://github.com/dasilva333/airi-audio-server.git', 1)"
+                      >
+                        {{ copiedStep === 1 ? 'Copied!' : 'Copy' }}
+                      </button>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div :class="['flex items-center justify-between p-2.5 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white/60 dark:bg-neutral-900/40']">
+                      <div :class="['min-w-0 flex-1 pr-2']">
+                        <span :class="['text-[10px] font-bold text-primary-600 dark:text-primary-400 block']">2. Install dependencies</span>
+                        <code :class="['text-[10px] text-neutral-700 dark:text-neutral-300 font-mono block truncate mt-0.5']">npm install</code>
+                      </div>
+                      <button
+                        type="button"
+                        :class="['text-[11px] font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-white px-2 py-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer flex-shrink-0']"
+                        @click="copyCommand('npm install', 2)"
+                      >
+                        {{ copiedStep === 2 ? 'Copied!' : 'Copy' }}
+                      </button>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div :class="['flex items-center justify-between p-2.5 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white/60 dark:bg-neutral-900/40']">
+                      <div :class="['min-w-0 flex-1 pr-2']">
+                        <span :class="['text-[10px] font-bold text-primary-600 dark:text-primary-400 block']">3. Run server (Port 8095)</span>
+                        <code :class="['text-[10px] text-neutral-700 dark:text-neutral-300 font-mono block truncate mt-0.5']">npm start</code>
+                      </div>
+                      <button
+                        type="button"
+                        :class="['text-[11px] font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-white px-2 py-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer flex-shrink-0']"
+                        @click="copyCommand('npm start', 3)"
+                      >
+                        {{ copiedStep === 3 ? 'Copied!' : 'Copy' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Callout Card: Runs separately from AIRI -->
+            <div :class="['rounded-2xl border border-sky-500/20 bg-sky-500/5 dark:bg-sky-500/10 p-3.5 flex items-start gap-3']">
+              <div :class="['w-8 h-8 rounded-xl bg-sky-500/20 text-sky-500 flex items-center justify-center flex-shrink-0']">
+                <div :class="['i-solar:link-bold w-4 h-4']" />
+              </div>
+              <div :class="['min-w-0 flex-1']">
+                <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                  Runs separately from AIRI
+                </h4>
+                <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
+                  The server runs the speech model. AIRI connects to it to discover voices and play speech.
+                </p>
+              </div>
+            </div>
           </div>
 
           <!-- Cloud Providers Grid -->
-          <div v-else :class="['flex flex-col gap-4']">
+          <div v-else-if="activeEngineSegment === 'cloud'" :class="['flex flex-col gap-4']">
             <div :class="['grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-56 overflow-y-auto p-1 border border-neutral-200/40 dark:border-white/5 rounded-2xl bg-neutral-50/40 dark:bg-white/[0.01]']">
               <button
                 v-for="provider in cloudProviders"
@@ -1059,174 +1700,30 @@ function handleContinue() {
                 </button>
               </div>
             </div>
-          </div>
 
-          <!-- Model Architecture & Local Engine Provisioning Panel -->
-          <div :class="['flex flex-col gap-3 p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
-            <div :class="['flex flex-col sm:flex-row sm:items-center justify-between gap-2']">
-              <div>
-                <label :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide']">
-                  Model
-                </label>
-                <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
-                  Select the underlying neural checkpoint or speech synthesis model.
-                </p>
-              </div>
-              <select
-                v-model="selectedModel"
-                :class="['w-full sm:w-64 px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer shadow-sm']"
-              >
-                <option
-                  v-for="model in availableModels"
-                  :key="model.id"
-                  :value="model.id"
-                >
-                  {{ model.label }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Local Provisioning & Weights Activation Bar -->
-            <div v-if="isLocalProvider" :class="['flex flex-col gap-2.5 pt-2 border-t border-neutral-200/60 dark:border-white/5']">
-              <!-- Optional Hugging Face Token Accordion for Gated Models (Pocket-TTS) -->
-              <div :class="['flex flex-col gap-2 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white/60 dark:bg-neutral-900/40']">
-                <button
-                  type="button"
-                  :class="['flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white cursor-pointer transition-colors w-full']"
-                  @click="showHfTokenInput = !showHfTokenInput"
-                >
-                  <div :class="['flex items-center gap-2']">
-                    <div :class="['i-lobe-icons:huggingface w-4 h-4 text-amber-500']" />
-                    <span :class="['font-semibold']">Hugging Face Access Token (for Pocket-TTS gated voices)</span>
-                  </div>
-                  <div :class="[showHfTokenInput ? 'i-solar:alt-arrow-down-line-duotone' : 'i-solar:alt-arrow-right-line-duotone', 'w-4 h-4 text-neutral-400']" />
-                </button>
-
-                <div v-if="showHfTokenInput" :class="['flex flex-col gap-2 pt-1']">
-                  <div :class="['flex flex-wrap items-center gap-2']">
-                    <input
-                      v-model="hfTokenInput"
-                      type="password"
-                      placeholder="hf_..."
-                      :class="[
-                        'flex-1 min-w-[200px] px-3 py-1.5 rounded-xl text-xs font-mono bg-white dark:bg-neutral-900 border outline-none transition',
-                        hfTokenStatus.state === 'error' ? 'border-red-400 dark:border-red-500/60 focus:border-red-500' : 'border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white focus:border-primary-500',
-                      ]"
-                      @input="saveHfToken"
-                    >
-                    <a
-                      href="https://huggingface.co/kyutai/pocket-tts"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      :class="['flex items-center gap-1 px-2.5 py-1 text-xs text-amber-600 dark:text-amber-400 font-semibold hover:underline cursor-pointer']"
-                    >
-                      <span>Accept Gate</span>
-                      <div :class="['i-solar:square-top-down-bold w-3.5 h-3.5']" />
-                    </a>
-                    <a
-                      href="https://huggingface.co/settings/tokens"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      :class="['flex items-center gap-1 px-2.5 py-1 text-xs text-primary-500 font-semibold hover:underline cursor-pointer']"
-                    >
-                      <span>Get Token</span>
-                      <div :class="['i-solar:square-top-down-bold w-3.5 h-3.5']" />
-                    </a>
-                  </div>
-
-                  <!-- Validation message / warning -->
-                  <div v-if="hfTokenStatus.message || hfTokenStatus.tip" :class="['text-[11px] leading-tight flex items-start gap-1', hfTokenStatus.state === 'error' ? 'text-red-500' : hfTokenStatus.state === 'warning' ? 'text-amber-500' : 'text-emerald-500']">
-                    <div :class="[hfTokenStatus.state === 'error' ? 'i-solar:danger-triangle-bold' : hfTokenStatus.state === 'warning' ? 'i-solar:info-circle-bold' : 'i-solar:check-circle-bold', 'w-3.5 h-3.5 flex-shrink-0 mt-0.2']" />
-                    <span>{{ hfTokenStatus.tip || hfTokenStatus.message }}</span>
-                  </div>
-
-                  <!-- Offline tip -->
-                  <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 pt-0.5']">
-                    <div :class="['i-solar:shield-check-bold-duotone w-3.5 h-3.5 text-emerald-500 flex-shrink-0']" />
-                    <span>Tip: All <strong>★ Starter Voices</strong> (such as ★ Sakura and ★ ReLU) run 100% offline without needing any HF token.</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Activation / Readiness Trigger Row -->
-              <div :class="['flex flex-wrap items-center justify-between gap-3 pt-1']">
-                <div :class="['flex items-center gap-2']">
-                  <!-- If not ready and not downloading: Show Activate & Download -->
-                  <button
-                    v-if="!isEngineReady && !isDownloading"
-                    type="button"
-                    :class="['flex items-center gap-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold px-4 py-2 shadow-sm shadow-primary-600/30 transition-all cursor-pointer']"
-                    @click="activateAndDownloadEngine"
-                  >
-                    <div :class="['i-solar:download-square-bold-duotone w-4 h-4']" />
-                    <span>Activate & download</span>
-                  </button>
-
-                  <!-- If downloading: Show disabled downloading spinner -->
-                  <button
-                    v-else-if="isDownloading"
-                    type="button"
-                    disabled
-                    :class="['flex cursor-wait items-center gap-2 rounded-xl bg-primary-500/80 text-white text-xs font-semibold px-4 py-2']"
-                  >
-                    <div :class="['i-solar:restart-square-bold w-4 h-4 animate-spin']" />
-                    <span>Downloading Weights ({{ downloadProgress }}%)...</span>
-                  </button>
-
-                  <!-- If ready: Show green badge + Re-download button -->
-                  <div v-else :class="['flex items-center gap-2']">
-                    <span :class="['flex items-center gap-1.5 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-3 py-1.5 ring-1 ring-emerald-500/20']">
-                      <div :class="['i-solar:check-circle-bold-duotone w-4 h-4']" />
-                      <span>Engine Initialized & Ready</span>
-                    </span>
-                    <button
-                      type="button"
-                      :class="['rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer']"
-                      title="Force re-download weights"
-                      @click="activateAndDownloadEngine"
-                    >
-                      Re-download
-                    </button>
-                  </div>
-                </div>
-
-                <span v-if="isDownloading" :class="['text-xs text-primary-500 font-mono font-semibold']">
-                  {{ downloadProgress }}%
-                </span>
-              </div>
-
-              <!-- Download Progress Bar -->
-              <div v-if="isDownloading" :class="['flex flex-col gap-1 mt-1']">
-                <div :class="['w-full h-2 rounded-full bg-primary-500/20 overflow-hidden']">
-                  <div
-                    :class="['h-full bg-primary-500 transition-all duration-200 rounded-full']"
-                    :style="{ width: `${downloadProgress}%` }"
-                  />
-                </div>
-                <span v-if="downloadStatusText" :class="['truncate text-[11px] text-neutral-400 font-mono']">
-                  {{ downloadStatusText }}
-                </span>
-              </div>
-
-              <!-- Download Error Box -->
-              <div
-                v-if="downloadError"
-                :class="['flex items-start gap-2.5 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400']"
-              >
-                <div :class="['i-solar:danger-triangle-bold-duotone w-4 h-4 flex-shrink-0 mt-0.5 text-red-500']" />
-                <div :class="['flex-1 min-w-0']">
-                  <span :class="['font-bold']">Download Failed:</span>
-                  <p :class="['text-[11px] break-all leading-snug mt-0.5']">
-                    {{ downloadError }}
+            <!-- Cloud Model Architecture -->
+            <div :class="['flex flex-col gap-3 p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
+              <div :class="['flex flex-col sm:flex-row sm:items-center justify-between gap-2']">
+                <div>
+                  <label :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide']">
+                    Model
+                  </label>
+                  <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+                    Select the underlying neural checkpoint or speech synthesis model.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  :class="['px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-300 font-semibold cursor-pointer text-xs transition-colors']"
-                  @click="activateAndDownloadEngine"
+                <select
+                  v-model="selectedModel"
+                  :class="['w-full sm:w-64 px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer shadow-sm']"
                 >
-                  Retry
-                </button>
+                  <option
+                    v-for="model in availableModels"
+                    :key="model.id"
+                    :value="model.id"
+                  >
+                    {{ model.label }}
+                  </option>
+                </select>
               </div>
             </div>
           </div>
@@ -1244,183 +1741,229 @@ function handleContinue() {
             'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
           ]"
         >
-          <div :class="['flex items-start gap-2.5']">
-            <div :class="['h-8 w-8 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center flex-shrink-0']">
-              <div :class="['i-solar:soundwave-bold-duotone h-4 w-4']" />
-            </div>
-            <div :class="['min-w-0 flex-1']">
-              <h2 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
-                Voice & preview
-              </h2>
-              <p :title="`Adjust this voice for ${activeProfileName}, then listen to a sample.`" :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate']">
-                Adjust this voice for {{ activeProfileName }}, then listen to a sample.
-              </p>
-            </div>
-          </div>
-
-          <!-- Voice profile tabs -->
-          <div :class="['flex items-center justify-between gap-2 p-1.5 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10']">
-            <button
-              type="button"
-              :class="[
-                'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer',
-                activeVoiceTab === 'companion'
-                  ? 'bg-white dark:bg-neutral-800 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white',
-              ]"
-              @click="activeVoiceTab = 'companion'"
-            >
-              <div :class="['i-solar:heart-bold-duotone w-4 h-4']" />
-              <span :class="['truncate']">Companion voice</span>
-            </button>
-
-            <button
-              type="button"
-              :class="[
-                'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer',
-                activeVoiceTab === 'user'
-                  ? 'bg-white dark:bg-neutral-800 text-purple-600 dark:text-purple-400 shadow-sm'
-                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white',
-              ]"
-              @click="activeVoiceTab = 'user'"
-            >
-              <div :class="['i-solar:user-speak-bold-duotone w-4 h-4 text-purple-500']" />
-              <span :class="['truncate']">Your voice profile</span>
-            </button>
-          </div>
-
-          <!-- COMPANION VOICE CALIBRATION PANEL -->
-          <div
-            v-if="activeVoiceTab === 'companion'"
-            :class="['flex flex-col gap-4 p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] animate-fadeIn']"
-          >
-            <div :class="['flex items-center justify-between']">
-              <div :class="['flex items-center gap-2']">
-                <div :class="['i-solar:heart-bold-duotone w-4 h-4 text-primary-500']" />
-                <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
-                  {{ companionName }}'s Voice Persona
-                </span>
+          <!-- Panel Header: Title + Voice profile tabs -->
+          <div :class="['flex flex-col sm:flex-row sm:items-center justify-between gap-3']">
+            <div :class="['flex items-start gap-2.5 min-w-0']">
+              <div :class="['h-8 w-8 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center flex-shrink-0']">
+                <div :class="['i-solar:soundwave-bold-duotone h-4 w-4']" />
               </div>
-              <span :class="['text-[10px] px-2 py-0.5 rounded-full font-bold bg-primary-500/10 text-primary-600 dark:text-primary-400']">
-                Companion Voice
-              </span>
+              <div :class="['min-w-0']">
+                <h2 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+                  Voice & preview
+                </h2>
+                <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate']">
+                  Choose a voice, then listen to a sample.
+                </p>
+              </div>
             </div>
 
-            <!-- Timbre Selector with Refresh Voices Button -->
+            <!-- Voice profile tabs in header -->
+            <div :class="['flex items-center gap-1 rounded-xl bg-neutral-200/50 p-1 dark:bg-neutral-800/50 flex-shrink-0']">
+              <button
+                type="button"
+                :class="[
+                  'flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs transition-all cursor-pointer',
+                  activeVoiceTab === 'companion'
+                    ? 'border border-primary-500/80 bg-primary-500/15 text-primary-600 dark:text-primary-400 ring-1 ring-primary-500/30 font-bold shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 border border-transparent font-medium',
+                ]"
+                @click="activeVoiceTab = 'companion'"
+              >
+                <div :class="['i-solar:heart-bold w-3.5 h-3.5 text-primary-500']" />
+                <span>Companion voice</span>
+              </button>
+
+              <button
+                type="button"
+                :class="[
+                  'flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs transition-all cursor-pointer',
+                  activeVoiceTab === 'user'
+                    ? 'border border-purple-500/80 bg-purple-500/15 text-purple-600 dark:text-purple-400 ring-1 ring-purple-500/30 font-bold shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 border border-transparent font-medium',
+                ]"
+                @click="activeVoiceTab = 'user'"
+              >
+                <div :class="['i-solar:user-speak-bold-duotone w-3.5 h-3.5 text-purple-500']" />
+                <span>Your voice profile</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- AIRI SERVER VOICE & PREVIEW WORKSPACE -->
+          <div
+            v-if="activeEngineSegment === 'server'"
+            :class="['flex flex-col gap-4 animate-fadeIn']"
+          >
+            <!-- Voice Selector row -->
             <div :class="['flex flex-col gap-1.5']">
-              <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
+              <label :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide']">
                 Voice
               </label>
               <div :class="['flex items-center gap-2']">
-                <select
-                  v-model="selectedVoice"
-                  :class="['flex-1 px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer shadow-sm']"
-                >
-                  <option
-                    v-for="voice in availableVoices"
-                    :key="voice.id"
-                    :value="voice.id"
+                <div :class="['relative flex-1 min-w-0']">
+                  <select
+                    v-if="serverStatus === 'connected' && activeVoiceTab === 'companion'"
+                    v-model="selectedVoice"
+                    :class="['w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer shadow-sm appearance-none pr-8']"
                   >
-                    {{ voice.label }}
-                  </option>
-                </select>
+                    <option
+                      v-for="voice in serverVoices"
+                      :key="voice.id"
+                      :value="voice.id"
+                    >
+                      {{ voice.label }}
+                    </option>
+                  </select>
+                  <select
+                    v-else-if="serverStatus === 'connected' && activeVoiceTab === 'user'"
+                    v-model="selectedUserVoice"
+                    :class="['w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer shadow-sm appearance-none pr-8']"
+                  >
+                    <option
+                      v-for="voice in serverVoices"
+                      :key="voice.id"
+                      :value="voice.id"
+                    >
+                      {{ voice.label }}
+                    </option>
+                  </select>
+                  <select
+                    v-else
+                    disabled
+                    :class="['w-full px-3 py-2 rounded-xl text-xs bg-neutral-100/60 dark:bg-neutral-900/40 border border-neutral-200/60 dark:border-white/5 text-neutral-400 dark:text-neutral-500 cursor-not-allowed appearance-none pr-8']"
+                  >
+                    <option selected>
+                      Connect to load voices
+                    </option>
+                  </select>
+                  <div :class="['pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 i-solar:alt-arrow-down-line-duotone w-4 h-4 text-neutral-400']" />
+                </div>
+
                 <button
                   type="button"
-                  :class="['h-9 px-3 rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm']"
-                  title="Refresh voice catalog"
-                  @click="refreshVoices"
+                  :class="[
+                    'h-9 px-3.5 rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm flex-shrink-0',
+                  ]"
+                  title="Load voice catalog from server"
+                  @click="refreshServerVoices"
                 >
                   <div :class="['i-solar:restart-bold-duotone w-3.5 h-3.5 text-primary-500']" />
-                  <span>Load Voices</span>
+                  <span>Load voices</span>
                 </button>
               </div>
             </div>
 
-            <!-- Voice sample upload -->
+            <!-- Box 1: Use a voice sample -->
             <div
-              v-if="supportsVoiceCloning"
               :class="[
-                'flex items-center justify-between gap-3 p-3 rounded-2xl border border-dashed transition-all cursor-pointer select-none',
-                isDraggingAudio
-                  ? 'border-primary-500 bg-primary-500/10'
-                  : 'border-neutral-300/80 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] hover:border-primary-500/40',
+                'flex items-center justify-between gap-3 p-3 rounded-2xl border transition-all',
+                serverStatus === 'connected'
+                  ? 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]'
+                  : 'border-neutral-200/40 dark:border-white/5 bg-neutral-50/30 dark:bg-white/[0.01] opacity-75',
               ]"
-              @dragover.prevent="isDraggingAudio = true"
-              @dragleave.prevent="isDraggingAudio = false"
-              @drop.prevent="handleAudioDrop"
-              @click="triggerAudioFileInput"
             >
-              <div class="min-w-0 flex flex-1 items-center gap-2.5">
-                <div :class="['w-8 h-8 rounded-xl bg-primary-500/15 text-primary-500 flex items-center justify-center flex-shrink-0 text-sm']">
-                  <div v-if="isCloning" class="i-solar:restart-circle-bold h-4 w-4 animate-spin" />
-                  <div v-else class="i-solar:upload-track-2-bold-duotone h-4 w-4" />
+              <div :class="['min-w-0 flex flex-1 items-center gap-2.5']">
+                <div :class="['w-8 h-8 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center flex-shrink-0']">
+                  <div v-if="isCloning" :class="['i-solar:restart-circle-bold w-4 h-4 animate-spin text-primary-500']" />
+                  <div v-else :class="['i-solar:upload-track-2-bold-duotone w-4 h-4']" />
                 </div>
-
-                <div class="min-w-0 flex flex-col">
-                  <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
+                <div :class="['min-w-0 flex flex-col']">
+                  <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
                     Use a voice sample
                   </span>
-                  <p class="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Upload 5–10 seconds of audio · WAV or MP3
+                  <p :class="['truncate text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                    {{ serverStatus === 'connected' ? 'Upload 5–10 seconds of audio · WAV or MP3' : 'Voice upload is available after connecting.' }}
                   </p>
                 </div>
               </div>
 
-              <div class="flex flex-shrink-0 items-center gap-2" @click.stop>
+              <div :class="['flex flex-shrink-0 items-center gap-2']">
                 <button
-                  v-if="isSelectedVoiceCloned"
+                  v-if="isSelectedVoiceCloned && serverStatus === 'connected'"
                   type="button"
                   :class="['p-1.5 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs font-semibold cursor-pointer transition-colors']"
                   title="Delete currently selected custom voice clone"
                   @click="handleDeleteCurrentClonedVoice"
                 >
-                  <div class="i-solar:trash-bin-trash-bold h-3.5 w-3.5" />
+                  <div :class="['i-solar:trash-bin-trash-bold h-3.5 w-3.5']" />
                 </button>
 
                 <button
                   type="button"
-                  :disabled="isCloning"
+                  :disabled="serverStatus !== 'connected' || isCloning"
                   :class="[
-                    'px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/20',
-                    isCloning && 'opacity-60 cursor-not-allowed',
+                    'px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm',
+                    serverStatus === 'connected' && !isCloning
+                      ? 'bg-neutral-800 hover:bg-neutral-700 text-white dark:bg-neutral-800 dark:hover:bg-neutral-700 cursor-pointer border border-white/10'
+                      : 'bg-neutral-200/80 dark:bg-neutral-800/60 text-neutral-400 dark:text-neutral-500 cursor-not-allowed border border-transparent',
                   ]"
                   @click="triggerAudioFileInput"
                 >
-                  <div class="i-solar:upload-track-2-bold-duotone h-3.5 w-3.5" />
+                  <div :class="[isCloning ? 'i-solar:restart-circle-bold animate-spin' : 'i-solar:cloud-upload-bold', 'w-3.5 h-3.5']" />
                   <span>{{ isCloning ? 'Cloning...' : 'Upload audio' }}</span>
                 </button>
               </div>
             </div>
 
-            <!-- AIRI Audio Server Prompt Transcript Input (Zero-Shot Alignment) -->
-            <div
-              v-if="supportsVoiceCloning && normalizeProviderId(selectedProvider) === 'airi-audio-server'"
-              class="flex flex-col gap-1 px-1 -mt-1"
-            >
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] text-neutral-400 font-bold uppercase dark:text-neutral-500">
-                  Prompt Spoken Transcript (Optional)
-                </span>
-                <span class="text-[9px] text-amber-600 font-medium dark:text-amber-400">
-                  Acoustic Alignment for OmniVoice / Higgs / Fish
-                </span>
-              </div>
-              <input
-                v-model="audioServerPromptTranscript"
-                type="text"
-                placeholder="Type exact words spoken in the audio sample before dropping..."
-                class="w-full border border-neutral-200/80 rounded-xl bg-white/60 px-3 py-1.5 text-xs text-neutral-800 outline-none dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200"
+            <!-- Box 2: Words spoken in the sample (Disclosure) -->
+            <div :class="['rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] overflow-hidden transition-all']">
+              <button
+                type="button"
+                :class="[
+                  'w-full p-3 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer',
+                  'hover:bg-neutral-100/60 dark:hover:bg-white/[0.04]',
+                ]"
+                @click="showTranscriptDisclosure = !showTranscriptDisclosure"
               >
+                <div :class="['flex items-center gap-2.5 min-w-0 flex-1']">
+                  <div :class="['w-8 h-8 rounded-xl bg-neutral-200/60 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 flex items-center justify-center flex-shrink-0']">
+                    <div :class="['i-solar:document-text-bold-duotone w-4 h-4']" />
+                  </div>
+                  <div :class="['min-w-0 flex flex-col']">
+                    <span :class="['text-xs font-bold text-neutral-900 dark:text-white truncate']">
+                      Words spoken in the sample
+                    </span>
+                    <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5']">
+                      Review or enter the reference transcript after upload.
+                    </p>
+                  </div>
+                </div>
+                <div :class="[showTranscriptDisclosure ? 'i-solar:alt-arrow-down-line-duotone' : 'i-solar:alt-arrow-right-line-duotone', 'w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform']" />
+              </button>
+
+              <div v-if="showTranscriptDisclosure" :class="['p-3 pt-1 flex flex-col gap-1.5 border-t border-neutral-200/40 dark:border-white/5']">
+                <textarea
+                  v-model="audioServerPromptTranscript"
+                  rows="2"
+                  placeholder="Type exact words spoken in the audio sample..."
+                  :class="['w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 resize-none shadow-sm']"
+                />
+                <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+                  Check that this matches the recording.
+                </p>
+              </div>
             </div>
 
-            <!-- Acoustic Sliders (Speed & Pitch) -->
+            <!-- Acoustic Sliders (Speaking Speed & Pitch) -->
             <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1']">
               <div :class="['flex flex-col gap-1.5']">
                 <div :class="['flex items-center justify-between text-xs font-semibold']">
-                  <span :class="['text-neutral-600 dark:text-neutral-400']">Speech Rate / Speed</span>
-                  <span :class="['text-primary-500 font-mono']">{{ speed.toFixed(2) }}x</span>
+                  <span :class="['text-neutral-600 dark:text-neutral-400']">Speaking speed</span>
+                  <span :class="['text-primary-500 font-mono']">
+                    {{ (activeVoiceTab === 'user' ? userSpeed : speed).toFixed(2) }}x
+                  </span>
                 </div>
                 <input
+                  v-if="activeVoiceTab === 'user'"
+                  v-model.number="userSpeed"
+                  type="range"
+                  min="0.5"
+                  max="2.0"
+                  step="0.05"
+                  :class="['w-full accent-primary-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
+                >
+                <input
+                  v-else
                   v-model.number="speed"
                   type="range"
                   min="0.5"
@@ -1432,10 +1975,22 @@ function handleContinue() {
 
               <div :class="['flex flex-col gap-1.5']">
                 <div :class="['flex items-center justify-between text-xs font-semibold']">
-                  <span :class="['text-neutral-600 dark:text-neutral-400']">Vocal Pitch</span>
-                  <span :class="['text-primary-500 font-mono']">{{ pitch.toFixed(2) }}x</span>
+                  <span :class="['text-neutral-600 dark:text-neutral-400']">Pitch</span>
+                  <span :class="['text-primary-500 font-mono']">
+                    {{ (activeVoiceTab === 'user' ? userPitch : pitch).toFixed(2) }}x
+                  </span>
                 </div>
                 <input
+                  v-if="activeVoiceTab === 'user'"
+                  v-model.number="userPitch"
+                  type="range"
+                  min="0.5"
+                  max="1.5"
+                  step="0.05"
+                  :class="['w-full accent-primary-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
+                >
+                <input
+                  v-else
                   v-model.number="pitch"
                   type="range"
                   min="0.5"
@@ -1446,262 +2001,479 @@ function handleContinue() {
               </div>
             </div>
 
-            <!-- Companion voice preview -->
-            <div :class="['flex flex-col gap-2']">
-              <span :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                Hear this voice.
+            <!-- Hear this voice -->
+            <div :class="['flex flex-col gap-2 pt-1']">
+              <span :class="['text-xs font-bold text-neutral-900 dark:text-white uppercase tracking-wide']">
+                Hear this voice
               </span>
               <div :class="['flex items-center justify-between gap-2']">
-                <span :class="['text-xs font-semibold text-neutral-500 dark:text-neutral-400']">
+                <span :class="['text-xs font-medium text-neutral-500 dark:text-neutral-400']">
                   Sample text
                 </span>
                 <button
                   type="button"
                   :class="['text-[11px] text-neutral-500 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-colors cursor-pointer']"
-                  @click="resetSampleText"
+                  @click="activeVoiceTab === 'user' ? resetUserSampleText() : resetSampleText()"
                 >
                   Reset text
                 </button>
               </div>
 
               <textarea
-                v-model="sampleText"
-                rows="4"
-                placeholder="Enter greeting sample text to preview..."
-                :class="['w-full min-h-[110px] resize-y px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 select-text leading-relaxed']"
-              />
-              <button
-                type="button"
-                :disabled="isLocalProvider && !isEngineReady"
-                :class="[
-                  'w-full px-4 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 flex-shrink-0 shadow-sm',
-                  isPlayingCompanion
-                    ? 'bg-red-500 hover:bg-red-600 text-white cursor-pointer'
-                    : 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/30 cursor-pointer',
-                  (isLocalProvider && !isEngineReady) && 'opacity-50 cursor-not-allowed hover:bg-primary-600 shadow-none',
-                ]"
-                @click="togglePreview('companion')"
-              >
-                <div :class="[isPlayingCompanion ? 'i-solar:stop-circle-bold w-4 h-4' : 'i-solar:play-circle-bold w-4 h-4']" />
-                <span>{{ isPlayingCompanion ? 'Stop' : 'Play preview' }}</span>
-              </button>
-              <div
-                v-if="isLocalProvider && !isEngineReady"
-                :class="['flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium']"
-              >
-                <div :class="['i-solar:danger-triangle-bold-duotone w-4 h-4 flex-shrink-0']" />
-                <span v-if="isDownloading">Downloading engine weights ({{ downloadProgress }}%)…</span>
-                <span v-else>Download the selected engine to hear this voice.</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- USER / PRODUCER VOICE CALIBRATION PANEL -->
-          <div
-            v-else
-            :class="['flex flex-col gap-4 p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] animate-fadeIn']"
-          >
-            <div :class="['flex items-center justify-between']">
-              <div :class="['flex items-center gap-2']">
-                <div :class="['i-solar:user-speak-bold-duotone w-4 h-4 text-purple-500']" />
-                <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
-                  {{ userName }}'s Voice Profile
-                </span>
-              </div>
-              <span :class="['text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400']">
-                Producer / User Voice
-              </span>
-            </div>
-
-            <!-- Timbre Selector with Refresh Voices Button -->
-            <div :class="['flex flex-col gap-1.5']">
-              <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
-                Voice
-              </label>
-              <div :class="['flex items-center gap-2']">
-                <select
-                  v-model="selectedUserVoice"
-                  :class="['flex-1 px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-purple-500 cursor-pointer shadow-sm']"
-                >
-                  <option
-                    v-for="voice in availableVoices"
-                    :key="voice.id"
-                    :value="voice.id"
-                  >
-                    {{ voice.label }}
-                  </option>
-                </select>
-                <button
-                  type="button"
-                  :class="['h-9 px-3 rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm']"
-                  title="Refresh voice catalog"
-                  @click="refreshVoices"
-                >
-                  <div :class="['i-solar:restart-bold-duotone w-3.5 h-3.5 text-purple-500']" />
-                  <span>Load Voices</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Voice sample upload -->
-            <div
-              v-if="supportsVoiceCloning"
-              :class="[
-                'flex items-center justify-between gap-3 p-3 rounded-2xl border border-dashed transition-all cursor-pointer select-none',
-                isDraggingAudio
-                  ? 'border-purple-500 bg-purple-500/10'
-                  : 'border-neutral-300/80 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] hover:border-purple-500/40',
-              ]"
-              @dragover.prevent="isDraggingAudio = true"
-              @dragleave.prevent="isDraggingAudio = false"
-              @drop.prevent="handleAudioDrop"
-              @click="triggerAudioFileInput"
-            >
-              <div class="min-w-0 flex flex-1 items-center gap-2.5">
-                <div :class="['w-8 h-8 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center flex-shrink-0 text-sm']">
-                  <div v-if="isCloning" class="i-solar:restart-circle-bold h-4 w-4 animate-spin" />
-                  <div v-else class="i-solar:upload-track-2-bold-duotone h-4 w-4" />
-                </div>
-
-                <div class="min-w-0 flex flex-col">
-                  <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
-                    Use a voice sample
-                  </span>
-                  <p class="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Upload 5–10 seconds of audio · WAV or MP3
-                  </p>
-                </div>
-              </div>
-
-              <div class="flex flex-shrink-0 items-center gap-2" @click.stop>
-                <button
-                  v-if="isSelectedVoiceCloned"
-                  type="button"
-                  :class="['p-1.5 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs font-semibold cursor-pointer transition-colors']"
-                  title="Delete currently selected custom voice clone"
-                  @click="handleDeleteCurrentClonedVoice"
-                >
-                  <div class="i-solar:trash-bin-trash-bold h-3.5 w-3.5" />
-                </button>
-
-                <button
-                  type="button"
-                  :disabled="isCloning"
-                  :class="[
-                    'px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20',
-                    isCloning && 'opacity-60 cursor-not-allowed',
-                  ]"
-                  @click="triggerAudioFileInput"
-                >
-                  <div class="i-solar:upload-track-2-bold-duotone h-3.5 w-3.5" />
-                  <span>{{ isCloning ? 'Cloning...' : 'Upload audio' }}</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- AIRI Audio Server Prompt Transcript Input (Zero-Shot Alignment) -->
-            <div
-              v-if="supportsVoiceCloning && normalizeProviderId(selectedProvider) === 'airi-audio-server'"
-              class="flex flex-col gap-1 px-1 -mt-1"
-            >
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] text-neutral-400 font-bold uppercase dark:text-neutral-500">
-                  Prompt Spoken Transcript (Optional)
-                </span>
-                <span class="text-[9px] text-purple-600 font-medium dark:text-purple-400">
-                  Acoustic Alignment for OmniVoice / Higgs / Fish
-                </span>
-              </div>
-              <input
-                v-model="audioServerPromptTranscript"
-                type="text"
-                placeholder="Type exact words spoken in the audio sample before dropping..."
-                class="w-full border border-neutral-200/80 rounded-xl bg-white/60 px-3 py-1.5 text-xs text-neutral-800 outline-none dark:border-neutral-800 focus:border-purple-500 dark:bg-neutral-900/60 dark:text-neutral-200"
-              >
-            </div>
-
-            <!-- Acoustic Sliders (Speed & Pitch) -->
-            <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1']">
-              <div :class="['flex flex-col gap-1.5']">
-                <div :class="['flex items-center justify-between text-xs font-semibold']">
-                  <span :class="['text-neutral-600 dark:text-neutral-400']">Speech Rate / Speed</span>
-                  <span :class="['text-purple-500 font-mono']">{{ userSpeed.toFixed(2) }}x</span>
-                </div>
-                <input
-                  v-model.number="userSpeed"
-                  type="range"
-                  min="0.5"
-                  max="2.0"
-                  step="0.05"
-                  :class="['w-full accent-purple-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
-                >
-              </div>
-
-              <div :class="['flex flex-col gap-1.5']">
-                <div :class="['flex items-center justify-between text-xs font-semibold']">
-                  <span :class="['text-neutral-600 dark:text-neutral-400']">Vocal Pitch</span>
-                  <span :class="['text-purple-500 font-mono']">{{ userPitch.toFixed(2) }}x</span>
-                </div>
-                <input
-                  v-model.number="userPitch"
-                  type="range"
-                  min="0.5"
-                  max="1.5"
-                  step="0.05"
-                  :class="['w-full accent-purple-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
-                >
-              </div>
-            </div>
-
-            <!-- User voice preview -->
-            <div :class="['flex flex-col gap-2']">
-              <span :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                Hear this voice.
-              </span>
-              <div :class="['flex items-center justify-between gap-2']">
-                <span :class="['text-xs font-semibold text-neutral-500 dark:text-neutral-400']">
-                  Sample text
-                </span>
-                <button
-                  type="button"
-                  :class="['text-[11px] text-neutral-500 hover:text-purple-600 dark:hover:text-purple-400 font-medium transition-colors cursor-pointer']"
-                  @click="resetUserSampleText"
-                >
-                  Reset text
-                </button>
-              </div>
-
-              <textarea
+                v-if="activeVoiceTab === 'user'"
                 v-model="userSampleText"
-                rows="4"
+                rows="3"
                 placeholder="Enter user sample speech to preview..."
-                :class="['w-full min-h-[110px] resize-y px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-purple-500 select-text leading-relaxed']"
+                :class="['w-full min-h-[88px] resize-y px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 select-text leading-relaxed shadow-inner']"
               />
+              <textarea
+                v-else
+                v-model="sampleText"
+                rows="3"
+                placeholder="Enter greeting sample text to preview..."
+                :class="['w-full min-h-[88px] resize-y px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 select-text leading-relaxed shadow-inner']"
+              />
+
               <button
                 type="button"
-                :disabled="isLocalProvider && !isEngineReady"
+                :disabled="serverStatus !== 'connected' && !isPlayingCompanion && !isPlayingUser"
                 :class="[
                   'w-full px-4 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 flex-shrink-0 shadow-sm',
-                  isPlayingUser
+                  (isPlayingCompanion || isPlayingUser)
                     ? 'bg-red-500 hover:bg-red-600 text-white cursor-pointer'
-                    : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/30 cursor-pointer',
-                  (isLocalProvider && !isEngineReady) && 'opacity-50 cursor-not-allowed hover:bg-purple-600 shadow-none',
+                    : serverStatus === 'connected'
+                      ? 'bg-neutral-800 hover:bg-neutral-700 text-white dark:bg-neutral-800 dark:hover:bg-neutral-700 border border-white/10 cursor-pointer'
+                      : 'bg-neutral-200/80 dark:bg-neutral-800/60 text-neutral-400 dark:text-neutral-500 border border-transparent cursor-not-allowed',
                 ]"
-                @click="togglePreview('user')"
+                @click="togglePreview(activeVoiceTab)"
               >
-                <div :class="[isPlayingUser ? 'i-solar:stop-circle-bold w-4 h-4' : 'i-solar:play-circle-bold w-4 h-4']" />
-                <span>{{ isPlayingUser ? 'Stop' : 'Play preview' }}</span>
+                <div :class="[(isPlayingCompanion || isPlayingUser) ? 'i-solar:stop-circle-bold w-4 h-4' : 'i-solar:play-circle-bold w-4 h-4']" />
+                <span>{{ (isPlayingCompanion || isPlayingUser) ? 'Stop' : 'Play preview' }}</span>
               </button>
-              <div
-                v-if="isLocalProvider && !isEngineReady"
-                :class="['flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium']"
-              >
-                <div :class="['i-solar:danger-triangle-bold-duotone w-4 h-4 flex-shrink-0']" />
-                <span v-if="isDownloading">Downloading engine weights ({{ downloadProgress }}%)…</span>
-                <span v-else>Download the selected engine to hear this voice.</span>
+
+              <div :class="['flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 pt-0.5']">
+                <div :class="['i-solar:info-circle-bold w-4 h-4 flex-shrink-0 text-neutral-400']" />
+                <span>{{ serverStatus === 'connected' ? 'Voice ready · Click to preview audio sample.' : 'Connect to your audio server to load a model and voice.' }}</span>
               </div>
             </div>
           </div>
+
+          <!-- BUILT-IN / CLOUD WORKSPACE -->
+          <template v-else>
+            <!-- COMPANION VOICE CALIBRATION PANEL -->
+            <div
+              v-if="activeVoiceTab === 'companion'"
+              :class="['flex flex-col gap-4 p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] animate-fadeIn']"
+            >
+              <div :class="['flex items-center justify-between']">
+                <div :class="['flex items-center gap-2']">
+                  <div :class="['i-solar:heart-bold-duotone w-4 h-4 text-primary-500']" />
+                  <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
+                    {{ companionName }}'s Voice Persona
+                  </span>
+                </div>
+                <span :class="['text-[10px] px-2 py-0.5 rounded-full font-bold bg-primary-500/10 text-primary-600 dark:text-primary-400']">
+                  Companion Voice
+                </span>
+              </div>
+
+              <!-- Timbre Selector with Refresh Voices Button -->
+              <div :class="['flex flex-col gap-1.5']">
+                <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
+                  Voice
+                </label>
+                <div :class="['flex items-center gap-2']">
+                  <select
+                    v-model="selectedVoice"
+                    :class="['flex-1 px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer shadow-sm']"
+                  >
+                    <option
+                      v-for="voice in availableVoices"
+                      :key="voice.id"
+                      :value="voice.id"
+                    >
+                      {{ voice.label }}
+                    </option>
+                  </select>
+                  <button
+                    type="button"
+                    :class="['h-9 px-3 rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm']"
+                    title="Refresh voice catalog"
+                    @click="refreshVoices"
+                  >
+                    <div :class="['i-solar:restart-bold-duotone w-3.5 h-3.5 text-primary-500']" />
+                    <span>Load Voices</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Voice sample upload -->
+              <div
+                v-if="supportsVoiceCloning"
+                :class="[
+                  'flex items-center justify-between gap-3 p-3 rounded-2xl border border-dashed transition-all cursor-pointer select-none',
+                  isDraggingAudio
+                    ? 'border-primary-500 bg-primary-500/10'
+                    : 'border-neutral-300/80 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] hover:border-primary-500/40',
+                ]"
+                @dragover.prevent="isDraggingAudio = true"
+                @dragleave.prevent="isDraggingAudio = false"
+                @drop.prevent="handleAudioDrop"
+                @click="triggerAudioFileInput"
+              >
+                <div class="min-w-0 flex flex-1 items-center gap-2.5">
+                  <div :class="['w-8 h-8 rounded-xl bg-primary-500/15 text-primary-500 flex items-center justify-center flex-shrink-0 text-sm']">
+                    <div v-if="isCloning" class="i-solar:restart-circle-bold h-4 w-4 animate-spin" />
+                    <div v-else class="i-solar:upload-track-2-bold-duotone h-4 w-4" />
+                  </div>
+
+                  <div class="min-w-0 flex flex-col">
+                    <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
+                      Use a voice sample
+                    </span>
+                    <p class="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Upload 5–10 seconds of audio · WAV or MP3
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex flex-shrink-0 items-center gap-2" @click.stop>
+                  <button
+                    v-if="isSelectedVoiceCloned"
+                    type="button"
+                    :class="['p-1.5 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs font-semibold cursor-pointer transition-colors']"
+                    title="Delete currently selected custom voice clone"
+                    @click="handleDeleteCurrentClonedVoice"
+                  >
+                    <div class="i-solar:trash-bin-trash-bold h-3.5 w-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    :disabled="isCloning"
+                    :class="[
+                      'px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/20',
+                      isCloning && 'opacity-60 cursor-not-allowed',
+                    ]"
+                    @click="triggerAudioFileInput"
+                  >
+                    <div class="i-solar:upload-track-2-bold-duotone h-3.5 w-3.5" />
+                    <span>{{ isCloning ? 'Cloning...' : 'Upload audio' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- AIRI Audio Server Prompt Transcript Input (Zero-Shot Alignment) -->
+              <div
+                v-if="supportsVoiceCloning && normalizeProviderId(selectedProvider) === 'airi-audio-server'"
+                class="flex flex-col gap-1 px-1 -mt-1"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] text-neutral-400 font-bold uppercase dark:text-neutral-500">
+                    Prompt Spoken Transcript (Optional)
+                  </span>
+                  <span class="text-[9px] text-amber-600 font-medium dark:text-amber-400">
+                    Acoustic Alignment for OmniVoice / Higgs / Fish
+                  </span>
+                </div>
+                <input
+                  v-model="audioServerPromptTranscript"
+                  type="text"
+                  placeholder="Type exact words spoken in the audio sample before dropping..."
+                  class="w-full border border-neutral-200/80 rounded-xl bg-white/60 px-3 py-1.5 text-xs text-neutral-800 outline-none dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200"
+                >
+              </div>
+
+              <!-- Acoustic Sliders (Speed & Pitch) -->
+              <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1']">
+                <div :class="['flex flex-col gap-1.5']">
+                  <div :class="['flex items-center justify-between text-xs font-semibold']">
+                    <span :class="['text-neutral-600 dark:text-neutral-400']">Speech Rate / Speed</span>
+                    <span :class="['text-primary-500 font-mono']">{{ speed.toFixed(2) }}x</span>
+                  </div>
+                  <input
+                    v-model.number="speed"
+                    type="range"
+                    min="0.5"
+                    max="2.0"
+                    step="0.05"
+                    :class="['w-full accent-primary-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
+                  >
+                </div>
+
+                <div :class="['flex flex-col gap-1.5']">
+                  <div :class="['flex items-center justify-between text-xs font-semibold']">
+                    <span :class="['text-neutral-600 dark:text-neutral-400']">Vocal Pitch</span>
+                    <span :class="['text-primary-500 font-mono']">{{ pitch.toFixed(2) }}x</span>
+                  </div>
+                  <input
+                    v-model.number="pitch"
+                    type="range"
+                    min="0.5"
+                    max="1.5"
+                    step="0.05"
+                    :class="['w-full accent-primary-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
+                  >
+                </div>
+              </div>
+
+              <!-- Companion voice preview -->
+              <div :class="['flex flex-col gap-2']">
+                <span :class="['text-sm font-bold text-neutral-900 dark:text-white']">
+                  Hear this voice.
+                </span>
+                <div :class="['flex items-center justify-between gap-2']">
+                  <span :class="['text-xs font-semibold text-neutral-500 dark:text-neutral-400']">
+                    Sample text
+                  </span>
+                  <button
+                    type="button"
+                    :class="['text-[11px] text-neutral-500 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-colors cursor-pointer']"
+                    @click="resetSampleText"
+                  >
+                    Reset text
+                  </button>
+                </div>
+
+                <textarea
+                  v-model="sampleText"
+                  rows="4"
+                  placeholder="Enter greeting sample text to preview..."
+                  :class="['w-full min-h-[110px] resize-y px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 select-text leading-relaxed']"
+                />
+                <button
+                  type="button"
+                  :disabled="isLocalProvider && !isEngineReady"
+                  :class="[
+                    'w-full px-4 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 flex-shrink-0 shadow-sm',
+                    isPlayingCompanion
+                      ? 'bg-red-500 hover:bg-red-600 text-white cursor-pointer'
+                      : 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/30 cursor-pointer',
+                    (isLocalProvider && !isEngineReady) && 'opacity-50 cursor-not-allowed hover:bg-primary-600 shadow-none',
+                  ]"
+                  @click="togglePreview('companion')"
+                >
+                  <div :class="[isPlayingCompanion ? 'i-solar:stop-circle-bold w-4 h-4' : 'i-solar:play-circle-bold w-4 h-4']" />
+                  <span>{{ isPlayingCompanion ? 'Stop' : 'Play preview' }}</span>
+                </button>
+                <div
+                  v-if="isLocalProvider && !isEngineReady"
+                  :class="['flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium']"
+                >
+                  <div :class="['i-solar:danger-triangle-bold-duotone w-4 h-4 flex-shrink-0']" />
+                  <span v-if="isDownloading">Downloading engine weights ({{ downloadProgress }}%)…</span>
+                  <span v-else>Download the selected engine to hear this voice.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- USER / PRODUCER VOICE CALIBRATION PANEL -->
+            <div
+              v-else
+              :class="['flex flex-col gap-4 p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] animate-fadeIn']"
+            >
+              <div :class="['flex items-center justify-between']">
+                <div :class="['flex items-center gap-2']">
+                  <div :class="['i-solar:user-speak-bold-duotone w-4 h-4 text-purple-500']" />
+                  <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
+                    {{ userName }}'s Voice Profile
+                  </span>
+                </div>
+                <span :class="['text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400']">
+                  Producer / User Voice
+                </span>
+              </div>
+
+              <!-- Timbre Selector with Refresh Voices Button -->
+              <div :class="['flex flex-col gap-1.5']">
+                <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
+                  Voice
+                </label>
+                <div :class="['flex items-center gap-2']">
+                  <select
+                    v-model="selectedUserVoice"
+                    :class="['flex-1 px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-purple-500 cursor-pointer shadow-sm']"
+                  >
+                    <option
+                      v-for="voice in availableVoices"
+                      :key="voice.id"
+                      :value="voice.id"
+                    >
+                      {{ voice.label }}
+                    </option>
+                  </select>
+                  <button
+                    type="button"
+                    :class="['h-9 px-3 rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm']"
+                    title="Refresh voice catalog"
+                    @click="refreshVoices"
+                  >
+                    <div :class="['i-solar:restart-bold-duotone w-3.5 h-3.5 text-purple-500']" />
+                    <span>Load Voices</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Voice sample upload -->
+              <div
+                v-if="supportsVoiceCloning"
+                :class="[
+                  'flex items-center justify-between gap-3 p-3 rounded-2xl border border-dashed transition-all cursor-pointer select-none',
+                  isDraggingAudio
+                    ? 'border-purple-500 bg-purple-500/10'
+                    : 'border-neutral-300/80 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] hover:border-purple-500/40',
+                ]"
+                @dragover.prevent="isDraggingAudio = true"
+                @dragleave.prevent="isDraggingAudio = false"
+                @drop.prevent="handleAudioDrop"
+                @click="triggerAudioFileInput"
+              >
+                <div class="min-w-0 flex flex-1 items-center gap-2.5">
+                  <div :class="['w-8 h-8 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center flex-shrink-0 text-sm']">
+                    <div v-if="isCloning" class="i-solar:restart-circle-bold h-4 w-4 animate-spin" />
+                    <div v-else class="i-solar:upload-track-2-bold-duotone h-4 w-4" />
+                  </div>
+
+                  <div class="min-w-0 flex flex-col">
+                    <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
+                      Use a voice sample
+                    </span>
+                    <p class="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Upload 5–10 seconds of audio · WAV or MP3
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex flex-shrink-0 items-center gap-2" @click.stop>
+                  <button
+                    v-if="isSelectedVoiceCloned"
+                    type="button"
+                    :class="['p-1.5 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs font-semibold cursor-pointer transition-colors']"
+                    title="Delete currently selected custom voice clone"
+                    @click="handleDeleteCurrentClonedVoice"
+                  >
+                    <div class="i-solar:trash-bin-trash-bold h-3.5 w-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    :disabled="isCloning"
+                    :class="[
+                      'px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20',
+                      isCloning && 'opacity-60 cursor-not-allowed',
+                    ]"
+                    @click="triggerAudioFileInput"
+                  >
+                    <div class="i-solar:upload-track-2-bold-duotone h-3.5 w-3.5" />
+                    <span>{{ isCloning ? 'Cloning...' : 'Upload audio' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- AIRI Audio Server Prompt Transcript Input (Zero-Shot Alignment) -->
+              <div
+                v-if="supportsVoiceCloning && normalizeProviderId(selectedProvider) === 'airi-audio-server'"
+                class="flex flex-col gap-1 px-1 -mt-1"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] text-neutral-400 font-bold uppercase dark:text-neutral-500">
+                    Prompt Spoken Transcript (Optional)
+                  </span>
+                  <span class="text-[9px] text-purple-600 font-medium dark:text-purple-400">
+                    Acoustic Alignment for OmniVoice / Higgs / Fish
+                  </span>
+                </div>
+                <input
+                  v-model="audioServerPromptTranscript"
+                  type="text"
+                  placeholder="Type exact words spoken in the audio sample before dropping..."
+                  class="w-full border border-neutral-200/80 rounded-xl bg-white/60 px-3 py-1.5 text-xs text-neutral-800 outline-none dark:border-neutral-800 focus:border-purple-500 dark:bg-neutral-900/60 dark:text-neutral-200"
+                >
+              </div>
+
+              <!-- Acoustic Sliders (Speed & Pitch) -->
+              <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1']">
+                <div :class="['flex flex-col gap-1.5']">
+                  <div :class="['flex items-center justify-between text-xs font-semibold']">
+                    <span :class="['text-neutral-600 dark:text-neutral-400']">Speech Rate / Speed</span>
+                    <span :class="['text-purple-500 font-mono']">{{ userSpeed.toFixed(2) }}x</span>
+                  </div>
+                  <input
+                    v-model.number="userSpeed"
+                    type="range"
+                    min="0.5"
+                    max="2.0"
+                    step="0.05"
+                    :class="['w-full accent-purple-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
+                  >
+                </div>
+
+                <div :class="['flex flex-col gap-1.5']">
+                  <div :class="['flex items-center justify-between text-xs font-semibold']">
+                    <span :class="['text-neutral-600 dark:text-neutral-400']">Vocal Pitch</span>
+                    <span :class="['text-purple-500 font-mono']">{{ userPitch.toFixed(2) }}x</span>
+                  </div>
+                  <input
+                    v-model.number="userPitch"
+                    type="range"
+                    min="0.5"
+                    max="1.5"
+                    step="0.05"
+                    :class="['w-full accent-purple-500 cursor-pointer h-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-800']"
+                  >
+                </div>
+              </div>
+
+              <!-- User voice preview -->
+              <div :class="['flex flex-col gap-2']">
+                <span :class="['text-sm font-bold text-neutral-900 dark:text-white']">
+                  Hear this voice.
+                </span>
+                <div :class="['flex items-center justify-between gap-2']">
+                  <span :class="['text-xs font-semibold text-neutral-500 dark:text-neutral-400']">
+                    Sample text
+                  </span>
+                  <button
+                    type="button"
+                    :class="['text-[11px] text-neutral-500 hover:text-purple-600 dark:hover:text-purple-400 font-medium transition-colors cursor-pointer']"
+                    @click="resetUserSampleText"
+                  >
+                    Reset text
+                  </button>
+                </div>
+
+                <textarea
+                  v-model="userSampleText"
+                  rows="4"
+                  placeholder="Enter user sample speech to preview..."
+                  :class="['w-full min-h-[110px] resize-y px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-purple-500 select-text leading-relaxed']"
+                />
+                <button
+                  type="button"
+                  :disabled="isLocalProvider && !isEngineReady"
+                  :class="[
+                    'w-full px-4 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 flex-shrink-0 shadow-sm',
+                    isPlayingUser
+                      ? 'bg-red-500 hover:bg-red-600 text-white cursor-pointer'
+                      : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/30 cursor-pointer',
+                    (isLocalProvider && !isEngineReady) && 'opacity-50 cursor-not-allowed hover:bg-purple-600 shadow-none',
+                  ]"
+                  @click="togglePreview('user')"
+                >
+                  <div :class="[isPlayingUser ? 'i-solar:stop-circle-bold w-4 h-4' : 'i-solar:play-circle-bold w-4 h-4']" />
+                  <span>{{ isPlayingUser ? 'Stop' : 'Play preview' }}</span>
+                </button>
+                <div
+                  v-if="isLocalProvider && !isEngineReady"
+                  :class="['flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium']"
+                >
+                  <div :class="['i-solar:danger-triangle-bold-duotone w-4 h-4 flex-shrink-0']" />
+                  <span v-if="isDownloading">Downloading engine weights ({{ downloadProgress }}%)…</span>
+                  <span v-else>Download the selected engine to hear this voice.</span>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -1721,7 +2493,10 @@ function handleContinue() {
 
         <!-- Status Indicator -->
         <div :class="['text-xs font-medium text-center hidden sm:block truncate max-w-xs md:max-w-md']">
-          <span v-if="isLocalProvider && isEngineReady" :class="['text-emerald-600 dark:text-emerald-400 font-semibold']">
+          <span v-if="activeEngineSegment === 'server'" :class="['text-neutral-500 dark:text-neutral-400']">
+            Set up your voice now, or finish later.
+          </span>
+          <span v-else-if="isLocalProvider && isEngineReady" :class="['text-emerald-600 dark:text-emerald-400 font-semibold']">
             {{ selectedProviderName }} engine ready · Voice calibrated
           </span>
           <span v-else-if="isLocalProvider && isDownloading" :class="['text-primary-500 font-semibold']">
@@ -1739,12 +2514,12 @@ function handleContinue() {
           <button
             type="button"
             :class="[
-              'px-3.5 py-2 text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+              'px-3.5 py-2 text-xs font-medium text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
               'hover:bg-neutral-100 dark:hover:bg-white/5 rounded-xl transition-colors cursor-pointer',
             ]"
             @click="props.onNext"
           >
-            {{ t('onboarding.shell.skip') }}
+            Setup later
           </button>
 
           <Button
