@@ -12,6 +12,8 @@ import { Button } from '@proj-airi/ui'
 import { useDebounceFn } from '@vueuse/core'
 import { computed, onMounted, ref, watch } from 'vue'
 
+import McpConnectionTestPanel from './components/McpConnectionTestPanel.vue'
+
 import {
   electronMcpApplyAndRestart,
   electronMcpGetConfig,
@@ -31,13 +33,19 @@ const updateConfig = useElectronEventaInvoke(electronMcpUpdateConfig)
 const selectDirectories = useElectronEventaInvoke(electronSelectDirectories)
 
 // UI State
-const currentTab = ref<'manage' | 'discover'>('manage')
+const currentTab = ref<'manage' | 'discover' | 'test'>('manage')
+const preselectedTestServer = ref('')
 const isBusy = ref(false)
 const status = ref<ElectronMcpRuntimeStatus>()
 const tools = ref<ElectronMcpToolDescriptor[]>([])
 const config = ref<ElectronMcpConfigFile>()
 const lastActionMessage = ref('')
 const errorMessage = ref('')
+
+function handleTestServerFromCard(serverName: string) {
+  preselectedTestServer.value = serverName
+  currentTab.value = 'test'
+}
 
 // Manage Tab State
 const expandedServers = ref<Set<string>>(new Set())
@@ -725,7 +733,7 @@ onMounted(async () => {
       <!-- Tab Switcher -->
       <div :class="['flex items-center gap-1 p-1 rounded-lg w-fit', 'bg-neutral-200/50 dark:bg-neutral-800/50']">
         <button
-          v-for="tab in (['manage', 'discover'] as const)"
+          v-for="tab in (['manage', 'discover', 'test'] as const)"
           :key="tab"
           :class="[
             'px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200',
@@ -735,7 +743,7 @@ onMounted(async () => {
           ]"
           @click="currentTab = tab"
         >
-          {{ tab === 'manage' ? 'Manage' : 'Discover' }}
+          {{ tab === 'manage' ? 'Manage' : tab === 'discover' ? 'Discover' : 'Test Connection' }}
         </button>
       </div>
     </div>
@@ -993,7 +1001,17 @@ onMounted(async () => {
                   </div>
 
                   <!-- Server Actions -->
-                  <div class="flex justify-end border-t border-black/5 pt-3 dark:border-white/5">
+                  <div class="flex items-center justify-end gap-2 border-t border-black/5 pt-3 dark:border-white/5">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      @click="handleTestServerFromCard(server.name)"
+                    >
+                      <template #icon>
+                        <div i-solar:plug-circle-bold-duotone />
+                      </template>
+                      Test Connection
+                    </Button>
                     <Button
                       size="sm"
                       variant="secondary"
@@ -1160,6 +1178,14 @@ onMounted(async () => {
           {{ searchQuery ? `No servers found matching "${searchQuery}"` : 'Loading registry...' }}
         </p>
       </div>
+    </div>
+
+    <!-- Test Connection Tab -->
+    <div v-if="currentTab === 'test'" v-motion-fade class="flex flex-col gap-6">
+      <McpConnectionTestPanel
+        :config="config"
+        :initial-server="preselectedTestServer"
+      />
     </div>
   </div>
 </template>

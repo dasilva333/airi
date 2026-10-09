@@ -8,6 +8,8 @@ import type {
   ElectronMcpServerConfig,
   ElectronMcpServerRuntimeStatus,
   ElectronMcpStdioApplyResult,
+  ElectronMcpTestPayload,
+  ElectronMcpTestResult,
   ElectronMcpToolDescriptor,
 } from '../../../../shared/eventa'
 
@@ -29,6 +31,7 @@ import {
   electronMcpGetRuntimeStatus,
   electronMcpListTools,
   electronMcpOpenConfigFile,
+  electronMcpTestServer,
   electronMcpUpdateConfig,
   electronSelectDirectories,
 } from '../../../../shared/eventa'
@@ -53,6 +56,7 @@ export interface McpStdioManager {
   getRuntimeStatus: () => ElectronMcpRuntimeStatus
   getConfig: () => Promise<ElectronMcpConfigFile>
   updateConfig: (config: Partial<ElectronMcpConfigFile>) => Promise<void>
+  testServer: (payload: ElectronMcpTestPayload) => Promise<ElectronMcpTestResult>
 }
 
 export function isHttpUrl(value: string) {
@@ -109,6 +113,7 @@ const defaultMcpConfig: ElectronMcpConfigFile = {
 const toolNameSeparator = '::'
 const mcpRequestTimeoutMsec = 10_000
 const mcpRequestMaxTotalTimeoutMsec = 15_000
+const mcpTestStderrMaxChars = 16_000
 
 function stringifyError(error: unknown) {
   if (error instanceof Error) {
@@ -467,6 +472,75 @@ export function createMcpStdioManager(): McpStdioManager {
     log.log('mcp config updated')
   }
 
+  const testServer = async (payload: ElectronMcpTestPayload): Promise<ElectronMcpTestResult> => {
+    const startedAt = Date.now()
+    let transport: McpTransport | null = null
+    let client: Client | null = null
+    const stderrChunks: string[] = []
+
+    const withDeadline = <V>(promise: Promise<V>, ms: number, label: string): Promise<V> => {
+      let timer: NodeJS.Timeout | undefined
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+      })
+      return Promise.race([promise, timeout]).finally(() => {
+        if (timer)
+          clearTimeout(timer)
+      })
+    }
+
+    try {
+      transport = createTransport(payload.config)
+      client = new Client({
+        name: `proj-airi:stage-tamagotchi:mcp:test:${payload.name}`,
+        version: app.getVersion(),
+      })
+
+      if (transport instanceof StdioClientTransport) {
+        transport.stderr?.on('data', (data) => {
+          const text = data.toString('utf-8')
+          if (text)
+            stderrChunks.push(text)
+        })
+      }
+
+      await withDeadline(client.connect(transport), mcpRequestMaxTotalTimeoutMsec, 'connect')
+
+      const response = await client.listTools(undefined, {
+        timeout: mcpRequestTimeoutMsec,
+        maxTotalTimeout: mcpRequestMaxTotalTimeoutMsec,
+      })
+
+      if (stderrChunks.length > 0) {
+        log.withFields({ serverName: payload.name }).debug(stderrChunks.join('').trim())
+      }
+
+      return {
+        ok: true,
+        tools: response.tools.map(tool => tool.name),
+        durationMs: Date.now() - startedAt,
+      }
+    }
+    catch (error) {
+      const message = stringifyError(error)
+      // Keep only the tail so a noisy failed server cannot flood the settings UI.
+      const stderr = stderrChunks.join('').trim().slice(-mcpTestStderrMaxChars)
+      return {
+        ok: false,
+        error: stderr ? `${message}\n\n${stderr}` : message,
+        durationMs: Date.now() - startedAt,
+      }
+    }
+    finally {
+      if (client) {
+        await client.close().catch(() => {})
+      }
+      if (transport) {
+        await transport.close().catch(() => {})
+      }
+    }
+  }
+
   return {
     ensureConfigFile,
     openConfigFile,
@@ -477,6 +551,7 @@ export function createMcpStdioManager(): McpStdioManager {
     getRuntimeStatus,
     getConfig,
     updateConfig,
+    testServer,
   }
 }
 
@@ -528,6 +603,10 @@ export function createMcpServersService(params: { context: ReturnType<typeof cre
 
   defineInvokeHandler(params.context, electronMcpUpdateConfig, async (payload) => {
     return params.manager.updateConfig(payload)
+  })
+
+  defineInvokeHandler(params.context, electronMcpTestServer, async (payload) => {
+    return params.manager.testServer(payload)
   })
 
   defineInvokeHandler(params.context, electronSelectDirectories, async (payload) => {

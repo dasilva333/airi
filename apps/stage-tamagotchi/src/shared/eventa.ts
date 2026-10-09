@@ -341,6 +341,20 @@ export const electronMcpGetConfig = defineInvokeEventa<ElectronMcpStdioConfigFil
 export const electronMcpUpdateConfig = defineInvokeEventa<void, Partial<ElectronMcpStdioConfigFile>>('eventa:invoke:electron:mcp:update-config')
 export const electronSelectDirectories = defineInvokeEventa<string[] | undefined, { defaultPath?: string, title?: string } | undefined>('eventa:invoke:electron:dialog:select-directories')
 
+export interface ElectronMcpTestResult {
+  ok: boolean
+  error?: string
+  tools?: string[]
+  durationMs: number
+}
+
+export interface ElectronMcpTestPayload {
+  name: string
+  config: ElectronMcpServerConfig
+}
+
+export const electronMcpTestServer = defineInvokeEventa<ElectronMcpTestResult, ElectronMcpTestPayload>('eventa:invoke:electron:mcp:test-server')
+
 export const widgetsOpenWindow = defineInvokeEventa<void, { id?: string }>('eventa:invoke:electron:windows:widgets:open')
 export const widgetsAdd = defineInvokeEventa<string | undefined, WidgetsAddPayload>('eventa:invoke:electron:windows:widgets:add')
 export const widgetsRemove = defineInvokeEventa<void, { id: string }>('eventa:invoke:electron:windows:widgets:remove')
