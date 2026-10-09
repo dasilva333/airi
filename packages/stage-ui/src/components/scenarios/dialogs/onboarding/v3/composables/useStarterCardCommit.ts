@@ -25,6 +25,7 @@ import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useVisionStore } from '../../../../../../stores/modules/vision'
 import { useOnboardingStore } from '../../../../../../stores/onboarding'
+import { useSettings } from '../../../../../../stores/settings'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
 import { useSyncEngineStore } from '../../../../../../stores/sync-engine'
 
@@ -758,6 +759,11 @@ export function useStarterCardCommit() {
     // 5. Activate Card on Stage
     try {
       await cardStore.activateCard(createdCardId, true)
+      if (isNoModel) {
+        const settingsStore = useSettings()
+        settingsStore.stageModelSelected = ''
+        settingsStore.stageModelRenderer = 'disabled'
+      }
     }
     catch (err) {
       console.warn('[useStarterCardCommit] Card stage activation warning:', err)

@@ -12,6 +12,9 @@ import {
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import AssistantBubble from '../components/assistant-bubble.vue'
+import ExperienceCompatibilityPanel from '../components/experience-compatibility-panel.vue'
+
 import {
   useOnboardingV3Draft,
 } from '../stores/useOnboardingV3Draft'
@@ -189,9 +192,9 @@ function getArchetypeDescription(arch: ArchetypeCard): string {
 const archetypes: ArchetypeCard[] = [
   {
     id: 'quiet',
-    title: 'The Minimalist',
-    subtitle: 'Text, memory & workspace tools',
-    description: 'Zero audio or avatar overhead. Fast keyboard chat, long-term memory, and local tools.',
+    title: 'The Quiet Observer',
+    subtitle: 'Text-only minimalist companion',
+    description: 'Text conversation, thoughtful pacing, and memory—without a rendered avatar.',
     icon: 'i-solar:chat-round-line-bold',
     chips: [
       { label: 'Text' },
@@ -307,7 +310,7 @@ const archetypes: ArchetypeCard[] = [
     id: 'swiss-army',
     title: 'The Swiss Army Companion',
     subtitle: 'Full-spectrum multimodal companion',
-    description: 'Hearing voice, pacing, emotions, screen watching, artistry, tools, and memory.',
+    description: 'A companion that talks, sees, creates, and takes action—with memory and an ongoing presence.',
     icon: 'i-solar:stars-minimalistic-bold',
     chips: [
       { label: 'Hearing' },
@@ -438,6 +441,8 @@ const totalSteps = computed(() => {
   return ONBOARDING_V3_STEPS.filter((step) => {
     if (step.id === 'vessel')
       return !isNoModel
+    if (archetype === 'quiet' && step.id === 'persona')
+      return false
     if (!step.moduleKey)
       return true
     return Boolean(modules?.[step.moduleKey])
@@ -454,283 +459,271 @@ function resetToPresetDefaults() {
 </script>
 
 <template>
-  <div :class="['w-full max-w-5xl mx-auto flex flex-col gap-4 py-1 select-none']">
-    <!-- Header Section -->
-    <div :class="['flex flex-col items-center text-center gap-2.5']">
-      <div
-        v-motion
-        :initial="{ opacity: 0, y: -6 }"
-        :enter="{ opacity: 1, y: 0 }"
-        :duration="350"
-        :class="['text-center']"
-      >
-        <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
-          {{ t('onboarding.steps.experience.title') }}
-        </h1>
+  <div :class="['w-full max-w-5xl mx-auto h-full flex flex-col justify-between select-none animate-fadeIn']">
+    <!-- Scrollable Content Body -->
+    <div :class="['flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-4']">
+      <!-- Header Section -->
+      <div :class="['flex flex-col items-center text-center gap-3']">
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            {{ t('onboarding.steps.experience.title') }}
+          </h1>
+        </div>
+
+        <!-- Assistant Guidance Bubble -->
+        <AssistantBubble
+          :message="t('onboarding.steps.experience.companionGreeting')"
+          step-key="experience"
+          tone="primary"
+        />
       </div>
 
-      <!-- Compact Companion Speech Bubble -->
-      <div
-        v-motion
-        :initial="{ opacity: 0, scale: 0.98 }"
-        :enter="{ opacity: 1, scale: 1 }"
-        :duration="350"
-        :delay="100"
-        :class="['max-w-xl w-full flex items-center gap-3 text-left']"
-      >
+      <!-- 6 Hero Archetype Cards Grid (3 Columns x 2 Rows) -->
+      <TooltipProvider :delay-duration="150">
         <div
-          :class="[
-            'h-9 w-9 flex flex-shrink-0 items-center justify-center rounded-full',
-            'border border-sky-500/40 bg-sky-950/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]',
-          ]"
+          v-motion
+          :initial="{ opacity: 0, y: 10 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="400"
+          :delay="150"
+          :class="['grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1 items-stretch']"
         >
-          <div :class="['i-solar:stars-minimalistic-bold h-4 w-4 text-sky-400']" />
-        </div>
-        <div
-          :class="[
-            'relative flex-1 border border-sky-500/30 rounded-2xl px-4 py-2.5',
-            'text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed backdrop-blur-md',
-            'bg-sky-950/20 shadow-sm',
-          ]"
-        >
-          "Choose an archetype that fits your style. Whether you prefer a silent observer, voice companion, or full stage performer, every capability can be customized."
-        </div>
-      </div>
-    </div>
+          <div
+            v-for="archetype in archetypes"
+            :key="archetype.id"
+            :class="[
+              'relative flex flex-col justify-between rounded-2xl p-4 transition-all duration-200 cursor-pointer min-h-[195px]',
+              selectedArchetypeId === archetype.id
+                ? [
+                  archetype.colorTheme.activeBorder,
+                  archetype.colorTheme.activeGlow,
+                  archetype.colorTheme.activeRing,
+                  archetype.colorTheme.activeBg,
+                  'border-2 scale-[1.01] z-10',
+                ]
+                : 'border border-neutral-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-[#121318]/90 hover:border-neutral-300 dark:hover:border-white/20 backdrop-blur-md',
+            ]"
+            @click="selectArchetype(archetype.id)"
+          >
+            <div>
+              <!-- Top Row: Icon + Title & Subtitle Horizontal -->
+              <div :class="['flex items-center gap-3.5 mb-2.5']">
+                <div
+                  :class="[
+                    'h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 transition-colors',
+                    archetype.colorTheme.iconBg,
+                    archetype.colorTheme.iconColor,
+                  ]"
+                >
+                  <div :class="[archetype.icon, 'text-xl']" />
+                </div>
 
-    <!-- 6 Hero Archetype Cards Grid (3 Columns x 2 Rows) -->
-    <TooltipProvider :delay-duration="150">
+                <div :class="['min-w-0 flex-1']">
+                  <h2 :class="['text-sm font-bold text-neutral-900 dark:text-white leading-tight truncate']">
+                    {{ getArchetypeTitle(archetype) }}
+                  </h2>
+                  <p :class="['text-xs font-medium mt-0.5 leading-tight truncate', archetype.colorTheme.subtitleColor]">
+                    {{ getArchetypeSubtitle(archetype) }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Description -->
+              <p :class="['text-xs text-neutral-600 dark:text-neutral-400 mt-1 leading-relaxed']">
+                {{ getArchetypeDescription(archetype) }}
+              </p>
+            </div>
+
+            <!-- Capability Chips Footer with Hover Popovers -->
+            <div :class="['flex flex-wrap gap-1.5 mt-3 pt-1']">
+              <TooltipRoot
+                v-for="chip in archetype.chips"
+                :key="chip.label"
+              >
+                <TooltipTrigger as-child>
+                  <div
+                    :class="[
+                      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-help transition-all',
+                      'border border-neutral-200/80 dark:border-white/10 bg-neutral-100/80 dark:bg-white/5 text-neutral-700 dark:text-neutral-300',
+                      'hover:border-neutral-400 dark:hover:border-white/30 hover:bg-neutral-200/50 dark:hover:bg-white/10',
+                    ]"
+                  >
+                    <div :class="[CAPABILITY_DETAILS[chip.label]?.icon || chip.icon, 'text-xs shrink-0', CAPABILITY_DETAILS[chip.label]?.color || chip.color || 'text-neutral-400']" />
+                    <span>{{ chip.label }}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipPortal>
+                  <TooltipContent
+                    side="top"
+                    :side-offset="8"
+                    :collision-padding="12"
+                    :class="[
+                      'z-50 w-64 rounded-xl p-3 shadow-2xl backdrop-blur-xl',
+                      'bg-white/95 dark:bg-[#121620]/95 border border-neutral-200/80 dark:border-white/10',
+                      'text-neutral-800 dark:text-neutral-200 pointer-events-none select-none text-left',
+                      'animate-in fade-in-0 zoom-in-95 duration-150',
+                    ]"
+                  >
+                    <div v-if="CAPABILITY_DETAILS[chip.label]">
+                      <div :class="['flex items-center gap-1.5 font-bold text-xs text-neutral-900 dark:text-white mb-1']">
+                        <div :class="[CAPABILITY_DETAILS[chip.label].icon, 'text-xs shrink-0', CAPABILITY_DETAILS[chip.label].color]" />
+                        <span>{{ CAPABILITY_DETAILS[chip.label].title }}</span>
+                      </div>
+                      <p :class="['text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug mb-2']">
+                        {{ CAPABILITY_DETAILS[chip.label].description }}
+                      </p>
+                      <div :class="['space-y-1 pt-1.5 border-t border-neutral-100 dark:border-white/5 text-[10px] text-neutral-500 dark:text-neutral-300']">
+                        <div
+                          v-for="bullet in CAPABILITY_DETAILS[chip.label].bullets"
+                          :key="bullet"
+                          :class="['flex items-center gap-1.5 leading-tight']"
+                        >
+                          <div :class="['w-1 h-1 rounded-full bg-primary-500/80 dark:bg-primary-400/80 shrink-0']" />
+                          <span>{{ bullet }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </TooltipPortal>
+              </TooltipRoot>
+            </div>
+          </div>
+        </div>
+      </TooltipProvider>
+
+      <!-- Collapsible Advanced: Customize Modules Drawer -->
       <div
         v-motion
         :initial="{ opacity: 0, y: 10 }"
         :enter="{ opacity: 1, y: 0 }"
-        :duration="400"
-        :delay="150"
-        :class="['grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1 items-stretch']"
+        :duration="350"
+        :delay="200"
+        :class="[
+          'rounded-2xl border transition-all mt-1',
+          'border-neutral-200/80 dark:border-white/10 bg-white/70 dark:bg-[#0d1017]/90 shadow-xs hover:border-neutral-300 dark:hover:border-white/20 backdrop-blur-md',
+        ]"
       >
+        <!-- Drawer Header Bar (Clickable Toggle) -->
         <div
-          v-for="archetype in archetypes"
-          :key="archetype.id"
-          :class="[
-            'relative flex flex-col justify-between rounded-2xl p-4 transition-all duration-200 cursor-pointer min-h-[195px]',
-            selectedArchetypeId === archetype.id
-              ? [
-                archetype.colorTheme.activeBorder,
-                archetype.colorTheme.activeGlow,
-                archetype.colorTheme.activeRing,
-                archetype.colorTheme.activeBg,
-                'border-2 scale-[1.01] z-10',
-              ]
-              : 'border border-neutral-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-[#121318]/90 hover:border-neutral-300 dark:hover:border-white/20 backdrop-blur-md',
-          ]"
-          @click="selectArchetype(archetype.id)"
+          :class="['px-4 py-3 flex items-center justify-between cursor-pointer select-none']"
+          @click="showAdvancedModules = !showAdvancedModules"
         >
-          <div>
-            <!-- Top Row: Icon + Title & Subtitle Horizontal -->
-            <div :class="['flex items-center gap-3.5 mb-2.5']">
+          <div :class="['flex items-center gap-2.5']">
+            <div :class="['i-solar:shield-check-bold text-sky-400 text-lg']" />
+            <span :class="['text-xs font-semibold text-neutral-900 dark:text-white']">
+              {{ t('onboarding.steps.experience.customizeModules') }}
+            </span>
+          </div>
+
+          <div :class="['flex items-center gap-3']">
+            <button
+              v-if="showAdvancedModules"
+              type="button"
+              :class="['text-[11px] text-neutral-400 hover:text-primary-500 font-medium transition-colors cursor-pointer mr-2']"
+              @click.stop="resetToPresetDefaults"
+            >
+              Reset to Preset
+            </button>
+            <span :class="['text-xs text-neutral-500 dark:text-neutral-400 font-medium']">
+              {{ activeModules.length }} enabled · {{ Math.max(0, 10 - activeModules.length) }} available · {{ totalSteps }} steps
+            </span>
+            <div
+              :class="[
+                'i-solar:alt-arrow-down-linear text-xs transition-transform duration-200 text-neutral-400',
+                showAdvancedModules ? 'rotate-180 text-sky-400' : '',
+              ]"
+            />
+          </div>
+        </div>
+
+        <!-- Expanded Module Customization Grid -->
+        <div
+          v-if="showAdvancedModules"
+          :class="['px-3.5 pb-3.5 pt-1 border-t border-neutral-100 dark:border-neutral-800/80 animate-fadeIn']"
+        >
+          <div :class="['grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 mt-2']">
+            <button
+              v-for="mod in moduleDefinitions"
+              :key="mod.key"
+              type="button"
+              :class="[
+                'flex items-start gap-2.5 p-2.5 rounded-xl border text-left transition-all duration-150 cursor-pointer',
+                draftStore.state?.modules?.[mod.key]
+                  ? 'border-primary-500/50 bg-primary-500/10 dark:bg-primary-950/30 text-neutral-900 dark:text-white ring-1 ring-primary-500/20'
+                  : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40 text-neutral-500 hover:border-neutral-300 dark:hover:border-neutral-700',
+              ]"
+              @click="toggleModule(mod.key)"
+            >
               <div
                 :class="[
-                  'h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 transition-colors',
-                  archetype.colorTheme.iconBg,
-                  archetype.colorTheme.iconColor,
+                  'h-7 w-7 rounded-lg flex items-center justify-center shrink-0 transition-colors',
+                  draftStore.state?.modules?.[mod.key]
+                    ? 'bg-primary-500 text-white shadow-xs'
+                    : 'bg-neutral-200/60 dark:bg-neutral-800 text-neutral-400',
                 ]"
               >
-                <div :class="[archetype.icon, 'text-xl']" />
+                <div :class="[mod.icon, 'text-sm']" />
               </div>
 
               <div :class="['min-w-0 flex-1']">
-                <h2 :class="['text-sm font-bold text-neutral-900 dark:text-white leading-tight truncate']">
-                  {{ getArchetypeTitle(archetype) }}
-                </h2>
-                <p :class="['text-xs font-medium mt-0.5 leading-tight truncate', archetype.colorTheme.subtitleColor]">
-                  {{ getArchetypeSubtitle(archetype) }}
+                <div :class="['flex items-center justify-between gap-1']">
+                  <span :class="['text-xs font-bold truncate']">
+                    {{ mod.label }}
+                  </span>
+                  <span
+                    :class="[
+                      'text-[10px] font-mono shrink-0',
+                      draftStore.state?.modules?.[mod.key] ? 'text-primary-500 font-bold' : 'text-neutral-400',
+                    ]"
+                  >
+                    {{ draftStore.state?.modules?.[mod.key] ? 'ON' : 'OFF' }}
+                  </span>
+                </div>
+                <p :class="['text-[10px] text-neutral-400 mt-0.5 leading-snug line-clamp-2']">
+                  {{ mod.description }}
+                </p>
+              </div>
+            </button>
+
+            <!-- 10th Slot: Extensible Plugins / Community Skills (Future Hook) -->
+            <div
+              :class="[
+                'flex items-start gap-2.5 p-2.5 rounded-xl border border-dashed border-neutral-300/70 dark:border-neutral-800 bg-neutral-50/20 dark:bg-neutral-950/20 text-neutral-400 select-none opacity-75',
+              ]"
+            >
+              <div :class="['h-7 w-7 rounded-lg flex items-center justify-center shrink-0 bg-neutral-200/50 dark:bg-neutral-800/50 text-neutral-400']">
+                <div :class="['i-solar:add-circle-bold-duotone text-sm']" />
+              </div>
+
+              <div :class="['min-w-0 flex-1']">
+                <div :class="['flex items-center justify-between gap-1']">
+                  <span :class="['text-xs font-semibold text-neutral-500 dark:text-neutral-400 truncate']">
+                    Extensible Plugins
+                  </span>
+                  <span :class="['text-[9px] font-mono text-neutral-400 dark:text-neutral-500 uppercase tracking-wider']">
+                    Soon
+                  </span>
+                </div>
+                <p :class="['text-[10px] text-neutral-400/80 mt-0.5 leading-snug line-clamp-2']">
+                  Discord bot, community skills & triggers
                 </p>
               </div>
             </div>
-
-            <!-- Description -->
-            <p :class="['text-xs text-neutral-600 dark:text-neutral-400 mt-1 leading-relaxed']">
-              {{ getArchetypeDescription(archetype) }}
-            </p>
-          </div>
-
-          <!-- Capability Chips Footer with Hover Popovers -->
-          <div :class="['flex flex-wrap gap-1.5 mt-3 pt-1']">
-            <TooltipRoot
-              v-for="chip in archetype.chips"
-              :key="chip.label"
-            >
-              <TooltipTrigger as-child>
-                <div
-                  :class="[
-                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-help transition-all',
-                    'border border-neutral-200/80 dark:border-white/10 bg-neutral-100/80 dark:bg-white/5 text-neutral-700 dark:text-neutral-300',
-                    'hover:border-neutral-400 dark:hover:border-white/30 hover:bg-neutral-200/50 dark:hover:bg-white/10',
-                  ]"
-                >
-                  <div :class="[CAPABILITY_DETAILS[chip.label]?.icon || chip.icon, 'text-xs shrink-0', CAPABILITY_DETAILS[chip.label]?.color || chip.color || 'text-neutral-400']" />
-                  <span>{{ chip.label }}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipPortal>
-                <TooltipContent
-                  side="top"
-                  :side-offset="8"
-                  :collision-padding="12"
-                  :class="[
-                    'z-50 w-64 rounded-xl p-3 shadow-2xl backdrop-blur-xl',
-                    'bg-white/95 dark:bg-[#121620]/95 border border-neutral-200/80 dark:border-white/10',
-                    'text-neutral-800 dark:text-neutral-200 pointer-events-none select-none text-left',
-                    'animate-in fade-in-0 zoom-in-95 duration-150',
-                  ]"
-                >
-                  <div v-if="CAPABILITY_DETAILS[chip.label]">
-                    <div :class="['flex items-center gap-1.5 font-bold text-xs text-neutral-900 dark:text-white mb-1']">
-                      <div :class="[CAPABILITY_DETAILS[chip.label].icon, 'text-xs shrink-0', CAPABILITY_DETAILS[chip.label].color]" />
-                      <span>{{ CAPABILITY_DETAILS[chip.label].title }}</span>
-                    </div>
-                    <p :class="['text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug mb-2']">
-                      {{ CAPABILITY_DETAILS[chip.label].description }}
-                    </p>
-                    <div :class="['space-y-1 pt-1.5 border-t border-neutral-100 dark:border-white/5 text-[10px] text-neutral-500 dark:text-neutral-300']">
-                      <div
-                        v-for="bullet in CAPABILITY_DETAILS[chip.label].bullets"
-                        :key="bullet"
-                        :class="['flex items-center gap-1.5 leading-tight']"
-                      >
-                        <div :class="['w-1 h-1 rounded-full bg-primary-500/80 dark:bg-primary-400/80 shrink-0']" />
-                        <span>{{ bullet }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </TooltipContent>
-              </TooltipPortal>
-            </TooltipRoot>
           </div>
         </div>
       </div>
-    </TooltipProvider>
 
-    <!-- Collapsible Advanced: Customize Modules Drawer -->
-    <div
-      v-motion
-      :initial="{ opacity: 0, y: 10 }"
-      :enter="{ opacity: 1, y: 0 }"
-      :duration="350"
-      :delay="200"
-      :class="[
-        'rounded-2xl border transition-all mt-1',
-        'border-neutral-200/80 dark:border-white/10 bg-white/70 dark:bg-[#0d1017]/90 shadow-xs hover:border-neutral-300 dark:hover:border-white/20 backdrop-blur-md',
-      ]"
-    >
-      <!-- Drawer Header Bar (Clickable Toggle) -->
-      <div
-        :class="['px-4 py-3 flex items-center justify-between cursor-pointer select-none']"
-        @click="showAdvancedModules = !showAdvancedModules"
-      >
-        <div :class="['flex items-center gap-2.5']">
-          <div :class="['i-solar:shield-check-bold text-sky-400 text-lg']" />
-          <span :class="['text-xs font-semibold text-neutral-900 dark:text-white']">
-            {{ t('onboarding.steps.experience.customizeModules') }}
-          </span>
-        </div>
-
-        <div :class="['flex items-center gap-3']">
-          <button
-            v-if="showAdvancedModules"
-            type="button"
-            :class="['text-[11px] text-neutral-400 hover:text-primary-500 font-medium transition-colors cursor-pointer mr-2']"
-            @click.stop="resetToPresetDefaults"
-          >
-            Reset to Preset
-          </button>
-          <span :class="['text-xs text-neutral-500 dark:text-neutral-400 font-medium']">
-            {{ activeModules.length }} enabled · {{ Math.max(0, 10 - activeModules.length) }} available · {{ totalSteps }} steps
-          </span>
-          <div
-            :class="[
-              'i-solar:alt-arrow-down-linear text-xs transition-transform duration-200 text-neutral-400',
-              showAdvancedModules ? 'rotate-180 text-sky-400' : '',
-            ]"
-          />
-        </div>
-      </div>
-
-      <!-- Expanded Module Customization Grid -->
-      <div
-        v-if="showAdvancedModules"
-        :class="['px-3.5 pb-3.5 pt-1 border-t border-neutral-100 dark:border-neutral-800/80 animate-fadeIn']"
-      >
-        <div :class="['grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 mt-2']">
-          <button
-            v-for="mod in moduleDefinitions"
-            :key="mod.key"
-            type="button"
-            :class="[
-              'flex items-start gap-2.5 p-2.5 rounded-xl border text-left transition-all duration-150 cursor-pointer',
-              draftStore.state?.modules?.[mod.key]
-                ? 'border-primary-500/50 bg-primary-500/10 dark:bg-primary-950/30 text-neutral-900 dark:text-white ring-1 ring-primary-500/20'
-                : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40 text-neutral-500 hover:border-neutral-300 dark:hover:border-neutral-700',
-            ]"
-            @click="toggleModule(mod.key)"
-          >
-            <div
-              :class="[
-                'h-7 w-7 rounded-lg flex items-center justify-center shrink-0 transition-colors',
-                draftStore.state?.modules?.[mod.key]
-                  ? 'bg-primary-500 text-white shadow-xs'
-                  : 'bg-neutral-200/60 dark:bg-neutral-800 text-neutral-400',
-              ]"
-            >
-              <div :class="[mod.icon, 'text-sm']" />
-            </div>
-
-            <div :class="['min-w-0 flex-1']">
-              <div :class="['flex items-center justify-between gap-1']">
-                <span :class="['text-xs font-bold truncate']">
-                  {{ mod.label }}
-                </span>
-                <span
-                  :class="[
-                    'text-[10px] font-mono shrink-0',
-                    draftStore.state?.modules?.[mod.key] ? 'text-primary-500 font-bold' : 'text-neutral-400',
-                  ]"
-                >
-                  {{ draftStore.state?.modules?.[mod.key] ? 'ON' : 'OFF' }}
-                </span>
-              </div>
-              <p :class="['text-[10px] text-neutral-400 mt-0.5 leading-snug line-clamp-2']">
-                {{ mod.description }}
-              </p>
-            </div>
-          </button>
-
-          <!-- 10th Slot: Extensible Plugins / Community Skills (Future Hook) -->
-          <div
-            :class="[
-              'flex items-start gap-2.5 p-2.5 rounded-xl border border-dashed border-neutral-300/70 dark:border-neutral-800 bg-neutral-50/20 dark:bg-neutral-950/20 text-neutral-400 select-none opacity-75',
-            ]"
-          >
-            <div :class="['h-7 w-7 rounded-lg flex items-center justify-center shrink-0 bg-neutral-200/50 dark:bg-neutral-800/50 text-neutral-400']">
-              <div :class="['i-solar:add-circle-bold-duotone text-sm']" />
-            </div>
-
-            <div :class="['min-w-0 flex-1']">
-              <div :class="['flex items-center justify-between gap-1']">
-                <span :class="['text-xs font-semibold text-neutral-500 dark:text-neutral-400 truncate']">
-                  Extensible Plugins
-                </span>
-                <span :class="['text-[9px] font-mono text-neutral-400 dark:text-neutral-500 uppercase tracking-wider']">
-                  Soon
-                </span>
-              </div>
-              <p :class="['text-[10px] text-neutral-400/80 mt-0.5 leading-snug line-clamp-2']">
-                Discord bot, community skills & triggers
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Shared Selection-Aware Compatibility Guidance Panel -->
+      <ExperienceCompatibilityPanel
+        :archetype-id="selectedArchetypeId"
+        @select-archetype="selectArchetype"
+      />
     </div>
 
     <!-- Navigation Action Bar -->
@@ -740,7 +733,7 @@ function resetToPresetDefaults() {
       :enter="{ opacity: 1, y: 0 }"
       :duration="350"
       :delay="250"
-      :class="['flex items-center justify-between pt-3 border-t border-neutral-200/80 dark:border-white/5']"
+      :class="['flex-shrink-0 pt-4 flex items-center justify-between border-t border-neutral-200/80 dark:border-white/5']"
     >
       <button
         type="button"

@@ -198,6 +198,13 @@ function resetPreviewPosition() {
 }
 
 async function initializeStageRenderer() {
+  if (draft.state.experienceArchetype === 'quiet' || draft.state.vesselDisplayModelId === '') {
+    settingsStore.stageModelSelected = ''
+    settingsStore.stageModelRenderer = 'disabled'
+    stageModelReady.value = true
+    return
+  }
+
   isLoadingModel.value = true
   try {
     if (activeModelId.value) {

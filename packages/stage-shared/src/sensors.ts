@@ -17,10 +17,16 @@ export interface ActiveWindowEntry {
   endTime: number
 }
 
+export interface SystemMemoryInfo {
+  totalBytes: number
+  freeBytes: number
+}
+
 export const sensorsGetIdleTime = defineInvokeEventa<number>('eventa:invoke:electron:sensors:get-idle-time')
 export const sensorsGetActiveWindow = defineInvokeEventa<WindowInfo | null>('eventa:invoke:electron:sensors:get-active-window')
 export const sensorsGetLocalTime = defineInvokeEventa<string>('eventa:invoke:electron:sensors:get-local-time')
 export const sensorsGetSystemLoad = defineInvokeEventa<SystemLoadAverages>('eventa:invoke:electron:sensors:get-system-load')
+export const sensorsGetSystemMemory = defineInvokeEventa<SystemMemoryInfo>('eventa:invoke:electron:sensors:get-system-memory')
 export const sensorsGetActiveWindowHistory = defineInvokeEventa<ActiveWindowEntry[]>('eventa:invoke:electron:sensors:get-active-window-history')
 export const sensorsGetVolumeLevel = defineInvokeEventa<number>('eventa:invoke:electron:sensors:get-volume-level')
 export const sensorsSetTrackingEnabled = defineInvokeEventa<void, { enabled: boolean }>('eventa:invoke:electron:sensors:set-tracking-enabled')

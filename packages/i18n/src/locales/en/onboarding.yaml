@@ -159,10 +159,10 @@ steps:
     title: Language & Appearance
     description: Set your interface language, visual theme, and signature accent color.
     languageSection:
-      title: Display Language
+      title: Interface language
       description: Select your primary language for AIRI. You can change this anytime.
     themeSection:
-      title: Theme Mode
+      title: Theme
       description: Choose your preferred appearance mode.
       dark: Dark
       light: Light
@@ -170,18 +170,20 @@ steps:
       darkDesc: Deep obsidian tones
       lightDesc: Bright daylit studio
     colorSection:
-      title: Signature Accent Palette
+      title: Accent color
       description: Choose an accent tone to personalize buttons, highlights, and
         avatar glow effects.
-      defaultColor: Default Cyan
+      defaultColor: Reset to cyan
       custom: Custom Hex
       groups:
         warm: Warm & Fire
         flora: Earth & Flora
         ocean: Ocean & Sky
         royal: Royal & Bloom
-      activeColor: 'Active: {color}'
+      activeColor: 'Selected: {color}'
     perDeviceToggle: Keep appearance local to this device (exclude from cloud sync)
+    companionGreeting: Let’s make this space feel like you. Choose your language,
+      theme, and accent color—you’ll see changes as you go.
 
   experience:
     label: Experience
@@ -228,8 +230,8 @@ steps:
         title: The Quiet Observer
         badge: ⚡ Fastest · Minimalist
         subtitle: Text, Expressions & Memory
-        description: Zero audio overhead, avatar emotions, thinking pacing, and
-          long-term memory.
+        description: Text conversation, thoughtful pacing, and memory—without a rendered
+          avatar.
       casual:
         title: The Casual Companion
         badge: ✨ Popular Choice
@@ -258,9 +260,8 @@ steps:
         title: The Swiss Army Companion
         badge: 🔥 Most Steps · All-In-One
         subtitle: Full Autonomous Multimodal
-        description: The quintessential all-in-one companion. Hearing, neural voice,
-          thinking pacing, 2-pass ACT emotions, screen watching, artistry, and
-          cognitive memory.
+        description: A companion that talks, sees, creates, and takes action—with memory
+          and an ongoing presence.
     advanced:
       toggle: 'Advanced: Customize Individual Modules'
       description: Toggle individual sensory and cognitive capabilities on or off.
@@ -277,6 +278,9 @@ steps:
         tools: Tools (Web Search & Desktop MCP)
     hideModules: Hide Modules
     customizeModules: 'Advanced: Customize Modules'
+    companionGreeting: Choose an archetype that fits your style. Whether you prefer
+      a quiet observer, voice companion, or full stage performer, every
+      capability can be customized.
 
   profile:
     label: User Profile
@@ -285,7 +289,7 @@ steps:
     description: Tell your companion how to address you and what relationship
       dynamic you prefer.
     userName:
-      label: What should your companion call you?
+      label: What should I call you?
       placeholder: e.g., Master, Alex, Senpai, Producer
     pronouns:
       label: Preferred Pronouns
@@ -305,6 +309,8 @@ steps:
       label: About You (Optional Context)
       placeholder: Share your interests, hobbies, or daily routine so your companion
         can connect deeper.
+    companionGreeting: What should I call you? Choose a ready-made profile or tell
+      me about yourself, including how you’d like us to interact.
 
   vessel:
     label: Physical Vessel

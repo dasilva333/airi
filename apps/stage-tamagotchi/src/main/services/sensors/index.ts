@@ -3,7 +3,7 @@ import type { ActiveWindowEntry, WindowInfo } from '@proj-airi/stage-shared'
 
 import { Buffer } from 'node:buffer'
 import { createRequire } from 'node:module'
-import { loadavg } from 'node:os'
+import { freemem, loadavg, totalmem } from 'node:os'
 import { platform, stdout } from 'node:process'
 
 import { useLogg } from '@guiiai/logg'
@@ -14,6 +14,7 @@ import {
   sensorsGetIdleTime,
   sensorsGetLocalTime,
   sensorsGetSystemLoad,
+  sensorsGetSystemMemory,
   sensorsGetVolumeLevel,
   sensorsSetTrackingEnabled,
 } from '@proj-airi/stage-shared'
@@ -372,6 +373,17 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
     sensorsGetLocalTime,
     async () => {
       return new Date().toLocaleString()
+    },
+  )
+
+  defineInvokeHandler(
+    context,
+    sensorsGetSystemMemory,
+    async () => {
+      return {
+        totalBytes: totalmem(),
+        freeBytes: freemem(),
+      }
     },
   )
 

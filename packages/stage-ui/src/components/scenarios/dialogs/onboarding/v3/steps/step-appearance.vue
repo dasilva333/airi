@@ -5,6 +5,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import SettingsThemeHeaderWidget from '../../../../../widgets/SettingsThemeHeaderWidget.vue'
+import AssistantBubble from '../components/assistant-bubble.vue'
 
 import { useSyncEngineStore } from '../../../../../../stores/sync-engine'
 
@@ -46,6 +47,10 @@ function selectLanguage(code: string) {
 }
 
 const currentLanguage = computed(() => settingsGeneral.language || locale.value || 'en')
+const selectedLanguageName = computed(() => {
+  const found = languages.find(item => item.code === currentLanguage.value)
+  return found?.name || 'English'
+})
 
 // 24-color spectrum presets (grouped in 4 rows of 6) identical to Settings
 const colorSpectrumRows = [
@@ -75,7 +80,7 @@ const colorSpectrumRows = [
     group: 'Ocean & Sky',
     swatches: [
       { name: 'Turquoise', color: '#06B6D4' },
-      { name: 'Cyan (Default)', color: undefined },
+      { name: 'Cyan', color: undefined },
       { name: 'Cerulean', color: '#2563EB' },
       { name: 'Cobalt', color: '#3B82F6' },
       { name: 'Sapphire', color: '#4F46E5' },
@@ -111,344 +116,316 @@ const activeColorName = computed(() => {
       }
     }
   }
-  return 'Cyan (AIRI Signature)'
+  return 'Cyan'
 })
 </script>
 
 <template>
-  <div :class="['w-full max-w-4xl mx-auto flex flex-col gap-4 py-2 select-none']">
-    <!-- Header Section (Icon, Title, Companion Bubble) -->
-    <div :class="['flex flex-col items-center text-center gap-3']">
-      <!-- Title & Subtitle -->
+  <div :class="['w-full max-w-4xl mx-auto h-full flex flex-col justify-between select-none animate-fadeIn']">
+    <!-- Scrollable Content Body -->
+    <div :class="['flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-4']">
+      <!-- Header Section (Title & Assistant Guidance Bubble) -->
+      <div :class="['flex flex-col items-center text-center gap-3']">
+        <!-- Title -->
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            {{ t('onboarding.steps.appearance.title') }}
+          </h1>
+        </div>
+
+        <!-- Assistant Guidance Bubble -->
+        <AssistantBubble
+          :message="t('onboarding.steps.appearance.companionGreeting')"
+          step-key="appearance"
+          tone="primary"
+        />
+      </div>
+
+      <!-- Main 2-Column Configuration Grid -->
       <div
         v-motion
-        :initial="{ opacity: 0, y: -6 }"
+        :initial="{ opacity: 0, y: 10 }"
         :enter="{ opacity: 1, y: 0 }"
-        :duration="350"
-        :class="['text-center']"
+        :duration="400"
+        :delay="150"
+        :class="['grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch']"
       >
-        <div :class="['inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary-500/20 bg-primary-500/10 text-primary-400 text-xs font-semibold mb-1']">
-          <div :class="['i-solar:palette-round-bold-duotone h-3.5 w-3.5']" />
-          <span>Step 3 of 17 · Environment Setup</span>
-        </div>
-        <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
-          {{ t('onboarding.steps.appearance.title') }}
-        </h1>
-        <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
-          {{ t('onboarding.steps.appearance.description') }}
-        </p>
-      </div>
-
-      <!-- Compact Companion Speech Bubble -->
-      <div
-        v-motion
-        :initial="{ opacity: 0, scale: 0.98 }"
-        :enter="{ opacity: 1, scale: 1 }"
-        :duration="350"
-        :delay="100"
-        :class="['max-w-xl w-full flex items-start gap-3 text-left']"
-      >
+        <!-- Left Column: Display Language (md:col-span-6) -->
         <div
           :class="[
-            'h-8 w-8 flex flex-shrink-0 items-center justify-center border border-primary-500/30 rounded-full',
-            'bg-gradient-to-br from-primary-500/20 to-indigo-500/20 shadow-xs mt-0.5',
-          ]"
-        >
-          <div :class="['i-solar:emoji-funny-circle-bold-duotone h-5 w-5 text-primary-400']" />
-        </div>
-        <div
-          :class="[
-            'relative flex-1 border border-primary-500/20 rounded-xl rounded-tl-xs px-4 py-2',
-            'text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed backdrop-blur-md',
-            'bg-primary-500/5 dark:bg-primary-950/20 shadow-sm',
-          ]"
-        >
-          "Before configuring my mind and senses, customize your studio workspace. All changes update immediately across the entire window."
-        </div>
-      </div>
-    </div>
-
-    <!-- Main 2-Column Configuration Grid -->
-    <div
-      v-motion
-      :initial="{ opacity: 0, y: 10 }"
-      :enter="{ opacity: 1, y: 0 }"
-      :duration="400"
-      :delay="150"
-      :class="['grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch']"
-    >
-      <!-- Left Column: Display Language (md:col-span-6) -->
-      <div
-        :class="[
-          'md:col-span-6 flex flex-col justify-between rounded-2xl border p-4 backdrop-blur-md transition-all',
-          'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60',
-        ]"
-      >
-        <!-- Header -->
-        <div :class="['flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800/80']">
-          <div :class="['flex items-center gap-2']">
-            <div :class="['i-solar:global-bold-duotone text-lg text-primary-500']" />
-            <div>
-              <h2 :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
-                {{ t('onboarding.steps.appearance.languageSection.title') }}
-              </h2>
-              <p :class="['text-[11px] text-neutral-400']">
-                Current: <span :class="['text-primary-500 font-semibold uppercase']">{{ currentLanguage }}</span>
-              </p>
-            </div>
-          </div>
-          <span :class="['text-[10px] font-mono px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-800/50']">
-            {{ languages.length }} Locales
-          </span>
-        </div>
-
-        <!-- 8 Language Grid (2 Cols x 4 Rows) -->
-        <div :class="['grid grid-cols-2 gap-2 my-3']">
-          <button
-            v-for="item in languages"
-            :key="item.code"
-            type="button"
-            :class="[
-              'group relative flex items-center justify-between p-2.5 rounded-xl border text-left transition-all duration-150 cursor-pointer',
-              currentLanguage === item.code
-                ? 'border-primary-500 bg-primary-500/10 shadow-xs ring-1 ring-primary-500/30 dark:bg-primary-950/40'
-                : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-100/60 dark:hover:bg-neutral-800/40',
-            ]"
-            @click="selectLanguage(item.code)"
-          >
-            <div :class="['flex items-center gap-2 min-w-0']">
-              <span
-                :class="[
-                  'h-6 w-6 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors',
-                  currentLanguage === item.code
-                    ? 'bg-primary-500 text-white shadow-xs'
-                    : 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 group-hover:bg-neutral-300 dark:group-hover:bg-neutral-700',
-                ]"
-              >
-                {{ item.badge }}
-              </span>
-              <div :class="['min-w-0']">
-                <div
-                  :class="[
-                    'text-xs font-semibold truncate',
-                    currentLanguage === item.code
-                      ? 'text-primary-600 dark:text-primary-300'
-                      : 'text-neutral-800 dark:text-neutral-200',
-                  ]"
-                >
-                  {{ item.native }}
-                </div>
-                <div :class="['text-[10px] text-neutral-400 truncate']">
-                  {{ item.name }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Active Checkmark Indicator -->
-            <div
-              v-if="currentLanguage === item.code"
-              :class="['i-solar:check-circle-bold text-sm text-primary-500 shrink-0 ml-1']"
-            />
-          </button>
-        </div>
-
-        <div :class="['text-[11px] text-neutral-400 flex items-center gap-1.5 pt-2 border-t border-neutral-100 dark:border-neutral-800/80']">
-          <div :class="['i-solar:info-circle-linear text-xs text-neutral-400']" />
-          <span>{{ t('onboarding.steps.appearance.languageSection.description') }}</span>
-        </div>
-      </div>
-
-      <!-- Right Column: Theme Mode & Accent Palette (md:col-span-6) -->
-      <div :class="['md:col-span-6 flex flex-col gap-3']">
-        <!-- Card 1: Theme Mode (Light / Dark) -->
-        <div
-          :class="[
-            'rounded-2xl border p-4 backdrop-blur-md transition-all',
+            'md:col-span-6 flex flex-col justify-between rounded-2xl border p-4 backdrop-blur-md transition-all',
             'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60',
           ]"
         >
           <!-- Header -->
-          <div :class="['flex items-center justify-between pb-2.5 border-b border-neutral-100 dark:border-neutral-800/80 mb-3']">
+          <div :class="['flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800/80']">
             <div :class="['flex items-center gap-2']">
-              <div :class="[isDark ? 'i-solar:moon-bold-duotone text-indigo-400' : 'i-solar:sun-2-bold-duotone text-amber-500', 'text-lg']" />
+              <div :class="['i-solar:global-bold-duotone text-lg text-primary-500']" />
               <div>
                 <h2 :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
-                  {{ t('onboarding.steps.appearance.themeSection.title') }}
+                  {{ t('onboarding.steps.appearance.languageSection.title') }}
                 </h2>
                 <p :class="['text-[11px] text-neutral-400']">
-                  {{ t('onboarding.steps.appearance.themeSection.description') }}
+                  Selected: <span :class="['text-primary-500 font-semibold']">{{ selectedLanguageName }}</span>
                 </p>
               </div>
             </div>
             <span :class="['text-[10px] font-mono px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-800/50']">
-              {{ isDark ? t('onboarding.steps.appearance.themeSection.dark') : t('onboarding.steps.appearance.themeSection.light') }}
+              {{ languages.length }} languages
             </span>
           </div>
 
-          <!-- Dual Mode Toggle Buttons -->
-          <div :class="['grid grid-cols-2 gap-2.5']">
-            <!-- Dark Mode Card -->
+          <!-- 8 Language Grid (2 Cols x 4 Rows) -->
+          <div :class="['grid grid-cols-2 gap-2 my-3']">
             <button
+              v-for="item in languages"
+              :key="item.code"
               type="button"
               :class="[
-                'group flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all duration-150 cursor-pointer',
-                isDark
-                  ? 'border-indigo-500 bg-indigo-950/20 shadow-xs ring-1 ring-indigo-500/30'
-                  : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700',
+                'group relative flex items-center justify-between p-2.5 rounded-xl border text-left transition-all duration-150 cursor-pointer',
+                currentLanguage === item.code
+                  ? 'border-primary-500 bg-primary-500/10 shadow-xs ring-1 ring-primary-500/30 dark:bg-primary-950/40'
+                  : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-100/60 dark:hover:bg-neutral-800/40',
               ]"
-              @click="isDark = true"
+              @click="selectLanguage(item.code)"
             >
-              <div :class="['h-8 w-8 rounded-lg flex items-center justify-center bg-indigo-500/15 text-indigo-400 shrink-0']">
-                <div :class="['i-solar:moon-bold-duotone text-base']" />
-              </div>
-              <div :class="['min-w-0']">
-                <div :class="['text-xs font-bold', isDark ? 'text-indigo-400' : 'text-neutral-800 dark:text-neutral-200']">
-                  {{ t('onboarding.steps.appearance.themeSection.dark') }}
+              <div :class="['flex items-center gap-2 min-w-0']">
+                <span
+                  :class="[
+                    'h-6 w-6 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors',
+                    currentLanguage === item.code
+                      ? 'bg-primary-500 text-white shadow-xs'
+                      : 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 group-hover:bg-neutral-300 dark:group-hover:bg-neutral-700',
+                  ]"
+                >
+                  {{ item.badge }}
+                </span>
+                <div :class="['min-w-0']">
+                  <div
+                    :class="[
+                      'text-xs font-semibold truncate',
+                      currentLanguage === item.code
+                        ? 'text-primary-600 dark:text-primary-300'
+                        : 'text-neutral-800 dark:text-neutral-200',
+                    ]"
+                  >
+                    {{ item.native }}
+                  </div>
+                  <div :class="['text-[10px] text-neutral-400 truncate']">
+                    {{ item.name }}
+                  </div>
                 </div>
-                <div :class="['text-[10px] text-neutral-400 truncate']">
-                  {{ t('onboarding.steps.appearance.themeSection.darkDesc') }}
-                </div>
               </div>
-            </button>
 
-            <!-- Light Mode Card -->
-            <button
-              type="button"
-              :class="[
-                'group flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all duration-150 cursor-pointer',
-                !isDark
-                  ? 'border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/30'
-                  : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700',
-              ]"
-              @click="isDark = false"
-            >
-              <div :class="['h-8 w-8 rounded-lg flex items-center justify-center bg-amber-500/15 text-amber-500 shrink-0']">
-                <div :class="['i-solar:sun-2-bold-duotone text-base']" />
-              </div>
-              <div :class="['min-w-0']">
-                <div :class="['text-xs font-bold', !isDark ? 'text-amber-500' : 'text-neutral-800 dark:text-neutral-200']">
-                  {{ t('onboarding.steps.appearance.themeSection.light') }}
-                </div>
-                <div :class="['text-[10px] text-neutral-400 truncate']">
-                  {{ t('onboarding.steps.appearance.themeSection.lightDesc') }}
-                </div>
-              </div>
+              <!-- Active Checkmark Indicator -->
+              <div
+                v-if="currentLanguage === item.code"
+                :class="['i-solar:check-circle-bold text-sm text-primary-500 shrink-0 ml-1']"
+              />
             </button>
+          </div>
+
+          <div :class="['text-[11px] text-neutral-400 flex items-center gap-1.5 pt-2 border-t border-neutral-100 dark:border-neutral-800/80']">
+            <div :class="['i-solar:info-circle-linear text-xs text-neutral-400']" />
+            <span>{{ t('onboarding.steps.appearance.languageSection.description') }}</span>
           </div>
         </div>
 
-        <!-- Card 2: Primary Accent Palette -->
-        <div
-          :class="[
-            'flex-1 rounded-2xl border p-4 backdrop-blur-md transition-all',
-            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60',
-          ]"
-        >
-          <!-- Header with Theme Header Widget parity -->
-          <div :class="['flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800/80 mb-2.5']">
-            <div :class="['flex items-center gap-2']">
-              <div :class="['i-solar:palette-bold-duotone text-lg text-primary-500']" />
-              <div>
-                <h2 :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
-                  {{ t('onboarding.steps.appearance.colorSection.title') }}
-                </h2>
-                <p :class="['text-[11px] text-neutral-400']">
-                  <span :class="['text-primary-500 font-semibold']">{{ t('onboarding.steps.appearance.colorSection.activeColor', { color: activeColorName }) }}</span>
-                </p>
+        <!-- Right Column: Theme Mode & Accent Palette (md:col-span-6) -->
+        <div :class="['md:col-span-6 flex flex-col gap-3']">
+          <!-- Card 1: Theme Mode (Light / Dark) -->
+          <div
+            :class="[
+              'rounded-2xl border p-4 backdrop-blur-md transition-all',
+              'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60',
+            ]"
+          >
+            <!-- Header -->
+            <div :class="['flex items-center justify-between pb-2.5 border-b border-neutral-100 dark:border-neutral-800/80 mb-3']">
+              <div :class="['flex items-center gap-2']">
+                <div :class="[isDark ? 'i-solar:moon-bold-duotone text-indigo-400' : 'i-solar:sun-2-bold-duotone text-amber-500', 'text-lg']" />
+                <div>
+                  <h2 :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
+                    {{ t('onboarding.steps.appearance.themeSection.title') }}
+                  </h2>
+                </div>
               </div>
+              <span :class="['text-[10px] font-mono px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-800/50']">
+                {{ isDark ? t('onboarding.steps.appearance.themeSection.dark') : t('onboarding.steps.appearance.themeSection.light') }}
+              </span>
             </div>
 
-            <!-- Header Controls: Parity Widget + Reset -->
-            <div :class="['flex items-center gap-2']">
+            <!-- Dual Mode Toggle Buttons -->
+            <div :class="['grid grid-cols-2 gap-2.5']">
+              <!-- Dark Mode Card -->
               <button
                 type="button"
-                :class="['flex items-center gap-1 text-[10px] text-neutral-400 hover:text-primary-500 font-medium transition-colors cursor-pointer']"
-                title="Reset to Signature AIRI Cyan"
-                @click="resetColorToDefault"
+                :class="[
+                  'group flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all duration-150 cursor-pointer',
+                  isDark
+                    ? 'border-indigo-500 bg-indigo-950/20 shadow-xs ring-1 ring-indigo-500/30'
+                    : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700',
+                ]"
+                @click="isDark = true"
               >
-                <div :class="['i-solar:restart-linear text-xs']" />
-                <span>{{ t('onboarding.steps.appearance.colorSection.defaultColor') }}</span>
+                <div :class="['h-8 w-8 rounded-lg flex items-center justify-center bg-indigo-500/15 text-indigo-400 shrink-0']">
+                  <div :class="['i-solar:moon-bold-duotone text-base']" />
+                </div>
+                <div :class="['min-w-0']">
+                  <div :class="['text-xs font-bold', isDark ? 'text-indigo-400' : 'text-neutral-800 dark:text-neutral-200']">
+                    {{ t('onboarding.steps.appearance.themeSection.dark') }}
+                  </div>
+                  <div :class="['text-[10px] text-neutral-400 truncate']">
+                    {{ t('onboarding.steps.appearance.themeSection.darkDesc') }}
+                  </div>
+                </div>
               </button>
-              <SettingsThemeHeaderWidget shrink-0 />
+
+              <!-- Light Mode Card -->
+              <button
+                type="button"
+                :class="[
+                  'group flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all duration-150 cursor-pointer',
+                  !isDark
+                    ? 'border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/30'
+                    : 'border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700',
+                ]"
+                @click="isDark = false"
+              >
+                <div :class="['h-8 w-8 rounded-lg flex items-center justify-center bg-amber-500/15 text-amber-500 shrink-0']">
+                  <div :class="['i-solar:sun-2-bold-duotone text-base']" />
+                </div>
+                <div :class="['min-w-0']">
+                  <div :class="['text-xs font-bold', !isDark ? 'text-amber-500' : 'text-neutral-800 dark:text-neutral-200']">
+                    {{ t('onboarding.steps.appearance.themeSection.light') }}
+                  </div>
+                  <div :class="['text-[10px] text-neutral-400 truncate']">
+                    {{ t('onboarding.steps.appearance.themeSection.lightDesc') }}
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
 
-          <!-- 24-Color Spectrum Preset Grid (4 Groups x 6 Swatches) -->
-          <div :class="['flex flex-col gap-2 mt-1']">
-            <div
-              v-for="row in colorSpectrumRows"
-              :key="row.group"
-              :class="['flex items-center gap-2']"
-            >
-              <span :class="['w-18 text-[10px] font-medium text-neutral-400 dark:text-neutral-500 truncate shrink-0']">
-                {{ row.group }}
-              </span>
-              <div :class="['grid grid-cols-6 gap-1.5 flex-1']">
+          <!-- Card 2: Primary Accent Palette -->
+          <div
+            :class="[
+              'flex-1 rounded-2xl border p-4 backdrop-blur-md transition-all',
+              'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60',
+            ]"
+          >
+            <!-- Header with Theme Header Widget parity -->
+            <div :class="['flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800/80 mb-2.5']">
+              <div :class="['flex items-center gap-2']">
+                <div :class="['i-solar:palette-bold-duotone text-lg text-primary-500']" />
+                <div>
+                  <h2 :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
+                    {{ t('onboarding.steps.appearance.colorSection.title') }}
+                  </h2>
+                  <p :class="['text-[11px] text-neutral-400']">
+                    <span :class="['text-primary-500 font-semibold']">{{ t('onboarding.steps.appearance.colorSection.activeColor', { color: activeColorName }) }}</span>
+                  </p>
+                </div>
+              </div>
+
+              <!-- Header Controls: Parity Widget + Reset -->
+              <div :class="['flex items-center gap-2']">
                 <button
-                  v-for="swatch in row.swatches"
-                  :key="swatch.name"
                   type="button"
-                  :title="swatch.name"
-                  :class="[
-                    'relative h-6 w-full rounded-lg transition-all duration-150 cursor-pointer',
-                    'hover:scale-110 hover:z-10 hover:shadow-md focus:outline-none',
-                    settingsTheme.isColorSelectedForPrimary(swatch.color)
-                      ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-neutral-900 scale-105 z-5 shadow-xs'
-                      : 'ring-1 ring-black/10 dark:ring-white/10',
-                  ]"
-                  :style="{
-                    backgroundColor: swatch.color || 'oklch(65% 0.18 220.44)',
-                  }"
-                  @click="selectColor(swatch.color)"
+                  :class="['flex items-center gap-1 text-[10px] text-neutral-400 hover:text-primary-500 font-medium transition-colors cursor-pointer']"
+                  title="Reset to Signature AIRI Cyan"
+                  @click="resetColorToDefault"
                 >
-                  <!-- Active Dot Indicator -->
-                  <div
-                    v-if="settingsTheme.isColorSelectedForPrimary(swatch.color)"
-                    :class="['shadow-xs absolute inset-0 m-auto h-1.5 w-1.5 rounded-full bg-white']"
-                  />
+                  <div :class="['i-solar:restart-linear text-xs']" />
+                  <span>{{ t('onboarding.steps.appearance.colorSection.defaultColor') }}</span>
                 </button>
+                <SettingsThemeHeaderWidget shrink-0 />
+              </div>
+            </div>
+
+            <!-- 24-Color Spectrum Preset Grid (4 Groups x 6 Swatches) -->
+            <div :class="['flex flex-col gap-2 mt-1']">
+              <div
+                v-for="row in colorSpectrumRows"
+                :key="row.group"
+                :class="['flex items-center gap-2']"
+              >
+                <span :class="['w-18 text-[10px] font-medium text-neutral-400 dark:text-neutral-500 truncate shrink-0']">
+                  {{ row.group }}
+                </span>
+                <div :class="['grid grid-cols-6 gap-1.5 flex-1']">
+                  <button
+                    v-for="swatch in row.swatches"
+                    :key="swatch.name"
+                    type="button"
+                    :title="swatch.name"
+                    :class="[
+                      'relative h-6 w-full rounded-lg transition-all duration-150 cursor-pointer',
+                      'hover:scale-110 hover:z-10 hover:shadow-md focus:outline-none',
+                      settingsTheme.isColorSelectedForPrimary(swatch.color)
+                        ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-neutral-900 scale-105 z-5 shadow-xs'
+                        : 'ring-1 ring-black/10 dark:ring-white/10',
+                    ]"
+                    :style="{
+                      backgroundColor: swatch.color || 'oklch(65% 0.18 220.44)',
+                    }"
+                    @click="selectColor(swatch.color)"
+                  >
+                    <!-- Active Dot Indicator -->
+                    <div
+                      v-if="settingsTheme.isColorSelectedForPrimary(swatch.color)"
+                      :class="['shadow-xs absolute inset-0 m-auto h-1.5 w-1.5 rounded-full bg-white']"
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Per-Device Appearance Isolation Toggle -->
-    <div
-      v-motion
-      :initial="{ opacity: 0, y: 10 }"
-      :enter="{ opacity: 1, y: 0 }"
-      :duration="350"
-      :delay="200"
-      :class="['flex items-center justify-between p-3 rounded-xl border border-neutral-200/80 dark:border-white/5 bg-white/50 dark:bg-neutral-900/40 backdrop-blur-sm text-xs']"
-    >
-      <div :class="['flex items-center gap-2.5 min-w-0']">
-        <div :class="['i-solar:laptop-minimalistic-bold-duotone text-base text-primary-500 shrink-0']" />
-        <div :class="['min-w-0']">
-          <div :class="['font-semibold text-neutral-800 dark:text-neutral-200']">
-            {{ t('onboarding.steps.appearance.perDeviceToggle') }}
-          </div>
-          <div :class="['text-[11px] text-neutral-400 truncate']">
-            Prevents remote cloud sync from overwriting this machine's language and theme preferences.
+      <!-- Per-Device Appearance Isolation Toggle -->
+      <div
+        v-motion
+        :initial="{ opacity: 0, y: 10 }"
+        :enter="{ opacity: 1, y: 0 }"
+        :duration="350"
+        :delay="200"
+        :class="['flex items-center justify-between p-3 rounded-xl border border-neutral-200/80 dark:border-white/5 bg-white/50 dark:bg-neutral-900/40 backdrop-blur-sm text-xs']"
+      >
+        <div :class="['flex items-center gap-2.5 min-w-0']">
+          <div :class="['i-solar:laptop-minimalistic-bold-duotone text-base text-primary-500 shrink-0']" />
+          <div :class="['min-w-0']">
+            <div :class="['font-semibold text-neutral-800 dark:text-neutral-200']">
+              {{ t('onboarding.steps.appearance.perDeviceToggle') }}
+            </div>
+            <div :class="['text-[11px] text-neutral-400 truncate']">
+              Prevents remote cloud sync from overwriting this machine's language and theme preferences.
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Toggle Switch -->
-      <label :class="['relative inline-flex items-center cursor-pointer shrink-0 ml-3']">
-        <input
-          v-model="syncStore.perDeviceAppearance"
-          type="checkbox"
-          :class="['sr-only peer']"
-        >
-        <div
-          :class="[
-            'w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer dark:bg-neutral-700',
-            'peer-checked:after:translate-x-full peer-checked:after:border-white after:content-empty after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-neutral-600 peer-checked:bg-primary-500',
-          ]"
-        />
-      </label>
+        <!-- Toggle Switch -->
+        <label :class="['relative inline-flex items-center cursor-pointer shrink-0 ml-3']">
+          <input
+            v-model="syncStore.perDeviceAppearance"
+            type="checkbox"
+            :class="['sr-only peer']"
+          >
+          <div
+            :class="[
+              'w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer dark:bg-neutral-700',
+              'peer-checked:after:translate-x-full peer-checked:after:border-white after:content-empty after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-neutral-600 peer-checked:bg-primary-500',
+            ]"
+          />
+        </label>
+      </div>
     </div>
 
     <!-- Navigation Action Bar -->
@@ -458,7 +435,7 @@ const activeColorName = computed(() => {
       :enter="{ opacity: 1, y: 0 }"
       :duration="350"
       :delay="250"
-      :class="['flex items-center justify-between pt-3 border-t border-neutral-200/80 dark:border-white/5']"
+      :class="['flex-shrink-0 pt-4 flex items-center justify-between border-t border-neutral-200/80 dark:border-white/5']"
     >
       <button
         type="button"
@@ -470,7 +447,7 @@ const activeColorName = computed(() => {
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        Environment configured · Ready for experience archetypes
+        Next: Choose your companion style
       </div>
 
       <Button
