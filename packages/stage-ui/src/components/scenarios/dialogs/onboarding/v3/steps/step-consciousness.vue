@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import type { WebLlmLoadTarget } from '../../../../../../libs/inference/adapters/web-llm'
 import type { ProgressPayload } from '../../../../../../libs/inference/protocol'
 import type { ProviderMetadata } from '../../../../../../stores/providers'
@@ -24,6 +27,9 @@ import { DEFAULT_APPLE_CORE_AI_MODEL } from '../../../../../../stores/providers/
 import { BrainModelPicker } from '../../../../chat'
 import { resolvePersona } from '../composables/useStarterCardCommit'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -279,7 +285,7 @@ async function startCoreAiDownload() {
         if (p.isCompleted) {
           coreAiState.value = 'ready'
           coreAiProgress.value = 100
-          toast.success('Apple Core AI Neural Engine model ready!')
+          toast.success(displayText('Apple Core AI Neural Engine model ready!'))
         }
       },
     )
@@ -287,7 +293,7 @@ async function startCoreAiDownload() {
   catch (err: any) {
     coreAiState.value = 'error'
     coreAiErrorMessage.value = err?.message || String(err)
-    toast.error(`Core AI download failed: ${coreAiErrorMessage.value}`)
+    toast.error(displayText(`Core AI download failed: ${coreAiErrorMessage.value}`))
   }
 }
 
@@ -368,7 +374,7 @@ async function startWebLlmDownload() {
     if (!controller.signal.aborted) {
       downloadState.value = 'ready'
       downloadProgress.value = 100
-      toast.success('Local WebLLM brain ready!')
+      toast.success(displayText('Local WebLLM brain ready!'))
     }
   }
   catch (err) {
@@ -507,12 +513,12 @@ async function saveAndConnectInline() {
     providersStore.markProviderAdded(selectedProviderId.value)
 
     await fetchLiveModels()
-    toast.success(`${selectedChatProvider.value?.name || 'Provider'} connected!`)
+    toast.success(displayText(`${selectedChatProvider.value?.name || 'Provider'} connected!`))
     scrollToTarget()
   }
   catch (err: any) {
     console.error('[V3 Consciousness Save Credentials Error]:', err)
-    toast.error(err?.message || 'Failed to connect provider')
+    toast.error(displayText(err?.message || 'Failed to connect provider'))
   }
   finally {
     isSavingConfig.value = false
@@ -653,7 +659,7 @@ async function testBrainConnection() {
       const recommendedPreset = isReasoning || elapsedMs > 2500 ? 'deep' : elapsedMs < 800 ? 'snappy' : 'balanced'
       draft.setThinking({ pacingPreset: recommendedPreset })
 
-      toast.success(`Brain connection verified! (${elapsedMs}ms TTFT · ${isReasoning ? 'Reasoning Model' : 'Standard Model'})`)
+      toast.success(displayText(`Brain connection verified! (${elapsedMs}ms TTFT · ${isReasoning ? 'Reasoning Model' : 'Standard Model'})`))
       emit('verified')
     }
     else {
@@ -664,7 +670,7 @@ async function testBrainConnection() {
     console.error('[V3 Consciousness] Probe failed:', err)
     probeState.value = 'error'
     probeErrorMessage.value = err?.message || 'Connection test failed. Check API key, model ID, and network.'
-    toast.error(probeErrorMessage.value)
+    toast.error(displayText(probeErrorMessage.value))
   }
 }
 
@@ -747,11 +753,11 @@ onBeforeUnmount(() => {
           <div :class="['i-solar:chat-round-dots-bold text-base']" />
         </div>
         <p :class="['leading-relaxed font-medium']">
-          {{ isIOSNative
+          {{ displayText(isIOSNative
             ? 'Pick an AI brain for your companion. Run 100% offline with Apple Neural Engine (ANE) or connect your preferred cloud API (OpenRouter, Gemini, OpenAI, Claude)!'
             : (isAndroidNative
               ? 'Pick an AI brain for your companion. Connect a free provider or configure your preferred cloud API (OpenRouter, Gemini, OpenAI, Claude)!'
-              : 'Pick an AI brain for your companion. Connect a free provider, configure your preferred cloud API (OpenRouter, Gemini, OpenAI, Claude), or run local WebLLM on WebGPU!') }}
+              : 'Pick an AI brain for your companion. Connect a free provider, configure your preferred cloud API (OpenRouter, Gemini, OpenAI, Claude), or run local WebLLM on WebGPU!')) }}
         </p>
       </div>
 
@@ -763,15 +769,15 @@ onBeforeUnmount(() => {
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <div class="i-solar:stars-line-bold-duotone h-4.5 w-4.5 text-purple-500" />
-            <span class="text-xs text-purple-800 font-bold tracking-wide uppercase dark:text-purple-300">Quick Pick: Configured LLM Brains</span>
+            <span class="text-xs text-purple-800 font-bold tracking-wide uppercase dark:text-purple-300">{{ t('onboarding.ui.quick-pick-configured-llm-brains') }}</span>
           </div>
-          <span class="rounded-full bg-purple-500/20 px-2 py-0.5 text-[10px] text-purple-700 font-bold dark:text-purple-300">1-CLICK SELECTION</span>
+          <span class="rounded-full bg-purple-500/20 px-2 py-0.5 text-[10px] text-purple-700 font-bold dark:text-purple-300">{{ t('onboarding.ui.1-click-selection') }}</span>
         </div>
         <BrainModelPicker
           v-model:provider="selectedProviderId"
           v-model:model="selectedModelId"
           variant="button"
-          title="Select Consciousness LLM"
+          :title="t('onboarding.ui.select-consciousness-llm')"
           side="bottom"
           class="w-full"
         />
@@ -790,8 +796,8 @@ onBeforeUnmount(() => {
           @click="activeTab = 'free'"
         >
           <div class="i-solar:cloud-bold-duotone h-4 w-4" />
-          <span>Free Cloud AI</span>
-          <span class="rounded-full bg-amber-500/10 px-1.5 py-0.2 text-[9px] text-amber-600 font-bold hidden sm:inline-block dark:text-amber-400">Zero Setup</span>
+          <span>{{ t('onboarding.ui.free-cloud-ai') }}</span>
+          <span class="rounded-full bg-amber-500/10 px-1.5 py-0.2 text-[9px] text-amber-600 font-bold hidden sm:inline-block dark:text-amber-400">{{ t('onboarding.ui.zero-setup') }}</span>
         </button>
 
         <button
@@ -805,8 +811,8 @@ onBeforeUnmount(() => {
           @click="activeTab = 'local'"
         >
           <div class="i-solar:cpu-bolt-bold-duotone h-4 w-4" />
-          <span>Local On-Device</span>
-          <span class="rounded-full bg-emerald-500/10 px-1.5 py-0.2 text-[9px] text-emerald-600 font-bold hidden sm:inline-block dark:text-emerald-400">Offline</span>
+          <span>{{ t('onboarding.ui.local-on-device') }}</span>
+          <span class="rounded-full bg-emerald-500/10 px-1.5 py-0.2 text-[9px] text-emerald-600 font-bold hidden sm:inline-block dark:text-emerald-400">{{ t('onboarding.ui.offline') }}</span>
         </button>
 
         <button
@@ -820,7 +826,7 @@ onBeforeUnmount(() => {
           @click="activeTab = 'custom'"
         >
           <div class="i-solar:key-minimalistic-square-bold-duotone h-4 w-4" />
-          <span>Custom API Key</span>
+          <span>{{ t('onboarding.ui.custom-api-key') }}</span>
         </button>
       </div>
 
@@ -836,10 +842,10 @@ onBeforeUnmount(() => {
             <div class="flex items-center gap-1.5">
               <span v-if="isCloudflareConnected" class="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400">
                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Connected
+                {{ t('settings.pages.modules.messaging-discord.connectivity.connected') }}
               </span>
               <span v-else class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-600 font-bold dark:text-amber-400">
-                Zero-Trust OAuth
+                {{ t('onboarding.ui.zero-trust-oauth') }}
               </span>
             </div>
           </div>
@@ -871,13 +877,13 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center justify-between gap-1">
-                    <span class="truncate text-xs text-neutral-800 font-bold dark:text-neutral-100">{{ preset.name }}</span>
+                    <span class="truncate text-xs text-neutral-800 font-bold dark:text-neutral-100">{{ displayText(preset.name) }}</span>
                     <span class="flex-shrink-0 rounded bg-primary-500/10 px-1.5 py-0.2 text-[9px] text-primary-600 font-bold dark:text-primary-400">
-                      {{ preset.badge }}
+                      {{ displayText(preset.badge) }}
                     </span>
                   </div>
                   <p class="line-clamp-1 mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                    {{ preset.description }}
+                    {{ displayText(preset.description) }}
                   </p>
                 </div>
               </button>
@@ -885,13 +891,13 @@ onBeforeUnmount(() => {
 
             <!-- Connected Account footer hint -->
             <div class="flex items-center justify-between pt-1 text-[11px] text-neutral-400">
-              <span class="truncate">Account: <span class="text-neutral-600 font-mono dark:text-neutral-300">{{ cloudflareStore.activeAccountId }}</span></span>
+              <span class="truncate">{{ t('onboarding.ui.account') }} <span class="text-neutral-600 font-mono dark:text-neutral-300">{{ displayText(cloudflareStore.activeAccountId) }}</span></span>
               <button
                 type="button"
                 class="cursor-pointer text-primary-500 hover:underline"
                 @click="isConnectModalOpen = true"
               >
-                Switch Account
+                {{ t('onboarding.ui.switch-account') }}
               </button>
             </div>
           </template>
@@ -900,7 +906,7 @@ onBeforeUnmount(() => {
           <template v-else>
             <div class="flex flex-col gap-3 border border-amber-500/20 rounded-xl bg-amber-500/5 p-3.5">
               <p class="text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
-                Connect your Cloudflare account to unlock high-speed LLaMA 3.3 70B, DeepSeek R1 32B, and GLM 4.7 Flash with generous free daily limits.
+                {{ t('onboarding.ui.connect-your-cloudflare-account-to-unlock-high-speed-llama-3-3-70b-deepseek-r1') }}
               </p>
               <div class="flex items-center gap-2">
                 <Button
@@ -909,7 +915,7 @@ onBeforeUnmount(() => {
                   @click="isConnectModalOpen = true"
                 >
                   <div class="i-simple-icons:cloudflare text-sm" />
-                  <span>Connect Cloudflare Account</span>
+                  <span>{{ t('onboarding.ui.connect-cloudflare-account') }}</span>
                 </Button>
               </div>
             </div>
@@ -924,7 +930,7 @@ onBeforeUnmount(() => {
               <span class="text-xs text-neutral-700 font-bold tracking-wider uppercase dark:text-neutral-300">Pollinations AI</span>
             </div>
             <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400">
-              100% Free · No Sign-in
+              {{ t('onboarding.ui.100-free-no-sign-in') }}
             </span>
           </div>
 
@@ -941,9 +947,9 @@ onBeforeUnmount(() => {
               ]"
               @click="selectPollinationsModel(preset.id)"
             >
-              <span class="truncate text-xs text-neutral-800 font-bold dark:text-neutral-100">{{ preset.name }}</span>
+              <span class="truncate text-xs text-neutral-800 font-bold dark:text-neutral-100">{{ displayText(preset.name) }}</span>
               <p class="line-clamp-2 text-[11px] text-neutral-500 dark:text-neutral-400">
-                {{ preset.description }}
+                {{ displayText(preset.description) }}
               </p>
             </button>
           </div>
@@ -954,11 +960,11 @@ onBeforeUnmount(() => {
           <div class="min-w-0 flex items-center gap-2.5">
             <div class="i-solar:stars-line-bold-duotone h-4.5 w-4.5 flex-shrink-0 text-amber-500" />
             <span class="truncate text-neutral-600 dark:text-neutral-300">
-              Want more free models? Explore <strong>370+ free endpoints</strong> in the Free AI Hub.
+              {{ t('onboarding.ui.want-more-free-models-explore') }} <strong>{{ t('onboarding.ui.370-free-endpoints') }}</strong> {{ t('onboarding.ui.in-the-free-ai-hub') }}
             </span>
           </div>
           <span class="flex-shrink-0 text-[11px] text-neutral-400">
-            Available in Settings
+            {{ t('onboarding.ui.available-in-settings') }}
           </span>
         </div>
       </div>
@@ -972,8 +978,8 @@ onBeforeUnmount(() => {
         >
           <div class="flex items-center gap-2">
             <div class="i-solar:cpu-bolt-bold-duotone h-4 w-4 text-primary-500" />
-            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Apple Core AI (Neural Engine)</span>
-            <span class="ml-auto rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400">ANE ACCELERATED · 100% OFFLINE</span>
+            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">{{ t('onboarding.ui.apple-core-ai-neural-engine') }}</span>
+            <span class="ml-auto rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400">{{ t('onboarding.ui.ane-accelerated-100-offline') }}</span>
           </div>
 
           <div class="grid grid-cols-1 gap-2">
@@ -995,17 +1001,17 @@ onBeforeUnmount(() => {
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">Gemma 4 E2B IT (Speculative CoreML)</span>
+                  <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">{{ t('onboarding.ui.gemma-4-e2b-it-speculative-coreml') }}</span>
                   <span class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-600 font-bold dark:text-amber-400">
-                    ⭐ RECOMMENDED ON-DEVICE
+                    {{ t('onboarding.ui.recommended-on-device') }}
                   </span>
                 </div>
                 <p class="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">
-                  High-speed neural dialogue on Apple Neural Engine (~45+ tok/s). 100% offline & private.
+                  {{ t('onboarding.ui.high-speed-neural-dialogue-on-apple-neural-engine-45-tok-s-100-offline-private') }}
                 </p>
               </div>
               <span class="flex-shrink-0 rounded-md bg-neutral-100 px-2 py-1 text-[10px] text-neutral-600 font-bold font-mono dark:bg-neutral-800 dark:text-neutral-300">
-                ~1.4 GB RAM
+                {{ t('onboarding.ui.1-4-gb-ram') }}
               </span>
             </button>
           </div>
@@ -1015,10 +1021,10 @@ onBeforeUnmount(() => {
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0 flex-1 flex-col">
                 <span class="truncate text-xs text-neutral-800 font-semibold dark:text-neutral-200">
-                  Selected: Gemma 4 E2B IT (Speculative CoreML)
+                  {{ t('onboarding.ui.selected-gemma-4-e2b-it-speculative-coreml') }}
                 </span>
                 <span class="text-[11px] text-neutral-500 dark:text-neutral-400">
-                  {{ coreAiState === 'ready' ? 'Model is compiled and ready to think on Apple Neural Engine.' : (coreAiState === 'downloading' ? 'Downloading CoreML weight bundle and compiling on device…' : 'Click to download and compile model on Apple Neural Engine.') }}
+                  {{ displayText(coreAiState === 'ready' ? 'Model is compiled and ready to think on Apple Neural Engine.' : (coreAiState === 'downloading' ? 'Downloading CoreML weight bundle and compiling on device…' : 'Click to download and compile model on Apple Neural Engine.')) }}
                 </span>
               </div>
 
@@ -1031,7 +1037,7 @@ onBeforeUnmount(() => {
                   @click="startCoreAiDownload"
                 >
                   <div class="i-solar:cloud-download-bold-duotone text-base" />
-                  <span>Download & Compile</span>
+                  <span>{{ t('onboarding.ui.download-compile') }}</span>
                 </Button>
 
                 <div
@@ -1039,7 +1045,7 @@ onBeforeUnmount(() => {
                   class="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-600 font-bold dark:text-emerald-400"
                 >
                   <div class="i-solar:check-circle-bold-duotone text-base" />
-                  <span>Active & Ready</span>
+                  <span>{{ t('onboarding.ui.active-ready') }}</span>
                 </div>
 
                 <Button
@@ -1049,7 +1055,7 @@ onBeforeUnmount(() => {
                   @click="startCoreAiDownload"
                 >
                   <div class="i-solar:restart-bold-duotone text-base" />
-                  <span>Retry Download</span>
+                  <span>{{ t('onboarding.ui.retry-download') }}</span>
                 </Button>
               </div>
             </div>
@@ -1057,8 +1063,8 @@ onBeforeUnmount(() => {
             <!-- Download progress bar -->
             <div v-if="coreAiState === 'downloading'" class="flex flex-col gap-1.5 pt-1">
               <div class="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-                <span class="truncate">{{ coreAiStatusText }}</span>
-                <span class="font-bold font-mono">{{ Math.floor(coreAiProgress) }}%</span>
+                <span class="truncate">{{ displayText(coreAiStatusText) }}</span>
+                <span class="font-bold font-mono">{{ displayText(Math.floor(coreAiProgress)) }}%</span>
               </div>
               <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
                 <div class="h-full rounded-full from-primary-500 to-indigo-500 bg-gradient-to-r transition-all duration-150" :style="{ width: `${coreAiProgress}%` }" />
@@ -1067,16 +1073,16 @@ onBeforeUnmount(() => {
 
             <!-- Error message -->
             <div v-if="coreAiState === 'error' && coreAiErrorMessage" class="break-all text-[11px] text-red-600/80 dark:text-red-400/80">
-              {{ coreAiErrorMessage }}
+              {{ displayText(coreAiErrorMessage) }}
             </div>
 
             <!-- Warmup notice -->
             <div class="flex items-start gap-2.5 border border-amber-500/20 rounded-lg bg-amber-500/10 p-3 text-xs text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-200">
               <div class="i-solar:hourglass-line-bold-duotone mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
               <div class="min-w-0 flex-1 space-y-0.5">
-                <span class="font-bold">First-Launch On-Device Warmup Notice</span>
+                <span class="font-bold">{{ t('onboarding.ui.first-launch-on-device-warmup-notice') }}</span>
                 <p class="text-[11px] text-amber-800/90 leading-relaxed dark:text-amber-300/90">
-                  When starting the companion for the first time, Apple Neural Engine takes <strong>~60–90 seconds</strong> to compile model graphs and warm up memory buffers. Please be patient while it initializes — all subsequent chat replies run near-instantaneously (~45+ tok/s)!
+                  {{ t('onboarding.ui.when-starting-the-companion-for-the-first-time-apple-neural-engine-takes') }} <strong>{{ t('onboarding.ui.60-90-seconds') }}</strong> {{ t('onboarding.ui.to-compile-model-graphs-and-warm-up-memory-buffers-please-be-patient-while-it') }}
                 </p>
               </div>
             </div>
@@ -1089,7 +1095,7 @@ onBeforeUnmount(() => {
           class="flex flex-shrink-0 items-start gap-2 border border-amber-300/60 rounded-xl bg-amber-50/80 p-3 text-xs text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300"
         >
           <div class="i-solar:danger-triangle-bold-duotone mt-0.5 h-4 w-4 flex-shrink-0" />
-          <span>WebGPU isn't available in this browser. Pick a free or cloud provider below (e.g. OpenRouter, Gemini, Pollinations, MiMo) to power your companion.</span>
+          <span>{{ t('onboarding.ui.webgpu-isn-t-available-in-this-browser-pick-a-free-or-cloud-provider-below-e-g') }}</span>
         </div>
 
         <!-- WebGPU FP32 Universal notice when shader-f16 is missing (Desktop/Web only) -->
@@ -1098,7 +1104,7 @@ onBeforeUnmount(() => {
           class="flex flex-shrink-0 items-start gap-2 border border-blue-400/40 rounded-xl bg-blue-50/80 p-3 text-xs text-blue-900 dark:border-blue-700/60 dark:bg-blue-900/20 dark:text-blue-200"
         >
           <div class="i-solar:info-circle-bold-duotone mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
-          <span>Legacy GPU / 32-bit WebGPU mode active (no <code>shader-f16</code> support). Showing universal FP32 models compatible with your hardware.</span>
+          <span>{{ t('onboarding.ui.legacy-gpu-32-bit-webgpu-mode-active-no') }} <code>shader-f16</code> {{ t('onboarding.ui.support-showing-universal-fp32-models-compatible-with-your-hardware') }}</span>
         </div>
 
         <!-- WebLLM Local Engine (Desktop / Web only) -->
@@ -1108,8 +1114,8 @@ onBeforeUnmount(() => {
         >
           <div class="flex items-center gap-2">
             <div class="i-solar:cpu-bolt-bold-duotone h-4 w-4 text-primary-500" />
-            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Local WebLLM (WebGPU Engine)</span>
-            <span class="ml-auto rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400">OFFLINE · LOCAL</span>
+            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">{{ t('onboarding.ui.local-webllm-webgpu-engine') }}</span>
+            <span class="ml-auto rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400">{{ t('onboarding.ui.offline-local') }}</span>
           </div>
 
           <div class="grid grid-cols-1 gap-2">
@@ -1135,20 +1141,20 @@ onBeforeUnmount(() => {
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">{{ model.name }}</span>
+                  <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">{{ displayText(model.name) }}</span>
                   <span
                     v-if="model.id === 'Qwen3.5-4B-q4f16_1-MLC' || (!fp16Supported && model.id === 'Hermes-3-Llama-3.2-3B-q4f32_1-MLC')"
                     class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-600 font-bold dark:text-amber-400"
                   >
-                    ⭐ RECOMMENDED
+                    {{ t('onboarding.ui.recommended') }}
                   </span>
                 </div>
                 <p class="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">
-                  {{ model.description }}
+                  {{ displayText(model.description) }}
                 </p>
               </div>
               <span class="flex-shrink-0 rounded-md bg-neutral-100 px-2 py-1 text-[10px] text-neutral-600 font-bold font-mono dark:bg-neutral-800 dark:text-neutral-300">
-                ~{{ (model.vramMB / 1024).toFixed(1) }} GB VRAM
+                ~{{ displayText((model.vramMB / 1024).toFixed(1)) }} {{ t('onboarding.ui.gb-vram') }}
               </span>
             </button>
           </div>
@@ -1158,10 +1164,10 @@ onBeforeUnmount(() => {
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0 flex flex-1 flex-col">
                 <span class="truncate text-xs text-neutral-800 font-semibold dark:text-neutral-200">
-                  Selected: {{ WEB_LLM_MODELS.find(m => m.id === selectedLlmModel)?.name }}
+                  {{ t('onboarding.ui.selected') }} {{ displayText(WEB_LLM_MODELS.find(m => m.id === selectedLlmModel)?.name) }}
                 </span>
                 <span class="text-[11px] text-neutral-500 dark:text-neutral-400">
-                  {{ downloadState === 'ready' ? 'Model is downloaded and ready to think.' : (downloadState === 'downloading' ? 'Downloading model shards into browser cache…' : 'Click to download and activate this model locally on WebGPU.') }}
+                  {{ displayText(downloadState === 'ready' ? 'Model is downloaded and ready to think.' : (downloadState === 'downloading' ? 'Downloading model shards into browser cache…' : 'Click to download and activate this model locally on WebGPU.')) }}
                 </span>
               </div>
 
@@ -1175,7 +1181,7 @@ onBeforeUnmount(() => {
                   @click="startWebLlmDownload"
                 >
                   <div class="i-solar:cloud-download-bold-duotone text-base" />
-                  <span>Download & Activate</span>
+                  <span>{{ t('onboarding.ui.download-activate') }}</span>
                 </Button>
 
                 <Button
@@ -1185,7 +1191,7 @@ onBeforeUnmount(() => {
                   @click="cancelWebLlmDownload"
                 >
                   <div class="i-solar:close-circle-bold-duotone text-base" />
-                  <span>Cancel</span>
+                  <span>{{ t('onboarding.ui.shared-ui-settings-search-cancel') }}</span>
                 </Button>
 
                 <div
@@ -1193,7 +1199,7 @@ onBeforeUnmount(() => {
                   class="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-600 font-bold dark:text-emerald-400"
                 >
                   <div class="i-solar:check-circle-bold-duotone text-base" />
-                  <span>Active & Ready</span>
+                  <span>{{ t('onboarding.ui.active-ready') }}</span>
                 </div>
 
                 <Button
@@ -1203,7 +1209,7 @@ onBeforeUnmount(() => {
                   @click="startWebLlmDownload"
                 >
                   <div class="i-solar:restart-bold-duotone text-base" />
-                  <span>Retry Download</span>
+                  <span>{{ t('onboarding.ui.retry-download') }}</span>
                 </Button>
               </div>
             </div>
@@ -1211,8 +1217,8 @@ onBeforeUnmount(() => {
             <!-- Download progress bar -->
             <div v-if="downloadState === 'downloading'" class="flex flex-col gap-1.5 pt-1">
               <div class="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-                <span class="truncate">{{ downloadStatusText }}</span>
-                <span class="font-bold font-mono">{{ Math.floor(downloadProgress) }}%</span>
+                <span class="truncate">{{ displayText(downloadStatusText) }}</span>
+                <span class="font-bold font-mono">{{ displayText(Math.floor(downloadProgress)) }}%</span>
               </div>
               <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
                 <div class="h-full rounded-full from-primary-500 to-indigo-500 bg-gradient-to-r transition-all duration-150" :style="{ width: `${downloadProgress}%` }" />
@@ -1221,7 +1227,7 @@ onBeforeUnmount(() => {
 
             <!-- Error message -->
             <div v-if="downloadState === 'error' && downloadErrorMessage" class="break-all text-[11px] text-red-600/80 dark:text-red-400/80">
-              {{ downloadErrorMessage }}
+              {{ displayText(downloadErrorMessage) }}
             </div>
           </div>
         </div>
@@ -1232,8 +1238,8 @@ onBeforeUnmount(() => {
         <!-- Cloud / Local Provider Matrix -->
         <div :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']">
           <div class="flex items-center justify-between">
-            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Choose an AI Brain Provider</span>
-            <span class="text-[10px] text-neutral-400">Alphabetical · Tap to select</span>
+            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">{{ t('onboarding.ui.choose-an-ai-brain-provider') }}</span>
+            <span class="text-[10px] text-neutral-400">{{ t('onboarding.ui.alphabetical-tap-to-select') }}</span>
           </div>
           <ProviderPickerGrid
             :model-value="selectedProviderId"
@@ -1257,10 +1263,10 @@ onBeforeUnmount(() => {
                 </div>
                 <div>
                   <h4 class="text-sm text-neutral-800 font-bold dark:text-neutral-100">
-                    Configure {{ inlineConfigProvider.name }}
+                    {{ t('onboarding.ui.configure') }} {{ displayText(inlineConfigProvider.name) }}
                   </h4>
                   <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Enter your API credentials to load AI models.
+                    {{ t('onboarding.ui.enter-your-api-credentials-to-load-ai-models') }}
                   </p>
                 </div>
               </div>
@@ -1271,7 +1277,7 @@ onBeforeUnmount(() => {
                 target="_blank"
                 class="flex items-center gap-1 text-[11px] text-primary-500 font-semibold hover:underline"
               >
-                <span>Get Key</span>
+                <span>{{ t('onboarding.ui.get-key') }}</span>
                 <div class="i-solar:square-top-down-bold h-3.5 w-3.5" />
               </a>
             </div>
@@ -1279,13 +1285,13 @@ onBeforeUnmount(() => {
             <!-- API Key Field -->
             <div class="space-y-1.5">
               <label class="text-xs text-neutral-700 font-semibold dark:text-neutral-300">
-                API Key <span class="text-red-500">*</span>
+                {{ t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label') }} <span class="text-red-500">*</span>
               </label>
               <div class="relative flex items-center">
                 <input
                   v-model="apiKeyInput"
                   :type="showApiKey ? 'text' : 'password'"
-                  :placeholder="getApiKeyPlaceholder(inlineConfigProvider.id)"
+                  :placeholder="displayText(getApiKeyPlaceholder(inlineConfigProvider.id))"
                   class="w-full border border-neutral-200 rounded-lg bg-white px-3 py-2 pr-10 text-xs text-neutral-800 font-mono outline-none transition dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-800 dark:text-neutral-100"
                   @keydown.enter="saveAndConnectInline"
                 >
@@ -1307,7 +1313,7 @@ onBeforeUnmount(() => {
                 @click="showBaseUrl = !showBaseUrl"
               >
                 <div :class="showBaseUrl ? 'i-solar:alt-arrow-down-line-duotone' : 'i-solar:alt-arrow-right-line-duotone'" class="h-3.5 w-3.5" />
-                <span>Advanced: Custom Base URL</span>
+                <span>{{ t('onboarding.ui.advanced-custom-base-url') }}</span>
               </button>
               <div v-if="showBaseUrl" class="pt-1">
                 <input
@@ -1326,7 +1332,7 @@ onBeforeUnmount(() => {
                 class="cursor-pointer border border-neutral-200 rounded-lg px-3 py-1.5 text-xs text-neutral-600 font-semibold dark:border-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 @click="handleCancelConfig"
               >
-                Cancel
+                {{ t('onboarding.ui.shared-ui-settings-search-cancel') }}
               </button>
               <button
                 type="button"
@@ -1335,7 +1341,7 @@ onBeforeUnmount(() => {
                 @click="saveAndConnectInline"
               >
                 <div v-if="isSavingConfig" class="i-solar:restart-square-bold h-3.5 w-3.5 animate-spin" />
-                <span>{{ isSavingConfig ? 'Connecting…' : 'Save & Connect' }}</span>
+                <span>{{ displayText(isSavingConfig ? 'Connecting…' : 'Save & Connect') }}</span>
               </button>
             </div>
           </div>
@@ -1347,9 +1353,9 @@ onBeforeUnmount(() => {
           >
             <!-- Section Header -->
             <div class="flex items-center justify-between">
-              <span class="text-xs text-neutral-500 font-bold uppercase dark:text-neutral-400">Model Selection & Test</span>
+              <span class="text-xs text-neutral-500 font-bold uppercase dark:text-neutral-400">{{ t('onboarding.ui.model-selection-test') }}</span>
               <span v-if="selectedChatProvider" class="text-[11px] text-neutral-400 font-semibold">
-                {{ selectedChatProvider.name }}
+                {{ displayText(selectedChatProvider.name) }}
               </span>
             </div>
 
@@ -1357,14 +1363,14 @@ onBeforeUnmount(() => {
             <div class="space-y-1.5">
               <div class="flex items-center justify-between">
                 <label class="text-xs text-neutral-700 font-semibold dark:text-neutral-300">
-                  Active Model ID <span class="text-red-500">*</span>
+                  {{ t('onboarding.ui.active-model-id') }} <span class="text-red-500">*</span>
                 </label>
-                <span class="text-[10px] text-neutral-400">Type directly or pick below</span>
+                <span class="text-[10px] text-neutral-400">{{ t('onboarding.ui.type-directly-or-pick-below') }}</span>
               </div>
               <input
                 v-model="selectedModelId"
                 type="text"
-                placeholder="e.g. gemini-2.5-flash, gpt-4o-mini, mistral-large-latest"
+                :placeholder="t('onboarding.ui.e-g-gemini-2-5-flash-gpt-4o-mini-mistral-large-latest')"
                 class="w-full border border-neutral-200 rounded-lg bg-white px-3 py-2 text-xs text-neutral-800 font-mono outline-none transition dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-800 dark:text-neutral-100"
               >
             </div>
@@ -1373,7 +1379,7 @@ onBeforeUnmount(() => {
             <div class="space-y-1.5">
               <div class="flex items-center justify-between">
                 <label class="text-xs text-neutral-700 font-semibold dark:text-neutral-300">
-                  Discovered Models
+                  {{ t('onboarding.ui.discovered-models') }}
                 </label>
                 <button
                   type="button"
@@ -1382,7 +1388,7 @@ onBeforeUnmount(() => {
                   @click="fetchLiveModels"
                 >
                   <div :class="[isLoadingActiveProviderModels ? 'animate-spin' : '', 'i-solar:restart-square-bold h-3.5 w-3.5']" />
-                  <span>{{ isLoadingActiveProviderModels ? 'Querying API…' : 'Get Models' }}</span>
+                  <span>{{ displayText(isLoadingActiveProviderModels ? 'Querying API…' : 'Get Models') }}</span>
                 </button>
               </div>
 
@@ -1394,7 +1400,7 @@ onBeforeUnmount(() => {
                   @change="onSelectModelFromDropdown"
                 >
                   <option value="" disabled selected>
-                    {{ isLoadingActiveProviderModels ? 'Querying API models…' : (providerModels.length > 0 ? 'Select a discovered model' : 'No Models Found') }}
+                    {{ displayText(isLoadingActiveProviderModels ? 'Querying API models…' : (providerModels.length > 0 ? 'Select a discovered model' : 'No Models Found')) }}
                   </option>
                   <option
                     v-for="model in providerModels"
@@ -1422,16 +1428,16 @@ onBeforeUnmount(() => {
           <div class="flex items-center gap-2">
             <div class="i-solar:play-circle-bold-duotone h-4.5 w-4.5 text-primary-500" />
             <span class="text-xs text-neutral-800 font-bold tracking-wider uppercase dark:text-neutral-200">
-              Dialogue Simulator & Brain Verification
+              {{ t('onboarding.ui.dialogue-simulator-brain-verification') }}
             </span>
           </div>
           <span class="text-[10px] text-neutral-400 font-mono">
-            Testing: {{ selectedModelId }}
+            {{ t('onboarding.ui.testing') }} {{ displayText(selectedModelId) }}
           </span>
         </div>
 
         <p class="text-[11px] text-neutral-500 leading-relaxed dark:text-neutral-400">
-          Simulate a turn to verify your companion responds in-character, measures live latency, and confirms brain connectivity before proceeding.
+          {{ t('onboarding.ui.simulate-a-turn-to-verify-your-companion-responds-in-character-measures-live-l') }}
         </p>
 
         <!-- Prompt Input & Run Button -->
@@ -1439,7 +1445,7 @@ onBeforeUnmount(() => {
           <input
             v-model="testSimulationPrompt"
             type="text"
-            placeholder="Say hello and introduce yourself!"
+            :placeholder="t('onboarding.ui.say-hello-and-introduce-yourself')"
             :disabled="probeState === 'connecting' || probeState === 'inferencing'"
             class="flex-1 border border-neutral-200 rounded-xl bg-white px-3 py-2 text-xs text-neutral-800 outline-none transition dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-800 dark:text-neutral-100 disabled:opacity-50"
             @keydown.enter="testBrainConnection"
@@ -1456,7 +1462,7 @@ onBeforeUnmount(() => {
             @click="testBrainConnection"
           >
             <div :class="[probeState === 'connecting' || probeState === 'inferencing' ? 'i-solar:refresh-circle-bold animate-spin h-3.5 w-3.5' : 'i-solar:play-bold h-3.5 w-3.5']" />
-            <span>{{ probeState === 'connecting' || probeState === 'inferencing' ? 'Testing…' : 'Simulate Turn' }}</span>
+            <span>{{ displayText(probeState === 'connecting' || probeState === 'inferencing' ? 'Testing…' : 'Simulate Turn') }}</span>
           </button>
         </div>
 
@@ -1466,7 +1472,7 @@ onBeforeUnmount(() => {
           class="flex items-center gap-2 py-1 text-xs text-neutral-400 italic"
         >
           <div class="i-solar:refresh-circle-bold h-4 w-4 animate-spin text-primary-500" />
-          <span>{{ probeState === 'connecting' ? 'Establishing provider connection…' : 'Generating in-character companion response…' }}</span>
+          <span>{{ displayText(probeState === 'connecting' ? 'Establishing provider connection…' : 'Generating in-character companion response…') }}</span>
         </div>
 
         <!-- Simulated Response Output Card -->
@@ -1477,22 +1483,22 @@ onBeforeUnmount(() => {
           <div class="flex items-center justify-between border-b border-emerald-500/15 pb-2">
             <div class="flex items-center gap-1.5 text-emerald-600 font-bold dark:text-emerald-400">
               <span class="h-2 w-2 rounded-full bg-emerald-500" />
-              <span>Brain Active & Verified</span>
+              <span>{{ t('onboarding.ui.brain-active-verified') }}</span>
             </div>
             <div class="flex items-center gap-2 text-[10px] font-mono">
               <span v-if="probeBenchmarkMs !== null" class="rounded bg-emerald-500/15 px-2 py-0.5 text-emerald-700 font-bold dark:text-emerald-300">
-                ⏱️ {{ probeBenchmarkMs }}ms TTFT
+                ⏱️ {{ displayText(probeBenchmarkMs) }}{{ t('onboarding.ui.ms-ttft') }}
               </span>
               <span v-if="probeTokens !== null" class="rounded bg-primary-500/15 px-2 py-0.5 text-primary-700 font-bold dark:text-primary-300">
-                📝 ~{{ probeTokens }} tokens
+                📝 ~{{ displayText(probeTokens) }} {{ t('onboarding.ui.tokens') }}
               </span>
               <span :class="['px-2 py-0.5 rounded font-bold', probeHasReasoning ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300']">
-                {{ probeHasReasoning ? '🧠 Reasoning CoT' : '⚡ Direct Stream' }}
+                {{ displayText(probeHasReasoning ? '🧠 Reasoning CoT' : '⚡ Direct Stream') }}
               </span>
             </div>
           </div>
           <p class="select-text whitespace-pre-wrap text-neutral-800 leading-relaxed dark:text-neutral-200">
-            {{ probeResponseMessage }}
+            {{ displayText(probeResponseMessage) }}
           </p>
         </div>
 
@@ -1503,9 +1509,9 @@ onBeforeUnmount(() => {
         >
           <div class="i-solar:danger-triangle-bold-duotone mt-0.5 h-4.5 w-4.5 flex-shrink-0 text-red-500" />
           <div class="min-w-0 flex-1">
-            <span class="font-bold">Brain Connection Failed:</span>
+            <span class="font-bold">{{ t('onboarding.ui.brain-connection-failed') }}</span>
             <p class="mt-0.5 break-all text-[11px] leading-snug">
-              {{ probeErrorMessage }}
+              {{ displayText(probeErrorMessage) }}
             </p>
           </div>
         </div>
@@ -1535,10 +1541,10 @@ onBeforeUnmount(() => {
       <!-- Center Status Hint -->
       <div :class="['text-[11px] text-neutral-400 font-medium italic hidden sm:block text-center truncate max-w-sm']">
         <span v-if="verified" class="text-emerald-500 font-semibold not-italic dark:text-emerald-400">
-          Brain connection verified! Ready to proceed.
+          {{ t('onboarding.ui.brain-connection-verified-ready-to-proceed') }}
         </span>
         <span v-else>
-          Configure an AI model & test connection to unlock Next.
+          {{ t('onboarding.ui.configure-an-ai-model-test-connection-to-unlock-next') }}
         </span>
       </div>
 
@@ -1581,11 +1587,11 @@ onBeforeUnmount(() => {
         <div class="flex items-center gap-3 text-amber-500">
           <div class="i-solar:danger-triangle-bold-duotone text-2xl" />
           <h3 class="text-sm text-neutral-800 font-bold dark:text-neutral-100">
-            Proceed Without an AI Brain?
+            {{ t('onboarding.ui.proceed-without-an-ai-brain') }}
           </h3>
         </div>
         <p class="text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
-          Without an active AI model, your companion will not be able to talk, think, or reply to your voice and chat messages.
+          {{ t('onboarding.ui.without-an-active-ai-model-your-companion-will-not-be-able-to-talk-think-or-re') }}
         </p>
         <div class="flex flex-col gap-2 pt-2">
           <button
@@ -1593,14 +1599,14 @@ onBeforeUnmount(() => {
             class="w-full cursor-pointer rounded-xl bg-primary-500 py-2.5 text-xs text-white font-bold shadow-md transition hover:bg-primary-600"
             @click="showSkipWarning = false"
           >
-            Stay & Configure Brain (Recommended)
+            {{ t('onboarding.ui.stay-configure-brain-recommended') }}
           </button>
           <button
             type="button"
             class="w-full cursor-pointer border border-neutral-200 rounded-xl py-2 text-xs text-neutral-500 font-semibold transition dark:border-neutral-700 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
             @click="confirmSkipAnyway"
           >
-            Skip Anyway (Configure Later in Settings)
+            {{ t('onboarding.ui.skip-anyway-configure-later-in-settings') }}
           </button>
         </div>
       </div>

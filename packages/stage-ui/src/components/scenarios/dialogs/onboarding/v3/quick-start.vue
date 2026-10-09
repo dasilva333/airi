@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from './composables/use-onboarding-display-text'
+
+
 import { isApplePlatform } from '@proj-airi/stage-shared'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -19,6 +22,9 @@ import { KOKORO_MODELS } from '../../../../../workers/kokoro/constants'
 import { ensureWhisperLoaded } from '../v2/whisper-loader'
 import { useStarterCardCommit } from './composables/useStarterCardCommit'
 import { useOnboardingV3Draft } from './stores/useOnboardingV3Draft'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onContinueFullSetup: () => void
@@ -290,7 +296,7 @@ async function testConnection() {
     return
 
   if (!isLocalLlmProvider.value && !apiKey.value.trim()) {
-    toast.error('Please enter an API key before testing connection.')
+    toast.error(displayText('Please enter an API key before testing connection.'))
     connectionStatus.value = 'idle'
     return
   }
@@ -337,12 +343,12 @@ async function testConnection() {
     // Auto-calibrate draftStore pacingPreset based on measured latency
     const recommendedPreset = elapsed < 800 ? 'snappy' : elapsed > 2500 ? 'deep' : 'balanced'
     draftStore.setThinking({ pacingPreset: recommendedPreset })
-    toast.success(`Connected! (${elapsed < 1000 ? `${elapsed}ms` : `${(elapsed / 1000).toFixed(1)}s`} TTFT)`)
+    toast.success(displayText(`Connected! (${elapsed < 1000 ? `${elapsed}ms` : `${(elapsed / 1000).toFixed(1)}s`} TTFT)`))
   }
   catch (err: any) {
     console.error('[QuickStart] Connection test failed:', err)
     connectionStatus.value = 'error'
-    toast.error(err?.message || 'Connection test failed. Check API key, model ID, and network.')
+    toast.error(displayText(err?.message || 'Connection test failed. Check API key, model ID, and network.'))
   }
   finally {
     if (benchmarkTimer) {
@@ -918,7 +924,7 @@ async function handleStartChatting() {
   }
   catch (err: any) {
     console.error('[QuickStart] Pre-flight preparation error:', err)
-    toast.error('Setup encountered an issue, but you can continue into Stage.')
+    toast.error(displayText('Setup encountered an issue, but you can continue into Stage.'))
     await new Promise(resolve => setTimeout(resolve, 500))
     props.onComplete()
   }
@@ -933,7 +939,7 @@ async function handleStartChatting() {
         <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white flex items-center gap-2']">
           <span>{{ t('onboarding.quickStart.title') }}</span>
           <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-500 border border-cyan-500/20']">
-            Fast Track · 60s
+            {{ t('onboarding.ui.fast-track-60s') }}
           </span>
         </h1>
         <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
@@ -957,7 +963,7 @@ async function handleStartChatting() {
           <input
             :value="companionName"
             type="text"
-            placeholder="ReLU"
+            :placeholder="t('settings.pages.card.creation.defaults.name')"
             :class="['h-8 px-3 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white/80 dark:bg-black/40 text-xs text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 w-32 font-medium']"
             @input="handleCompanionNameInput"
           >
@@ -976,22 +982,22 @@ async function handleStartChatting() {
                 <div :class="['i-ph:brain-duotone text-base']" />
               </div>
               <h2 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                Brain
+                {{ t('onboarding.ui.brain') }}
               </h2>
             </div>
             <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono']">
-              Required
+              {{ t('onboarding.ui.required') }}
             </span>
           </div>
           <p :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-            Connect your AI provider to power {{ companionName }}'s consciousness.
+            {{ t('onboarding.ui.connect-your-ai-provider-to-power') }} {{ companionName }}{{ t('onboarding.ui.s-consciousness') }}
           </p>
         </div>
 
         <div :class="['space-y-2.5 text-xs']">
           <!-- Full Provider Dropdown -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">Provider</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.shared-control-strip-ui-provider') }}</span>
             <select
               v-model="llmProvider"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
@@ -1001,14 +1007,14 @@ async function handleStartChatting() {
                 :key="p.id"
                 :value="p.id"
               >
-                {{ (p as any).name || p.id }}
+                {{ displayText((p as any).name || p.id) }}
               </option>
             </select>
           </div>
 
           <!-- API Key Input (Hidden for local on-device providers) -->
           <div v-if="!isLocalLlmProvider" :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">API key</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.api-key') }}</span>
             <div :class="['relative flex-1']">
               <input
                 v-model="apiKey"
@@ -1028,7 +1034,7 @@ async function handleStartChatting() {
 
           <!-- Model Selector -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">Model</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.shared-control-strip-radial-model') }}</span>
             <select
               v-if="availableLlmModels.length > 0"
               v-model="llmModel"
@@ -1039,7 +1045,7 @@ async function handleStartChatting() {
                 :key="m.id"
                 :value="m.id"
               >
-                {{ m.name || m.id }}
+                {{ displayText(m.name || m.id) }}
               </option>
             </select>
             <input
@@ -1061,7 +1067,7 @@ async function handleStartChatting() {
             @click="testConnection"
           >
             <div :class="[isTestingConnection ? 'i-solar:restart-circle-bold animate-spin text-cyan-400' : 'i-solar:link-circle-bold text-cyan-400', 'w-3.5 h-3.5']" />
-            <span>{{ isTestingConnection ? `Testing (${benchmarkElapsedSeconds})...` : 'Test connection' }}</span>
+            <span>{{ displayText(isTestingConnection ? `Testing (${benchmarkElapsedSeconds})...` : 'Test connection') }}</span>
           </button>
 
           <div :class="['flex items-center gap-2']">
@@ -1070,8 +1076,8 @@ async function handleStartChatting() {
               v-if="connectionStatus === 'connected' && calibratedPacing"
               :class="['inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 text-[10px] font-mono font-medium shadow-xs']"
             >
-              <span>{{ calibratedPacing.icon }}</span>
-              <span>Calibrated: {{ calibratedPacing.label }} ({{ calibratedPacing.ttft }})</span>
+              <span>{{ displayText(calibratedPacing.icon) }}</span>
+              <span>{{ t('onboarding.ui.calibrated') }} {{ displayText(calibratedPacing.label) }} ({{ displayText(calibratedPacing.ttft) }})</span>
             </div>
 
             <!-- Status Indicator -->
@@ -1080,28 +1086,28 @@ async function handleStartChatting() {
               :class="['flex items-center gap-1.5 text-[11px] font-medium text-emerald-500 dark:text-emerald-400 font-mono']"
             >
               <span :class="['w-2 h-2 rounded-full bg-emerald-500']" />
-              <span>Connected</span>
+              <span>{{ t('settings.pages.modules.messaging-discord.connectivity.connected') }}</span>
             </div>
             <div
               v-else-if="connectionStatus === 'error'"
               :class="['flex items-center gap-1.5 text-[11px] font-medium text-rose-500 dark:text-rose-400 font-mono']"
             >
               <span :class="['w-2 h-2 rounded-full bg-rose-500']" />
-              <span>Failed</span>
+              <span>{{ t('onboarding.ui.failed') }}</span>
             </div>
             <div
               v-else-if="!isLocalLlmProvider && !apiKey.trim()"
               :class="['flex items-center gap-1.5 text-[11px] font-medium text-neutral-400 font-mono']"
             >
               <span :class="['w-2 h-2 rounded-full bg-neutral-300 dark:bg-neutral-600']" />
-              <span>Key required</span>
+              <span>{{ t('onboarding.ui.key-required') }}</span>
             </div>
             <div
               v-else
               :class="['flex items-center gap-1.5 text-[11px] font-medium text-neutral-400 font-mono']"
             >
               <span :class="['w-2 h-2 rounded-full bg-neutral-300 dark:bg-neutral-600']" />
-              <span>Not tested</span>
+              <span>{{ t('onboarding.ui.not-tested') }}</span>
             </div>
           </div>
         </div>
@@ -1115,11 +1121,11 @@ async function handleStartChatting() {
               <div :class="['i-solar:heart-bold-duotone text-base']" />
             </div>
             <h2 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-              Companion
+              {{ t('onboarding.ui.companion') }}
             </h2>
           </div>
           <p :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-            Choose who will be by your side.
+            {{ t('onboarding.ui.choose-who-will-be-by-your-side') }}
           </p>
         </div>
 
@@ -1148,7 +1154,7 @@ async function handleStartChatting() {
             <div :class="['w-full h-20 rounded-lg overflow-hidden mb-2 bg-neutral-100 dark:bg-neutral-800/80 relative']">
               <img
                 :src="c.previewImg"
-                :alt="c.name"
+                :alt="displayText(c.name)"
                 :class="['h-full w-full object-cover group-hover:scale-105 transition-transform duration-300']"
                 @error="(e: any) => { e.target.style.display = 'none' }"
               >
@@ -1156,10 +1162,10 @@ async function handleStartChatting() {
 
             <!-- Name & Tag -->
             <span :class="['text-xs font-bold text-neutral-900 dark:text-white truncate max-w-full']">
-              {{ c.name }}
+              {{ displayText(c.name) }}
             </span>
             <span :class="['text-[10px] text-neutral-400 dark:text-neutral-500 font-medium truncate max-w-full']">
-              {{ c.tag }}
+              {{ displayText(c.tag) }}
             </span>
           </div>
         </div>
@@ -1167,14 +1173,14 @@ async function handleStartChatting() {
         <!-- Active Companion Subtitle & Reactive Speech Bubble Preview -->
         <div :class="['space-y-1.5 pt-0.5']">
           <div :class="['text-[11px] font-medium text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5']">
-            <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">{{ activeCompanion.title }}</span>
+            <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">{{ displayText(activeCompanion.title) }}</span>
             <span>•</span>
-            <span :class="['truncate']">{{ activeCompanion.personality }}</span>
+            <span :class="['truncate']">{{ displayText(activeCompanion.personality) }}</span>
           </div>
 
           <!-- Dynamic Speech Bubble (Reacts immediately to userName change) -->
           <div :class="['relative rounded-xl border border-cyan-500/30 bg-cyan-500/5 dark:bg-cyan-950/20 px-3 py-2 text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed']">
-            "{{ activeGreeting }}"
+            "{{ displayText(activeGreeting) }}"
           </div>
         </div>
       </div>
@@ -1188,11 +1194,11 @@ async function handleStartChatting() {
                 <div :class="['i-solar:volume-loud-bold-duotone text-base']" />
               </div>
               <h2 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                Voice
+                {{ t('settings.voices') }}
               </h2>
             </div>
             <p :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-              Give {{ companionName }} a clear voice.
+              {{ t('onboarding.ui.give') }} {{ companionName }} {{ t('onboarding.ui.a-clear-voice') }}
             </p>
           </div>
 
@@ -1210,29 +1216,29 @@ async function handleStartChatting() {
         <div :class="['space-y-2.5 text-xs', !isVoiceEnabled && 'opacity-50 pointer-events-none']">
           <!-- 1. Engine Dropdown (Kokoro 82M Default) -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">Engine</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.engine') }}</span>
             <select
               v-model="ttsEngine"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
             >
-              <optgroup label="Local / On-Device (Zero-Cloud)">
+              <optgroup :label="t('onboarding.ui.local-on-device-zero-cloud')">
                 <option value="kokoro-local">
-                  Kokoro 82M TTS (Zero-Gate · WebGPU / WASM)
+                  {{ t('onboarding.ui.kokoro-82m-tts-zero-gate-webgpu-wasm') }}
                 </option>
                 <option value="pocket-tts-local">
-                  Pocket-TTS Local (100M CPU)
+                  {{ t('onboarding.ui.pocket-tts-local-100m-cpu') }}
                 </option>
                 <option value="moss-nano-local">
-                  Moss-Nano Local (Ultra-Fast)
+                  {{ t('onboarding.ui.moss-nano-local-ultra-fast') }}
                 </option>
               </optgroup>
-              <optgroup v-if="cloudSpeechProviders.length > 0" label="Cloud Providers">
+              <optgroup v-if="cloudSpeechProviders.length > 0" :label="t('onboarding.steps.vision.tabs.custom')">
                 <option
                   v-for="p in cloudSpeechProviders"
                   :key="p.id"
                   :value="p.id"
                 >
-                  {{ p.name }}
+                  {{ displayText(p.name) }}
                 </option>
               </optgroup>
             </select>
@@ -1240,7 +1246,7 @@ async function handleStartChatting() {
 
           <!-- 2. Model Dropdown -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">Model</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.shared-control-strip-radial-model') }}</span>
             <select
               v-model="ttsModel"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
@@ -1250,14 +1256,14 @@ async function handleStartChatting() {
                 :key="m.id"
                 :value="m.id"
               >
-                {{ m.label }}
+                {{ displayText(m.label) }}
               </option>
             </select>
           </div>
 
           <!-- 3. Voice Dropdown (Paired with Character Persona) -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">Voice</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('settings.voices') }}</span>
             <select
               :value="ttsVoice"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
@@ -1271,7 +1277,7 @@ async function handleStartChatting() {
                 :key="v.id"
                 :value="v.id"
               >
-                {{ v.label }}
+                {{ displayText(v.label) }}
               </option>
             </select>
           </div>
@@ -1286,12 +1292,12 @@ async function handleStartChatting() {
             @click="auditionGreeting"
           >
             <div :class="[isAuditioning ? 'i-solar:soundwave-bold animate-pulse text-cyan-400' : 'i-solar:volume-loud-bold text-cyan-400', 'w-3.5 h-3.5']" />
-            <span>{{ isAuditioning ? 'Speaking...' : 'Hear greeting' }}</span>
+            <span>{{ displayText(isAuditioning ? 'Speaking...' : 'Hear greeting') }}</span>
           </button>
 
           <div :class="['flex items-center gap-1.5 text-[11px] font-medium font-mono', isVoiceEnabled ? 'text-emerald-500 dark:text-emerald-400' : 'text-neutral-400']">
             <span :class="['w-2 h-2 rounded-full', isVoiceEnabled ? 'bg-emerald-500' : 'bg-neutral-400']" />
-            <span>{{ isVoiceEnabled ? 'Ready' : 'Muted' }}</span>
+            <span>{{ displayText(isVoiceEnabled ? 'Ready' : 'Muted') }}</span>
           </div>
         </div>
       </div>
@@ -1305,11 +1311,11 @@ async function handleStartChatting() {
                 <div :class="['i-solar:microphone-3-bold-duotone text-base']" />
               </div>
               <h2 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                Hearing
+                {{ t('onboarding.steps.hearing.label') }}
               </h2>
             </div>
             <p :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-              Let {{ companionName }} hear your voice.
+              {{ t('onboarding.ui.let') }} {{ companionName }} {{ t('onboarding.ui.hear-your-voice') }}
             </p>
           </div>
 
@@ -1327,23 +1333,23 @@ async function handleStartChatting() {
         <div :class="['space-y-2.5 text-xs', !isHearingEnabled && 'opacity-50 pointer-events-none']">
           <!-- Engine Selector (Whisper Local Default) -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">Engine</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.engine') }}</span>
             <select
               v-model="sttEngine"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
             >
               <option value="whisper-local">
-                Whisper Local (WebGPU On-Device)
+                {{ t('onboarding.ui.whisper-local-webgpu-on-device') }}
               </option>
               <option value="browser-web-speech-api">
-                Browser Web Speech
+                {{ t('onboarding.ui.browser-web-speech') }}
               </option>
             </select>
           </div>
 
           <!-- Model Picker (When Whisper Local selected, defaults to tiny) -->
           <div v-if="sttEngine === 'whisper-local'" :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">Model</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.shared-control-strip-radial-model') }}</span>
             <select
               v-model="sttModel"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer font-mono text-[11px]']"
@@ -1353,14 +1359,14 @@ async function handleStartChatting() {
                 :key="m.id"
                 :value="m.id"
               >
-                {{ m.label }}
+                {{ displayText(m.label) }}
               </option>
             </select>
           </div>
 
           <!-- Microphone Device Picker -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">Microphone</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('settings.microphone') }}</span>
             <select
               v-model="selectedMicId"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer truncate']"
@@ -1370,7 +1376,7 @@ async function handleStartChatting() {
                 :key="mic.id"
                 :value="mic.id"
               >
-                {{ mic.label }}
+                {{ displayText(mic.label) }}
               </option>
             </select>
           </div>
@@ -1393,7 +1399,7 @@ async function handleStartChatting() {
               />
             </div>
             <span :class="['text-[10px] text-neutral-400 font-mono truncate']">
-              {{ isTestingMic ? 'Listening...' : 'Idle' }}
+              {{ displayText(isTestingMic ? 'Listening...' : 'Idle') }}
             </span>
           </div>
 
@@ -1404,7 +1410,7 @@ async function handleStartChatting() {
             @click="toggleTestMic"
           >
             <div :class="[isTestingMic ? 'i-solar:microphone-bold text-cyan-400 animate-pulse' : 'i-solar:microphone-3-bold text-cyan-400', 'w-3.5 h-3.5']" />
-            <span>{{ isTestingMic ? 'Stop test' : 'Test microphone' }}</span>
+            <span>{{ displayText(isTestingMic ? 'Stop test' : 'Test microphone') }}</span>
           </button>
         </div>
       </div>
@@ -1419,8 +1425,8 @@ async function handleStartChatting() {
             <div :class="['i-solar:database-bold-duotone text-sm']" />
           </div>
           <div :class="['flex flex-col min-w-0']">
-            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">Memory (LTMM)</span>
-            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">Remember across sessions.</span>
+            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.ui.memory-ltmm') }}</span>
+            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.ui.remember-across-sessions') }}</span>
           </div>
         </div>
         <label :class="['relative inline-flex items-center cursor-pointer shrink-0']">
@@ -1440,8 +1446,8 @@ async function handleStartChatting() {
             <div :class="['i-solar:magnifer-bold-duotone text-sm']" />
           </div>
           <div :class="['flex flex-col min-w-0']">
-            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">Web Search</span>
-            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">Real-time open search.</span>
+            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.ui.web-search') }}</span>
+            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.ui.real-time-open-search') }}</span>
           </div>
         </div>
         <label :class="['relative inline-flex items-center cursor-pointer shrink-0']">
@@ -1461,8 +1467,8 @@ async function handleStartChatting() {
             <div :class="['i-solar:folder-with-files-bold-duotone text-sm']" />
           </div>
           <div :class="['flex flex-col min-w-0']">
-            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">Workspace Files</span>
-            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">Safe ~/Projects reading.</span>
+            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.ui.workspace-files') }}</span>
+            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.ui.safe-projects-reading') }}</span>
           </div>
         </div>
         <label :class="['relative inline-flex items-center cursor-pointer shrink-0']">
@@ -1482,8 +1488,8 @@ async function handleStartChatting() {
             <div :class="['i-solar:palette-round-bold-duotone text-sm']" />
           </div>
           <div :class="['flex flex-col min-w-0']">
-            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">Visual Artistry</span>
-            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">1-click free Pollinations.</span>
+            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.ui.visual-artistry') }}</span>
+            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.ui.1-click-free-pollinations') }}</span>
           </div>
         </div>
         <label :class="['relative inline-flex items-center cursor-pointer shrink-0']">
@@ -1502,8 +1508,8 @@ async function handleStartChatting() {
       <div :class="['flex items-center gap-2 text-xs']">
         <span :class="['w-2.5 h-2.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse']" />
         <div :class="['flex flex-col']">
-          <span :class="['font-bold text-neutral-900 dark:text-white text-[11px]']">Ready to meet {{ companionName }}</span>
-          <span :class="['text-[10px] text-neutral-400 leading-none']">All systems configured and calibrated.</span>
+          <span :class="['font-bold text-neutral-900 dark:text-white text-[11px]']">{{ t('onboarding.ui.ready-to-meet') }} {{ companionName }}</span>
+          <span :class="['text-[10px] text-neutral-400 leading-none']">{{ t('onboarding.ui.all-systems-configured-and-calibrated') }}</span>
         </div>
       </div>
 
@@ -1543,10 +1549,10 @@ async function handleStartChatting() {
             </div>
             <div>
               <h3 :class="['text-base font-bold text-neutral-900 dark:text-white']">
-                Preparing {{ companionName }}...
+                {{ t('onboarding.ui.preparing') }} {{ companionName }}...
               </h3>
               <p :class="['text-xs text-neutral-500 dark:text-neutral-400']">
-                Initializing neural engines and local memory.
+                {{ t('onboarding.ui.initializing-neural-engines-and-local-memory') }}
               </p>
             </div>
           </div>
@@ -1554,8 +1560,8 @@ async function handleStartChatting() {
           <!-- Overall Progress Bar -->
           <div :class="['space-y-1.5']">
             <div :class="['flex items-center justify-between text-[11px] font-mono text-neutral-500 dark:text-neutral-400']">
-              <span>Setup Progress</span>
-              <span>{{ preparationProgress }}%</span>
+              <span>{{ t('onboarding.ui.setup-progress') }}</span>
+              <span>{{ displayText(preparationProgress) }}%</span>
             </div>
             <div :class="['w-full h-2 rounded-full bg-neutral-200 dark:bg-white/10 overflow-hidden']">
               <div
@@ -1582,8 +1588,8 @@ async function handleStartChatting() {
               <div :class="['flex items-center gap-2.5 min-w-0']">
                 <div :class="[step.icon, 'text-base shrink-0 text-cyan-400']" />
                 <div :class="['flex flex-col min-w-0']">
-                  <span :class="['font-semibold text-xs truncate']">{{ step.label }}</span>
-                  <span :class="['text-[10px] text-neutral-400 dark:text-neutral-500 truncate']">{{ step.desc }}</span>
+                  <span :class="['font-semibold text-xs truncate']">{{ displayText(step.label) }}</span>
+                  <span :class="['text-[10px] text-neutral-400 dark:text-neutral-500 truncate']">{{ displayText(step.desc) }}</span>
                 </div>
               </div>
 
@@ -1603,7 +1609,7 @@ async function handleStartChatting() {
                   v-else
                   :class="['text-[10px] text-neutral-400 font-mono']"
                 >
-                  queued
+                  {{ t('onboarding.ui.queued') }}
                 </span>
               </div>
             </div>

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+import { useI18n } from 'vue-i18n'
+
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { artistryGenerateHeadless, formatCorsProxyUrl } from '@proj-airi/stage-shared'
 import {
@@ -9,6 +12,11 @@ import {
   DialogTitle,
 } from 'reka-ui'
 import { ref, watch } from 'vue'
+
+const { t } = useI18n()
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   open: boolean
@@ -159,7 +167,7 @@ function handleClose() {
           <div :class="['flex items-center gap-2']">
             <span :class="['w-2.5 h-2.5 rounded-full bg-emerald-400', isGenerating ? 'animate-ping' : '']" />
             <DialogTitle :class="['text-xs font-bold text-white uppercase tracking-wider']">
-              Visual Style Preview
+              {{ t('onboarding.ui.visual-style-preview') }}
             </DialogTitle>
           </div>
           <button
@@ -175,28 +183,28 @@ function handleClose() {
         <div :class="['relative w-full aspect-square rounded-xl overflow-hidden bg-black/60 border border-white/10 flex items-center justify-center shadow-inner']">
           <div v-if="isGenerating" :class="['flex flex-col items-center justify-center gap-2 text-center p-4']">
             <div :class="['w-8 h-8 border-3 border-primary-400 border-t-transparent rounded-full animate-spin']" />
-            <span :class="['text-xs text-primary-300 font-medium']">{{ generationStatus }}</span>
-            <span :class="['text-[10px] text-neutral-500']">Rendering character style sample...</span>
+            <span :class="['text-xs text-primary-300 font-medium']">{{ displayText(generationStatus) }}</span>
+            <span :class="['text-[10px] text-neutral-500']">{{ t('onboarding.ui.rendering-character-style-sample') }}</span>
           </div>
 
           <div v-else-if="generationError" :class="['flex flex-col items-center justify-center gap-2 text-center p-4 text-rose-400 text-xs']">
             <div :class="['i-solar:danger-triangle-bold text-2xl text-rose-500']" />
             <p :class="['text-[11px] leading-relaxed']">
-              {{ generationError }}
+              {{ displayText(generationError) }}
             </p>
             <button
               type="button"
               :class="['mt-2 px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] hover:bg-rose-500/30 cursor-pointer']"
               @click="runGeneration"
             >
-              Try Again
+              {{ t('onboarding.ui.try-again') }}
             </button>
           </div>
 
           <img
             v-else-if="generatedImageUrl"
             :src="generatedImageUrl"
-            alt="Character Style Preview"
+            :alt="t('onboarding.ui.character-style-preview')"
             :class="['w-full h-full object-cover transition-opacity duration-300']"
           >
         </div>
@@ -204,11 +212,11 @@ function handleClose() {
         <!-- Metadata & Prompt Echo -->
         <div :class="['space-y-1.5 text-xs']">
           <div :class="['flex items-center justify-between text-[11px]']">
-            <span :class="['text-neutral-400']">Provider: <strong :class="['text-primary-300 font-medium capitalize']">{{ provider }}</strong></span>
-            <span v-if="generationLatency" :class="['text-emerald-400 font-mono text-[10px]']">{{ generationLatency }}</span>
+            <span :class="['text-neutral-400']">{{ t('onboarding.ui.provider') }} <strong :class="['text-primary-300 font-medium capitalize']">{{ displayText(provider) }}</strong></span>
+            <span v-if="generationLatency" :class="['text-emerald-400 font-mono text-[10px]']">{{ displayText(generationLatency) }}</span>
           </div>
           <p :class="['text-[10px] text-neutral-300 font-mono line-clamp-2 bg-black/40 p-2 rounded-lg border border-white/5 leading-relaxed']">
-            {{ prompt }}
+            {{ displayText(prompt) }}
           </p>
         </div>
 
@@ -220,14 +228,14 @@ function handleClose() {
             :class="['flex-1 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-300 text-xs font-medium border border-white/10 transition-colors cursor-pointer disabled:opacity-50']"
             @click="runGeneration"
           >
-            🔄 Re-roll
+            {{ t('onboarding.ui.re-roll') }}
           </button>
           <button
             type="button"
             :class="['flex-1 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-md shadow-primary-600/30 transition-colors cursor-pointer']"
             @click="handleClose"
           >
-            Done / Close
+            {{ t('onboarding.ui.done-close') }}
           </button>
         </div>
       </DialogContent>

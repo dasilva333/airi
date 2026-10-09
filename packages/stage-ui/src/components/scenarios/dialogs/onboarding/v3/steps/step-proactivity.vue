@@ -1,9 +1,17 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+import { useI18n } from 'vue-i18n'
+
 import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { Button } from '@proj-airi/ui'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
+
+const { t } = useI18n()
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -251,14 +259,14 @@ onBeforeUnmount(() => {
         <div>
           <div :class="['flex items-center gap-2']">
             <h2 :class="['text-lg font-bold text-neutral-900 dark:text-white tracking-tight']">
-              Proactive Presence & Awareness
+              {{ t('onboarding.ui.proactive-presence-awareness') }}
             </h2>
             <span :class="['text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400']">
-              SCHEDULE & SENSORY ENGINES
+              {{ t('onboarding.ui.schedule-sensory-engines') }}
             </span>
           </div>
           <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            Define when your companion is active and how they proactively interact with your day.
+            {{ t('onboarding.ui.define-when-your-companion-is-active-and-how-they-proactively-interact-with-yo') }}
           </p>
         </div>
       </div>
@@ -283,7 +291,7 @@ onBeforeUnmount(() => {
               proactivityEngineMode !== 'on-demand' ? 'bg-current animate-pulse' : 'bg-neutral-400',
             ]"
           />
-          <span>{{ proactivityEngineMode.toUpperCase() }} ACTIVE</span>
+          <span>{{ displayText(proactivityEngineMode.toUpperCase()) }} {{ t('onboarding.ui.active') }}</span>
         </span>
       </div>
     </div>
@@ -298,7 +306,7 @@ onBeforeUnmount(() => {
           <div>
             <div :class="['flex items-center gap-2']">
               <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                Operating Schedule & Quiet Hours
+                {{ t('onboarding.ui.operating-schedule-quiet-hours') }}
               </h3>
               <span
                 :class="[
@@ -308,11 +316,11 @@ onBeforeUnmount(() => {
                     : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
                 ]"
               >
-                {{ isQuietHoursActive ? 'QUIET HOURS (ASLEEP)' : 'ACTIVE WAKING HOURS' }}
+                {{ displayText(isQuietHoursActive ? 'QUIET HOURS (ASLEEP)' : 'ACTIVE WAKING HOURS') }}
               </span>
             </div>
             <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-              Boundaries governing when your companion can reach out. Guarantees 100% display privacy and silence at bedtime.
+              {{ t('onboarding.ui.boundaries-governing-when-your-companion-can-reach-out-guarantees-100-display') }}
             </p>
           </div>
         </div>
@@ -342,7 +350,7 @@ onBeforeUnmount(() => {
           <div :class="['flex flex-col gap-1.5 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
             <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
               <div :class="['i-solar:sun-2-bold-duotone text-amber-500']" />
-              <span>Wake-Up Time</span>
+              <span>{{ t('onboarding.ui.wake-up-time') }}</span>
             </label>
             <input
               v-model="wakeUpTime"
@@ -356,7 +364,7 @@ onBeforeUnmount(() => {
           <div :class="['flex flex-col gap-1.5 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
             <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
               <div :class="['i-solar:moon-bold-duotone text-indigo-500']" />
-              <span>Bedtime / Quiet Hours Start</span>
+              <span>{{ t('onboarding.ui.bedtime-quiet-hours-start') }}</span>
             </label>
             <input
               v-model="bedTime"
@@ -378,11 +386,11 @@ onBeforeUnmount(() => {
               @change="syncDraft()"
             >
             <label for="afk-pause-toggle" :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 cursor-pointer']">
-              Pause Proactive Messages When Away (AFK)
+              {{ t('onboarding.ui.pause-proactive-messages-when-away-afk') }}
             </label>
           </div>
           <div v-if="pauseOnAfk" :class="['flex items-center gap-1.5 text-xs text-neutral-500']">
-            <span>after</span>
+            <span>{{ t('onboarding.ui.after') }}</span>
             <input
               v-model.number="afkMinutes"
               type="number"
@@ -391,7 +399,7 @@ onBeforeUnmount(() => {
               :class="['w-12 px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs text-center font-mono']"
               @change="syncDraft()"
             >
-            <span>min</span>
+            <span>{{ t('onboarding.ui.min') }}</span>
           </div>
         </div>
       </div>
@@ -402,14 +410,14 @@ onBeforeUnmount(() => {
       <div>
         <div :class="['flex items-center gap-2']">
           <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-            Proactivity Engine
+            {{ t('onboarding.ui.proactivity-engine') }}
           </h3>
           <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20']">
-            INTERACTION STYLE
+            {{ t('onboarding.ui.interaction-style') }}
           </span>
         </div>
         <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-          Select how your companion perceives and initiates interactions throughout the day.
+          {{ t('onboarding.ui.select-how-your-companion-perceives-and-initiates-interactions-throughout-the') }}
         </p>
       </div>
 
@@ -440,20 +448,20 @@ onBeforeUnmount(() => {
                 <div :class="mode.icon" />
               </div>
               <span :class="['text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border', mode.badgeColor]">
-                {{ mode.badge }}
+                {{ displayText(mode.badge) }}
               </span>
             </div>
             <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white mb-1']">
-              {{ mode.title }}
+              {{ displayText(mode.title) }}
             </h4>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug']">
-              {{ mode.desc }}
+              {{ displayText(mode.desc) }}
             </p>
           </div>
 
           <div :class="['mt-3 pt-2 border-t border-neutral-200/50 dark:border-white/5 flex items-center justify-between text-[10px] font-medium']">
             <span :class="proactivityEngineMode === mode.id ? 'text-primary-600 dark:text-primary-400 font-bold' : 'text-neutral-400'">
-              {{ proactivityEngineMode === mode.id ? 'Active' : 'Select' }}
+              {{ displayText(proactivityEngineMode === mode.id ? 'Active' : 'Select') }}
             </span>
             <div :class="[proactivityEngineMode === mode.id ? 'i-solar:check-circle-bold text-primary-500' : 'i-solar:circle-linear text-neutral-400', 'w-3.5 h-3.5']" />
           </div>
@@ -469,14 +477,14 @@ onBeforeUnmount(() => {
       <div>
         <div :class="['flex items-center gap-2']">
           <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-            Engine Fine-Tuning
+            {{ t('onboarding.ui.engine-fine-tuning') }}
           </h3>
           <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20']">
-            CADENCE & SENSORS
+            {{ t('onboarding.ui.cadence-sensors') }}
           </span>
         </div>
         <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-          Fine-tune reaction behavior, capture resolution, and smart silence guarantees.
+          {{ t('onboarding.ui.fine-tune-reaction-behavior-capture-resolution-and-smart-silence-guarantees') }}
         </p>
       </div>
 
@@ -484,7 +492,7 @@ onBeforeUnmount(() => {
       <div v-if="screenWatcherEnabled" :class="['flex flex-col gap-3 pt-2 border-t border-neutral-200/60 dark:border-white/5']">
         <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
           <div :class="['i-solar:videocamera-record-bold-duotone text-sky-500']" />
-          <span>Screen Reaction Delivery Mode</span>
+          <span>{{ t('onboarding.ui.screen-reaction-delivery-mode') }}</span>
         </label>
         <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2']">
           <button
@@ -501,10 +509,10 @@ onBeforeUnmount(() => {
           >
             <div :class="['flex items-center gap-1.5 mb-1']">
               <div :class="[mode.icon, 'w-3.5 h-3.5 text-primary-500']" />
-              <span :class="['text-xs font-bold']">{{ mode.title }}</span>
+              <span :class="['text-xs font-bold']">{{ displayText(mode.title) }}</span>
             </div>
             <p :class="['text-[10px] text-neutral-400 leading-snug line-clamp-2']">
-              {{ mode.desc }}
+              {{ displayText(mode.desc) }}
             </p>
           </button>
         </div>
@@ -514,7 +522,7 @@ onBeforeUnmount(() => {
           <!-- Perception Engine Tier -->
           <div :class="['flex flex-col gap-1.5']">
             <label :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
-              Perception Engine Tier
+              {{ t('onboarding.ui.perception-engine-tier') }}
             </label>
             <div :class="['grid grid-cols-2 gap-1.5']">
               <button
@@ -530,10 +538,10 @@ onBeforeUnmount(() => {
                 @click="screenWatcherTier = tier.id; syncDraft()"
               >
                 <div :class="['text-xs font-bold truncate']">
-                  {{ tier.title }}
+                  {{ displayText(tier.title) }}
                 </div>
                 <div :class="['text-[9px] font-mono text-primary-500 font-semibold']">
-                  {{ tier.vram }}
+                  {{ displayText(tier.vram) }}
                 </div>
               </button>
             </div>
@@ -542,7 +550,7 @@ onBeforeUnmount(() => {
           <!-- Screen Sampling Cadence -->
           <div :class="['flex flex-col gap-1.5']">
             <label :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
-              Screen Sampling Cadence
+              {{ t('onboarding.ui.screen-sampling-cadence') }}
             </label>
             <div :class="['grid grid-cols-4 gap-1.5']">
               <button
@@ -557,7 +565,7 @@ onBeforeUnmount(() => {
                 ]"
                 @click="screenWatcherInterval = preset.value; syncDraft()"
               >
-                {{ preset.label }}
+                {{ displayText(preset.label) }}
               </button>
             </div>
           </div>
@@ -568,7 +576,7 @@ onBeforeUnmount(() => {
       <div v-if="heartbeatsEnabled" :class="['flex flex-col gap-3 pt-2 border-t border-neutral-200/60 dark:border-white/5']">
         <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
           <div :class="['i-solar:heart-pulse-2-bold-duotone text-rose-500']" />
-          <span>Ambient Check-In Cadence</span>
+          <span>{{ t('onboarding.ui.ambient-check-in-cadence') }}</span>
         </label>
         <div :class="['grid grid-cols-2 sm:grid-cols-4 gap-2']">
           <button
@@ -583,7 +591,7 @@ onBeforeUnmount(() => {
             ]"
             @click="heartbeatsInterval = preset.value; syncDraft()"
           >
-            {{ preset.label }}
+            {{ displayText(preset.label) }}
           </button>
         </div>
 
@@ -596,7 +604,7 @@ onBeforeUnmount(() => {
               :class="['h-3.5 w-3.5 rounded text-primary-600 focus:ring-primary-500 cursor-pointer']"
               @change="syncDraft()"
             >
-            <span :class="['text-neutral-700 dark:text-neutral-300 font-medium']">Active Window & App History</span>
+            <span :class="['text-neutral-700 dark:text-neutral-300 font-medium']">{{ t('onboarding.ui.active-window-app-history') }}</span>
           </label>
 
           <label :class="['flex items-center gap-2 border border-neutral-200/80 dark:border-white/10 rounded-xl bg-neutral-50/70 dark:bg-white/[0.02] p-2.5 text-xs cursor-pointer']">
@@ -606,7 +614,7 @@ onBeforeUnmount(() => {
               :class="['h-3.5 w-3.5 rounded text-primary-600 focus:ring-primary-500 cursor-pointer']"
               @change="syncDraft()"
             >
-            <span :class="['text-neutral-700 dark:text-neutral-300 font-medium']">CPU & System Load Telemetry</span>
+            <span :class="['text-neutral-700 dark:text-neutral-300 font-medium']">{{ t('onboarding.ui.cpu-system-load-telemetry') }}</span>
           </label>
         </div>
       </div>
@@ -615,10 +623,10 @@ onBeforeUnmount(() => {
       <div :class="['flex items-center justify-between p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] mt-1']">
         <div :class="['flex flex-col pr-3']">
           <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-            Smart Silence (NO_REPLY Directive)
+            {{ t('onboarding.ui.smart-silence-no-reply-directive') }}
           </span>
           <span :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
-            Instructs the companion to stay completely silent via NO_REPLY unless there is a genuine, contextually relevant observation.
+            {{ t('onboarding.ui.instructs-the-companion-to-stay-completely-silent-via-no-reply-unless-there-is') }}
           </span>
         </div>
         <button
@@ -647,11 +655,11 @@ onBeforeUnmount(() => {
         @click="props.onPrevious"
       >
         <div :class="['i-solar:alt-arrow-left-linear mr-1']" />
-        Back
+        {{ t('onboarding.shell.previous') }}
       </Button>
 
       <div :class="['text-xs font-mono text-neutral-400']">
-        Status: <span :class="['font-semibold text-neutral-700 dark:text-neutral-300 capitalize']">{{ proactivityEngineMode }}</span>
+        {{ t('onboarding.ui.status') }} <span :class="['font-semibold text-neutral-700 dark:text-neutral-300 capitalize']">{{ displayText(proactivityEngineMode) }}</span>
       </div>
 
       <Button
@@ -659,7 +667,7 @@ onBeforeUnmount(() => {
         :class="['px-6 py-2 rounded-xl text-xs font-semibold shadow-md shadow-primary-500/20 cursor-pointer']"
         @click="() => { syncDraft(); props.onNext() }"
       >
-        Continue
+        {{ t('onboarding.shell.next') }}
         <div :class="['i-solar:alt-arrow-right-linear ml-1']" />
       </Button>
     </div>

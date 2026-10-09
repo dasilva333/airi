@@ -1,8 +1,16 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+import { useI18n } from 'vue-i18n'
+
 import type { CSSProperties } from 'vue'
 
 import { useElementSize } from '@vueuse/core'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+
+const { t } = useI18n()
+
+const { displayText } = useOnboardingDisplayText()
+
 
 export interface UnifiedVesselItem {
   id: string
@@ -289,7 +297,7 @@ onBeforeUnmount(() => {
     >
       <div class="i-solar:ghost-bold-duotone text-4xl opacity-40" />
       <div class="text-xs font-semibold">
-        No avatars match your active filter
+        {{ t('onboarding.ui.no-avatars-match-your-active-filter') }}
       </div>
     </div>
 
@@ -300,7 +308,7 @@ onBeforeUnmount(() => {
         v-if="models.length > 1"
         type="button"
         class="absolute left-2 top-1/2 z-35 flex cursor-pointer items-center justify-center border border-neutral-200/80 rounded-full bg-white/90 p-2 shadow-md backdrop-blur-md transition-all -translate-y-1/2 active:scale-95 hover:scale-110 dark:border-neutral-700/80 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-700"
-        aria-label="Previous Model"
+        :aria-label="t('onboarding.ui.previous-model')"
         @click.stop="prev"
       >
         <div class="i-solar:alt-arrow-left-bold text-sm text-neutral-700 dark:text-neutral-200" />
@@ -311,7 +319,7 @@ onBeforeUnmount(() => {
         v-if="models.length > 1"
         type="button"
         class="absolute right-2 top-1/2 z-35 flex cursor-pointer items-center justify-center border border-neutral-200/80 rounded-full bg-white/90 p-2 shadow-md backdrop-blur-md transition-all -translate-y-1/2 active:scale-95 hover:scale-110 dark:border-neutral-700/80 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-700"
-        aria-label="Next Model"
+        :aria-label="t('onboarding.ui.next-model')"
         @click.stop="next"
       >
         <div class="i-solar:alt-arrow-right-bold text-sm text-neutral-700 dark:text-neutral-200" />
@@ -348,7 +356,7 @@ onBeforeUnmount(() => {
             <img
               v-if="slot.model.previewUrl && !failedImages[slot.model.id]"
               :src="slot.model.previewUrl"
-              :alt="slot.model.name"
+              :alt="displayText(slot.model.name)"
               class="pointer-events-none max-h-full max-w-full select-none object-contain drop-shadow-md filter transition-transform duration-300"
               loading="lazy"
               referrerpolicy="no-referrer"
@@ -362,7 +370,7 @@ onBeforeUnmount(() => {
             >
               <div class="i-solar:user-bold-duotone text-4xl text-neutral-400 opacity-40" />
               <div class="line-clamp-2 text-center text-xs text-neutral-700 font-bold dark:text-neutral-200">
-                {{ slot.model.name }}
+                {{ displayText(slot.model.name) }}
               </div>
             </div>
           </div>
@@ -382,7 +390,7 @@ onBeforeUnmount(() => {
               : 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
           ]"
         >
-          {{ centerModel.isInstalled ? 'Local' : 'Community' }}
+          {{ displayText(centerModel.isInstalled ? 'Local' : 'Community') }}
         </span>
 
         <span
@@ -395,13 +403,13 @@ onBeforeUnmount(() => {
                 : 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
           ]"
         >
-          {{ centerModel.formatLabel || centerModel.format.toUpperCase() }}
+          {{ displayText(centerModel.formatLabel || centerModel.format.toUpperCase()) }}
         </span>
 
         <span class="h-1 w-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
 
         <span class="max-w-[200px] truncate text-xs text-neutral-900 font-bold dark:text-neutral-100">
-          {{ centerModel.name }}
+          {{ displayText(centerModel.name) }}
         </span>
       </div>
     </div>

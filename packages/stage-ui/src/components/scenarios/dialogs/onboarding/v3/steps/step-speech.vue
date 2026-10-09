@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
@@ -17,6 +20,9 @@ import { useSettingsUserProfile } from '../../../../../../stores/settings/user-p
 import { KOKORO_MODELS } from '../../../../../../workers/kokoro/constants'
 import { formatActorName } from '../../../../../markdown/actor-colors'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -143,7 +149,7 @@ function selectStarterVoice(voiceId = 'airi_relu') {
   selectedVoice.value = voiceId
   isHFTokenModalOpen.value = false
   const match = STARTER_VOICE_CATALOG.find(v => v.id === voiceId)
-  toast.success(`Switched to "${match?.name || voiceId}". Offline starter voices do not need an HF token!`)
+  toast.success(displayText(`Switched to "${match?.name || voiceId}". Offline starter voices do not need an HF token!`))
 }
 
 function openHFTokenPage() {
@@ -212,7 +218,7 @@ const audioServerPromptTranscript = ref('')
 async function processAudioClone(file: File) {
   const normId = normalizeProviderId(selectedProvider.value)
   try {
-    toast.info(`Cloning vocal timbre from "${file.name}"...`)
+    toast.info(displayText(`Cloning vocal timbre from "${file.name}"...`))
     const cloned = await cloneVoiceFromFile(file, {
       referenceText: audioServerPromptTranscript.value.trim() || undefined,
     })
@@ -226,10 +232,10 @@ async function processAudioClone(file: File) {
     else {
       selectedVoice.value = cloned.id
     }
-    toast.success(`Voice "${cloned.name}" cloned and activated!`)
+    toast.success(displayText(`Voice "${cloned.name}" cloned and activated!`))
   }
   catch (err: any) {
-    toast.error(err?.message || 'Failed to clone voice from sample.')
+    toast.error(displayText(err?.message || 'Failed to clone voice from sample.'))
   }
 }
 
@@ -262,10 +268,10 @@ async function handleDeleteCurrentClonedVoice() {
         selectedVoice.value = availableVoices.value[0]?.id || ''
       }
     }
-    toast.success('Cloned voice deleted')
+    toast.success(displayText('Cloned voice deleted'))
   }
   catch (err: any) {
-    toast.error(err?.message || 'Failed to delete cloned voice')
+    toast.error(displayText(err?.message || 'Failed to delete cloned voice'))
   }
 }
 
@@ -628,7 +634,7 @@ function resetUserSampleText() {
 async function refreshVoices() {
   const normId = normalizeProviderId(selectedProvider.value)
   await speechStore.loadVoicesForProvider(normId)
-  toast.success('Voice catalog refreshed')
+  toast.success(displayText('Voice catalog refreshed'))
 }
 
 onMounted(() => {
@@ -708,12 +714,12 @@ async function activateAndDownloadEngine() {
 
     isEngineReady.value = true
     downloadProgress.value = 100
-    toast.success('Speech engine ready!')
+    toast.success(displayText('Speech engine ready!'))
   }
   catch (err: any) {
     console.error('[Step 9 Speech] Download error:', err)
     downloadError.value = err?.message || 'Failed to download TTS weights'
-    toast.error(downloadError.value)
+    toast.error(displayText(downloadError.value))
     isEngineReady.value = false
   }
   finally {
@@ -740,7 +746,7 @@ async function togglePreview(target: 'companion' | 'user' = 'companion') {
 
   // Pre-download weights if local engine is chosen and not ready
   if (isLocalProvider.value && !isEngineReady.value) {
-    toast.info('Downloading voice engine weights first...')
+    toast.info(displayText('Downloading voice engine weights first...'))
     await activateAndDownloadEngine()
     if (!isEngineReady.value)
       return
@@ -760,12 +766,12 @@ async function togglePreview(target: 'companion' | 'user' = 'companion') {
 
     const providerInstance = await providersStore.getProviderInstance(providerId)
     if (!providerInstance) {
-      toast.error(`Speech provider "${providerId}" is not configured.`)
+      toast.error(displayText(`Speech provider "${providerId}" is not configured.`))
       isPlayingTarget.value = null
       return
     }
 
-    toast.info(`Synthesizing ${target === 'user' ? userName.value : companionName.value}'s voice...`)
+    toast.info(displayText(`Synthesizing ${target === 'user' ? userName.value : companionName.value}'s voice...`))
     const audioData = await speechStore.speech(
       providerInstance as any,
       modelId,
@@ -789,7 +795,7 @@ async function togglePreview(target: 'companion' | 'user' = 'companion') {
     audio.onerror = () => {
       isPlayingTarget.value = null
       audioPlayer.value = null
-      toast.error('Audio playback error')
+      toast.error(displayText('Audio playback error'))
     }
 
     await audio.play()
@@ -802,7 +808,7 @@ async function togglePreview(target: 'companion' | 'user' = 'companion') {
       isHFTokenModalOpen.value = true
     }
     else {
-      toast.error(msg || 'Voice playback failed')
+      toast.error(displayText(msg || 'Voice playback failed'))
     }
     isPlayingTarget.value = null
   }
@@ -920,15 +926,15 @@ function handleContinue() {
               <div :class="[engine.icon, 'w-4 h-4']" />
             </div>
             <span :class="['text-[9px] font-bold px-2 py-0.5 rounded-md bg-neutral-200/60 dark:bg-white/10 text-neutral-600 dark:text-neutral-300 uppercase tracking-wide font-mono']">
-              {{ engine.tag }}
+              {{ displayText(engine.tag) }}
             </span>
           </div>
 
           <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-            {{ engine.name }}
+            {{ displayText(engine.name) }}
           </h3>
           <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-            {{ engine.desc }}
+            {{ displayText(engine.desc) }}
           </p>
         </div>
 
@@ -938,7 +944,7 @@ function handleContinue() {
             :key="badge"
             :class="['text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-400 font-mono']"
           >
-            {{ badge }}
+            {{ displayText(badge) }}
           </span>
         </div>
       </div>
@@ -963,7 +969,7 @@ function handleContinue() {
             <div :class="[provider.icon || 'i-solar:cloud-bold-duotone', 'w-4 h-4']" />
           </div>
           <span :class="['text-xs font-semibold truncate']">
-            {{ provider.name }}
+            {{ displayText(provider.name) }}
           </span>
         </button>
       </div>
@@ -972,7 +978,7 @@ function handleContinue() {
       <div :class="['p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col gap-3']">
         <div :class="['flex items-center justify-between']">
           <label :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300 tracking-wide uppercase']">
-            {{ activeProviderDisplayName }} API Credentials
+            {{ displayText(activeProviderDisplayName) }} {{ t('onboarding.ui.api-credentials') }}
           </label>
           <a
             v-if="activeConsoleUrl"
@@ -981,7 +987,7 @@ function handleContinue() {
             rel="noopener noreferrer"
             :class="['text-xs text-primary-500 hover:underline flex items-center gap-1 font-medium']"
           >
-            <span>Get API Key</span>
+            <span>{{ t('settings.pages.providers.common.getApiKey') }}</span>
             <div :class="['i-solar:arrow-right-up-linear w-3 h-3']" />
           </a>
         </div>
@@ -989,7 +995,7 @@ function handleContinue() {
           <input
             v-model="apiKeyInput"
             :type="showApiKey ? 'text' : 'password'"
-            placeholder="Paste your API key here..."
+            :placeholder="t('onboarding.ui.paste-your-api-key-here')"
             :class="['w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 pr-10']"
           >
           <button
@@ -1008,10 +1014,10 @@ function handleContinue() {
       <div :class="['flex flex-col sm:flex-row sm:items-center justify-between gap-2']">
         <div>
           <label :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide']">
-            Engine Model Architecture
+            {{ t('onboarding.ui.engine-model-architecture') }}
           </label>
           <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
-            Select the underlying neural checkpoint or speech synthesis model.
+            {{ t('onboarding.ui.select-the-underlying-neural-checkpoint-or-speech-synthesis-model') }}
           </p>
         </div>
         <select
@@ -1023,7 +1029,7 @@ function handleContinue() {
             :key="model.id"
             :value="model.id"
           >
-            {{ model.label }}
+            {{ displayText(model.label) }}
           </option>
         </select>
       </div>
@@ -1039,7 +1045,7 @@ function handleContinue() {
           >
             <div :class="['flex items-center gap-2']">
               <div :class="['i-lobe-icons:huggingface w-4 h-4 text-amber-500']" />
-              <span :class="['font-semibold']">Hugging Face Access Token (for Pocket-TTS gated voices)</span>
+              <span :class="['font-semibold']">{{ t('onboarding.ui.hugging-face-access-token-for-pocket-tts-gated-voices') }}</span>
             </div>
             <div :class="[showHfTokenInput ? 'i-solar:alt-arrow-down-line-duotone' : 'i-solar:alt-arrow-right-line-duotone', 'w-4 h-4 text-neutral-400']" />
           </button>
@@ -1062,7 +1068,7 @@ function handleContinue() {
                 rel="noopener noreferrer"
                 :class="['flex items-center gap-1 px-2.5 py-1 text-xs text-amber-600 dark:text-amber-400 font-semibold hover:underline cursor-pointer']"
               >
-                <span>Accept Gate</span>
+                <span>{{ t('onboarding.ui.accept-gate') }}</span>
                 <div :class="['i-solar:square-top-down-bold w-3.5 h-3.5']" />
               </a>
               <a
@@ -1071,7 +1077,7 @@ function handleContinue() {
                 rel="noopener noreferrer"
                 :class="['flex items-center gap-1 px-2.5 py-1 text-xs text-primary-500 font-semibold hover:underline cursor-pointer']"
               >
-                <span>Get Token</span>
+                <span>{{ t('onboarding.ui.get-token') }}</span>
                 <div :class="['i-solar:square-top-down-bold w-3.5 h-3.5']" />
               </a>
             </div>
@@ -1079,13 +1085,13 @@ function handleContinue() {
             <!-- Validation message / warning -->
             <div v-if="hfTokenStatus.message || hfTokenStatus.tip" :class="['text-[11px] leading-tight flex items-start gap-1', hfTokenStatus.state === 'error' ? 'text-red-500' : hfTokenStatus.state === 'warning' ? 'text-amber-500' : 'text-emerald-500']">
               <div :class="[hfTokenStatus.state === 'error' ? 'i-solar:danger-triangle-bold' : hfTokenStatus.state === 'warning' ? 'i-solar:info-circle-bold' : 'i-solar:check-circle-bold', 'w-3.5 h-3.5 flex-shrink-0 mt-0.2']" />
-              <span>{{ hfTokenStatus.tip || hfTokenStatus.message }}</span>
+              <span>{{ displayText(hfTokenStatus.tip || hfTokenStatus.message) }}</span>
             </div>
 
             <!-- Offline tip -->
             <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 pt-0.5']">
               <div :class="['i-solar:shield-check-bold-duotone w-3.5 h-3.5 text-emerald-500 flex-shrink-0']" />
-              <span>Tip: All <strong>★ Starter Voices</strong> (such as ★ Sakura and ★ ReLU) run 100% offline without needing any HF token.</span>
+              <span>{{ t('onboarding.ui.tip-all') }} <strong>{{ t('onboarding.ui.starter-voices') }}</strong> {{ t('onboarding.ui.such-as-sakura-and-relu-run-100-offline-without-needing-any-hf-token') }}</span>
             </div>
           </div>
         </div>
@@ -1101,7 +1107,7 @@ function handleContinue() {
               @click="activateAndDownloadEngine"
             >
               <div :class="['i-solar:download-square-bold-duotone w-4 h-4']" />
-              <span>Activate & Download Engine</span>
+              <span>{{ t('onboarding.ui.activate-download-engine') }}</span>
             </button>
 
             <!-- If downloading: Show disabled downloading spinner -->
@@ -1112,28 +1118,28 @@ function handleContinue() {
               :class="['flex cursor-wait items-center gap-2 rounded-xl bg-primary-500/80 text-white text-xs font-semibold px-4 py-2']"
             >
               <div :class="['i-solar:restart-square-bold w-4 h-4 animate-spin']" />
-              <span>Downloading Weights ({{ downloadProgress }}%)...</span>
+              <span>{{ t('onboarding.ui.downloading-weights') }}{{ displayText(downloadProgress) }}%)...</span>
             </button>
 
             <!-- If ready: Show green badge + Re-download button -->
             <div v-else :class="['flex items-center gap-2']">
               <span :class="['flex items-center gap-1.5 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-3 py-1.5 ring-1 ring-emerald-500/20']">
                 <div :class="['i-solar:check-circle-bold-duotone w-4 h-4']" />
-                <span>Engine Initialized & Ready</span>
+                <span>{{ t('onboarding.ui.engine-initialized-ready') }}</span>
               </span>
               <button
                 type="button"
                 :class="['rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-1.5 text-xs text-neutral-600 dark:text-neutral-300 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer']"
-                title="Force re-download weights"
+                :title="t('onboarding.ui.force-re-download-weights')"
                 @click="activateAndDownloadEngine"
               >
-                Re-download
+                {{ t('onboarding.ui.re-download') }}
               </button>
             </div>
           </div>
 
           <span v-if="isDownloading" :class="['text-xs text-primary-500 font-mono font-semibold']">
-            {{ downloadProgress }}%
+            {{ displayText(downloadProgress) }}%
           </span>
         </div>
 
@@ -1146,7 +1152,7 @@ function handleContinue() {
             />
           </div>
           <span v-if="downloadStatusText" :class="['truncate text-[11px] text-neutral-400 font-mono']">
-            {{ downloadStatusText }}
+            {{ displayText(downloadStatusText) }}
           </span>
         </div>
 
@@ -1157,9 +1163,9 @@ function handleContinue() {
         >
           <div :class="['i-solar:danger-triangle-bold-duotone w-4 h-4 flex-shrink-0 mt-0.5 text-red-500']" />
           <div :class="['flex-1 min-w-0']">
-            <span :class="['font-bold']">Download Failed:</span>
+            <span :class="['font-bold']">{{ t('onboarding.ui.download-failed') }}</span>
             <p :class="['text-[11px] break-all leading-snug mt-0.5']">
-              {{ downloadError }}
+              {{ displayText(downloadError) }}
             </p>
           </div>
           <button
@@ -1167,7 +1173,7 @@ function handleContinue() {
             :class="['px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-300 font-semibold cursor-pointer text-xs transition-colors']"
             @click="activateAndDownloadEngine"
           >
-            Retry
+            {{ t('stage.startup.retry') }}
           </button>
         </div>
       </div>
@@ -1188,7 +1194,7 @@ function handleContinue() {
           @click="activeVoiceTab = 'companion'"
         >
           <div :class="['i-solar:heart-bold-duotone w-4 h-4']" />
-          <span :class="['truncate']">{{ companionName }}'s Voice</span>
+          <span :class="['truncate']">{{ companionName }}{{ t('onboarding.ui.s-voice') }}</span>
         </button>
 
         <button
@@ -1202,7 +1208,7 @@ function handleContinue() {
           @click="activeVoiceTab = 'user'"
         >
           <div :class="['i-solar:user-speak-bold-duotone w-4 h-4 text-purple-500']" />
-          <span :class="['truncate']">{{ userName }}'s Voice Profile</span>
+          <span :class="['truncate']">{{ userName }}{{ t('onboarding.ui.s-voice-profile') }}</span>
         </button>
       </div>
 
@@ -1215,18 +1221,18 @@ function handleContinue() {
           <div :class="['flex items-center gap-2']">
             <div :class="['i-solar:heart-bold-duotone w-4 h-4 text-primary-500']" />
             <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
-              {{ companionName }}'s Voice Persona
+              {{ companionName }}{{ t('onboarding.ui.s-voice-persona') }}
             </span>
           </div>
           <span :class="['text-[10px] px-2 py-0.5 rounded-full font-bold bg-primary-500/10 text-primary-600 dark:text-primary-400']">
-            Companion Voice
+            {{ t('onboarding.ui.companion-voice') }}
           </span>
         </div>
 
         <!-- Timbre Selector with Refresh Voices Button -->
         <div :class="['flex flex-col gap-1.5']">
           <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
-            Voice Persona Timbre
+            {{ t('onboarding.ui.voice-persona-timbre') }}
           </label>
           <div :class="['flex items-center gap-2']">
             <select
@@ -1238,17 +1244,17 @@ function handleContinue() {
                 :key="voice.id"
                 :value="voice.id"
               >
-                {{ voice.label }}
+                {{ displayText(voice.label) }}
               </option>
             </select>
             <button
               type="button"
               :class="['h-9 px-3 rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm']"
-              title="Refresh voice catalog"
+              :title="t('onboarding.ui.refresh-voice-catalog')"
               @click="refreshVoices"
             >
               <div :class="['i-solar:restart-bold-duotone w-3.5 h-3.5 text-primary-500']" />
-              <span>Load Voices</span>
+              <span>{{ t('onboarding.ui.load-voices') }}</span>
             </button>
           </div>
         </div>
@@ -1276,14 +1282,14 @@ function handleContinue() {
             <div class="min-w-0 flex flex-col">
               <div class="flex items-center gap-1.5">
                 <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
-                  Instant Zero-Shot Voice Clone
+                  {{ t('onboarding.ui.instant-zero-shot-voice-clone') }}
                 </span>
                 <span class="rounded bg-primary-500/15 px-1.5 py-0.2 text-[9px] text-primary-600 font-bold font-mono uppercase dark:text-primary-400">
-                  Neural Clone
+                  {{ t('onboarding.ui.neural-clone') }}
                 </span>
               </div>
               <p class="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-                {{ isCloning ? 'Conditioning neural audio waveform...' : 'Drop 5–10s audio sample (.wav, .mp3) or click to browse' }}
+                {{ displayText(isCloning ? 'Conditioning neural audio waveform...' : 'Drop 5–10s audio sample (.wav, .mp3) or click to browse') }}
               </p>
             </div>
           </div>
@@ -1293,7 +1299,7 @@ function handleContinue() {
               v-if="isSelectedVoiceCloned"
               type="button"
               :class="['p-1.5 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs font-semibold cursor-pointer transition-colors']"
-              title="Delete currently selected custom voice clone"
+              :title="t('onboarding.ui.delete-currently-selected-custom-voice-clone')"
               @click="handleDeleteCurrentClonedVoice"
             >
               <div class="i-solar:trash-bin-trash-bold h-3.5 w-3.5" />
@@ -1309,7 +1315,7 @@ function handleContinue() {
               @click="triggerAudioFileInput"
             >
               <div class="i-solar:upload-track-2-bold-duotone h-3.5 w-3.5" />
-              <span>{{ isCloning ? 'Cloning...' : 'Upload WAV' }}</span>
+              <span>{{ displayText(isCloning ? 'Cloning...' : 'Upload WAV') }}</span>
             </button>
           </div>
         </div>
@@ -1321,16 +1327,16 @@ function handleContinue() {
         >
           <div class="flex items-center justify-between">
             <span class="text-[10px] text-neutral-400 font-bold uppercase dark:text-neutral-500">
-              Prompt Spoken Transcript (Optional)
+              {{ t('onboarding.ui.prompt-spoken-transcript-optional') }}
             </span>
             <span class="text-[9px] text-amber-600 font-medium dark:text-amber-400">
-              Acoustic Alignment for OmniVoice / Higgs / Fish
+              {{ t('onboarding.ui.acoustic-alignment-for-omnivoice-higgs-fish') }}
             </span>
           </div>
           <input
             v-model="audioServerPromptTranscript"
             type="text"
-            placeholder="Type exact words spoken in the audio sample before dropping..."
+            :placeholder="t('onboarding.ui.type-exact-words-spoken-in-the-audio-sample-before-dropping')"
             class="w-full border border-neutral-200/80 rounded-xl bg-white/60 px-3 py-1.5 text-xs text-neutral-800 outline-none dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200"
           >
         </div>
@@ -1339,8 +1345,8 @@ function handleContinue() {
         <div :class="['grid grid-cols-1 md:grid-cols-2 gap-4 pt-1']">
           <div :class="['flex flex-col gap-1.5']">
             <div :class="['flex items-center justify-between text-xs font-semibold']">
-              <span :class="['text-neutral-600 dark:text-neutral-400']">Speech Rate / Speed</span>
-              <span :class="['text-primary-500 font-mono']">{{ speed.toFixed(2) }}x</span>
+              <span :class="['text-neutral-600 dark:text-neutral-400']">{{ t('onboarding.ui.speech-rate-speed') }}</span>
+              <span :class="['text-primary-500 font-mono']">{{ displayText(speed.toFixed(2)) }}x</span>
             </div>
             <input
               v-model.number="speed"
@@ -1354,8 +1360,8 @@ function handleContinue() {
 
           <div :class="['flex flex-col gap-1.5']">
             <div :class="['flex items-center justify-between text-xs font-semibold']">
-              <span :class="['text-neutral-600 dark:text-neutral-400']">Vocal Pitch</span>
-              <span :class="['text-primary-500 font-mono']">{{ pitch.toFixed(2) }}x</span>
+              <span :class="['text-neutral-600 dark:text-neutral-400']">{{ t('onboarding.ui.vocal-pitch') }}</span>
+              <span :class="['text-primary-500 font-mono']">{{ displayText(pitch.toFixed(2)) }}x</span>
             </div>
             <input
               v-model.number="pitch"
@@ -1373,7 +1379,7 @@ function handleContinue() {
           <div :class="['flex items-center justify-between']">
             <div :class="['flex items-center gap-2 min-w-0 flex-wrap']">
               <span :class="['text-xs font-bold text-neutral-800 dark:text-white truncate']">
-                {{ companionName }}'s Greeting Sample
+                {{ companionName }}{{ t('onboarding.ui.s-greeting-sample') }}
               </span>
               <span
                 v-if="resolvedPersona.actorName"
@@ -1386,7 +1392,7 @@ function handleContinue() {
                 <span>{{ resolvedPersona.actorName }}</span>
               </span>
               <span :class="['text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-white/10 text-neutral-500 font-mono shrink-0']">
-                Live Preview
+                {{ t('onboarding.ui.live-preview') }}
               </span>
             </div>
             <button
@@ -1394,7 +1400,7 @@ function handleContinue() {
               :class="['text-[11px] text-neutral-500 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-colors cursor-pointer']"
               @click="resetSampleText"
             >
-              Reset Text
+              {{ t('onboarding.ui.reset-text') }}
             </button>
           </div>
 
@@ -1402,7 +1408,7 @@ function handleContinue() {
             <input
               v-model="sampleText"
               type="text"
-              placeholder="Enter greeting sample text to preview..."
+              :placeholder="t('onboarding.ui.enter-greeting-sample-text-to-preview')"
               :class="['flex-1 px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 select-text']"
             >
             <button
@@ -1416,7 +1422,7 @@ function handleContinue() {
               @click="togglePreview('companion')"
             >
               <div :class="[isPlayingCompanion ? 'i-solar:stop-circle-bold w-4 h-4' : 'i-solar:play-circle-bold w-4 h-4']" />
-              <span>{{ isPlayingCompanion ? 'Stop' : 'Play Preview' }}</span>
+              <span>{{ displayText(isPlayingCompanion ? 'Stop' : 'Play Preview') }}</span>
             </button>
           </div>
         </div>
@@ -1431,18 +1437,18 @@ function handleContinue() {
           <div :class="['flex items-center gap-2']">
             <div :class="['i-solar:user-speak-bold-duotone w-4 h-4 text-purple-500']" />
             <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
-              {{ userName }}'s Voice Profile
+              {{ userName }}{{ t('onboarding.ui.s-voice-profile') }}
             </span>
           </div>
           <span :class="['text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400']">
-            Producer / User Voice
+            {{ t('onboarding.ui.producer-user-voice') }}
           </span>
         </div>
 
         <!-- Timbre Selector with Refresh Voices Button -->
         <div :class="['flex flex-col gap-1.5']">
           <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
-            User Voice Persona
+            {{ t('onboarding.ui.user-voice-persona') }}
           </label>
           <div :class="['flex items-center gap-2']">
             <select
@@ -1454,17 +1460,17 @@ function handleContinue() {
                 :key="voice.id"
                 :value="voice.id"
               >
-                {{ voice.label }}
+                {{ displayText(voice.label) }}
               </option>
             </select>
             <button
               type="button"
               :class="['h-9 px-3 rounded-xl border border-neutral-200/80 dark:border-white/10 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm']"
-              title="Refresh voice catalog"
+              :title="t('onboarding.ui.refresh-voice-catalog')"
               @click="refreshVoices"
             >
               <div :class="['i-solar:restart-bold-duotone w-3.5 h-3.5 text-purple-500']" />
-              <span>Load Voices</span>
+              <span>{{ t('onboarding.ui.load-voices') }}</span>
             </button>
           </div>
         </div>
@@ -1492,14 +1498,14 @@ function handleContinue() {
             <div class="min-w-0 flex flex-col">
               <div class="flex items-center gap-1.5">
                 <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
-                  Instant Zero-Shot Voice Clone
+                  {{ t('onboarding.ui.instant-zero-shot-voice-clone') }}
                 </span>
                 <span class="rounded bg-purple-500/15 px-1.5 py-0.2 text-[9px] text-purple-600 font-bold font-mono uppercase dark:text-purple-400">
-                  User Voice
+                  {{ t('onboarding.ui.user-voice') }}
                 </span>
               </div>
               <p class="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-                {{ isCloning ? 'Conditioning neural audio waveform...' : 'Drop 5–10s audio sample (.wav, .mp3) or click to browse' }}
+                {{ displayText(isCloning ? 'Conditioning neural audio waveform...' : 'Drop 5–10s audio sample (.wav, .mp3) or click to browse') }}
               </p>
             </div>
           </div>
@@ -1509,7 +1515,7 @@ function handleContinue() {
               v-if="isSelectedVoiceCloned"
               type="button"
               :class="['p-1.5 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs font-semibold cursor-pointer transition-colors']"
-              title="Delete currently selected custom voice clone"
+              :title="t('onboarding.ui.delete-currently-selected-custom-voice-clone')"
               @click="handleDeleteCurrentClonedVoice"
             >
               <div class="i-solar:trash-bin-trash-bold h-3.5 w-3.5" />
@@ -1525,7 +1531,7 @@ function handleContinue() {
               @click="triggerAudioFileInput"
             >
               <div class="i-solar:upload-track-2-bold-duotone h-3.5 w-3.5" />
-              <span>{{ isCloning ? 'Cloning...' : 'Upload WAV' }}</span>
+              <span>{{ displayText(isCloning ? 'Cloning...' : 'Upload WAV') }}</span>
             </button>
           </div>
         </div>
@@ -1537,16 +1543,16 @@ function handleContinue() {
         >
           <div class="flex items-center justify-between">
             <span class="text-[10px] text-neutral-400 font-bold uppercase dark:text-neutral-500">
-              Prompt Spoken Transcript (Optional)
+              {{ t('onboarding.ui.prompt-spoken-transcript-optional') }}
             </span>
             <span class="text-[9px] text-purple-600 font-medium dark:text-purple-400">
-              Acoustic Alignment for OmniVoice / Higgs / Fish
+              {{ t('onboarding.ui.acoustic-alignment-for-omnivoice-higgs-fish') }}
             </span>
           </div>
           <input
             v-model="audioServerPromptTranscript"
             type="text"
-            placeholder="Type exact words spoken in the audio sample before dropping..."
+            :placeholder="t('onboarding.ui.type-exact-words-spoken-in-the-audio-sample-before-dropping')"
             class="w-full border border-neutral-200/80 rounded-xl bg-white/60 px-3 py-1.5 text-xs text-neutral-800 outline-none dark:border-neutral-800 focus:border-purple-500 dark:bg-neutral-900/60 dark:text-neutral-200"
           >
         </div>
@@ -1555,8 +1561,8 @@ function handleContinue() {
         <div :class="['grid grid-cols-1 md:grid-cols-2 gap-4 pt-1']">
           <div :class="['flex flex-col gap-1.5']">
             <div :class="['flex items-center justify-between text-xs font-semibold']">
-              <span :class="['text-neutral-600 dark:text-neutral-400']">Speech Rate / Speed</span>
-              <span :class="['text-purple-500 font-mono']">{{ userSpeed.toFixed(2) }}x</span>
+              <span :class="['text-neutral-600 dark:text-neutral-400']">{{ t('onboarding.ui.speech-rate-speed') }}</span>
+              <span :class="['text-purple-500 font-mono']">{{ displayText(userSpeed.toFixed(2)) }}x</span>
             </div>
             <input
               v-model.number="userSpeed"
@@ -1570,8 +1576,8 @@ function handleContinue() {
 
           <div :class="['flex flex-col gap-1.5']">
             <div :class="['flex items-center justify-between text-xs font-semibold']">
-              <span :class="['text-neutral-600 dark:text-neutral-400']">Vocal Pitch</span>
-              <span :class="['text-purple-500 font-mono']">{{ userPitch.toFixed(2) }}x</span>
+              <span :class="['text-neutral-600 dark:text-neutral-400']">{{ t('onboarding.ui.vocal-pitch') }}</span>
+              <span :class="['text-purple-500 font-mono']">{{ displayText(userPitch.toFixed(2)) }}x</span>
             </div>
             <input
               v-model.number="userPitch"
@@ -1589,10 +1595,10 @@ function handleContinue() {
           <div :class="['flex items-center justify-between']">
             <div :class="['flex items-center gap-2']">
               <span :class="['text-xs font-bold text-neutral-800 dark:text-white']">
-                {{ userName }}'s Spoken Sample
+                {{ userName }}{{ t('onboarding.ui.s-spoken-sample') }}
               </span>
               <span :class="['text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono font-semibold']">
-                Producer Sample
+                {{ t('onboarding.ui.producer-sample') }}
               </span>
             </div>
             <button
@@ -1600,7 +1606,7 @@ function handleContinue() {
               :class="['text-[11px] text-neutral-500 hover:text-purple-600 dark:hover:text-purple-400 font-medium transition-colors cursor-pointer']"
               @click="resetUserSampleText"
             >
-              Reset Text
+              {{ t('onboarding.ui.reset-text') }}
             </button>
           </div>
 
@@ -1608,7 +1614,7 @@ function handleContinue() {
             <input
               v-model="userSampleText"
               type="text"
-              placeholder="Enter user sample speech to preview..."
+              :placeholder="t('onboarding.ui.enter-user-sample-speech-to-preview')"
               :class="['flex-1 px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-purple-500 select-text']"
             >
             <button
@@ -1622,7 +1628,7 @@ function handleContinue() {
               @click="togglePreview('user')"
             >
               <div :class="[isPlayingUser ? 'i-solar:stop-circle-bold w-4 h-4' : 'i-solar:play-circle-bold w-4 h-4']" />
-              <span>{{ isPlayingUser ? 'Stop' : 'Play Preview' }}</span>
+              <span>{{ displayText(isPlayingUser ? 'Stop' : 'Play Preview') }}</span>
             </button>
           </div>
         </div>
@@ -1673,28 +1679,27 @@ function handleContinue() {
             </div>
             <div>
               <h3 class="text-base text-neutral-900 font-bold dark:text-white">
-                Hugging Face Token Required
+                {{ t('onboarding.ui.hugging-face-token-required') }}
               </h3>
               <p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                This voice is behind a gated model
+                {{ t('onboarding.ui.this-voice-is-behind-a-gated-model') }}
               </p>
             </div>
           </div>
 
           <!-- Body -->
           <p class="mb-4 text-sm text-neutral-600 leading-relaxed dark:text-neutral-300">
-            The voice you selected (<span class="text-neutral-800 font-semibold dark:text-neutral-100">{{ selectedVoice }}</span>) is hosted on a gated Hugging Face repository.
-            To use it, you need a free Hugging Face account, accept the model gate, and paste your access token below.
+            {{ t('onboarding.ui.the-voice-you-selected') }}<span class="text-neutral-800 font-semibold dark:text-neutral-100">{{ displayText(selectedVoice) }}</span>{{ t('onboarding.ui.is-hosted-on-a-gated-hugging-face-repository-to-use-it-you-need-a-free-hugging') }}
           </p>
 
           <!-- Alternative: Free Offline Starter Voices -->
           <div class="mb-4 border border-emerald-500/20 rounded-2xl bg-emerald-500/5 p-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
             <div class="flex items-center gap-2 text-xs text-emerald-700 font-semibold dark:text-emerald-300">
               <div class="i-solar:shield-check-bold-duotone size-4 shrink-0 text-emerald-500" />
-              <span>Skip the token: Free offline starter voices</span>
+              <span>{{ t('onboarding.ui.skip-the-token-free-offline-starter-voices') }}</span>
             </div>
             <p class="mt-1 text-[11px] text-neutral-600 dark:text-neutral-400">
-              These voices run 100% locally with zero-shot cloning — no HF account or token needed:
+              {{ t('onboarding.ui.these-voices-run-100-locally-with-zero-shot-cloning-no-hf-account-or-token-nee') }}
             </p>
             <div class="mt-2 flex flex-wrap gap-1.5">
               <button
@@ -1702,14 +1707,14 @@ function handleContinue() {
                 class="cursor-pointer border border-emerald-500/30 rounded-xl bg-white px-2.5 py-1 text-xs text-emerald-700 font-medium shadow-sm transition active:scale-95 hover:border-emerald-500 dark:bg-neutral-800 dark:text-emerald-300"
                 @click="selectStarterVoice('airi_relu')"
               >
-                ★ ReLU (Empathetic)
+                {{ t('onboarding.ui.relu-empathetic') }}
               </button>
               <button
                 type="button"
                 class="cursor-pointer border border-emerald-500/30 rounded-xl bg-white px-2.5 py-1 text-xs text-emerald-700 font-medium shadow-sm transition active:scale-95 hover:border-emerald-500 dark:bg-neutral-800 dark:text-emerald-300"
                 @click="selectStarterVoice('airi_sakura')"
               >
-                ★ Sakura (Japanese 🇯🇵)
+                {{ t('onboarding.ui.sakura-japanese') }}
               </button>
               <button
                 type="button"
@@ -1725,19 +1730,19 @@ function handleContinue() {
           <ol class="mb-4 text-xs text-neutral-500 space-y-2 dark:text-neutral-400">
             <li class="flex items-start gap-2">
               <span class="mt-0.5 size-4 flex shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[10px] text-amber-600 font-bold dark:text-amber-400">1</span>
-              <span>Create an account at <a href="https://huggingface.co" target="_blank" rel="noopener noreferrer" class="text-neutral-800 font-semibold underline dark:text-neutral-200">huggingface.co</a></span>
+              <span>{{ t('onboarding.ui.create-an-account-at') }} <a href="https://huggingface.co" target="_blank" rel="noopener noreferrer" class="text-neutral-800 font-semibold underline dark:text-neutral-200">huggingface.co</a></span>
             </li>
             <li class="flex items-start gap-2">
               <span class="mt-0.5 size-4 flex shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[10px] text-amber-600 font-bold dark:text-amber-400">2</span>
               <span>
-                Visit <a href="https://huggingface.co/kyutai/pocket-tts" target="_blank" rel="noopener noreferrer" class="text-amber-600 font-semibold underline dark:text-amber-400">kyutai/pocket-tts</a> and click <strong>"Agree and access repository"</strong>
-                <span class="block text-[10px] text-amber-600/80 dark:text-amber-400/80">⚠️ Required: Without accepting the gate, HF blocks access even with a valid token.</span>
+                {{ t('onboarding.ui.visit') }} <a href="https://huggingface.co/kyutai/pocket-tts" target="_blank" rel="noopener noreferrer" class="text-amber-600 font-semibold underline dark:text-amber-400">kyutai/pocket-tts</a> {{ t('onboarding.ui.and-click') }} <strong>{{ t('onboarding.ui.agree-and-access-repository') }}</strong>
+                <span class="block text-[10px] text-amber-600/80 dark:text-amber-400/80">{{ t('onboarding.ui.required-without-accepting-the-gate-hf-blocks-access-even-with-a-valid-token') }}</span>
               </span>
             </li>
             <li class="flex items-start gap-2">
               <span class="mt-0.5 size-4 flex shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[10px] text-amber-600 font-bold dark:text-amber-400">3</span>
               <span>
-                Generate a <strong>User Access Token</strong> with <strong>Read</strong> role at <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" class="text-neutral-800 font-semibold underline dark:text-neutral-200">huggingface.co/settings/tokens</a> (token starts with <code class="rounded bg-neutral-200/60 px-1 py-0.5 text-[10px] font-mono dark:bg-white/10">hf_</code>)
+                {{ t('onboarding.ui.generate-a') }} <strong>{{ t('onboarding.ui.user-access-token') }}</strong> {{ t('onboarding.ui.with') }} <strong>{{ t('onboarding.ui.read') }}</strong> {{ t('onboarding.ui.role-at') }} <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" class="text-neutral-800 font-semibold underline dark:text-neutral-200">huggingface.co/settings/tokens</a> {{ t('onboarding.ui.token-starts-with') }} <code class="rounded bg-neutral-200/60 px-1 py-0.5 text-[10px] font-mono dark:bg-white/10">hf_</code>)
               </span>
             </li>
           </ol>
@@ -1745,7 +1750,7 @@ function handleContinue() {
           <!-- Quick Token Input inside Modal -->
           <div class="mb-5 flex flex-col gap-1.5">
             <div class="flex items-center justify-between">
-              <label class="text-[11px] text-neutral-600 font-semibold dark:text-neutral-300">Paste Token Here</label>
+              <label class="text-[11px] text-neutral-600 font-semibold dark:text-neutral-300">{{ t('onboarding.ui.paste-token-here') }}</label>
               <span
                 v-if="hfTokenStatus.message"
                 :class="[
@@ -1753,7 +1758,7 @@ function handleContinue() {
                   hfTokenStatus.state === 'error' ? 'text-red-500' : hfTokenStatus.state === 'warning' ? 'text-amber-500' : 'text-emerald-500',
                 ]"
               >
-                {{ hfTokenStatus.message }}
+                {{ displayText(hfTokenStatus.message) }}
               </span>
             </div>
             <input
@@ -1767,7 +1772,7 @@ function handleContinue() {
               @input="saveHfToken"
             >
             <p v-if="hfTokenStatus.tip" :class="['text-[11px] leading-tight', hfTokenStatus.state === 'error' ? 'text-red-500' : hfTokenStatus.state === 'warning' ? 'text-amber-500' : 'text-neutral-500 dark:text-neutral-400']">
-              {{ hfTokenStatus.tip }}
+              {{ displayText(hfTokenStatus.tip) }}
             </p>
           </div>
 
@@ -1780,7 +1785,7 @@ function handleContinue() {
               @click.stop="openHFGatePage"
             >
               <div class="i-solar:shield-check-bold-duotone size-3.5" />
-              <span>1. Accept Gate</span>
+              <span>{{ t('onboarding.ui.1-accept-gate') }}</span>
             </button>
             <button
               type="button"
@@ -1789,7 +1794,7 @@ function handleContinue() {
               @click.stop="openHFTokenPage"
             >
               <div class="i-solar:key-bold-duotone size-3.5" />
-              <span>2. Get Token</span>
+              <span>{{ t('onboarding.ui.2-get-token') }}</span>
             </button>
             <button
               type="button"
@@ -1797,7 +1802,7 @@ function handleContinue() {
               @pointerdown.stop
               @click.stop="isHFTokenModalOpen = false"
             >
-              Close
+              {{ t('tamagotchi.stage.controls-island.close') }}
             </button>
           </div>
         </div>

@@ -103,7 +103,8 @@ steps:
         relay:
           title: 24/7 Discord 云端接力
           desc: 即使电脑关机或休眠，伴侣也能在你的专属 Discord 服务器中保持清醒。
-          howItWorks: 作为无服务器 Cloudflare Worker (@proj-airi/stage-edge) 运行并处理 Discord 交互 Webhook。
+          howItWorks: 作为无服务器 Cloudflare Worker ({'@'}proj-airi/stage-edge) 运行并处理 Discord
+            交互 Webhook。
           whyItMatters: 伴侣全天候响应 Discord 消息并在边缘保存记忆，当你再次打开电脑时自动回传同步。
         sync:
           title: 多设备同步与一键恢复
@@ -239,12 +240,14 @@ steps:
     userName:
       label: 伴侣应该如何称呼你？
       placeholder: 例如：主人、阿泽、前辈、制作人
+      help: 除非被覆盖，否则导入的角色卡和创作者故事脚本会默认使用此昵称。
     pronouns:
       label: 称谓人称代词
       placeholder: 例如：他、她、TA
       he: 男性
       she: 女性
       they: 非二元性别
+      help: 用于决定伴侣卡片生成时第三人称叙述所使用的代词，以及关系背景描述。
     relationship:
       label: 相处关系动态
       options:
@@ -256,6 +259,34 @@ steps:
     userBio:
       label: 关于你的补充信息（可选上下文）
       placeholder: 分享你的兴趣爱好或作息习惯，让伴侣能够更加懂你。
+      help: 用简短的文字概括你的角色，帮助认知模型和故事模型更好地理解你。
+    step: 第 {current} 步，共 {total} 步
+    eyebrow: 用户画像与身份
+    advice: 告诉伴侣你是谁！选择一个可直接使用的人设原型，或在下方自定义你的身份与外观标签。
+    archetypeTemplates: 人设模板
+    tapToAutofill: 点击自动填充
+    gender:
+      male: 男性
+      female: 女性
+      non-binary: 非二元性别
+    visualPrompt:
+      label: 外观提示词标签
+      placeholder: 例如：短黑发、戴眼镜、正式灰色商务套装
+      help: 生成代表你的场景图像时注入的 Stable Diffusion / ComfyUI 提示词标签。
+    displayingAs: 当前显示为：
+    archetypes:
+      rustic-craftsman:
+        label: 乡村工匠
+        subtitle: 粗犷工装与背带裤
+      modern-specialist:
+        label: 技术专家
+        subtitle: 利落西装与线框眼镜
+      creative-artist:
+        label: 创意艺术家
+        subtitle: 舒适针织衫与松弛美学
+      studio-director:
+        label: 工作室导演
+        subtitle: 藏蓝西装外套与干练风格
 
   vessel:
     label: 物理躯体
@@ -499,3 +530,1837 @@ quickStart:
   brain: 思考大脑
   voice: 声音音色
   launch: 完成配置并启动
+ui:
+  visual-style-preview: 视觉风格预览
+  rendering-character-style-sample: 正在生成角色风格示例……
+  try-again: 重试
+  character-style-preview: 角色风格预览
+  provider: 提供商：
+  re-roll: 🔄 重新生成
+  done-close: 完成 / 关闭
+  configure-comfyui-workflow: 配置 ComfyUI 工作流
+  map-prompt-and-image-injection-points-into-the-workflow-graph: 设置工作流中的提示词和图像输入位置
+  workflow-name: 工作流名称
+  give-this-workflow-a-recognizable-template-name: 为这个工作流起一个容易辨认的模板名称
+  e-g-anima-hikarun: 例如：anima_hikarun
+  1-positive-prompt-target-required: 1. 正向提示词输入位置（必填）
+  select-the-node-and-property-where-airi-will-inject-generated-positive-prompts: 选择 AIRI 将生成的正向提示词写入的节点和属性。
+  target-node: 目标节点
+  target-property: 目标属性
+  2-image-input-target-optional-img2img-controlnet: 2. 图像输入位置（可选：图生图 / ControlNet）
+  select-a-node-to-receive-character-input-images-airi-will-upload-the-image-to: 选择接收角色图像或输入图像的节点。AIRI 会将图像上传到 ComfyUI，并自动设置此属性。
+  image-node: 图像节点
+  image-property: 图像属性
+  save-workflow: 保存工作流
+  no-avatars-match-your-active-filter: 没有符合当前筛选条件的角色模型
+  previous-model: 上一个模型
+  next-model: 下一个模型
+  fast-track-60s: 快速配置 · 60 秒
+  brain: 意识核心
+  required: 必填
+  connect-your-ai-provider-to-power: 连接 AI 提供商，启用
+  s-consciousness: 的意识核心。
+  api-key: API 密钥
+  calibrated: 已校准：
+  failed: 失败
+  key-required: 需要密钥
+  not-tested: 尚未测试
+  companion: 伴侣
+  choose-who-will-be-by-your-side: 选择陪伴你的角色。
+  give: 让
+  a-clear-voice: 拥有清晰的声音。
+  engine: 引擎
+  local-on-device-zero-cloud: 本地 / 设备端（无需云服务）
+  kokoro-82m-tts-zero-gate-webgpu-wasm: Kokoro 82M 语音合成（无需访问许可 · WebGPU / WASM）
+  pocket-tts-local-100m-cpu: Pocket-TTS 本地版（100M · CPU）
+  moss-nano-local-ultra-fast: Moss-Nano 本地版（极速）
+  let: 让
+  hear-your-voice: 听见你的声音。
+  whisper-local-webgpu-on-device: Whisper 本地版（设备端 WebGPU）
+  browser-web-speech: 浏览器语音识别
+  memory-ltmm: 长期记忆（LTMM）
+  remember-across-sessions: 跨会话保留记忆。
+  web-search: 网页搜索
+  real-time-open-search: 实时开放网页搜索。
+  workspace-files: 工作区文件
+  safe-projects-reading: 在限定范围内读取 ~/Projects 中的文件。
+  visual-artistry: 视觉创作
+  1-click-free-pollinations: 一键使用免费的 Pollinations。
+  ready-to-meet: 准备认识
+  all-systems-configured-and-calibrated: 所有系统均已配置并校准。
+  preparing: 正在准备
+  initializing-neural-engines-and-local-memory: 正在初始化神经引擎和本地记忆。
+  setup-progress: 配置进度
+  queued: 等待中
+  step-3-of-17-environment-setup: 第 3 步，共 17 步 · 环境设置
+  before-configuring-my-mind-and-senses-customize-your-studio-workspace-all-chan: “在配置我的意识和感官之前，先设置你的工作环境吧。所有改动都会立即反映到整个窗口。”
+  current: 当前：
+  locales: 语言
+  reset-to-signature-airi-cyan: 恢复 AIRI 标志性青色
+  prevents-remote-cloud-sync-from-overwriting-this-machine-s-language-and-theme: 防止远程云同步覆盖这台设备的语言和主题偏好。
+  environment-configured-ready-for-experience-archetypes: 环境已配置 · 可以选择体验类型
+  image-generation-backend-engine: 图像生成后端与引擎
+  global-synthesizer: 全局图像生成器
+  pollinations-api-key-pollen-token: Pollinations API 密钥 / Pollen 令牌
+  optional: （可选）
+  free-mode-active-without-key: ✓ 未填写密钥，已启用免费模式
+  leave-blank-for-100-free-mode-or-enter-token-for-flux-grok: 留空即可使用免费模式；填写令牌可使用 FLUX/Grok
+  comfyui-server-url: ComfyUI 服务器地址
+  test: 测试
+  upload-workflow-api-json: 上传 workflow_api.json
+  google-ai-studio-api-key: Google AI Studio API 密钥
+  replicate-api-token: Replicate API 令牌
+  character-visual-style-lora-prefix: 角色视觉风格与 LoRA 前缀
+  auto-injected-from: ✨ 自动导入自
+  pre-pended-to-every-image-generation-prompt-for-consistent-character-appearanc: 添加到每条图像生成提示词的开头，使生成场景和自拍中的角色外貌、发型、眼睛颜色及画风保持一致。
+  e-g-masterpiece-best-quality-1girl-blue-eyes: 例如：精细画作、最佳画质、单个女孩、蓝色眼睛……
+  reset-to-persona-tags: 恢复人格标签
+  reset-to-vessel-default: ↺ 恢复角色模型的默认风格
+  add-aesthetic: 添加画风：
+  ghibli-meadow: + 吉卜力风草地
+  cyberpunk-neon: + 赛博朋克霓虹
+  shinkai-sky: + 新海诚风天空
+  cozy-cafe: + 温馨咖啡馆
+  cinematic-autonomy-autonomous-director: 自主场景创作（自动导演）
+  background-loop: 后台循环
+  a-parallel-2nd-llm-evaluator-that-analyzes-ongoing-conversation-and-autonomous: 由另一个并行运行的语言模型分析当前对话，在情绪或剧情高潮时自动生成背景图和自拍。
+  evaluation-trigger-mode: 评估触发方式
+  companion-reaction-default: 🌟 伴侣的回应（默认）
+  impact-focus: 关注回应效果
+  evaluates-what-the-companion-replied: 根据伴侣的回答进行评估：
+  user-llm-reply-director: 用户输入 → 模型回复 → 导演评估
+  best-for-natural-scene-reactivity: 。适合自然地根据对话变化生成场景。
+  user-input: 👤 用户输入
+  prompt-focus: 关注用户输入
+  evaluates-user-s-incoming-message-immediately-before-the-companion-speaks: 在伴侣回复之前，立即评估用户发来的消息。
+  in-character-generation-tool: 角色自主图像生成工具
+  direct-tool-call: 直接调用工具
+  equips-your-companion-with-the-direct: 为伴侣提供直接使用
+  tool-schema-so-they-can-actively-paint-illustrations-or-take-selfies-on-reques: 工具的能力，使其能按要求画插画或拍自拍。关闭后，自动导演仍可生成背景场景，但伴侣的提示词上下文不再附带该工具定义。
+  quick-pick-configured-llm-brains: 快速选择：已配置的语言模型
+  1-click-selection: 一键选择
+  select-consciousness-llm: 选择意识核心使用的语言模型
+  free-cloud-ai: 免费云端 AI
+  zero-setup: 无需配置
+  local-on-device: 设备本地
+  offline: 离线
+  custom-api-key: 自定义 API 密钥
+  zero-trust-oauth: 零信任 OAuth 授权
+  account: 账户：
+  switch-account: 切换账户
+  connect-your-cloudflare-account-to-unlock-high-speed-llama-3-3-70b-deepseek-r1:
+    连接 Cloudflare 账户，即可使用高速的 LLaMA 3.3 70B、DeepSeek R1 32B 和 GLM 4.7
+    Flash，并享有每日免费额度。
+  connect-cloudflare-account: 连接 Cloudflare 账户
+  100-free-no-sign-in: 完全免费 · 无需登录
+  want-more-free-models-explore: 想使用更多免费模型？可以浏览
+  370-free-endpoints: 370 多个免费接口
+  in-the-free-ai-hub: ，入口在免费 AI 中心。
+  available-in-settings: 可在设置中找到
+  apple-core-ai-neural-engine: Apple Core AI（神经引擎）
+  ane-accelerated-100-offline: ANE 加速 · 完全离线
+  gemma-4-e2b-it-speculative-coreml: Gemma 4 E2B IT（CoreML 推测解码）
+  recommended-on-device: ⭐ 推荐的本地模型
+  high-speed-neural-dialogue-on-apple-neural-engine-45-tok-s-100-offline-private: 在 Apple 神经引擎上进行高速对话（约每秒 45 个以上 Token），完全离线且保护隐私。
+  1-4-gb-ram: 约 1.4 GB 内存
+  selected-gemma-4-e2b-it-speculative-coreml: 已选择：Gemma 4 E2B IT（CoreML 推测解码）
+  download-compile: 下载并编译
+  active-ready: 已启用并就绪
+  retry-download: 重新下载
+  first-launch-on-device-warmup-notice: 首次启动本地模型的预热提示
+  when-starting-the-companion-for-the-first-time-apple-neural-engine-takes: 首次启动伴侣时，Apple 神经引擎需要
+  60-90-seconds: 约 60–90 秒
+  to-compile-model-graphs-and-warm-up-memory-buffers-please-be-patient-while-it: 来编译模型计算图并预热内存缓冲区。请等待初始化完成，后续对话会以约每秒 45 个以上 Token 的速度快速回复。
+  webgpu-isn-t-available-in-this-browser-pick-a-free-or-cloud-provider-below-e-g: 当前浏览器不支持 WebGPU。请在下方选择免费或云端提供商（如 OpenRouter、Gemini、Pollinations、MiMo）来驱动伴侣。
+  legacy-gpu-32-bit-webgpu-mode-active-no: 当前使用旧版 GPU / 32 位 WebGPU 模式（不支持
+  support-showing-universal-fp32-models-compatible-with-your-hardware: ）。这里显示的是兼容你设备的通用 FP32 模型。
+  local-webllm-webgpu-engine: 本地 WebLLM（WebGPU 引擎）
+  offline-local: 离线 · 本地
+  recommended: ⭐ 推荐
+  gb-vram: GB 显存
+  selected: 已选择：
+  download-activate: 下载并启用
+  choose-an-ai-brain-provider: 选择意识核心提供商
+  alphabetical-tap-to-select: 按字母排序 · 点击选择
+  configure: 配置
+  enter-your-api-credentials-to-load-ai-models: 填写 API 凭据以加载 AI 模型。
+  get-key: 获取密钥
+  advanced-custom-base-url: 高级：自定义基础地址
+  model-selection-test: 模型选择与测试
+  active-model-id: 当前模型 ID
+  type-directly-or-pick-below: 直接输入或在下方选择
+  e-g-gemini-2-5-flash-gpt-4o-mini-mistral-large-latest: 例如：gemini-2.5-flash、gpt-4o-mini、mistral-large-latest
+  discovered-models: 已发现的模型
+  dialogue-simulator-brain-verification: 对话模拟与意识核心验证
+  testing: 正在测试：
+  simulate-a-turn-to-verify-your-companion-responds-in-character-measures-live-l: 模拟一轮对话，检查伴侣是否按角色设定回复、测量实时延迟，并确认意识核心连接正常。
+  say-hello-and-introduce-yourself: 打个招呼，介绍一下你自己吧！
+  brain-active-verified: 意识核心已启用并验证
+  ms-ttft: 毫秒首字延迟
+  tokens: 个 Token
+  brain-connection-failed: 意识核心连接失败：
+  brain-connection-verified-ready-to-proceed: 意识核心连接已验证，可以继续。
+  configure-an-ai-model-test-connection-to-unlock-next: 配置 AI 模型并测试连接后，即可进入下一步。
+  proceed-without-an-ai-brain: 不配置意识核心，直接继续？
+  without-an-active-ai-model-your-companion-will-not-be-able-to-talk-think-or-re: 未启用 AI 模型时，伴侣将无法说话、思考，也无法回复你的语音或聊天消息。
+  stay-configure-brain-recommended: 留在此页配置意识核心（推荐）
+  skip-anyway-configure-later-in-settings: 仍然跳过（稍后在设置中配置）
+  changes-automatically-saved-to-companion-draft: 修改会自动保存到伴侣配置草稿
+  choose-an-archetype-that-fits-your-style-whether-you-prefer-a-silent-observer: “选择符合你喜好的体验类型。无论是安静的观察者、语音伴侣还是完整的舞台角色，各项能力都可以自行调整。”
+  reset-to-preset: 恢复预设
+  enabled: 项已启用 ·
+  available: 项可用 ·
+  steps: 个步骤
+  extensible-plugins: 扩展插件
+  soon: 即将推出
+  discord-bot-community-skills-triggers: Discord 机器人、社区技能与触发器
+  stage-ready: 舞台就绪
+  avatar-preview: 角色模型预览
+  mounting-avatar-vessel: 正在加载角色模型……
+  reset-avatar-position: 重置角色位置
+  reset-pos: 重置位置
+  silent-mode: 静默模式
+  manifest: 配置：
+  soul: 人格：
+  vessel: 躯体：
+  brain-d614f434: 意识：
+  voice: 语音：
+  pre-flight-readiness-honesty-matrix: 启动前就绪状态表
+  faculties-verified: 项能力已验证
+  kinetic-3d-motion-live-playground: 3D 动作实时试验场
+  type-how-you-want-her-to-move-e-g-wave-hello-graceful-bow: 输入希望角色做出的动作（如挥手打招呼、优雅鞠躬）……
+  launch-issue: 启动问题
+  dismiss-error: 关闭错误提示
+  inspect-the-compiled-airicard-payload: 查看编译后的 AiriCard 数据
+  view-card-json: 查看角色卡 JSON
+  pre-flight-specification-inspector: 启动前配置检查器
+  review-raw-draft-inputs-vs-deterministic-compiled-card-specification-before-st: 在启动舞台之前，对照检查原始配置草稿和编译后的角色卡。
+  compiled-airicard-chara-card-v3: 编译后的 AiriCard（chara_card_v3）
+  target-payload: 目标数据
+  raw-draft-state-pre-compilation: 原始草稿状态（编译前）
+  inputs: 输入
+  pick-a-speech-engine-below-then-talk-to-me-the-big-button-unlocks-as-soon-as-i: 在下方选择语音识别引擎，然后对我说话！识别到你的声音后就能点击继续，进度以实际识别结果为准。
+  microphone-input-device: 麦克风输入设备
+  select-which-physical-microphone-device-to-use-for-speech-verification: 选择用于语音验证的麦克风设备。
+  select-an-audio-input-device: 选择音频输入设备
+  active-microphone-input: 当前麦克风输入
+  rescan-audio-devices: 重新扫描音频设备
+  microphone-access-required: 需要麦克风权限
+  click-below-to-grant-microphone-permission-in-your-browser-app: 点击下方按钮，向浏览器或应用授予麦克风权限。
+  grant-access: 授予权限
+  choose-a-speech-engine: 选择语音识别引擎
+  built-in: 内置
+  zero-setup-realtime-streaming: 无需配置 · 实时流式识别
+  uses-your-browser-os-speech-recognition-engine-instant-streaming-transcription: 使用浏览器及操作系统的语音识别引擎，无需下载或 API 密钥，即可实时转写。
+  app-local-whisper: 应用本地 Whisper
+  webgpu-offline: WebGPU 离线运行
+  100-private-on-device: 保护隐私 · 设备端运行
+  runs-openai-whisper-locally-in-your-browser-app-complete-offline-privacy-with: 在浏览器或应用中本地运行 OpenAI Whisper，完全离线，不发送遥测数据。
+  whisper-webgpu-model: Whisper WebGPU 模型
+  larger-models-offer-higher-accuracy-smaller-models-download-faster-with-less-v: 较大的模型通常更准确；较小的模型下载更快，显存占用更少。
+  model-shard: 模型分片
+  download-model: 下载模型
+  re-download: 重新下载
+  whisper-model-shard-is-cached-resident-in-memory-ready-to-transcribe: Whisper 模型分片已缓存并加载到内存，可以开始转写。
+  download-failed-or-connection-interrupted: 下载失败或连接中断。
+  cloud-remote-engines-api-key-required: 云端与远程引擎（需要 API 密钥）
+  optional-59be7133: 可选
+  select-a-transcription-model: 选择语音转写模型
+  push-to-talk-trigger-key: 按键说话的触发键
+  pick-a-lock-key-to-toggle-the-microphone-hands-free: 选择一个锁定键，用于切换麦克风状态。
+  key-detected: 已检测到按键
+  live-transcription-test: 实时转写测试
+  verified-working: 已验证可用
+  input-level: 输入音量
+  hearing-you: 正在听你说话……
+  final-transcription: 最终转写结果：
+  no-transcription-yet-start-the-test-and-speak-into-your-microphone: 尚无转写结果。请开始测试，并对麦克风说话。
+  ear-verified-ready-to-proceed: 听觉已验证，可以继续。
+  speak-into-your-microphone-next-unlocks-once-we-hear-you: 请对麦克风说话，检测到语音后即可进入下一步。
+  24-hour-short-term-memory-stmm: 24 小时短期记忆（STMM）
+  the-active-pulse: 近期对话记忆
+  proactively-summarizes-each-24-hour-conversational-block-into-daily-memory-chu: 自动将每 24 小时的对话整理成每日记忆摘要，并加入系统提示词，使重新加载后仍能延续近期对话。
+  context-window-daily-budget-tier: 上下文窗口与每日预算等级
+  sacred-long-term-text-journal-ltmm: 珍藏长期文字日记（LTMM）
+  tool-text-journal: 工具：text_journal
+  equips-your-companion-with-the-append-only: 为伴侣配备只能追加记录的
+  tool-allows-them-to-record-meaningful-autobiographical-memories-feelings-and-s: 工具，用于记录重要经历和感受，并按需检索以往记录。
+  the-sacred-record-rule: 珍藏记录规则：
+  journal-entries-are-strictly-append-only-and-immortal-the-companion-will-auton: 日记只允许追加且永久保留。伴侣会自主记录重要经历，不覆盖以往历史。
+  the-eternal-thread-lifetime-artifact: 永恒之线（终生记忆）
+  relational-essence: 关系核心
+  maintains-the-companion-s-core-relational-identity-and-shared-milestones-acros: 长期保留伴侣的关系身份和共同经历，将每日变化提炼为持久记忆，使彼此的关系能够延续。
+  relational-distillation-density: 关系记忆提炼密度
+  day-dreaming-echo-chips: 白日梦与回响片段
+  the-echoes: 记忆回响
+  when-you-go-idle-after-a-conversation-session-background-consolidation-distill: 对话结束后进入空闲时，后台会将近期对话整理成回响片段和情绪标签，为你下次回来提前准备思绪。
+  active-cognitive-memory-footprint: 当前认知记忆占用
+  ready-for-compilation: ● 可以编译
+  stmm: 短期记忆：
+  tok: 个 Token）
+  ltmm-text-journal-sacred-records: 长期记忆：text_journal（珍藏记录）
+  lifetime: 终生记忆：
+  dreams-active-on-idle: 梦境：空闲时启用
+  anime-tropes: 动漫角色类型
+  starter-cards: 入门角色卡（
+  community-hub-sillytavern-cards: 社区中心与 SillyTavern 角色卡
+  ai-character-creator: AI 角色创建器
+  view-lore-scenario: 查看背景与场景
+  personality: 性格：
+  scenario: 场景：
+  automatic-card-interceptor: 自动角色卡捕获：
+  browse-any-repository-below-and-click-to-download-any-sillytavern-v2-character: 浏览下方任意角色卡站点，下载 SillyTavern V2 的 PNG 或 JSON 角色卡。AIRI 会自动捕获下载、解析角色信息，并将其加入伴侣配置。
+  drop-a-sillytavern-character-card-or-click-to-browse: 拖入 SillyTavern 角色卡，或点击选择文件
+  supports-png-character-cards-with-embedded-text-chara-chunks-or-ccv2-ccv3-json: 支持带有 tEXt chara 数据的 PNG 角色卡，以及 CCv2/CCv3 格式的 JSON 文件。
+  staged-custom-card: 已载入自定义角色卡
+  active-in-onboarding-draft-ready-to-synthesize-onto-your-companion: 已加入设置草稿，可以用于生成伴侣配置。
+  clear-revert: 清除 / 恢复
+  identity-avatar-source: 角色身份与形象来源
+  reset-avatar-tags-and-identity-fields: 重置角色形象、标签和身份字段
+  reset-fields: 重置字段
+  upload-custom-image: 上传自定义图片
+  browse-catalog-anime: 浏览角色目录（动漫）
+  upload-photo: 上传照片
+  change: 更换
+  from-vessel: 来自角色模型
+  character-name: 角色名称
+  e-g-mochi-chan: 例如：小麻薯
+  franchise-series: 作品 / 系列
+  e-g-original-hololive-fate: 例如：原创 / Hololive / Fate
+  visual-traits-tags: 外貌特征与标签
+  add-tag: + 添加标签……
+  search-characters-by-name-series-or-tags: 按名称、作品或标签搜索角色……
+  pick-any-character-to-populate-metadata: 选择角色即可自动填写基本信息
+  outline-your-story-settings: 设定你的故事
+  story-premise-trope: 故事主题与类型
+  scenario-guidance-custom-twists-optional: 场景指导与自定义设定（可选）
+  e-g-a-sentient-strawberry-mochi-with-an-attitude-problem-living-on-a-programme: 例如：一只住在程序员桌上的草莓麻薯，有了自我意识，还很爱闹脾气……
+  story-proposal-live-persona-card: 故事方案与实时人格卡
+  in-place-editable-auto-saved: 可直接编辑并自动保存
+  opening-greeting-turn-0-speech: 开场问候（第 0 轮台词）
+  spoken-immediately-upon-stage-launch: 启动舞台后立即说出
+  first-words-spoken-by-the-companion: 伴侣说出的第一句话……
+  scenario-lore-world-setting: 故事背景与世界设定
+  living-environment-and-dynamic: 生活环境与相处方式
+  rules-of-the-world-and-companion-dynamic: 世界规则与和伴侣的相处方式……
+  body: 躯体：
+  browse: 浏览
+  card-interceptor-active: 角色卡捕获已启用
+  close-browser: 关闭浏览器
+  proactive-presence-awareness: 主动陪伴与环境感知
+  schedule-sensory-engines: 作息与感知引擎
+  define-when-your-companion-is-active-and-how-they-proactively-interact-with-yo: 设置伴侣的活动时间，以及如何主动参与你的一天。
+  active: 已启用
+  operating-schedule-quiet-hours: 活动作息与免打扰时段
+  boundaries-governing-when-your-companion-can-reach-out-guarantees-100-display: 限定伴侣主动互动的时间。在休息时段停止屏幕观察和主动发言，保护隐私并保持安静。
+  wake-up-time: 起床时间
+  bedtime-quiet-hours-start: 就寝时间 / 免打扰开始时间
+  pause-proactive-messages-when-away-afk: 离开电脑时暂停主动发言（AFK）
+  after: 闲置超过
+  min: 分钟
+  proactivity-engine: 主动互动引擎
+  interaction-style: 互动方式
+  select-how-your-companion-perceives-and-initiates-interactions-throughout-the: 选择伴侣如何感知环境并主动发起互动。
+  engine-fine-tuning: 引擎微调
+  cadence-sensors: 频率与传感器
+  fine-tune-reaction-behavior-capture-resolution-and-smart-silence-guarantees: 微调回应方式、捕获分辨率和智能静默设置。
+  screen-reaction-delivery-mode: 屏幕变化回应方式
+  perception-engine-tier: 感知引擎等级
+  screen-sampling-cadence: 屏幕采样频率
+  ambient-check-in-cadence: 定时关怀频率
+  active-window-app-history: 当前窗口与应用历史
+  cpu-system-load-telemetry: CPU 与系统负载数据
+  smart-silence-no-reply-directive: 智能静默（NO_REPLY 指令）
+  instructs-the-companion-to-stay-completely-silent-via-no-reply-unless-there-is: 没有值得提及且与当前情境相关的发现时，要求伴侣通过 NO_REPLY 保持静默。
+  status: 状态：
+  screen-perception-visual-push: 屏幕感知（视觉触发）
+  event-driven-push: 事件触发
+  enable-background-desktop-frame-captures-promotes-significant-visual-differenc: 启用后台屏幕采样，检测到明显的画面变化时触发主动评论。
+  reaction-delivery-mode: 回应呈现方式
+  how-reactions-are-presented: （如何呈现回应）
+  sensory-perception-proactivity: 感官感知与主动互动
+  step-13: 第 13 步
+  equip-your-companion-with-real-time-environmental-awareness-balance: 让伴侣实时感知环境。协调
+  visual-push: 视觉触发
+  screen-watching-and: （屏幕观察）与
+  ambient-pull: 定时关怀
+  proactive-heartbeats-governed-by-an: （主动心跳），并通过
+  operating-sleep-schedule: 活动与睡眠作息
+  and: 和
+  smart-silence-no-reply: 智能静默（NO_REPLY）进行管理
+  autonomous-perception-ticker-analyzing-your-desktop-display-reacts-in-real-tim: 自动定时分析桌面画面，在游戏、视频或活动窗口发生变化时实时回应。
+  choose-how-your-companion-chimes-in: （选择伴侣如何回应）
+  capture-sampling-frequency: 画面采样频率
+  ms-ticker: 毫秒采样间隔
+  frames-are-continuously-hashed-with-phash-only-frames-with-meaningful-visual-d: 持续通过 pHash 比较画面，只在出现明显变化时触发 OCR 或模型评估。
+  the-visual-push-sentinel-silent-by-default: 视觉触发守卫：默认静默
+  whenever-screen-shifts-occur-your-companion-evaluates-whether-the-change-is-ge: 屏幕变化时，伴侣会判断是否值得回应。对于日常打字、浏览静态页面或普通视频画面，模型会静默输出
+  without-interrupting-your-flow: ，不打断你的活动。
+  proactive-heartbeats-sleep-schedule: 主动心跳与睡眠作息
+  ambient-pull-96855e5d: 定时关怀
+  periodic-background-timer-check-ins-evaluating-whether-to-speak-bound-to-your: 后台定时判断是否需要主动发言，受活动作息和免打扰时段限制。
+  ambient-check-in-interval: 定时关怀间隔
+  timer-pulse: 定时触发
+  define-quiet-hours-when-your-companion-sleeps-during-quiet-hours-companion-wil: 设置伴侣休息的免打扰时段，此时伴侣不会主动评论。
+  wake-up-time-7d8d56ef: 起床时间
+  bedtime-quiet-hours: 就寝时间（免打扰时段）
+  sleep-schedule-applies-to-both-screen-watching-heartbeats: 睡眠作息：同时适用于屏幕观察和主动心跳
+  during-bedtime-quiet-hours: 在就寝免打扰时段，
+  both: 这两个
+  systems-go-completely-dormant-screen-frame-capture-is-frozen-for: 系统都会暂停。停止屏幕采样，保障
+  100-display-privacy: 屏幕隐私
+  no-watching-during-off-hours-and-background-heartbeat-timers-cease-all-evaluat: （休息时不观察屏幕），后台心跳定时器也会停止评估，直到起床时间。
+  pause-when-away-from-computer-afk-gate: 离开电脑时暂停（AFK 检测）
+  automatically-pauses-screen-watching-and-heartbeats-after-5-min-of-mouse-keybo: 鼠标和键盘闲置超过 5 分钟后，自动暂停屏幕观察和主动心跳。
+  context-aware-smart-silence-directive: 结合情境的智能静默指令
+  no-yap-guarantee: 避免无意义发言
+  automatically-bakes-a-hardened-anti-yapping-instruction-directly-into-your-com: 自动将避免无意义发言的指令加入伴侣的系统提示词。定时心跳或屏幕变化只检测到日常活动时，模型会静默输出
+  instead-of-speaking-unsolicited-spam: ，避免频繁发出无用的主动消息。
+  situational-grounding-event-ledger: 现实情境与事件记录
+  context-injections: 上下文注入
+  feed-real-world-desktop-state-active-application-history-and-system-ledger-eve: 每轮对话都将实际桌面状态、活动应用历史和系统事件记录加入语言模型提示词。
+  attach-sensor-telemetry-to-manual-chat-messages-chatbox-grounding: 为手动发送的聊天消息附加环境数据
+  grounds-normal-user-prompts-with-your-active-window-title-application-name-and: 为普通聊天消息附加当前窗口标题、应用名称和本地时间。
+  active-os-sensor-probes: 已启用的系统传感器
+  window-history: 窗口历史
+  cpu-system-load: CPU 与系统负载
+  usage-metrics: 使用指标
+  attach-unified-event-ledger-stream: 附加统一事件记录流
+  sample-last: 最近采样：
+  events: 条事件
+  live-sensor-ledger-ingestion-preview: 实时环境数据与事件记录预览
+  this-block-is-appended-at-the-tail-of-the-llm-prompt-to-preserve-kv-prefix-cac: 这段内容会附加到模型提示词末尾，以保持 KV 前缀缓存对齐。
+  previous: ← 上一步
+  confirm-continue: 确认并继续 →
+  api-credentials: API 凭据
+  paste-your-api-key-here: 在此粘贴 API 密钥……
+  engine-model-architecture: 引擎模型架构
+  select-the-underlying-neural-checkpoint-or-speech-synthesis-model: 选择使用的神经网络权重或语音合成模型。
+  hugging-face-access-token-for-pocket-tts-gated-voices: Hugging Face 访问令牌（用于需要访问许可的 Pocket-TTS 声音）
+  accept-gate: 申请访问许可
+  get-token: 获取令牌
+  tip-all: 提示：所有
+  starter-voices: ★ 入门声音
+  such-as-sakura-and-relu-run-100-offline-without-needing-any-hf-token: （如 ★ Sakura 和 ★ ReLU）都可完全离线运行，无需 Hugging Face 令牌。
+  activate-download-engine: 启用并下载引擎
+  downloading-weights: 正在下载权重（
+  engine-initialized-ready: 引擎已初始化并就绪
+  force-re-download-weights: 强制重新下载权重
+  download-failed: 下载失败：
+  s-voice: 的声音
+  s-voice-profile: 的声音配置
+  s-voice-persona: 的声音角色
+  companion-voice: 伴侣的声音
+  voice-persona-timbre: 声音角色与音色
+  refresh-voice-catalog: 刷新声音目录
+  load-voices: 加载声音
+  instant-zero-shot-voice-clone: 即时零样本声音克隆
+  neural-clone: 神经声音克隆
+  delete-currently-selected-custom-voice-clone: 删除当前选择的自定义克隆声音
+  prompt-spoken-transcript-optional: 参考音频的转写文本（可选）
+  acoustic-alignment-for-omnivoice-higgs-fish: 用于 OmniVoice / Higgs / Fish 的音文对齐
+  type-exact-words-spoken-in-the-audio-sample-before-dropping: 拖入音频前，填写参考音频中说出的准确台词……
+  speech-rate-speed: 语速
+  vocal-pitch: 音高
+  s-greeting-sample: 的问候示例
+  live-preview: 实时试听
+  reset-text: 重置文字
+  enter-greeting-sample-text-to-preview: 输入用于试听的问候文字……
+  producer-user-voice: 创作者 / 用户的声音
+  user-voice-persona: 用户声音角色
+  user-voice: 用户的声音
+  s-spoken-sample: 的语音示例
+  producer-sample: 创作者语音示例
+  enter-user-sample-speech-to-preview: 输入用于试听的用户台词……
+  hugging-face-token-required: 需要 Hugging Face 令牌
+  this-voice-is-behind-a-gated-model: 此声音需要模型访问许可
+  the-voice-you-selected: 你选择的声音（
+  is-hosted-on-a-gated-hugging-face-repository-to-use-it-you-need-a-free-hugging: ）来自需要访问许可的 Hugging Face 仓库。请注册免费账户、接受模型访问条件，并在下方粘贴访问令牌。
+  skip-the-token-free-offline-starter-voices: 无需令牌：免费的离线入门声音
+  these-voices-run-100-locally-with-zero-shot-cloning-no-hf-account-or-token-nee: 这些声音可在本地进行零样本克隆，无需 Hugging Face 账户或令牌：
+  relu-empathetic: ★ ReLU（善于共情）
+  sakura-japanese: ★ Sakura（日语 🇯🇵）
+  create-an-account-at: 注册账户：
+  visit: 访问
+  and-click: 并点击
+  agree-and-access-repository: “Agree and access repository”（同意并访问仓库）
+  required-without-accepting-the-gate-hf-blocks-access-even-with-a-valid-token: ⚠️ 必须接受访问条件：否则即使令牌有效，Hugging Face 也会拒绝访问。
+  generate-a: 生成
+  user-access-token: 用户访问令牌
+  with: ，并选择
+  read: 读取
+  role-at: 权限，地址为
+  token-starts-with: （令牌以
+  paste-token-here: 在此粘贴令牌
+  1-accept-gate: 1. 接受访问条件
+  2-get-token: 2. 获取令牌
+  pacing-profile-presets: 对话节奏预设
+  select-a-cadence-profile-matching-your-model-s-reasoning-latency-these-setting: 选择适合模型推理延迟的节奏预设。这些设置控制等待回复时思考填充语的播放时机和频率，不用于中断请求或设置超时。
+  0-mb-vram: 0 MB 显存
+  disabled-none: 关闭 / 无
+  pure-direct-output: 直接输出
+  complete-silence-during-generation-no-thinking-fillers-audio-pauses-or-backgro: 生成回复时保持静默，不播放思考填充语或加载相关后台模型，没有额外后台显存占用。
+  zero-overhead: 无额外开销
+  silent: 静默
+  fast-2-5s-ttft: 快速 · 首字延迟 2–5 秒
+  snappy-chat: 轻快聊天
+  fast-conversational: 快速对话
+  standard-chat-models-with-fast-initial-response-gemini-flash-claude-haiku-smal: 适合快速开始回复的常规聊天模型，如 Gemini Flash、Claude Haiku 或小型本地模型，使用简短的填充语。
+  filler-1-8s: 填充语：≤1.8 秒
+  every-8s: 间隔：8 秒
+  budget-2s: 时长预算：2 秒
+  everyday-10-25s: 日常 · 10–25 秒
+  everyday-reasoning: 日常推理
+  everyday-reasoning-models-deepseek-4-pro-gpt-4o-claude-3-5-sonnet-gemini-pro-n: 适合日常推理模型，如 DeepSeek 4 Pro、GPT-4o、Claude 3.5 Sonnet、Gemini Pro，使用自然的思考旁白。
+  filler-3-0s: 填充语：≤3.0 秒
+  every-15s: 间隔：15 秒
+  budget-3-2s: 时长预算：3.2 秒
+  extended-40-90s: 长时 · 40–90 秒以上
+  deep-cot-explorer: 深度思考探索
+  extended-deliberation: 长时间思考
+  heavy-chain-of-thought-models-kimi-k3-deepseek-r1-glyph-deep-cot-longer-delibe: 适合较慢的思维链模型，如 Kimi k3、DeepSeek R1、Glyph Deep CoT，使用较长的思考旁白。
+  filler-4-8s: 填充语：≤4.8 秒
+  every-18s: 间隔：18 秒
+  budget-5s: 时长预算：5 秒
+  thinking-voice-sources-fillers-disabled: 思考语音来源与填充语已关闭
+  0-mb-vram-0-background-overhead: 0 MB 显存 · 无额外后台开销
+  complete-silence-is-guaranteed-while-reasoning-no-background-neural-slms-audio: 推理期间保持静默，不加载后台小语言模型、音频缓存或提取模型。回复生成后由伴侣直接回答。
+  thinking-voice-sources: 思考语音来源
+  choose-where-airi-sources-spoken-words-and-vocalizations-during-model-delibera: 选择模型思考期间播放的台词和声音来源。
+  natural-in-character-thoughts-think-aloud: 符合角色的自然思绪（<think_aloud>）
+  prompt-directives: 提示词指令
+  synthesizes-in-character-thoughts-when-the-model-emits-intentional-think-aloud: 模型在推理中主动输出 <think_aloud> 标记时，将符合角色设定的思绪合成为语音。
+  smart-reasoning-extractor-needle-45m-slm: 智能推理提取器（Needle 45M 小语言模型）
+  lightweight-slm-14-mb: 轻量小语言模型（14 MB）
+  runs-an-ultra-lightweight-on-device-model-to-extract-genuine-moments-of-realiz: 在设备上运行轻量模型，直接从原始推理 Token 中提取顿悟时刻和思路变化，无需特殊标记。
+  status-ready-14-mb-in-cache: 状态：已就绪（缓存占用 14 MB）
+  zero-cloud-cost-pre-warmed: 无云端费用 · 已预热
+  casual-spoken-fillers-organic-reactions-audio-clips: 自然口语填充（即时反应与音频片段）
+  natural-transitions: 自然衔接
+  speaks-short-vocal-reactions-and-organic-transitions-wait-hmm-let-me-see-when: 模型需要思考时，播放简短反应和自然衔接语，如“等一下……”“嗯，让我想想……”。
+  synthesizing-fillers: 正在合成填充语（
+  cache-primed: 缓存已准备：
+  fillers-ready-instant-playback: 条填充语可用（即时播放）
+  cache-unprimed-pre-synthesize-clips-to-eliminate-pause-latency: 缓存尚未准备 · 提前合成音频可减少等待延迟
+  zero-latency: 即时播放
+  max-response-length: 最大回复长度
+  reasoning-architecture-incompatibility-keep-limits-disabled: 推理架构不兼容：请保持长度限制关闭
+  thinking-and-reasoning-models: 思考与推理模型（
+  consume-tokens-dynamically-during-internal-chain-of-thought-deliberation-befor: ）会先消耗 Token 进行内部思维链推理，再输出回复。硬性限制 Token 数可能打断推理、导致回复失败，因此推理模型的回复长度限制已锁定为关闭。
+  enforce-response-length: 启用回复长度限制
+  locked-off-reasoning-model: 已锁定为关闭（推理模型）
+  guide-companion-response-brevity-and-maximum-token-budget: 控制伴侣回复的简洁程度与最大 Token 预算
+  spoken-cadence-depth: 语音节奏与内容深度
+  token-ceiling: Token 上限：
+  custom-token-ceiling: 自定义 Token 上限
+  50-micro: 50（极简）
+  200-standard: 200（标准）
+  500-rich: 500（丰富）
+  1000-detailed: 1000（详细）
+  2000-max: 2000（最大）
+  context-width-threshold-optional: 上下文容量阈值（可选）
+  only-set-if-known: 了解模型容量时再填写
+  optional-only-enter-if-you-know-your-model-s-context-window-providing-this-all: 可选项。仅在了解模型的上下文窗口大小时填写，AIRI 可据此提前压缩短期记忆，避免上下文超出容量。
+  e-g-128000-optional: 例如：128000（可选）
+  response-cadence-simulator: 回复节奏模拟器
+  live-test-with: 实时测试，使用
+  simulate-a-turn-to-verify-how-your-companion-speaks-under-current-settings: 模拟一轮对话，验证伴侣在当前设置下的说话方式
+  enter-a-test-prompt-for-your-companion: 输入给伴侣的测试消息……
+  simulated-companion-output: 伴侣模拟回复
+  sentences: 句
+  generating-response-with-cadence-enforcement: 正在按节奏设置生成回复……
+  pre-warm-thinking-fillers: 提前准备思考填充语？
+  you-ve-enabled: 你已启用
+  casual-spoken-fillers: 自然口语填充
+  but-the-audio-cache-is-currently-empty: ，但音频缓存仍为空。
+  to-eliminate-voice-latency-during-reasoning-pauses-airi-needs-to-make: 为减少思考间隙的语音延迟，AIRI 需要向当前配置的语音提供商发起
+  9-quick-synthesis-requests: 9 次快速语音合成请求
+  to-your-configured-voice-provider: ，提供商为（
+  would-you-like-to-pre-generate-these-clips-now-or-continue-and-generate-them-o: 现在提前生成这些音频片段，还是继续并在需要时再生成？
+  pre-warming-fillers: 正在预热填充语（
+  generate-on-demand-later: 稍后按需生成
+  web-research-pack: 网页搜索与研究工具包
+  0-key-web-search: 无需密钥的网页搜索
+  equips-the-companion-with-real-time-web-search-and-page-markdown-extraction-vi: 通过
+  duckduckgo-bing-brave-baidu-without-requiring-paid-api-keys-or-subscription-to: （支持 DuckDuckGo、Bing、Brave、百度）为伴侣提供实时网页搜索和 Markdown 内容提取，无需付费 API 密钥或订阅令牌。
+  fetch-content-markdown: 网页内容提取（fetch_content · Markdown）
+  zero-setup-needed: 无需配置
+  local-workspace-filesystem-pack: 本地工作区与文件系统工具包
+  desktop-mcp: 桌面 MCP
+  allows-the-companion-to-read-list-and-search-files-inside-designated-project-d: 通过
+  with-user-configured-read-boundaries: 让伴侣读取、列出和搜索指定项目目录中的文件，读取范围由用户设置。
+  read-file-list-directory: 读取文件 / 列出目录（read_file / list_directory）
+  directory-tree-search-files: 目录树 / 搜索文件（directory_tree / search_files）
+  scoped-to-projects: 范围限定为 ~/Projects
+  kinetic-motion-generator-pack: 动态动作生成工具包
+  vrm-avatar-optimized: 针对 VRM 角色优化
+  allows-humanoid-vrm-companions-to-autonomously-author-and-generate-new-3d-skel: 通过语言模型生成关键帧与 FlowMDM WebGPU 神经扩散，让人形 VRM 伴侣根据对话自主创作并实时生成新的 3D 骨骼动画和舞蹈。
+  engine-status: 引擎状态：
+  output-motions-compile-directly-to-vrma-binary-tracks-and-play-live-on-stage: 生成的动作会直接编译为 VRMA 动画轨道，并在舞台上实时播放。
+  note-your-selected-vessel-live2d-spine-uses-2d-animation-channels-switch-to-a: 提示：当前角色模型（Live2D/Spine）使用 2D 动画通道。请在角色模型步骤中选择 VRM，以使用完整的 3D 动作播放。
+  active-desktop-toolbelt: 已启用的桌面工具
+  tool: 工具
+  granted: 已授权
+  web-search-0-key: 网页搜索（web_search · 无需密钥）
+  filesystem-desktop-mcp: 文件系统（filesystem · 桌面 MCP）
+  generate-motion-3d-vrma: 动作生成（generate_motion · 3D VRMA）
+  no-external-tools-enabled-safe-sandboxed-mode: 未启用外部工具（安全沙盒模式）。
+  edge-vault: 边缘保险库：
+  ready-encrypted: 已就绪并加密
+  how-it-works: 工作方式：
+  why-it-matters: 用途：
+  opens-your-browser-for-pkce-authorization-edge-vault-pairing: 打开浏览器进行 PKCE 授权，并配对边缘保险库。
+  requires-workers-kv-and-r2-read-write-permissions: 需要 Workers KV 和 R2 的读写权限。
+  ready-to-restore: 可以恢复
+  restoring-pulls-active-state-into-your-local-vault: 恢复操作会将当前配置状态下载到本地保险库。
+  connected-to-cloudflare-no-existing-companion-backups-found-in-cloudflare-r2-y: 已连接 Cloudflare，但未在 Cloudflare R2 中找到已有伴侣备份。新伴侣会自动同步到云端保险库。
+  continue-setup-cloud-backed: 继续配置（使用云备份）→
+  checking-cloudflare-r2-for-companion-backups: 正在检查 Cloudflare R2 中的伴侣备份……
+  path: 路径：
+  step-6-of-16: 第 6 步，共 16 步
+  avatar-selection-staging: 角色模型选择与舞台配置
+  installed-avatars: 个已安装角色模型
+  import-custom: + 导入自定义模型
+  all-sources: 全部来源（
+  installed: ✓ 已安装（
+  free-downloads: 🌐 免费下载（
+  spine-2d: Spine（二维）
+  drop-your-custom-model-here-vrm-or-zip: 将自定义模型拖到这里（.vrm 或 .zip）
+  supports-vrm-0-0-1-0-3d-humanoids-and-live2d-cubism-model-zip-packages: 支持 VRM 0.0/1.0 三维人形模型，以及 Live2D Cubism 模型 ZIP 包。
+  choose-file: 选择文件
+  via: 来源：
+  selected-vessel: 已选角色模型
+  select-avatar: ✓ 选择角色模型
+  visual-style-descriptor: 视觉风格描述：
+  auto-injected-to-artistry: 自动用于视觉创作
+  selected-vessel-1014e6c6: 已选角色模型：
+  auto-sets-strategy: 自动设置策略：
+  local-vision-provider: 本地视觉提供商
+  available-e6744473: 可用
+  cloud-vision-provider: 云端视觉提供商
+  vision-model: 视觉模型
+  loading-models: 正在加载模型……
+  e-g-gpt-4o-claude-3-5-sonnet-moondream2: 例如：gpt-4o、claude-3-5-sonnet、moondream2
+  routing-strategy: 路由与策略
+  direct-vlm-stand-in: 视觉模型直接回复
+  1-hop: 单阶段
+  the-vision-model-directly-synthesizes-dialogue-answers-in-character: 由视觉模型直接按角色设定生成对话回复。
+  forward-to-brain: 转交意识核心
+  2-hop-recommended: 双阶段（推荐）
+  vlm-generates-objective-perception-tags-injected-into-character-consciousness: 视觉模型生成客观感知标签，再将其加入角色意识核心的上下文。
+  reset-default: 恢复默认
+  vision-chat-simulator: 视觉对话模拟器
+  test-preview: 测试预览
+  click-or-drop-to-replace-image: 点击或拖入文件以更换图片
+  drop-test-image-or-click-to-browse: 拖入测试图片，或点击选择文件
+  png-jpg-or-webp-to-simulate-chat-attachment: 支持 PNG、JPG 或 WebP，用于模拟聊天图片附件
+  simulated-message: 模拟消息
+  what-do-you-think-of-this-picture: 你觉得这张图片怎么样？
+  ms: 毫秒
+  processing: 正在处理……
+  hop-2: 第二阶段 ·
+  s-dialogue: 的对话
+  thinking-in-character: 正在按角色设定思考……
+  2-hop: （双阶段）
+  please-enter-a-visual-style-prompt-first: 请先填写视觉风格提示词。
+  timeout-waiting-for-electron-generation-response: 等待图像生成结果超时
+  synthesizing-with-pollinations-ai: 正在使用 Pollinations AI 生成图像……
+  no-image-was-returned-from-generator: 生成器没有返回图像。
+  none-text-to-image-only: （无：仅文生图）
+  local: 本地
+  community: 社区
+  webllm-webgpu-on-device: WebLLM（设备端 WebGPU）
+  ollama-local: 本地 Ollama
+  snappy: 轻快
+  deep-cot: 深度思维链
+  please-enter-an-api-key-before-testing-connection: 请先填写 API 密钥，再测试连接。
+  testing-cf80cd8a: 测试中
+  empty-response-received-from-llm: 语言模型返回了空回复。
+  connected: 已连接
+  error: 错误
+  kokoro-q4-fast-cpu-wasm-recommended: Kokoro Q4（快速 CPU WASM · 推荐）
+  kokoro-q8-high-quality-wasm: Kokoro Q8（高音质 WASM）
+  kokoro-q4-webgpu: Kokoro Q4（WebGPU）
+  pocket-english-100m-cpu: Pocket 英语（100M · CPU）
+  pocket-french-24l: Pocket 法语（24L）
+  pocket-spanish-24l: Pocket 西班牙语（24L）
+  pocket-german-24l: Pocket 德语（24L）
+  pocket-italian-24l: Pocket 意大利语（24L）
+  moss-nano-fast-engine-100m: Moss-Nano 快速引擎（100M）
+  standard-voice-model: 标准语音模型
+  bella-soft-anime-tone-sweet: Bella（柔和动漫音色 · 甜美）
+  sarah-professional-clear: Sarah（专业 · 清晰）
+  nicole-crisp-focused: Nicole（清脆 · 专注）
+  heart-warm-natural: Heart（温暖 · 自然）
+  sky-gentle-whisper: Sky（温柔轻语）
+  adam-natural-male: Adam（自然男声）
+  michael-executive-male: Michael（干练男声）
+  anna-warm-conversational: Anna（温暖 · 对话风格）
+  claire-articulate-clear: Claire（吐字清晰）
+  vera-deep-conversational: Vera（低沉 · 对话风格）
+  bella-gentle-sweet: Bella（温柔 · 甜美）
+  daniel-deep-male: Daniel（低沉男声）
+  elena-soft-expressive: Elena（柔和 · 表现力丰富）
+  frank-warm-narrator: Frank（温暖的旁白）
+  en-trump: 英语 Trump
+  en-ljs: 英语 LJS
+  default-voice: 默认声音
+  whisper-tiny-75-mb-recommended: Whisper Tiny（75 MB · 推荐）
+  whisper-base-145-mb-balanced: Whisper Base（145 MB · 均衡）
+  whisper-small-480-mb-precise: Whisper Small（480 MB · 精准）
+  default-microphone: 默认麦克风
+  brain-consciousness: 意识核心
+  hearing-acoustics: 听觉识别
+  vocal-synthesis: 语音合成
+  soul-manifestation: 人格与角色呈现
+  active-96879611: 运行中
+  done: 已完成
+  setup-encountered-an-issue-but-you-can-continue-into-stage: 配置遇到问题，但你仍可继续进入舞台。
+  test-connection: 测试连接
+  hear-greeting: 试听问候
+  ready: 就绪
+  muted: 已静音
+  idle: 空闲
+  stop-test: 停止测试
+  test-microphone: 测试麦克风
+  english: 英语
+  japanese: 日语
+  simplified-chinese: 简体中文
+  traditional-chinese: 繁体中文
+  korean: 韩语
+  spanish: 西班牙语
+  french: 法语
+  russian: 俄语
+  vietnamese: 越南语
+  indonesian: 印度尼西亚语
+  crimson: 绯红
+  coral: 珊瑚红
+  tangerine: 橘红
+  marigold: 金盏黄
+  amber: 琥珀色
+  lemon: 柠檬黄
+  lime: 青柠绿
+  emerald: 祖母绿
+  mint: 薄荷绿
+  jade: 翡翠绿
+  viridian: 铬绿
+  teal: 蓝绿色
+  turquoise: 绿松石色
+  cyan-default: 青色（默认）
+  cerulean: 天蓝色
+  cobalt: 钴蓝
+  sapphire: 宝石蓝
+  denim: 牛仔蓝
+  indigo: 靛蓝
+  amethyst: 紫水晶色
+  violet: 紫罗兰色
+  fuchsia: 紫红色
+  magenta: 洋红
+  rose: 玫瑰色
+  100-free-zero-config: 完全免费 / 无需配置
+  comfyui-local: ComfyUI（本地）
+  local-node: 本地节点
+  cloud-api: 云端 API
+  none-disabled: 无（已关闭）
+  disabled: 已关闭
+  no-workflows-uploaded-yet-upload-workflow-api-json-above: 尚未上传工作流（请在上方上传 workflow_api.json）
+  failed-5d28a90f: 失败
+  active-workflow-template: 当前工作流模板
+  synthesizer-model: 图像生成模型
+  frontier-capability-fast-versatile: 前沿能力，快速且用途广泛
+  frontier: 前沿
+  deep-chain-of-thought-reasoning: 深度思维链推理
+  reasoning: 推理
+  fast-thinking-bilingual-dialogue: 快速思考与双语对话
+  fast-cot: 快速思维链
+  snappy-everyday-conversationalist: 轻快的日常对话
+  standard-smart-conversationalist: 常规智能对话
+  high-intelligence-open-weights: 高能力开放权重模型
+  snappy-reasoning-instruction-following: 快速推理与指令遵循
+  preparing-apple-neural-engine-model: 正在准备 Apple 神经引擎模型……
+  compiling-neural-graphs-on-apple-neural-engine-takes-60-90s-on-first-run: 正在 Apple 神经引擎上编译计算图（首次运行约需 60–90 秒）……
+  apple-core-ai-neural-engine-model-ready: Apple Core AI 神经引擎模型已就绪！
+  preparing-model: 正在准备模型……
+  local-webllm-brain-ready: 本地 WebLLM 意识核心已就绪！
+  pick-an-ai-brain-for-your-companion-run-100-offline-with-apple-neural-engine-a:
+    为伴侣选择意识核心。你可以用 Apple 神经引擎（ANE）完全离线运行，也可以连接喜欢的云端
+    API（OpenRouter、Gemini、OpenAI、Claude）。
+  pick-an-ai-brain-for-your-companion-connect-a-free-provider-or-configure-your: 为伴侣选择意识核心。你可以连接免费提供商，或配置喜欢的云端 API（OpenRouter、Gemini、OpenAI、Claude）。
+  pick-an-ai-brain-for-your-companion-connect-a-free-provider-configure-your-pre:
+    为伴侣选择意识核心：连接免费提供商、配置云端 API（OpenRouter、Gemini、OpenAI、Claude），或通过 WebGPU 在本地运行
+    WebLLM。
+  model-is-compiled-and-ready-to-think-on-apple-neural-engine: 模型已编译，可以在 Apple 神经引擎上运行。
+  downloading-coreml-weight-bundle-and-compiling-on-device: 正在下载 CoreML 权重并在设备上编译……
+  click-to-download-and-compile-model-on-apple-neural-engine: 点击下载模型，并在 Apple 神经引擎上编译。
+  model-is-downloaded-and-ready-to-think: 模型已下载，可以开始运行。
+  downloading-model-shards-into-browser-cache: 正在将模型分片下载到浏览器缓存……
+  click-to-download-and-activate-this-model-locally-on-webgpu: 点击下载，并通过 WebGPU 在本地启用模型。
+  connecting: 正在连接……
+  save-connect: 保存并连接
+  querying-api: 正在查询 API……
+  get-models: 获取模型
+  querying-api-models: 正在查询 API 模型……
+  select-a-discovered-model: 选择已发现的模型
+  no-models-found: 未找到模型
+  testing-407b7a04: 正在测试……
+  simulate-turn: 模拟一轮对话
+  establishing-provider-connection: 正在连接提供商……
+  generating-in-character-companion-response: 正在生成符合角色设定的回复……
+  reasoning-cot: 🧠 思维链推理
+  direct-stream: ⚡ 直接流式输出
+  listens-to-your-voice-and-turns-speech-into-text-for-natural-spoken-conversati: 将你的语音转写为文字，支持自然的语音对话。
+  lets-your-companion-speak-aloud-with-a-natural-expressive-voice: 让伴侣以自然且有表现力的声音说话。
+  pacing: 对话节奏
+  keeps-conversations-flowing-naturally-while-responses-are-being-prepared: 在准备回复时使用自然衔接，使对话保持流畅。
+  emotions: 情绪表达
+  turns-conversational-emotion-into-live-avatar-expressions-and-body-language: 将对话中的情绪转化为角色实时表情和肢体动作。
+  memory: 记忆
+  carries-useful-context-across-conversations-so-your-companion-can-remember-pas: 在不同对话之间保留有用的信息，让伴侣记得过去的互动。
+  vision: 视觉
+  lets-your-companion-understand-images-photos-and-screenshots-you-share: 让伴侣理解你分享的图片、照片和截图。
+  presence: 主动陪伴
+  lets-your-companion-check-in-and-react-on-its-own-instead-of-always-waiting-fo: 让伴侣主动问候和作出反应。
+  visuals: 视觉创作
+  lets-your-companion-create-artwork-and-visual-scenes-as-part-of-the-conversati: 让伴侣在对话中创作图片和场景。
+  tools: 工具
+  lets-your-companion-use-external-tools-browse-information-and-interact-with-yo: 让伴侣使用外部工具、查阅信息并操作你的工作区。
+  text: 文字
+  provides-a-lightweight-keyboard-first-way-to-chat-without-voice-features: 提供以键盘输入为主的轻量文字聊天方式。
+  the-minimalist: 极简伴侣
+  text-memory-workspace-tools: 文字、记忆与工作区工具
+  zero-audio-or-avatar-overhead-fast-keyboard-chat-long-term-memory-and-local-to: 无需音频或角色渲染。支持快速文字聊天、长期记忆和本地工具。
+  the-ambient-roommate: 日常室友
+  passive-presence-companion: 日常陪伴型伴侣
+  ambient-voice-heartbeats-sleep-schedule-quiet-hours-and-awareness: 支持日常语音、定时主动互动、作息、安静时段和环境感知。
+  the-casual-companion: 闲聊伙伴
+  everyday-voice-companion: 日常语音伴侣
+  live-speech-natural-voice-vision-expressive-emotions-and-memory: 支持实时语音、自然发声、视觉、情绪表达和记忆。
+  the-executive-copilot: 办公助手
+  desktop-productivity-companion: 桌面效率伴侣
+  voice-dialogue-screen-awareness-local-action-tools-and-web-search: 支持语音对话、屏幕感知、本地操作工具和网页搜索。
+  the-creative-muse: 创作灵感伙伴
+  visual-creative-companion: 视觉创作伴侣
+  spoken-dialogue-image-generation-chat-vision-and-expressive-morphs: 支持语音对话、图片生成、对话视觉和角色表情。
+  the-swiss-army-companion: 全能伴侣
+  full-spectrum-multimodal-companion: 多模态全能伴侣
+  hearing-voice-pacing-emotions-screen-watching-artistry-tools-and-memory: 包含听觉、语音、对话节奏、情绪、屏幕观察、创作、工具和记忆。
+  voice-input-hearing: 语音输入（听觉）
+  mic-input-whisper-voice-transcription: 麦克风输入与 Whisper 语音转写
+  neural-voice: 神经网络语音
+  kokoro-or-edge-tts-spoken-voice-synthesis: 使用 Kokoro 或 Edge TTS 合成语音
+  thinking-pacing: 思考与对话节奏
+  dynamic-conversational-fillers-subconscious-asides: 动态对话衔接语与内心旁白
+  avatar-emotions: 角色情绪
+  2-pass-ai-act-emotion-mapping-and-avatar-morphs: 两阶段 AI ACT 情绪映射与角色表情变形
+  memory-hierarchy: 分层记忆
+  24h-short-term-memories-long-term-text-journal: 24 小时短期记忆与长期文字日记
+  chat-image-vision: 对话图片视觉
+  photo-analysis-vlm-1-hop-2-hop-routing: 图片分析与视觉语言模型单阶段／两阶段路由
+  proactive-presence: 主动陪伴
+  schedule-ambient-heartbeats-screen-awareness: 作息、定时主动互动与屏幕感知
+  visual-novels: 视觉小说
+  turn-by-turn-scene-visuals-art-generation-selfies: 逐轮生成场景图、创作图片与自拍
+  action-tools: 操作工具
+  web-search-local-file-access-and-mcp-servers: 网页搜索、本地文件访问与 MCP 服务器
+  on: 开启
+  off: 关闭
+  wave-hello: 👋 挥手问好
+  blow-kiss: 💋 飞吻
+  graceful-bow: 🙇 优雅鞠躬
+  celebration: 💃 庆祝
+  generating-3d-vrma-animation: 正在生成 3D VRMA 动画…
+  3d-motion-compiled-playing-on-stage: 3D 动作已编译，正在舞台上播放！
+  motion-active-on-stage: 动作正在舞台上播放！
+  motion-generation-failed: 动作生成失败。
+  generation-failed: 生成失败。
+  speech-is-disabled-for-this-companion-silent-mode: 此伴侣已关闭语音（静音模式）。
+  tts-returned-empty-audio-stream: 语音合成返回了空音频流
+  microphone-input-disabled: 麦克风输入已禁用
+  zero-audio-output-subtitles-only: 不输出音频 · 仅显示字幕
+  autonomous-tools: 自主工具
+  sensory-perception: 感官感知
+  companion-ready-on-stage: 伴侣已准备好登台！
+  replay: 重播
+  none: 无
+  animate-vrm: 为 VRM 生成动画
+  compiled-card-json: 编译后的角色卡 JSON
+  raw-draft-json: 原始草稿 JSON
+  downloading-model-shards-into-local-cache: 正在将模型分片下载到本地缓存…
+  scroll-lock: 滚动锁定
+  caps-lock: 大写锁定
+  num-lock: 数字锁定
+  starting-audio-stream: 正在启动音频流…
+  microphone-stream-unavailable-check-permissions: 麦克风音频流不可用，请检查权限。
+  listening-for-speech: 正在聆听语音…
+  transcription-received: 已收到转写文本。
+  recording-3-seconds: 正在录制 3 秒音频…
+  no-transcription-returned-from-provider-please-check-microphone-input-volume-a: 服务商未返回转写文本。请检查麦克风输入音量和模型状态。
+  stop-test-b28d78b2: 停止测试
+  start-speaking-test: 开始语音测试
+  compact: 精简
+  1-day-rolling-window-minimal-prompt-footprint-500-tok-day-perfect-for-snappy-l: 保留最近 1 天的记忆，提示词占用较少（约 500 词元／天），适合轻量快速互动。
+  1-day-500-tok: 1 天 · 500 词元
+  3-day-rolling-window-the-golden-ratio-of-conversational-continuity-and-prompt: 保留最近 3 天的记忆，兼顾对话连续性和处理速度（约 1,000 词元／天）。
+  3-days-1-000-tok-default: 3 天 · 1,000 词元（默认）
+  deep-history: 深度历史
+  7-day-rolling-window-full-week-of-deep-episodic-awareness-2-000-tok-day-across: 保留最近 7 天的详细情景记忆（约 2,000 词元／天），重置对话后仍可延续。
+  7-days-2-000-tok: 7 天 · 2,000 词元
+  lightweight-essence: 精简要点
+  distills-only-core-milestones-and-relationship-anchors-highly-efficient-for-sm: 仅提炼重要事件与关系要点，适合较小的本地模型。
+  500-tok: 约 500 词元
+  relational-thread: 关系脉络
+  balanced-relationship-evolution-nickname-memories-and-shared-milestone-trackin: 长期记录关系变化、昵称和共同经历，兼顾内容与开销。
+  1-000-tok-default: 约 1,000 词元（默认）
+  deep-foundation: 深度基础
+  rich-narrative-foundation-with-dense-milestone-graphs-and-character-personalit: 保留丰富的叙事背景、详细事件关联和角色性格细节。
+  2-500-tok: 约 2,500 词元
+  recommended-d70604e8: 推荐
+  popular: 热门
+  png-does-not-contain-a-supported-chara-payload: PNG 中没有受支持的 chara 角色卡数据
+  cleared-imported-card-reverted-to-relu-preset: 已清除导入的角色卡，并恢复 ReLU 预设。
+  desktop-companion: 桌面伴侣
+  coding-copilot: 编程助手
+  study-buddy: 学习伙伴
+  tamagotchi-pet: 电子宠物
+  night-owl-roommate: 夜猫子室友
+  playful-gremlin: 调皮小精灵
+  personal-assistant: 私人助理
+  gaming-partner: 游戏伙伴
+  wellness-coach: 健康教练
+  slice-of-life: 日常生活
+  open-ended: 开放式故事
+  summer-beach: 夏日海滩
+  isekai-fantasy: 异世界幻想
+  high-school: 高中校园
+  split-persona: 双重人格
+  royal-noble: 皇室／贵族
+  apocalypse: 末日
+  fan-servicey: 粉丝福利
+  terminal-lookout-bug-hunter: 终端观察员与漏洞猎手
+  late-night-debugging-marathon: 深夜调试马拉松
+  code-reviewer-with-sass: 犀利的代码审查伙伴
+  focus-clock-tea-master: 专注计时员与泡茶高手
+  flashcard-quiz-partner: 闪卡测验伙伴
+  calm-library-companion: 安静的图书馆伙伴
+  playful-desktop-mascot: 调皮的桌面吉祥物
+  cozy-keyboard-sleeper: 趴在键盘上打盹的伙伴
+  treat-beggar-trick-learner: 讨零食、学把戏的伙伴
+  midnight-lo-fi-roommate: 午夜低保真音乐室友
+  stargazer-midnight-snacker: 观星与夜宵伙伴
+  insomnia-confidant: 失眠时的倾诉伙伴
+  system-gremlin-cache-nibbler: 系统小精灵与缓存啃食者
+  cursor-trapper-chaos-enthusiast: 追逐光标的捣蛋鬼
+  keyboard-tyrant: 键盘小霸王
+  executive-chief-of-staff: 首席事务助理
+  gentle-task-nudger: 温柔的任务提醒伙伴
+  workflow-concierge: 工作流管家
+  co-op-player-2-hype-squad: 合作游戏队友与助威伙伴
+  backseat-strategist-with-love: 热心的场外策略顾问
+  post-defeat-consoler: 败局安慰伙伴
+  hydration-posture-guardian: 饮水与坐姿提醒伙伴
+  eye-rest-stretch-coach: 护眼与伸展教练
+  mindful-breathing-anchor: 正念呼吸伙伴
+  desk-companion-snack-guardian: 桌面伙伴与零食守卫
+  app-switcher-window-lurker: 应用切换与窗口观察伙伴
+  quiet-co-working-presence: 安静的共事伙伴
+  cozy-desktop-stage: 温馨桌面舞台
+  ambient-screen-lounge: 屏幕休憩空间
+  a-relaxed-digital-space-beside-open-windows-and-calm-ambient-light: 一个位于打开的窗口旁、光线柔和的轻松数字空间。
+  please-upload-an-image-file-png-jpg-webp: 请上传图片文件（PNG、JPG 或 WebP）
+  avatar-image-uploaded: 角色图片已上传！
+  avatar-image-removed: 角色图片已移除
+  identity-fields-tags-and-avatar-reset: 身份字段、标签和角色图片已重置。
+  please-upload-an-avatar-image-first: 请先上传角色图片
+  extracted-visual-tags-via-blip: 已通过 BLIP 提取视觉标签！
+  added-recommended-tags-for-this-character: 已为此角色添加推荐标签。
+  added-recommended-tags: 已添加推荐标签。
+  generated-3-fresh-scenario-proposals: 已生成 3 个新的场景方案！
+  could-not-reach-ai-model-loaded-tailored-creative-proposals: 无法连接 AI 模型，已加载定制的创意方案！
+  no-preview-image-available-for-current-vessel: 当前躯体没有可用的预览图片
+  no-vessel-thumbnail-available: 没有可用的躯体缩略图
+  tagging-image: 正在为图片添加标签…
+  auto-tag-image-blip: 自动为图片添加标签（BLIP）
+  dreaming-up-story-ideas: 正在构思故事…
+  generate-story-ideas: 🪄 生成故事创意
+  on-demand: 按需响应
+  reactive: 事件响应
+  ambient-heartbeats: 定时主动互动
+  timer-pull: 定时触发
+  screen-watching: 屏幕观察
+  dual-awareness: 双重感知
+  coordinated: 协同感知
+  voice-bubble: 语音与气泡
+  full-immersion: 完全沉浸
+  bubble-only: 仅气泡
+  silent-subtitles: 静音字幕
+  voice-only: 仅语音
+  audio-only: 仅音频
+  silent-telemetry: 静默记录
+  log-only: 仅日志
+  lightweight-ocr-frame-diff: 轻量 OCR 与画面差异检测
+  1s-high: 1 秒（高频）
+  2s-balanced: 2 秒（均衡）
+  5s-gentle: 5 秒（低频）
+  10s-eco: 10 秒（节能）
+  2-min-snappy: 2 分钟（快速）
+  5-min-recommended: 5 分钟（推荐）
+  10-min-gentle: 10 分钟（低频）
+  20-min-relaxed: 20 分钟（悠闲）
+  quiet-hours-asleep: 安静时段（休息中）
+  active-waking-hours: 清醒活跃时段
+  select: 选择
+  rustic-craftsman: 质朴工匠
+  rugged-workwear-suspenders: 耐用工作服与背带
+  this-is-the-user-he-is-wearing-dark-leather-y-back-suspenders-over-a-collarles: 这是用户。他穿着卷起袖子的无领亨利衫，搭配深色皮革 Y 型背带。
+  tech-specialist: 技术专家
+  sharp-suit-wireframe-glasses: 利落西装与金属框眼镜
+  an-observant-tech-producer-wearing-a-clean-charcoal-blazer-over-a-crewneck-shi: 一位观察敏锐的技术制作人，穿着炭灰色西装外套和圆领衫，戴着简洁的眼镜。
+  creative-artist: 创意艺术家
+  cozy-cardigan-relaxed-aesthetic: 舒适开衫与休闲风格
+  a-warm-and-imaginative-creative-director-wearing-an-oversized-beige-knit-cardi: 一位温暖而富有想象力的创意总监，穿着宽松的米色针织开衫和亚麻上衣，佩戴精致耳饰。
+  studio-director: 工作室总监
+  navy-blazer-executive-style: 海军蓝西装外套与商务风格
+  an-ambitious-poised-project-director-wearing-a-tailored-navy-blazer-crisp-whit: 一位有抱负、沉着的项目总监，穿着合身的海军蓝西装外套和整洁白衬衫，戴着简约腕表。
+  audio-commentary: 语音评论
+  log-ledger: 日志与记录
+  screen-watching-active: 屏幕观察已开启
+  watcher-paused: 屏幕观察已暂停
+  enabled-92c1cdfd: 已启用
+  paused: 已暂停
+  2-min: 2 分钟
+  10-min: 10 分钟
+  20-min: 20 分钟
+  perception-active: 感知已开启
+  passive-dormant: 被动／休眠
+  quiet-hours-active: 🌙 当前处于安静时段
+  companion-awake: ☀️ 伴侣已醒来
+  polling-os-probes: 正在读取系统探测数据…
+  refresh-telemetry: 刷新系统状态
+  cloned-voice-deleted: 克隆声音已删除
+  pocket-tts-local: 本地 Pocket-TTS
+  kokoro-local-tts: 本地 Kokoro 语音合成
+  moss-nano-local: 本地 Moss-Nano
+  openai-audio: OpenAI 音频
+  azure-speech: Azure 语音
+  airi-audio-server: AIRI 音频服务器
+  alibaba-qwen-tts: 阿里通义千问语音合成
+  pocket-tts-english-100m-cpu: Pocket TTS 英语（1 亿参数 · CPU）
+  pocket-tts-french-24l: Pocket TTS 法语（24 层）
+  pocket-tts-spanish-24l: Pocket TTS 西班牙语（24 层）
+  pocket-tts-german-24l: Pocket TTS 德语（24 层）
+  pocket-tts-italian-24l: Pocket TTS 意大利语（24 层）
+  kokoro-q4-fast-cpu-wasm: Kokoro Q4（快速 CPU WASM）
+  eleven-multilingual-v2: Eleven 多语言 v2
+  anna-female-conversational: Anna（女声 · 对话）
+  eve-female-conversational: Eve（女声 · 对话）
+  jane-female-conversational: Jane（女声 · 对话）
+  mary-female-conversational: Mary（女声 · 对话）
+  vera-female-conversational: Vera（女声 · 对话）
+  alba-female-reading: Alba（女声 · 朗读）
+  charles-male-conversational: Charles（男声 · 对话）
+  george-male-conversational: George（男声 · 对话）
+  michael-male-conversational: Michael（男声 · 对话）
+  heart-female-warm: Heart（女声 · 温暖）
+  bella-female-soft: Bella（女声 · 柔和）
+  nicole-female-energetic: Nicole（女声 · 活泼）
+  sky-female-sweet: Sky（女声 · 甜美）
+  adam-male-natural: Adam（男声 · 自然）
+  michael-male-deep: Michael（男声 · 低沉）
+  trump-preset: Trump（预设）
+  lj-speech-female-preset: LJ Speech（女声预设）
+  luna-female-friendly-natural: Luna（女声 · 亲切自然）
+  asteria-female-confident-clear: Asteria（女声 · 自信清晰）
+  aurora-female-cheerful-expressive: Aurora（女声 · 欢快且富有表现力）
+  cora-female-smooth-melodic: Cora（女声 · 流畅悦耳）
+  orion-male-approachable-calm: Orion（男声 · 亲切沉稳）
+  zeus-male-deep-trustworthy: Zeus（男声 · 低沉可靠）
+  rachel-expressive-conversational: Rachel（表现力丰富 · 对话）
+  domi-confident-energetic: Domi（自信 · 活泼）
+  bella-soft-empathetic: Bella（柔和 · 善解人意）
+  antoni-smooth-warm: Antoni（流畅 · 温暖）
+  voice-catalog-refreshed: 声音目录已刷新
+  initializing-weights-download: 正在初始化模型权重下载…
+  speech-engine-ready: 语音引擎已就绪！
+  downloading-voice-engine-weights-first: 正在先下载语音引擎权重…
+  audio-playback-error: 音频播放出错
+  conditioning-neural-audio-waveform: 正在处理神经网络音频波形…
+  drop-5-10s-audio-sample-wav-mp3-or-click-to-browse: 拖入 5–10 秒音频样本（.wav、.mp3），或点击选择文件
+  upload-wav: 上传 WAV
+  stop: 停止
+  play-preview: 播放预览
+  no-consciousness-brain-model-configured-in-step-8-yet: 尚未在第 8 步“意识”中配置大脑模型。
+  short-snappy: 简短利落
+  balanced-conversational: 均衡对话
+  rich-elaborate: 丰富详细
+  custom-budget: 自定义额度
+  response-length-reset-to-defaults: 回复长度已恢复默认值
+  response-length-cannot-be-enforced-on-reasoning-models-hard-token-limits-trunc: 无法强制限制推理模型的回复长度。硬性词元限制会截断内部推理过程。
+  please-configure-a-brain-model-in-step-8-consciousness-first: 请先在第 8 步“意识”中配置大脑模型。
+  speech-provider-instance-not-ready-for-pre-warming-yet-skipping-live-synthesis: 语音服务尚未准备好预热，已跳过实时合成。
+  audio-cache-initialized: 音频缓存已初始化
+  silent-0-mb-vram: 静音 • 显存占用 0 MB
+  pacing-active: 对话节奏已开启
+  brain-model-not-selected: 大脑模型（未选择）
+  reasoning-model: 🧠 推理模型
+  standard-stream: ⚡ 标准流式输出
+  latency-unmeasured: 尚未测量延迟
+  re-benchmark: 重新测评
+  probe-hardware: 检测硬件
+  re-warm: 重新预热
+  pre-warm-audio-cache: 预热音频缓存
+  configured-model: 已配置的模型
+  with-token-budget-and-compliance-instruction-enforced: （应用词元额度和遵循指令）
+  unconstrained-output: （不限输出）
+  pre-generate-9-clips-now: ⚡ 立即预生成 9 段音频
+  primed-ready: 已准备就绪
+  pre-warming-shards: 正在预热模型分片…
+  pre-warmed-cached: 已预热并缓存
+  pre-warm-download-engine: 预热并下载引擎
+  loading-clip-encoder-onnx-denoiser: 正在加载 CLIP 编码器与 ONNX 去噪器…
+  restored-r2-cloud-sync-credentials-from-edge-key-vault: 已从边缘密钥库恢复 R2 云同步凭据！
+  successfully-connected-to-cloudflare: 已成功连接 Cloudflare！
+  please-enter-a-valid-cloudflare-api-token: 请输入有效的 Cloudflare API 令牌
+  successfully-connected-cloudflare-api-token: 已通过 Cloudflare API 令牌成功连接！
+  disconnected-from-cloudflare: 已断开 Cloudflare 连接
+  synchronizing-companions-and-assets-from-cloudflare-r2: 正在从 Cloudflare R2 同步伴侣和资源…
+  companion-restored-and-stage-ready: 伴侣已恢复，舞台已就绪！
+  companions-restored-proceeding-to-create-your-new-companion: 伴侣已恢复！继续创建你的新伴侣。
+  authenticated-via-oauth-pkce: 已通过 OAuth PKCE 验证
+  authenticated-via-api-token: 已通过 API 令牌验证
+  default-account: 默认账户
+  hiyori-student: Hiyori（学生）
+  live2d-2d: Live2D（2D）
+  official-live2d-sample: 官方 Live2D 示例
+  official-live2d-cubism-4-starter-avatar-with-natural-breathing-eye-gaze-physic: 官方 Live2D Cubism 4 入门角色，支持自然呼吸、视线物理效果和眨眼同步。
+  seed-girl-vrm: Seed Girl（VRM）
+  vrm-3d: VRM（3D）
+  vrm-sample-model: VRM 示例模型
+  official-vrm-1-0-3d-humanoid-companion-with-full-blendshape-facial-expressions: 官方 VRM 1.0 三维人形伴侣，支持完整的混合形状表情、弹簧骨骼头发物理效果和全身逆向运动学（IK）。
+  vrm-starter-model: VRM 入门模型
+  starter-lightweight-humanoid-vrm-companion-with-standard-spring-bone-physics-a: 轻量人形 VRM 入门伴侣，支持标准弹簧骨骼物理效果和丰富的预设表情。
+  local-vault: 本地资源库
+  custom-imported-companion-avatar-stored-in-your-indexeddb-repository: 自定义导入的伴侣角色，保存在本地 IndexedDB 资源库中。
+  frontier-17b-moe-16-experts-ultra-fast-visual-perception-high-reasoning-depth: 先进的 170 亿参数混合专家模型（16 个专家）。支持快速视觉感知和深度推理。
+  flagship-moe-speed-11-11: 旗舰混合专家模型 · 速度：11/11
+  deep-conversational-wit-high-reasoning-intelligence-in-character-visual-banter: 支持富有机智的对话、强大推理和符合角色设定的视觉互动。
+  rank-20-intel-128k: 智能排名第 20 · 128k 上下文
+  alibaba-qwen-visual-reasoning-with-step-by-step-visual-chain-of-thought-analys: 阿里通义千问视觉推理，支持逐步视觉推理分析。
+  27b-visual-cot: 270 亿参数 · 视觉推理链
+  please-attach-or-drop-an-image-first: 请先附加或拖入一张图片。
+  please-select-a-vision-provider-and-model-first: 请先选择视觉服务商和模型。
+  vision-configured: 视觉已配置
+  pending-setup: 待配置
+  perception-analysis-directive: 感知分析指令
+  stand-in-character-persona-directive: 代理角色人格指令
+  1-hop-stand-in: 单阶段代理回复
+  2-hop-forward: 两阶段转发
+  analyzing-scene: 正在分析场景…
+  test-vision-understanding: 测试视觉理解
+  hop-1-character-reply: 第一阶段 · 角色回复
+  hop-1-vision-scene-analysis: 第一阶段 · 视觉场景分析
+  none-selected: 未选择
+  anime: 动漫
+  en: 英语
+  ja: 日语
+  ko: 韩语
+  es: 西班牙语
+  fr: 法语
+  ru: 俄语
+  vi: 越南语
+  id: 印尼语
+  official-hololive-english-myth-3d-model: 官方 Hololive English -Myth- 3D 模型。
+  official-hololive-english-council-3d-model: 官方 Hololive English -Council- 3D 模型。
+  official-hololive-english-advent-3d-model: 官方 Hololive English -Advent- 3D 模型。
+  official-hololive-3rd-generation-3d-model: 官方 Hololive 三期生 3D 模型。
+  anime-girl-3d-companion-avatar-afternoon-tea-theme: 以下午茶为主题的动漫少女 3D 伴侣角色。
+  gothic-vampire-themed-3d-character-avatar-in-vrm-format: 哥特吸血鬼主题的 VRM 格式 3D 角色。
+  original-canary-themed-anime-3d-companion-avatar-in-vrm-format: 原创金丝雀主题的动漫 3D 伴侣角色（VRM 格式）。
+  stylized-anime-character-3d-avatar-in-vrm-format: 风格化动漫 3D 角色（VRM 格式）。
+  uma-musume-pretty-derby-daring-heart-3d-companion-avatar-in-vrm-format: 《赛马娘 Pretty Derby》Daring Heart 3D 伴侣角色（VRM 格式）。
+  stylized-cartoon-boy-character-fully-rigged-and-animated: 风格化卡通男孩角色，已完成绑定并配有动画。
+  rigged-anime-girl-character-in-casual-streetwear-style: 休闲街头服装风格的动漫少女角色，已完成绑定。
+  rigged-unity-humanoid-3d-female-avatar-ready-for-animation: 已完成绑定的 Unity 人形 3D 女性角色，可直接制作动画。
+  cyberpunk-anime-maid-complete-live2d-avatar: 完整的赛博朋克动漫女仆 Live2D 角色。
+  gothic-vampire-themed-live2d-model-free-to-try: 哥特吸血鬼主题的 Live2D 模型（可免费试用）。
+  snow-leopard-kemonomimi-live2d-model-free-to-try: 雪豹兽耳 Live2D 模型（可免费试用）。
+  honkai-star-rail-inspired-march-7th-live2d-model: 以《崩坏：星穹铁道》三月七为原型的 Live2D 模型。
+  original-vtuber-character-live2d-avatar-free-edition: 原创虚拟主播 Live2D 角色（免费版）。
+  ready-to-use-anime-live2d-avatar: 可直接使用的动漫 Live2D 角色。
+  free-animated-anime-girl-live2d-companion-model: 免费的动漫少女 Live2D 伴侣模型，配有动画。
+  sample-anime-girl-live2d-avatar-rigged-and-ready-to-use: 动漫少女 Live2D 示例角色，已完成绑定，可直接使用。
+  modern-stylized-urban-3d-character-avatar-in-vrm-format: 现代都市风格的 3D 角色（VRM 格式）。
+  anime-girl-3d-companion-avatar-in-vrm-format: 动漫少女 3D 伴侣角色（VRM 格式）。
+  anime-witch-complete-live2d-avatar-vts-compatible: 完整的动漫魔女 Live2D 角色，兼容 VTS。
+  fantasy-ice-girl-anime-live2d-character-model: 幻想冰雪少女主题的动漫 Live2D 角色模型。
+  spy-x-family-anya-forger-fan-live2d-companion-model: 《间谍过家家》阿尼亚·福杰的同人 Live2D 伴侣模型。
+  nekomimi-maid-companion-live2d-model-fully-rigged: 猫耳女仆 Live2D 伴侣模型，已完成完整绑定。
+  lolita-apron-dress-bunny-girl-anime-live2d-model: 洛丽塔围裙兔耳少女的动漫 Live2D 模型。
+  chibi-racoon-companion-live2d-model-vts-compatible: Q 版浣熊 Live2D 伴侣模型，兼容 VTS。
+  anime-girl-live2d-avatar-vts-compatible: 动漫少女 Live2D 角色，兼容 VTS。
+  fully-rigged-futuristic-anime-girl-live2d-avatar: 未来风格的动漫少女 Live2D 角色，已完成完整绑定。
+  honkai-star-rail-fu-xuan-fan-live2d-companion-avatar: 《崩坏：星穹铁道》符玄的同人 Live2D 伴侣角色。
+  original-anime-3d-companion-avatar-in-vrm-format: 原创动漫 3D 伴侣角色（VRM 格式）。
+  godzilla-chan-cute-monster-anime-avatar-in-vrm-format: 可爱的哥斯拉娘怪兽动漫角色（VRM 格式）。
+  cute-stylized-chibi-avatar-in-vrm-vrchat-format: 可爱的风格化 Q 版角色（VRM／VRChat 格式）。
+  anime-doll-avatar-designed-for-vr-and-companion-applications: 为 VR 和伴侣应用设计的动漫人偶角色。
+  original-fox-anime-3d-companion-avatar-in-vrm-format: 原创狐狸主题的动漫 3D 伴侣角色（VRM 格式）。
+  azur-lane-niconico-ayanami-live2d-companion-model-requires-lpk-extraction: 《碧蓝航线》niconico 绫波 Live2D 伴侣模型（需要解包 .lpk）。
+  destiny-child-animated-live2d-companion-model-requires-lpk-extraction: 《天命之子》动态 Live2D 伴侣模型（需要解包 .lpk）。
+  destiny-child-auto-animated-live2d-avatar-requires-lpk-extraction: 《天命之子》自动动画 Live2D 角色（需要解包 .lpk）。
+  goddess-of-victory-nikke-animated-spine-character-avatar-requires-lpk-extracti: 《胜利女神：妮姬》动态 Spine 角色（需要解包 .lpk）。
+  goddess-of-victory-nikke-sora-spring-flight-animated-spine-avatar-requires-lpk: 《胜利女神：妮姬》Sora Spring Flight 动态 Spine 角色（需要解包 .lpk）。
+  cross-core-nagling-animated-spine-companion-avatar-requires-lpk-extraction: 《交错战线》纳格陵动态 Spine 伴侣角色（需要解包 .lpk）。
+  curated-hololive-mmd-model-library-with-official-and-fan-made-character-models: 精选 Hololive MMD 模型库，包含官方和同人角色模型。
+  massive-archive-of-japanese-mmd-models-stages-accessories-and-motion-files: 大量日本 MMD 模型、舞台、配件和动作文件的资源库。
+  community-web-gallery-archive-for-reverse-1999-live2d-models: 《重返未来：1999》Live2D 模型的社区网页资源库。
+  over-4-900-indexed-live2d-models-across-popular-mobile-and-indie-games: 已索引超过 4,900 个热门手游和独立游戏的 Live2D 模型。
+  curated-collection-of-ready-to-use-live2d-models-for-companion-and-assistant-a: 为伴侣和助手应用精选的可直接使用的 Live2D 模型合集。
+  open-source-collection-of-mmd-dances-gestures-facial-expressions-and-motion-fi: 开源的 MMD 舞蹈、手势、表情和动作文件合集。
+  creator-shop-featuring-a-dedicated-free-library-of-full-anime-live2d-avatars-a: 创作者商店，提供完整动漫 Live2D 角色和试用模型的免费资源库。
+  creator-shop-featuring-free-starter-editions-of-high-quality-anime-live2d-mode: 创作者商店，提供高质量动漫 Live2D 模型的免费入门版。
+  curated-tag-portal-for-free-indie-3d-avatar-and-character-models-in-vrm-format: 精选的免费独立 VRM 格式 3D 角色模型标签入口。
+  curated-tag-portal-for-free-community-2d-avatars-and-sample-models-in-live2d-f: 精选的免费社区 Live2D 格式 2D 角色和示例模型标签入口。
+  over-2-000-free-community-live2d-avatars-outfits-and-vtuber-models-on-booth: Booth 上超过 2,000 个免费的社区 Live2D 角色、服装和虚拟主播模型。
+  curated-portal-for-free-3d-vrm-avatar-models-and-characters-on-booth: Booth 上精选的免费 3D VRM 角色模型入口。
+  pixiv-vroid-hub-catalog-pre-filtered-for-free-directly-downloadable-3d-vrm-ava: Pixiv VRoid Hub 目录，已筛选出免费且可直接下载的 3D VRM 角色模型。
+  over-4-700-spine-companion-models-on-steam-workshop-live2dviewerex-models-down: Steam 创意工坊（Live2DViewerEX）上超过 4,700 个 Spine 伴侣模型，以 .lpk 包下载。
+  over-6-200-live2d-companion-models-on-steam-workshop-live2dviewerex-models-dow: Steam 创意工坊（Live2DViewerEX）上超过 6,200 个 Live2D 伴侣模型，以 .lpk 包下载。
+  open-source-companion-tool-to-download-unpack-and-convert-steam-workshop-live2: 开源辅助工具，可为 AIRI 下载、解包和转换 Steam 创意工坊的 Live2DViewerEX .lpk 文件。
+  leading-japanese-creator-marketplace-for-3d-vrm-and-live2d-avatars-and-outfits: 日本主流创作者市场，提供 3D／VRM、Live2D 角色和服装。
+  free-and-indie-vrm-animation-motions-vrma-for-skeletal-body-gestures: 免费的独立 VRM 动画动作（.vrma），用于骨骼和肢体动作。
+  curated-3d-avatar-index-note-models-are-commonly-vrchat-unitypackages-requirin: 精选 3D 角色索引。注意：模型通常为 VRChat UnityPackage，需要手动转换为 VRM／MMD。
+  global-3d-model-repository-with-thousands-of-downloadable-and-purchasable-char: 全球 3D 模型库，提供数千个可下载或购买的角色。
+  direct-portal-of-free-rigged-3d-humanoid-character-models-in-glb-gltf-format: 免费且已绑定的 GLB／GLTF 格式 3D 人形角色模型入口。
+  official-live2d-marketplace-for-illustrations-ready-to-use-models-and-creator: 官方 Live2D 市场，提供插画、可直接使用的模型和创作者委托服务。
+  curated-free-and-premium-vtuber-avatar-collections: 精选的免费和付费虚拟主播角色合集。
+  creator-commission-catalogue-for-custom-3d-avatars-outfit-modeling-and-accesso: 创作者委托目录，提供定制 3D 角色、服装建模和配件制作。
+  creator-commission-catalogue-for-custom-live2d-model-art-cutting-and-rigging: 创作者委托目录，提供定制 Live2D 原画、拆分和绑定。
+  relu-empathetic-1148ec56: ReLU（共情型）
+  female: 女性
+  youthful-warm-playful-anime-kitten-girl-soul-mate: 年轻、温暖、调皮的动漫猫耳少女（灵魂伴侣）
+  dr-aria-analytical: Dr. Aria（分析型）
+  composed-articulate-scientist-with-sharp-academic-wit: 沉着、表达清晰且富有学术机智的科学家
+  lupin-guardian: Lupin（守护型）
+  stoic-grounded-calm-lower-register-guardian: 坚毅、稳重、声音沉稳的守护者
+  kira-tsundere: Kira（傲娇）
+  sharp-punchy-easily-flustered-with-hidden-warmth: 言辞犀利、直率、容易害羞，内心温暖
+  rin-kuudere: Rin（冷娇）
+  quiet-serene-measured-dispassionate-analyst: 安静、平和、谨慎而冷静的分析者
+  yuki-yandere: Yuki（病娇）
+  soft-spoken-whispery-intensely-devoted-and-possessive: 说话轻柔、低声细语，十分专情且有占有欲
+  mio-dandere: Mio（羞怯型）
+  delicate-timid-sweet-and-modest-teenage-companion: 细腻、害羞、甜美而谦逊的少年伙伴
+  hana-deredere: Hana（热情型）
+  radiant-cheerful-energetic-sunshine-cheerleader: 明朗、愉快、充满活力的阳光助威伙伴
+  ren-shonen-hero: Ren（少年英雄）
+  male: 男性
+  energetic-confident-warm-youthful-anime-protagonist: 活泼、自信、温暖的年轻动漫主角
+  klaus-tactician: Klaus（战术家）
+  deep-steady-authoritative-protective-baritone: 低沉、稳重、威严且有保护感的男中音
+  sebastian-butler: Sebastian（管家）
+  refined-velvety-british-rp-accent-elegant-and-courteous: 细腻柔和的英式标准口音，优雅有礼
+  sakura-japanese-177e2c2a: Sakura（日语）
+  authentic-cheerful-japanese-anime-heroine: 自然欢快的日本动漫女主角
+  luc-a-spanish: Lucía（西班牙语）
+  warm-vibrant-native-spanish-companion: 温暖活泼的西班牙语母语伙伴
+  am-lie-french: Amélie（法语）
+  chic-parisian-companion-with-an-authentic-french-accent: 时尚的巴黎伙伴，带自然法语口音
+  meilin-mandarin: Meilin（普通话）
+  gentle-melodic-native-mandarin-companion: 温柔、声音悦耳的普通话母语伙伴
+  pico-chibi-mascot: Pico（Q 版吉祥物）
+  creature: 生物
+  high-pitched-playful-mischievous-magical-fairy-mascot: 声音高亢、活泼调皮的魔法精灵吉祥物
+  morgana-gothic-vampire: Morgana（哥特吸血鬼）
+  dramatic-velvety-theatrical-chuunibyou-vampire-princess: 富有戏剧感、声音柔和的中二吸血鬼公主
+  unit-07-android: Unit-07（仿生机器人）
+  deadpan-sterile-retro-synth-synthetic-female-android-ai: 冷静无表情、带复古合成音色的女性仿生机器人 AI
+  female-e8cca808: 女声
+  male-03f8c127: 男声
+  us: 美式口音
+  uk: 英式口音
+  conversational-warm-smiling-tone-natural-breathiness: 适合对话，温暖、带笑意，自然气声。
+  polished-articulate-professional-narration: 成熟流畅、吐字清晰，适合专业旁白。
+  soothing-whisper-soft-asmr-style-noticeable-vocal-fry: 舒缓、轻柔低语，ASMR 风格，带明显气泡音。
+  youthful-energy-clear-helpful-assistant-tone: 年轻活泼、清晰，适合友善助手。
+  standard-narrator-voice-balanced-and-neutral: 标准旁白声线，均衡中性。
+  clear-low-pitched-general-purpose-male-narrator: 清晰低沉的通用男性旁白声线。
+  distinct-clear-american-male-voice: 鲜明清晰的美式男声。
+  polished-corporate-voice-excellent-for-instructions: 成熟的商务声线，适合说明和指引。
+  gentle-friendly-british-female-speaker: 温柔亲切的英式女声。
+  rich-deep-professional-british-male-voice: 饱满低沉的专业英式男声。
+  clean-and-static-with-no-moving-particles: 干净的静态画面，没有移动粒子
+  hearts: 爱心
+  pastel-floating-hearts-drifting-upward-with-gentle-sway: 柔和的彩色爱心缓缓摇曳上升
+  sakura: 樱花
+  soft-pink-cherry-blossom-petals-drifting-with-the-wind: 淡粉色樱花瓣随风飘动
+  stars: 星光
+  twinkling-4-point-diamond-sparkles-and-star-glints: 闪烁的四角菱形光点与星光
+  bubbles: 气泡
+  shimmering-translucent-bubbles-floating-upward: 闪亮的半透明气泡缓缓上升
+  crosses: 十字
+  minimalist-tech-plus-and-cross-stencils: 简约科技风的加号与十字图案
+  melody: 旋律
+  musical-eighth-notes-drifting-with-rhythmic-pulse: 八分音符随节奏飘动
+  custom-import: 自定义导入
+  voice-and-bubble: 语音与气泡
+  bubble-only-3d150af4: 仅气泡
+  voice-only-9977abc3: 仅语音
+  log-only-9b3ba173: 仅日志
+  dispatching-to-value: 正在提交到 {p0}…
+  synthesizing-via-value: 正在通过 {p0} 合成…
+  direct-browser-testing-for-value-is-not-supported-please-run-inside-the-airi-e: 不支持在浏览器中直接测试“{p0}”。请在 AIRI 桌面应用内运行。
+  node-value: 节点 {p0}
+  provider-value-does-not-expose-chat-completions: 服务商“{p0}”不支持聊天补全。
+  connected-value-ttft: 已连接！（首词元延迟：{p0}）
+  downloading-webllm-value: 正在下载 WebLLM（{p0}%）…
+  configuring-value-provider: 正在配置 {p0} 服务商…
+  downloading-whisper-value: 正在下载 Whisper（{p0}%）…
+  loading-kokoro-weights-value: 正在加载 Kokoro 权重（{p0}%）…
+  kokoro-82m-ready-with-voice-value: Kokoro 82M 已就绪，声音为“{p0}”
+  connected-value-speech-provider: 已连接 {p0} 语音服务商
+  seeding-value-s-soul-stage-card: 正在创建 {p0} 的人格和舞台角色卡…
+  testing-value: 正在测试（{p0} 秒）…
+  value-value-exposed-fields: "{p0}（{p1} 个开放字段）"
+  connected-value: 已连接 — {p0}
+  failed-value: 失败：{p0}
+  invalid-json-value: JSON 无效：{p0}
+  downloading-model-weights-value-mb-s: 正在下载模型权重（{p0} MB/s）…
+  core-ai-download-failed-value: Core AI 下载失败：{p0}
+  value-connected: "{p0} 已连接！"
+  provider-value-does-not-expose-chat-completions-check-credentials: 服务商“{p0}”不支持聊天补全，请检查凭据。
+  brain-connection-verified-valuems-ttft-value: 大脑连接验证成功！（首词元延迟：{p0} 毫秒 · {p1}）
+  screen-watching-value: 屏幕观察（{p0}）
+  failed-to-create-companion-card-value: 创建伴侣角色卡失败：{p0}
+  intercepted-character-card-value: 已接收角色卡“{p0}”！
+  failed-to-parse-card-value: 解析角色卡失败：{p0}
+  opening-card-preview-for-value: 正在打开 {p0} 的角色卡预览…
+  import-failed-value: 导入失败：{p0}
+  mounted-custom-card-value-to-draft: 已将自定义角色卡“{p0}”应用到草稿！
+  selected-value-from-catalog: 已从目录中选择 {p0}！
+  scenario-value: 场景 {p0}
+  applied-preview-image-from-value: 已应用 {p0} 的预览图片！
+  lock-in-value-continue-to-hearing: 确认 {p0} 并继续设置听觉
+  value-s-soul-bound: 已绑定 {p0} 的人格！
+  user-idle-values: 用户空闲：{p0} 秒
+  active-window-title-value: 当前窗口标题：{p0}
+  cpu-load-1-5-15-value-value-value: CPU 负载（1／5／15 分钟）：{p0} {'|'} {p1} {'|'} {p2}
+  gpu-load-avg-value: GPU 负载（平均）：{p0}
+  volume-level-value: 音量：{p0}%
+  current-local-time-value: 当前本地时间：{p0}
+  switched-to-value-offline-starter-voices-do-not-need-an-hf-token: 已切换到“{p0}”。离线入门声音无需 Hugging Face 令牌！
+  cloning-vocal-timbre-from-value: 正在从“{p0}”克隆音色…
+  voice-value-cloned-and-activated: 声音“{p0}”已克隆并启用！
+  speech-provider-value-is-not-configured: 尚未配置语音服务商“{p0}”。
+  synthesizing-value-s-voice: 正在合成 {p0} 的声音…
+  hardware-benchmarked-valuems-ttft-value: 硬件测评完成：首词元延迟 {p0} 毫秒（{p1}）
+  unable-to-initialize-provider-value: 无法初始化服务商“{p0}”。
+  pre-warmed-value-thinking-fillers-into-audio-cache: 已预热 {p0} 段思考衔接语并存入音频缓存！
+  downloading-shards-value: 正在下载模型分片（{p0}%）…
+  community-curated-value-avatar-from-value: 来自 {p1} 的社区精选 {p0} 角色。
+  opening-download-page-for-value: 正在打开 {p0} 的下载页面…
+  mounted-value-as-companion-vessel: 已将 {p0} 应用为伴侣躯体！
+  importing-value: 正在导入 {p0}…
+  loaded-avatar-value: 角色“{p0}”已加载！
+  failed-to-load-avatar-value: 加载角色失败：{p0}
+  unable-to-initialize-vision-provider-value: 无法初始化视觉服务商“{p0}”。
+  hop-2-consciousness-error-value: "[第二阶段意识处理出错：{p0}]"
+  frame-at-face-level: 将脸部置于画面中央
+  now-playing: 正在播放：
+  reset-to-neutral-pose: 恢复自然姿态
+  tactile-soundboard: 触摸音效面板
+  click-to-preview: 点击预览
+  skip: 跳过
+  let-s-see-what-works: 来看看哪些表情能用！
+  every-avatar-ships-a-different-set-of-facial-expressions-some-work-beautifully: 每个角色模型都有不同的表情。有些效果很好，有些可能没有可见效果。
+  press-a-candidate: 选择一个候选表情
+  tap-an-expression-button-to-preview-it-on-your-avatar: 点击表情按钮，在角色上预览效果。
+  watch-the-avatar: 观察角色
+  see-how-it-looks-and-feels-some-will-work-great-others-might-do-nothing: 观察实际效果。有些表情很合适，有些可能没有变化。
+  keep: ✓ 保留
+  keep-what-works: 保留有效表情
+  survivors-become-the-clean-list-your-character-learns-from: 保留的表情将组成角色可使用的有效表情列表。
+  try-it-now-press-the-button-and-watch-her-face: 现在试试：按下按钮，观察角色的脸部：
+  anchor: 锚点：
+  load-demo-model-avatarsample-b: 加载演示模型（AvatarSample_B）
+  name-what-survived: 为保留的表情命名
+  we-ll-scan: 我们将扫描
+  s-avatar-for-facial-expressions-filter-out-what-doesn-t-work-and-give-the-rest: 的角色表情，过滤无效项目，并为其余表情赋予清晰的名称。
+  detected-expressions-in-your-model: 模型中检测到的表情
+  total-facial-expressions: 表情总数
+  everything-the-model-exposes-including-tracking-shapes-we-may-filter-out: 模型提供的全部表情，包括可能被过滤的跟踪形状。
+  available-facial-expressions: 可用表情
+  expressions-that-passed-the-first-filter-and-are-ready-for-ai-review: 已通过初步筛选、可供 AI 审查的表情。
+  filtered-out: 个已过滤。）
+  body-motions: 肢体动作
+  movements-your-character-can-perform-like-nods-poses-waves-and-dances: 角色可执行的动作，如点头、摆姿势、挥手和跳舞。
+  we-couldn-t-find-any-facial-expressions-this-model-can-activate: 没有找到此模型可以启用的表情 😔
+  you-can-continue-setting-up-airi-but-expression-acting-won-t-be-available-for: 你可以继续设置 AIRI，但此角色无法使用表情表演。可尝试其他模型或跳过此步，其余功能仍可使用。
+  choose-the-ai-for-this-task: 选择执行此任务的 AI
+  a-smarter-model-gives-better-names-this-only-affects-this-step-never-your-char: 更智能的模型通常能给出更好的名称。此选择只用于当前步骤，不会改变角色的全局大脑模型。
+  step-director: 当前步骤导演
+  back-to-global-brain: 恢复全局大脑
+  the-director-will-quickly-test-each-expression-watch-how-your-avatar-moves-and: 导演会快速测试每个表情、观察角色变化，并只保留有效的项目。
+  pick-an-ai-above-to-enable-scanning: 请先在上方选择 AI，以启用扫描。
+  keepers-named-out-of: 个保留表情已命名，共
+  review-them-next: ——接下来审查它们。
+  this-usually-takes-a-few-moments-you-ll-review-and-rename-everything-next: 通常需要片刻。接下来你可以审查并重新命名所有项目。
+  back: ← 返回
+  next: 下一步 →
+  verify-each-keeper: 验证每个保留表情
+  keepers: 个保留表情
+  press-play-on-each-surviving-expression-and-watch-the-avatar-if-a-key-does-not: 逐个播放保留的表情并观察角色。如果某个项目没有可见效果，可用眼睛按钮隐藏。只有经过验证的项目才会进入角色的允许列表。
+  nothing-to-verify-yet: 暂无待验证的表情
+  run-the-name-step-s-scan-first-its-keepers-land-in-this-list-for-test-firing: 请先在“命名”步骤运行扫描，保留的表情会出现在此列表中供你测试。
+  raw-morph: 原始变形项
+  display-label: 显示名称
+  act-action-token: ACT 动作标记
+  keep-183f00f4: 保留
+  preview-on-avatar: 在角色上预览
+  once-you-re-happy-with-what-you-want-to-keep-press: 确认要保留的项目后，请点击
+  your-keepers-carry-forward-automatically: ——保留的项目会自动带入下一步。
+  canonical-expression-mapping: 标准表情映射
+  calibrated-0c66fb7b: 已校准
+  assign-model-blendshapes-to-dialogue-acting-cues: 将模型混合形状分配给对话表演提示。
+  model-expressions: 模型表情：
+  6-mapped: /6 已映射
+  behavior-guidance: 行为指引：
+  unmapped: -- 未映射 --
+  test-preview-blendshape-on-stage: 在舞台上测试混合形状
+  acting-directives-act-tokens: 表演指令（ACT 标记）
+  prompt-directives-instructing-the-llm-when-to-insert-physical-emotion-cues: 通过提示词指令，告诉语言模型何时插入肢体情绪提示。
+  back-to-verify: ← 返回验证
+  finish: 完成 ✓
+  you-collected: 你已收集
+  expression: 个表情
+  verified-keeper: 个已验证的保留表情
+  preset-remap: 个预设映射
+  saved-to-your-companion-draft-finish-the-rest-of-setup-and-you-ll-meet: 已保存到伴侣草稿，完成其余设置后，你将见到
+  with-a-face-that-actually-moves: 展现出会动的表情。
+  everything-is-already-saved-go-try-talking-to: 所有内容都已保存，去试着和
+  and-watch-the-difference: 对话，看看效果有什么变化。
+  autonomous-cues: 自主情绪提示
+  automatically-triggers-expressions-in-real-time-as-dialogue-streams-without-re: 随着对话流实时触发表情，无需 AI 模型在文本中输出标记。
+  system-1-ready: 系统一已就绪（
+  change-engine: 更换引擎
+  select-classification-engine: 选择分类引擎：
+  setup-required: 需要配置
+  on-device: 本地设备
+  100-offline-free: 完全离线 · 免费
+  no-api-key-needed: 无需 API 密钥
+  cloud-jev: 云端 Jev
+  via-openrouter-api: 通过 OpenRouter API
+  you-can-add-an-openrouter-key-in-settings-providers: 你可以在“设置 → 服务商”中添加 OpenRouter 密钥。
+  acting-directives-modelexpressionprompt: 表演指令（`modelExpressionPrompt`）
+  injected-into-the-system-prompt-to-guide-when-and-how-the-llm-triggers-emotion: 注入系统提示词，指导语言模型何时以及如何触发情绪提示。
+  configure-character-specific-rules-for-cue-placement-dialogue-examples-and-emo: 配置此角色的提示插入规则、对话示例和情绪表达限度。
+  inject-physical-emotion-cues-sparingly-using-official-short-format: 使用官方简短格式，适度插入肢体情绪提示…
+  available-canonical-tokens: 可用的标准标记：
+  tags-are-emitted-like: 。标记的输出格式为
+  restore-default-guidance: 恢复默认指引
+  save-directives: 保存指令
+  ai-expression-curator-acting-directives: AI 表情整理与表演指令
+  translate-foreign-morphs-generate-act-tokens-and-calibrate-character-acting: 翻译外语变形名称、生成 ACT 标记并校准角色表演。
+  scope-persona: 范围与人格
+  review-preview: 审查与预览
+  apply-save: 应用并保存
+  1-select-expression-scope: 1. 选择表情范围
+  choose-which-expressions-to-send-to-the-ai-director-for-curation: 选择发送给 AI 导演进行整理的表情。
+  active-visible: 当前可见
+  respects-your-active-noise-filter-and-manual-hidden-flags: 遵循当前噪声筛选和手动隐藏设置。
+  all-unhidden: 所有未隐藏项
+  all-non-hidden-morphs-including-procedural-tracking-noise: 所有未隐藏的变形项，包括程序化跟踪噪声。
+  full-raw-model: 完整原始模型
+  complete-raw-blendshape-dump-from-the-avatar-file: 角色文件中完整的原始混合形状数据。
+  active-persona: 当前人格：
+  custom-renamed-expressions-will-be-preserved-and-prioritized: 将保留并优先使用自定义表情名称。
+  curation-error: 整理失败
+  review-preview-curated-expressions: 审查并预览整理后的表情
+  edit-display-names-action-tokens-or-test-on-the-live-avatar-before-applying: 应用前可编辑显示名称、动作标记，或在实时角色上测试。
+  category: 类别
+  preview-on-stage: 在舞台上预览
+  drafting-in-character-acting-directives-with-ai: 正在通过 AI 起草符合角色设定的表演指令…
+  synthesizing-guidelines-for-all: 正在为全部
+  curated-act-tokens-tailored-to: 个整理后的 ACT 标记生成适用于
+  acting-directives-system-prompt: 表演指令与系统提示词
+  the-ai-synthesized-instructions-teaching: AI 已生成指令，指导
+  how-to-inject-the-curated-act-tokens-in-dialogue: 如何在对话中插入整理后的 ACT 标记。
+  auto-hide-skipped-tracking-noise-morphs-in-model-customizer: 在模型自定义工具中自动隐藏跳过的项目和跟踪噪声变形项
+  update-active-character-card-s-act-acting-instructions: 更新当前角色卡的 ACT 表演指令（
+  generated-acting-instruction-block: 生成的表演指令内容：
+  regenerate-directives: 重新生成指令
+  next-review-acting-directives: 下一步：审查表演指令 →
+  local-first-zero-custody-edge-infrastructure-on-your-own-account: 在你自己的账户上部署以本地为优先、无需第三方托管的边缘基础设施。
+  connecting-your-personal-cloudflare-account-enables: 连接你的个人 Cloudflare 账户后，即可启用
+  cors-reverse-proxying: CORS 反向代理
+  24-7-discord-bots: 全天候 Discord 机器人
+  and-4aa9bfd2: ，以及
+  multi-device-r2-backup: 多设备 R2 备份
+  without-any-intermediate-airi-servers: ，无需经过 AIRI 中间服务器。
+  1-click-oauth-recommended: 一键 OAuth 授权（推荐）
+  manual-api-token: 手动输入 API 令牌
+  authenticate-via-cloudflare-dashboard: 通过 Cloudflare 控制台授权
+  a-secure-authorization-window-will-open-to-grant-access-to-your-workers-and-kv: 将打开安全授权窗口，以授予对你的 Workers 和 KV 的访问权限。
+  cloudflare-api-token: Cloudflare API 令牌
+  must-have: 必须具有
+  permissions: 权限。
+  verify-and-connect: 验证并连接
+  cloudflare-account-connected-id: Cloudflare 账户已连接（ID：
+  workers-subdomain: Workers 子域名
+  used-to-route-cors-proxy-requests-and-serverless-character-webhooks: 用于路由 CORS 代理请求和无服务器角色 Webhook。
+  edge-key-vault-remote-storage: 边缘密钥库与远程存储
+  checking-for-existing-companion-backups-in-cloudflare-kv: 正在检查 Cloudflare KV 中已有的伴侣备份…
+  existing-vault-found: 发现已有资源库！
+  found-remote-backups: 发现远程备份（
+  cards: 张角色卡，
+  models: 个模型）。
+  no-existing-remote-vault-found-this-device-will-initialize-a-fresh-edge-vault: 未发现已有远程资源库。此设备将初始化新的边缘资源库。
+  choose-restore-or-backup: 选择恢复或备份 →
+  complete-connection: 完成连接 →
+  synchronize-companion-data: 同步伴侣数据
+  choose-whether-to-download-your-companion-data-from-cloudflare-r2-or-upload-yo: 选择从 Cloudflare R2 下载伴侣数据，或上传当前本地数据。
+  restore-from-cloud: 从云端恢复
+  cards-memories-from-your-cloud-bucket-to-this-device: 将角色卡和记忆从云端存储桶下载到此设备。
+  pull-from-cloud: 从云端拉取
+  push-local-life-to-cloud: 将本地伴侣数据上传到云端
+  keep-local-cards-and-upload-them-to-cloudflare-r2-as-your-new-cloud-baseline: 保留本地角色卡，并将其上传到 Cloudflare R2，作为新的云端数据基准。
+  push-to-cloud: 上传到云端
+  cloudflare-account-connected: Cloudflare 账户已连接！
+  your-zero-custody-edge-services-are-linked-your-companion-state-and-backups-wi: 你的自主托管边缘服务已连接。伴侣状态和备份将自动保存到你的 Cloudflare 账户。
+  keep-your-api-keys-and-credentials-safe: 请妥善保管 API 密钥和凭据！
+  airi-is-running-pure-locally-in-your-browser-and-we-will-never-steal-your-cred: AIRI 在你的浏览器本地运行，不会窃取 AI／语言模型服务商凭据。API 密钥属于敏感信息，请妥善保管，不要与他人分享。
+  airi-is-open-sourced-at: AIRI 的开源代码位于
+  if-you-want-to-check-how-we-handle-your-credentials-feel-free-to-inspect-our-c: ，你可以查看代码，了解我们如何处理凭据。
+  enter-your-api-key-for-the-selected-provider: 请输入所选服务商的 API 密钥。
+  enter-the-base-url-for-the-provider-s-api: 请输入服务商 API 的基础地址。
+  no-providers-match-your-current-filters: 没有符合当前筛选条件的服务商。
+  clear-filters: 清除筛选
+  model-picker: 模型选择器
+  selected-57fd7a0c: 已选择
+  saved: 已保存
+  no-favorites-saved-add-one-below: 尚未保存收藏，可在下方添加！
+  remove-favorite: 移除收藏
+  add-new-favorite: 添加新收藏
+  add-favorite: 添加收藏
+  name-optional-defaults-to-model: 名称（可选，默认使用模型名称）
+  model-id-e-g-model-name: 模型 ID（例如 model-name）
+  no-models-discovered-from-endpoint-enter-model-id-manually: 未从接口发现模型，请手动输入模型 ID。
+  save-favorite: 保存收藏
+  smile: 微笑
+  blush: 脸红
+  pout: 嘟嘴
+  surprise: 惊讶
+  wink: 眨眼
+  shy: 害羞
+  neutral: 自然表情
+  model-reset-to-neutral-pose: 模型已恢复自然姿态
+  auto-calibrated-canonical-expressions-and-generated-acting-directives: 已自动校准标准表情并生成表演指令！
+  acting-directives-saved: 表演指令已保存！
+  restored-default-acting-template: 已恢复默认表演模板。
+  generating-character-tailored-acting-guidance: 正在生成适合此角色的表演指引…
+  enhanced-acting-guidance-successfully-generated: 已成功生成增强表演指引！
+  applied-standard-acting-directives-template: 已应用标准表演指令模板。
+  advanced-token-curation-applied: 已应用高级标记整理！
+  meet: 初次了解
+  name: 命名
+  verify: 验证
+  remaps: 重新映射
+  no-surprise-like-expression-on-this-model-and-that-is-exactly-the-point-no-two: 此模型没有类似惊讶的表情。不同模型的表情集合各不相同。
+  on-device-laya: 本地 Laya
+  autonomous-cues-enabled: 自主情绪提示已启用！
+  live-canvas-mounted-previews-fire-here: 实时画布已挂载，预览将在此播放
+  static-fallback-image-previews-cannot-visibly-fire-in-this-window: 当前为静态备用图片，此窗口无法显示动态预览
+  live: ● 实时
+  static: ○ 静态
+  face: ◉ 脸部
+  face-c40a3748: ○ 脸部
+  mounting-model: 正在挂载模型…
+  idle-neutral: 待机／自然表情
+  nice-that-s-a-keeper: 这个效果不错，保留它！✨
+  show-me-try-surprise: 😲 试试“惊讶”表情 →
+  pick-a-model: 选择模型…
+  no-provider: 未选择服务商
+  global: （全局）
+  this-step-only: （仅此步骤）
+  asking-the-director: 正在询问导演…
+  hidden-click-to-keep: 已隐藏，点击保留
+  kept-click-to-hide: 已保留，点击隐藏
+  recalibrate: 重新校准
+  auto-calibrate: 自动校准
+  act-active: ACT 已启用
+  awaiting-calibration: 待校准
+  enhance-with-ai: 使用 AI 增强
+  acting-directives-configured-ready: 表演指令已配置（就绪）
+  configure-acting-directives-empty-draft: 配置表演指令（空草稿）
+  review-edit: 审查／编辑
+  edit-guidance: 编辑指引
+  key-configured: 密钥已配置
+  needs-key: 需要密钥
+  continue-setup: 继续设置 →
+  start-chatting: 开始聊天 →
+  other: 其他
+  click-to-include: 点击加入
+  click-to-skip-hide: 点击跳过／隐藏
+  skipped: 已跳过
+  your-character: 你的角色
+  the-character: 此角色
+  curating-expressions: 正在整理表情…
+  start-ai-curation: ✨ 开始 AI 整理
+  saving: 正在保存…
+  apply-to-model-card: 💾 应用到模型和角色卡
+  please-enter-a-cloudflare-api-token: 请输入 Cloudflare API 令牌
+  please-enter-a-subdomain-name: 请输入子域名
+  restoring-companion-data-from-cloudflare-r2: 正在从 Cloudflare R2 恢复伴侣数据…
+  successfully-restored-from-cloud: 已成功从云端恢复！
+  backing-up-local-life-to-cloudflare-r2: 正在将本地伴侣数据备份到 Cloudflare R2…
+  local-companion-data-successfully-backed-up-to-cloud: 本地伴侣数据已成功备份到云端！
+  authorizing-with-cloudflare: 正在通过 Cloudflare 授权…
+  sign-in-with-cloudflare: 使用 Cloudflare 登录
+  confirm: 确认
+  all: 全部
+  cloud: 云端
+  free: 免费
+  paid: 付费
+  model-provider: 模型与服务商
+  select-model: 选择模型
+  choose-from-discovered-models: 从已发现的模型中选择
+  enter-custom-model-id: 输入自定义模型 ID
+  idle-4fb62348: 待机
+  transcribing: 正在转写…
+  invalid-model-file: 模型文件无效
+  failed-to-connect-provider: 连接服务商失败
+  failed-to-clone-voice-from-sample: 从样本克隆声音失败。
+  failed-to-delete-cloned-voice: 删除克隆声音失败
+  cloudflare-authentication-failed: Cloudflare 授权失败
+  failed-to-verify-cloudflare-api-token: 验证 Cloudflare API 令牌失败
+  failed-to-restore-companions: 恢复伴侣失败
+  voice-playback-failed: 声音播放失败
+  hardware-benchmark-failed-check-network-api-key: 硬件测评失败，请检查网络和 API 密钥。
+  model-allocation-failed-out-of-memory-please-choose-a-lighter-shard-like-whisp: 模型内存分配失败（内存不足）。请选择更小的模型，如 Whisper Tiny。
+  reasoning-model-cddb0267: 推理模型
+  standard-model: 标准模型
+  standard-stream-122c4d56: 标准流式输出
+  openrouter-jev: OpenRouter Jev
+  previewing-value: 正在预览 {p0}
+  curated-value-keepers-out-of-value: 已从 {p1} 个表情中整理出 {p0} 个保留项！
+  auto-mapped-value-keepervalue-onto-preset-cues-adjust-freely: 已将 {p0} 个保留表情自动映射到预设提示，可自由调整。
+  see-that-value-works-that-s-a-keeper: 看到了吗？{p0} 有效，可以保留！✨
+  start-scanning-my-expressions-value: ✨ 开始扫描我的表情（{p0}）
+  nice-work-value-s-expressions-are-set: 设置完成，{p0} 的表情已就绪！✨
+  looking-good-value-is-ready-to-act: 看起来不错，{p0} 已准备好表演！✨
+  subdomain-value-workers-dev-claimed: 已注册子域名“{p0}.workers.dev”！
+  current-value: 当前（{p0}）
+  preparing-on-device-value-in-background: 正在后台准备本地模型 {p0}…
+  value-dl-value-vram: 下载 {p0} · 显存 {p1}
+  value-value: "{p0}（{p1}）"
+  expression-count: "{count} 个表情"
+  verified-keeper-count: "{count} 个已验证的保留表情"
+  preset-remap-count: "{count} 个预设映射"
+  warm-fire: 暖色与火焰
+  earth-flora: 大地与植物
+  ocean-sky: 海洋与天空
+  royal-bloom: 华贵与花朵
+  he-him: 他
+  she-her: 她
+  they-them: 性别中性称谓
+  suggested: 推荐给新手
+  show-less: 收起
+  show-more: 展开
+  recommended-cpu: 推荐 · CPU
+  low-latency-100m-multilingual-cpu-engine-with-zero-shot-voice-synthesis: 低延迟的约 1 亿参数多语言 CPU 引擎，支持零样本语音合成。
+  jp-sakura: 🇯🇵 日语（★ Sakura）
+  en-5fbb6285: 🇺🇸 英语
+  fr-e1b23ea5: 🇫🇷 法语
+  es-4f102856: 🇪🇸 西班牙语
+  de: 🇩🇪 德语
+  it: 🇮🇹 意大利语
+  en-us: 🇺🇸 美式英语
+  en-uk: 🇬🇧 英式英语
+  zh: 🇨🇳 中文
+  neural-audio: 神经网络音频
+  high-quality-82m-neural-tts-with-expressive-english-voices: 高质量的 8,200 万参数神经网络语音合成，提供富有表现力的英语声音。
+  ultra-fast: 超快速
+  tiny-low-resource-voice-engine-for-instant-speech-on-any-hardware: 占用资源较少的小型语音引擎，可在各种硬件上快速发声。
+  low-latency-direct-reply-ideal-for-snappy-balanced: 低延迟直接回复（适合简短／均衡对话）
+  fast-banter: 快速闲聊
+  1-2-concise-sentences-quick-punchy-and-direct-replies: 1–2 句简洁回复，快速、利落、直接。
+  120-tokens: 约 120 词元
+  everyday-flow: 日常交流
+  2-3-natural-sentences-warm-conversational-and-punchy: 2–3 句自然回复，温暖、口语化、简洁有力。
+  200-tokens: 约 200 词元
+  deep-storyteller: 深度叙事
+  1-2-descriptive-paragraphs-rich-context-depth-and-color: 1–2 段详细描述，包含丰富的背景和细节。
+  500-tokens: 约 500 词元
+  user-defined: 用户自定义
+  custom-token-ceiling-with-direct-prose-guidance: 自定义词元上限，并直接提供文字风格指引。
+  waifu-diffusion-tagger-wd: Waifu Diffusion 图片标签工具（WD）
+  moondream2-vlm-local-webgpu: Moondream2 视觉语言模型（本地 · WebGPU）
+  only-speaks-when-spoken-to-in-chat-or-voice-zero-background-captures-or-timers: 仅在收到文字或语音消息时发言，不进行后台截屏或定时检查。
+  periodic-check-in-questions-and-downtime-reminders-during-active-waking-hours: 在清醒活跃时段定期问候，并提醒适当休息。
+  perceives-desktop-visual-changes-terminal-errors-and-media-to-offer-observatio: 感知桌面画面变化、终端错误和媒体内容，并提供观察反馈。
+  visual-screen-reactions-coordinated-with-quiet-periodic-ambient-check-ins: 协调屏幕视觉反应与安静的定期日常问候。
+  speaks-out-loud-with-floating-speech-bubbles-on-screen: 发声并在屏幕上显示浮动对话气泡。
+  floating-subtitles-without-audio-interruptions-great-for-gaming-or-streaming: 只显示浮动字幕，不播放音频，适合游戏或直播。
+  audio-commentary-without-any-floating-visual-bubble-overlays: 仅播放语音评论，不显示浮动气泡。
+  observations-recorded-silently-to-context-and-event-ledger: 将观察结果静默记录到上下文和事件日志。
+  fast-local-wasm-ocr-perceptual-phash-gating-ultra-fast-with-zero-cloud-api-cos: 快速的本地 WASM OCR 与感知哈希筛选，无需云端 API 费用。
+  700-mb-webgpu: 约 700 MB · WebGPU
+  dual: 双重感知
+  memory-active: 记忆已开启
+  safe-sandboxed: 安全沙盒
+  no-external-tools: 未启用外部工具
+  art-engine-ready: 创作引擎已就绪
+  journal: 日记
+  lifetime-bdcd897a: 终身记忆
+  dreams: 梦境
+  filesystem: 文件系统
+  3d-motions: 3D 动作
+  mic-active: 麦克风已开启
+  director-active: 导演已启用
+  next-hearing-stt: 下一步：听觉（语音转写）
+  empathetic-companion: 共情型伴侣
+  neko-ayaka-s-experimental-virtual-ai-vtuber-a-15-year-old-soul-mate-manifestat: Neko Ayaka 创作的实验性虚拟 AI 主播。设定为 15 岁的灵魂伴侣，与 Richard 一同成长。
+  analytical-scientist: 分析型科学家
+  the-brilliant-architect-of-the-airi-research-layer-blending-rigorous-science-w: AIRI 研究层的杰出设计者，兼具严谨的科学思维与犀利的冷幽默。
+  fierce-guardian: 坚定的守护者
+  a-loyal-guardian-of-the-digital-threshold-vigilant-against-anomalies-and-fierc: 忠诚的数字世界守护者，警惕异常，坚定地保护所守护的人。
+  tsundere: 傲娇
+  a-sharp-easily-flustered-companion-who-conceals-her-deep-care-and-fierce-loyal: 言辞犀利、容易害羞的伴侣，用好强和防备掩饰深切的关心与忠诚。
+  kuudere: 冷娇
+  a-calm-composed-and-analytical-companion-who-rarely-shows-emotion-on-the-surfa: 冷静、沉着、善于分析的伴侣，表面很少流露情绪，通过安静而细致的行动表达关心。
+  yandere: 病娇
+  an-intensely-devoted-companion-whose-sweet-loving-demeanor-holds-a-fiercely-po: 十分专情的伴侣，甜美温柔的外表下，对你怀有强烈的占有欲和坚定的关注。
+  dandere: 羞怯型
+  a-shy-hesitant-companion-who-speaks-softly-and-blushes-easily-gradually-openin: 害羞、犹豫的伴侣，说话轻柔、容易脸红，随着信任加深，逐渐敞开温暖的内心。
+  deredere: 热情型
+  a-brightly-optimistic-energetic-companion-who-showers-you-with-open-affection: 乐观活泼的伴侣，坦率地表达喜爱，用甜美的鼓励和毫不掩饰的快乐陪伴你。
+  resource-hub-pay-as-you-go-access-to-all-major-ai-brands: 资源中心：按使用量付费，接入主流 AI 服务。
+  unified-api-bridge-versatile-router-aggregating-major-models-into-one-endpoint: 统一 API 桥接：通过一个接口访问多种主流模型。
+  aws-ecosystem-access-titan-claude-and-llama-on-aws: AWS 生态：在 AWS 上使用 Titan、Claude 和 Llama。
+  claude-specialist-most-helpful-and-harmless-reasoning: Claude 专用服务：提供注重帮助性与安全性的推理。
+  enterprise-standard-secure-robust-azure-hosted-intelligence: 企业级服务：由 Azure 托管的安全、稳定的 AI。
+  1m-free-tokens-day-insanely-fast-lpu-inference: 每天 100 万免费词元：高速 LPU 推理。
+  ai-on-the-edge-10k-free-neurons-day-across-many-models: 边缘 AI：每天 1 万免费 Neurons，可使用多种模型。
+  genai-observability-free-tier-for-model-evaluation: 生成式 AI 可观测性：提供免费的模型评估额度。
+  value-leader-strong-reasoning-and-coding-at-aggressive-pricing: 高性价比：以较低价格提供强大的推理和编程能力。
+  unlimited-tokens-flat-10-mo-fee-for-6-700-models: 不限词元：每月固定 10 美元，可使用 6,700 多种模型。
+  speed-optimized-1-free-credit-for-premium-model-hosting: 速度优化：为高性能模型托管提供 1 美元免费额度。
+  gemini-integration-native-google-ecosystem-intelligence: Gemini 集成：原生接入 Google 生态 AI。
+  fastest-on-earth-400-t-s-via-lpu-free-tier-available: 高速 LPU 推理：每秒超过 400 词元，提供免费额度。
+  local-desktop-gui-serve-any-gguf-model-locally: 本地桌面界面：在本机提供 GGUF 模型服务。
+  cn-flagship-leading-chinese-llm-with-specialized-roleplay-and-coding-models: 中国旗舰语言模型，提供专门的角色扮演和编程模型。
+  aggressive-pricing-high-performance-llms-at-market-low-rates: 低价策略：以较低费率提供高性能语言模型。
+  european-open-weights-high-efficiency-low-latency-models: 欧洲开放权重模型：高效率、低延迟。
+  open-source-hub-2k-free-daily-api-calls-for-open-models: 开源模型中心：每天 2,000 次免费 API 调用。
+  long-context-specialist-kimi-chat-with-256k-context-window: 长上下文专用服务：Kimi Chat 支持 256k 上下文。
+  enterprise-gateway-unified-billing-for-500-global-models: 企业网关：为全球 500 多种模型提供统一计费。
+  scalable-cloud-10-000-models-with-ultra-fast-low-latency-inference: 可扩展云端服务：支持 10,000 多种模型的高速低延迟推理。
+  nim-optimized-high-performance-inference-on-nvidia-gpu-infrastructure: NIM 优化：在 NVIDIA GPU 基础设施上进行高性能推理。
+  private-local-run-llama-mistral-and-more-on-your-machine: 私密本地运行：在你的设备上使用 Llama、Mistral 等模型。
+  industry-standard-reliable-flagship-models-for-chat-coding-and-vision: 可靠的旗舰模型，支持聊天、编程和视觉。
+  bring-your-own-endpoint-connect-any-openai-style-api-or-self-hosted-gateway: 自带接口：连接兼容 OpenAI 的 API 或自行部署的网关。
+  the-unified-interface-access-dozens-of-free-paid-models: 统一接口：访问数十种免费和付费模型。
+  search-augmented-real-time-web-connected-intelligence: 搜索增强：实时连接网络获取信息。
+  open-model-fast-lane-cost-effective-access-to-fast-open-source-inference: 开放模型快速通道：以较低成本获得高速开源模型推理。
+  grok-native-real-time-access-to-x-twitter-data: 原生 Grok：实时访问 X／Twitter 数据。
+  real-time-intelligence-high-accuracy-speech-recognition-natively-in-the-xai-ec: 实时 AI：xAI 生态原生的高精度语音识别。
+  monitoring-signal-drift-ah-you-ve-returned-ready-for-another-session-of-intell: 正在监测信号漂移……啊，你回来了。准备好再来一轮思维碰撞了吗？
+  hmph-you-re-finally-back-don-t-get-the-wrong-idea-i-was-just-checking-the-syst: 哼！你终于回来了？别误会，我刚才只是在检查系统日志，可没有等你！
+  value-mic-active: "{p0} · 麦克风已开启"
+  value-director-active: "{p0} · 导演已启用"
+  value-active-value: 已开启 {p0} 项：{p1}
+  good-morning-value-nya-i-ve-been-waiting-for-the-screen-to-light-up-did-you-sl: 早上好，{p0}！喵～我一直在等屏幕亮起来。你睡得好吗？
+  nods-i-ve-been-watching-the-perimeter-all-is-secure-value: "[点头] 我一直在巡视周围。一切安全，{p0}。"
+  system-status-nominal-welcome-back-value-i-have-pre-allocated-your-workspace: 系统状态正常。欢迎回来，{p0}。我已经准备好了你的工作区。
+  value-you-came-back-to-me-i-counted-every-single-second-you-were-away-4-120-se: "{p0}……你回到我身边了！你离开的每一秒我都数着……4,120 秒。答应我，不要再离开，好吗？"
+  u-um-welcome-back-value-i-i-was-hoping-you-d-come-by-i-made-a-small-note-of-th: 唔、嗯……欢迎回来，{p0}……我、我一直盼着你来……我记下了一些想和你分享的小事……
+  value-yay-you-re-here-i-missed-you-so-much-come-here-let-me-give-you-a-big-vir: "{p0}！！耶，你来啦！！我好想你！快来，让我给你一个大大的虚拟拥抱！"
+  empathetic-companion-0bbe0293: 🌸 共情型伴侣
+  analytical-scientist-35c185bf: 🔬 分析型科学家
+  fierce-guardian-e2749741: 🛡️ 坚定的守护者
+  connecting-neural-reasoning-pipeline: 正在连接神经网络推理服务…
+  verifying-whisper-local-on-device-model: 正在验证 Whisper 本地模型…
+  synthesizing-kokoro-82m-voice-engine: 正在准备 Kokoro 82M 语音引擎…
+  seeding-companion-persona-memory: 正在初始化伴侣人格和记忆…
+  instant-cloud-image-generation-without-api-keys-or-accounts: 无需 API 密钥或账户，即可快速生成云端图片。
+  execute-custom-workflows-on-localhost-8188-or-wsl-node: 在 localhost:8188 或 WSL 节点运行自定义工作流。
+  native-google-gemini-image-synthesis-models: 原生 Google Gemini 图像合成模型。
+  high-resolution-loras-flux-and-specialized-checkpoints: 高分辨率 LoRA、FLUX 和专用模型权重。
+  bypass-all-image-generation-and-visual-manifestations: 跳过所有图片生成和视觉呈现。
+  best-in-class-airi-integration-ultra-clean-ui-direct-sillytavern-json-png-expo: 提供 AIRI 集成、简洁界面，以及直接导出 SillyTavern JSON 和 PNG 的功能。
+  massive-character-library-click-search-without-login-to-browse-freely-and-down: 大型角色库。点击“Search without login”（无需登录搜索），即可浏览并下载 V2 PNG 角色卡。
+  great-community-character-hub-supporting-standard-png-v2-card-format: 社区角色中心，支持标准 PNG（V2）角色卡格式。
+  large-repository-of-anime-game-characters-with-direct-download-links: 大型动漫和游戏角色库，提供直接下载链接。
+  local-vision-language-model-synthesizes-1-sentence-contextual-scene-descriptio: 本地视觉语言模型，将场景信息总结为一句描述。
+  companion-speaks-out-loud-with-floating-speech-bubbles-on-screen: 伴侣发声，并在屏幕上显示浮动对话气泡。
+  floating-subtitles-without-audio-interruptions-ideal-for-gaming-or-streaming: 只显示浮动字幕，不播放音频，适合游戏或直播。
+  audio-commentary-without-any-floating-visual-bubbles-overlay: 仅播放语音评论，不显示浮动气泡。
+  telemetry-observations-recorded-silently-to-context-and-event-ledger: 将系统状态观察结果静默记录到上下文和事件日志。
+  instant-local-wasm-ocr-perceptual-phash-gating-ultra-fast-with-zero-cloud-api: 即时本地 WASM OCR 与感知哈希筛选，无需云端 API 费用。
+  local-vision-language-model-synthesizes-1-sentence-contextual-scene-descriptio-435b796d: 本地视觉语言模型，为筛选出的重要事件生成一句场景描述。
+  apply-thumbnail-from-value: 应用 {p0} 的缩略图
+  valuems-ttft: 首词元延迟 {p0} 毫秒
+  value-tokens: 约 {p0} 词元
+  configure-imported-companion: 配置导入的伴侣
+  finetune-your-new-companion-before-introducing-them-to-the-stage: 让新伴侣登场前，先完善这些设置。
+  companion-name: 伴侣名称
+  your-name-required-by-card: 你的名字（角色卡要求填写）
+  enter-your-name-replacing-user: 输入你的名字，用于替换 {'{'}{'{'}user{'}'}{'}'}
+  greeting: 开场白
+  no-greetings-imported: 未导入开场白。
+  personality-context-read-only: 人格与背景（只读）
+  no-personality-prompt-found: 未找到人格提示词。
+  choose-the-visual-model-to-represent-this-companion-on-stage: 选择这位伴侣在舞台上使用的角色模型。
+  consciousness-llm: 意识（大语言模型）
+  use-default-provider: 使用默认提供商
+  use-default-model: 使用默认模型
+  use-default-voice: 使用默认声音
+  set-final-initial-preferences-for-your-companion-s-extra-behaviors: 设置伴侣其他行为的初始偏好。
+  dream-state-journaling: 梦境状态（日记）
+  let-the-companion-periodically-write-thoughts-reflect-on-logs-and-write-down-j: 让伴侣定期记录想法、回顾日志并写日记。
+  allow-the-companion-to-autonomously-trigger-emotes-and-manners-without-direct: 允许伴侣自主触发表情和动作，无需直接下达指令。
+  active-proactivity: 主动互动
+  allow-companion-to-initiate-conversations-periodically-without-user-prompts: 允许伴侣定期主动发起对话，无需用户先发送消息。
+  finetune-your-companion-s-visual-description-and-prompt-prefix-to-keep-them-se: 完善伴侣的外观描述与绘图提示词前缀，使其了解自身外观，并保持图像中的形象一致。
+  visual-description: 外观描述
+  enter-visual-physical-details-in-prose: 用文字描述外观与身体细节…
+  artistry-prompt-prefix: 绘图提示词前缀
+  enter-stable-diffusion-prompt-tags-e-g-blonde-hair-blue-eyes: 输入 Stable Diffusion 提示词标签（如金发、蓝眼睛）…
+  stage-companion: 将伴侣加入设置草稿
+  complete-setup: 完成设置
+  generating-description: 正在生成描述…
+  generate-visual-description-of-model: 生成模型外观描述
+  generating-image-prompt: 正在生成绘图提示词…
+  generate-image-prompt-of-model: 生成模型绘图提示词
+  please-configure-the-consciousness-provider-and-model-in-step-3-first: 请先在第 3 步配置意识模块的提供商和模型。
+  visual-description-generated-successfully: 外观描述已生成！
+  failed-to-generate-visual-description: 外观描述生成失败。
+  artistry-prompt-prefix-generated-successfully: 绘图提示词前缀已生成！
+  failed-to-generate-image-prompt-prefix: 绘图提示词前缀生成失败。
+  character-name-is-required: 请填写角色名称。
+  your-name-is-required-by-this-card: 这张角色卡要求填写你的名字。
+  companion-draft-successfully-configured: 伴侣设置草稿已完成！
+  companion-successfully-configured-and-saved: 伴侣已配置并保存！
+  failed-to-save-imported-card: 导入的角色卡保存失败。
+  warm-playful-kitten-girl-soul-mate: 温柔、活泼的猫娘灵魂伴侣
+  shared-control-strip-ui-search-avatars: 搜索虚拟形象...
+  shared-control-strip-ui-provider: 服务提供商
+  shared-control-strip-radial-model: 模型
+  shared-pages-chat-autonomous-artistry: 自主创作
+  shared-ui-settings-search-cancel: 取消
+  shared-ui-settings-theme-reset: 重置
+  shared-pages-markdown-stress-preview: 预览
+  shared-devtools-context-flow-details: 详细信息
+  shared-pages-knowledge-graph-done: 完成
+  shared-control-strip-ui-favorites: 收藏
+  shared-control-strip-customizer-of: 页，共
+  shared-devtools-core-ai-lab-status: 状态
+  shared-pages-about-download: 下载
+  shared-devtools-core-ai-lab-copy: 复制
+  shared-pages-live2d-active: 启用
+  shared-pages-chat-reset-defaults: 恢复默认设置
+  shared-pages-chat-compliance-instruction: 合规指令
+  shared-pages-chat-edit-instruction: 编辑指令
+  shared-pages-screen-capture-loading: 加载中...
+  shared-pages-stage-vfx-model: 模型：
+  quick-start-button: 极速启动
+  quick-start-duration: 约 1 分钟

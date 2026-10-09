@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import type { SynthesisProposal } from '../../../../../../composables/use-card-synthesis'
 import type { StoryProposalItem } from '../stores/useOnboardingV3Draft'
 
@@ -27,6 +30,9 @@ import { useProvidersStore } from '../../../../../../stores/providers'
 import { formatActorName } from '../../../../../markdown/actor-colors'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
 import { buildArtistryPromptFromPersona } from '../types'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -237,12 +243,12 @@ async function handleCharaCardDownloaded(payload: { base64Data: string, filename
     // Open import wizard modal in draft-only mode
     wizardCardData.value = importedCard
     isWizardOpen.value = true
-    toast.success(`Intercepted character card "${payload.filename}"!`)
+    toast.success(displayText(`Intercepted character card "${payload.filename}"!`))
   }
   catch (err: any) {
     console.error('[Onboarding:Step6] Failed to process intercepted card:', err)
     importError.value = `Failed to parse card: ${err?.message || err}`
-    toast.error(importError.value)
+    toast.error(displayText(importError.value))
   }
 }
 
@@ -259,11 +265,11 @@ async function handleImportFiles(files: FileList | null) {
 
     wizardCardData.value = card
     isWizardOpen.value = true
-    toast.info(`Opening card preview for ${file.name}...`)
+    toast.info(displayText(`Opening card preview for ${file.name}...`))
   }
   catch (err: any) {
     importError.value = err instanceof Error ? err.message : String(err)
-    toast.error(`Import failed: ${importError.value}`)
+    toast.error(displayText(`Import failed: ${importError.value}`))
   }
 }
 
@@ -315,7 +321,7 @@ function handleWizardSubmitDraft(finalCard: any) {
   if (extractedSpeech && typeof (draft as any).setSpeech === 'function') {
     ;(draft as any).setSpeech(extractedSpeech)
   }
-  toast.success(`Mounted custom card "${importedName.value}" to draft!`)
+  toast.success(displayText(`Mounted custom card "${importedName.value}" to draft!`))
 }
 
 const importedName = computed(() => {
@@ -330,7 +336,7 @@ function clearImported() {
   if (draft.state) {
     draft.state.companionName = STARTER_CHARACTERS.default?.name || 'ReLU'
   }
-  toast.info('Cleared imported card; reverted to ReLU preset.')
+  toast.info(displayText('Cleared imported card; reverted to ReLU preset.'))
 }
 
 // --- AI Character Creator State & Handlers ---
@@ -769,7 +775,7 @@ function onSelectTab(tab: PersonaTab) {
 
 function processImageFile(file: File) {
   if (!file.type.startsWith('image/')) {
-    toast.error('Please upload an image file (PNG, JPG, WebP)')
+    toast.error(displayText('Please upload an image file (PNG, JPG, WebP)'))
     return
   }
   const reader = new FileReader()
@@ -777,7 +783,7 @@ function processImageFile(file: File) {
     if (typeof reader.result === 'string') {
       customAvatar.value = reader.result
       syncCreatorDraft()
-      toast.success('Avatar image uploaded!')
+      toast.success(displayText('Avatar image uploaded!'))
     }
   }
   reader.readAsDataURL(file)
@@ -806,7 +812,7 @@ function removeAvatarImage() {
     avatarFileInput.value.value = ''
   }
   syncCreatorDraft()
-  toast.info('Avatar image removed')
+  toast.info(displayText('Avatar image removed'))
 }
 
 function resetIdentitySection() {
@@ -819,7 +825,7 @@ function resetIdentitySection() {
   customTags.value = []
   newTagInput.value = ''
   syncCreatorDraft()
-  toast.info('Identity fields, tags, and avatar reset.')
+  toast.info(displayText('Identity fields, tags, and avatar reset.'))
 }
 
 const canResetIdentity = computed(() => {
@@ -851,7 +857,7 @@ function removeTag(tag: string) {
 
 async function runBlipAutoTag() {
   if (!customAvatar.value) {
-    toast.error('Please upload an avatar image first')
+    toast.error(displayText('Please upload an avatar image first'))
     return
   }
   isTaggingImage.value = true
@@ -874,7 +880,7 @@ async function runBlipAutoTag() {
           if (!customTags.value.includes(t))
             customTags.value.push(t)
         }
-        toast.success('Extracted visual tags via BLIP!')
+        toast.success(displayText('Extracted visual tags via BLIP!'))
         syncCreatorDraft()
         return
       }
@@ -884,7 +890,7 @@ async function runBlipAutoTag() {
       if (!customTags.value.includes(t))
         customTags.value.push(t)
     }
-    toast.info('Added recommended tags for this character.')
+    toast.info(displayText('Added recommended tags for this character.'))
     syncCreatorDraft()
   }
   catch (err: any) {
@@ -894,7 +900,7 @@ async function runBlipAutoTag() {
       if (!customTags.value.includes(t))
         customTags.value.push(t)
     }
-    toast.info('Added recommended tags.')
+    toast.info(displayText('Added recommended tags.'))
     syncCreatorDraft()
   }
   finally {
@@ -931,7 +937,7 @@ function selectCatalogCharacter(char: any) {
     activeProposalId.value = '1'
   }
   syncCreatorDraft()
-  toast.success(`Selected ${char.name} from catalog!`)
+  toast.success(displayText(`Selected ${char.name} from catalog!`))
 }
 
 function selectTrope(trope: TropeTemplate) {
@@ -1014,11 +1020,11 @@ async function generateStoryIdeas() {
 
     activeProposalId.value = proposals.value[0].id
     syncCreatorDraft()
-    toast.success('Generated 3 fresh scenario proposals!')
+    toast.success(displayText('Generated 3 fresh scenario proposals!'))
   }
   catch (e: any) {
     console.error('[CharacterCreator] Story generation error:', e)
-    toast.error('Could not reach AI model. Loaded tailored creative proposals!')
+    toast.error(displayText('Could not reach AI model. Loaded tailored creative proposals!'))
     proposals.value = createDefaultProposals(customName.value, selectedTropeId.value)
     activeProposalId.value = proposals.value[0].id
     syncCreatorDraft()
@@ -1074,12 +1080,12 @@ const vesselPreviewUrl = computed(() => {
 
 function useVesselPreviewAsAvatar() {
   if (!vesselPreviewUrl.value) {
-    toast.error('No preview image available for current vessel')
+    toast.error(displayText('No preview image available for current vessel'))
     return
   }
   customAvatar.value = vesselPreviewUrl.value
   syncCreatorDraft()
-  toast.success(`Applied preview image from ${vesselName.value}!`)
+  toast.success(displayText(`Applied preview image from ${vesselName.value}!`))
 }
 
 const activePersonaLabel = computed(() => {
@@ -1106,7 +1112,7 @@ function handleNextStep() {
   if (activeTab.value === 'creator' || draft.state.personaSource === 'creator') {
     syncCreatorDraft()
     const name = customName.value.trim() || 'Companion'
-    toast.success(`${name}'s soul bound!`)
+    toast.success(displayText(`${name}'s soul bound!`))
   }
   props.onNext()
 }
@@ -1176,7 +1182,7 @@ onBeforeUnmount(() => {
         </div>
         <div :class="['flex items-center gap-2']">
           <span :class="['px-3 py-1 rounded-full text-xs font-medium border border-neutral-200/80 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 text-neutral-600 dark:text-neutral-300 backdrop-blur-md']">
-            🎭 {{ starterPresets.length }} Anime Tropes
+            🎭 {{ displayText(starterPresets.length) }} {{ t('onboarding.ui.anime-tropes') }}
           </span>
         </div>
       </div>
@@ -1202,7 +1208,7 @@ onBeforeUnmount(() => {
         @click="onSelectTab('presets')"
       >
         <span class="text-sm">✨</span>
-        <span>Starter Cards ({{ starterPresets.length }})</span>
+        <span>{{ t('onboarding.ui.starter-cards') }}{{ displayText(starterPresets.length) }})</span>
       </button>
 
       <button
@@ -1216,12 +1222,12 @@ onBeforeUnmount(() => {
         @click="onSelectTab('hub')"
       >
         <span class="text-sm">🪐</span>
-        <span>Community Hub & SillyTavern Cards</span>
+        <span>{{ t('onboarding.ui.community-hub-sillytavern-cards') }}</span>
         <span
           v-if="draft.state.personaSource === 'import' && importedName"
           :class="['px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold']"
         >
-          Active
+          {{ t('onboarding.ui.shared-pages-live2d-active') }}
         </span>
       </button>
 
@@ -1236,12 +1242,12 @@ onBeforeUnmount(() => {
         @click="onSelectTab('creator')"
       >
         <span class="text-sm">🪄</span>
-        <span>AI Character Creator</span>
+        <span>{{ t('onboarding.ui.ai-character-creator') }}</span>
         <span
           v-if="draft.state.personaSource === 'creator'"
           :class="['px-1.5 py-0.2 rounded bg-primary-500/20 text-primary-600 dark:text-primary-400 text-[10px] font-bold']"
         >
-          Active
+          {{ t('onboarding.ui.shared-pages-live2d-active') }}
         </span>
       </button>
     </div>
@@ -1269,19 +1275,19 @@ onBeforeUnmount(() => {
           <div :class="['flex items-start justify-between gap-2']">
             <div :class="['flex items-center gap-2.5 min-w-0']">
               <div :class="['h-9 w-9 rounded-xl flex items-center justify-center text-lg bg-neutral-100 dark:bg-neutral-800 shadow-2xs flex-shrink-0']">
-                {{ preset.emoji }}
+                {{ displayText(preset.emoji) }}
               </div>
               <div :class="['min-w-0 flex-1']">
                 <div :class="['flex items-center gap-1.5 flex-wrap']">
                   <span :class="['text-xs font-bold text-neutral-900 dark:text-white truncate']">
-                    {{ preset.name }}
+                    {{ displayText(preset.name) }}
                   </span>
                   <span :class="['px-2 py-0.2 rounded-full text-[9px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300']">
-                    {{ preset.tag }}
+                    {{ displayText(preset.tag) }}
                   </span>
                 </div>
                 <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-1']">
-                  {{ preset.desc }}
+                  {{ displayText(preset.desc) }}
                 </p>
               </div>
             </div>
@@ -1293,7 +1299,7 @@ onBeforeUnmount(() => {
                   <button
                     type="button"
                     :class="['h-6 w-6 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center transition-colors cursor-pointer']"
-                    title="View Lore & Scenario"
+                    :title="t('onboarding.ui.view-lore-scenario')"
                     @click.stop
                   >
                     <div :class="['i-solar:info-circle-bold-duotone h-4 w-4']" />
@@ -1306,18 +1312,18 @@ onBeforeUnmount(() => {
                     :class="['z-50 max-w-sm p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-900/95 shadow-xl backdrop-blur-md text-xs']"
                   >
                     <div :class="['flex items-center gap-2 mb-2']">
-                      <span class="text-base">{{ preset.emoji }}</span>
-                      <span :class="['font-bold text-neutral-900 dark:text-white']">{{ preset.name }}</span>
-                      <span :class="['px-2 py-0.2 rounded-full text-[9px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300']">{{ preset.tag }}</span>
+                      <span class="text-base">{{ displayText(preset.emoji) }}</span>
+                      <span :class="['font-bold text-neutral-900 dark:text-white']">{{ displayText(preset.name) }}</span>
+                      <span :class="['px-2 py-0.2 rounded-full text-[9px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300']">{{ displayText(preset.tag) }}</span>
                     </div>
                     <div :class="['space-y-2 text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed']">
                       <div>
-                        <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">Personality: </span>
-                        <span>{{ formatField(preset.personality) }}</span>
+                        <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.personality') }} </span>
+                        <span>{{ displayText(formatField(preset.personality)) }}</span>
                       </div>
                       <div>
-                        <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">Scenario: </span>
-                        <span>{{ formatField(preset.scenario) }}</span>
+                        <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.scenario') }} </span>
+                        <span>{{ displayText(formatField(preset.scenario)) }}</span>
                       </div>
                     </div>
                   </PopoverContent>
@@ -1344,7 +1350,7 @@ onBeforeUnmount(() => {
           <div :class="['p-2 px-2.5 rounded-xl bg-neutral-100/60 dark:bg-black/30 border border-neutral-200/50 dark:border-white/5 flex items-start gap-1.5']">
             <span :class="['text-xs text-neutral-400 mt-0.5 flex-shrink-0']">💬</span>
             <span :class="['text-[11px] text-neutral-600 dark:text-neutral-300 italic line-clamp-2']">
-              "{{ formatField(preset.greeting) }}"
+              "{{ displayText(formatField(preset.greeting)) }}"
             </span>
           </div>
         </div>
@@ -1359,8 +1365,8 @@ onBeforeUnmount(() => {
         <div :class="['p-3.5 rounded-2xl border border-primary-500/30 bg-primary-500/10 backdrop-blur-md flex items-start gap-3']">
           <div :class="['i-solar:info-circle-bold-duotone text-lg text-primary-500 flex-shrink-0 mt-0.5']" />
           <div :class="['text-xs leading-relaxed text-neutral-700 dark:text-neutral-200']">
-            <span :class="['font-bold text-neutral-900 dark:text-white']">Automatic Card Interceptor: </span>
-            Browse any repository below and click to download any SillyTavern V2 character PNG or JSON card. AIRI automatically captures the download stream, parses the embedded metadata, and stages your companion.
+            <span :class="['font-bold text-neutral-900 dark:text-white']">{{ t('onboarding.ui.automatic-card-interceptor') }} </span>
+            {{ t('onboarding.ui.browse-any-repository-below-and-click-to-download-any-sillytavern-v2-character') }}
           </div>
         </div>
 
@@ -1378,22 +1384,22 @@ onBeforeUnmount(() => {
             <div :class="['flex items-center justify-between']">
               <div :class="['flex items-center gap-2']">
                 <span :class="['text-xs font-bold text-neutral-900 dark:text-white group-hover:text-primary-500 transition-colors']">
-                  {{ source.name }}
+                  {{ displayText(source.name) }}
                 </span>
                 <span
                   v-if="source.badge"
                   :class="['px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary-500/15 text-primary-600 dark:text-primary-400']"
                 >
-                  {{ source.badge }}
+                  {{ displayText(source.badge) }}
                 </span>
               </div>
               <div :class="['flex items-center gap-1 text-[10px] text-amber-500 font-bold']">
-                <span>{{ source.rating }}</span>
+                <span>{{ displayText(source.rating) }}</span>
                 <div :class="['i-solar:arrow-up-right-linear text-xs text-neutral-400 group-hover:text-primary-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform']" />
               </div>
             </div>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight']">
-              {{ source.note }}
+              {{ displayText(source.note) }}
             </p>
           </div>
         </div>
@@ -1408,10 +1414,10 @@ onBeforeUnmount(() => {
         >
           <div :class="['i-solar:cloud-upload-bold-duotone text-2xl text-neutral-400']" />
           <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-            Drop a SillyTavern character card or click to browse
+            {{ t('onboarding.ui.drop-a-sillytavern-character-card-or-click-to-browse') }}
           </span>
           <span :class="['text-[10px] text-neutral-400']">
-            Supports PNG character cards with embedded tEXt chara chunks or CCv2/CCv3 JSON files.
+            {{ t('onboarding.ui.supports-png-character-cards-with-embedded-text-chara-chunks-or-ccv2-ccv3-json') }}
           </span>
           <input
             type="file"
@@ -1426,7 +1432,7 @@ onBeforeUnmount(() => {
           v-if="importError"
           :class="['p-3 rounded-xl border border-red-500/30 bg-red-500/10 text-xs text-red-600 dark:text-red-400']"
         >
-          {{ importError }}
+          {{ displayText(importError) }}
         </div>
 
         <!-- Staged Imported Card Banner -->
@@ -1442,11 +1448,11 @@ onBeforeUnmount(() => {
               <div :class="['text-xs font-bold text-neutral-900 dark:text-white truncate flex items-center gap-1.5']">
                 <span>{{ importedName }}</span>
                 <span :class="['px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold']">
-                  Staged Custom Card
+                  {{ t('onboarding.ui.staged-custom-card') }}
                 </span>
               </div>
               <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5']">
-                Active in onboarding draft — ready to synthesize onto your companion.
+                {{ t('onboarding.ui.active-in-onboarding-draft-ready-to-synthesize-onto-your-companion') }}
               </p>
             </div>
           </div>
@@ -1455,7 +1461,7 @@ onBeforeUnmount(() => {
             :class="['text-xs text-neutral-400 hover:text-red-500 underline cursor-pointer flex-shrink-0 transition-colors']"
             @click="clearImported"
           >
-            Clear / Revert
+            {{ t('onboarding.ui.clear-revert') }}
           </button>
         </div>
       </div>
@@ -1473,7 +1479,7 @@ onBeforeUnmount(() => {
                 1
               </div>
               <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-100 uppercase tracking-wider']">
-                Identity & Avatar Source
+                {{ t('onboarding.ui.identity-avatar-source') }}
               </span>
             </div>
 
@@ -1487,11 +1493,11 @@ onBeforeUnmount(() => {
                   'text-neutral-500 hover:text-rose-600 dark:text-neutral-400 dark:hover:text-rose-400',
                   'hover:bg-rose-500/10 dark:hover:bg-rose-500/15 active:scale-95 border border-transparent hover:border-rose-500/20',
                 ]"
-                title="Reset avatar, tags, and identity fields"
+                :title="t('onboarding.ui.reset-avatar-tags-and-identity-fields')"
                 @click="resetIdentitySection"
               >
                 <div :class="['i-solar:restart-bold-duotone h-3.5 w-3.5']" />
-                <span>Reset Fields</span>
+                <span>{{ t('onboarding.ui.reset-fields') }}</span>
               </button>
 
               <!-- Mode Pill Toggle -->
@@ -1507,7 +1513,7 @@ onBeforeUnmount(() => {
                   @click="identityMode = 'custom'"
                 >
                   <div :class="['i-solar:upload-track-bold-duotone h-3.5 w-3.5']" />
-                  <span>Upload Custom Image</span>
+                  <span>{{ t('onboarding.ui.upload-custom-image') }}</span>
                 </button>
                 <button
                   type="button"
@@ -1520,7 +1526,7 @@ onBeforeUnmount(() => {
                   @click="identityMode = 'catalog'"
                 >
                   <div :class="['i-solar:book-bookmark-bold-duotone h-3.5 w-3.5']" />
-                  <span>Browse Catalog (Anime)</span>
+                  <span>{{ t('onboarding.ui.browse-catalog-anime') }}</span>
                 </button>
               </div>
             </div>
@@ -1545,11 +1551,11 @@ onBeforeUnmount(() => {
                 <img
                   v-if="customAvatar"
                   :src="customAvatar"
-                  alt="Avatar Preview"
+                  :alt="t('onboarding.ui.avatar-preview')"
                   class="h-full w-full object-cover"
                 >
                 <div v-else :class="['flex flex-col items-center justify-center p-1.5 text-center leading-tight']">
-                  <span :class="['text-[11px] font-semibold text-neutral-600 dark:text-neutral-300']">Upload Photo</span>
+                  <span :class="['text-[11px] font-semibold text-neutral-600 dark:text-neutral-300']">{{ t('onboarding.ui.upload-photo') }}</span>
                   <span :class="['text-[9px] text-neutral-400 mt-0.5']">PNG, JPG, WebP</span>
                 </div>
 
@@ -1564,7 +1570,7 @@ onBeforeUnmount(() => {
                     @click.stop="triggerAvatarFilePicker"
                   >
                     <div :class="['i-solar:restart-bold-duotone h-3.5 w-3.5']" />
-                    <span>Change</span>
+                    <span>{{ t('onboarding.ui.change') }}</span>
                   </button>
                   <button
                     type="button"
@@ -1572,7 +1578,7 @@ onBeforeUnmount(() => {
                     @click.stop="removeAvatarImage"
                   >
                     <div :class="['i-solar:trash-bin-trash-bold-duotone h-3.5 w-3.5']" />
-                    <span>Remove</span>
+                    <span>{{ t('settings.pages.providers.common.section.instances.remove') }}</span>
                   </button>
                 </div>
 
@@ -1589,7 +1595,7 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 :disabled="!vesselPreviewUrl"
-                :title="vesselPreviewUrl ? `Apply thumbnail from ${vesselName}` : 'No vessel thumbnail available'"
+                :title="displayText(vesselPreviewUrl ? `Apply thumbnail from ${vesselName}` : 'No vessel thumbnail available')"
                 :class="[
                   'w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[11px] font-semibold transition-all border shadow-2xs',
                   vesselPreviewUrl
@@ -1599,7 +1605,7 @@ onBeforeUnmount(() => {
                 @click="useVesselPreviewAsAvatar"
               >
                 <div :class="['i-solar:user-rounded-bold-duotone h-3.5 w-3.5 text-primary-500']" />
-                <span>From Vessel</span>
+                <span>{{ t('onboarding.ui.from-vessel') }}</span>
               </button>
             </div>
 
@@ -1608,12 +1614,12 @@ onBeforeUnmount(() => {
               <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2.5']">
                 <div>
                   <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1']">
-                    Character Name <span class="text-primary-500">*</span>
+                    {{ t('onboarding.ui.character-name') }} <span class="text-primary-500">*</span>
                   </label>
                   <input
                     v-model="customName"
                     type="text"
-                    placeholder="e.g. Mochi-chan"
+                    :placeholder="t('onboarding.ui.e-g-mochi-chan')"
                     :class="['w-full px-3 py-1.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
                     @input="onCustomNameInput"
                   >
@@ -1621,12 +1627,12 @@ onBeforeUnmount(() => {
 
                 <div>
                   <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1']">
-                    Franchise / Series
+                    {{ t('onboarding.ui.franchise-series') }}
                   </label>
                   <input
                     v-model="customSeries"
                     type="text"
-                    placeholder="e.g. Original / Hololive / Fate"
+                    :placeholder="t('onboarding.ui.e-g-original-hololive-fate')"
                     :class="['w-full px-3 py-1.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
                     @input="syncCreatorDraft"
                   >
@@ -1637,7 +1643,7 @@ onBeforeUnmount(() => {
               <div>
                 <div :class="['flex items-center justify-between mb-1']">
                   <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300']">
-                    Visual Traits & Tags
+                    {{ t('onboarding.ui.visual-traits-tags') }}
                   </label>
                   <button
                     type="button"
@@ -1648,7 +1654,7 @@ onBeforeUnmount(() => {
                     @click="runBlipAutoTag"
                   >
                     <div :class="['i-solar:magic-stick-3-bold-duotone h-3 w-3', isTaggingImage ? 'animate-spin' : '']" />
-                    <span>{{ isTaggingImage ? 'Tagging Image…' : 'Auto-Tag Image (BLIP)' }}</span>
+                    <span>{{ displayText(isTaggingImage ? 'Tagging Image…' : 'Auto-Tag Image (BLIP)') }}</span>
                   </button>
                 </div>
 
@@ -1672,7 +1678,7 @@ onBeforeUnmount(() => {
                   <input
                     v-model="newTagInput"
                     type="text"
-                    placeholder="+ Add tag..."
+                    :placeholder="t('onboarding.ui.add-tag')"
                     :class="['bg-transparent text-[11px] text-neutral-800 dark:text-neutral-200 outline-hidden min-w-[80px] flex-1 px-1']"
                     @keydown.enter.prevent="addTag"
                     @keydown.comma.prevent="addTag"
@@ -1690,12 +1696,12 @@ onBeforeUnmount(() => {
                 <input
                   v-model="catalogSearch"
                   type="text"
-                  placeholder="Search characters by name, series, or tags..."
+                  :placeholder="t('onboarding.ui.search-characters-by-name-series-or-tags')"
                   :class="['w-full pl-8 pr-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
                 >
               </div>
               <span :class="['text-[11px] text-neutral-400 flex-shrink-0']">
-                Pick any character to populate metadata
+                {{ t('onboarding.ui.pick-any-character-to-populate-metadata') }}
               </span>
             </div>
 
@@ -1724,7 +1730,7 @@ onBeforeUnmount(() => {
                     {{ char.name }}
                   </div>
                   <div :class="['text-[10px] text-neutral-400 truncate']">
-                    {{ wizardStore.copyrights[char.copyrightIndex] || 'Anime' }}
+                    {{ displayText(wizardStore.copyrights[char.copyrightIndex] || 'Anime') }}
                   </div>
                 </div>
               </button>
@@ -1740,21 +1746,21 @@ onBeforeUnmount(() => {
                 2
               </div>
               <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-100 uppercase tracking-wider']">
-                Outline Your Story Settings
+                {{ t('onboarding.ui.outline-your-story-settings') }}
               </span>
             </div>
 
             <!-- LLM Consciousness Brain Status -->
             <div :class="['flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-[10px] font-semibold text-neutral-600 dark:text-neutral-300']">
               <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-              <span>Brain: {{ activeBrainModelName }}</span>
+              <span>{{ t('onboarding.ui.brain-d614f434') }} {{ displayText(activeBrainModelName) }}</span>
             </div>
           </div>
 
           <!-- Trope Pills Flow -->
           <div>
             <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1.5']">
-              Story Premise & Trope
+              {{ t('onboarding.ui.story-premise-trope') }}
             </label>
             <div :class="['flex flex-wrap gap-1.5']">
               <button
@@ -1769,8 +1775,8 @@ onBeforeUnmount(() => {
                 ]"
                 @click="selectTrope(trope)"
               >
-                <span>{{ trope.icon }}</span>
-                <span>{{ trope.label }}</span>
+                <span>{{ displayText(trope.icon) }}</span>
+                <span>{{ displayText(trope.label) }}</span>
               </button>
             </div>
           </div>
@@ -1778,12 +1784,12 @@ onBeforeUnmount(() => {
           <!-- Custom Scenario Guidance Prompt -->
           <div>
             <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1']">
-              Scenario Guidance & Custom Twists (Optional)
+              {{ t('onboarding.ui.scenario-guidance-custom-twists-optional') }}
             </label>
             <textarea
               v-model="guidancePrompt"
               rows="2"
-              placeholder="e.g. A sentient strawberry mochi with an attitude problem living on a programmer's desk..."
+              :placeholder="t('onboarding.ui.e-g-a-sentient-strawberry-mochi-with-an-attitude-problem-living-on-a-programme')"
               :class="['w-full p-2.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-purple-500']"
               @input="syncCreatorDraft"
             />
@@ -1801,7 +1807,7 @@ onBeforeUnmount(() => {
               @click="generateStoryIdeas"
             >
               <div :class="['i-solar:magic-stick-3-bold-duotone h-4 w-4', isGeneratingStory ? 'animate-spin' : '']" />
-              <span>{{ isGeneratingStory ? 'Dreaming Up Story Ideas…' : '🪄 Generate Story Ideas' }}</span>
+              <span>{{ displayText(isGeneratingStory ? 'Dreaming Up Story Ideas…' : '🪄 Generate Story Ideas') }}</span>
             </Button>
           </div>
         </div>
@@ -1814,13 +1820,13 @@ onBeforeUnmount(() => {
                 3
               </div>
               <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-100 uppercase tracking-wider']">
-                Story Proposal & Live Persona Card
+                {{ t('onboarding.ui.story-proposal-live-persona-card') }}
               </span>
             </div>
 
             <span :class="['px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1']">
               <div :class="['i-solar:check-circle-bold-duotone h-3.5 w-3.5']" />
-              <span>In-Place Editable & Auto-Saved</span>
+              <span>{{ t('onboarding.ui.in-place-editable-auto-saved') }}</span>
             </span>
           </div>
 
@@ -1839,9 +1845,9 @@ onBeforeUnmount(() => {
               @click="selectProposal(p.id)"
             >
               <span :class="['h-4 w-4 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0', activeProposalId === p.id ? 'bg-primary-500 text-white' : 'bg-neutral-200 dark:bg-neutral-600 text-neutral-600 dark:text-neutral-300']">
-                {{ p.id }}
+                {{ displayText(p.id) }}
               </span>
-              <span class="truncate">{{ formatField(p.title) }}</span>
+              <span class="truncate">{{ displayText(formatField(p.title)) }}</span>
             </button>
           </div>
 
@@ -1851,7 +1857,7 @@ onBeforeUnmount(() => {
               <div :class="['flex items-center justify-between mb-1']">
                 <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5 flex-wrap']">
                   <div :class="['i-solar:chat-round-dots-bold-duotone h-3.5 w-3.5 text-primary-500']" />
-                  <span>Opening Greeting (Turn 0 Speech)</span>
+                  <span>{{ t('onboarding.ui.opening-greeting-turn-0-speech') }}</span>
                   <span
                     v-if="activeProposalActorName"
                     :class="[
@@ -1863,12 +1869,12 @@ onBeforeUnmount(() => {
                     <span>{{ activeProposalActorName }}</span>
                   </span>
                 </label>
-                <span :class="['text-[10px] text-neutral-400 italic']">Spoken immediately upon stage launch</span>
+                <span :class="['text-[10px] text-neutral-400 italic']">{{ t('onboarding.ui.spoken-immediately-upon-stage-launch') }}</span>
               </div>
               <textarea
                 v-model="activeProposalGreetingDisplay"
                 rows="2"
-                placeholder="First words spoken by the companion..."
+                :placeholder="t('onboarding.ui.first-words-spoken-by-the-companion')"
                 :class="['w-full p-2.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-primary-500']"
               />
             </div>
@@ -1877,14 +1883,14 @@ onBeforeUnmount(() => {
               <div :class="['flex items-center justify-between mb-1']">
                 <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5']">
                   <div :class="['i-solar:book-bookmark-bold-duotone h-3.5 w-3.5 text-purple-500']" />
-                  <span>Scenario Lore & World Setting</span>
+                  <span>{{ t('onboarding.ui.scenario-lore-world-setting') }}</span>
                 </label>
-                <span :class="['text-[10px] text-neutral-400 italic']">Living environment and dynamic</span>
+                <span :class="['text-[10px] text-neutral-400 italic']">{{ t('onboarding.ui.living-environment-and-dynamic') }}</span>
               </div>
               <textarea
                 v-model="activeProposal.scenario"
                 rows="3"
-                placeholder="Rules of the world and companion dynamic..."
+                :placeholder="t('onboarding.ui.rules-of-the-world-and-companion-dynamic')"
                 :class="['w-full p-2.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-purple-500']"
                 @input="syncCreatorDraft"
               />
@@ -1916,11 +1922,11 @@ onBeforeUnmount(() => {
 
       <!-- Synergy Preview Pill -->
       <div :class="['text-[11px] text-neutral-400 font-medium truncate max-w-sm hidden sm:block text-center']">
-        <span>Soul: </span>
-        <span :class="['text-neutral-800 dark:text-neutral-200 font-bold']">{{ activePersonaLabel }}</span>
+        <span>{{ t('onboarding.ui.soul') }} </span>
+        <span :class="['text-neutral-800 dark:text-neutral-200 font-bold']">{{ displayText(activePersonaLabel) }}</span>
         <span :class="['mx-1.5 text-neutral-300 dark:text-neutral-600']">•</span>
-        <span>Body: </span>
-        <span :class="['text-neutral-800 dark:text-neutral-200 font-bold']">{{ vesselName }}</span>
+        <span>{{ t('onboarding.ui.body') }} </span>
+        <span :class="['text-neutral-800 dark:text-neutral-200 font-bold']">{{ displayText(vesselName) }}</span>
       </div>
 
       <Button
@@ -1935,7 +1941,7 @@ onBeforeUnmount(() => {
         @click="handleNextStep"
       >
         <span v-if="activeTab === 'creator'">✨</span>
-        <span>{{ nextButtonText }}</span>
+        <span>{{ displayText(nextButtonText) }}</span>
         <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
       </Button>
     </div>
@@ -1979,16 +1985,16 @@ onBeforeUnmount(() => {
             <div class="relative z-20 flex items-center justify-between border-b border-neutral-200 bg-white/95 p-4 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/95">
               <div class="flex items-center gap-3">
                 <h3 class="text-lg text-neutral-800 font-bold dark:text-neutral-200">
-                  Browse {{ activeBrowserSource?.name }}
+                  {{ t('onboarding.ui.browse') }} {{ displayText(activeBrowserSource?.name) }}
                 </h3>
                 <span class="rounded-full bg-primary-500/10 px-2.5 py-0.5 text-xs text-primary-600 font-semibold dark:text-primary-400">
-                  Card Interceptor Active
+                  {{ t('onboarding.ui.card-interceptor-active') }}
                 </span>
               </div>
               <button
                 type="button"
                 class="relative z-30 flex cursor-pointer items-center justify-center rounded-xl p-2 text-neutral-400 transition-colors active:scale-95 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-                title="Close Browser"
+                :title="t('onboarding.ui.close-browser')"
                 @click.stop="closeWebview"
               >
                 <div class="i-solar:close-square-bold-duotone h-6 w-6" />

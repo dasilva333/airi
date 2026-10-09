@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import { useSettingsGeneral, useSettingsTheme } from '@proj-airi/stage-ui/stores/settings'
 import { Button, useTheme } from '@proj-airi/ui'
 import { computed } from 'vue'
@@ -7,6 +10,9 @@ import { useI18n } from 'vue-i18n'
 import SettingsThemeHeaderWidget from '../../../../../widgets/SettingsThemeHeaderWidget.vue'
 
 import { useSyncEngineStore } from '../../../../../../stores/sync-engine'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -129,7 +135,7 @@ const activeColorName = computed(() => {
       >
         <div :class="['inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary-500/20 bg-primary-500/10 text-primary-400 text-xs font-semibold mb-1']">
           <div :class="['i-solar:palette-round-bold-duotone h-3.5 w-3.5']" />
-          <span>Step 3 of 17 · Environment Setup</span>
+          <span>{{ t('onboarding.ui.step-3-of-17-environment-setup') }}</span>
         </div>
         <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
           {{ t('onboarding.steps.appearance.title') }}
@@ -163,7 +169,7 @@ const activeColorName = computed(() => {
             'bg-primary-500/5 dark:bg-primary-950/20 shadow-sm',
           ]"
         >
-          "Before configuring my mind and senses, customize your studio workspace. All changes update immediately across the entire window."
+          {{ t('onboarding.ui.before-configuring-my-mind-and-senses-customize-your-studio-workspace-all-chan') }}
         </div>
       </div>
     </div>
@@ -193,12 +199,12 @@ const activeColorName = computed(() => {
                 {{ t('onboarding.steps.appearance.languageSection.title') }}
               </h2>
               <p :class="['text-[11px] text-neutral-400']">
-                Current: <span :class="['text-primary-500 font-semibold uppercase']">{{ currentLanguage }}</span>
+                {{ t('onboarding.ui.current') }} <span :class="['text-primary-500 font-semibold uppercase']">{{ displayText(currentLanguage) }}</span>
               </p>
             </div>
           </div>
           <span :class="['text-[10px] font-mono px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-800/50']">
-            {{ languages.length }} Locales
+            {{ displayText(languages.length) }} {{ t('onboarding.ui.locales') }}
           </span>
         </div>
 
@@ -225,7 +231,7 @@ const activeColorName = computed(() => {
                     : 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 group-hover:bg-neutral-300 dark:group-hover:bg-neutral-700',
                 ]"
               >
-                {{ item.badge }}
+                {{ displayText(item.badge) }}
               </span>
               <div :class="['min-w-0']">
                 <div
@@ -236,10 +242,10 @@ const activeColorName = computed(() => {
                       : 'text-neutral-800 dark:text-neutral-200',
                   ]"
                 >
-                  {{ item.native }}
+                  {{ displayText(item.native) }}
                 </div>
                 <div :class="['text-[10px] text-neutral-400 truncate']">
-                  {{ item.name }}
+                  {{ displayText(item.name) }}
                 </div>
               </div>
             </div>
@@ -281,7 +287,7 @@ const activeColorName = computed(() => {
               </div>
             </div>
             <span :class="['text-[10px] font-mono px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-800/50']">
-              {{ isDark ? t('onboarding.steps.appearance.themeSection.dark') : t('onboarding.steps.appearance.themeSection.light') }}
+              {{ displayText(isDark ? t('onboarding.steps.appearance.themeSection.dark') : t('onboarding.steps.appearance.themeSection.light')) }}
             </span>
           </div>
 
@@ -363,7 +369,7 @@ const activeColorName = computed(() => {
               <button
                 type="button"
                 :class="['flex items-center gap-1 text-[10px] text-neutral-400 hover:text-primary-500 font-medium transition-colors cursor-pointer']"
-                title="Reset to Signature AIRI Cyan"
+                :title="t('onboarding.ui.reset-to-signature-airi-cyan')"
                 @click="resetColorToDefault"
               >
                 <div :class="['i-solar:restart-linear text-xs']" />
@@ -381,14 +387,14 @@ const activeColorName = computed(() => {
               :class="['flex items-center gap-2']"
             >
               <span :class="['w-18 text-[10px] font-medium text-neutral-400 dark:text-neutral-500 truncate shrink-0']">
-                {{ row.group }}
+                {{ displayText(row.group) }}
               </span>
               <div :class="['grid grid-cols-6 gap-1.5 flex-1']">
                 <button
                   v-for="swatch in row.swatches"
                   :key="swatch.name"
                   type="button"
-                  :title="swatch.name"
+                  :title="displayText(swatch.name)"
                   :class="[
                     'relative h-6 w-full rounded-lg transition-all duration-150 cursor-pointer',
                     'hover:scale-110 hover:z-10 hover:shadow-md focus:outline-none',
@@ -430,7 +436,7 @@ const activeColorName = computed(() => {
             {{ t('onboarding.steps.appearance.perDeviceToggle') }}
           </div>
           <div :class="['text-[11px] text-neutral-400 truncate']">
-            Prevents remote cloud sync from overwriting this machine's language and theme preferences.
+            {{ t('onboarding.ui.prevents-remote-cloud-sync-from-overwriting-this-machine-s-language-and-theme') }}
           </div>
         </div>
       </div>
@@ -470,7 +476,7 @@ const activeColorName = computed(() => {
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        Environment configured · Ready for experience archetypes
+        {{ t('onboarding.ui.environment-configured-ready-for-experience-archetypes') }}
       </div>
 
       <Button

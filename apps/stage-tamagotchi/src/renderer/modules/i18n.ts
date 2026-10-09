@@ -3,6 +3,7 @@ import messages from '@proj-airi/i18n/locales'
 import { createI18n } from 'vue-i18n'
 
 const languageRemap: Record<string, string> = {
+  'zh': 'zh-Hans',
   'zh-CN': 'zh-Hans',
   'zh-TW': 'zh-Hant',
   'zh-HK': 'zh-Hant',

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from './onboarding/v3/composables/use-onboarding-display-text'
+import { useI18n } from 'vue-i18n'
+
 import type { CuratedExpressionItem, ExpressionInputItem } from '../../../composables/use-expression-curation'
 
 import {
@@ -15,6 +18,10 @@ import {
   useExpressionCuration,
 } from '../../../composables/use-expression-curation'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
+
+const { t } = useI18n()
+
+const { displayText } = useOnboardingDisplayText()
 
 interface UnifiedExpressionProp {
   key: string
@@ -195,10 +202,10 @@ function closeModal() {
             </div>
             <div>
               <DialogTitle class="text-base text-neutral-900 font-bold dark:text-neutral-100">
-                AI Expression Curator & Acting Directives
+                {{ t('onboarding.ui.ai-expression-curator-acting-directives') }}
               </DialogTitle>
               <p class="text-xs text-neutral-400">
-                Translate foreign morphs, generate ACT tokens, and calibrate character acting.
+                {{ t('onboarding.ui.translate-foreign-morphs-generate-act-tokens-and-calibrate-character-acting') }}
               </p>
             </div>
           </div>
@@ -224,7 +231,7 @@ function closeModal() {
               ]"
             >
               <span class="h-4 w-4 flex items-center justify-center rounded-full text-[10px]" :class="currentStep > 1 ? 'bg-primary-500 text-white' : 'bg-neutral-200 dark:bg-neutral-700'">1</span>
-              <span>Scope & Persona</span>
+              <span>{{ t('onboarding.ui.scope-persona') }}</span>
             </div>
             <div class="i-solar:alt-arrow-right-linear text-neutral-400" />
             <div
@@ -236,7 +243,7 @@ function closeModal() {
               ]"
             >
               <span class="h-4 w-4 flex items-center justify-center rounded-full text-[10px]" :class="currentStep > 2 ? 'bg-primary-500 text-white' : 'bg-neutral-200 dark:bg-neutral-700'">2</span>
-              <span>Review & Preview</span>
+              <span>{{ t('onboarding.ui.review-preview') }}</span>
             </div>
             <div class="i-solar:alt-arrow-right-linear text-neutral-400" />
             <div
@@ -248,7 +255,7 @@ function closeModal() {
               ]"
             >
               <span class="h-4 w-4 flex items-center justify-center rounded-full text-[10px]" :class="currentStep === 3 ? 'bg-primary-500 text-white' : 'bg-neutral-200 dark:bg-neutral-700'">3</span>
-              <span>Apply & Save</span>
+              <span>{{ t('onboarding.ui.apply-save') }}</span>
             </div>
           </div>
         </div>
@@ -259,10 +266,10 @@ function closeModal() {
           <div v-if="currentStep === 1" class="space-y-5">
             <div>
               <label class="block text-xs text-neutral-700 font-bold dark:text-neutral-300">
-                1. Select Expression Scope
+                {{ t('onboarding.ui.1-select-expression-scope') }}
               </label>
               <p class="mt-0.5 text-xs text-neutral-400">
-                Choose which expressions to send to the AI director for curation.
+                {{ t('onboarding.ui.choose-which-expressions-to-send-to-the-ai-director-for-curation') }}
               </p>
 
               <div class="grid grid-cols-1 mt-3 gap-2.5 sm:grid-cols-3">
@@ -276,14 +283,14 @@ function closeModal() {
                   @click="selectedScope = 'visible'"
                 >
                   <div class="flex items-center justify-between">
-                    <span class="text-xs text-neutral-900 font-bold dark:text-neutral-100">Active Visible</span>
-                    <span class="rounded bg-primary-100 px-1.5 py-0.2 text-[10px] text-primary-700 font-bold dark:bg-primary-900/60 dark:text-primary-300">Recommended</span>
+                    <span class="text-xs text-neutral-900 font-bold dark:text-neutral-100">{{ t('onboarding.ui.active-visible') }}</span>
+                    <span class="rounded bg-primary-100 px-1.5 py-0.2 text-[10px] text-primary-700 font-bold dark:bg-primary-900/60 dark:text-primary-300">{{ t('onboarding.ui.recommended-d70604e8') }}</span>
                   </div>
                   <div class="mt-2 text-xl text-primary-600 font-bold dark:text-primary-400">
-                    {{ props.visibleExpressions.length }}
+                    {{ displayText(props.visibleExpressions.length) }}
                   </div>
                   <p class="mt-1 text-[11px] text-neutral-400 leading-tight">
-                    Respects your active noise filter and manual hidden flags.
+                    {{ t('onboarding.ui.respects-your-active-noise-filter-and-manual-hidden-flags') }}
                   </p>
                 </div>
 
@@ -296,12 +303,12 @@ function closeModal() {
                   ]"
                   @click="selectedScope = 'unhidden'"
                 >
-                  <span class="text-xs text-neutral-900 font-bold dark:text-neutral-100">All Unhidden</span>
+                  <span class="text-xs text-neutral-900 font-bold dark:text-neutral-100">{{ t('onboarding.ui.all-unhidden') }}</span>
                   <div class="mt-2 text-xl text-neutral-800 font-bold dark:text-neutral-200">
-                    {{ props.allExpressions.filter(e => e.isVisible).length }}
+                    {{ displayText(props.allExpressions.filter(e => e.isVisible).length) }}
                   </div>
                   <p class="mt-1 text-[11px] text-neutral-400 leading-tight">
-                    All non-hidden morphs including procedural tracking noise.
+                    {{ t('onboarding.ui.all-non-hidden-morphs-including-procedural-tracking-noise') }}
                   </p>
                 </div>
 
@@ -314,12 +321,12 @@ function closeModal() {
                   ]"
                   @click="selectedScope = 'all'"
                 >
-                  <span class="text-xs text-neutral-900 font-bold dark:text-neutral-100">Full Raw Model</span>
+                  <span class="text-xs text-neutral-900 font-bold dark:text-neutral-100">{{ t('onboarding.ui.full-raw-model') }}</span>
                   <div class="mt-2 text-xl text-neutral-800 font-bold dark:text-neutral-200">
-                    {{ props.allExpressions.length }}
+                    {{ displayText(props.allExpressions.length) }}
                   </div>
                   <p class="mt-1 text-[11px] text-neutral-400 leading-tight">
-                    Complete raw blendshape dump from the avatar file.
+                    {{ t('onboarding.ui.complete-raw-blendshape-dump-from-the-avatar-file') }}
                   </p>
                 </div>
               </div>
@@ -329,14 +336,14 @@ function closeModal() {
             <div class="border border-neutral-200 rounded-xl bg-neutral-50/60 p-4 dark:border-neutral-800 dark:bg-neutral-800/40">
               <div class="flex items-center gap-2 text-xs text-neutral-900 font-bold dark:text-neutral-100">
                 <div class="i-solar:user-bold-duotone text-primary-500" />
-                <span>Active Persona: {{ activeCharacter?.name || 'Companion' }}</span>
+                <span>{{ t('onboarding.ui.active-persona') }} {{ displayText(activeCharacter?.name || 'Companion') }}</span>
               </div>
               <p v-if="activeCharacter?.personality" class="line-clamp-2 mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                {{ activeCharacter.personality }}
+                {{ displayText(activeCharacter.personality) }}
               </p>
               <div v-if="customRenamedCount > 0" class="mt-3 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                 <div class="i-solar:check-circle-bold" />
-                <span>{{ customRenamedCount }} custom renamed expressions will be preserved and prioritized.</span>
+                <span>{{ displayText(customRenamedCount) }} {{ t('onboarding.ui.custom-renamed-expressions-will-be-preserved-and-prioritized') }}</span>
               </div>
             </div>
 
@@ -344,10 +351,10 @@ function closeModal() {
             <div v-if="curationError" class="border border-red-200 rounded-xl bg-red-50 p-3 text-xs text-red-600 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400">
               <div class="flex items-center gap-1.5 font-semibold">
                 <div class="i-solar:danger-triangle-bold" />
-                <span>Curation Error</span>
+                <span>{{ t('onboarding.ui.curation-error') }}</span>
               </div>
               <p class="mt-1">
-                {{ curationError }}
+                {{ displayText(curationError) }}
               </p>
             </div>
           </div>
@@ -357,14 +364,14 @@ function closeModal() {
             <div class="flex items-center justify-between">
               <div>
                 <h3 class="text-xs text-neutral-900 font-bold dark:text-neutral-100">
-                  Review & Preview Curated Expressions
+                  {{ t('onboarding.ui.review-preview-curated-expressions') }}
                 </h3>
                 <p class="text-[11px] text-neutral-400">
-                  Edit display names, action tokens, or test on the live avatar before applying.
+                  {{ t('onboarding.ui.edit-display-names-action-tokens-or-test-on-the-live-avatar-before-applying') }}
                 </p>
               </div>
               <span class="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] text-primary-700 font-bold dark:bg-primary-900 dark:text-primary-300">
-                {{ activeCuratedItems.length }} of {{ curatedItems.length }} active
+                {{ displayText(activeCuratedItems.length) }} {{ t('onboarding.ui.shared-control-strip-customizer-of') }} {{ displayText(curatedItems.length) }} {{ t('onboarding.ui.active-96879611') }}
               </span>
             </div>
 
@@ -373,22 +380,22 @@ function closeModal() {
                 <thead class="sticky top-0 border-b border-neutral-200 bg-neutral-50 text-[10px] text-neutral-400 font-bold uppercase dark:border-neutral-800 dark:bg-neutral-800/90">
                   <tr>
                     <th class="px-3 py-2">
-                      Raw Morph
+                      {{ t('onboarding.ui.raw-morph') }}
                     </th>
                     <th class="px-3 py-2">
-                      Display Label
+                      {{ t('onboarding.ui.display-label') }}
                     </th>
                     <th class="px-3 py-2">
-                      ACT Action Token
+                      {{ t('onboarding.ui.act-action-token') }}
                     </th>
                     <th class="px-2 py-2 text-center">
-                      Category
+                      {{ t('onboarding.ui.category') }}
                     </th>
                     <th class="px-2 py-2 text-center">
-                      Test
+                      {{ t('onboarding.ui.test') }}
                     </th>
                     <th class="px-2 py-2 text-center">
-                      Status
+                      {{ t('onboarding.ui.shared-devtools-core-ai-lab-status') }}
                     </th>
                   </tr>
                 </thead>
@@ -404,11 +411,11 @@ function closeModal() {
                     ]"
                   >
                     <td class="px-3 py-2 text-[11px] text-neutral-500 font-mono dark:text-neutral-400">
-                      <div class="max-w-[120px] truncate" :title="item.rawKey">
-                        {{ item.rawKey }}
+                      <div class="max-w-[120px] truncate" :title="displayText(item.rawKey)">
+                        {{ displayText(item.rawKey) }}
                       </div>
                       <span v-if="item.shouldSkip && item.skipReason" class="block text-[9px] text-amber-600 font-sans dark:text-amber-400">
-                        {{ item.skipReason }}
+                        {{ displayText(item.skipReason) }}
                       </span>
                     </td>
                     <td class="px-3 py-2">
@@ -427,13 +434,13 @@ function closeModal() {
                     </td>
                     <td class="px-2 py-2 text-center">
                       <span class="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-600 capitalize dark:bg-neutral-800 dark:text-neutral-300">
-                        {{ item.category || 'other' }}
+                        {{ displayText(item.category || 'other') }}
                       </span>
                     </td>
                     <td class="px-2 py-2 text-center">
                       <button
                         class="cursor-pointer rounded p-1 text-neutral-400 hover:bg-primary-500/10 dark:text-neutral-500 hover:text-primary-500"
-                        title="Preview on Stage"
+                        :title="t('onboarding.ui.preview-on-stage')"
                         @click="handlePreview(item.rawKey)"
                       >
                         <div class="i-solar:eye-bold text-sm" />
@@ -447,10 +454,10 @@ function closeModal() {
                             ? 'bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300'
                             : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300',
                         ]"
-                        :title="item.shouldSkip ? 'Click to Include' : 'Click to Skip / Hide'"
+                        :title="displayText(item.shouldSkip ? 'Click to Include' : 'Click to Skip / Hide')"
                         @click="toggleSkip(idx)"
                       >
-                        {{ item.shouldSkip ? 'Skipped' : 'Active' }}
+                        {{ displayText(item.shouldSkip ? 'Skipped' : 'Active') }}
                       </button>
                     </td>
                   </tr>
@@ -465,10 +472,10 @@ function closeModal() {
             <div v-if="isGeneratingPrompt" class="py-12 text-center">
               <div class="i-solar:magic-stick-3-bold-duotone inline-block animate-bounce text-3xl text-primary-500" />
               <div class="mt-3 text-xs text-neutral-800 font-semibold dark:text-neutral-200">
-                Drafting In-Character Acting Directives with AI…
+                {{ t('onboarding.ui.drafting-in-character-acting-directives-with-ai') }}
               </div>
               <p class="mt-1 text-[11px] text-neutral-400">
-                Synthesizing guidelines for all {{ activeCuratedItems.length }} curated ACT tokens tailored to {{ activeCharacter?.name || 'your character' }}.
+                {{ t('onboarding.ui.synthesizing-guidelines-for-all') }} {{ displayText(activeCuratedItems.length) }} {{ t('onboarding.ui.curated-act-tokens-tailored-to') }} {{ displayText(activeCharacter?.name || 'your character') }}.
               </p>
             </div>
 
@@ -476,10 +483,10 @@ function closeModal() {
             <template v-else>
               <div>
                 <h3 class="text-xs text-neutral-900 font-bold dark:text-neutral-100">
-                  Acting Directives & System Prompt
+                  {{ t('onboarding.ui.acting-directives-system-prompt') }}
                 </h3>
                 <p class="text-[11px] text-neutral-400">
-                  The AI synthesized instructions teaching {{ activeCharacter?.name || 'the character' }} how to inject the curated ACT tokens in dialogue.
+                  {{ t('onboarding.ui.the-ai-synthesized-instructions-teaching') }} {{ displayText(activeCharacter?.name || 'the character') }} {{ t('onboarding.ui.how-to-inject-the-curated-act-tokens-in-dialogue') }}
                 </p>
               </div>
 
@@ -487,12 +494,12 @@ function closeModal() {
               <div class="border border-neutral-200 rounded-xl bg-neutral-50/60 p-4 space-y-2.5 dark:border-neutral-800 dark:bg-neutral-800/40">
                 <label class="flex cursor-pointer items-center gap-2 text-xs text-neutral-800 dark:text-neutral-200">
                   <input v-model="autoHideSkipped" type="checkbox" class="h-4 w-4 rounded accent-primary-500">
-                  <span>Auto-hide skipped / tracking noise morphs in Model Customizer</span>
+                  <span>{{ t('onboarding.ui.auto-hide-skipped-tracking-noise-morphs-in-model-customizer') }}</span>
                 </label>
 
                 <label class="flex cursor-pointer items-center gap-2 text-xs text-neutral-800 dark:text-neutral-200">
                   <input v-model="updateCardPrompt" type="checkbox" class="h-4 w-4 rounded accent-primary-500">
-                  <span>Update active character card's ACT acting instructions (<code class="text-[11px] text-primary-500">acting.modelExpressionPrompt</code>)</span>
+                  <span>{{ t('onboarding.ui.update-active-character-card-s-act-acting-instructions') }}<code class="text-[11px] text-primary-500">acting.modelExpressionPrompt</code>)</span>
                 </label>
               </div>
 
@@ -500,14 +507,14 @@ function closeModal() {
               <div>
                 <div class="flex items-center justify-between">
                   <label class="block text-xs text-neutral-700 font-semibold dark:text-neutral-300">
-                    Generated Acting Instruction Block:
+                    {{ t('onboarding.ui.generated-acting-instruction-block') }}
                   </label>
                   <button
                     class="flex cursor-pointer items-center gap-1 text-[11px] text-primary-600 font-medium dark:text-primary-400 hover:underline"
                     @click="triggerGeneratePrompt"
                   >
                     <div class="i-solar:refresh-bold text-xs" />
-                    <span>Regenerate Directives</span>
+                    <span>{{ t('onboarding.ui.regenerate-directives') }}</span>
                   </button>
                 </div>
                 <textarea
@@ -528,7 +535,7 @@ function closeModal() {
             class="cursor-pointer border border-neutral-200 rounded-lg bg-white px-3 py-1.5 text-xs text-neutral-700 font-medium dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-50 dark:text-neutral-200 disabled:opacity-50 dark:hover:bg-neutral-700"
             @click="currentStep = (currentStep - 1) as any"
           >
-            ← Back
+            {{ t('onboarding.ui.back') }}
           </button>
           <div v-else />
 
@@ -537,7 +544,7 @@ function closeModal() {
               class="cursor-pointer rounded-lg px-3 py-1.5 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
               @click="closeModal"
             >
-              Cancel
+              {{ t('onboarding.ui.shared-ui-settings-search-cancel') }}
             </button>
 
             <!-- Step 1 Next -->
@@ -549,7 +556,7 @@ function closeModal() {
             >
               <div v-if="isCurating" class="i-solar:spinner-bold animate-spin text-sm" />
               <div v-else class="i-solar:magic-stick-3-bold-duotone text-sm" />
-              <span>{{ isCurating ? 'Curating Expressions…' : '✨ Start AI Curation' }}</span>
+              <span>{{ displayText(isCurating ? 'Curating Expressions…' : '✨ Start AI Curation') }}</span>
             </button>
 
             <!-- Step 2 Next (Triggers 2nd LLM Pass) -->
@@ -558,7 +565,7 @@ function closeModal() {
               class="flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary-500 px-4 py-1.5 text-xs text-white font-semibold shadow-sm transition-all hover:bg-primary-600"
               @click="goToStep3"
             >
-              <span>Next: Review Acting Directives →</span>
+              <span>{{ t('onboarding.ui.next-review-acting-directives') }}</span>
             </button>
 
             <!-- Step 3 Apply -->
@@ -570,7 +577,7 @@ function closeModal() {
             >
               <div v-if="isSaving" class="i-solar:spinner-bold animate-spin text-sm" />
               <div v-else class="i-solar:diskette-bold text-sm" />
-              <span>{{ isSaving ? 'Saving…' : '💾 Apply to Model & Card' }}</span>
+              <span>{{ displayText(isSaving ? 'Saving…' : '💾 Apply to Model & Card') }}</span>
             </button>
           </div>
         </div>

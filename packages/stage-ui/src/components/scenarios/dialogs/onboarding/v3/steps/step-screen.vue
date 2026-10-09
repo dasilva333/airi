@@ -1,9 +1,15 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import { Button } from '@proj-airi/ui'
 import { onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -136,7 +142,7 @@ onBeforeUnmount(() => {
           ]"
         >
           <span :class="['w-1.5 h-1.5 rounded-full', screenWatcherEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400']" />
-          <span>{{ screenWatcherEnabled ? 'SCREEN WATCHING ACTIVE' : 'WATCHER PAUSED' }}</span>
+          <span>{{ displayText(screenWatcherEnabled ? 'SCREEN WATCHING ACTIVE' : 'WATCHER PAUSED') }}</span>
         </span>
       </div>
     </div>
@@ -151,14 +157,14 @@ onBeforeUnmount(() => {
           <div>
             <div :class="['flex items-center gap-2']">
               <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                Screen Perception (Visual Push)
+                {{ t('onboarding.ui.screen-perception-visual-push') }}
               </h3>
               <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20']">
-                EVENT-DRIVEN PUSH
+                {{ t('onboarding.ui.event-driven-push') }}
               </span>
             </div>
             <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-              Enable background desktop frame captures. Promotes significant visual differences to proactive commentary.
+              {{ t('onboarding.ui.enable-background-desktop-frame-captures-promotes-significant-visual-differenc') }}
             </p>
           </div>
         </div>
@@ -186,8 +192,8 @@ onBeforeUnmount(() => {
         <!-- Reaction Delivery Modes -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
-            <span>Reaction Delivery Mode</span>
-            <span :class="['text-[10px] font-normal text-neutral-400']">(How reactions are presented)</span>
+            <span>{{ t('onboarding.ui.reaction-delivery-mode') }}</span>
+            <span :class="['text-[10px] font-normal text-neutral-400']">{{ t('onboarding.ui.how-reactions-are-presented') }}</span>
           </label>
           <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5']">
             <button
@@ -204,16 +210,16 @@ onBeforeUnmount(() => {
             >
               <div>
                 <div :class="['flex items-center justify-between gap-1 mb-1']">
-                  <span :class="['text-xs font-bold truncate']">{{ mode.title }}</span>
+                  <span :class="['text-xs font-bold truncate']">{{ displayText(mode.title) }}</span>
                   <div :class="[mode.icon, 'text-sm shrink-0 text-neutral-400']" />
                 </div>
                 <p :class="['text-[10px] text-neutral-500 dark:text-neutral-400 leading-snug']">
-                  {{ mode.desc }}
+                  {{ displayText(mode.desc) }}
                 </p>
               </div>
               <div :class="['mt-2 pt-1 border-t border-neutral-200/40 dark:border-white/5']">
                 <span :class="['text-[9px] font-medium px-1.5 py-0.5 rounded border', mode.badgeColor]">
-                  {{ mode.badge }}
+                  {{ displayText(mode.badge) }}
                 </span>
               </div>
             </button>
@@ -223,7 +229,7 @@ onBeforeUnmount(() => {
         <!-- Vision Analysis Tiers -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-            Perception Engine Tier
+            {{ t('onboarding.ui.perception-engine-tier') }}
           </label>
           <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2.5']">
             <button
@@ -243,13 +249,13 @@ onBeforeUnmount(() => {
               </div>
               <div :class="['flex flex-col gap-0.5 min-w-0 flex-1']">
                 <div :class="['flex items-center justify-between gap-1']">
-                  <span :class="['text-xs font-bold truncate']">{{ tier.title }}</span>
+                  <span :class="['text-xs font-bold truncate']">{{ displayText(tier.title) }}</span>
                   <span :class="['text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-neutral-200/60 dark:bg-white/10 text-neutral-600 dark:text-neutral-300']">
-                    {{ tier.vram }}
+                    {{ displayText(tier.vram) }}
                   </span>
                 </div>
                 <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug']">
-                  {{ tier.desc }}
+                  {{ displayText(tier.desc) }}
                 </p>
               </div>
             </button>
@@ -259,7 +265,7 @@ onBeforeUnmount(() => {
         <!-- Capture Cadence Presets -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-            Screen Sampling Cadence
+            {{ t('onboarding.ui.screen-sampling-cadence') }}
           </label>
           <div :class="['grid grid-cols-2 sm:grid-cols-4 gap-2']">
             <button
@@ -274,7 +280,7 @@ onBeforeUnmount(() => {
               ]"
               @click="screenWatcherInterval = preset.value; syncDraft()"
             >
-              {{ preset.label }}
+              {{ displayText(preset.label) }}
             </button>
           </div>
         </div>
@@ -293,8 +299,8 @@ onBeforeUnmount(() => {
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        Status: <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ screenWatcherEnabled ? 'Enabled' : 'Paused' }}</span>
-        <span v-if="screenWatcherEnabled" :class="['text-sky-500 ml-1 font-bold']">({{ screenWatcherTier }})</span>
+        {{ t('onboarding.ui.status') }} <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ displayText(screenWatcherEnabled ? 'Enabled' : 'Paused') }}</span>
+        <span v-if="screenWatcherEnabled" :class="['text-sky-500 ml-1 font-bold']">({{ displayText(screenWatcherTier) }})</span>
       </div>
 
       <Button

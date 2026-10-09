@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from './composables/use-onboarding-display-text'
+
+
 import type { OnboardingV3Step, OnboardingV3StepDef } from './types'
 
 import { computed, ref, watch } from 'vue'
@@ -29,6 +32,9 @@ import StepWelcome from './steps/step-welcome.vue'
 import { useOnboardingStore } from '../../../../../stores/onboarding'
 import { useOnboardingV3Draft } from './stores/useOnboardingV3Draft'
 import { ONBOARDING_V3_STEPS } from './types'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -332,10 +338,10 @@ function handleClose() {
         </div>
         <div>
           <h2 :class="['text-xl font-bold text-neutral-900 dark:text-white']">
-            {{ getStepLabel(activeSteps[activeIndex]) }} ({{ t('onboarding.stepper.stepCount', { current: activeIndex + 1, total: activeSteps.length }) }})
+            {{ displayText(getStepLabel(activeSteps[activeIndex])) }} ({{ t('onboarding.stepper.stepCount', { current: activeIndex + 1, total: activeSteps.length }) }})
           </h2>
           <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1']">
-            {{ getStepSubtitle(activeSteps[activeIndex]) }}
+            {{ displayText(getStepSubtitle(activeSteps[activeIndex])) }}
           </p>
         </div>
         <p :class="['text-xs text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-white/5 p-3 rounded-xl border border-neutral-200 dark:border-white/10 max-w-md']">

@@ -147,8 +147,8 @@ function confirmCloseToTray() {
           @click="props.onQuickStart"
         >
           <div :class="['i-solar:bolt-bold text-white h-4.5 w-4.5']" />
-          <span>Quick start</span>
-          <span :class="['font-normal opacity-85 text-[14px] ml-1']">≈ 1 min</span>
+          <span>{{ t('onboarding.ui.quick-start-button') }}</span>
+          <span :class="['font-normal opacity-85 text-[14px] ml-1']">{{ t('onboarding.ui.quick-start-duration') }}</span>
         </button>
 
         <!-- Guided Setup (Secondary Button, outline #007FA3, height 54px, radius 14px) -->
