@@ -156,36 +156,40 @@ const releaseActorStage = useElectronEventaInvoke(electronStageRelease)
 const getStageDisabled = useElectronEventaInvoke(electronGetStageDisabled)
 
 // NOTICE: register plugin host bridge during setup to avoid race with pages using it in immediate watchers.
-pluginHostInspectorStore.setBridge({
-  list: () => listPlugins(),
-  setEnabled: payload => setPluginEnabled(payload),
-  loadEnabled: () => loadEnabledPlugins(),
-  load: payload => loadPlugin(payload),
-  unload: payload => unloadPlugin(payload),
-  inspect: () => inspectPluginHost(),
-})
+if (context.value) {
+  pluginHostInspectorStore.setBridge({
+    list: () => listPlugins(),
+    setEnabled: payload => setPluginEnabled(payload),
+    loadEnabled: () => loadEnabledPlugins(),
+    load: payload => loadPlugin(payload),
+    unload: payload => unloadPlugin(payload),
+    inspect: () => inspectPluginHost(),
+  })
 
-// NOTICE: MCP tools are declared from stage-ui and executed during model streaming.
-// Register runtime bridge during setup to avoid missing bridge in early tool invocations.
-setMcpToolBridge({
-  listTools: () => listMcpTools(),
-  callTool: payload => callMcpTool(payload),
-  getRuntimeStatus: () => getMcpRuntimeStatus(),
-  getConfig: () => getMcpConfig(),
-  updateConfig: payload => updateMcpConfig(payload),
-  applyAndRestart: () => applyAndRestartMcp(),
-})
+  // NOTICE: MCP tools are declared from stage-ui and executed during model streaming.
+  // Register runtime bridge during setup to avoid missing bridge in early tool invocations.
+  setMcpToolBridge({
+    listTools: () => listMcpTools(),
+    callTool: payload => callMcpTool(payload),
+    getRuntimeStatus: () => getMcpRuntimeStatus(),
+    getConfig: () => getMcpConfig(),
+    updateConfig: payload => updateMcpConfig(payload),
+    applyAndRestart: () => applyAndRestartMcp(),
+  })
 
-watch(activeCard, (card) => {
-  const allowed = card?.extensions?.airi?.generation?.known?.allowedTools
-  if (allowed?.length) {
-    void ensureMcpServersForAllowedTools(allowed)
-  }
-}, { immediate: true })
+  watch(activeCard, (card) => {
+    const allowed = card?.extensions?.airi?.generation?.known?.allowedTools
+    if (allowed?.length) {
+      void ensureMcpServersForAllowedTools(allowed)
+    }
+  }, { immediate: true })
+}
 
 watch(language, () => {
   i18n.locale.value = language.value
-  setLocale(language.value)
+  if (context.value) {
+    setLocale(language.value)
+  }
 })
 
 const { updateThemeColor } = useThemeColor(themeColorFromValue({ light: 'rgb(255 255 255)', dark: 'rgb(18 18 18)' }))
@@ -496,16 +500,18 @@ onMounted(async () => {
   }
 
   // Expose stage provider definitions to plugin host APIs.
-  defineInvokeHandler(context.value, pluginProtocolListProviders, async () => listProvidersForPluginHost())
+  if (context.value) {
+    defineInvokeHandler(context.value, pluginProtocolListProviders, async () => listProvidersForPluginHost())
 
-  if (shouldPublishPluginHostCapabilities()) {
-    await reportPluginCapability({
-      key: pluginProtocolListProvidersEventName,
-      state: 'ready',
-      metadata: {
-        source: 'stage-ui',
-      },
-    })
+    if (shouldPublishPluginHostCapabilities()) {
+      await reportPluginCapability({
+        key: pluginProtocolListProvidersEventName,
+        state: 'ready',
+        metadata: {
+          source: 'stage-ui',
+        },
+      })
+    }
   }
 
   // Auto-start Discord service if previously enabled and token is configured
@@ -635,7 +641,7 @@ watch(
 )
 
 watch(() => [isMainWindow.value, onboardingStore.needsOnboarding] as const, ([isMain, needSetup]) => {
-  if (isMain && needSetup) {
+  if (isMain && needSetup && context.value) {
     openOnboarding()
   }
 }, { immediate: true })
@@ -649,7 +655,7 @@ let lastReportedTitle: string | undefined
 watch(
   () => document.title,
   (title) => {
-    if (title === lastReportedTitle)
+    if (title === lastReportedTitle || !context.value)
       return
     lastReportedTitle = title
     void reportWindowTitle({ title })
