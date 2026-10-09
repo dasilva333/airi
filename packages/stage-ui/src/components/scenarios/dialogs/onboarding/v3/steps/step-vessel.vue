@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import type { UnifiedVesselItem } from '../components/vessel-coverflow.vue'
 
 import { SPOTLIGHT_MODELS } from '@proj-airi/stage-ui/constants'
@@ -12,6 +15,9 @@ import VesselCoverflow from '../components/vessel-coverflow.vue'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../../../stores/display-models'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -203,11 +209,11 @@ watch(
 function handleActionButtonClick() {
   if (!activeModel.value.isInstalled && activeModel.value.downloadUrl) {
     window.open(activeModel.value.downloadUrl, '_blank', 'noopener,noreferrer')
-    toast.info(`Opening download page for ${activeModel.value.name}...`)
+    toast.info(displayText(`Opening download page for ${activeModel.value.name}...`))
   }
   else {
     applyVesselToDraft(activeModel.value.id, activeModel.value.prompt)
-    toast.success(`Mounted ${activeModel.value.name} as companion vessel!`)
+    toast.success(displayText(`Mounted ${activeModel.value.name} as companion vessel!`))
   }
 }
 
@@ -217,7 +223,7 @@ const showCustomDropzone = ref(false)
 
 async function processModelFile(file: File) {
   isUploading.value = true
-  toast.info(`Importing ${file.name}...`)
+  toast.info(displayText(`Importing ${file.name}...`))
   try {
     const ext = file.name.split('.').pop()?.toLowerCase()
     let format: DisplayModelFormat = DisplayModelFormat.VRM
@@ -232,12 +238,12 @@ async function processModelFile(file: File) {
     const newModel = displayModelsStore.displayModels[0]
     if (newModel?.id) {
       selectedModelId.value = newModel.id
-      toast.success(`Loaded avatar "${newModel.name || file.name}"!`)
+      toast.success(displayText(`Loaded avatar "${newModel.name || file.name}"!`))
     }
   }
   catch (error: any) {
     console.error('[Step 5 Vessel] Failed to upload model file:', error)
-    toast.error(`Failed to load avatar: ${error?.message || 'Invalid model file'}`)
+    toast.error(displayText(`Failed to load avatar: ${error?.message || 'Invalid model file'}`))
   }
   finally {
     isUploading.value = false
@@ -277,8 +283,8 @@ function handleDrop(e: DragEvent) {
       :class="['flex-shrink-0']"
     >
       <div :class="['flex items-center justify-between text-xs text-neutral-400 mb-0.5']">
-        <span :class="['text-primary-500 font-semibold']">Step 6 of 16</span>
-        <span :class="['font-medium tracking-wide uppercase']">Avatar Selection & Staging</span>
+        <span :class="['text-primary-500 font-semibold']">{{ t('onboarding.ui.step-6-of-16') }}</span>
+        <span :class="['font-medium tracking-wide uppercase']">{{ t('onboarding.ui.avatar-selection-staging') }}</span>
       </div>
       <div :class="['flex items-center justify-between']">
         <div>
@@ -291,7 +297,7 @@ function handleDrop(e: DragEvent) {
         </div>
         <div :class="['flex items-center gap-2']">
           <span :class="['px-3 py-1 rounded-full text-xs font-medium border border-neutral-200/80 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 text-neutral-600 dark:text-neutral-300 backdrop-blur-md']">
-            👤 {{ installedCount }} Installed Avatars
+            👤 {{ displayText(installedCount) }} {{ t('onboarding.ui.installed-avatars') }}
           </span>
           <button
             type="button"
@@ -303,7 +309,7 @@ function handleDrop(e: DragEvent) {
             ]"
             @click="showCustomDropzone = !showCustomDropzone"
           >
-            <span>+ Import Custom</span>
+            <span>{{ t('onboarding.ui.import-custom') }}</span>
           </button>
         </div>
       </div>
@@ -330,7 +336,7 @@ function handleDrop(e: DragEvent) {
           ]"
           @click="activeSourceFilter = 'all'"
         >
-          All Sources ({{ allModels.length }})
+          {{ t('onboarding.ui.all-sources') }}{{ displayText(allModels.length) }})
         </button>
         <button
           type="button"
@@ -342,7 +348,7 @@ function handleDrop(e: DragEvent) {
           ]"
           @click="activeSourceFilter = 'installed'"
         >
-          ✓ Installed ({{ installedCount }})
+          {{ t('onboarding.ui.installed') }}{{ displayText(installedCount) }})
         </button>
         <button
           type="button"
@@ -354,7 +360,7 @@ function handleDrop(e: DragEvent) {
           ]"
           @click="activeSourceFilter = 'free'"
         >
-          🌐 Free Downloads ({{ freeCount }})
+          {{ t('onboarding.ui.free-downloads') }}{{ displayText(freeCount) }})
         </button>
       </div>
 
@@ -406,7 +412,7 @@ function handleDrop(e: DragEvent) {
           ]"
           @click="activeFormatFilter = 'spine'"
         >
-          Spine (2D)
+          {{ t('onboarding.ui.spine-2d') }}
         </button>
         <button
           type="button"
@@ -444,11 +450,11 @@ function handleDrop(e: DragEvent) {
         </div>
         <div>
           <div :class="['text-xs font-bold text-neutral-800 dark:text-white flex items-center gap-2']">
-            <span>Drop your custom model here (.vrm or .zip)</span>
-            <span v-if="isUploading" :class="['text-[10px] text-primary-500 font-mono animate-pulse']">Loading...</span>
+            <span>{{ t('onboarding.ui.drop-your-custom-model-here-vrm-or-zip') }}</span>
+            <span v-if="isUploading" :class="['text-[10px] text-primary-500 font-mono animate-pulse']">{{ t('onboarding.ui.shared-pages-screen-capture-loading') }}</span>
           </div>
           <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5']">
-            Supports VRM 0.0/1.0 3D humanoids and Live2D Cubism model zip packages.
+            {{ t('onboarding.ui.supports-vrm-0-0-1-0-3d-humanoids-and-live2d-cubism-model-zip-packages') }}
           </p>
         </div>
       </div>
@@ -458,7 +464,7 @@ function handleDrop(e: DragEvent) {
         :class="['flex-shrink-0']"
         @click.stop="openFileDialog()"
       >
-        Choose File
+        {{ t('onboarding.ui.choose-file') }}
       </Button>
     </div>
 
@@ -490,7 +496,7 @@ function handleDrop(e: DragEvent) {
             <img
               v-if="activeModel.previewUrl"
               :src="activeModel.previewUrl"
-              :alt="activeModel.name"
+              :alt="displayText(activeModel.name)"
               class="h-full w-full object-cover object-top"
             >
             <div v-else :class="['h-full w-full flex items-center justify-center text-neutral-400']">
@@ -501,7 +507,7 @@ function handleDrop(e: DragEvent) {
           <div :class="['min-w-0 flex-1']">
             <div :class="['flex items-center gap-2 flex-wrap']">
               <span :class="['text-sm font-bold text-neutral-900 dark:text-white truncate']">
-                {{ activeModel.name }}
+                {{ displayText(activeModel.name) }}
               </span>
               <span
                 :class="[
@@ -513,19 +519,19 @@ function handleDrop(e: DragEvent) {
                       : 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
                 ]"
               >
-                {{ activeModel.formatLabel || activeModel.format.toUpperCase() }}
+                {{ displayText(activeModel.formatLabel || activeModel.format.toUpperCase()) }}
               </span>
               <span
                 v-if="activeModel.sourceSiteName"
                 :class="['text-[10px] text-neutral-400 dark:text-neutral-500']"
               >
-                via {{ activeModel.sourceSiteName }}
+                {{ t('onboarding.ui.via') }} {{ displayText(activeModel.sourceSiteName) }}
               </span>
             </div>
 
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 truncate']">
-              <span v-if="activeModel.author" :class="['text-neutral-700 dark:text-neutral-300 font-medium']">{{ activeModel.author }} • </span>
-              <span>{{ activeModel.description }}</span>
+              <span v-if="activeModel.author" :class="['text-neutral-700 dark:text-neutral-300 font-medium']">{{ displayText(activeModel.author) }} • </span>
+              <span>{{ displayText(activeModel.description) }}</span>
             </p>
           </div>
         </div>
@@ -541,12 +547,12 @@ function handleDrop(e: DragEvent) {
         >
           <span v-if="draft.state?.vesselDisplayModelId === activeModel.id" class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
             <span class="i-solar:check-circle-bold h-4 w-4" />
-            <span>Selected Vessel</span>
+            <span>{{ t('onboarding.ui.selected-vessel') }}</span>
           </span>
-          <span v-else-if="activeModel.isInstalled">✓ Select Avatar</span>
+          <span v-else-if="activeModel.isInstalled">{{ t('onboarding.ui.select-avatar') }}</span>
           <span v-else class="flex items-center gap-1">
             <span class="i-solar:download-minimalistic-bold-duotone h-4 w-4" />
-            <span>Download Model</span>
+            <span>{{ t('onboarding.ui.download-model') }}</span>
           </span>
         </Button>
       </div>
@@ -554,14 +560,14 @@ function handleDrop(e: DragEvent) {
       <!-- Visual Style Descriptor Sub-Strip (Artistry auto-injection) -->
       <div :class="['pt-2 border-t border-neutral-200/50 dark:border-white/5 flex flex-col gap-1']">
         <div :class="['flex items-center justify-between text-[10px]']">
-          <span :class="['text-neutral-500 dark:text-neutral-400 font-medium']">Visual Style Descriptor:</span>
+          <span :class="['text-neutral-500 dark:text-neutral-400 font-medium']">{{ t('onboarding.ui.visual-style-descriptor') }}</span>
           <span :class="['text-primary-600 dark:text-primary-400 font-semibold flex items-center gap-1']">
             <span :class="['i-solar:sparkles-bold-duotone h-3 w-3']" />
-            <span>Auto-Injected to Artistry</span>
+            <span>{{ t('onboarding.ui.auto-injected-to-artistry') }}</span>
           </span>
         </div>
         <div :class="['p-1.5 px-2.5 rounded-lg bg-neutral-100/70 dark:bg-black/30 border border-neutral-200/50 dark:border-white/5 font-mono text-[10px] text-neutral-600 dark:text-neutral-400 line-clamp-1']">
-          {{ activeModel.prompt }}
+          {{ displayText(activeModel.prompt) }}
         </div>
       </div>
     </div>
@@ -587,7 +593,7 @@ function handleDrop(e: DragEvent) {
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        Selected Vessel: <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ activeModel.name }}</span>
+        {{ t('onboarding.ui.selected-vessel-1014e6c6') }} <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ displayText(activeModel.name) }}</span>
       </div>
 
       <Button

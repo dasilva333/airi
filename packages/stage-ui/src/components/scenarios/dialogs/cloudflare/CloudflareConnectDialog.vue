@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../onboarding/v3/composables/use-onboarding-display-text'
+
+
 import { Button, FieldInput } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import {
@@ -15,6 +18,8 @@ import { toast } from 'vue-sonner'
 
 import { useCloudflareStore } from '../../../../stores/modules/cloudflare'
 import { useSyncEngineStore } from '../../../../stores/sync-engine'
+
+const { displayText } = useOnboardingDisplayText()
 
 const emit = defineEmits<{
   (e: 'connected'): void
@@ -72,34 +77,34 @@ async function handleOAuthLogin() {
   try {
     const success = await cloudflareStore.authenticateWithCloudflare()
     if (success) {
-      toast.success(t('settings.cloudflare.connect.oauth_success', 'Signed in with Cloudflare!'))
+      toast.success(displayText(t('settings.cloudflare.connect.oauth_success', 'Signed in with Cloudflare!')))
       currentStep.value = 2
       subdomainInput.value = cfSubdomain.value || ''
       await runVaultCheck()
     }
   }
   catch (err: any) {
-    toast.error(err?.message || 'OAuth authentication failed')
+    toast.error(displayText(err?.message || 'OAuth authentication failed'))
   }
 }
 
 async function handleApiTokenLogin() {
   const token = apiTokenInput.value.trim()
   if (!token) {
-    toast.error('Please enter a Cloudflare API Token')
+    toast.error(displayText('Please enter a Cloudflare API Token'))
     return
   }
 
   isValidatingToken.value = true
   try {
     await cloudflareStore.verifyAndSetApiToken(token)
-    toast.success(t('settings.cloudflare.connect.token_success', 'API Token verified!'))
+    toast.success(displayText(t('settings.cloudflare.connect.token_success', 'API Token verified!')))
     currentStep.value = 2
     subdomainInput.value = cfSubdomain.value || ''
     await runVaultCheck()
   }
   catch (err: any) {
-    toast.error(err?.message || 'Failed to verify API Token')
+    toast.error(displayText(err?.message || 'Failed to verify API Token'))
   }
   finally {
     isValidatingToken.value = false
@@ -109,7 +114,7 @@ async function handleApiTokenLogin() {
 async function handleClaimSubdomain() {
   const clean = subdomainInput.value.trim().toLowerCase()
   if (!clean) {
-    toast.error('Please enter a subdomain name')
+    toast.error(displayText('Please enter a subdomain name'))
     return
   }
 
@@ -117,10 +122,10 @@ async function handleClaimSubdomain() {
   try {
     await cloudflareStore.setCloudflareSubdomain(clean)
     subdomainVerified.value = true
-    toast.success(`Subdomain '${clean}.workers.dev' claimed!`)
+    toast.success(displayText(`Subdomain '${clean}.workers.dev' claimed!`))
   }
   catch (err: any) {
-    toast.error(err?.message || 'Failed to claim subdomain')
+    toast.error(displayText(err?.message || 'Failed to claim subdomain'))
   }
   finally {
     isClaimingSubdomain.value = false
@@ -165,29 +170,29 @@ async function runVaultCheck() {
 
 async function handleRestoreSync(checkedIds: string[]) {
   try {
-    toast.info('Restoring companion data from Cloudflare R2...')
+    toast.info(displayText('Restoring companion data from Cloudflare R2...'))
     syncStore.selectiveCheckedIds = checkedIds
     syncStore.selectiveSyncEnabled = true
     await syncStore.triggerSync()
-    toast.success('Successfully restored from cloud!')
+    toast.success(displayText('Successfully restored from cloud!'))
     currentStep.value = 4
   }
   catch (err: any) {
-    toast.error(err?.message || 'Restore failed')
+    toast.error(displayText(err?.message || 'Restore failed'))
   }
 }
 
 async function handleBackupLocalToCloud() {
   try {
-    toast.info('Backing up local life to Cloudflare R2...')
+    toast.info(displayText('Backing up local life to Cloudflare R2...'))
     syncStore.syncEnabled = true
     syncStore.selectiveSyncEnabled = false
     await syncStore.triggerSync()
-    toast.success('Local companion data successfully backed up to Cloud!')
+    toast.success(displayText('Local companion data successfully backed up to Cloud!'))
     currentStep.value = 4
   }
   catch (err: any) {
-    toast.error(err?.message || 'Backup failed')
+    toast.error(displayText(err?.message || 'Backup failed'))
   }
 }
 
@@ -210,10 +215,10 @@ function handleFinish() {
             </div>
             <div>
               <DialogTitle class="text-lg text-neutral-900 font-bold sm:text-xl dark:text-neutral-100">
-                Connect Cloudflare Account
+                {{ t('onboarding.ui.connect-cloudflare-account') }}
               </DialogTitle>
               <DialogDescription class="text-xs text-neutral-500 dark:text-neutral-400">
-                Local-First & Zero-Custody edge infrastructure on your own account.
+                {{ t('onboarding.ui.local-first-zero-custody-edge-infrastructure-on-your-own-account') }}
               </DialogDescription>
             </div>
           </div>
@@ -232,7 +237,7 @@ function handleFinish() {
           <div v-if="currentStep === 1" class="flex flex-col gap-5">
             <div class="border border-neutral-200/70 rounded-2xl bg-neutral-50/70 p-4 dark:border-neutral-800/70 dark:bg-neutral-800/50">
               <p class="text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
-                Connecting your personal Cloudflare account enables <strong>CORS reverse proxying</strong>, <strong>24/7 Discord bots</strong>, and <strong>multi-device R2 backup</strong> without any intermediate AIRI servers.
+                {{ t('onboarding.ui.connecting-your-personal-cloudflare-account-enables') }} <strong>{{ t('onboarding.ui.cors-reverse-proxying') }}</strong>, <strong>{{ t('onboarding.ui.24-7-discord-bots') }}</strong>{{ t('onboarding.ui.and-4aa9bfd2') }} <strong>{{ t('onboarding.ui.multi-device-r2-backup') }}</strong> {{ t('onboarding.ui.without-any-intermediate-airi-servers') }}
               </p>
             </div>
 
@@ -248,7 +253,7 @@ function handleFinish() {
                 ]"
                 @click="authMode = 'oauth'"
               >
-                1-Click OAuth (Recommended)
+                {{ t('onboarding.ui.1-click-oauth-recommended') }}
               </button>
               <button
                 type="button"
@@ -260,7 +265,7 @@ function handleFinish() {
                 ]"
                 @click="authMode = 'token'"
               >
-                Manual API Token
+                {{ t('onboarding.ui.manual-api-token') }}
               </button>
             </div>
 
@@ -271,10 +276,10 @@ function handleFinish() {
               </div>
               <div>
                 <h4 class="text-sm text-neutral-800 font-bold dark:text-neutral-200">
-                  Authenticate via Cloudflare Dashboard
+                  {{ t('onboarding.ui.authenticate-via-cloudflare-dashboard') }}
                 </h4>
                 <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                  A secure authorization window will open to grant access to your Workers and KV.
+                  {{ t('onboarding.ui.a-secure-authorization-window-will-open-to-grant-access-to-your-workers-and-kv') }}
                 </p>
               </div>
 
@@ -286,7 +291,7 @@ function handleFinish() {
               >
                 <div v-if="isAuthenticating" class="i-solar:restart-circle-bold-duotone animate-spin text-base" />
                 <div v-else class="i-solar:lock-keyhole-minimalistic-bold text-base" />
-                <span>{{ isAuthenticating ? 'Authorizing with Cloudflare...' : 'Sign In with Cloudflare' }}</span>
+                <span>{{ displayText(isAuthenticating ? 'Authorizing with Cloudflare...' : 'Sign In with Cloudflare') }}</span>
               </Button>
             </div>
 
@@ -294,16 +299,16 @@ function handleFinish() {
             <div v-else class="flex flex-col gap-3 py-2">
               <div>
                 <label class="mb-1 block text-xs text-neutral-700 font-semibold dark:text-neutral-300">
-                  Cloudflare API Token
+                  {{ t('onboarding.ui.cloudflare-api-token') }}
                 </label>
                 <FieldInput
                   v-model="apiTokenInput"
                   type="password"
-                  placeholder="Paste your Cloudflare API token..."
+                  :placeholder="t('onboarding.steps.triage.auth.tokenPlaceholder')"
                   class="w-full"
                 />
                 <p class="mt-1.5 text-[11px] text-neutral-400">
-                  Must have <code>Workers Scripts:Edit</code> and <code>Account Settings:Read</code> permissions.
+                  {{ t('onboarding.ui.must-have') }} <code>Workers Scripts:Edit</code> {{ t('onboarding.ui.and') }} <code>Account Settings:Read</code> {{ t('onboarding.ui.permissions') }}
                 </p>
               </div>
 
@@ -315,7 +320,7 @@ function handleFinish() {
               >
                 <div v-if="isValidatingToken" class="i-solar:restart-circle-bold-duotone animate-spin text-base" />
                 <div v-else class="i-solar:check-circle-bold text-base" />
-                <span>Verify and Connect</span>
+                <span>{{ t('onboarding.ui.verify-and-connect') }}</span>
               </Button>
             </div>
           </div>
@@ -324,16 +329,16 @@ function handleFinish() {
           <div v-else-if="currentStep === 2" class="flex flex-col gap-5">
             <div class="flex items-center gap-2 text-xs text-emerald-600 font-semibold dark:text-emerald-400">
               <div class="i-solar:check-circle-bold text-base" />
-              <span>Cloudflare Account Connected (ID: {{ cfAccountId.slice(0, 10) }}...)</span>
+              <span>{{ t('onboarding.ui.cloudflare-account-connected-id') }} {{ displayText(cfAccountId.slice(0, 10)) }}...)</span>
             </div>
 
             <!-- Subdomain Card -->
             <div class="border border-neutral-200/80 rounded-2xl bg-neutral-50/70 p-4 dark:border-neutral-800/80 dark:bg-neutral-800/50">
               <label class="mb-1 block text-xs text-neutral-800 font-bold dark:text-neutral-200">
-                Workers Subdomain
+                {{ t('onboarding.ui.workers-subdomain') }}
               </label>
               <p class="mb-3 text-[11px] text-neutral-500 dark:text-neutral-400">
-                Used to route CORS proxy requests and serverless character webhooks.
+                {{ t('onboarding.ui.used-to-route-cors-proxy-requests-and-serverless-character-webhooks') }}
               </p>
 
               <div class="flex items-center gap-2">
@@ -352,7 +357,7 @@ function handleFinish() {
                   class="shrink-0 font-semibold"
                   @click="handleClaimSubdomain"
                 >
-                  {{ isClaimingSubdomain ? 'Saving...' : 'Confirm' }}
+                  {{ displayText(isClaimingSubdomain ? 'Saving...' : 'Confirm') }}
                 </Button>
               </div>
             </div>
@@ -362,10 +367,10 @@ function handleFinish() {
               <div class="flex items-center justify-between">
                 <div>
                   <h4 class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
-                    Edge Key Vault & Remote Storage
+                    {{ t('onboarding.ui.edge-key-vault-remote-storage') }}
                   </h4>
                   <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Checking for existing companion backups in Cloudflare KV...
+                    {{ t('onboarding.ui.checking-for-existing-companion-backups-in-cloudflare-kv') }}
                   </p>
                 </div>
                 <div v-if="isCheckingVault" class="i-solar:restart-circle-bold-duotone animate-spin text-base text-primary-500" />
@@ -374,15 +379,15 @@ function handleFinish() {
               <div v-if="hasVault" class="mt-3 border border-emerald-500/20 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-300">
                 <div class="flex items-center gap-1.5 font-bold">
                   <div class="i-solar:cloud-check-bold text-sm" />
-                  <span>Existing Vault Found!</span>
+                  <span>{{ t('onboarding.ui.existing-vault-found') }}</span>
                 </div>
                 <p class="mt-1 text-[11px] text-emerald-600/90 dark:text-emerald-400/90">
-                  Found remote backups ({{ remoteCatalogStats.cards }} cards, {{ remoteCatalogStats.models }} models).
+                  {{ t('onboarding.ui.found-remote-backups') }}{{ displayText(remoteCatalogStats.cards) }} {{ t('onboarding.ui.cards') }} {{ displayText(remoteCatalogStats.models) }} {{ t('onboarding.ui.models') }}
                 </p>
               </div>
 
               <div v-else-if="!isCheckingVault" class="mt-3 rounded-xl bg-neutral-100 p-3 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
-                No existing remote vault found. This device will initialize a fresh edge vault.
+                {{ t('onboarding.ui.no-existing-remote-vault-found-this-device-will-initialize-a-fresh-edge-vault') }}
               </div>
             </div>
 
@@ -394,7 +399,7 @@ function handleFinish() {
                 class="font-bold"
                 @click="currentStep = 3"
               >
-                Choose Restore or Backup &rarr;
+                {{ t('onboarding.ui.choose-restore-or-backup') }}
               </Button>
               <Button
                 v-else
@@ -402,7 +407,7 @@ function handleFinish() {
                 class="font-bold"
                 @click="currentStep = 4"
               >
-                Complete Connection &rarr;
+                {{ t('onboarding.ui.complete-connection') }}
               </Button>
             </div>
           </div>
@@ -410,10 +415,10 @@ function handleFinish() {
           <!-- Step 3: Restore or Backup -->
           <div v-else-if="currentStep === 3" class="flex flex-col gap-4">
             <h4 class="text-sm text-neutral-800 font-bold dark:text-neutral-200">
-              Synchronize Companion Data
+              {{ t('onboarding.ui.synchronize-companion-data') }}
             </h4>
             <p class="text-xs text-neutral-500 dark:text-neutral-400">
-              Choose whether to download your companion data from Cloudflare R2 or upload your current local data.
+              {{ t('onboarding.ui.choose-whether-to-download-your-companion-data-from-cloudflare-r2-or-upload-yo') }}
             </p>
 
             <div class="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
@@ -426,10 +431,10 @@ function handleFinish() {
                     <div class="i-solar:cloud-download-bold-duotone" />
                   </div>
                   <h5 class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
-                    Restore from Cloud
+                    {{ t('onboarding.ui.restore-from-cloud') }}
                   </h5>
                   <p class="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Download {{ remoteCatalogStats.cards }} cards & memories from your cloud bucket to this device.
+                    {{ t('onboarding.ui.shared-pages-about-download') }} {{ displayText(remoteCatalogStats.cards) }} {{ t('onboarding.ui.cards-memories-from-your-cloud-bucket-to-this-device') }}
                   </p>
                 </div>
                 <Button
@@ -438,7 +443,7 @@ function handleFinish() {
                   class="w-full font-bold"
                   @click="handleRestoreSync([])"
                 >
-                  Pull from Cloud
+                  {{ t('onboarding.ui.pull-from-cloud') }}
                 </Button>
               </div>
 
@@ -451,10 +456,10 @@ function handleFinish() {
                     <div class="i-solar:cloud-upload-bold-duotone" />
                   </div>
                   <h5 class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
-                    Push Local Life to Cloud
+                    {{ t('onboarding.ui.push-local-life-to-cloud') }}
                   </h5>
                   <p class="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Keep local cards and upload them to Cloudflare R2 as your new cloud baseline.
+                    {{ t('onboarding.ui.keep-local-cards-and-upload-them-to-cloudflare-r2-as-your-new-cloud-baseline') }}
                   </p>
                 </div>
                 <Button
@@ -463,7 +468,7 @@ function handleFinish() {
                   class="w-full font-bold"
                   @click="handleBackupLocalToCloud"
                 >
-                  Push to Cloud
+                  {{ t('onboarding.ui.push-to-cloud') }}
                 </Button>
               </div>
             </div>
@@ -477,10 +482,10 @@ function handleFinish() {
 
             <div>
               <h3 class="text-base text-neutral-900 font-bold dark:text-neutral-100">
-                Cloudflare Account Connected!
+                {{ t('onboarding.ui.cloudflare-account-connected') }}
               </h3>
               <p class="mt-1 max-w-sm text-xs text-neutral-500 dark:text-neutral-400">
-                Your zero-custody edge services are linked. Your companion state and backups will automatically persist to your Cloudflare account.
+                {{ t('onboarding.ui.your-zero-custody-edge-services-are-linked-your-companion-state-and-backups-wi') }}
               </p>
             </div>
 
@@ -489,7 +494,7 @@ function handleFinish() {
               class="mt-2 max-w-xs w-full font-bold shadow-md"
               @click="handleFinish"
             >
-              Done
+              {{ t('onboarding.ui.shared-pages-knowledge-graph-done') }}
             </Button>
           </div>
         </div>

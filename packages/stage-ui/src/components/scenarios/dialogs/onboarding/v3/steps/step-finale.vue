@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { storeToRefs } from 'pinia'
 import {
@@ -25,6 +28,9 @@ import { useSettingsUserProfile } from '../../../../../../stores/settings/user-p
 import { formatActorName } from '../../../../../markdown/actor-colors'
 import { useStarterCardCommit } from '../composables/useStarterCardCommit'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext?: () => void
@@ -91,13 +97,13 @@ async function handleGenerateMotionDemo() {
       })
       const motionKey = await customVrmAnimationsStore.addCustomAnimation(file)
       modelStore.triggerMotion(motionKey)
-      toast.success('3D Motion compiled & playing on stage!')
+      toast.success(displayText('3D Motion compiled & playing on stage!'))
       motionDemoStatus.value = 'Motion active on stage!'
     }
   }
   catch (err) {
     console.error('[StepFinale] Failed to generate motion demo:', err)
-    toast.error('Motion generation failed.')
+    toast.error(displayText('Motion generation failed.'))
     motionDemoStatus.value = 'Generation failed.'
   }
   finally {
@@ -248,6 +254,8 @@ const cleanGreeting = computed(() => {
   return stripPacingEnvelopes(stripMarkers(fullGreeting.value)).trim()
 })
 
+const displayGreeting = computed(() => displayText(cleanGreeting.value))
+
 // --- 3. Typewriter Effect ---
 const typedGreeting = ref('')
 let typeTimer: ReturnType<typeof setInterval> | undefined
@@ -273,7 +281,7 @@ function startTypewriter(text: string) {
   }, 22)
 }
 
-watch(cleanGreeting, (newGreeting) => {
+watch(displayGreeting, (newGreeting) => {
   if (newGreeting) {
     startTypewriter(newGreeting)
   }
@@ -291,7 +299,7 @@ async function playGreetingVoice() {
   }
 
   if (!draft.state.modules.speech) {
-    toast.info('Speech is disabled for this companion (Silent Mode).')
+    toast.info(displayText('Speech is disabled for this companion (Silent Mode).'))
     return
   }
 
@@ -518,9 +526,9 @@ function copyPayload() {
     : JSON.stringify(draft.state, null, 2)
   navigator.clipboard.writeText(content)
   toast.success(
-    activeInspectorTab.value === 'compiled'
+    displayText(activeInspectorTab.value === 'compiled'
       ? 'Compiled Card JSON copied to clipboard'
-      : 'Raw Draft State JSON copied to clipboard',
+      : 'Raw Draft State JSON copied to clipboard'),
   )
 }
 
@@ -538,13 +546,13 @@ async function handleLaunch() {
 
   try {
     createdCardId = await commitStarterCompanion(draft.state)
-    toast.success('Companion ready on stage!')
+    toast.success(displayText('Companion ready on stage!'))
   }
   catch (err) {
     console.error('[StepFinale] Failed to launch companion:', err)
     const msg = err instanceof Error ? err.message : String(err)
     launchError.value = msg
-    toast.error(`Failed to create companion card: ${msg}`)
+    toast.error(displayText(`Failed to create companion card: ${msg}`))
   }
   finally {
     isSubmitting.value = false
@@ -579,13 +587,13 @@ async function handleLaunch() {
                 'w-3.5 h-3.5',
               ]"
             />
-            <span class="max-w-[170px] truncate">{{ modelFormatLabel }}</span>
+            <span class="max-w-[170px] truncate">{{ displayText(modelFormatLabel) }}</span>
           </div>
 
           <!-- Top Right: Stage Preview Beacon -->
           <div :class="['absolute top-3 right-3 z-10 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono text-emerald-400 flex items-center gap-1 shadow-md']">
             <span :class="['w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse']" />
-            <span>STAGE READY</span>
+            <span>{{ t('onboarding.ui.stage-ready') }}</span>
           </div>
 
           <!-- Live Model Viewport / Fallback -->
@@ -616,7 +624,7 @@ async function handleLaunch() {
               <img
                 v-if="avatarPreviewUrl"
                 :src="avatarPreviewUrl"
-                alt="Avatar Preview"
+                :alt="t('onboarding.ui.avatar-preview')"
                 :class="['h-44 w-44 object-contain rounded-2xl shadow-md border border-neutral-700/50 bg-black/40']"
               >
               <div
@@ -630,15 +638,15 @@ async function handleLaunch() {
                   ]"
                 />
                 <span class="max-w-full truncate text-xs text-neutral-300 font-medium font-mono">
-                  {{ currentModel?.name || activeModelId }}
+                  {{ displayText(currentModel?.name || activeModelId) }}
                 </span>
                 <span class="text-[10px] text-neutral-500 font-mono uppercase">
-                  {{ modelType }}
+                  {{ displayText(modelType) }}
                 </span>
               </div>
               <div v-if="isLoadingModel" :class="['text-xs text-primary-400 flex items-center gap-1.5 animate-pulse']">
                 <div :class="['i-solar:restart-bold w-3.5 h-3.5 animate-spin']" />
-                <span>Mounting Avatar Vessel...</span>
+                <span>{{ t('onboarding.ui.mounting-avatar-vessel') }}</span>
               </div>
             </div>
 
@@ -646,12 +654,12 @@ async function handleLaunch() {
             <button
               v-if="previewXOffset !== 0 || previewYOffset !== 0 || previewScale !== 1"
               type="button"
-              title="Reset Avatar Position"
+              :title="t('onboarding.ui.reset-avatar-position')"
               :class="['absolute bottom-3 right-3 z-10 px-2 py-1 rounded-lg bg-neutral-900/80 backdrop-blur-md border border-neutral-700/60 text-[10px] font-mono text-neutral-300 hover:text-white flex items-center gap-1 shadow-md cursor-pointer transition-all']"
               @click="resetPreviewPosition"
             >
               <div :class="['i-solar:restart-bold w-3 h-3']" />
-              <span>Reset Pos</span>
+              <span>{{ t('onboarding.ui.reset-pos') }}</span>
             </button>
           </div>
         </div>
@@ -661,7 +669,7 @@ async function handleLaunch() {
           <div :class="['flex items-center justify-between text-xs gap-2']">
             <div :class="['flex items-center gap-2 font-bold text-neutral-800 dark:text-neutral-200 min-w-0 flex-wrap']">
               <div :class="['w-2 h-2 rounded-full bg-primary-500 shrink-0']" />
-              <span :class="['truncate max-w-[150px]']">{{ resolvedPersona.name }}</span>
+              <span :class="['truncate max-w-[150px]']">{{ displayText(resolvedPersona.name) }}</span>
               <span
                 v-if="greetingActorName"
                 :class="[
@@ -691,21 +699,21 @@ async function handleLaunch() {
               @click="playGreetingVoice"
             >
               <div :class="[isPlayingAudio ? 'i-solar:soundwave-bold-duotone' : 'i-solar:volume-loud-bold-duotone', 'w-3.5 h-3.5']" />
-              <span>{{ isPlayingAudio ? 'Playing...' : 'Replay' }}</span>
+              <span>{{ displayText(isPlayingAudio ? 'Playing...' : 'Replay') }}</span>
             </button>
             <span
               v-else
               :class="['text-[10px] text-neutral-400 font-mono flex items-center gap-1 shrink-0']"
             >
               <div :class="['i-solar:volume-cross-bold w-3 h-3 text-neutral-400']" />
-              <span>Silent Mode</span>
+              <span>{{ t('onboarding.ui.silent-mode') }}</span>
             </span>
           </div>
 
           <!-- Typewriter Greeting Text -->
           <div :class="['text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed font-sans min-h-[38px]']">
             {{ typedGreeting }}
-            <span v-if="typedGreeting.length < cleanGreeting.length" :class="['inline-block w-1.5 h-3 bg-primary-500 ml-0.5 animate-pulse']" />
+            <span v-if="typedGreeting.length < displayGreeting.length" :class="['inline-block w-1.5 h-3 bg-primary-500 ml-0.5 animate-pulse']" />
           </div>
         </div>
       </div>
@@ -726,25 +734,25 @@ async function handleLaunch() {
           <!-- Manifest Summary Pill -->
           <div :class="['rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-100/70 dark:bg-neutral-900/60 px-3.5 py-2 text-xs flex items-center justify-between flex-wrap gap-2 text-neutral-600 dark:text-neutral-300']">
             <div :class="['flex items-center gap-3 flex-wrap']">
-              <span :class="['font-semibold text-neutral-800 dark:text-neutral-200']">Manifest:</span>
+              <span :class="['font-semibold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.manifest') }}</span>
               <span :class="['flex items-center gap-1 font-mono text-[11px]']">
-                <span class="text-neutral-400">Soul:</span>
-                <strong>{{ resolvedPersona.name }}</strong>
+                <span class="text-neutral-400">{{ t('onboarding.ui.soul') }}</span>
+                <strong>{{ displayText(resolvedPersona.name) }}</strong>
               </span>
               <span class="text-neutral-300 dark:text-neutral-700">•</span>
               <span :class="['flex items-center gap-1 font-mono text-[11px]']">
-                <span class="text-neutral-400">Vessel:</span>
-                <strong>{{ modelType.toUpperCase() }}</strong>
+                <span class="text-neutral-400">{{ t('onboarding.ui.vessel') }}</span>
+                <strong>{{ displayText(modelType.toUpperCase()) }}</strong>
               </span>
               <span class="text-neutral-300 dark:text-neutral-700">•</span>
               <span :class="['flex items-center gap-1 font-mono text-[11px]']">
-                <span class="text-neutral-400">Brain:</span>
-                <strong>{{ draft.state.llmModel || 'gpt-4o' }}</strong>
+                <span class="text-neutral-400">{{ t('onboarding.ui.brain-d614f434') }}</span>
+                <strong>{{ displayText(draft.state.llmModel || 'gpt-4o') }}</strong>
               </span>
               <span class="text-neutral-300 dark:text-neutral-700">•</span>
               <span :class="['flex items-center gap-1 font-mono text-[11px]']">
-                <span class="text-neutral-400">Voice:</span>
-                <strong>{{ draft.state.modules.speech ? (draft.state.ttsVoiceId || 'af_bella') : 'None' }}</strong>
+                <span class="text-neutral-400">{{ t('onboarding.ui.voice') }}</span>
+                <strong>{{ displayText(draft.state.modules.speech ? (draft.state.ttsVoiceId || 'af_bella') : 'None') }}</strong>
               </span>
             </div>
           </div>
@@ -752,9 +760,9 @@ async function handleLaunch() {
           <!-- Pre-Flight Honesty Matrix Grid -->
           <div :class="['flex flex-col gap-2']">
             <div :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300 flex items-center justify-between']">
-              <span>Pre-Flight Readiness Honesty Matrix</span>
+              <span>{{ t('onboarding.ui.pre-flight-readiness-honesty-matrix') }}</span>
               <span :class="['text-[11px] font-mono text-emerald-500 font-medium']">
-                {{ honestyMatrix.length }} Faculties Verified
+                {{ displayText(honestyMatrix.length) }} {{ t('onboarding.ui.faculties-verified') }}
               </span>
             </div>
 
@@ -793,7 +801,7 @@ async function handleLaunch() {
                 <div :class="['flex-1 min-w-0 flex flex-col gap-0.5']">
                   <div :class="['flex items-center justify-between gap-1']">
                     <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 truncate']">
-                      {{ item.title }}
+                      {{ displayText(item.title) }}
                     </span>
                     <span
                       :class="[
@@ -809,11 +817,11 @@ async function handleLaunch() {
                     >
                       <div v-if="item.theme !== 'gray'" :class="['i-solar:check-circle-bold w-3 h-3']" />
                       <div v-else :class="['i-solar:minus-circle-linear w-3 h-3']" />
-                      <span>{{ item.status }}</span>
+                      <span>{{ displayText(item.status) }}</span>
                     </span>
                   </div>
                   <span :class="['text-[11px] text-neutral-500 dark:text-neutral-400 truncate leading-snug']">
-                    {{ item.subtitle }}
+                    {{ displayText(item.subtitle) }}
                   </span>
                 </div>
               </div>
@@ -828,7 +836,7 @@ async function handleLaunch() {
             <div :class="['flex items-center justify-between gap-2']">
               <div :class="['flex items-center gap-2 text-xs font-bold text-neutral-800 dark:text-neutral-100']">
                 <div :class="['i-solar:running-2-bold-duotone text-rose-500 text-base']" />
-                <span>Kinetic 3D Motion Live Playground</span>
+                <span>{{ t('onboarding.ui.kinetic-3d-motion-live-playground') }}</span>
               </div>
               <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-300 font-mono']">
                 generate_motion
@@ -849,7 +857,7 @@ async function handleLaunch() {
                 ]"
                 @click="selectMotionPreset(preset.prompt)"
               >
-                {{ preset.label }}
+                {{ displayText(preset.label) }}
               </button>
             </div>
 
@@ -858,7 +866,7 @@ async function handleLaunch() {
               <input
                 v-model="motionPrompt"
                 type="text"
-                placeholder="Type how you want her to move (e.g. wave hello, graceful bow)..."
+                :placeholder="t('onboarding.ui.type-how-you-want-her-to-move-e-g-wave-hello-graceful-bow')"
                 :class="[
                   'flex-1 px-3 py-1.5 rounded-xl border border-neutral-300/80 dark:border-neutral-700/80 bg-white dark:bg-neutral-900/90',
                   'text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-rose-500/60',
@@ -878,12 +886,12 @@ async function handleLaunch() {
               >
                 <div v-if="isGeneratingMotion" :class="['i-solar:restart-bold w-3.5 h-3.5 animate-spin']" />
                 <div v-else :class="['i-solar:running-2-bold w-3.5 h-3.5']" />
-                <span>{{ isGeneratingMotion ? 'Generating...' : 'Animate VRM' }}</span>
+                <span>{{ displayText(isGeneratingMotion ? 'Generating...' : 'Animate VRM') }}</span>
               </button>
             </div>
 
             <div v-if="motionDemoStatus" :class="['text-[10px] font-mono text-rose-600 dark:text-rose-300 truncate']">
-              {{ motionDemoStatus }}
+              {{ displayText(motionDemoStatus) }}
             </div>
           </div>
         </div>
@@ -898,14 +906,14 @@ async function handleLaunch() {
             <div :class="['flex items-start gap-2.5 min-w-0']">
               <div :class="['i-solar:danger-triangle-bold text-rose-500 w-4 h-4 shrink-0 mt-0.5']" />
               <div :class="['flex flex-col gap-0.5 min-w-0']">
-                <span :class="['font-semibold text-rose-700 dark:text-rose-300']">Launch Issue</span>
-                <span :class="['text-[11px] opacity-90 break-words font-mono select-text']">{{ launchError }}</span>
+                <span :class="['font-semibold text-rose-700 dark:text-rose-300']">{{ t('onboarding.ui.launch-issue') }}</span>
+                <span :class="['text-[11px] opacity-90 break-words font-mono select-text']">{{ displayText(launchError) }}</span>
               </div>
             </div>
             <button
               type="button"
               :class="['p-1 rounded-lg hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-colors shrink-0 cursor-pointer']"
-              title="Dismiss error"
+              :title="t('onboarding.ui.dismiss-error')"
               @click="launchError = null"
             >
               <div :class="['i-solar:close-circle-bold w-4 h-4']" />
@@ -928,11 +936,11 @@ async function handleLaunch() {
               <button
                 type="button"
                 :class="['px-3.5 py-2.5 rounded-xl bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer flex items-center gap-1.5']"
-                title="Inspect the compiled AiriCard payload"
+                :title="t('onboarding.ui.inspect-the-compiled-airicard-payload')"
                 @click="isPayloadModalOpen = true"
               >
                 <div :class="['i-solar:code-file-bold-duotone w-4 h-4 text-neutral-400']" />
-                <span>View Card JSON</span>
+                <span>{{ t('onboarding.ui.view-card-json') }}</span>
               </button>
 
               <!-- Primary Hero Launch CTA -->
@@ -949,7 +957,7 @@ async function handleLaunch() {
               >
                 <div v-if="isSubmitting" :class="['i-solar:restart-bold w-4 h-4 animate-spin']" />
                 <div v-else :class="['i-solar:rocket-bold w-4 h-4']" />
-                <span>{{ isSubmitting ? t('onboarding.steps.finale.launching') : t('onboarding.steps.finale.launchButton') }}</span>
+                <span>{{ displayText(isSubmitting ? t('onboarding.steps.finale.launching') : t('onboarding.steps.finale.launchButton')) }}</span>
               </button>
             </div>
           </div>
@@ -973,10 +981,10 @@ async function handleLaunch() {
                 </div>
                 <div>
                   <DialogTitle :class="['text-base font-bold text-neutral-900 dark:text-white']">
-                    Pre-Flight Specification Inspector
+                    {{ t('onboarding.ui.pre-flight-specification-inspector') }}
                   </DialogTitle>
                   <p :class="['text-xs text-neutral-400']">
-                    Review raw draft inputs vs. deterministic compiled card specification before stage launch.
+                    {{ t('onboarding.ui.review-raw-draft-inputs-vs-deterministic-compiled-card-specification-before-st') }}
                   </p>
                 </div>
               </div>
@@ -1003,9 +1011,9 @@ async function handleLaunch() {
                 @click="activeInspectorTab = 'compiled'"
               >
                 <div :class="['i-solar:rocket-bold-duotone h-3.5 w-3.5 text-emerald-500']" />
-                <span>Compiled AiriCard (`chara_card_v3`)</span>
+                <span>{{ t('onboarding.ui.compiled-airicard-chara-card-v3') }}</span>
                 <span :class="['px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold']">
-                  Target Payload
+                  {{ t('onboarding.ui.target-payload') }}
                 </span>
               </button>
 
@@ -1020,9 +1028,9 @@ async function handleLaunch() {
                 @click="activeInspectorTab = 'draft'"
               >
                 <div :class="['i-solar:clipboard-list-bold-duotone h-3.5 w-3.5 text-amber-500']" />
-                <span>Raw Draft State (Pre-Compilation)</span>
+                <span>{{ t('onboarding.ui.raw-draft-state-pre-compilation') }}</span>
                 <span :class="['px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[10px] font-bold']">
-                  Inputs
+                  {{ t('onboarding.ui.inputs') }}
                 </span>
               </button>
             </div>
@@ -1033,11 +1041,11 @@ async function handleLaunch() {
             <pre
               v-if="activeInspectorTab === 'compiled'"
               :class="['w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-950 p-4 text-[11px] font-mono text-emerald-400 overflow-x-auto leading-relaxed']"
-            >{{ JSON.stringify(compiledCardPayload, null, 2) }}</pre>
+            >{{ displayText(JSON.stringify(compiledCardPayload, null, 2)) }}</pre>
             <pre
               v-else
               :class="['w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-950 p-4 text-[11px] font-mono text-amber-400 overflow-x-auto leading-relaxed']"
-            >{{ JSON.stringify(draft.state, null, 2) }}</pre>
+            >{{ displayText(JSON.stringify(draft.state, null, 2)) }}</pre>
           </div>
 
           <!-- Modal Footer -->
@@ -1048,7 +1056,7 @@ async function handleLaunch() {
               @click="copyPayload"
             >
               <div :class="['i-solar:copy-bold w-3.5 h-3.5']" />
-              <span>Copy {{ activeInspectorTab === 'compiled' ? 'Compiled Card JSON' : 'Raw Draft JSON' }}</span>
+              <span>{{ t('onboarding.ui.shared-devtools-core-ai-lab-copy') }} {{ displayText(activeInspectorTab === 'compiled' ? 'Compiled Card JSON' : 'Raw Draft JSON') }}</span>
             </button>
 
             <button
@@ -1056,7 +1064,7 @@ async function handleLaunch() {
               :class="['px-5 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-md shadow-primary-600/30 transition-all cursor-pointer']"
               @click="isPayloadModalOpen = false"
             >
-              Done
+              {{ t('onboarding.ui.shared-pages-knowledge-graph-done') }}
             </button>
           </div>
         </DialogContent>

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../dialogs/onboarding/v3/composables/use-onboarding-display-text'
+import { useI18n } from 'vue-i18n'
+
 import type { CuratedExpressionItem } from '../../../composables/use-expression-curation'
 
 import { useLive2d } from '@proj-airi/stage-ui-live2d/stores'
@@ -27,6 +30,10 @@ import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 import { useSystemOneStore } from '../../../stores/modules/system-one'
 import { useProvidersStore } from '../../../stores/providers'
 import { useSettings } from '../../../stores/settings'
+
+const { t } = useI18n()
+
+const { displayText } = useOnboardingDisplayText()
 
 export interface CueAllowlist {
   version: 1
@@ -392,7 +399,7 @@ function triggerPreview(emotionId: string) {
   if (emotionId === 'neutral') {
     activePlayingBlendshape.value = 'neutral'
     triggerModelEmotion(modelType.value, 'neutral')
-    toast.info('Model reset to neutral pose')
+    toast.info(displayText('Model reset to neutral pose'))
     return
   }
 
@@ -400,7 +407,7 @@ function triggerPreview(emotionId: string) {
   const keyToTrigger = mappedKey || emotionId
   activePlayingBlendshape.value = keyToTrigger
   triggerModelEmotion(modelType.value, keyToTrigger)
-  toast.success(`Previewing ${emotionId}${mappedKey ? ` (${mappedKey})` : ''}`)
+  toast.success(displayText(`Previewing ${emotionId}${mappedKey ? ` (${mappedKey})` : ''}`))
 }
 
 function handleResetNeutral() {
@@ -499,7 +506,7 @@ function runAutoCalibration(silent = false, force = false) {
 
   emitSync()
   if (!silent) {
-    toast.success('Auto-calibrated canonical expressions and generated acting directives!')
+    toast.success(displayText('Auto-calibrated canonical expressions and generated acting directives!'))
   }
 }
 
@@ -541,18 +548,18 @@ function saveDirectivesModal() {
   sessionBespoke.value = true
   emitSync()
   isDirectivesModalOpen.value = false
-  toast.success('Acting directives saved!')
+  toast.success(displayText('Acting directives saved!'))
 }
 
 function restoreDefaultDirectives() {
   const validTokens = CANONICAL_EMOTIONS.map(s => s.actToken)
   tempDirectivesText.value = buildDefaultActingDirectives(validTokens)
-  toast.info('Restored default acting template.')
+  toast.info(displayText('Restored default acting template.'))
 }
 
 async function handleEnhanceWithAI() {
   const companionName = props.companionName || 'Companion'
-  toast.info('Generating character-tailored acting guidance...')
+  toast.info(displayText('Generating character-tailored acting guidance...'))
   try {
     // Prefer the verified keeper whitelist; fall back to slot-derived items
     // when Enhance runs outside the guided flow (no curation yet).
@@ -580,7 +587,7 @@ async function handleEnhanceWithAI() {
       actingDirectivesPrompt.value = enhanced
       sessionBespoke.value = true
       emitSync()
-      toast.success('Enhanced acting guidance successfully generated!')
+      toast.success(displayText('Enhanced acting guidance successfully generated!'))
     }
   }
   catch (e) {
@@ -589,7 +596,7 @@ async function handleEnhanceWithAI() {
     actingDirectivesPrompt.value = buildDefaultActingDirectives(validTokens)
     sessionBespoke.value = true
     emitSync()
-    toast.success('Applied standard acting directives template.')
+    toast.success(displayText('Applied standard acting directives template.'))
   }
 }
 
@@ -620,7 +627,7 @@ function handleAdvancedCurationApplied() {
   void loadModelCapabilities()
   emitSync()
   emit('applied')
-  toast.success('Advanced token curation applied!')
+  toast.success(displayText('Advanced token curation applied!'))
 }
 
 // --- 8. State Synchronization (parent owns persistence) ---
@@ -724,7 +731,7 @@ async function handleNameTrigger() {
   if (result && Array.isArray(result.items)) {
     curationItems.value = JSON.parse(JSON.stringify(result.items))
     curationDone.value = true
-    toast.success(`Curated ${curationItems.value.filter(i => !i.shouldSkip).length} keepers out of ${curationItems.value.length}!`)
+    toast.success(displayText(`Curated ${curationItems.value.filter(i => !i.shouldSkip).length} keepers out of ${curationItems.value.length}!`))
   }
 }
 
@@ -769,7 +776,7 @@ function autoApplyKeepersToSlots() {
   remapsAutoApplied.value = true
   if (filled > 0) {
     emitSync()
-    toast.success(`Auto-mapped ${filled} keeper${filled === 1 ? '' : 's'} onto preset cues — adjust freely.`)
+    toast.success(displayText(`Auto-mapped ${filled} keeper${filled === 1 ? '' : 's'} onto preset cues — adjust freely.`))
   }
 }
 
@@ -789,7 +796,7 @@ function previewCurationItem(item: CuratedExpressionItem) {
   }
   lastPreviewKey.value = item.rawKey
   triggerModelEmotion(modelType.value, item.rawKey)
-  toast.success(`Previewing ${item.label || item.rawKey}`)
+  toast.success(displayText(`Previewing ${item.label || item.rawKey}`))
   // Release the playing state shortly after the driver's ~3s decay so the
   // button falls back to ▶ instead of sticking on ⏸.
   window.clearTimeout(previewResetTimer)
@@ -858,7 +865,7 @@ function handleMeetDemo() {
   const key = expressionMappings.value.surprise
   if (!key) {
     // No surprise-like expression on this model — that IS the lesson
-    toast.info('No surprise-like expression on this model — and that is exactly the point. No two models ship the same expressions.')
+    toast.info(displayText('No surprise-like expression on this model — and that is exactly the point. No two models ship the same expressions.'))
     isAdvancing.value = true
     window.setTimeout(() => {
       guideStep.value = 'name'
@@ -868,7 +875,7 @@ function handleMeetDemo() {
   }
 
   triggerPreview('surprise')
-  toast.success(`See that? ${key} works — that's a keeper! ✨`)
+  toast.success(displayText(`See that? ${key} works — that's a keeper! ✨`))
   isAdvancing.value = true
   window.setTimeout(() => {
     guideStep.value = 'name'
@@ -952,7 +959,7 @@ async function confirmFinish() {
         ...currentCard,
         extensions,
       })
-      toast.success('Autonomous Cues enabled!')
+      toast.success(displayText('Autonomous Cues enabled!'))
     }
     catch (err) {
       console.warn('[EmotionCalibrationStudio] Failed to save autoCuesEnabled on card:', err)
@@ -1030,7 +1037,7 @@ onBeforeUnmount(() => {
         <!-- Top Badge: Model Format & Name -->
         <div :class="['w-full flex items-center justify-between z-10 shrink-0 pointer-events-auto']">
           <span :class="['px-2.5 py-0.8 rounded-full text-[10px] font-mono font-medium border border-neutral-200/80 dark:border-white/10 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-300 backdrop-blur-sm shadow-xs']">
-            {{ modelFormatLabel }}
+            {{ displayText(modelFormatLabel) }}
           </span>
           <div :class="['flex items-center gap-1.5']">
             <span
@@ -1040,14 +1047,14 @@ onBeforeUnmount(() => {
                   ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
                   : 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300',
               ]"
-              :title="isLiveCanvas ? 'Live canvas mounted — previews fire here' : 'Static fallback image — previews cannot visibly fire in this window'"
+              :title="displayText(isLiveCanvas ? 'Live canvas mounted — previews fire here' : 'Static fallback image — previews cannot visibly fire in this window')"
             >
-              {{ isLiveCanvas ? '● LIVE' : '○ STATIC' }}
+              {{ displayText(isLiveCanvas ? '● LIVE' : '○ STATIC') }}
             </span>
             <button
               v-if="modelType === 'vrm'"
               type="button"
-              title="Frame at face level"
+              :title="t('onboarding.ui.frame-at-face-level')"
               :class="[
                 'px-2 py-0.8 rounded-full text-[10px] font-mono font-medium border backdrop-blur-sm shadow-xs transition-colors cursor-pointer',
                 faceFramed
@@ -1056,14 +1063,14 @@ onBeforeUnmount(() => {
               ]"
               @click="toggleFaceFrame"
             >
-              {{ faceFramed ? '◉ Face' : '○ Face' }}
+              {{ displayText(faceFramed ? '◉ Face' : '○ Face') }}
             </button>
             <span
               v-if="isLoadingExpressions || isLoadingModel"
               :class="['flex items-center gap-1 text-[10px] text-primary-500 font-medium animate-pulse']"
             >
               <div :class="['i-solar:refresh-linear w-3 h-3 animate-spin']" />
-              <span>{{ isLoadingModel ? 'Mounting Model...' : 'Scanning...' }}</span>
+              <span>{{ displayText(isLoadingModel ? 'Mounting Model...' : 'Scanning...') }}</span>
             </span>
           </div>
         </div>
@@ -1098,7 +1105,7 @@ onBeforeUnmount(() => {
             <img
               v-if="avatarPreviewUrl"
               :src="avatarPreviewUrl"
-              :alt="modelFormatLabel"
+              :alt="displayText(modelFormatLabel)"
               :class="['h-full max-h-[190px] object-contain drop-shadow-md']"
             >
             <div
@@ -1115,8 +1122,8 @@ onBeforeUnmount(() => {
               v-if="activePlayingEmotion !== 'neutral'"
               :class="['absolute top-1 right-3 px-2.5 py-0.8 rounded-full bg-neutral-900/85 dark:bg-white/95 text-white dark:text-neutral-900 text-xs font-bold shadow-lg backdrop-blur-sm animate-bounce flex items-center gap-1 z-20 pointer-events-none']"
             >
-              <span>{{ SOUNDBOARD_EMOTIONS.find(e => e.id === activePlayingEmotion)?.emoji || '✨' }}</span>
-              <span :class="['capitalize text-[11px]']">{{ activePlayingEmotion }}</span>
+              <span>{{ displayText(SOUNDBOARD_EMOTIONS.find(e => e.id === activePlayingEmotion)?.emoji || '✨') }}</span>
+              <span :class="['capitalize text-[11px]']">{{ displayText(activePlayingEmotion) }}</span>
             </div>
           </transition>
 
@@ -1124,12 +1131,12 @@ onBeforeUnmount(() => {
           <button
             v-if="previewXOffset !== 0 || previewYOffset !== 0 || previewScale !== 1"
             type="button"
-            title="Reset Avatar Position"
+            :title="t('onboarding.ui.reset-avatar-position')"
             :class="['absolute bottom-2 right-2 z-20 px-2 py-1 rounded-lg bg-neutral-900/80 backdrop-blur-md border border-neutral-700/60 text-[10px] font-mono text-neutral-300 hover:text-white flex items-center gap-1 shadow-md cursor-pointer transition-all']"
             @click="resetPreviewPosition"
           >
             <div :class="['i-solar:restart-bold w-3 h-3']" />
-            <span>Reset Pos</span>
+            <span>{{ t('onboarding.ui.reset-pos') }}</span>
           </button>
         </div>
 
@@ -1138,12 +1145,12 @@ onBeforeUnmount(() => {
           <div :class="['flex items-center gap-1.5 text-xs']">
             <span :class="['w-2 h-2 rounded-full', activePlayingEmotion !== 'neutral' ? 'bg-cyan-500 animate-ping' : 'bg-emerald-500']" />
             <span :class="['text-[11px] font-medium text-neutral-600 dark:text-neutral-300']">
-              Now playing:
+              {{ t('onboarding.ui.now-playing') }}
               <strong :class="['text-neutral-900 dark:text-white capitalize font-semibold']">
-                {{ activePlayingEmotion === 'neutral' ? 'Idle / Neutral' : activePlayingEmotion }}
+                {{ displayText(activePlayingEmotion === 'neutral' ? 'Idle / Neutral' : activePlayingEmotion) }}
               </strong>
               <span v-if="activePlayingBlendshape && activePlayingBlendshape !== 'neutral'" :class="['text-[10px] text-neutral-400 font-mono ml-1']">
-                ({{ activePlayingBlendshape }})
+                ({{ displayText(activePlayingBlendshape) }})
               </span>
             </span>
           </div>
@@ -1151,11 +1158,11 @@ onBeforeUnmount(() => {
           <button
             type="button"
             :class="['px-2 py-0.8 rounded-lg text-[10px] font-medium text-neutral-500 hover:text-neutral-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer']"
-            title="Reset to neutral pose"
+            :title="t('onboarding.ui.reset-to-neutral-pose')"
             @click="handleResetNeutral"
           >
             <div :class="['i-solar:restart-bold w-3 h-3']" />
-            <span>Reset</span>
+            <span>{{ t('onboarding.ui.shared-ui-settings-theme-reset') }}</span>
           </button>
         </div>
       </div>
@@ -1163,8 +1170,8 @@ onBeforeUnmount(() => {
       <!-- Tactile 6-Emotion Soundboard -->
       <div :class="['rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-white/70 dark:bg-neutral-900/60 p-3 shadow-sm shrink-0']">
         <div :class="['text-[10px] font-bold tracking-wider uppercase text-neutral-400 dark:text-neutral-500 mb-2 flex items-center justify-between']">
-          <span>Tactile Soundboard</span>
-          <span :class="['text-[9px] font-normal text-neutral-400 lowercase']">click to preview</span>
+          <span>{{ t('onboarding.ui.tactile-soundboard') }}</span>
+          <span :class="['text-[9px] font-normal text-neutral-400 lowercase']">{{ t('onboarding.ui.click-to-preview') }}</span>
         </div>
 
         <div :class="['grid grid-cols-3 gap-1.5']">
@@ -1180,8 +1187,8 @@ onBeforeUnmount(() => {
             ]"
             @click="triggerPreview(item.id)"
           >
-            <span :class="['text-sm']">{{ item.emoji }}</span>
-            <span>{{ item.label }}</span>
+            <span :class="['text-sm']">{{ displayText(item.emoji) }}</span>
+            <span>{{ displayText(item.label) }}</span>
           </button>
         </div>
       </div>
@@ -1207,13 +1214,13 @@ onBeforeUnmount(() => {
                         ? 'bg-primary-500/20 text-primary-600 dark:text-primary-300 cursor-pointer'
                         : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400',
                   ]"
-                  :title="dot.label"
+                  :title="displayText(dot.label)"
                   @click="goGuideStep(dot.id)"
                 >
-                  {{ i + 1 }}
+                  {{ displayText(i + 1) }}
                 </button>
                 <span :class="['text-[11px] font-medium', dot.id === guideStep ? 'text-neutral-800 dark:text-neutral-100' : 'text-neutral-400 dark:text-neutral-500']">
-                  {{ dot.label }}
+                  {{ displayText(dot.label) }}
                 </span>
               </div>
               <div v-if="i < GUIDE_DOTS.length - 1" :class="['w-3 h-px bg-neutral-200 dark:bg-neutral-700']" />
@@ -1224,7 +1231,7 @@ onBeforeUnmount(() => {
             :class="['text-[11px] font-medium text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer']"
             @click="skipGuide"
           >
-            Skip
+            {{ t('onboarding.ui.skip') }}
           </button>
         </div>
 
@@ -1234,10 +1241,10 @@ onBeforeUnmount(() => {
             <div>
               <h3 :class="['text-base font-bold text-neutral-900 dark:text-white flex items-center gap-1.5']">
                 <span>✨</span>
-                <span>Let's see what works!</span>
+                <span>{{ t('onboarding.ui.let-s-see-what-works') }}</span>
               </h3>
               <p :class="['mt-1 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-                Every avatar ships a different set of facial expressions. Some work beautifully, some do nothing at all.
+                {{ t('onboarding.ui.every-avatar-ships-a-different-set-of-facial-expressions-some-work-beautifully') }}
               </p>
             </div>
             <img
@@ -1254,33 +1261,33 @@ onBeforeUnmount(() => {
               <img v-if="GUIDE_ART.press" :src="GUIDE_ART.press" alt="" :class="['w-full h-24 object-contain rounded-lg']">
               <span v-else :class="['text-lg']">😊</span>
               <div :class="['text-[11px] font-bold text-neutral-800 dark:text-neutral-100']">
-                Press a candidate
+                {{ t('onboarding.ui.press-a-candidate') }}
               </div>
               <div :class="['text-[10px] text-neutral-500 dark:text-neutral-400 leading-snug']">
-                Tap an expression button to preview it on your avatar.
+                {{ t('onboarding.ui.tap-an-expression-button-to-preview-it-on-your-avatar') }}
               </div>
             </div>
             <div :class="['rounded-xl border border-neutral-200/70 dark:border-white/10 bg-neutral-50/60 dark:bg-neutral-800/40 p-2.5 flex flex-col gap-1']">
               <img v-if="GUIDE_ART.watch" :src="GUIDE_ART.watch" alt="" :class="['w-full h-24 object-contain rounded-lg']">
               <span v-else :class="['text-lg']">👀</span>
               <div :class="['text-[11px] font-bold text-neutral-800 dark:text-neutral-100']">
-                Watch the avatar
+                {{ t('onboarding.ui.watch-the-avatar') }}
               </div>
               <div :class="['text-[10px] text-neutral-500 dark:text-neutral-400 leading-snug']">
-                See how it looks and feels. Some will work great, others might do nothing.
+                {{ t('onboarding.ui.see-how-it-looks-and-feels-some-will-work-great-others-might-do-nothing') }}
               </div>
             </div>
             <div :class="['rounded-xl border border-neutral-200/70 dark:border-white/10 bg-neutral-50/60 dark:bg-neutral-800/40 p-2.5 flex flex-col gap-1']">
               <img v-if="GUIDE_ART.keep" :src="GUIDE_ART.keep" alt="" :class="['w-full h-24 object-contain rounded-lg']">
               <div v-else :class="['flex items-center gap-1']">
-                <span :class="['px-1.5 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[10px] font-bold']">✓ Keep</span>
-                <span :class="['px-1.5 py-0.5 rounded-lg bg-neutral-500/10 text-neutral-400 text-[10px] font-bold']">Hide</span>
+                <span :class="['px-1.5 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[10px] font-bold']">{{ t('onboarding.ui.keep') }}</span>
+                <span :class="['px-1.5 py-0.5 rounded-lg bg-neutral-500/10 text-neutral-400 text-[10px] font-bold']">{{ t('tamagotchi.stage.controls-island.hide') }}</span>
               </div>
               <div :class="['text-[11px] font-bold text-neutral-800 dark:text-neutral-100']">
-                Keep what works
+                {{ t('onboarding.ui.keep-what-works') }}
               </div>
               <div :class="['text-[10px] text-neutral-500 dark:text-neutral-400 leading-snug']">
-                Survivors become the clean list your character learns from.
+                {{ t('onboarding.ui.survivors-become-the-clean-list-your-character-learns-from') }}
               </div>
             </div>
           </div>
@@ -1288,7 +1295,7 @@ onBeforeUnmount(() => {
           <!-- Deterministic demo CTA -->
           <div :class="['rounded-xl border border-primary-500/25 bg-primary-500/5 p-3 flex flex-col gap-2 shrink-0']">
             <div :class="['text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed']">
-              Try it now — press the button and watch her face:
+              {{ t('onboarding.ui.try-it-now-press-the-button-and-watch-her-face') }}
             </div>
             <button
               type="button"
@@ -1296,11 +1303,11 @@ onBeforeUnmount(() => {
               :class="['w-full py-2.5 rounded-xl bg-primary-500 hover:bg-primary-400 text-white text-sm font-semibold shadow-md shadow-primary-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60']"
               @click="handleMeetDemo"
             >
-              <span>{{ isAdvancing ? "Nice — that's a keeper! ✨" : '😲 Show me — try Surprise →' }}</span>
+              <span>{{ displayText(isAdvancing ? "Nice — that's a keeper! ✨" : '😲 Show me — try Surprise →') }}</span>
             </button>
             <div :class="['flex items-center justify-between gap-2']">
               <div v-if="demoSurpriseKey" :class="['text-[10px] text-neutral-400 font-mono']">
-                anchor: {{ demoSurpriseKey }}
+                {{ t('onboarding.ui.anchor') }} {{ displayText(demoSurpriseKey) }}
               </div>
               <button
                 v-if="allowModelSwitch && modelId !== demoModelId"
@@ -1308,7 +1315,7 @@ onBeforeUnmount(() => {
                 :class="['px-3 py-1.5 rounded-xl text-[11px] font-medium border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors cursor-pointer']"
                 @click="requestDemoModel"
               >
-                Load demo model (AvatarSample_B)
+                {{ t('onboarding.ui.load-demo-model-avatarsample-b') }}
               </button>
             </div>
           </div>
@@ -1319,11 +1326,10 @@ onBeforeUnmount(() => {
             <div :class="['flex flex-col gap-2 py-2']">
               <h3 :class="['text-2xl font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
                 <span>🏷️</span>
-                <span>Name what survived</span>
+                <span>{{ t('onboarding.ui.name-what-survived') }}</span>
               </h3>
               <p :class="['text-base text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-                We'll scan {{ companionName }}'s avatar for facial expressions, filter out what doesn't work,
-                and give the rest clean names.
+                {{ t('onboarding.ui.we-ll-scan') }} {{ companionName }}{{ t('onboarding.ui.s-avatar-for-facial-expressions-filter-out-what-doesn-t-work-and-give-the-rest') }}
               </p>
             </div>
             <img
@@ -1337,26 +1343,26 @@ onBeforeUnmount(() => {
           <!-- Detected Expressions card -->
           <div :class="['rounded-2xl border border-neutral-200/80 dark:border-white/10 bg-neutral-950/40 dark:bg-neutral-950/40 p-5 flex flex-col gap-4 shrink-0']">
             <div :class="['text-sm font-bold text-neutral-800 dark:text-neutral-100']">
-              Detected Expressions in Your Model
+              {{ t('onboarding.ui.detected-expressions-in-your-model') }}
             </div>
             <div :class="['grid grid-cols-3 gap-3']">
               <div :class="['flex flex-col gap-1 border-r border-neutral-200/60 dark:border-white/5 pr-3']">
                 <span :class="['text-2xl']">😊</span>
-                <span :class="['text-4xl font-bold text-violet-400 font-mono']">{{ rawCount }}</span>
-                <span :class="['text-sm font-bold text-violet-300']">Total Facial Expressions</span>
-                <span :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">Everything the model exposes — including tracking shapes we may filter out.</span>
+                <span :class="['text-4xl font-bold text-violet-400 font-mono']">{{ displayText(rawCount) }}</span>
+                <span :class="['text-sm font-bold text-violet-300']">{{ t('onboarding.ui.total-facial-expressions') }}</span>
+                <span :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">{{ t('onboarding.ui.everything-the-model-exposes-including-tracking-shapes-we-may-filter-out') }}</span>
               </div>
               <div :class="['flex flex-col gap-1 border-r border-neutral-200/60 dark:border-white/5 pr-3']">
                 <span :class="['text-2xl']">✨</span>
-                <span :class="['text-4xl font-bold text-primary-400 font-mono']">{{ candidateCount }}</span>
-                <span :class="['text-sm font-bold text-primary-300']">Available Facial Expressions</span>
-                <span :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">Expressions that passed the first filter and are ready for AI review. <span :class="['text-neutral-400 dark:text-neutral-500']">({{ noiseCount }} filtered out.)</span></span>
+                <span :class="['text-4xl font-bold text-primary-400 font-mono']">{{ displayText(candidateCount) }}</span>
+                <span :class="['text-sm font-bold text-primary-300']">{{ t('onboarding.ui.available-facial-expressions') }}</span>
+                <span :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">{{ t('onboarding.ui.expressions-that-passed-the-first-filter-and-are-ready-for-ai-review') }} <span :class="['text-neutral-400 dark:text-neutral-500']">({{ displayText(noiseCount) }} {{ t('onboarding.ui.filtered-out') }}</span></span>
               </div>
               <div :class="['flex flex-col gap-1']">
                 <span :class="['text-2xl']">🏃</span>
-                <span :class="['text-4xl font-bold text-sky-400 font-mono']">{{ motionCount }}</span>
-                <span :class="['text-sm font-bold text-sky-300']">Body Motions</span>
-                <span :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">Movements your character can perform, like nods, poses, waves, and dances.</span>
+                <span :class="['text-4xl font-bold text-sky-400 font-mono']">{{ displayText(motionCount) }}</span>
+                <span :class="['text-sm font-bold text-sky-300']">{{ t('onboarding.ui.body-motions') }}</span>
+                <span :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">{{ t('onboarding.ui.movements-your-character-can-perform-like-nods-poses-waves-and-dances') }}</span>
               </div>
             </div>
           </div>
@@ -1364,11 +1370,10 @@ onBeforeUnmount(() => {
           <!-- Zero-expression early exit -->
           <div v-if="zeroExpressions && !isLoadingExpressions" :class="['rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 flex flex-col gap-2 shrink-0']">
             <div :class="['text-base font-bold text-amber-700 dark:text-amber-300']">
-              We couldn't find any facial expressions this model can activate 😔
+              {{ t('onboarding.ui.we-couldn-t-find-any-facial-expressions-this-model-can-activate') }}
             </div>
             <div :class="['text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed']">
-              You can continue setting up AIRI, but expression acting won't be available for this avatar.
-              Try another model, or skip ahead — everything else still works.
+              {{ t('onboarding.ui.you-can-continue-setting-up-airi-but-expression-acting-won-t-be-available-for') }}
             </div>
           </div>
 
@@ -1380,17 +1385,17 @@ onBeforeUnmount(() => {
                   <span :class="['text-2xl']">🧠</span>
                   <div>
                     <div :class="['text-base font-bold text-neutral-800 dark:text-neutral-100']">
-                      Choose the AI for this task
+                      {{ t('onboarding.ui.choose-the-ai-for-this-task') }}
                     </div>
                     <div :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-                      A smarter model gives better names. This only affects this step — never your character's global brain.
+                      {{ t('onboarding.ui.a-smarter-model-gives-better-names-this-only-affects-this-step-never-your-char') }}
                     </div>
                   </div>
                 </div>
                 <BrainModelPicker
                   :provider="directorProvider"
                   :model="directorModel"
-                  title="Step director"
+                  :title="t('onboarding.ui.step-director')"
                   side="bottom"
                   align="start"
                   @update:provider="directorProvider = $event"
@@ -1405,14 +1410,14 @@ onBeforeUnmount(() => {
                       :class="['w-full flex items-center gap-3 rounded-xl border border-neutral-200/70 dark:border-white/10 bg-white/60 dark:bg-neutral-800/60 px-4 min-h-[56px] py-2.5 text-left transition-colors cursor-pointer hover:border-primary-500/50']"
                     >
                       <span :class="['w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white text-base font-bold flex items-center justify-center']">
-                        {{ (directorModelShort || directorProvider || '?').charAt(0).toUpperCase() }}
+                        {{ displayText((directorModelShort || directorProvider || '?').charAt(0).toUpperCase()) }}
                       </span>
                       <span :class="['flex-1 min-w-0']">
                         <span :class="['block text-sm font-bold text-neutral-800 dark:text-neutral-100 truncate']">
-                          {{ directorModelShort || 'Pick a model…' }}
+                          {{ displayText(directorModelShort || 'Pick a model…') }}
                         </span>
                         <span :class="['block text-[11px] text-neutral-400 truncate']">
-                          {{ directorProvider || 'No provider' }}{{ directorIsGlobal ? ' (global)' : ' (this step only)' }}
+                          {{ displayText(directorProvider || 'No provider') }}{{ displayText(directorIsGlobal ? ' (global)' : ' (this step only)') }}
                         </span>
                       </span>
                       <span :class="['i-solar:alt-arrow-down-bold text-sm text-neutral-400 shrink-0']" />
@@ -1425,21 +1430,21 @@ onBeforeUnmount(() => {
                   :class="['self-start text-[11px] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 underline cursor-pointer']"
                   @click="resetDirectorToGlobal"
                 >
-                  Back to global brain
+                  {{ t('onboarding.ui.back-to-global-brain') }}
                 </button>
               </div>
               <div :class="['sm:col-span-2 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/60 dark:bg-neutral-800/30 p-4 flex flex-col items-center text-center gap-2 justify-center']">
                 <span :class="['text-3xl']">🤖</span>
                 <span :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-                  The director will quickly test each expression, watch how your avatar moves, and keep only the ones that work.
+                  {{ t('onboarding.ui.the-director-will-quickly-test-each-expression-watch-how-your-avatar-moves-and') }}
                 </span>
               </div>
             </div>
             <div v-if="!curationDone && !directorLabel" :class="['text-xs font-semibold text-amber-600 dark:text-amber-400']">
-              Pick an AI above to enable scanning.
+              {{ t('onboarding.ui.pick-an-ai-above-to-enable-scanning') }}
             </div>
             <div v-if="curationDone" :class="['flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-300 font-semibold']">
-              <span>✓ {{ curationItems.filter(i => !i.shouldSkip).length }} keepers named out of {{ curationItems.length }} — review them next.</span>
+              <span>✓ {{ displayText(curationItems.filter(i => !i.shouldSkip).length) }} {{ t('onboarding.ui.keepers-named-out-of') }} {{ displayText(curationItems.length) }} {{ t('onboarding.ui.review-them-next') }}</span>
             </div>
             <button
               v-if="!curationDone"
@@ -1449,13 +1454,13 @@ onBeforeUnmount(() => {
               @click="handleNameTrigger"
             >
               <div v-if="isCurating" :class="['i-solar:refresh-linear w-5 h-5 animate-spin']" />
-              <span>{{ isCurating ? 'Asking the director…' : `✨ Start scanning my expressions (${candidateCount})` }}</span>
+              <span>{{ displayText(isCurating ? 'Asking the director…' : `✨ Start scanning my expressions (${candidateCount})`) }}</span>
             </button>
             <div :class="['text-[11px] text-neutral-400 text-center']">
-              This usually takes a few moments. You'll review and rename everything next.
+              {{ t('onboarding.ui.this-usually-takes-a-few-moments-you-ll-review-and-rename-everything-next') }}
             </div>
             <div v-if="curationError" :class="['text-xs text-red-500 dark:text-red-400']">
-              {{ curationError }}
+              {{ displayText(curationError) }}
             </div>
           </div>
 
@@ -1465,7 +1470,7 @@ onBeforeUnmount(() => {
               :class="['px-4 py-2 rounded-xl text-xs font-semibold text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer']"
               @click="guideStep = 'meet'"
             >
-              ← Back
+              {{ t('onboarding.ui.back') }}
             </button>
             <button
               type="button"
@@ -1473,7 +1478,7 @@ onBeforeUnmount(() => {
               :class="['px-5 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-md shadow-primary-600/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed']"
               @click="guideStep = 'verify'"
             >
-              Next →
+              {{ t('onboarding.ui.next') }}
             </button>
           </div>
         </template>
@@ -1484,14 +1489,13 @@ onBeforeUnmount(() => {
             <div :class="['flex flex-col gap-1']">
               <h3 :class="['text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
                 <span>🔍</span>
-                <span>Verify each keeper</span>
+                <span>{{ t('onboarding.ui.verify-each-keeper') }}</span>
                 <span :class="['px-2 py-0.5 rounded-full bg-primary-500/15 text-primary-600 dark:text-primary-300 text-[10px] font-bold']">
-                  {{ keeperCount }} keepers
+                  {{ displayText(keeperCount) }} {{ t('onboarding.ui.keepers') }}
                 </span>
               </h3>
               <p :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-                Press play on each surviving expression and watch the avatar. If a key does nothing visible,
-                hide it with the eye control. Only verified keys become your character's whitelist.
+                {{ t('onboarding.ui.press-play-on-each-surviving-expression-and-watch-the-avatar-if-a-key-does-not') }}
               </p>
             </div>
             <img
@@ -1505,10 +1509,10 @@ onBeforeUnmount(() => {
           <!-- Empty state: reached Verify without a Name pass -->
           <div v-if="curationItems.length === 0" :class="['rounded-xl border border-neutral-200/70 dark:border-white/10 bg-neutral-50/60 dark:bg-neutral-800/40 p-3 flex flex-col gap-1 shrink-0']">
             <div :class="['text-xs font-bold text-neutral-700 dark:text-neutral-200']">
-              Nothing to verify yet
+              {{ t('onboarding.ui.nothing-to-verify-yet') }}
             </div>
             <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-              Run the Name step's scan first — its keepers land in this list for test-firing.
+              {{ t('onboarding.ui.run-the-name-step-s-scan-first-its-keepers-land-in-this-list-for-test-firing') }}
             </div>
           </div>
 
@@ -1518,19 +1522,19 @@ onBeforeUnmount(() => {
               <thead :class="['sticky top-0 border-b border-neutral-200 bg-neutral-50 text-[10px] text-neutral-400 font-bold uppercase dark:border-neutral-800 dark:bg-neutral-800/90']">
                 <tr>
                   <th :class="['px-3 py-2']">
-                    Raw Morph
+                    {{ t('onboarding.ui.raw-morph') }}
                   </th>
                   <th :class="['px-3 py-2']">
-                    Display Label
+                    {{ t('onboarding.ui.display-label') }}
                   </th>
                   <th :class="['px-3 py-2']">
-                    ACT Action Token
+                    {{ t('onboarding.ui.act-action-token') }}
                   </th>
                   <th :class="['px-2 py-2 text-center']">
-                    Preview
+                    {{ t('onboarding.ui.shared-pages-markdown-stress-preview') }}
                   </th>
                   <th :class="['px-2 py-2 text-center']">
-                    Keep
+                    {{ t('onboarding.ui.keep-183f00f4') }}
                   </th>
                 </tr>
               </thead>
@@ -1548,11 +1552,11 @@ onBeforeUnmount(() => {
                   ]"
                 >
                   <td :class="['px-3 py-2 text-[11px] text-neutral-500 font-mono dark:text-neutral-400']">
-                    <div :class="['max-w-[120px] truncate']" :title="item.rawKey">
-                      {{ item.rawKey }}
+                    <div :class="['max-w-[120px] truncate']" :title="displayText(item.rawKey)">
+                      {{ displayText(item.rawKey) }}
                     </div>
                     <span v-if="item.shouldSkip && item.skipReason" :class="['block text-[9px] text-amber-600 font-sans dark:text-amber-400']">
-                      {{ item.skipReason }}
+                      {{ displayText(item.skipReason) }}
                     </span>
                   </td>
                   <td :class="['px-3 py-2']">
@@ -1574,7 +1578,7 @@ onBeforeUnmount(() => {
                       type="button"
                       :disabled="item.shouldSkip"
                       :class="['cursor-pointer rounded-full p-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed', lastPreviewKey === item.rawKey ? 'bg-primary-500 text-white' : 'text-neutral-400 hover:bg-primary-500/10 hover:text-primary-500 dark:text-neutral-500']"
-                      title="Preview on avatar"
+                      :title="t('onboarding.ui.preview-on-avatar')"
                       @click="previewCurationItem(item)"
                     >
                       <div :class="[lastPreviewKey === item.rawKey ? 'i-solar:pause-bold' : 'i-solar:play-bold', 'w-3.5 h-3.5']" />
@@ -1589,10 +1593,10 @@ onBeforeUnmount(() => {
                           ? 'bg-neutral-200 text-neutral-500 hover:bg-neutral-300 dark:bg-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-600'
                           : 'bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 dark:text-emerald-300',
                       ]"
-                      :title="item.shouldSkip ? 'Hidden — click to keep' : 'Kept — click to hide'"
+                      :title="displayText(item.shouldSkip ? 'Hidden — click to keep' : 'Kept — click to hide')"
                       @click="toggleCurationSkip(item)"
                     >
-                      <span>{{ item.shouldSkip ? '✕' : '✓' }}</span>
+                      <span>{{ displayText(item.shouldSkip ? '✕' : '✓') }}</span>
                     </button>
                   </td>
                 </tr>
@@ -1602,7 +1606,7 @@ onBeforeUnmount(() => {
           <div :class="['flex items-start gap-2 rounded-xl border border-primary-500/25 bg-primary-500/5 px-3 py-2 shrink-0']">
             <span :class="['text-sm']">💡</span>
             <span :class="['text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed']">
-              Once you're happy with what you want to keep, press <strong>Next</strong> — your keepers carry forward automatically.
+              {{ t('onboarding.ui.once-you-re-happy-with-what-you-want-to-keep-press') }} <strong>{{ t('settings.dialogs.onboarding.next') }}</strong> {{ t('onboarding.ui.your-keepers-carry-forward-automatically') }}
             </span>
           </div>
           <div :class="['flex items-center justify-between shrink-0 pt-1']">
@@ -1611,14 +1615,14 @@ onBeforeUnmount(() => {
               :class="['px-4 py-2 rounded-xl text-xs font-semibold text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer']"
               @click="guideStep = 'name'"
             >
-              ← Back
+              {{ t('onboarding.ui.back') }}
             </button>
             <button
               type="button"
               :class="['px-5 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-md shadow-primary-600/30 transition-all cursor-pointer']"
               @click="guideStep = 'remaps'"
             >
-              Next →
+              {{ t('onboarding.ui.next') }}
             </button>
           </div>
         </template>
@@ -1639,13 +1643,13 @@ onBeforeUnmount(() => {
                       ? 'bg-primary-600 text-white'
                       : 'bg-primary-500/20 text-primary-600 dark:text-primary-300 cursor-pointer',
                   ]"
-                  :title="dot.label"
+                  :title="displayText(dot.label)"
                   @click="goGuideStep(dot.id)"
                 >
-                  {{ i + 1 }}
+                  {{ displayText(i + 1) }}
                 </button>
                 <span :class="['text-[11px] font-medium', dot.id === guideStep ? 'text-neutral-800 dark:text-neutral-100' : 'text-neutral-400 dark:text-neutral-500']">
-                  {{ dot.label }}
+                  {{ displayText(dot.label) }}
                 </span>
               </div>
               <div v-if="i < GUIDE_DOTS.length - 1" :class="['w-3 h-px bg-neutral-200 dark:bg-neutral-700']" />
@@ -1662,16 +1666,16 @@ onBeforeUnmount(() => {
               </div>
               <div>
                 <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-1.5']">
-                  <span>Canonical Expression Mapping</span>
+                  <span>{{ t('onboarding.ui.canonical-expression-mapping') }}</span>
                   <span
                     v-if="isCalibrated"
                     :class="['px-1.5 py-0.2 rounded text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-medium']"
                   >
-                    Calibrated
+                    {{ t('onboarding.ui.calibrated-0c66fb7b') }}
                   </span>
                 </h3>
                 <p :class="['text-[11px] text-neutral-400']">
-                  Assign model blendshapes to dialogue acting cues.
+                  {{ t('onboarding.ui.assign-model-blendshapes-to-dialogue-acting-cues') }}
                 </p>
               </div>
             </div>
@@ -1690,7 +1694,7 @@ onBeforeUnmount(() => {
                 @click="() => runAutoCalibration(false, true)"
               >
                 <div :class="[isCalibrated ? 'i-solar:refresh-linear w-3.5 h-3.5' : 'i-solar:stars-line-bold-duotone w-3.5 h-3.5 text-cyan-200']" />
-                <span>{{ isCalibrated ? 'Recalibrate' : 'Auto-calibrate' }}</span>
+                <span>{{ displayText(isCalibrated ? 'Recalibrate' : 'Auto-calibrate') }}</span>
               </button>
 
               <!-- Advanced Details Link (full view only — the table it opens is superseded by guided Verify) -->
@@ -1700,7 +1704,7 @@ onBeforeUnmount(() => {
                 :class="['text-[11px] font-medium text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-0.5 cursor-pointer ml-1']"
                 @click="isCurationModalOpen = true"
               >
-                <span>Details</span>
+                <span>{{ t('onboarding.ui.shared-devtools-context-flow-details') }}</span>
                 <div :class="['i-solar:alt-arrow-right-linear w-3 h-3']" />
               </button>
             </div>
@@ -1710,17 +1714,17 @@ onBeforeUnmount(() => {
           <div :class="['flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-neutral-50/80 dark:bg-neutral-800/40 border border-neutral-200/60 dark:border-white/5 text-[11px] mb-2 shrink-0']">
             <div :class="['flex items-center gap-1.5']">
               <div :class="[mappedSlotsCount > 0 ? 'i-solar:check-circle-bold text-emerald-500' : 'i-solar:circle-linear text-neutral-400', 'w-3.5 h-3.5 shrink-0']" />
-              <span :class="['text-neutral-500 dark:text-neutral-400']">Model Expressions:</span>
+              <span :class="['text-neutral-500 dark:text-neutral-400']">{{ t('onboarding.ui.model-expressions') }}</span>
               <span :class="['font-mono font-semibold text-neutral-800 dark:text-neutral-200']">
-                {{ mappedSlotsCount }}/6 mapped
+                {{ displayText(mappedSlotsCount) }}{{ t('onboarding.ui.6-mapped') }}
               </span>
             </div>
 
             <div :class="['flex items-center gap-1.5']">
               <div :class="[isGuidanceReady ? 'i-solar:check-circle-bold text-emerald-500' : 'i-solar:circle-linear text-neutral-400', 'w-3.5 h-3.5 shrink-0']" />
-              <span :class="['text-neutral-500 dark:text-neutral-400']">Behavior Guidance:</span>
+              <span :class="['text-neutral-500 dark:text-neutral-400']">{{ t('onboarding.ui.behavior-guidance') }}</span>
               <span :class="['font-mono font-semibold', isGuidanceReady ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-500']">
-                {{ isGuidanceReady ? 'ACT active' : 'Awaiting calibration' }}
+                {{ displayText(isGuidanceReady ? 'ACT active' : 'Awaiting calibration') }}
               </span>
             </div>
           </div>
@@ -1734,13 +1738,13 @@ onBeforeUnmount(() => {
             >
               <!-- Slot Badge & Token -->
               <div :class="['flex items-center gap-2 min-w-[130px]']">
-                <span :class="['text-base']">{{ slot.emoji }}</span>
+                <span :class="['text-base']">{{ displayText(slot.emoji) }}</span>
                 <div :class="['flex flex-col']">
                   <span :class="['font-semibold text-neutral-800 dark:text-neutral-200 text-xs']">
-                    {{ slot.name }}
+                    {{ displayText(slot.name) }}
                   </span>
                   <span :class="['text-[9px] font-mono text-neutral-400 dark:text-neutral-500']">
-                    &lt;|ACT:{{ slot.actToken }}|&gt;
+                    &lt;|ACT:{{ displayText(slot.actToken) }}|&gt;
                   </span>
                 </div>
               </div>
@@ -1753,20 +1757,20 @@ onBeforeUnmount(() => {
                   @change="handleMappingChange"
                 >
                   <option value="">
-                    -- Unmapped --
+                    {{ t('onboarding.ui.unmapped') }}
                   </option>
                   <option
                     v-if="expressionMappings[slot.id] && !remapOptions.includes(expressionMappings[slot.id])"
                     :value="expressionMappings[slot.id]"
                   >
-                    {{ expressionMappings[slot.id] }}
+                    {{ displayText(expressionMappings[slot.id]) }}
                   </option>
                   <option
                     v-for="expr in remapOptions"
                     :key="expr"
                     :value="expr"
                   >
-                    {{ expr }}
+                    {{ displayText(expr) }}
                   </option>
                 </select>
               </div>
@@ -1781,7 +1785,7 @@ onBeforeUnmount(() => {
                     ? 'text-neutral-600 dark:text-neutral-300 hover:bg-primary-500/10 hover:text-primary-500'
                     : 'text-neutral-300 dark:text-neutral-700 cursor-not-allowed',
                 ]"
-                title="Test preview blendshape on stage"
+                :title="t('onboarding.ui.test-preview-blendshape-on-stage')"
                 @click="triggerPreview(slot.id)"
               >
                 <div :class="['i-solar:play-bold w-3.5 h-3.5']" />
@@ -1799,10 +1803,10 @@ onBeforeUnmount(() => {
               </div>
               <div>
                 <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                  Acting Directives (ACT Tokens)
+                  {{ t('onboarding.ui.acting-directives-act-tokens') }}
                 </h3>
                 <p :class="['text-[11px] text-neutral-400']">
-                  Prompt directives instructing the LLM when to insert physical emotion cues.
+                  {{ t('onboarding.ui.prompt-directives-instructing-the-llm-when-to-insert-physical-emotion-cues') }}
                 </p>
               </div>
             </div>
@@ -1816,7 +1820,7 @@ onBeforeUnmount(() => {
               @click="handleEnhanceWithAI"
             >
               <div :class="[isGeneratingPrompt ? 'i-solar:refresh-linear w-3 h-3 animate-spin' : 'i-solar:stars-line-bold-duotone w-3 h-3 text-primary-500']" />
-              <span>{{ isGeneratingPrompt ? 'Generating...' : 'Enhance with AI' }}</span>
+              <span>{{ displayText(isGeneratingPrompt ? 'Generating...' : 'Enhance with AI') }}</span>
             </button>
           </div>
 
@@ -1833,10 +1837,10 @@ onBeforeUnmount(() => {
           >
             <div :class="['flex items-center gap-2']">
               <div :class="[isGuidanceReady ? 'i-solar:check-circle-bold text-emerald-500' : 'i-solar:danger-circle-bold text-amber-500', 'w-4 h-4']" />
-              <span>{{ isGuidanceReady ? 'Acting Directives Configured (Ready)' : 'Configure Acting Directives (Empty Draft)' }}</span>
+              <span>{{ displayText(isGuidanceReady ? 'Acting Directives Configured (Ready)' : 'Configure Acting Directives (Empty Draft)') }}</span>
             </div>
             <div :class="['flex items-center gap-1 text-[11px] opacity-80 group-hover:translate-x-0.5 transition-transform']">
-              <span>{{ isGuidanceReady ? 'Review / Edit' : 'Edit Guidance' }}</span>
+              <span>{{ displayText(isGuidanceReady ? 'Review / Edit' : 'Edit Guidance') }}</span>
               <div :class="['i-solar:alt-arrow-right-linear w-3.5 h-3.5']" />
             </div>
           </button>
@@ -1848,14 +1852,14 @@ onBeforeUnmount(() => {
             :class="['px-4 py-2 rounded-xl text-xs font-semibold text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer']"
             @click="guideStep = 'verify'"
           >
-            ← Back to Verify
+            {{ t('onboarding.ui.back-to-verify') }}
           </button>
           <button
             type="button"
             :class="['px-5 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-md shadow-primary-600/30 transition-all cursor-pointer flex items-center gap-1.5']"
             @click="handleFinish"
           >
-            <span>Finish ✓</span>
+            <span>{{ t('onboarding.ui.finish') }}</span>
           </button>
         </div>
       </template>
@@ -1879,16 +1883,16 @@ onBeforeUnmount(() => {
         >
         <div>
           <DialogTitle :class="['text-base font-bold text-neutral-900 dark:text-white']">
-            {{ finishContext === 'onboarding' ? `Nice work — ${companionName}'s expressions are set! ✨` : `Looking good — ${companionName} is ready to act! ✨` }}
+            {{ displayText(finishContext === 'onboarding' ? `Nice work — ${companionName}'s expressions are set! ✨` : `Looking good — ${companionName} is ready to act! ✨`) }}
           </DialogTitle>
           <p :class="['mt-1 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-            You collected <strong :class="['text-neutral-800 dark:text-neutral-100']">{{ finishTally }} expression{{ finishTally === 1 ? '' : 's' }}</strong>
-            ({{ keeperCount }} verified keeper{{ keeperCount === 1 ? '' : 's' }} + {{ mappedSlotsCount }} preset remap{{ mappedSlotsCount === 1 ? '' : 's' }}).
+            {{ t('onboarding.ui.you-collected') }} <strong :class="['text-neutral-800 dark:text-neutral-100']">{{ t('onboarding.ui.expression-count', finishTally) }}</strong>
+            ({{ t('onboarding.ui.verified-keeper-count', keeperCount) }} + {{ t('onboarding.ui.preset-remap-count', mappedSlotsCount) }}).
             <template v-if="finishContext === 'onboarding'">
-              Saved to your companion draft — finish the rest of setup and you'll meet {{ companionName }} with a face that actually moves.
+              {{ t('onboarding.ui.saved-to-your-companion-draft-finish-the-rest-of-setup-and-you-ll-meet') }} {{ companionName }} {{ t('onboarding.ui.with-a-face-that-actually-moves') }}
             </template>
             <template v-else>
-              Everything is already saved — go try talking to {{ companionName }} and watch the difference.
+              {{ t('onboarding.ui.everything-is-already-saved-go-try-talking-to') }} {{ companionName }} {{ t('onboarding.ui.and-watch-the-difference') }}
             </template>
           </p>
         </div>
@@ -1907,14 +1911,14 @@ onBeforeUnmount(() => {
               <div :class="['flex flex-col']">
                 <div :class="['flex items-center gap-1.5 flex-wrap']">
                   <span :class="['text-xs font-semibold text-neutral-900 dark:text-white']">
-                    Autonomous Cues
+                    {{ t('onboarding.ui.autonomous-cues') }}
                   </span>
                   <span :class="['px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-primary-500/15 text-primary-600 dark:text-primary-300']">
-                    Recommended
+                    {{ t('onboarding.ui.recommended-d70604e8') }}
                   </span>
                 </div>
                 <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-snug']">
-                  Automatically triggers expressions in real time as dialogue streams, without relying on the AI model to type markers.
+                  {{ t('onboarding.ui.automatically-triggers-expressions-in-real-time-as-dialogue-streams-without-re') }}
                 </p>
               </div>
             </div>
@@ -1942,14 +1946,14 @@ onBeforeUnmount(() => {
             >
               <div :class="['flex items-center gap-1.5']">
                 <div :class="['i-solar:check-circle-bold w-3.5 h-3.5']" />
-                <span>System-1 Ready ({{ systemOneProviderBadge.label }})</span>
+                <span>{{ t('onboarding.ui.system-1-ready') }}{{ displayText(systemOneProviderBadge.label) }})</span>
               </div>
               <button
                 type="button"
                 :class="['text-[10px] text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 underline cursor-pointer']"
                 @click="showProviderPicker = true"
               >
-                Change engine
+                {{ t('onboarding.ui.change-engine') }}
               </button>
             </div>
 
@@ -1959,16 +1963,16 @@ onBeforeUnmount(() => {
               :class="['flex flex-col gap-1.5']"
             >
               <div :class="['flex items-center justify-between text-[11px] font-medium text-neutral-700 dark:text-neutral-300']">
-                <span>Select classification engine:</span>
+                <span>{{ t('onboarding.ui.select-classification-engine') }}</span>
                 <button
                   v-if="systemOneStore.configured && showProviderPicker"
                   type="button"
                   :class="['text-[10px] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer']"
                   @click="showProviderPicker = false"
                 >
-                  Done
+                  {{ t('onboarding.ui.shared-pages-knowledge-graph-done') }}
                 </button>
-                <span v-else-if="!systemOneStore.configured" :class="['text-[10px] text-amber-500']">Setup required</span>
+                <span v-else-if="!systemOneStore.configured" :class="['text-[10px] text-amber-500']">{{ t('onboarding.ui.setup-required') }}</span>
               </div>
 
               <div :class="['grid grid-cols-2 gap-2']">
@@ -1986,15 +1990,15 @@ onBeforeUnmount(() => {
                   <div :class="['flex items-center justify-between']">
                     <div :class="['flex items-center gap-1.5 text-xs font-semibold']">
                       <div :class="['i-solar:laptop-minimalistic-bold-duotone text-primary-500 w-3.5 h-3.5']" />
-                      <span>On-Device</span>
+                      <span>{{ t('onboarding.ui.on-device') }}</span>
                     </div>
                     <div v-if="systemOneStore.activeProvider === 'laya-local'" :class="['i-solar:check-circle-bold text-primary-500 text-xs']" />
                   </div>
                   <span :class="['text-[10px] text-emerald-600 dark:text-emerald-400 font-medium']">
-                    100% Offline · Free
+                    {{ t('onboarding.ui.100-offline-free') }}
                   </span>
                   <span :class="['text-[9px] text-neutral-400 leading-tight']">
-                    No API key needed
+                    {{ t('onboarding.ui.no-api-key-needed') }}
                   </span>
                 </button>
 
@@ -2012,15 +2016,15 @@ onBeforeUnmount(() => {
                   <div :class="['flex items-center justify-between']">
                     <div :class="['flex items-center gap-1.5 text-xs font-semibold']">
                       <div :class="['i-solar:cloud-bold-duotone text-primary-500 w-3.5 h-3.5']" />
-                      <span>Cloud Jev</span>
+                      <span>{{ t('onboarding.ui.cloud-jev') }}</span>
                     </div>
                     <div v-if="systemOneStore.activeProvider === 'openrouter-ai'" :class="['i-solar:check-circle-bold text-primary-500 text-xs']" />
                   </div>
                   <span :class="['text-[10px] font-medium', isOpenRouterConfigured ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500']">
-                    {{ isOpenRouterConfigured ? 'Key Configured' : 'Needs Key' }}
+                    {{ displayText(isOpenRouterConfigured ? 'Key Configured' : 'Needs Key') }}
                   </span>
                   <span :class="['text-[9px] text-neutral-400 leading-tight']">
-                    Via OpenRouter API
+                    {{ t('onboarding.ui.via-openrouter-api') }}
                   </span>
                 </button>
               </div>
@@ -2031,7 +2035,7 @@ onBeforeUnmount(() => {
                 :class="['text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-0.5']"
               >
                 <span :class="['i-solar:info-circle-bold w-3 h-3 shrink-0']" />
-                <span>You can add an OpenRouter key in Settings → Providers.</span>
+                <span>{{ t('onboarding.ui.you-can-add-an-openrouter-key-in-settings-providers') }}</span>
               </p>
             </div>
           </div>
@@ -2042,7 +2046,7 @@ onBeforeUnmount(() => {
           :class="['w-full py-2.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-sm font-semibold shadow-md shadow-primary-600/30 transition-all cursor-pointer']"
           @click="confirmFinish"
         >
-          {{ finishContext === 'onboarding' ? 'Continue setup →' : 'Start chatting →' }}
+          {{ displayText(finishContext === 'onboarding' ? 'Continue setup →' : 'Start chatting →') }}
         </button>
       </DialogContent>
     </DialogPortal>
@@ -2063,10 +2067,10 @@ onBeforeUnmount(() => {
             </div>
             <div>
               <DialogTitle :class="['text-base font-bold text-neutral-900 dark:text-white']">
-                Acting Directives (`modelExpressionPrompt`)
+                {{ t('onboarding.ui.acting-directives-modelexpressionprompt') }}
               </DialogTitle>
               <p :class="['text-xs text-neutral-400']">
-                Injected into the system prompt to guide when and how the LLM triggers emotion cues.
+                {{ t('onboarding.ui.injected-into-the-system-prompt-to-guide-when-and-how-the-llm-triggers-emotion') }}
               </p>
             </div>
           </div>
@@ -2083,22 +2087,21 @@ onBeforeUnmount(() => {
         <!-- Modal Body: Monospace Textarea -->
         <div :class="['flex-1 min-h-0 py-4 flex flex-col gap-3 overflow-y-auto']">
           <div :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-            Configure character-specific rules for cue placement, dialogue examples, and emotional restraint.
+            {{ t('onboarding.ui.configure-character-specific-rules-for-cue-placement-dialogue-examples-and-emo') }}
           </div>
 
           <textarea
             v-model="tempDirectivesText"
             rows="11"
             :class="['w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 p-3 text-xs font-mono text-neutral-800 dark:text-neutral-200 outline-none focus:border-primary-500 transition-colors resize-none leading-relaxed']"
-            placeholder="Inject physical emotion cues sparingly using official Short Format..."
+            :placeholder="t('onboarding.ui.inject-physical-emotion-cues-sparingly-using-official-short-format')"
           />
 
           <div :class="['p-2.5 rounded-xl bg-primary-500/5 border border-primary-500/20 text-[11px] text-neutral-600 dark:text-neutral-300 flex items-start gap-2']">
             <div :class="['i-solar:info-circle-bold-duotone text-primary-500 w-4 h-4 shrink-0 mt-0.5']" />
             <span>
-              Available canonical tokens:
-              <strong :class="['text-primary-600 dark:text-primary-400 font-mono']">smile, blush, pout, surprise, wink, shy</strong>.
-              Tags are emitted like <code :class="['px-1 py-0.2 rounded bg-black/5 dark:bg-white/10 font-mono text-primary-500']">&lt;|ACT:emotion="smile"|&gt;</code>.
+              {{ t('onboarding.ui.available-canonical-tokens') }}
+              <strong :class="['text-primary-600 dark:text-primary-400 font-mono']">smile, blush, pout, surprise, wink, shy</strong>{{ t('onboarding.ui.tags-are-emitted-like') }} <code :class="['px-1 py-0.2 rounded bg-black/5 dark:bg-white/10 font-mono text-primary-500']">&lt;|ACT:emotion="smile"|&gt;</code>.
             </span>
           </div>
         </div>
@@ -2111,7 +2114,7 @@ onBeforeUnmount(() => {
             @click="restoreDefaultDirectives"
           >
             <div :class="['i-solar:restart-bold w-3.5 h-3.5']" />
-            <span>Restore Default Guidance</span>
+            <span>{{ t('onboarding.ui.restore-default-guidance') }}</span>
           </button>
 
           <div :class="['flex items-center gap-2']">
@@ -2120,14 +2123,14 @@ onBeforeUnmount(() => {
               :class="['px-4 py-2 rounded-xl text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer']"
               @click="isDirectivesModalOpen = false"
             >
-              Cancel
+              {{ t('onboarding.ui.shared-ui-settings-search-cancel') }}
             </button>
             <button
               type="button"
               :class="['px-5 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-md shadow-primary-600/30 transition-all cursor-pointer']"
               @click="saveDirectivesModal"
             >
-              Save Directives
+              {{ t('onboarding.ui.save-directives') }}
             </button>
           </div>
         </div>

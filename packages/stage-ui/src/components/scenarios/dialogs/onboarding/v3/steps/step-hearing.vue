@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import type { MicToggleHotkey } from '@proj-airi/stage-shared/shortcuts'
 
 import type { ProviderMetadata } from '../../../../../../stores/providers'
@@ -27,6 +30,9 @@ import { useProvidersStore } from '../../../../../../stores/providers'
 import { useSettingsAudioDevice } from '../../../../../../stores/settings'
 import { ensureWhisperLoaded } from '../../v2/whisper-loader'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
+
+const { displayText, displayOptions } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -278,7 +284,7 @@ function handleConfigured(config?: Record<string, unknown>) {
       ...config,
     }
     providersStore.markProviderAdded(selectedCloudProviderId.value)
-    toast.success(`${inlineConfigProvider.value?.name || 'Provider'} connected!`)
+    toast.success(displayText(`${inlineConfigProvider.value?.name || 'Provider'} connected!`))
   }
 }
 
@@ -566,7 +572,7 @@ watch(selectedAudioInput, async () => {
           <div :class="['i-solar:chat-round-dots-bold text-base']" />
         </div>
         <p :class="['leading-relaxed font-medium']">
-          Pick a speech engine below, then talk to me! The big button unlocks as soon as I actually hear you — no mock progress bars here.
+          {{ t('onboarding.ui.pick-a-speech-engine-below-then-talk-to-me-the-big-button-unlocks-as-soon-as-i') }}
         </p>
       </div>
 
@@ -578,10 +584,10 @@ watch(selectedAudioInput, async () => {
       >
         <FieldSelect
           v-model="selectedAudioInput"
-          label="Microphone Input Device"
-          description="Select which physical microphone device to use for speech verification."
-          :options="micOptions"
-          placeholder="Select an audio input device"
+          :label="t('onboarding.ui.microphone-input-device')"
+          :description="t('onboarding.ui.select-which-physical-microphone-device-to-use-for-speech-verification')"
+          :options="displayOptions(micOptions)"
+          :placeholder="t('onboarding.ui.select-an-audio-input-device')"
           layout="vertical"
         />
       </div>
@@ -601,18 +607,18 @@ watch(selectedAudioInput, async () => {
           </div>
           <div :class="['flex flex-col min-w-0']">
             <div :class="['flex items-center gap-2 font-bold text-xs text-neutral-800 dark:text-neutral-100']">
-              <span>Active Microphone Input</span>
+              <span>{{ t('onboarding.ui.active-microphone-input') }}</span>
               <span :class="['w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse']" />
             </div>
             <span :class="['text-xs text-neutral-500 dark:text-neutral-400 truncate font-mono']">
-              {{ activeMicLabel }}
+              {{ displayText(activeMicLabel) }}
             </span>
           </div>
         </div>
 
         <button
           type="button"
-          title="Rescan audio devices"
+          :title="t('onboarding.ui.rescan-audio-devices')"
           :class="['p-2 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors cursor-pointer shrink-0']"
           @click="startStream"
         >
@@ -634,10 +640,10 @@ watch(selectedAudioInput, async () => {
           </div>
           <div :class="['flex flex-col min-w-0']">
             <span :class="['font-bold text-xs text-amber-900 dark:text-amber-200']">
-              Microphone Access Required
+              {{ t('onboarding.ui.microphone-access-required') }}
             </span>
             <span :class="['text-[11px] text-amber-700/80 dark:text-amber-300/80']">
-              Click below to grant microphone permission in your browser/app.
+              {{ t('onboarding.ui.click-below-to-grant-microphone-permission-in-your-browser-app') }}
             </span>
           </div>
         </div>
@@ -647,14 +653,14 @@ watch(selectedAudioInput, async () => {
           class="h-8 shrink-0 px-3 text-xs font-semibold"
           @click="startStream"
         >
-          <span>Grant Access</span>
+          <span>{{ t('onboarding.ui.grant-access') }}</span>
         </Button>
       </div>
 
       <!-- Choose Speech Engine: Hero Cards -->
       <div class="flex flex-col gap-2.5">
         <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
-          Choose a Speech Engine
+          {{ t('onboarding.ui.choose-a-speech-engine') }}
         </span>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <!-- Hero Card 1: Web Speech API -->
@@ -680,12 +686,12 @@ watch(selectedAudioInput, async () => {
                 </div>
                 <div class="flex flex-col">
                   <div class="flex items-center gap-2">
-                    <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">Web Speech API</span>
+                    <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('settings.pages.providers.provider.browser-web-speech-api.title') }}</span>
                     <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400">
-                      Built-in
+                      {{ t('onboarding.ui.built-in') }}
                     </span>
                   </div>
-                  <span class="text-xs text-neutral-500 dark:text-neutral-400">Zero Setup · Realtime Streaming</span>
+                  <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ t('onboarding.ui.zero-setup-realtime-streaming') }}</span>
                 </div>
               </div>
               <div
@@ -694,7 +700,7 @@ watch(selectedAudioInput, async () => {
               />
             </div>
             <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
-              Uses your browser & OS speech recognition engine. Instant streaming transcription with zero downloads and zero API keys.
+              {{ t('onboarding.ui.uses-your-browser-os-speech-recognition-engine-instant-streaming-transcription') }}
             </p>
           </div>
 
@@ -721,12 +727,12 @@ watch(selectedAudioInput, async () => {
                 </div>
                 <div class="flex flex-col">
                   <div class="flex items-center gap-2">
-                    <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">App (Local) Whisper</span>
+                    <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.ui.app-local-whisper') }}</span>
                     <span class="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-600 font-medium dark:text-purple-400">
-                      WebGPU Offline
+                      {{ t('onboarding.ui.webgpu-offline') }}
                     </span>
                   </div>
-                  <span class="text-xs text-neutral-500 dark:text-neutral-400">100% Private · On-Device</span>
+                  <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ t('onboarding.ui.100-private-on-device') }}</span>
                 </div>
               </div>
               <div
@@ -735,7 +741,7 @@ watch(selectedAudioInput, async () => {
               />
             </div>
             <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
-              Runs OpenAI Whisper locally in your browser/app. Complete offline privacy with zero telemetry.
+              {{ t('onboarding.ui.runs-openai-whisper-locally-in-your-browser-app-complete-offline-privacy-with') }}
             </p>
           </div>
         </div>
@@ -747,9 +753,9 @@ watch(selectedAudioInput, async () => {
         :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3.5']"
       >
         <div class="flex flex-col gap-1">
-          <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">Whisper WebGPU Model</span>
+          <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.ui.whisper-webgpu-model') }}</span>
           <p class="text-xs text-neutral-500 dark:text-neutral-400">
-            Larger models offer higher accuracy; smaller models download faster with less VRAM.
+            {{ t('onboarding.ui.larger-models-offer-higher-accuracy-smaller-models-download-faster-with-less-v') }}
           </p>
         </div>
 
@@ -757,8 +763,8 @@ watch(selectedAudioInput, async () => {
           <div class="flex-1">
             <FieldSelect
               v-model="selectedWhisperModel"
-              label="Model Shard"
-              :options="availableWhisperModels.map(m => ({ label: `${m.name} (${getWhisperModelSpec(m.id)})`, value: m.id }))"
+              :label="t('onboarding.ui.model-shard')"
+              :options="displayOptions(availableWhisperModels.map(m => ({ label: `${m.name} (${getWhisperModelSpec(m.id)})`, value: m.id })))"
               layout="vertical"
               :disabled="whisperDownloadState === 'downloading'"
             />
@@ -771,7 +777,7 @@ watch(selectedAudioInput, async () => {
               @click="startWhisperDownload"
             >
               <div class="i-solar:cloud-download-bold-duotone text-base" />
-              <span>Download Model</span>
+              <span>{{ t('onboarding.ui.download-model') }}</span>
             </Button>
 
             <Button
@@ -781,7 +787,7 @@ watch(selectedAudioInput, async () => {
               @click="cancelWhisperDownload"
             >
               <div class="i-solar:close-circle-bold-duotone text-base" />
-              <span>Cancel</span>
+              <span>{{ t('onboarding.ui.shared-ui-settings-search-cancel') }}</span>
             </Button>
 
             <Button
@@ -791,7 +797,7 @@ watch(selectedAudioInput, async () => {
               @click="startWhisperDownload(true)"
             >
               <div class="i-solar:refresh-circle-bold-duotone text-base" />
-              <span>Re-download</span>
+              <span>{{ t('onboarding.ui.re-download') }}</span>
             </Button>
 
             <Button
@@ -801,7 +807,7 @@ watch(selectedAudioInput, async () => {
               @click="startWhisperDownload(true)"
             >
               <div class="i-solar:restart-bold-duotone text-base" />
-              <span>Retry Download</span>
+              <span>{{ t('onboarding.ui.retry-download') }}</span>
             </Button>
           </div>
         </div>
@@ -811,11 +817,11 @@ watch(selectedAudioInput, async () => {
           <div class="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-300">
             <div class="flex items-center gap-1.5">
               <div class="i-solar:cloud-download-bold-duotone animate-pulse text-primary-500" />
-              <span>{{ whisperPhaseMessage }}</span>
+              <span>{{ displayText(whisperPhaseMessage) }}</span>
             </div>
             <span class="font-medium font-mono">
-              {{ Math.floor(whisperProgress) }}%
-              <template v-if="whisperProgress > 0"> ({{ formatMB((whisperProgress / 100) * selectedModelInfo.downloadBytes) }} / {{ formatMB(selectedModelInfo.downloadBytes) }})</template>
+              {{ displayText(Math.floor(whisperProgress)) }}%
+              <template v-if="whisperProgress > 0"> ({{ displayText(formatMB((whisperProgress / 100) * selectedModelInfo.downloadBytes)) }} / {{ displayText(formatMB(selectedModelInfo.downloadBytes)) }})</template>
             </span>
           </div>
           <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
@@ -826,17 +832,17 @@ watch(selectedAudioInput, async () => {
         <!-- Ready Status -->
         <div v-else-if="whisperDownloadState === 'ready'" class="flex items-center gap-2 border border-emerald-500/20 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-700 font-medium dark:text-emerald-300">
           <div class="i-solar:check-circle-bold-duotone h-4 w-4 flex-shrink-0 text-emerald-500" />
-          <span>Whisper model shard is cached & resident in memory — ready to transcribe.</span>
+          <span>{{ t('onboarding.ui.whisper-model-shard-is-cached-resident-in-memory-ready-to-transcribe') }}</span>
         </div>
 
         <!-- Error Status -->
         <div v-else-if="whisperDownloadState === 'error'" class="flex flex-col gap-1 border border-red-500/20 rounded-xl bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-300">
           <div class="flex items-center gap-2 font-bold">
             <div class="i-solar:danger-circle-bold-duotone h-4 w-4 text-red-500" />
-            <span>Download failed or connection interrupted.</span>
+            <span>{{ t('onboarding.ui.download-failed-or-connection-interrupted') }}</span>
           </div>
           <span v-if="whisperErrorMessage" class="break-all text-[11px] text-red-600/80 dark:text-red-400/80">
-            {{ whisperErrorMessage }}
+            {{ displayText(whisperErrorMessage) }}
           </span>
         </div>
       </div>
@@ -848,15 +854,15 @@ watch(selectedAudioInput, async () => {
       >
         <div class="flex items-center justify-between">
           <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
-            Cloud & Remote Engines (API Key Required)
+            {{ t('onboarding.ui.cloud-remote-engines-api-key-required') }}
           </span>
-          <span class="text-[11px] text-neutral-400">Optional</span>
+          <span class="text-[11px] text-neutral-400">{{ t('onboarding.ui.optional-59be7133') }}</span>
         </div>
 
         <!-- Deployment / Pricing Filter Pills -->
         <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
           <div class="flex flex-col gap-1.5">
-            <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">Deployment</span>
+            <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">{{ t('settings.pages.providers.filters.deployment') }}</span>
             <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
               <button
                 v-for="opt in [
@@ -874,13 +880,13 @@ watch(selectedAudioInput, async () => {
                 ]"
                 @click="deploymentFilter = opt.value as any"
               >
-                {{ opt.label }}
+                {{ displayText(opt.label) }}
               </button>
             </div>
           </div>
 
           <div class="flex flex-col gap-1.5">
-            <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">Pricing</span>
+            <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">{{ t('settings.pages.providers.filters.pricing') }}</span>
             <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
               <button
                 v-for="opt in [
@@ -898,7 +904,7 @@ watch(selectedAudioInput, async () => {
                 ]"
                 @click="pricingFilter = opt.value as any"
               >
-                {{ opt.label }}
+                {{ displayText(opt.label) }}
               </button>
             </div>
           </div>
@@ -913,8 +919,8 @@ watch(selectedAudioInput, async () => {
             v-model="selectedCloudProviderId"
             name="onboarding-v3-stt-provider"
             :value="provider.id"
-            :title="provider.localizedName || provider.name || provider.id"
-            :description="provider.localizedDescription || provider.description || ''"
+            :title="displayText(provider.localizedName || provider.name || provider.id)"
+            :description="displayText(provider.localizedDescription || provider.description || '')"
             :pricing="provider.pricing"
             :deployment="provider.deployment"
             :beginner-recommended="provider.beginnerRecommended"
@@ -942,9 +948,9 @@ watch(selectedAudioInput, async () => {
       >
         <FieldSelect
           v-model="activeCloudModel"
-          label="Model"
-          :options="providerModels.map((m: any) => ({ label: m.name || m.id, value: m.id }))"
-          placeholder="Select a transcription model"
+          :label="t('onboarding.ui.shared-control-strip-radial-model')"
+          :options="displayOptions(providerModels.map((m: any) => ({ label: m.name || m.id, value: m.id })))"
+          :placeholder="t('onboarding.ui.select-a-transcription-model')"
           layout="vertical"
         />
       </div>
@@ -957,10 +963,10 @@ watch(selectedAudioInput, async () => {
         <div class="flex items-center justify-between gap-2">
           <div>
             <div class="text-sm text-neutral-800 font-bold dark:text-neutral-100">
-              Push-to-Talk Trigger Key
+              {{ t('onboarding.ui.push-to-talk-trigger-key') }}
             </div>
             <p class="text-xs text-neutral-500 dark:text-neutral-400">
-              Pick a lock key to toggle the microphone hands-free.
+              {{ t('onboarding.ui.pick-a-lock-key-to-toggle-the-microphone-hands-free') }}
             </p>
           </div>
           <span
@@ -968,7 +974,7 @@ watch(selectedAudioInput, async () => {
             class="flex animate-pulse items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-600 font-bold dark:text-emerald-400"
           >
             <div class="i-solar:check-circle-bold-duotone h-3.5 w-3.5" />
-            Key detected
+            {{ t('onboarding.ui.key-detected') }}
           </span>
         </div>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -979,7 +985,7 @@ watch(selectedAudioInput, async () => {
             v-model="selectedHotkey"
             name="onboarding-v3-hotkey"
             :value="opt.id"
-            :title="opt.label"
+            :title="displayText(opt.label)"
           />
         </div>
       </div>
@@ -987,22 +993,22 @@ watch(selectedAudioInput, async () => {
       <!-- Live Transcription Test -->
       <div :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-4']">
         <div class="flex items-center justify-between">
-          <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">Live Transcription Test</span>
+          <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">{{ t('onboarding.ui.live-transcription-test') }}</span>
           <span
             v-if="isVerified"
             class="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-600 font-bold dark:text-emerald-400"
           >
             <div class="i-solar:verified-check-bold-duotone h-4 w-4" />
-            Verified Working
+            {{ t('onboarding.ui.verified-working') }}
           </span>
         </div>
 
-        <LevelMeter :level="volumeLevel" label="Input Level" />
+        <LevelMeter :level="volumeLevel" :label="t('onboarding.ui.input-level')" />
 
         <div v-if="testStatusMessage" class="flex items-center gap-2 border border-primary-200 rounded-lg bg-primary-50 p-3 text-primary-700 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-300">
           <div v-if="isTesting" class="i-solar:spinner-line-duotone animate-spin text-sm" />
           <div v-else class="i-solar:info-circle-line-duotone text-sm" />
-          <span class="text-sm font-medium">{{ testStatusMessage }}</span>
+          <span class="text-sm font-medium">{{ displayText(testStatusMessage) }}</span>
         </div>
 
         <button
@@ -1012,11 +1018,11 @@ watch(selectedAudioInput, async () => {
           @click="isTesting ? stopTest() : startTest()"
         >
           <div :class="isTesting ? 'i-solar:stop-circle-bold-duotone' : 'i-solar:microphone-3-bold-duotone'" class="h-4 w-4" />
-          {{ isTesting ? 'Stop Test' : 'Start Speaking Test' }}
+          {{ displayText(isTesting ? 'Stop Test' : 'Start Speaking Test') }}
         </button>
 
         <div v-if="testError" class="border border-red-200 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-          {{ testError }}
+          {{ displayText(testError) }}
         </div>
 
         <!-- Real-time Transcription Stream Result -->
@@ -1026,21 +1032,21 @@ watch(selectedAudioInput, async () => {
         >
           <template v-if="testStreamingText && supportsStreamInput">
             <div class="mb-1 text-xs text-neutral-400 font-medium">
-              Hearing you…
+              {{ t('onboarding.ui.hearing-you') }}
             </div>
             <div class="whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">
-              {{ testStreamingText }}
+              {{ displayText(testStreamingText) }}
             </div>
           </template>
           <template v-if="transcribedText">
             <div class="mb-1 text-xs text-emerald-600 font-bold dark:text-emerald-400" :class="{ 'mt-2 border-t border-neutral-200 pt-2 dark:border-neutral-700': testStreamingText && supportsStreamInput }">
-              Final transcription:
+              {{ t('onboarding.ui.final-transcription') }}
             </div>
             <div class="whitespace-pre-wrap text-neutral-700 dark:text-neutral-200">
-              {{ transcribedText }}
+              {{ displayText(transcribedText) }}
             </div>
           </template>
-          <span v-if="!transcribedText && !testStreamingText">No transcription yet. Start the test and speak into your microphone.</span>
+          <span v-if="!transcribedText && !testStreamingText">{{ t('onboarding.ui.no-transcription-yet-start-the-test-and-speak-into-your-microphone') }}</span>
         </div>
       </div>
     </div>
@@ -1068,10 +1074,10 @@ watch(selectedAudioInput, async () => {
       <!-- Center Status Hint -->
       <div :class="['text-[11px] text-neutral-400 font-medium italic hidden sm:block text-center truncate max-w-sm']">
         <span v-if="isVerified" class="text-emerald-500 font-semibold not-italic dark:text-emerald-400">
-          Ear verified! Ready to proceed.
+          {{ t('onboarding.ui.ear-verified-ready-to-proceed') }}
         </span>
         <span v-else>
-          Speak into your microphone — Next unlocks once we hear you.
+          {{ t('onboarding.ui.speak-into-your-microphone-next-unlocks-once-we-hear-you') }}
         </span>
       </div>
 

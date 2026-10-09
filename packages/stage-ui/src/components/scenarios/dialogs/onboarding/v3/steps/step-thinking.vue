@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -12,6 +15,9 @@ import { useProvidersStore } from '../../../../../../stores/providers'
 import { DEFAULT_PACING_FILLERS } from '../../../../../../types/pacing'
 import { resolvePersona } from '../composables/useStarterCardCommit'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -89,7 +95,7 @@ async function runBenchmarkProbe() {
   const providerId = currentProviderId.value
   const modelId = currentModelId.value
   if (!providerId || !modelId) {
-    toast.warning('No Consciousness Brain Model configured in Step 8 yet.')
+    toast.warning(displayText('No Consciousness Brain Model configured in Step 8 yet.'))
     return
   }
 
@@ -135,11 +141,11 @@ async function runBenchmarkProbe() {
     selectedProfile.value = recommendedPreset
     syncDraft()
 
-    toast.success(`Hardware benchmarked: ${elapsedMs}ms TTFT (${isReasoning ? 'Reasoning Model' : 'Standard Stream'})`)
+    toast.success(displayText(`Hardware benchmarked: ${elapsedMs}ms TTFT (${isReasoning ? 'Reasoning Model' : 'Standard Stream'})`))
   }
   catch (err: any) {
     console.error('[Step 10 Thinking] Probe error:', err)
-    toast.error(err?.message || 'Hardware benchmark failed. Check network & API key.')
+    toast.error(displayText(err?.message || 'Hardware benchmark failed. Check network & API key.'))
   }
   finally {
     isProbingBenchmark.value = false
@@ -302,12 +308,12 @@ function handleResetToDefaults() {
   maxTokens.value = 200
   customProse.value = RESPONSE_LENGTH_TIERS[1].prose
   isProseEditing.value = false
-  toast.info('Response length reset to defaults')
+  toast.info(displayText('Response length reset to defaults'))
 }
 
 function toggleOverrideLimits() {
   if (isReasoningModel.value) {
-    toast.warning('Response length cannot be enforced on reasoning models. Hard token limits truncate internal chain-of-thought.')
+    toast.warning(displayText('Response length cannot be enforced on reasoning models. Hard token limits truncate internal chain-of-thought.'))
     return
   }
   overrideLimits.value = !overrideLimits.value
@@ -434,7 +440,7 @@ async function handlePrewarmAudioCache() {
   try {
     const providerInstance = await providersStore.getProviderInstance(ttsProvider)
     if (!providerInstance) {
-      toast.warning('Speech provider instance not ready for pre-warming yet. Skipping live synthesis.')
+      toast.warning(displayText('Speech provider instance not ready for pre-warming yet. Skipping live synthesis.'))
       prewarmSuccessCount.value = DEFAULT_PACING_FILLERS.length
       isPrewarming.value = false
       return
@@ -463,12 +469,12 @@ async function handlePrewarmAudioCache() {
     })
 
     prewarmSuccessCount.value = result.succeeded + result.cached
-    toast.success(`Pre-warmed ${prewarmSuccessCount.value} thinking fillers into audio cache!`)
+    toast.success(displayText(`Pre-warmed ${prewarmSuccessCount.value} thinking fillers into audio cache!`))
   }
   catch (err: any) {
     console.warn('[Step 10 Thinking] Prewarm notice:', err)
     prewarmSuccessCount.value = DEFAULT_PACING_FILLERS.length
-    toast.info('Audio cache initialized')
+    toast.info(displayText('Audio cache initialized'))
   }
   finally {
     isPrewarming.value = false
@@ -578,7 +584,7 @@ function handleSkipPrewarmAndContinue() {
           ]"
         >
           <span :class="['w-1.5 h-1.5 rounded-full', selectedProfile === 'disabled' ? 'bg-neutral-400' : 'bg-primary-500 animate-pulse']" />
-          <span>{{ selectedProfile === 'disabled' ? 'SILENT • 0 MB VRAM' : 'PACING ACTIVE' }}</span>
+          <span>{{ displayText(selectedProfile === 'disabled' ? 'SILENT • 0 MB VRAM' : 'PACING ACTIVE') }}</span>
         </span>
       </div>
     </div>
@@ -606,7 +612,7 @@ function handleSkipPrewarmAndContinue() {
         <div :class="['flex flex-col min-w-0']">
           <div :class="['flex items-center gap-2 flex-wrap']">
             <span :class="['text-xs font-bold text-neutral-900 dark:text-white truncate']">
-              {{ currentModelId || 'Brain Model (Not Selected)' }}
+              {{ displayText(currentModelId || 'Brain Model (Not Selected)') }}
             </span>
             <span
               :class="[
@@ -616,21 +622,21 @@ function handleSkipPrewarmAndContinue() {
                   : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
               ]"
             >
-              {{ isReasoningModel ? '🧠 Reasoning Model' : '⚡ Standard Stream' }}
+              {{ displayText(isReasoningModel ? '🧠 Reasoning Model' : '⚡ Standard Stream') }}
             </span>
             <span
               v-if="currentProviderId"
               :class="['text-[9px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-500']"
             >
-              {{ currentProviderId }}
+              {{ displayText(currentProviderId) }}
             </span>
           </div>
           <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-2 mt-0.5']">
             <span :class="['font-mono font-semibold', benchmarkLatency ? 'text-primary-600 dark:text-primary-400' : 'text-neutral-400']">
-              {{ benchmarkLatency ? `${benchmarkLatency}ms TTFT` : 'Latency Unmeasured' }}
+              {{ displayText(benchmarkLatency ? `${benchmarkLatency}ms TTFT` : 'Latency Unmeasured') }}
             </span>
             <span>•</span>
-            <span>{{ reasoningModelSubtitle }}</span>
+            <span>{{ displayText(reasoningModelSubtitle) }}</span>
           </div>
         </div>
       </div>
@@ -648,7 +654,7 @@ function handleSkipPrewarmAndContinue() {
         @click="runBenchmarkProbe"
       >
         <div :class="[isProbingBenchmark ? 'i-solar:restart-circle-bold animate-spin text-primary-500' : 'i-solar:link-circle-bold text-primary-500', 'w-3.5 h-3.5']" />
-        <span>{{ isProbingBenchmark ? 'Probing...' : benchmarkLatency ? 'Re-benchmark' : 'Probe Hardware' }}</span>
+        <span>{{ displayText(isProbingBenchmark ? 'Probing...' : benchmarkLatency ? 'Re-benchmark' : 'Probe Hardware') }}</span>
       </button>
     </div>
 
@@ -657,10 +663,10 @@ function handleSkipPrewarmAndContinue() {
       <div :class="['flex flex-col']">
         <div :class="['flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400']">
           <div :class="['w-2 h-4 rounded bg-primary-500']" />
-          <span>Pacing Profile Presets</span>
+          <span>{{ t('onboarding.ui.pacing-profile-presets') }}</span>
         </div>
         <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-          Select a cadence profile matching your model's reasoning latency. These settings tune when and how often thinking fillers are spoken while waiting for a response — they are conversational pacing expectations, not abort timeouts.
+          {{ t('onboarding.ui.select-a-cadence-profile-matching-your-model-s-reasoning-latency-these-setting') }}
         </p>
       </div>
 
@@ -682,25 +688,25 @@ function handleSkipPrewarmAndContinue() {
                 <div :class="['i-solar:forbidden-circle-bold-duotone w-4 h-4']" />
               </div>
               <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 uppercase font-mono']">
-                0 MB VRAM
+                {{ t('onboarding.ui.0-mb-vram') }}
               </span>
             </div>
             <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              Disabled / None
+              {{ t('onboarding.ui.disabled-none') }}
             </h4>
             <span :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mt-0.5']">
-              Pure Direct Output
+              {{ t('onboarding.ui.pure-direct-output') }}
             </span>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              Complete silence during generation. No thinking fillers, audio pauses, or background models loaded. Zero background VRAM overhead.
+              {{ t('onboarding.ui.complete-silence-during-generation-no-thinking-fillers-audio-pauses-or-backgro') }}
             </p>
           </div>
           <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-400']">
-            <span>0 MB VRAM</span>
+            <span>{{ t('onboarding.ui.0-mb-vram') }}</span>
             <span>·</span>
-            <span>Zero Overhead</span>
+            <span>{{ t('onboarding.ui.zero-overhead') }}</span>
             <span>·</span>
-            <span>Silent</span>
+            <span>{{ t('onboarding.ui.silent') }}</span>
           </div>
         </div>
 
@@ -720,25 +726,25 @@ function handleSkipPrewarmAndContinue() {
                 <div :class="['i-solar:bolt-bold-duotone w-4 h-4']" />
               </div>
               <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 uppercase font-mono']">
-                FAST 2–5s TTFT
+                {{ t('onboarding.ui.fast-2-5s-ttft') }}
               </span>
             </div>
             <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              Snappy Chat
+              {{ t('onboarding.ui.snappy-chat') }}
             </h4>
             <span :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mt-0.5']">
-              Fast Conversational
+              {{ t('onboarding.ui.fast-conversational') }}
             </span>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              Standard chat models with fast initial response (Gemini Flash, Claude Haiku, small local LLMs). Quick short fillers.
+              {{ t('onboarding.ui.standard-chat-models-with-fast-initial-response-gemini-flash-claude-haiku-smal') }}
             </p>
           </div>
           <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
-            <span>Filler: ≤1.8s</span>
+            <span>{{ t('onboarding.ui.filler-1-8s') }}</span>
             <span>·</span>
-            <span>Every: 8s</span>
+            <span>{{ t('onboarding.ui.every-8s') }}</span>
             <span>·</span>
-            <span>Budget: 2s</span>
+            <span>{{ t('onboarding.ui.budget-2s') }}</span>
           </div>
         </div>
 
@@ -758,25 +764,25 @@ function handleSkipPrewarmAndContinue() {
                 <div :class="['i-solar:scale-bold-duotone w-4 h-4']" />
               </div>
               <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-600 dark:text-primary-400 uppercase font-mono']">
-                EVERYDAY 10–25s
+                {{ t('onboarding.ui.everyday-10-25s') }}
               </span>
             </div>
             <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              Balanced
+              {{ t('settings.pages.system.sections.section.custom-color.fields.field.vibrancy.balanced') }}
             </h4>
             <span :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mt-0.5']">
-              Everyday Reasoning
+              {{ t('onboarding.ui.everyday-reasoning') }}
             </span>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              Everyday reasoning models (DeepSeek 4 Pro, GPT-4o, Claude 3.5 Sonnet, Gemini Pro). Natural spoken asides.
+              {{ t('onboarding.ui.everyday-reasoning-models-deepseek-4-pro-gpt-4o-claude-3-5-sonnet-gemini-pro-n') }}
             </p>
           </div>
           <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
-            <span>Filler: ≤3.0s</span>
+            <span>{{ t('onboarding.ui.filler-3-0s') }}</span>
             <span>·</span>
-            <span>Every: 15s</span>
+            <span>{{ t('onboarding.ui.every-15s') }}</span>
             <span>·</span>
-            <span>Budget: 3.2s</span>
+            <span>{{ t('onboarding.ui.budget-3-2s') }}</span>
           </div>
         </div>
 
@@ -796,25 +802,25 @@ function handleSkipPrewarmAndContinue() {
                 <div :class="['i-solar:atom-bold-duotone w-4 h-4']" />
               </div>
               <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 uppercase font-mono']">
-                EXTENDED 40–90s+
+                {{ t('onboarding.ui.extended-40-90s') }}
               </span>
             </div>
             <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              Deep CoT Explorer
+              {{ t('onboarding.ui.deep-cot-explorer') }}
             </h4>
             <span :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mt-0.5']">
-              Extended Deliberation
+              {{ t('onboarding.ui.extended-deliberation') }}
             </span>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              Heavy chain-of-thought models (Kimi k3, DeepSeek R1, Glyph Deep CoT). Longer deliberate thinking asides.
+              {{ t('onboarding.ui.heavy-chain-of-thought-models-kimi-k3-deepseek-r1-glyph-deep-cot-longer-delibe') }}
             </p>
           </div>
           <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
-            <span>Filler: ≤4.8s</span>
+            <span>{{ t('onboarding.ui.filler-4-8s') }}</span>
             <span>·</span>
-            <span>Every: 18s</span>
+            <span>{{ t('onboarding.ui.every-18s') }}</span>
             <span>·</span>
-            <span>Budget: 5s</span>
+            <span>{{ t('onboarding.ui.budget-5s') }}</span>
           </div>
         </div>
       </div>
@@ -833,14 +839,14 @@ function handleSkipPrewarmAndContinue() {
         <div>
           <div :class="['flex items-center gap-2']">
             <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              Thinking Voice Sources & Fillers Disabled
+              {{ t('onboarding.ui.thinking-voice-sources-fillers-disabled') }}
             </h4>
             <span :class="['text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20']">
-              0 MB VRAM · 0% Background Overhead
+              {{ t('onboarding.ui.0-mb-vram-0-background-overhead') }}
             </span>
           </div>
           <p :class="['text-[11px] text-neutral-600 dark:text-neutral-300 mt-0.5 leading-relaxed']">
-            Complete silence is guaranteed while reasoning. No background neural SLMs, audio caches, or extraction models are loaded into memory. Your companion responds directly once output finishes.
+            {{ t('onboarding.ui.complete-silence-is-guaranteed-while-reasoning-no-background-neural-slms-audio') }}
           </p>
         </div>
       </div>
@@ -855,15 +861,15 @@ function handleSkipPrewarmAndContinue() {
         <div :class="['flex items-center gap-2']">
           <div :class="['i-solar:microphone-3-bold-duotone text-primary-500 w-4 h-4']" />
           <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
-            Thinking Voice Sources
+            {{ t('onboarding.ui.thinking-voice-sources') }}
           </span>
         </div>
         <span :class="['text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono']">
-          {{ [tier1Enabled, tier2Enabled, tier3Enabled].filter(Boolean).length }} ACTIVE
+          {{ displayText([tier1Enabled, tier2Enabled, tier3Enabled].filter(Boolean).length) }} {{ t('onboarding.ui.active') }}
         </span>
       </div>
       <p :class="['text-xs text-neutral-500 dark:text-neutral-400 -mt-1 leading-relaxed']">
-        Choose where AIRI sources spoken words and vocalizations during model deliberation.
+        {{ t('onboarding.ui.choose-where-airi-sources-spoken-words-and-vocalizations-during-model-delibera') }}
       </p>
 
       <!-- Source 1 -->
@@ -876,14 +882,14 @@ function handleSkipPrewarmAndContinue() {
         <div :class="['flex-1 min-w-0']">
           <div :class="['flex items-center justify-between gap-2']">
             <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              Natural In-Character Thoughts (&lt;think_aloud&gt;)
+              {{ t('onboarding.ui.natural-in-character-thoughts-think-aloud') }}
             </span>
             <span :class="['text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono flex-shrink-0']">
-              Prompt Directives
+              {{ t('onboarding.ui.prompt-directives') }}
             </span>
           </div>
           <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            Synthesizes in-character thoughts when the model emits intentional &lt;think_aloud&gt; markers during reasoning.
+            {{ t('onboarding.ui.synthesizes-in-character-thoughts-when-the-model-emits-intentional-think-aloud') }}
           </p>
         </div>
       </label>
@@ -898,23 +904,23 @@ function handleSkipPrewarmAndContinue() {
         <div :class="['flex-1 min-w-0']">
           <div :class="['flex items-center justify-between gap-2']">
             <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              Smart Reasoning Extractor (Needle 45M SLM)
+              {{ t('onboarding.ui.smart-reasoning-extractor-needle-45m-slm') }}
             </span>
             <span :class="['text-[9px] font-bold px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 font-mono flex-shrink-0']">
-              Lightweight SLM (14 MB)
+              {{ t('onboarding.ui.lightweight-slm-14-mb') }}
             </span>
           </div>
           <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            Runs an ultra-lightweight on-device model to extract genuine moments of realization and deliberation shifts directly from raw reasoning tokens without requiring special tags.
+            {{ t('onboarding.ui.runs-an-ultra-lightweight-on-device-model-to-extract-genuine-moments-of-realiz') }}
           </p>
           <div :class="['mt-2 flex items-center justify-between text-[10px] bg-neutral-50 dark:bg-neutral-800/40 p-1.5 rounded-lg border border-neutral-200/40 dark:border-white/5']">
             <span :class="['flex items-center gap-1.5 font-medium text-neutral-600 dark:text-neutral-300']">
               <span :class="['w-1.5 h-1.5 rounded-full bg-emerald-500']" />
-              <span>Status: Ready (14 MB in Cache)</span>
+              <span>{{ t('onboarding.ui.status-ready-14-mb-in-cache') }}</span>
             </span>
             <span :class="['text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-bold flex items-center gap-1']">
               <div :class="['i-solar:check-circle-bold w-3 h-3']" />
-              <span>Zero Cloud Cost · Pre-warmed</span>
+              <span>{{ t('onboarding.ui.zero-cloud-cost-pre-warmed') }}</span>
             </span>
           </div>
         </div>
@@ -930,14 +936,14 @@ function handleSkipPrewarmAndContinue() {
         <div :class="['flex-1 min-w-0']">
           <div :class="['flex items-center justify-between gap-2']">
             <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              Casual Spoken Fillers (Organic Reactions & Audio Clips)
+              {{ t('onboarding.ui.casual-spoken-fillers-organic-reactions-audio-clips') }}
             </span>
             <span :class="['text-[9px] font-bold px-1.5 py-0.2 rounded bg-neutral-200/60 dark:bg-white/10 text-neutral-600 dark:text-neutral-400 font-mono flex-shrink-0']">
-              Natural Transitions
+              {{ t('onboarding.ui.natural-transitions') }}
             </span>
           </div>
           <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            Speaks short vocal reactions and organic transitions ("Wait...", "Hmm, let me see...") when the model takes time to reason.
+            {{ t('onboarding.ui.speaks-short-vocal-reactions-and-organic-transitions-wait-hmm-let-me-see-when') }}
           </p>
 
           <!-- Inline Pre-warm Audio Cache Strip -->
@@ -950,13 +956,13 @@ function handleSkipPrewarmAndContinue() {
               <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', prewarmSuccessCount ? 'bg-emerald-500' : isPrewarming ? 'bg-amber-500 animate-ping' : 'bg-neutral-400 dark:bg-neutral-500']" />
               <span :class="['truncate text-neutral-600 dark:text-neutral-300']">
                 <template v-if="isPrewarming">
-                  Synthesizing fillers ({{ prewarmProgress?.completed || 0 }}/{{ prewarmProgress?.total || 9 }})...
+                  {{ t('onboarding.ui.synthesizing-fillers') }}{{ displayText(prewarmProgress?.completed || 0) }}/{{ displayText(prewarmProgress?.total || 9) }})...
                 </template>
                 <template v-else-if="prewarmSuccessCount">
-                  Cache primed: {{ prewarmSuccessCount }} fillers ready (instant playback)
+                  {{ t('onboarding.ui.cache-primed') }} {{ displayText(prewarmSuccessCount) }} {{ t('onboarding.ui.fillers-ready-instant-playback') }}
                 </template>
                 <template v-else>
-                  Cache unprimed · Pre-synthesize clips to eliminate pause latency
+                  {{ t('onboarding.ui.cache-unprimed-pre-synthesize-clips-to-eliminate-pause-latency') }}
                 </template>
               </span>
             </div>
@@ -967,7 +973,7 @@ function handleSkipPrewarmAndContinue() {
                 :class="['text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-bold flex items-center gap-1']"
               >
                 <div :class="['i-solar:check-circle-bold w-3 h-3']" />
-                <span>Zero Latency</span>
+                <span>{{ t('onboarding.ui.zero-latency') }}</span>
               </span>
 
               <button
@@ -984,7 +990,7 @@ function handleSkipPrewarmAndContinue() {
                 @click.stop.prevent="handlePrewarmAudioCache"
               >
                 <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin w-3 h-3' : 'i-solar:bolt-bold w-3 h-3']" />
-                <span>{{ isPrewarming ? 'Pre-warming...' : prewarmSuccessCount ? 'Re-warm' : 'Pre-warm Audio Cache' }}</span>
+                <span>{{ displayText(isPrewarming ? 'Pre-warming...' : prewarmSuccessCount ? 'Re-warm' : 'Pre-warm Audio Cache') }}</span>
               </button>
             </div>
           </div>
@@ -999,7 +1005,7 @@ function handleSkipPrewarmAndContinue() {
         <div :class="['flex items-center gap-2']">
           <div :class="['i-solar:chat-square-arrow-bold-duotone text-primary-500 w-4 h-4']" />
           <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
-            Max Response Length
+            {{ t('onboarding.ui.max-response-length') }}
           </span>
         </div>
         <button
@@ -1008,7 +1014,7 @@ function handleSkipPrewarmAndContinue() {
           :class="['text-[10px] text-red-500 font-bold hover:underline cursor-pointer']"
           @click="handleResetToDefaults"
         >
-          Reset defaults
+          {{ t('onboarding.ui.shared-pages-chat-reset-defaults') }}
         </button>
       </div>
 
@@ -1020,9 +1026,9 @@ function handleSkipPrewarmAndContinue() {
         <div :class="['i-solar:lock-bold w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500']" />
         <div :class="['leading-relaxed text-[11px]']">
           <span :class="['font-bold block text-amber-900 dark:text-amber-100 text-xs mb-0.5']">
-            Reasoning Architecture Incompatibility — Keep Limits Disabled:
+            {{ t('onboarding.ui.reasoning-architecture-incompatibility-keep-limits-disabled') }}
           </span>
-          Thinking and reasoning models ({{ currentModelId || 'Deep CoT' }}) consume tokens dynamically during internal chain-of-thought deliberation before emitting outward speech. Enforcing any hard token limit will cut off reasoning mid-thought and break responses. Response length enforcement is locked off for reasoning models.
+          {{ t('onboarding.ui.thinking-and-reasoning-models') }}{{ displayText(currentModelId || 'Deep CoT') }}{{ t('onboarding.ui.consume-tokens-dynamically-during-internal-chain-of-thought-deliberation-befor') }}
         </div>
       </div>
 
@@ -1036,16 +1042,16 @@ function handleSkipPrewarmAndContinue() {
       >
         <div :class="['flex flex-col']">
           <div :class="['flex items-center gap-2']">
-            <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">Enforce Response Length</span>
+            <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.enforce-response-length') }}</span>
             <span
               v-if="isReasoningModel"
               :class="['text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1']"
             >
               <div :class="['i-solar:lock-bold w-2.5 h-2.5']" />
-              <span>LOCKED OFF (REASONING MODEL)</span>
+              <span>{{ t('onboarding.ui.locked-off-reasoning-model') }}</span>
             </span>
           </div>
-          <span :class="['text-[10px] text-neutral-400']">Guide companion response brevity and maximum token budget</span>
+          <span :class="['text-[10px] text-neutral-400']">{{ t('onboarding.ui.guide-companion-response-brevity-and-maximum-token-budget') }}</span>
         </div>
         <div
           :class="[
@@ -1073,7 +1079,7 @@ function handleSkipPrewarmAndContinue() {
         <!-- 4 Length Tiers Side-by-Side Cards -->
         <div :class="['flex flex-col gap-1.5']">
           <label :class="['text-[10px] text-neutral-400 font-bold uppercase tracking-tight']">
-            Spoken Cadence & Depth
+            {{ t('onboarding.ui.spoken-cadence-depth') }}
           </label>
           <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3']">
             <div
@@ -1093,21 +1099,21 @@ function handleSkipPrewarmAndContinue() {
                     <div :class="[tier.icon, 'w-4 h-4']" />
                   </div>
                   <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-600 dark:text-primary-400 uppercase font-mono']">
-                    {{ tier.tag }}
+                    {{ displayText(tier.tag) }}
                   </span>
                 </div>
                 <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-                  {{ tier.title }}
+                  {{ displayText(tier.title) }}
                 </h4>
                 <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                  {{ tier.desc }}
+                  {{ displayText(tier.desc) }}
                 </p>
               </div>
 
               <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[10px] font-mono']">
-                <span :class="['text-neutral-400']">Token Ceiling:</span>
+                <span :class="['text-neutral-400']">{{ t('onboarding.ui.token-ceiling') }}</span>
                 <span :class="['text-primary-500 font-bold']">
-                  {{ tier.id === 'custom' ? `~${maxTokens} tokens` : `~${tier.tokens} tokens` }}
+                  {{ displayText(tier.id === 'custom' ? `~${maxTokens} tokens` : `~${tier.tokens} tokens`) }}
                 </span>
               </div>
             </div>
@@ -1122,7 +1128,7 @@ function handleSkipPrewarmAndContinue() {
           <div :class="['flex items-center justify-between']">
             <div :class="['flex items-center gap-1.5']">
               <div :class="['i-solar:tuning-square-2-bold-duotone text-primary-500 w-4 h-4']" />
-              <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">Custom Token Ceiling</span>
+              <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.custom-token-ceiling') }}</span>
             </div>
             <div :class="['flex items-center gap-1.5']">
               <input
@@ -1133,7 +1139,7 @@ function handleSkipPrewarmAndContinue() {
                 step="10"
                 :class="['w-20 px-2 py-0.5 text-xs font-mono font-bold text-right border border-neutral-200 dark:border-white/10 rounded-lg bg-white dark:bg-neutral-900 text-primary-600 dark:text-primary-400 focus:outline-none focus:border-primary-500']"
               >
-              <span :class="['text-[11px] font-mono text-neutral-400 font-medium']">tokens</span>
+              <span :class="['text-[11px] font-mono text-neutral-400 font-medium']">{{ t('onboarding.ui.tokens') }}</span>
             </div>
           </div>
           <input
@@ -1145,11 +1151,11 @@ function handleSkipPrewarmAndContinue() {
             :class="['w-full accent-primary-500 cursor-pointer']"
           >
           <div :class="['flex justify-between text-[9px] font-mono text-neutral-400']">
-            <span>50 (Micro)</span>
-            <span>200 (Standard)</span>
-            <span>500 (Rich)</span>
-            <span>1000 (Detailed)</span>
-            <span>2000 (Max)</span>
+            <span>{{ t('onboarding.ui.50-micro') }}</span>
+            <span>{{ t('onboarding.ui.200-standard') }}</span>
+            <span>{{ t('onboarding.ui.500-rich') }}</span>
+            <span>{{ t('onboarding.ui.1000-detailed') }}</span>
+            <span>{{ t('onboarding.ui.2000-max') }}</span>
           </div>
         </div>
 
@@ -1157,20 +1163,20 @@ function handleSkipPrewarmAndContinue() {
         <div :class="['flex flex-col gap-1.5 p-3 rounded-xl border border-neutral-200/40 dark:border-white/5 bg-white/60 dark:bg-neutral-900/30']">
           <div :class="['flex items-center justify-between']">
             <label :class="['text-[10px] text-neutral-400 font-bold uppercase tracking-tight']">
-              Context Width Threshold (Optional)
+              {{ t('onboarding.ui.context-width-threshold-optional') }}
             </label>
             <span :class="['text-[9px] text-neutral-400 font-medium italic']">
-              Only set if known
+              {{ t('onboarding.ui.only-set-if-known') }}
             </span>
           </div>
           <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-            Optional — only enter if you know your model's context window. Providing this allows AIRI to proactively compact short-term memories and prevent context saturation.
+            {{ t('onboarding.ui.optional-only-enter-if-you-know-your-model-s-context-window-providing-this-all') }}
           </p>
           <div :class="['flex items-center gap-2 mt-1']">
             <input
               v-model.number="contextWidth"
               type="number"
-              placeholder="e.g. 128000 (Optional)"
+              :placeholder="t('onboarding.ui.e-g-128000-optional')"
               :class="['w-44 border border-neutral-200 dark:border-white/10 rounded-lg bg-white dark:bg-neutral-900 px-2.5 py-1 text-xs text-neutral-800 dark:text-neutral-200 outline-none focus:border-primary-400']"
             >
             <div :class="['flex gap-1.5']">
@@ -1186,7 +1192,7 @@ function handleSkipPrewarmAndContinue() {
                 ]"
                 @click="handleContextPresetClick(widthPreset)"
               >
-                {{ widthPreset >= 1048576 ? '1M' : widthPreset >= 204800 ? '200K' : '64K' }}
+                {{ displayText(widthPreset >= 1048576 ? '1M' : widthPreset >= 204800 ? '200K' : '64K') }}
               </button>
             </div>
           </div>
@@ -1196,12 +1202,12 @@ function handleSkipPrewarmAndContinue() {
         <div :class="['flex flex-col gap-1.5 border-t border-neutral-200/40 dark:border-white/5 pt-2.5']">
           <div :class="['flex items-center justify-between']">
             <span :class="['text-[10px] text-neutral-400 font-bold uppercase tracking-tight']">
-              Compliance Instruction
+              {{ t('onboarding.ui.shared-pages-chat-compliance-instruction') }}
             </span>
             <button
               type="button"
               :class="['flex items-center justify-center rounded p-1 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer']"
-              title="Edit Instruction"
+              :title="t('onboarding.ui.shared-pages-chat-edit-instruction')"
               @click="isProseEditing = !isProseEditing"
             >
               <div :class="[isProseEditing ? 'i-solar:check-read-linear text-xs text-green-500' : 'i-solar:pen-linear text-xs']" />
@@ -1213,7 +1219,7 @@ function handleSkipPrewarmAndContinue() {
             v-if="!isProseEditing"
             :class="['select-text border border-neutral-200/50 dark:border-white/5 rounded-xl bg-white/80 dark:bg-neutral-900/60 p-2.5 text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed italic']"
           >
-            "{{ customProse }}"
+            "{{ displayText(customProse) }}"
           </div>
           <textarea
             v-else
@@ -1230,22 +1236,22 @@ function handleSkipPrewarmAndContinue() {
           <div :class="['flex items-center gap-2']">
             <div :class="['i-solar:play-circle-bold-duotone text-primary-500 w-4 h-4']" />
             <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
-              Response Cadence Simulator
+              {{ t('onboarding.ui.response-cadence-simulator') }}
             </span>
           </div>
           <span :class="['text-[9px] font-mono text-neutral-400']">
-            Live Test with {{ currentModelId || 'Configured Model' }}
+            {{ t('onboarding.ui.live-test-with') }} {{ displayText(currentModelId || 'Configured Model') }}
           </span>
         </div>
         <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-          Simulate a turn to verify how your companion speaks under current settings{{ overrideLimits ? ' (with token budget and compliance instruction enforced)' : ' (unconstrained output)' }}.
+          {{ t('onboarding.ui.simulate-a-turn-to-verify-how-your-companion-speaks-under-current-settings') }}{{ displayText(overrideLimits ? ' (with token budget and compliance instruction enforced)' : ' (unconstrained output)') }}.
         </p>
 
         <div :class="['flex gap-2']">
           <input
             v-model="testSimulationPrompt"
             type="text"
-            placeholder="Enter a test prompt for your companion..."
+            :placeholder="t('onboarding.ui.enter-a-test-prompt-for-your-companion')"
             :disabled="isSimulating"
             :class="['flex-1 text-xs border border-neutral-200 dark:border-white/10 rounded-xl px-3 py-2 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 focus:outline-none focus:border-primary-500 disabled:opacity-50']"
             @keydown.enter="runCadenceSimulation"
@@ -1264,7 +1270,7 @@ function handleSkipPrewarmAndContinue() {
             @click="runCadenceSimulation"
           >
             <div :class="[isSimulating ? 'i-solar:refresh-circle-bold animate-spin w-3.5 h-3.5' : 'i-solar:play-bold w-3.5 h-3.5']" />
-            <span>{{ isSimulating ? 'Simulating...' : 'Simulate Turn' }}</span>
+            <span>{{ displayText(isSimulating ? 'Simulating...' : 'Simulate Turn') }}</span>
           </button>
         </div>
 
@@ -1274,7 +1280,7 @@ function handleSkipPrewarmAndContinue() {
           :class="['p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2']"
         >
           <div :class="['i-solar:danger-triangle-bold w-4 h-4 flex-shrink-0']" />
-          <span :class="['text-[11px] leading-relaxed']">{{ simulationError }}</span>
+          <span :class="['text-[11px] leading-relaxed']">{{ displayText(simulationError) }}</span>
         </div>
 
         <!-- Simulation Output Box -->
@@ -1284,20 +1290,20 @@ function handleSkipPrewarmAndContinue() {
         >
           <div :class="['flex items-center justify-between border-b border-neutral-200/40 dark:border-white/5 pb-1.5']">
             <span :class="['text-[10px] font-bold text-neutral-500 uppercase tracking-wider font-mono']">
-              Simulated Companion Output
+              {{ t('onboarding.ui.simulated-companion-output') }}
             </span>
             <div
               v-if="simulationLatencyMs"
               :class="['flex items-center gap-2 text-[10px] font-mono']"
             >
               <span :class="['px-1.5 py-0.2 rounded bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300']">
-                ⏱️ {{ simulationLatencyMs }}ms TTFT
+                ⏱️ {{ displayText(simulationLatencyMs) }}{{ t('onboarding.ui.ms-ttft') }}
               </span>
               <span :class="['px-1.5 py-0.2 rounded bg-primary-500/10 text-primary-600 dark:text-primary-400 font-bold']">
-                📝 ~{{ simulationTokens }} tokens
+                📝 ~{{ displayText(simulationTokens) }} {{ t('onboarding.ui.tokens') }}
               </span>
               <span :class="['px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400']">
-                💬 {{ simulationSentences }} sentences
+                💬 {{ displayText(simulationSentences) }} {{ t('onboarding.ui.sentences') }}
               </span>
             </div>
           </div>
@@ -1306,13 +1312,13 @@ function handleSkipPrewarmAndContinue() {
             :class="['flex items-center gap-2 text-xs text-neutral-400 italic py-2']"
           >
             <div :class="['i-solar:refresh-circle-bold animate-spin w-4 h-4 text-primary-500']" />
-            <span>Generating response with cadence enforcement...</span>
+            <span>{{ t('onboarding.ui.generating-response-with-cadence-enforcement') }}</span>
           </div>
           <p
             v-else
             :class="['text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap select-text']"
           >
-            {{ simulationResult }}
+            {{ displayText(simulationResult) }}
           </p>
         </div>
       </div>
@@ -1350,16 +1356,16 @@ function handleSkipPrewarmAndContinue() {
 
         <div>
           <h3 :class="['text-base font-bold text-neutral-900 dark:text-white']">
-            Pre-warm Thinking Fillers?
+            {{ t('onboarding.ui.pre-warm-thinking-fillers') }}
           </h3>
           <p :class="['mt-2 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed text-left']">
-            You've enabled <strong>Casual Spoken Fillers</strong>, but the audio cache is currently empty.
+            {{ t('onboarding.ui.you-ve-enabled') }} <strong>{{ t('onboarding.ui.casual-spoken-fillers') }}</strong>{{ t('onboarding.ui.but-the-audio-cache-is-currently-empty') }}
           </p>
           <p :class="['mt-2 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed text-left']">
-            To eliminate voice latency during reasoning pauses, AIRI needs to make <strong>9 quick synthesis requests</strong> to your configured voice provider (<span class="text-primary-600 font-semibold font-mono dark:text-primary-400">{{ ttsVoiceLabel }}</span>).
+            {{ t('onboarding.ui.to-eliminate-voice-latency-during-reasoning-pauses-airi-needs-to-make') }} <strong>{{ t('onboarding.ui.9-quick-synthesis-requests') }}</strong> {{ t('onboarding.ui.to-your-configured-voice-provider') }}<span class="text-primary-600 font-semibold font-mono dark:text-primary-400">{{ displayText(ttsVoiceLabel) }}</span>).
           </p>
           <p :class="['mt-2 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed text-left']">
-            Would you like to pre-generate these clips now, or continue and generate them on-demand later?
+            {{ t('onboarding.ui.would-you-like-to-pre-generate-these-clips-now-or-continue-and-generate-them-o') }}
           </p>
 
           <!-- Prewarm progress indicator if running inside modal -->
@@ -1368,7 +1374,7 @@ function handleSkipPrewarmAndContinue() {
             :class="['mt-3 p-2.5 rounded-xl bg-primary-500/10 border border-primary-500/20 text-xs font-semibold text-primary-600 dark:text-primary-300 flex items-center justify-center gap-2']"
           >
             <div :class="['i-solar:refresh-circle-bold animate-spin h-4 w-4']" />
-            <span>Pre-warming fillers ({{ prewarmProgress?.completed || 0 }}/{{ prewarmProgress?.total || 9 }})...</span>
+            <span>{{ t('onboarding.ui.pre-warming-fillers') }}{{ displayText(prewarmProgress?.completed || 0) }}/{{ displayText(prewarmProgress?.total || 9) }})...</span>
           </div>
         </div>
 
@@ -1379,7 +1385,7 @@ function handleSkipPrewarmAndContinue() {
             :class="['w-full sm:flex-1 rounded-xl border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-white/5 px-4 py-2.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed']"
             @click="handleSkipPrewarmAndContinue"
           >
-            Generate On-Demand Later
+            {{ t('onboarding.ui.generate-on-demand-later') }}
           </button>
           <button
             type="button"
@@ -1388,7 +1394,7 @@ function handleSkipPrewarmAndContinue() {
             @click="handleConfirmPrewarmAndContinue"
           >
             <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin w-4 h-4' : 'i-solar:bolt-bold w-4 h-4']" />
-            <span>{{ isPrewarming ? 'Synthesizing...' : '⚡ Pre-generate 9 Clips Now' }}</span>
+            <span>{{ displayText(isPrewarming ? 'Synthesizing...' : '⚡ Pre-generate 9 Clips Now') }}</span>
           </button>
         </div>
       </div>

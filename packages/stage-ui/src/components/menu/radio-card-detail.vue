@@ -1,6 +1,14 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../scenarios/dialogs/onboarding/v3/composables/use-onboarding-display-text'
+import { useI18n } from 'vue-i18n'
+
+const { displayText } = useOnboardingDisplayText()
+
+
 import { Input, TransitionVertical } from '@proj-airi/ui'
 import { ref } from 'vue'
+
+const { t } = useI18n()
 
 withDefaults(defineProps<{
   id: string
@@ -90,7 +98,7 @@ function toggleExpansion() {
               : 'text-neutral-700 dark:text-neutral-400',
           ]"
         >
-          {{ title }}
+          {{ displayText(title) }}
         </span>
       </div>
 
@@ -106,10 +114,10 @@ function toggleExpansion() {
                 ? 'text-neutral-600 dark:text-neutral-400'
                 : 'text-neutral-500 dark:text-neutral-500',
             ]"
-            :title="description"
+            :title="displayText(description)"
             @click.prevent="toggleExpansion"
           >
-            {{ description }}
+            {{ displayText(description) }}
           </div>
 
           <!-- Expanded description -->
@@ -123,7 +131,7 @@ function toggleExpansion() {
             ]"
             @click.prevent="toggleExpansion"
           >
-            {{ description }}
+            {{ displayText(description) }}
           </div>
         </TransitionVertical>
 
@@ -133,7 +141,7 @@ function toggleExpansion() {
           class="mt-0.5 inline-flex items-center text-xs text-primary-500 dark:text-primary-600"
           @click.prevent="toggleExpansion"
         >
-          <span>{{ isExpanded ? 'Show less' : 'Show more' }}</span>
+          <span>{{ displayText(isExpanded ? 'Show less' : 'Show more') }}</span>
           <div
             :class="{ 'rotate-180': isExpanded }"
             class="transition-transform duration-200"
@@ -155,7 +163,7 @@ function toggleExpansion() {
             ]"
           >
             <div i-solar:wad-of-money-bold-duotone class="text-[10px]" />
-            <span>Free</span>
+            <span>{{ t('onboarding.ui.free') }}</span>
           </div>
         </template>
         <template v-else-if="pricing === 'paid'">
@@ -168,7 +176,7 @@ function toggleExpansion() {
             ]"
           >
             <div i-solar:card-2-bold-duotone class="text-[10px]" />
-            <span>Paid</span>
+            <span>{{ t('onboarding.ui.paid') }}</span>
           </div>
         </template>
 
@@ -182,7 +190,7 @@ function toggleExpansion() {
             ]"
           >
             <div i-solar:laptop-bold-duotone class="text-[10px]" />
-            <span>Local</span>
+            <span>{{ t('onboarding.ui.local') }}</span>
           </div>
         </template>
         <template v-else-if="deployment === 'cloud'">
@@ -195,7 +203,7 @@ function toggleExpansion() {
             ]"
           >
             <div i-solar:cloud-bold-duotone class="text-[10px]" />
-            <span>Cloud</span>
+            <span>{{ t('onboarding.ui.cloud') }}</span>
           </div>
         </template>
 
@@ -209,7 +217,7 @@ function toggleExpansion() {
             ]"
           >
             <div i-solar:star-bold-duotone class="text-[10px]" />
-            <span>Suggested</span>
+            <span>{{ t('onboarding.ui.suggested') }}</span>
           </div>
         </template>
       </div>
@@ -220,7 +228,7 @@ function toggleExpansion() {
           v-model="modelValue"
           type="text"
           class="w-full border border-neutral-300 rounded bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-          :placeholder="customInputPlaceholder"
+          :placeholder="displayText(customInputPlaceholder)"
         />
       </div>
     </div>

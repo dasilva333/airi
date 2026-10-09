@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../../../../../../stage-ui/src/components/scenarios/dialogs/onboarding/v3/composables/use-onboarding-display-text'
+import { useI18n } from 'vue-i18n'
+
+const { displayText, displayOptions } = useOnboardingDisplayText()
+
+
 import type { AiriExtension } from '@proj-airi/stage-ui/stores/modules/airi-card'
 
 import { DEFAULT_POST_HISTORY_INSTRUCTIONS } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
@@ -22,6 +28,8 @@ import {
 } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
@@ -267,7 +275,7 @@ async function generateVisualDescription() {
   const modelId = selectedConsciousnessModel.value || defaultConsciousnessModel.value
 
   if (!providerId || !modelId) {
-    toast.error('Please configure the consciousness provider and model in Step 3 first.')
+    toast.error(displayText('Please configure the consciousness provider and model in Step 3 first.'))
     return
   }
 
@@ -313,7 +321,7 @@ async function generateVisualDescription() {
     const resultText = llmResponse.text?.trim() || ''
     if (resultText) {
       description.value = resultText
-      toast.success('Visual description generated successfully!')
+      toast.success(displayText('Visual description generated successfully!'))
     }
     else {
       throw new Error('Empty response received from LLM.')
@@ -321,7 +329,7 @@ async function generateVisualDescription() {
   }
   catch (err: any) {
     console.error('[ImportWizard] Description generation failed:', err)
-    toast.error(err.message || 'Failed to generate visual description.')
+    toast.error(displayText(err.message || 'Failed to generate visual description.'))
   }
   finally {
     generatingDescription.value = false
@@ -333,7 +341,7 @@ async function generateImagePrompt() {
   const modelId = selectedConsciousnessModel.value || defaultConsciousnessModel.value
 
   if (!providerId || !modelId) {
-    toast.error('Please configure the consciousness provider and model in Step 3 first.')
+    toast.error(displayText('Please configure the consciousness provider and model in Step 3 first.'))
     return
   }
 
@@ -413,7 +421,7 @@ Critical Filtering Instructions:
     const resultText = llmResponse.text?.trim() || ''
     if (resultText) {
       artistryPromptPrefix.value = resultText
-      toast.success('Artistry prompt prefix generated successfully!')
+      toast.success(displayText('Artistry prompt prefix generated successfully!'))
     }
     else {
       throw new Error('Empty response received from LLM.')
@@ -421,7 +429,7 @@ Critical Filtering Instructions:
   }
   catch (err: any) {
     console.error('[ImportWizard] Prefix generation failed:', err)
-    toast.error(err.message || 'Failed to generate image prompt prefix.')
+    toast.error(displayText(err.message || 'Failed to generate image prompt prefix.'))
   }
   finally {
     generatingPrefix.value = false
@@ -432,11 +440,11 @@ Critical Filtering Instructions:
 function nextStep() {
   if (currentStep.value === 1) {
     if (!name.value.trim()) {
-      toast.error('Character name is required.')
+      toast.error(displayText('Character name is required.'))
       return
     }
     if (hasUserPattern.value && !userName.value.trim()) {
-      toast.error('Your name is required by this card.')
+      toast.error(displayText('Your name is required by this card.'))
       return
     }
   }
@@ -539,18 +547,18 @@ async function finalizeImport() {
     if (props.draftOnly) {
       emit('submitDraft', finalCard)
       emit('update:modelValue', false)
-      toast.success('Companion draft successfully configured!')
+      toast.success(displayText('Companion draft successfully configured!'))
       return
     }
 
     const newId = await cardStore.addCard(finalCard)
     emit('imported', newId)
     emit('update:modelValue', false)
-    toast.success('Companion successfully configured and saved!')
+    toast.success(displayText('Companion successfully configured and saved!'))
   }
   catch (error) {
     console.error('[ImportWizard] Error saving card:', error)
-    toast.error('Failed to save imported card.')
+    toast.error(displayText('Failed to save imported card.'))
   }
 }
 </script>
@@ -565,10 +573,10 @@ async function finalizeImport() {
           <div class="flex items-center justify-between border-b border-neutral-200 pb-3 dark:border-neutral-700">
             <div>
               <DialogTitle class="from-primary-500 to-primary-400 bg-gradient-to-r bg-clip-text text-xl text-transparent font-bold">
-                Configure Imported Companion
+                {{ t('onboarding.ui.configure-imported-companion') }}
               </DialogTitle>
               <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                Finetune your new companion before introducing them to the stage.
+                {{ t('onboarding.ui.finetune-your-new-companion-before-introducing-them-to-the-stage') }}
               </p>
             </div>
             <div class="flex gap-1">
@@ -588,42 +596,42 @@ async function finalizeImport() {
             <!-- STEP 1: Identity & Prompts -->
             <div v-if="currentStep === 1" class="flex flex-col gap-5">
               <div class="flex flex-col gap-2">
-                <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Name</label>
+                <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">{{ t('onboarding.ui.name') }}</label>
                 <input
                   v-model="name"
                   type="text"
-                  placeholder="Companion name"
+                  :placeholder="t('onboarding.ui.companion-name')"
                   class="w-full border border-neutral-200 rounded-xl bg-neutral-50/50 p-3 text-sm outline-none dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900/50 dark:focus:border-primary-400"
                 >
               </div>
 
               <div v-if="hasUserPattern" class="flex flex-col gap-2">
-                <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Your Name (Required by Card)</label>
+                <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">{{ t('onboarding.ui.your-name-required-by-card') }}</label>
                 <input
                   v-model="userName"
                   type="text"
-                  placeholder="Enter your name (replacing {{user}})"
+                  :placeholder="t('onboarding.ui.enter-your-name-replacing-user')"
                   class="w-full border border-neutral-200 rounded-xl bg-neutral-50/50 p-3 text-sm outline-none dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900/50 dark:focus:border-primary-400"
                 >
               </div>
 
               <div class="flex flex-col gap-2">
-                <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Greetings</label>
+                <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">{{ t('settings.pages.card.creation.fields_info.greetings_field') }}</label>
                 <div class="max-h-[100px] overflow-y-auto border border-neutral-200 rounded-xl bg-neutral-50/40 p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-950/40">
                   <div v-for="(greet, i) in (extractedCardMeta.greetings.length ? extractedCardMeta.greetings : props.cardData?.greetings)" :key="i" class="mb-2 last:mb-0">
-                    <strong>Greeting {{ Number(i) + 1 }}:</strong> {{ greet }}
+                    <strong>{{ t('onboarding.ui.greeting') }} {{ displayText(Number(i) + 1) }}:</strong> {{ greet }}
                   </div>
                   <div v-if="!extractedCardMeta.greetings.length && !props.cardData?.greetings?.length" class="italic">
-                    No greetings imported.
+                    {{ t('onboarding.ui.no-greetings-imported') }}
                   </div>
                 </div>
               </div>
 
               <div class="flex flex-col gap-2">
-                <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Personality & Context (Read-Only)</label>
+                <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">{{ t('onboarding.ui.personality-context-read-only') }}</label>
                 <textarea
                   readonly
-                  :value="extractedCardMeta.personality || 'No personality prompt found.'"
+                  :value="extractedCardMeta.personality || t('onboarding.ui.no-personality-prompt-found')"
                   rows="4"
                   class="w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/40 p-3 text-xs text-neutral-500 outline-none dark:border-neutral-700 dark:bg-neutral-950/40"
                 />
@@ -633,7 +641,7 @@ async function finalizeImport() {
             <!-- STEP 2: Visual Avatar -->
             <div v-if="currentStep === 2" class="flex flex-col gap-4">
               <p class="text-sm text-neutral-500 dark:text-neutral-400">
-                Choose the visual model to represent this companion on stage.
+                {{ t('onboarding.ui.choose-the-visual-model-to-represent-this-companion-on-stage') }}
               </p>
               <!-- Search Input -->
               <div class="relative">
@@ -641,7 +649,7 @@ async function finalizeImport() {
                 <input
                   v-model="importModelSearch"
                   type="text"
-                  placeholder="Search avatars..."
+                  :placeholder="t('onboarding.ui.shared-control-strip-ui-search-avatars')"
                   class="w-full border border-neutral-200/10 rounded-xl bg-neutral-200/40 py-1 pl-7 pr-2.5 text-[11px] text-neutral-700 dark:border-neutral-800/10 dark:bg-neutral-800/40 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
                 >
               </div>
@@ -677,24 +685,24 @@ async function finalizeImport() {
             <div v-if="currentStep === 3" class="grid grid-cols-1 gap-5 md:grid-cols-2">
               <div class="flex flex-col gap-4 border border-neutral-100 rounded-2xl bg-neutral-50/50 p-4 dark:border-neutral-700/55 dark:bg-neutral-900/30">
                 <h4 class="flex items-center gap-2 text-sm text-neutral-700 font-bold dark:text-neutral-200">
-                  <div i-lucide:brain class="text-primary-500" /> Consciousness (LLM)
+                  <div i-lucide:brain class="text-primary-500" /> {{ t('onboarding.ui.consciousness-llm') }}
                 </h4>
                 <div class="flex flex-col gap-3">
                   <div class="flex flex-col gap-1.5">
-                    <label class="text-xs text-neutral-400">Provider</label>
+                    <label class="text-xs text-neutral-400">{{ t('onboarding.ui.shared-control-strip-ui-provider') }}</label>
                     <Select
                       v-model="selectedConsciousnessProvider"
-                      :options="consciousnessProviderOptions"
-                      placeholder="Use default provider"
+                      :options="displayOptions(consciousnessProviderOptions)"
+                      :placeholder="t('onboarding.ui.use-default-provider')"
                       class="w-full"
                     />
                   </div>
                   <div class="flex flex-col gap-1.5">
-                    <label class="text-xs text-neutral-400">Model</label>
+                    <label class="text-xs text-neutral-400">{{ t('onboarding.ui.shared-control-strip-radial-model') }}</label>
                     <Select
                       v-model="selectedConsciousnessModel"
-                      :options="consciousnessModelOptions"
-                      placeholder="Use default model"
+                      :options="displayOptions(consciousnessModelOptions)"
+                      :placeholder="t('onboarding.ui.use-default-model')"
                       :disabled="!selectedConsciousnessProvider"
                       class="w-full"
                     />
@@ -704,34 +712,34 @@ async function finalizeImport() {
 
               <div class="flex flex-col gap-4 border border-neutral-100 rounded-2xl bg-neutral-50/50 p-4 dark:border-neutral-700/55 dark:bg-neutral-900/30">
                 <h4 class="flex items-center gap-2 text-sm text-neutral-700 font-bold dark:text-neutral-200">
-                  <div i-lucide:mic class="text-primary-500" /> Speech (TTS)
+                  <div i-lucide:mic class="text-primary-500" /> {{ t('settings.pages.modules.speech.title') }}
                 </h4>
                 <div class="flex flex-col gap-3">
                   <div class="flex flex-col gap-1.5">
-                    <label class="text-xs text-neutral-400">Provider</label>
+                    <label class="text-xs text-neutral-400">{{ t('onboarding.ui.shared-control-strip-ui-provider') }}</label>
                     <Select
                       v-model="selectedSpeechProvider"
-                      :options="speechProviderOptions"
-                      placeholder="Use default provider"
+                      :options="displayOptions(speechProviderOptions)"
+                      :placeholder="t('onboarding.ui.use-default-provider')"
                       class="w-full"
                     />
                   </div>
                   <div class="flex flex-col gap-1.5">
-                    <label class="text-xs text-neutral-400">Model</label>
+                    <label class="text-xs text-neutral-400">{{ t('onboarding.ui.shared-control-strip-radial-model') }}</label>
                     <Select
                       v-model="selectedSpeechModel"
-                      :options="speechModelOptions"
-                      placeholder="Use default model"
+                      :options="displayOptions(speechModelOptions)"
+                      :placeholder="t('onboarding.ui.use-default-model')"
                       :disabled="!selectedSpeechProvider"
                       class="w-full"
                     />
                   </div>
                   <div class="flex flex-col gap-1.5">
-                    <label class="text-xs text-neutral-400">Voice</label>
+                    <label class="text-xs text-neutral-400">{{ t('settings.voices') }}</label>
                     <Select
                       v-model="selectedSpeechVoiceId"
-                      :options="speechVoiceOptions"
-                      placeholder="Use default voice"
+                      :options="displayOptions(speechVoiceOptions)"
+                      :placeholder="t('onboarding.ui.use-default-voice')"
                       :disabled="!selectedSpeechProvider"
                       class="w-full"
                     />
@@ -743,15 +751,15 @@ async function finalizeImport() {
             <!-- STEP 4: Quick Toggles -->
             <div v-if="currentStep === 4" class="flex flex-col gap-4">
               <p class="text-sm text-neutral-500 dark:text-neutral-400">
-                Set final initial preferences for your companion's extra behaviors.
+                {{ t('onboarding.ui.set-final-initial-preferences-for-your-companion-s-extra-behaviors') }}
               </p>
 
               <div class="flex flex-col gap-3">
                 <div class="flex items-center justify-between border border-neutral-100 rounded-xl bg-neutral-50/30 p-4 dark:border-neutral-700/40 dark:bg-neutral-900/20">
                   <div class="flex flex-col gap-1">
-                    <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Dream State (Journaling)</label>
+                    <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">{{ t('onboarding.ui.dream-state-journaling') }}</label>
                     <p class="max-w-md text-xs text-neutral-400">
-                      Let the companion periodically write thoughts, reflect on logs, and write down journals.
+                      {{ t('onboarding.ui.let-the-companion-periodically-write-thoughts-reflect-on-logs-and-write-down-j') }}
                     </p>
                   </div>
                   <input v-model="dreamStateEnabled" type="checkbox" class="h-5 w-5 cursor-pointer accent-primary-500">
@@ -759,9 +767,9 @@ async function finalizeImport() {
 
                 <div class="flex items-center justify-between border border-neutral-100 rounded-xl bg-neutral-50/30 p-4 dark:border-neutral-700/40 dark:bg-neutral-900/20">
                   <div class="flex flex-col gap-1">
-                    <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Autonomous Artistry</label>
+                    <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">{{ t('onboarding.ui.shared-pages-chat-autonomous-artistry') }}</label>
                     <p class="max-w-md text-xs text-neutral-400">
-                      Allow the companion to autonomously trigger emotes and manners without direct instructions.
+                      {{ t('onboarding.ui.allow-the-companion-to-autonomously-trigger-emotes-and-manners-without-direct') }}
                     </p>
                   </div>
                   <input v-model="artistryAutonomousEnabled" type="checkbox" class="h-5 w-5 cursor-pointer accent-primary-500">
@@ -769,9 +777,9 @@ async function finalizeImport() {
 
                 <div class="flex items-center justify-between border border-neutral-100 rounded-xl bg-neutral-50/30 p-4 dark:border-neutral-700/40 dark:bg-neutral-900/20">
                   <div class="flex flex-col gap-1">
-                    <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">Active Proactivity</label>
+                    <label class="text-sm text-neutral-700 font-bold dark:text-neutral-300">{{ t('onboarding.ui.active-proactivity') }}</label>
                     <p class="max-w-md text-xs text-neutral-400">
-                      Allow companion to initiate conversations periodically without user prompts.
+                      {{ t('onboarding.ui.allow-companion-to-initiate-conversations-periodically-without-user-prompts') }}
                     </p>
                   </div>
                   <input v-model="proactivityEnabled" type="checkbox" class="h-5 w-5 cursor-pointer accent-primary-500">
@@ -782,15 +790,15 @@ async function finalizeImport() {
             <!-- STEP 5: Visual Description & Artistry -->
             <div v-if="currentStep === 5" class="flex flex-col gap-4">
               <p class="text-sm text-neutral-500 dark:text-neutral-400">
-                Finetune your companion's visual description and prompt prefix to keep them self-aware and visually consistent.
+                {{ t('onboarding.ui.finetune-your-companion-s-visual-description-and-prompt-prefix-to-keep-them-se') }}
               </p>
 
               <div class="flex flex-col gap-4">
                 <div class="flex flex-col gap-2">
-                  <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Visual Description</label>
+                  <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">{{ t('onboarding.ui.visual-description') }}</label>
                   <textarea
                     v-model="description"
-                    placeholder="Enter visual/physical details in prose..."
+                    :placeholder="t('onboarding.ui.enter-visual-physical-details-in-prose')"
                     rows="4"
                     class="w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/50 p-3 text-sm outline-none dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900/50 dark:focus:border-primary-400"
                   />
@@ -802,15 +810,15 @@ async function finalizeImport() {
                   >
                     <div v-if="generatingDescription" class="i-solar:refresh-bold animate-spin" />
                     <div v-else class="i-solar:sparkles-bold-duotone text-violet-500" />
-                    {{ generatingDescription ? 'Generating description...' : 'Generate Visual Description of Model' }}
+                    {{ displayText(generatingDescription ? 'Generating description...' : 'Generate Visual Description of Model') }}
                   </Button>
                 </div>
 
                 <div v-if="artistryAutonomousEnabled" class="flex flex-col gap-2 border-t border-neutral-100 pt-4 dark:border-neutral-700/50">
-                  <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Artistry Prompt Prefix</label>
+                  <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">{{ t('onboarding.ui.artistry-prompt-prefix') }}</label>
                   <textarea
                     v-model="artistryPromptPrefix"
-                    placeholder="Enter Stable Diffusion prompt tags (e.g. blonde hair, blue eyes)..."
+                    :placeholder="t('onboarding.ui.enter-stable-diffusion-prompt-tags-e-g-blonde-hair-blue-eyes')"
                     rows="3"
                     class="w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/50 p-3 text-sm outline-none dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900/50 dark:focus:border-primary-400"
                   />
@@ -822,7 +830,7 @@ async function finalizeImport() {
                   >
                     <div v-if="generatingPrefix" class="i-solar:refresh-bold animate-spin" />
                     <div v-else class="i-solar:sparkles-bold-duotone text-violet-500" />
-                    {{ generatingPrefix ? 'Generating image prompt...' : 'Generate Image Prompt of Model' }}
+                    {{ displayText(generatingPrefix ? 'Generating image prompt...' : 'Generate Image Prompt of Model') }}
                   </Button>
                 </div>
               </div>
@@ -835,13 +843,13 @@ async function finalizeImport() {
               <Button
                 variant="secondary"
                 icon="i-solar:close-circle-bold-duotone"
-                label="Cancel"
+                :label="t('onboarding.ui.shared-ui-settings-search-cancel')"
                 @click="emit('update:modelValue', false)"
               />
               <Button
                 variant="primary"
                 icon="i-solar:check-circle-bold-duotone"
-                label="Stage Companion"
+                :label="t('onboarding.ui.stage-companion')"
                 @click="finalizeImport"
               />
             </template>
@@ -849,7 +857,7 @@ async function finalizeImport() {
               <Button
                 variant="secondary"
                 icon="i-solar:arrow-left-bold-duotone"
-                label="Back"
+                :label="t('onboarding.shell.previous')"
                 :disabled="currentStep === 1"
                 @click="prevStep"
               />
@@ -857,14 +865,14 @@ async function finalizeImport() {
                 v-if="currentStep < 5"
                 variant="primary"
                 icon="i-solar:arrow-right-bold-duotone"
-                label="Next"
+                :label="t('settings.dialogs.onboarding.next')"
                 @click="nextStep"
               />
               <Button
                 v-else
                 variant="primary"
                 icon="i-solar:check-circle-bold-duotone"
-                label="Complete Setup"
+                :label="t('onboarding.ui.complete-setup')"
                 @click="finalizeImport"
               />
             </template>

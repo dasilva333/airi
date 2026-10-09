@@ -130,7 +130,7 @@ function handleContinue() {
       </button>
 
       <div :class="['text-[11px] text-neutral-400 hidden sm:block']">
-        Changes automatically saved to companion draft
+        {{ t('onboarding.ui.changes-automatically-saved-to-companion-draft') }}
       </div>
 
       <div :class="['flex items-center gap-2.5']">

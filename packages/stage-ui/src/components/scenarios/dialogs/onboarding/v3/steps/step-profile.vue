@@ -1,12 +1,18 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import { Button } from '@proj-airi/ui'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -91,6 +97,12 @@ const USER_ARCHETYPES: UserArchetype[] = [
 const selectedArchetypeId = ref<string | null>(draft.state.selectedUserArchetypeId || null)
 const selectedGender = ref<'male' | 'female' | 'non-binary'>(draft.state.userGender || 'male')
 
+const localizedArchetypes = computed(() => USER_ARCHETYPES.map(archetype => ({
+  ...archetype,
+  label: t(`onboarding.steps.profile.archetypes.${archetype.id}.label`),
+  subtitle: t(`onboarding.steps.profile.archetypes.${archetype.id}.subtitle`),
+})))
+
 function selectGender(gender: 'male' | 'female' | 'non-binary') {
   selectedGender.value = gender
   if (draft.state) {
@@ -125,8 +137,8 @@ function applyArchetype(archetype: UserArchetype) {
       :class="['flex-shrink-0']"
     >
       <div :class="['flex items-center justify-between text-xs text-neutral-400 mb-1']">
-        <span :class="['text-primary-500 font-semibold']">Step 5 of 16</span>
-        <span :class="['font-medium tracking-wide uppercase']">User Profile & Identity</span>
+        <span :class="['text-primary-500 font-semibold']">{{ t('onboarding.steps.profile.step', { current: 5, total: 16 }) }}</span>
+        <span :class="['font-medium tracking-wide uppercase']">{{ t('onboarding.steps.profile.eyebrow') }}</span>
       </div>
       <h2 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
         {{ t('onboarding.steps.profile.title') }}
@@ -141,7 +153,7 @@ function applyArchetype(archetype: UserArchetype) {
       <!-- Companion Advice Bubble -->
       <CompanionBubble
         tone="purple"
-        message="Tell her who you are! Pick a ready-to-use persona archetype or customize your identity and appearance tags below."
+        :message="t('onboarding.steps.profile.advice')"
       />
 
       <!-- Quick Archetype Presets -->
@@ -158,14 +170,14 @@ function applyArchetype(archetype: UserArchetype) {
       >
         <div :class="['flex items-center justify-between']">
           <span :class="['text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400']">
-            Archetype Templates
+            {{ t('onboarding.steps.profile.archetypeTemplates') }}
           </span>
-          <span :class="['text-[11px] text-neutral-400']">Tap to auto-fill</span>
+          <span :class="['text-[11px] text-neutral-400']">{{ t('onboarding.steps.profile.tapToAutofill') }}</span>
         </div>
 
         <div :class="['grid grid-cols-1 gap-2.5 sm:grid-cols-2']">
           <button
-            v-for="archetype in USER_ARCHETYPES"
+            v-for="archetype in localizedArchetypes"
             :key="archetype.id"
             type="button"
             :class="[
@@ -190,7 +202,7 @@ function applyArchetype(archetype: UserArchetype) {
             <div :class="['min-w-0 flex-1']">
               <div :class="['flex items-center gap-1.5']">
                 <span :class="['text-xs text-neutral-800 font-bold dark:text-neutral-100']">
-                  {{ archetype.label }}
+                  {{ displayText(archetype.label) }}
                 </span>
                 <span
                   :class="[
@@ -200,11 +212,11 @@ function applyArchetype(archetype: UserArchetype) {
                       : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
                   ]"
                 >
-                  {{ archetype.gender }}
+                  {{ t(`onboarding.steps.profile.gender.${archetype.gender}`) }}
                 </span>
               </div>
               <p :class="['truncate text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5']">
-                {{ archetype.subtitle }}
+                {{ displayText(archetype.subtitle) }}
               </p>
             </div>
           </button>
@@ -235,7 +247,7 @@ function applyArchetype(archetype: UserArchetype) {
             ]"
           >
           <p :class="['text-[10px] text-neutral-400 italic']">
-            The default nickname used by imported cards and creator story scripts unless overridden.
+            {{ t('onboarding.steps.profile.userName.help') }}
           </p>
         </div>
 
@@ -260,13 +272,13 @@ function applyArchetype(archetype: UserArchetype) {
             >
               <div :class="[opt.icon, 'h-4 w-4 shrink-0']" />
               <div :class="['min-w-0 flex flex-col']">
-                <span :class="['text-xs leading-tight']">{{ opt.label }}</span>
-                <span :class="['text-[10px] font-normal text-neutral-400']">{{ opt.sub }}</span>
+                <span :class="['text-xs leading-tight']">{{ displayText(opt.label) }}</span>
+                <span :class="['text-[10px] font-normal text-neutral-400']">{{ displayText(opt.sub) }}</span>
               </div>
             </button>
           </div>
           <p :class="['text-[10px] text-neutral-400 italic']">
-            Shapes third-person narrative pronouns and relationship lore in companion card generation.
+            {{ t('onboarding.steps.profile.pronouns.help') }}
           </p>
         </div>
 
@@ -282,23 +294,23 @@ function applyArchetype(archetype: UserArchetype) {
             ]"
           />
           <p :class="['text-[10px] text-neutral-400 italic']">
-            A short prose summary helping the cognitive/storyline models understand your role.
+            {{ t('onboarding.steps.profile.userBio.help') }}
           </p>
         </div>
 
         <div :class="['flex flex-col gap-1.5']">
-          <label :class="['text-xs text-neutral-700 font-bold dark:text-neutral-300']">Visual Prompt Tags</label>
+          <label :class="['text-xs text-neutral-700 font-bold dark:text-neutral-300']">{{ t('onboarding.steps.profile.visualPrompt.label') }}</label>
           <textarea
             v-model="draft.state.userPrompt"
             rows="3"
-            placeholder=", short dark hair, spectacles, formal grey business suit"
+            :placeholder="t('onboarding.steps.profile.visualPrompt.placeholder')"
             :class="[
               'w-full border border-neutral-200 rounded-xl bg-white px-3.5 py-2 text-sm text-neutral-800 outline-none resize-none font-mono text-xs',
               'dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200 transition-colors',
             ]"
           />
           <p :class="['text-[10px] text-neutral-400 italic']">
-            Stable Diffusion / ComfyUI prompt tags injected when generating scene graphics representing you.
+            {{ t('onboarding.steps.profile.visualPrompt.help') }}
           </p>
         </div>
       </div>
@@ -325,7 +337,7 @@ function applyArchetype(archetype: UserArchetype) {
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        Displaying as: <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ draft.state.userName || 'Richy' }}</span>
+        {{ t('onboarding.steps.profile.displayingAs') }} <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ draft.state.userName || 'Richy' }}</span>
       </div>
 
       <Button

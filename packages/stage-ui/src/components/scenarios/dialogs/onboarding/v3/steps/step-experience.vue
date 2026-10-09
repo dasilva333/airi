@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import type { ExperienceArchetypeId, ModuleBundleConfig } from '../stores/useOnboardingV3Draft'
 
 import { Button } from '@proj-airi/ui'
@@ -16,6 +19,9 @@ import {
   useOnboardingV3Draft,
 } from '../stores/useOnboardingV3Draft'
 import { ONBOARDING_V3_STEPS } from '../types'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -493,7 +499,7 @@ function resetToPresetDefaults() {
             'bg-sky-950/20 shadow-sm',
           ]"
         >
-          "Choose an archetype that fits your style. Whether you prefer a silent observer, voice companion, or full stage performer, every capability can be customized."
+          {{ t('onboarding.ui.choose-an-archetype-that-fits-your-style-whether-you-prefer-a-silent-observer') }}
         </div>
       </div>
     </div>
@@ -540,17 +546,17 @@ function resetToPresetDefaults() {
 
               <div :class="['min-w-0 flex-1']">
                 <h2 :class="['text-sm font-bold text-neutral-900 dark:text-white leading-tight truncate']">
-                  {{ getArchetypeTitle(archetype) }}
+                  {{ displayText(getArchetypeTitle(archetype)) }}
                 </h2>
                 <p :class="['text-xs font-medium mt-0.5 leading-tight truncate', archetype.colorTheme.subtitleColor]">
-                  {{ getArchetypeSubtitle(archetype) }}
+                  {{ displayText(getArchetypeSubtitle(archetype)) }}
                 </p>
               </div>
             </div>
 
             <!-- Description -->
             <p :class="['text-xs text-neutral-600 dark:text-neutral-400 mt-1 leading-relaxed']">
-              {{ getArchetypeDescription(archetype) }}
+              {{ displayText(getArchetypeDescription(archetype)) }}
             </p>
           </div>
 
@@ -569,7 +575,7 @@ function resetToPresetDefaults() {
                   ]"
                 >
                   <div :class="[CAPABILITY_DETAILS[chip.label]?.icon || chip.icon, 'text-xs shrink-0', CAPABILITY_DETAILS[chip.label]?.color || chip.color || 'text-neutral-400']" />
-                  <span>{{ chip.label }}</span>
+                  <span>{{ displayText(chip.label) }}</span>
                 </div>
               </TooltipTrigger>
               <TooltipPortal>
@@ -587,10 +593,10 @@ function resetToPresetDefaults() {
                   <div v-if="CAPABILITY_DETAILS[chip.label]">
                     <div :class="['flex items-center gap-1.5 font-bold text-xs text-neutral-900 dark:text-white mb-1']">
                       <div :class="[CAPABILITY_DETAILS[chip.label].icon, 'text-xs shrink-0', CAPABILITY_DETAILS[chip.label].color]" />
-                      <span>{{ CAPABILITY_DETAILS[chip.label].title }}</span>
+                      <span>{{ displayText(CAPABILITY_DETAILS[chip.label].title) }}</span>
                     </div>
                     <p :class="['text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug mb-2']">
-                      {{ CAPABILITY_DETAILS[chip.label].description }}
+                      {{ displayText(CAPABILITY_DETAILS[chip.label].description) }}
                     </p>
                     <div :class="['space-y-1 pt-1.5 border-t border-neutral-100 dark:border-white/5 text-[10px] text-neutral-500 dark:text-neutral-300']">
                       <div
@@ -599,7 +605,7 @@ function resetToPresetDefaults() {
                         :class="['flex items-center gap-1.5 leading-tight']"
                       >
                         <div :class="['w-1 h-1 rounded-full bg-primary-500/80 dark:bg-primary-400/80 shrink-0']" />
-                        <span>{{ bullet }}</span>
+                        <span>{{ displayText(bullet) }}</span>
                       </div>
                     </div>
                   </div>
@@ -642,10 +648,10 @@ function resetToPresetDefaults() {
             :class="['text-[11px] text-neutral-400 hover:text-primary-500 font-medium transition-colors cursor-pointer mr-2']"
             @click.stop="resetToPresetDefaults"
           >
-            Reset to Preset
+            {{ t('onboarding.ui.reset-to-preset') }}
           </button>
           <span :class="['text-xs text-neutral-500 dark:text-neutral-400 font-medium']">
-            {{ activeModules.length }} enabled · {{ Math.max(0, 10 - activeModules.length) }} available · {{ totalSteps }} steps
+            {{ displayText(activeModules.length) }} {{ t('onboarding.ui.enabled') }} {{ displayText(Math.max(0, 10 - activeModules.length)) }} {{ t('onboarding.ui.available') }} {{ displayText(totalSteps) }} {{ t('onboarding.ui.steps') }}
           </span>
           <div
             :class="[
@@ -688,7 +694,7 @@ function resetToPresetDefaults() {
             <div :class="['min-w-0 flex-1']">
               <div :class="['flex items-center justify-between gap-1']">
                 <span :class="['text-xs font-bold truncate']">
-                  {{ mod.label }}
+                  {{ displayText(mod.label) }}
                 </span>
                 <span
                   :class="[
@@ -696,11 +702,11 @@ function resetToPresetDefaults() {
                     draftStore.state?.modules?.[mod.key] ? 'text-primary-500 font-bold' : 'text-neutral-400',
                   ]"
                 >
-                  {{ draftStore.state?.modules?.[mod.key] ? 'ON' : 'OFF' }}
+                  {{ displayText(draftStore.state?.modules?.[mod.key] ? 'ON' : 'OFF') }}
                 </span>
               </div>
               <p :class="['text-[10px] text-neutral-400 mt-0.5 leading-snug line-clamp-2']">
-                {{ mod.description }}
+                {{ displayText(mod.description) }}
               </p>
             </div>
           </button>
@@ -718,14 +724,14 @@ function resetToPresetDefaults() {
             <div :class="['min-w-0 flex-1']">
               <div :class="['flex items-center justify-between gap-1']">
                 <span :class="['text-xs font-semibold text-neutral-500 dark:text-neutral-400 truncate']">
-                  Extensible Plugins
+                  {{ t('onboarding.ui.extensible-plugins') }}
                 </span>
                 <span :class="['text-[9px] font-mono text-neutral-400 dark:text-neutral-500 uppercase tracking-wider']">
-                  Soon
+                  {{ t('onboarding.ui.soon') }}
                 </span>
               </div>
               <p :class="['text-[10px] text-neutral-400/80 mt-0.5 leading-snug line-clamp-2']">
-                Discord bot, community skills & triggers
+                {{ t('onboarding.ui.discord-bot-community-skills-triggers') }}
               </p>
             </div>
           </div>
@@ -752,7 +758,7 @@ function resetToPresetDefaults() {
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        Selected: <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ getArchetypeTitle(selectedArchetype) }}</span>
+        {{ t('onboarding.ui.selected') }} <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ displayText(getArchetypeTitle(selectedArchetype)) }}</span>
       </div>
 
       <Button

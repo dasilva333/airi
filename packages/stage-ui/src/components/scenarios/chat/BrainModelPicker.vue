@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../dialogs/onboarding/v3/composables/use-onboarding-display-text'
+import { useI18n } from 'vue-i18n'
+
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
@@ -9,6 +12,10 @@ import { NativeAI } from '../../../libs/native-ai'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 import { useProvidersStore } from '../../../stores/providers'
+
+const { t } = useI18n()
+
+const { displayText } = useOnboardingDisplayText()
 
 const props = withDefaults(defineProps<Props>(), {
   title: 'Model & Provider',
@@ -246,11 +253,11 @@ function handleSelectFavorite(fav: FavoriteModel) {
   if (fav.provider === 'apple-core-ai' && fav.model && NativeAI.isNative()) {
     NativeAI.isModelCached(fav.model).then((cached) => {
       if (!cached) {
-        toast.info(`Preparing on-device ${fav.model.split('/').pop() || 'Core AI'} in background...`, {
+        toast.info(displayText(`Preparing on-device ${fav.model.split('/').pop() || 'Core AI'} in background...`), {
           duration: 5000,
         })
         NativeAI.downloadModel({ modelId: fav.model, repo: fav.model }).then(() => {
-          toast.success(`${fav.model.split('/').pop() || 'Core AI'} model ready!`)
+          toast.success(displayText(`${fav.model.split('/').pop() || 'Core AI'} model ready!`))
         }).catch((err) => {
           console.warn('[BrainModelPicker] Background download error:', err)
         })
@@ -292,7 +299,7 @@ const activeModelDisplay = computed(() => {
           type="button"
           class="size-8.5 flex cursor-pointer items-center justify-center border border-neutral-200/30 rounded-full bg-white/10 text-neutral-700 shadow-sm backdrop-blur-md transition-all active:scale-95 dark:border-neutral-700/40 dark:bg-neutral-800/60 dark:text-neutral-200"
           :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
-          :title="title"
+          :title="displayText(title)"
         >
           <div class="i-ph:brain-duotone size-4.5 text-teal-500 dark:text-teal-400" />
         </button>
@@ -301,7 +308,7 @@ const activeModelDisplay = computed(() => {
           type="button"
           class="w-fit flex cursor-pointer items-center justify-center border-2 border-neutral-100/60 rounded-xl border-solid bg-neutral-50/70 p-2 backdrop-blur-md transition-all active:scale-95 dark:border-neutral-800/30 dark:bg-neutral-800/70"
           :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
-          :title="title"
+          :title="displayText(title)"
         >
           <div class="i-ph:brain-duotone size-5 text-neutral-500 dark:text-neutral-400" />
         </button>
@@ -310,11 +317,11 @@ const activeModelDisplay = computed(() => {
           type="button"
           class="h-9 inline-flex cursor-pointer items-center gap-2 border border-neutral-200 rounded-xl bg-white px-3 text-xs text-neutral-700 font-medium shadow-sm transition-all dark:border-neutral-800 hover:border-primary-300 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-primary-800"
           :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
-          :title="title"
+          :title="displayText(title)"
         >
           <div class="i-ph:brain-duotone text-sm text-primary-500" />
           <span class="max-w-xs truncate text-[11px] font-mono sm:max-w-sm">
-            {{ buttonLabel || activeModelDisplay }}
+            {{ displayText(buttonLabel || activeModelDisplay) }}
           </span>
           <div class="i-solar:alt-arrow-down-bold text-[10px] text-neutral-400" />
         </button>
@@ -323,7 +330,7 @@ const activeModelDisplay = computed(() => {
           type="button"
           class="flex cursor-pointer items-center justify-center rounded-xl p-1.5 text-neutral-500 transition-colors duration-200 ease-in-out hover:bg-neutral-200 dark:text-neutral-400 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
           :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
-          :title="title"
+          :title="displayText(title)"
         >
           <div class="i-ph:brain-duotone text-base" />
         </button>
@@ -342,31 +349,31 @@ const activeModelDisplay = computed(() => {
         <div class="mb-3 flex items-center justify-between border-b border-neutral-100 pb-2 dark:border-neutral-800">
           <div class="flex items-center gap-1.5">
             <div class="i-ph:brain-duotone text-base text-primary-500" />
-            <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase">{{ title }}</span>
+            <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase">{{ displayText(title) }}</span>
           </div>
-          <span class="rounded bg-primary-500/10 px-1.5 py-0.5 text-[9px] text-primary-500 font-bold font-mono uppercase dark:bg-primary-500/20">Model Picker</span>
+          <span class="rounded bg-primary-500/10 px-1.5 py-0.5 text-[9px] text-primary-500 font-bold font-mono uppercase dark:bg-primary-500/20">{{ t('onboarding.ui.model-picker') }}</span>
         </div>
 
         <!-- Sleek, Compact Active Status Badge -->
         <div class="mb-3.5 flex items-center justify-between gap-2 border border-neutral-200/30 rounded-xl bg-neutral-50/50 px-2.5 py-1.5 text-[10px] dark:border-neutral-800/60 dark:bg-neutral-800/20">
           <div class="flex items-center gap-1.5">
             <span class="size-1.5 animate-pulse rounded-full bg-emerald-500" />
-            <span class="text-neutral-400 font-bold tracking-tight uppercase">Selected</span>
+            <span class="text-neutral-400 font-bold tracking-tight uppercase">{{ t('onboarding.ui.selected-57fd7a0c') }}</span>
           </div>
-          <span class="max-w-48 truncate text-neutral-700 font-semibold font-mono dark:text-neutral-300" :title="activeModelDisplay">
-            {{ activeModelDisplay }}
+          <span class="max-w-48 truncate text-neutral-700 font-semibold font-mono dark:text-neutral-300" :title="displayText(activeModelDisplay)">
+            {{ displayText(activeModelDisplay) }}
           </span>
         </div>
 
         <!-- Favorites List -->
         <div class="mb-4">
           <div class="mb-2 flex items-center justify-between text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-            <span>Favorites</span>
-            <span class="text-[9px] text-neutral-400/60 font-mono">{{ favorites.length }} saved</span>
+            <span>{{ t('onboarding.ui.shared-control-strip-ui-favorites') }}</span>
+            <span class="text-[9px] text-neutral-400/60 font-mono">{{ displayText(favorites.length) }} {{ t('onboarding.ui.saved') }}</span>
           </div>
 
           <div v-if="favorites.length === 0" class="border border-neutral-200 rounded-xl border-dashed py-4 text-center text-xs text-neutral-400 dark:border-neutral-800">
-            No favorites saved. Add one below!
+            {{ t('onboarding.ui.no-favorites-saved-add-one-below') }}
           </div>
 
           <div v-else class="max-h-40 overflow-y-auto scrollbar-thin space-y-1.5">
@@ -392,10 +399,10 @@ const activeModelDisplay = computed(() => {
                 />
                 <div class="flex flex-col overflow-hidden">
                   <span class="truncate text-xs text-neutral-800 font-semibold dark:text-neutral-200">
-                    {{ fav.name }}
+                    {{ displayText(fav.name) }}
                   </span>
                   <span class="truncate text-[9px] text-neutral-400 font-mono">
-                    {{ fav.provider }} / {{ fav.model }}
+                    {{ displayText(fav.provider) }} / {{ displayText(fav.model) }}
                   </span>
                 </div>
               </div>
@@ -410,7 +417,7 @@ const activeModelDisplay = computed(() => {
                 <button
                   type="button"
                   class="rounded p-1 text-neutral-400 opacity-0 transition-all hover:text-red-500 group-hover:opacity-100"
-                  title="Remove Favorite"
+                  :title="t('onboarding.ui.remove-favorite')"
                   @click.stop="handleDeleteFavorite(fav)"
                 >
                   <div class="i-solar:trash-bin-trash-bold-duotone text-xs" />
@@ -439,19 +446,19 @@ const activeModelDisplay = computed(() => {
               @click="showAddForm = true"
             >
               <div class="i-solar:add-circle-linear text-sm" />
-              <span>Add New Favorite</span>
+              <span>{{ t('onboarding.ui.add-new-favorite') }}</span>
             </button>
 
             <!-- Form -->
             <div v-else class="space-y-2.5">
               <div class="flex items-center justify-between">
-                <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Add Favorite</span>
+                <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">{{ t('onboarding.ui.add-favorite') }}</span>
                 <button
                   type="button"
                   class="text-[10px] text-neutral-400 font-semibold hover:text-neutral-600 dark:hover:text-neutral-200"
                   @click="showAddForm = false"
                 >
-                  Cancel
+                  {{ t('onboarding.ui.shared-ui-settings-search-cancel') }}
                 </button>
               </div>
 
@@ -459,7 +466,7 @@ const activeModelDisplay = computed(() => {
               <input
                 v-model="newName"
                 type="text"
-                placeholder="Name (optional, defaults to model)"
+                :placeholder="t('onboarding.ui.name-optional-defaults-to-model')"
                 class="w-full border border-neutral-200/60 rounded-lg bg-transparent px-2.5 py-1.5 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:text-neutral-200 placeholder:text-neutral-400/60 focus:ring-1 focus:ring-primary-500/20"
               >
 
@@ -471,7 +478,7 @@ const activeModelDisplay = computed(() => {
                     class="w-full border border-neutral-200/60 rounded-lg bg-white px-2 py-1.5 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200 focus:ring-1 focus:ring-primary-500/20"
                   >
                     <option v-for="prov in configuredChatProviderOptions" :key="prov.value" :value="prov.value">
-                      {{ prov.label }}
+                      {{ displayText(prov.label) }}
                     </option>
                   </select>
                 </div>
@@ -482,7 +489,7 @@ const activeModelDisplay = computed(() => {
                     v-if="isManualModel || (!isLoadingModels && availableModels.length === 0)"
                     v-model="newModel"
                     type="text"
-                    placeholder="Model ID (e.g. model-name)"
+                    :placeholder="t('onboarding.ui.model-id-e-g-model-name')"
                     class="w-full border border-neutral-200/60 rounded-lg bg-white px-2.5 py-1.5 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200 placeholder:text-neutral-400/60 focus:ring-1 focus:ring-primary-500/20"
                   >
 
@@ -494,10 +501,10 @@ const activeModelDisplay = computed(() => {
                     :disabled="isLoadingModels"
                   >
                     <option value="" disabled selected>
-                      {{ isLoadingModels ? 'Loading...' : 'Select Model' }}
+                      {{ displayText(isLoadingModels ? 'Loading...' : 'Select Model') }}
                     </option>
                     <option v-for="model in availableModels" :key="model.id" :value="model.id">
-                      {{ model.name || model.id.split('/').pop() || model.id }}
+                      {{ displayText(model.name || model.id.split('/').pop() || model.id) }}
                     </option>
                   </select>
 
@@ -506,7 +513,7 @@ const activeModelDisplay = computed(() => {
                     v-if="availableModels.length > 0"
                     type="button"
                     class="shrink-0 border border-neutral-200/60 rounded-lg p-1.5 text-neutral-500 transition-colors dark:border-neutral-800 hover:bg-neutral-100 dark:text-neutral-400 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-                    :title="isManualModel ? 'Choose from discovered models' : 'Enter custom model ID'"
+                    :title="displayText(isManualModel ? 'Choose from discovered models' : 'Enter custom model ID')"
                     @click="isManualModel = !isManualModel"
                   >
                     <div :class="isManualModel ? 'i-solar:list-bold-duotone' : 'i-solar:pen-bold-duotone'" class="size-3.5" />
@@ -516,7 +523,7 @@ const activeModelDisplay = computed(() => {
 
               <!-- Endpoint Model Fallback Hint -->
               <p v-if="!isLoadingModels && availableModels.length === 0" class="text-[10px] text-amber-600/90 leading-tight dark:text-amber-400/90">
-                No models discovered from endpoint. Enter model ID manually.
+                {{ t('onboarding.ui.no-models-discovered-from-endpoint-enter-model-id-manually') }}
               </p>
 
               <!-- Add Button -->
@@ -527,7 +534,7 @@ const activeModelDisplay = computed(() => {
                 @click="handleAddFavorite"
               >
                 <div class="i-solar:add-circle-bold-duotone text-sm" />
-                <span>Save Favorite</span>
+                <span>{{ t('onboarding.ui.save-favorite') }}</span>
               </button>
             </div>
           </Transition>

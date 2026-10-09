@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
   artistryComfyHealthCheck,
@@ -15,6 +18,9 @@ import ComfyuiWorkflowModal from '../components/comfyui-workflow-modal.vue'
 
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
 import { buildArtistryPromptFromPersona } from '../types'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -366,9 +372,9 @@ function handleNext() {
       <div :class="['rounded-2xl border border-neutral-200 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] p-4.5 space-y-4 shadow-sm']">
         <div :class="['flex items-center justify-between']">
           <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-2']">
-            <span>🎨</span> Image Generation Backend & Engine
+            <span>🎨</span> {{ t('onboarding.ui.image-generation-backend-engine') }}
           </span>
-          <span :class="['text-[10px] text-neutral-400']">Global Synthesizer</span>
+          <span :class="['text-[10px] text-neutral-400']">{{ t('onboarding.ui.global-synthesizer') }}</span>
         </div>
 
         <!-- Provider Selection Horizontal Grid -->
@@ -390,10 +396,10 @@ function handleNext() {
                 <div v-if="selectedProvider === p.id" :class="['i-solar:check-circle-bold text-primary-500 text-sm shrink-0']" />
               </div>
               <div :class="['text-xs font-bold mt-2 text-neutral-900 dark:text-neutral-100 line-clamp-1']">
-                {{ p.name }}
+                {{ displayText(p.name) }}
               </div>
               <span :class="['mt-1 inline-block rounded px-1.5 py-0.5 text-[9px] font-medium border', p.badgeColor]">
-                {{ p.badge }}
+                {{ displayText(p.badge) }}
               </span>
             </div>
           </div>
@@ -405,14 +411,14 @@ function handleNext() {
           <div v-if="selectedProvider === 'pollinations'" :class="['space-y-1.5']">
             <div :class="['flex items-center justify-between text-xs']">
               <label :class="['font-medium text-neutral-700 dark:text-neutral-300']">
-                Pollinations API Key / Pollen Token <span :class="['text-neutral-400 text-[10px]']">(Optional)</span>
+                {{ t('onboarding.ui.pollinations-api-key-pollen-token') }} <span :class="['text-neutral-400 text-[10px]']">{{ t('onboarding.ui.optional') }}</span>
               </label>
-              <span :class="['text-[10px] text-emerald-500 dark:text-emerald-400 font-mono']">✓ Free mode active without key</span>
+              <span :class="['text-[10px] text-emerald-500 dark:text-emerald-400 font-mono']">{{ t('onboarding.ui.free-mode-active-without-key') }}</span>
             </div>
             <input
               v-model="apiKey"
               type="password"
-              placeholder="Leave blank for 100% free mode, or enter token for FLUX/Grok"
+              :placeholder="t('onboarding.ui.leave-blank-for-100-free-mode-or-enter-token-for-flux-grok')"
               :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-primary-500 focus:outline-none font-mono']"
               @input="syncDraft"
             >
@@ -422,7 +428,7 @@ function handleNext() {
           <div v-else-if="selectedProvider === 'comfyui'" :class="['space-y-3']">
             <div :class="['grid grid-cols-1 sm:grid-cols-12 gap-3 items-end']">
               <div :class="['sm:col-span-7 space-y-1']">
-                <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">ComfyUI Server URL</label>
+                <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">{{ t('onboarding.ui.comfyui-server-url') }}</label>
                 <div :class="['flex gap-2']">
                   <input
                     v-model="comfyServerUrl"
@@ -438,7 +444,7 @@ function handleNext() {
                     @click="testComfyConnection"
                   >
                     <div :class="[connectionStatus === 'testing' ? 'i-solar:refresh-bold animate-spin' : 'i-solar:plug-circle-bold']" />
-                    <span>Test</span>
+                    <span>{{ t('onboarding.ui.test') }}</span>
                   </button>
                 </div>
               </div>
@@ -458,7 +464,7 @@ function handleNext() {
                   @click="fileInputRef?.click()"
                 >
                   <div :class="['i-solar:upload-track-bold-duotone text-base']" />
-                  <span>Upload workflow_api.json</span>
+                  <span>{{ t('onboarding.ui.upload-workflow-api-json') }}</span>
                 </button>
               </div>
             </div>
@@ -466,13 +472,13 @@ function handleNext() {
             <!-- Comfy Connection Status Banner -->
             <div v-if="connectionInfo" :class="['text-xs px-3 py-1.5 rounded-lg font-mono flex items-center gap-2', connectionStatus === 'connected' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20']">
               <div :class="[connectionStatus === 'connected' ? 'i-solar:check-circle-bold' : 'i-solar:danger-triangle-bold']" />
-              <span>{{ connectionInfo }}</span>
+              <span>{{ displayText(connectionInfo) }}</span>
             </div>
           </div>
 
           <!-- Nano Banana: Google AI Studio Key -->
           <div v-else-if="selectedProvider === 'nanobanana'" :class="['space-y-1.5']">
-            <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">Google AI Studio API Key</label>
+            <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">{{ t('onboarding.ui.google-ai-studio-api-key') }}</label>
             <input
               v-model="apiKey"
               type="password"
@@ -484,7 +490,7 @@ function handleNext() {
 
           <!-- Replicate: Replicate Token -->
           <div v-else-if="selectedProvider === 'replicate'" :class="['space-y-1.5']">
-            <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">Replicate API Token</label>
+            <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">{{ t('onboarding.ui.replicate-api-token') }}</label>
             <input
               v-model="apiKey"
               type="password"
@@ -497,7 +503,7 @@ function handleNext() {
           <!-- Unified Model / Active Workflow Dropdown -->
           <div :class="['space-y-1.5 pt-1']">
             <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">
-              {{ selectedProvider === 'comfyui' ? 'Active Workflow Template' : 'Synthesizer Model' }}
+              {{ displayText(selectedProvider === 'comfyui' ? 'Active Workflow Template' : 'Synthesizer Model') }}
             </label>
             <select
               v-model="selectedModel"
@@ -505,7 +511,7 @@ function handleNext() {
               @change="syncDraft"
             >
               <option v-for="opt in currentModelOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
+                {{ displayText(opt.label) }}
               </option>
             </select>
           </div>
@@ -516,14 +522,14 @@ function handleNext() {
       <div :class="['rounded-2xl border border-neutral-200 dark:border-white/10 bg-white/50 dark:bg-white/[0.02] p-4.5 space-y-3 shadow-sm']">
         <div :class="['flex items-center justify-between']">
           <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-2']">
-            <span>👗</span> Character Visual Style & LoRA Prefix
+            <span>👗</span> {{ t('onboarding.ui.character-visual-style-lora-prefix') }}
           </span>
           <span :class="['text-[10px] bg-primary-500/10 text-primary-600 dark:text-primary-300 px-2 py-0.5 rounded-full border border-primary-500/20 font-medium']">
-            ✨ Auto-injected from {{ promptSourceLabel }}
+            {{ t('onboarding.ui.auto-injected-from') }} {{ displayText(promptSourceLabel) }}
           </span>
         </div>
         <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-normal']">
-          Pre-pended to every image generation prompt for consistent character appearance, hair, eye color, and art style across generated scenes and selfies.
+          {{ t('onboarding.ui.pre-pended-to-every-image-generation-prompt-for-consistent-character-appearanc') }}
         </p>
 
         <!-- Prompt Field with Bottom Right Preview Button -->
@@ -532,7 +538,7 @@ function handleNext() {
             v-model="visualPrompt"
             rows="3"
             :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-3 pb-10 text-xs text-neutral-800 dark:text-neutral-200 font-mono leading-relaxed focus:border-primary-500 focus:outline-none resize-none']"
-            placeholder="e.g. masterpiece, best quality, 1girl, blue eyes..."
+            :placeholder="t('onboarding.ui.e-g-masterpiece-best-quality-1girl-blue-eyes')"
             @input="syncDraft"
           />
           <div :class="['absolute bottom-2.5 left-3 right-3 flex items-center justify-between']">
@@ -544,7 +550,7 @@ function handleNext() {
                 @click="resetToPersonaPrompt"
               >
                 <span>✨</span>
-                <span>Reset to Persona Tags</span>
+                <span>{{ t('onboarding.ui.reset-to-persona-tags') }}</span>
               </button>
               <span v-if="hasPersonaTags" :class="['text-neutral-300 dark:text-neutral-700 text-xs']">•</span>
               <button
@@ -552,7 +558,7 @@ function handleNext() {
                 :class="['text-[10px] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer']"
                 @click="resetToDefaultPrompt"
               >
-                ↺ Reset to Vessel Default
+                {{ t('onboarding.ui.reset-to-vessel-default') }}
               </button>
             </div>
             <button
@@ -567,41 +573,41 @@ function handleNext() {
               @click="openPreviewModal"
             >
               <span>🎨</span>
-              <span>Preview</span>
+              <span>{{ t('onboarding.ui.shared-pages-markdown-stress-preview') }}</span>
             </button>
           </div>
         </div>
 
         <!-- Preset Style Chips -->
         <div :class="['flex items-center gap-1.5 flex-wrap pt-0.5 text-[10px]']">
-          <span :class="['text-neutral-400 mr-1']">Add Aesthetic:</span>
+          <span :class="['text-neutral-400 mr-1']">{{ t('onboarding.ui.add-aesthetic') }}</span>
           <button
             type="button"
             :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
             @click="appendStyle('Studio Ghibli meadow lighting,')"
           >
-            + Ghibli Meadow
+            {{ t('onboarding.ui.ghibli-meadow') }}
           </button>
           <button
             type="button"
             :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
             @click="appendStyle('Cyberpunk neon rim lighting, night rain,')"
           >
-            + Cyberpunk Neon
+            {{ t('onboarding.ui.cyberpunk-neon') }}
           </button>
           <button
             type="button"
             :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
             @click="appendStyle('Makoto Shinkai volumetric clouds, radiant sky,')"
           >
-            + Shinkai Sky
+            {{ t('onboarding.ui.shinkai-sky') }}
           </button>
           <button
             type="button"
             :class="['px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
             @click="appendStyle('Cozy warm cafe interior, soft bokeh,')"
           >
-            + Cozy Cafe
+            {{ t('onboarding.ui.cozy-cafe') }}
           </button>
         </div>
       </div>
@@ -613,13 +619,13 @@ function handleNext() {
             <span :class="['text-2xl mt-0.5']">🎬</span>
             <div>
               <div :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
-                <span>Cinematic Autonomy (Autonomous Director)</span>
+                <span>{{ t('onboarding.ui.cinematic-autonomy-autonomous-director') }}</span>
                 <span :class="['text-[9px] bg-primary-500/10 text-primary-500 dark:text-primary-400 px-2 py-0.5 rounded-full border border-primary-500/20 font-medium']">
-                  Background Loop
+                  {{ t('onboarding.ui.background-loop') }}
                 </span>
               </div>
               <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 max-w-xl leading-normal']">
-                A parallel 2nd-LLM evaluator that analyzes ongoing conversation and autonomously synthesizes background imagery and selfies during emotional story climaxes.
+                {{ t('onboarding.ui.a-parallel-2nd-llm-evaluator-that-analyzes-ongoing-conversation-and-autonomous') }}
               </p>
             </div>
           </div>
@@ -645,7 +651,7 @@ function handleNext() {
         <!-- Input Trigger Mode Selector (Enabled only when Director is ON) -->
         <div v-if="directorEnabled" :class="['pt-3 border-t border-neutral-200 dark:border-white/5 space-y-2']">
           <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 block']">
-            Evaluation Trigger Mode
+            {{ t('onboarding.ui.evaluation-trigger-mode') }}
           </span>
           <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs']">
             <!-- Companion Reaction / Output (Default) -->
@@ -659,11 +665,11 @@ function handleNext() {
               @click="directorTarget = 'assistant'; syncDraft()"
             >
               <div :class="['flex items-center justify-between font-bold text-neutral-900 dark:text-white']">
-                <span>🌟 Companion Reaction (Default)</span>
-                <span :class="['text-[9px] bg-primary-500/20 text-primary-600 dark:text-primary-300 px-1.5 py-0.2 rounded font-medium']">Impact Focus</span>
+                <span>{{ t('onboarding.ui.companion-reaction-default') }}</span>
+                <span :class="['text-[9px] bg-primary-500/20 text-primary-600 dark:text-primary-300 px-1.5 py-0.2 rounded font-medium']">{{ t('onboarding.ui.impact-focus') }}</span>
               </div>
               <p :class="['text-[10px] text-neutral-500 dark:text-neutral-400 mt-1 leading-normal']">
-                Evaluates what the companion replied: <code>User &rarr; LLM Reply &rarr; Director</code>. Best for natural scene reactivity.
+                {{ t('onboarding.ui.evaluates-what-the-companion-replied') }} <code>{{ t('onboarding.ui.user-llm-reply-director') }}</code>{{ t('onboarding.ui.best-for-natural-scene-reactivity') }}
               </p>
             </div>
 
@@ -678,11 +684,11 @@ function handleNext() {
               @click="directorTarget = 'user'; syncDraft()"
             >
               <div :class="['flex items-center justify-between font-bold text-neutral-900 dark:text-white']">
-                <span>👤 User Input</span>
-                <span :class="['text-[9px] bg-neutral-200 dark:bg-white/10 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.2 rounded font-medium']">Prompt Focus</span>
+                <span>{{ t('onboarding.ui.user-input') }}</span>
+                <span :class="['text-[9px] bg-neutral-200 dark:bg-white/10 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.2 rounded font-medium']">{{ t('onboarding.ui.prompt-focus') }}</span>
               </div>
               <p :class="['text-[10px] text-neutral-500 dark:text-neutral-400 mt-1 leading-normal']">
-                Evaluates user's incoming message immediately before the companion speaks.
+                {{ t('onboarding.ui.evaluates-user-s-incoming-message-immediately-before-the-companion-speaks') }}
               </p>
             </div>
           </div>
@@ -696,16 +702,16 @@ function handleNext() {
             <span :class="['text-2xl mt-0.5']">🖌️</span>
             <div>
               <div :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
-                <span>In-Character Generation Tool</span>
+                <span>{{ t('onboarding.ui.in-character-generation-tool') }}</span>
                 <span :class="['text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/15 text-purple-600 dark:text-purple-300 font-semibold']">
                   image_journal
                 </span>
                 <span :class="['text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20 font-medium']">
-                  Direct Tool Call
+                  {{ t('onboarding.ui.direct-tool-call') }}
                 </span>
               </div>
               <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 max-w-xl leading-normal']">
-                Equips your companion with the direct <code>image_journal</code> tool schema so they can actively paint illustrations or take selfies on request. When disabled, the autonomous Director can still paint background scenes, but the companion's prompt context remains completely pristine without tool schema pollution.
+                {{ t('onboarding.ui.equips-your-companion-with-the-direct') }} <code>image_journal</code> {{ t('onboarding.ui.tool-schema-so-they-can-actively-paint-illustrations-or-take-selfies-on-reques') }}
               </p>
             </div>
           </div>

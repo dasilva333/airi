@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import {
@@ -20,6 +23,9 @@ import { useCloudflareStore } from '../../../../../../stores/modules/cloudflare'
 import { useOnboardingStore } from '../../../../../../stores/onboarding'
 import { useSyncEngineStore } from '../../../../../../stores/sync-engine'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -155,7 +161,7 @@ async function restoreVaultCredentials() {
         syncStore.s3SecretAccessKey = vault.s3SecretAccessKey || ''
         syncStore.activeProvider = 's3'
         syncStore.syncEnabled = true
-        toast.info('Restored R2 Cloud Sync credentials from Edge Key Vault!')
+        toast.info(displayText('Restored R2 Cloud Sync credentials from Edge Key Vault!'))
       }
     }
     catch (e) {
@@ -168,32 +174,32 @@ async function handleStartOAuth() {
   try {
     await cloudflareStore.authenticateWithCloudflare()
     selectedPath.value = 'cloud'
-    toast.success('Successfully connected to Cloudflare!')
+    toast.success(displayText('Successfully connected to Cloudflare!'))
     await restoreVaultCredentials()
     await probeRemoteCatalog()
   }
   catch (err: any) {
-    toast.error(err?.message || 'Cloudflare authentication failed')
+    toast.error(displayText(err?.message || 'Cloudflare authentication failed'))
   }
 }
 
 async function handleConnectApiToken() {
   const clean = tokenInput.value.trim()
   if (!clean) {
-    toast.error('Please enter a valid Cloudflare API token')
+    toast.error(displayText('Please enter a valid Cloudflare API token'))
     return
   }
   isValidatingToken.value = true
   try {
     await cloudflareStore.verifyAndSetApiToken(clean)
     selectedPath.value = 'cloud'
-    toast.success('Successfully connected Cloudflare API Token!')
+    toast.success(displayText('Successfully connected Cloudflare API Token!'))
     tokenInput.value = ''
     await restoreVaultCredentials()
     await probeRemoteCatalog()
   }
   catch (err: any) {
-    toast.error(err?.message || 'Failed to verify Cloudflare API token')
+    toast.error(displayText(err?.message || 'Failed to verify Cloudflare API token'))
   }
   finally {
     isValidatingToken.value = false
@@ -205,7 +211,7 @@ function handleDisconnect(e: Event) {
   cloudflareStore.logout()
   selectedPath.value = 'local'
   remoteCardsCount.value = 0
-  toast.info('Disconnected from Cloudflare')
+  toast.info(displayText('Disconnected from Cloudflare'))
 }
 
 function chooseLocal() {
@@ -237,7 +243,7 @@ async function handleRestoreAndLaunch() {
       }
     }
 
-    toast.info('Synchronizing companions and assets from Cloudflare R2...')
+    toast.info(displayText('Synchronizing companions and assets from Cloudflare R2...'))
     await syncStore.triggerSync()
 
     await cardStore.loadCards()
@@ -249,13 +255,13 @@ async function handleRestoreAndLaunch() {
     }
 
     onboardingStore.markSetupCompleted()
-    toast.success('Companion restored and stage ready!')
+    toast.success(displayText('Companion restored and stage ready!'))
     emit('finish')
     props.onFinish?.()
   }
   catch (err: any) {
     console.error('[StepTriage] Restore and launch failed:', err)
-    toast.error(err?.message || 'Failed to restore companions')
+    toast.error(displayText(err?.message || 'Failed to restore companions'))
   }
   finally {
     isRestoring.value = false
@@ -279,16 +285,16 @@ async function handleRestoreAndBuildAnother() {
       }
     }
 
-    toast.info('Synchronizing companions and assets from Cloudflare R2...')
+    toast.info(displayText('Synchronizing companions and assets from Cloudflare R2...'))
     await syncStore.triggerSync()
     await cardStore.loadCards()
 
-    toast.success('Companions restored! Proceeding to create your new companion.')
+    toast.success(displayText('Companions restored! Proceeding to create your new companion.'))
     props.onNext()
   }
   catch (err: any) {
     console.error('[StepTriage] Restore failed:', err)
-    toast.error(err?.message || 'Failed to restore companions')
+    toast.error(displayText(err?.message || 'Failed to restore companions'))
   }
   finally {
     isRestoring.value = false
@@ -425,7 +431,7 @@ async function handleRestoreAndBuildAnother() {
               :class="['flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300']"
             >
               <div :class="['i-solar:check-circle-bold text-primary-500 shrink-0 h-4 w-4']" />
-              <span>{{ bullet }}</span>
+              <span>{{ displayText(bullet) }}</span>
             </div>
           </div>
         </div>
@@ -438,7 +444,7 @@ async function handleRestoreAndBuildAnother() {
             :variant="selectedPath === 'local' ? 'primary' : 'secondary'"
             @click.stop="chooseLocal"
           >
-            {{ selectedPath === 'local' ? t('onboarding.steps.triage.local.selectedCta') : t('onboarding.steps.triage.local.selectCta') }}
+            {{ displayText(selectedPath === 'local' ? t('onboarding.steps.triage.local.selectedCta') : t('onboarding.steps.triage.local.selectCta')) }}
           </Button>
         </div>
       </div>
@@ -479,7 +485,7 @@ async function handleRestoreAndBuildAnother() {
                     : 'bg-primary-500/15 text-primary-600 dark:text-primary-400',
                 ]"
               >
-                {{ isAuthenticated ? t('onboarding.steps.triage.auth.connected', { account: '' }) : t('onboarding.steps.triage.cloud.badge') }}
+                {{ displayText(isAuthenticated ? t('onboarding.steps.triage.auth.connected', { account: '' }) : t('onboarding.steps.triage.cloud.badge')) }}
               </span>
             </div>
 
@@ -520,7 +526,7 @@ async function handleRestoreAndBuildAnother() {
             <div :class="['flex items-center justify-between text-emerald-700 dark:text-emerald-300 font-semibold']">
               <span :class="['flex items-center gap-1.5']">
                 <div :class="['i-solar:check-circle-bold-duotone text-sm']" />
-                <span>{{ cfOAuthTokens?.accessToken ? 'Authenticated via OAuth PKCE' : 'Authenticated via API Token' }}</span>
+                <span>{{ displayText(cfOAuthTokens?.accessToken ? 'Authenticated via OAuth PKCE' : 'Authenticated via API Token') }}</span>
               </span>
               <button
                 type="button"
@@ -531,10 +537,10 @@ async function handleRestoreAndBuildAnother() {
               </button>
             </div>
             <div :class="['truncate text-[10px] text-neutral-600 dark:text-neutral-300 font-mono']">
-              <span :class="['text-neutral-400']">Account:</span> {{ cfAccountId || cfOAuthTokens?.accountId || 'Default Account' }}
+              <span :class="['text-neutral-400']">{{ t('onboarding.ui.account') }}</span> {{ displayText(cfAccountId || cfOAuthTokens?.accountId || 'Default Account') }}
             </div>
             <div :class="['truncate text-[10px] text-neutral-500 dark:text-neutral-400 font-mono']">
-              <span :class="['text-neutral-400']">Edge Vault:</span> Ready & encrypted
+              <span :class="['text-neutral-400']">{{ t('onboarding.ui.edge-vault') }}</span> {{ t('onboarding.ui.ready-encrypted') }}
             </div>
           </div>
 
@@ -557,10 +563,10 @@ async function handleRestoreAndBuildAnother() {
                       <div :class="[feature.icon, 'text-primary-500 shrink-0 h-4 w-4 mt-0.5 group-hover:scale-110 transition-transform']" />
                       <div :class="['flex-1 min-w-0 text-[11px] leading-tight']">
                         <span :class="['font-semibold text-neutral-900 dark:text-neutral-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors']">
-                          {{ feature.title }}:
+                          {{ displayText(feature.title) }}:
                         </span>
                         <span :class="['text-neutral-600 dark:text-neutral-400 ml-1']">
-                          {{ feature.summary }}
+                          {{ displayText(feature.summary) }}
                         </span>
                       </div>
                     </div>
@@ -579,17 +585,17 @@ async function handleRestoreAndBuildAnother() {
                       <div :class="['flex items-center gap-2 pb-2 mb-2 border-b border-neutral-200/80 dark:border-neutral-800']">
                         <div :class="[feature.icon, 'text-primary-500 text-base shrink-0']" />
                         <span :class="['font-bold text-neutral-900 dark:text-white text-xs']">
-                          {{ feature.title }}
+                          {{ displayText(feature.title) }}
                         </span>
                       </div>
                       <div :class="['space-y-2 text-[11px] leading-relaxed']">
                         <div>
-                          <span :class="['font-semibold text-primary-600 dark:text-primary-400']">How it works: </span>
-                          <span :class="['text-neutral-600 dark:text-neutral-300']">{{ feature.howItWorks }}</span>
+                          <span :class="['font-semibold text-primary-600 dark:text-primary-400']">{{ t('onboarding.ui.how-it-works') }} </span>
+                          <span :class="['text-neutral-600 dark:text-neutral-300']">{{ displayText(feature.howItWorks) }}</span>
                         </div>
                         <div>
-                          <span :class="['font-semibold text-emerald-600 dark:text-emerald-400']">Why it matters: </span>
-                          <span :class="['text-neutral-600 dark:text-neutral-300']">{{ feature.whyItMatters }}</span>
+                          <span :class="['font-semibold text-emerald-600 dark:text-emerald-400']">{{ t('onboarding.ui.why-it-matters') }} </span>
+                          <span :class="['text-neutral-600 dark:text-neutral-300']">{{ displayText(feature.whyItMatters) }}</span>
                         </div>
                       </div>
                       <TooltipArrow :class="['fill-white dark:fill-neutral-900 stroke-primary-500/30']" />
@@ -672,10 +678,10 @@ async function handleRestoreAndBuildAnother() {
               >
                 <div v-if="isAuthenticating" :class="['i-solar:refresh-line-duotone h-4 w-4 animate-spin']" />
                 <div v-else :class="['i-solar:login-2-linear h-4 w-4']" />
-                <span>{{ isAuthenticating ? t('onboarding.steps.triage.auth.verifying') : t('onboarding.steps.triage.auth.oauthButton') }}</span>
+                <span>{{ displayText(isAuthenticating ? t('onboarding.steps.triage.auth.verifying') : t('onboarding.steps.triage.auth.oauthButton')) }}</span>
               </button>
               <p :class="['text-[10px] text-neutral-400 text-center leading-tight']">
-                Opens your browser for PKCE authorization & Edge Vault pairing.
+                {{ t('onboarding.ui.opens-your-browser-for-pkce-authorization-edge-vault-pairing') }}
               </p>
             </div>
 
@@ -699,11 +705,11 @@ async function handleRestoreAndBuildAnother() {
                   ]"
                   @click="handleConnectApiToken"
                 >
-                  {{ isValidatingToken ? t('onboarding.steps.triage.auth.verifying') : t('onboarding.steps.triage.auth.verifyToken') }}
+                  {{ displayText(isValidatingToken ? t('onboarding.steps.triage.auth.verifying') : t('onboarding.steps.triage.auth.verifyToken')) }}
                 </button>
               </div>
               <p :class="['text-[10px] text-neutral-400 leading-tight']">
-                Requires Workers KV and R2 read/write permissions.
+                {{ t('onboarding.ui.requires-workers-kv-and-r2-read-write-permissions') }}
               </p>
             </div>
           </div>
@@ -729,7 +735,7 @@ async function handleRestoreAndBuildAnother() {
             <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
               <span>{{ t('onboarding.steps.triage.restore.bannerTitle') }}</span>
               <span :class="['px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400']">
-                Ready to Restore
+                {{ t('onboarding.ui.ready-to-restore') }}
               </span>
             </h3>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
@@ -744,7 +750,7 @@ async function handleRestoreAndBuildAnother() {
           @click="probeRemoteCatalog"
         >
           <div :class="['i-solar:refresh-linear text-xs', isLoadingCatalog ? 'animate-spin' : '']" />
-          <span>Refresh</span>
+          <span>{{ t('tamagotchi.settings.dock-mode.refresh-windows') }}</span>
         </button>
       </div>
 
@@ -759,7 +765,7 @@ async function handleRestoreAndBuildAnother() {
       <!-- Route 4 & 5 Action Bar -->
       <div :class="['flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-emerald-500/20']">
         <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
-          Restoring pulls active state into your local vault.
+          {{ t('onboarding.ui.restoring-pulls-active-state-into-your-local-vault') }}
         </div>
 
         <div :class="['flex items-center gap-2.5']">
@@ -791,7 +797,7 @@ async function handleRestoreAndBuildAnother() {
           >
             <div v-if="isRestoring" :class="['i-solar:refresh-line-duotone text-xs animate-spin']" />
             <div v-else :class="['i-solar:rocket-bold-duotone text-xs']" />
-            <span>{{ isRestoring ? t('onboarding.steps.triage.restore.restoring') : t('onboarding.steps.triage.restore.restoreAll') }}</span>
+            <span>{{ displayText(isRestoring ? t('onboarding.steps.triage.restore.restoring') : t('onboarding.steps.triage.restore.restoreAll')) }}</span>
           </Button>
         </div>
       </div>
@@ -808,14 +814,14 @@ async function handleRestoreAndBuildAnother() {
     >
       <div :class="['flex items-center gap-2']">
         <div :class="['i-solar:check-circle-bold-duotone text-base text-emerald-500 shrink-0']" />
-        <span>Connected to Cloudflare! No existing companion backups found in Cloudflare R2. Your new companion will automatically sync to your cloud vault.</span>
+        <span>{{ t('onboarding.ui.connected-to-cloudflare-no-existing-companion-backups-found-in-cloudflare-r2-y') }}</span>
       </div>
       <button
         type="button"
         :class="['px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs cursor-pointer transition-colors shrink-0 ml-2']"
         @click="props.onNext"
       >
-        Continue Setup (Cloud-Backed) →
+        {{ t('onboarding.ui.continue-setup-cloud-backed') }}
       </button>
     </div>
 
@@ -825,7 +831,7 @@ async function handleRestoreAndBuildAnother() {
       :class="['p-3 rounded-xl border border-neutral-200 dark:border-white/5 bg-neutral-50 dark:bg-white/5 text-xs text-neutral-500 flex items-center justify-center gap-2 animate-pulse']"
     >
       <div :class="['i-solar:refresh-line-duotone animate-spin text-sm']" />
-      <span>Checking Cloudflare R2 for companion backups...</span>
+      <span>{{ t('onboarding.ui.checking-cloudflare-r2-for-companion-backups') }}</span>
     </div>
 
     <!-- Navigation Action Bar -->
@@ -847,7 +853,7 @@ async function handleRestoreAndBuildAnother() {
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        Path: <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ selectedPath === 'local' ? t('onboarding.steps.triage.local.title') : t('onboarding.steps.triage.cloud.title') }}</span>
+        {{ t('onboarding.ui.path') }} <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ displayText(selectedPath === 'local' ? t('onboarding.steps.triage.local.title') : t('onboarding.steps.triage.cloud.title')) }}</span>
       </div>
 
       <Button

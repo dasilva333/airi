@@ -5,6 +5,7 @@ import { acceptHMRUpdate, defineStore } from 'pinia'
 import { onMounted } from 'vue'
 
 const languageRemap: Record<string, string> = {
+  'zh': 'zh-Hans',
   'zh-CN': 'zh-Hans',
   'zh-TW': 'zh-Hant',
   'zh-HK': 'zh-Hant',

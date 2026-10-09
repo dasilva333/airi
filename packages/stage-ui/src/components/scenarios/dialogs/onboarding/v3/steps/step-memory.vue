@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
+
+
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
+
+const { displayText } = useOnboardingDisplayText()
+
 
 const props = defineProps<{
   onNext: () => void
@@ -169,14 +175,14 @@ function handleToggleDreamState() {
             <div :class="['flex flex-col min-w-0']">
               <div :class="['flex items-center gap-2 flex-wrap']">
                 <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                  24-Hour Short-Term Memory (STMM)
+                  {{ t('onboarding.ui.24-hour-short-term-memory-stmm') }}
                 </h3>
                 <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-600 dark:text-cyan-300']">
-                  The Active Pulse
+                  {{ t('onboarding.ui.the-active-pulse') }}
                 </span>
               </div>
               <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                Proactively summarizes each 24-hour conversational block into daily memory chunks injected directly into the system prompt. Retains recent days' continuity across reloads.
+                {{ t('onboarding.ui.proactively-summarizes-each-24-hour-conversational-block-into-daily-memory-chu') }}
               </p>
             </div>
           </div>
@@ -199,7 +205,7 @@ function handleToggleDreamState() {
           :class="['pt-3 border-t border-cyan-500/20 flex flex-col gap-2']"
         >
           <span :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
-            Context Window & Daily Budget Tier
+            {{ t('onboarding.ui.context-window-daily-budget-tier') }}
           </span>
           <div :class="['grid grid-cols-1 sm:grid-cols-3 gap-2.5']">
             <div
@@ -214,13 +220,13 @@ function handleToggleDreamState() {
               @click="selectStmmTier(tier)"
             >
               <div :class="['flex items-center justify-between']">
-                <span :class="['text-xs font-bold']">{{ tier.label }}</span>
+                <span :class="['text-xs font-bold']">{{ displayText(tier.label) }}</span>
                 <span :class="['text-[9px] font-mono font-medium px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-600 dark:text-cyan-300']">
-                  {{ tier.badge }}
+                  {{ displayText(tier.badge) }}
                 </span>
               </div>
               <p :class="['text-[11px] leading-snug opacity-90']">
-                {{ tier.description }}
+                {{ displayText(tier.description) }}
               </p>
             </div>
           </div>
@@ -244,14 +250,14 @@ function handleToggleDreamState() {
             <div :class="['flex flex-col min-w-0']">
               <div :class="['flex items-center gap-2 flex-wrap']">
                 <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                  Sacred Long-Term Text Journal (LTMM)
+                  {{ t('onboarding.ui.sacred-long-term-text-journal-ltmm') }}
                 </h3>
                 <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 font-mono']">
-                  tool: text_journal
+                  {{ t('onboarding.ui.tool-text-journal') }}
                 </span>
               </div>
               <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                Equips your companion with the append-only <code :class="['text-emerald-500 font-mono text-[11px]']">text_journal</code> tool. Allows them to record meaningful autobiographical memories, feelings, and search past records on-demand.
+                {{ t('onboarding.ui.equips-your-companion-with-the-append-only') }} <code :class="['text-emerald-500 font-mono text-[11px]']">text_journal</code> {{ t('onboarding.ui.tool-allows-them-to-record-meaningful-autobiographical-memories-feelings-and-s') }}
               </p>
             </div>
           </div>
@@ -274,7 +280,7 @@ function handleToggleDreamState() {
         >
           <div :class="['i-solar:shield-check-bold text-emerald-500 text-base shrink-0 mt-0.5']" />
           <div :class="['leading-relaxed']">
-            <strong>The Sacred Record Rule:</strong> Journal entries are strictly append-only and immortal. The companion will autonomously preserve significant life events without overwriting past history.
+            <strong>{{ t('onboarding.ui.the-sacred-record-rule') }}</strong> {{ t('onboarding.ui.journal-entries-are-strictly-append-only-and-immortal-the-companion-will-auton') }}
           </div>
         </div>
       </div>
@@ -296,14 +302,14 @@ function handleToggleDreamState() {
             <div :class="['flex flex-col min-w-0']">
               <div :class="['flex items-center gap-2 flex-wrap']">
                 <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                  The Eternal Thread (Lifetime Artifact)
+                  {{ t('onboarding.ui.the-eternal-thread-lifetime-artifact') }}
                 </h3>
                 <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-300']">
-                  Relational Essence
+                  {{ t('onboarding.ui.relational-essence') }}
                 </span>
               </div>
               <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                Maintains the companion's core relational identity and shared milestones across weeks and months. Distills daily changes into a permanent foundation so their bond never resets.
+                {{ t('onboarding.ui.maintains-the-companion-s-core-relational-identity-and-shared-milestones-acros') }}
               </p>
             </div>
           </div>
@@ -326,7 +332,7 @@ function handleToggleDreamState() {
           :class="['pt-3 border-t border-amber-500/20 flex flex-col gap-2']"
         >
           <span :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
-            Relational Distillation Density
+            {{ t('onboarding.ui.relational-distillation-density') }}
           </span>
           <div :class="['grid grid-cols-1 sm:grid-cols-3 gap-2.5']">
             <div
@@ -341,13 +347,13 @@ function handleToggleDreamState() {
               @click="selectLifetimeTier(tier.id)"
             >
               <div :class="['flex items-center justify-between']">
-                <span :class="['text-xs font-bold']">{{ tier.label }}</span>
+                <span :class="['text-xs font-bold']">{{ displayText(tier.label) }}</span>
                 <span :class="['text-[9px] font-mono font-medium px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-300']">
-                  {{ tier.badge }}
+                  {{ displayText(tier.badge) }}
                 </span>
               </div>
               <p :class="['text-[11px] leading-snug opacity-90']">
-                {{ tier.description }}
+                {{ displayText(tier.description) }}
               </p>
             </div>
           </div>
@@ -370,14 +376,14 @@ function handleToggleDreamState() {
           <div :class="['flex flex-col min-w-0']">
             <div :class="['flex items-center gap-2 flex-wrap']">
               <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                Day Dreaming & Echo Chips
+                {{ t('onboarding.ui.day-dreaming-echo-chips') }}
               </h3>
               <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-violet-500/15 text-violet-600 dark:text-violet-300']">
-                The Echoes
+                {{ t('onboarding.ui.the-echoes') }}
               </span>
             </div>
             <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              When you go idle after a conversation session, background consolidation distills recent dialogue into interpretive Echo Chips and mood tags, pre-warming thoughts for your next return.
+              {{ t('onboarding.ui.when-you-go-idle-after-a-conversation-session-background-consolidation-distill') }}
             </p>
           </div>
         </div>
@@ -400,9 +406,9 @@ function handleToggleDreamState() {
       <div :class="['flex items-center justify-between text-xs font-bold text-neutral-700 dark:text-neutral-200']">
         <div :class="['flex items-center gap-2']">
           <div :class="['i-solar:layers-bold-duotone text-primary-500']" />
-          <span>Active Cognitive Memory Footprint</span>
+          <span>{{ t('onboarding.ui.active-cognitive-memory-footprint') }}</span>
         </div>
-        <span :class="['text-[11px] font-mono text-emerald-500 font-medium']">● Ready for Compilation</span>
+        <span :class="['text-[11px] font-mono text-emerald-500 font-medium']">{{ t('onboarding.ui.ready-for-compilation') }}</span>
       </div>
 
       <div :class="['flex flex-wrap gap-2 pt-1']">
@@ -411,28 +417,28 @@ function handleToggleDreamState() {
           :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 flex items-center gap-1.5']"
         >
           <div :class="['i-solar:alarm-bold text-cyan-500']" />
-          STMM: {{ currentStmmTier.toUpperCase() }} ({{ draftStore.state.memoryShortTermWindowSize }}d / {{ draftStore.state.memoryShortTermTokenBudget }} tok)
+          {{ t('onboarding.ui.stmm') }} {{ displayText(currentStmmTier.toUpperCase()) }} ({{ displayText(draftStore.state.memoryShortTermWindowSize) }}d / {{ displayText(draftStore.state.memoryShortTermTokenBudget) }} {{ t('onboarding.ui.tok') }}
         </span>
         <span
           v-if="draftStore.state.memoryLongTermJournalEnabled"
           :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1.5']"
         >
           <div :class="['i-solar:notebook-bookmark-bold text-emerald-500']" />
-          LTMM: text_journal (Sacred Records)
+          {{ t('onboarding.ui.ltmm-text-journal-sacred-records') }}
         </span>
         <span
           v-if="draftStore.state.memoryLifetimeEnabled"
           :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 flex items-center gap-1.5']"
         >
           <div :class="['i-solar:dna-bold text-amber-500']" />
-          Lifetime: {{ currentLifetimeTier.toUpperCase() }}
+          {{ t('onboarding.ui.lifetime') }} {{ displayText(currentLifetimeTier.toUpperCase()) }}
         </span>
         <span
           v-if="draftStore.state.memoryDreamStateEnabled"
           :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20 flex items-center gap-1.5']"
         >
           <div :class="['i-solar:sleeping-bold text-violet-500']" />
-          Dreams: Active on Idle
+          {{ t('onboarding.ui.dreams-active-on-idle') }}
         </span>
       </div>
     </div>
