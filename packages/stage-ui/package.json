@@ -53,6 +53,8 @@
     "./utils": "./src/utils/index.ts",
     "./utils/tts": "./src/utils/tts.ts",
     "./database/*": "./src/database/*",
+    "./tools": "./src/tools/index.ts",
+    "./tools/*": "./src/tools/*.ts",
     "./types/*": "./src/types/*.ts",
     "./types": "./src/types/index.ts"
   },
@@ -72,6 +74,7 @@
     "@formkit/auto-animate": "^0.9.0",
     "@huggingface/transformers": "^3.8.1",
     "@mlc-ai/web-llm": "^0.2.84",
+    "@modelcontextprotocol/sdk": "catalog:",
     "@moeru/eventa": "catalog:",
     "@pixi/core": "^6.5.10",
     "@pixi/utils": "^6.5.10",

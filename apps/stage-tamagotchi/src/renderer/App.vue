@@ -45,6 +45,7 @@ import {
   electronMcpGetConfig,
   electronMcpGetRuntimeStatus,
   electronMcpListTools,
+  electronMcpTestServer,
   electronMcpUpdateConfig,
   electronOpenOnboarding,
   electronPluginInspect,
@@ -148,6 +149,7 @@ const getMcpRuntimeStatus = useElectronEventaInvoke(electronMcpGetRuntimeStatus)
 const getMcpConfig = useElectronEventaInvoke(electronMcpGetConfig)
 const updateMcpConfig = useElectronEventaInvoke(electronMcpUpdateConfig)
 const applyAndRestartMcp = useElectronEventaInvoke(electronMcpApplyAndRestart)
+const testMcpServer = useElectronEventaInvoke(electronMcpTestServer)
 const setLocale = useElectronEventaInvoke(i18nSetLocale)
 const openOnboarding = useElectronEventaInvoke(electronOpenOnboarding)
 const reportMilestone = useElectronEventaInvoke(electronSplashReportMilestone)
@@ -175,6 +177,7 @@ if (context.value) {
     getConfig: () => getMcpConfig(),
     updateConfig: payload => updateMcpConfig(payload),
     applyAndRestart: () => applyAndRestartMcp(),
+    testServer: payload => testMcpServer(payload as any),
   })
 
   watch(activeCard, (card) => {
