@@ -1553,6 +1553,9 @@ theme:
   title: テーマ
   description: |
     AIRIの基本テーマをライトモードまたはダークモードに切り替えます。
+  auto: システム
+  light: ライト
+  dark: ダーク
 title: 設定
 voices: 音声
 vrm:

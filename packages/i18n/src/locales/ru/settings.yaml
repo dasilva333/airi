@@ -1663,6 +1663,9 @@ theme:
   title: Тема
   description: |
     Переключение основной темы AIRI: светлая или тёмная.
+  auto: Системная
+  light: Светлая
+  dark: Тёмная
 title: Настройки
 voices: Голос
 vrm:

@@ -1665,6 +1665,9 @@ theme:
   title: Tema
   description: |
     Cambiar el tema base de AIRI, modo Claro o modo Oscuro.
+  auto: Sistema
+  light: Claro
+  dark: Oscuro
 title: Configuración
 voices: Voz
 vrm:
