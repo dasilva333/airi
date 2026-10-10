@@ -37,6 +37,7 @@ Everything the model can *do* flows through two registries that are, today, fed 
 | Motion (`generate_motion`) | `generate-motion.ts` | always (filtered at gateway by default — see §3) | `generate_motion` |
 | Image journal (`image_journal`) | `image-journal.ts` | only if `artistry.configured` (per index.ts comment, replaces deprecated `widgets`/`stage_widgets` tools) | `image_journal` |
 | Stickers | `stickers.ts` | only if a stickers library has content | pass-through |
+| Screenshot (`take_screenshot`) | `screenshot.ts` | only if the active card has `agentScreenshot.enabled` (chat window "…" menu toggle); follows the Vision strategy: direct returns the image as the tool result (re-attached after the tool message by `libs/providers/tool-result-images.ts`, since OpenAI-compatible APIs reject images in tool messages), forward returns the Vision model's description | pass-through |
 | MCP meta-tools (`mcp_list_tools`, `mcp_call_tool`) | `mcp.ts` | only if the MCP bridge exists and ≥1 server is connected; qualified names are `server::tool` | `mcp` |
 
 **Not wired** (exported but not pushed into the factory): `datingSimTools()` (`dating-sim.ts`) and `widgetsTools()` (`widgets.ts`, deprecated after image-journal adoption). If a card expects `update_dating_sim_variables`, its tool was never registered — wire it in index.ts first.

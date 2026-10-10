@@ -125,6 +125,14 @@ const resolvedImageUrl = computed(() => {
   return result.imageUrl
 })
 
+const screenshotResult = computed(() => {
+  if (props.toolName !== 'take_screenshot' || !Array.isArray(props.result))
+    return null
+  const text = props.result.filter((part: any) => part?.type === 'text').map((part: any) => part.text).join('\n')
+  const imageUrl: string | null = props.result.find((part: any) => part?.type === 'image_url')?.image_url?.url ?? null
+  return { text, imageUrl }
+})
+
 const formattedArgs = computed(() => {
   try {
     const parsed = JSON.parse(props.args)
@@ -267,6 +275,19 @@ const formattedArgs = computed(() => {
             class="w-full cursor-pointer object-contain transition-all active:scale-[0.98] hover:ring-2 hover:ring-primary-500/50"
             @click="openImagePreview({ title: (parsedArgs as ImageJournalArgs)?.title || 'Generated Image', url: resolvedImageUrl })"
           >
+        </div>
+      </template>
+
+      <template v-else-if="screenshotResult">
+        <div v-if="screenshotResult.imageUrl" class="mb-2 overflow-hidden border border-primary-500/20 rounded-xl">
+          <img
+            :src="screenshotResult.imageUrl"
+            class="w-full cursor-zoom-in object-contain transition-all hover:ring-2 hover:ring-primary-500/50"
+            @click="openImagePreview({ title: 'Screenshot', url: screenshotResult.imageUrl })"
+          >
+        </div>
+        <div class="whitespace-pre-wrap text-xs op-80">
+          {{ screenshotResult.text }}
         </div>
       </template>
 

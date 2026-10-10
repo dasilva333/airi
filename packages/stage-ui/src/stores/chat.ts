@@ -1308,7 +1308,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
             newMessages.push({
               role: 'tool',
               tool_call_id: res.id,
-              content: typeof res.result === 'string' ? cleanMessageContent(res.result) : JSON.stringify(res.result),
+              content: typeof res.result === 'string'
+                ? cleanMessageContent(res.result)
+                : Array.isArray(res.result) ? res.result : JSON.stringify(res.result),
             })
           }
         }

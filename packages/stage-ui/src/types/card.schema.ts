@@ -287,6 +287,9 @@ const AiriExtensionSchema = looseObject({
   dreamState: optional(AiriDreamStateSchema),
   shortTermMemory: optional(AiriShortTermMemorySchema),
   screenWatching: optional(AiriScreenWatchingSchema),
+  agentScreenshot: optional(looseObject({
+    enabled: optional(boolean()),
+  })),
   textJournal: optional(AiriTextJournalSchema),
   sandbox: optional(AiriSandboxSchema),
   groundingEnabled: optional(boolean()),
