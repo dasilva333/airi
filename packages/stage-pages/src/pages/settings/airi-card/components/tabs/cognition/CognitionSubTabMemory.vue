@@ -10,7 +10,7 @@ const props = defineProps<{
   defaultConsciousnessModelPlaceholder: string
 }>()
 
-export type RerankerProviderId = 'laya-local' | 'typesafe-ai' | 'openrouter-ai' | 'laya' | 'typesafe_jev' | 'openrouter'
+export type RerankerProviderId = 'laya-local' | 'typesafe-ai' | 'openrouter-ai' | 'opencode-go' | 'laya' | 'typesafe_jev' | 'openrouter'
 
 const universeRagGroundingEnabled = defineModel<boolean>('universeRagGroundingEnabled', { default: true })
 const precisionRerankerEnabled = defineModel<boolean>('precisionRerankerEnabled', { default: true })

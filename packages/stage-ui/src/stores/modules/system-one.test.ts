@@ -69,13 +69,21 @@ describe('system 1 coprocessor architecture', () => {
       expect(provider?.id).toBe('laya-local')
     })
 
-    it('lists all three system1 providers in defined providers catalog', () => {
+    it('registers opencode-go with system1 task capability', () => {
+      const provider = getDefinedProvider('opencode-go')
+      expect(provider).toBeDefined()
+      expect(provider?.tasks).toContain('system1')
+      expect(provider?.id).toBe('opencode-go')
+    })
+
+    it('lists all four system1 providers in defined providers catalog', () => {
       const all = listProviders()
       const s1 = all.filter(p => p.tasks.includes('system1'))
       const ids = s1.map(p => p.id)
       expect(ids).toContain('openrouter-ai')
       expect(ids).toContain('typesafe-ai')
       expect(ids).toContain('laya-local')
+      expect(ids).toContain('opencode-go')
     })
   })
 
@@ -111,6 +119,50 @@ describe('system 1 coprocessor architecture', () => {
         const [, options2] = fetchSpy.mock.calls[1]
         const body2 = JSON.parse(options2.body)
         expect(body2.model).toBe('typesafe/jev-latest')
+      }
+      finally {
+        globalThis.fetch = originalFetch
+      }
+    })
+  })
+
+  describe('opencode-go system1 dispatch and model boundary', () => {
+    it('enforces opencode-go systemOne model resolution, session header, and endpoint mapping', async () => {
+      const provider = getDefinedProvider('opencode-go')
+      expect(provider).toBeDefined()
+
+      const instance = provider!.createProvider({ apiKey: 'sk-test-opencode', baseUrl: 'https://opencode.ai/zen/go/v1/' }) as any
+      expect(typeof instance.systemOne).toBe('function')
+
+      const originalFetch = globalThis.fetch
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ answers: { test: { choice: 'ok' } } }),
+      })
+      globalThis.fetch = fetchSpy
+
+      try {
+        // Fallback or unwhitelisted model defaults to jev-1.13-free
+        await instance.systemOne('test state', { test: { type: 'choice' } }, 'gpt-4o')
+        expect(fetchSpy).toHaveBeenCalledTimes(1)
+        const [url, options] = fetchSpy.mock.calls[0]
+        expect(url).toBe('https://opencode.ai/zen/v1/systemone')
+        expect(options.headers.Authorization).toBe('Bearer sk-test-opencode')
+        expect(options.headers['x-opencode-session']).toBeDefined()
+        const body = JSON.parse(options.body)
+        expect(body.model).toBe('jev-1.13-free')
+
+        // typesafe/ prefix is stripped for compatibility
+        await instance.systemOne('test state', { test: { type: 'choice' } }, 'typesafe/jev-1.13')
+        const [, options2] = fetchSpy.mock.calls[1]
+        const body2 = JSON.parse(options2.body)
+        expect(body2.model).toBe('jev-1.13')
+
+        // Explicit jev-1.13-free model is preserved
+        await instance.systemOne('test state', { test: { type: 'choice' } }, 'jev-1.13-free')
+        const [, options3] = fetchSpy.mock.calls[2]
+        const body3 = JSON.parse(options3.body)
+        expect(body3.model).toBe('jev-1.13-free')
       }
       finally {
         globalThis.fetch = originalFetch
@@ -209,6 +261,14 @@ describe('system 1 coprocessor architecture', () => {
       expect(store.systemOneCloudTokens).toBe(0)
       expect(store.systemOneLocalTokens).toBe(0)
       expect(store.systemOneDecisionsCount).toBe(0)
+    })
+
+    it('provides jev-1.13-free and jev-1.13 when opencode-go is active provider', () => {
+      setActivePinia(createPinia())
+      const store = useSystemOneStore()
+      store.activeProvider = 'opencode-go'
+      const modelIds = store.availableModels.map(m => m.id)
+      expect(modelIds).toEqual(['jev-1.13-free', 'jev-1.13'])
     })
   })
 })

@@ -165,7 +165,7 @@ export interface SentinelQuestionConfig {
 }
 
 const screenWatchingGatingMode = defineModel<'trigger_tags' | 'system1_sentinel'>('screenWatchingGatingMode', { default: 'trigger_tags' })
-const screenWatchingSentinelProvider = defineModel<'laya-local' | 'typesafe-ai' | 'openrouter-ai'>('screenWatchingSentinelProvider', { default: 'laya-local' })
+const screenWatchingSentinelProvider = defineModel<'laya-local' | 'typesafe-ai' | 'openrouter-ai' | 'opencode-go'>('screenWatchingSentinelProvider', { default: 'laya-local' })
 const screenWatchingSentinelQuestions = defineModel<SentinelQuestionConfig[]>('screenWatchingSentinelQuestions', {
   default: () => [
     {

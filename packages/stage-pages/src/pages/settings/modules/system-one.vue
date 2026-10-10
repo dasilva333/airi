@@ -10,7 +10,15 @@ const providersStore = useProvidersStore()
 const systemOneStore = useSystemOneStore()
 
 const { persistedSystem1ProvidersMetadata, configuredProviders } = storeToRefs(providersStore)
-const { activeProvider, activeModel, availableModels } = storeToRefs(systemOneStore)
+const {
+  activeProvider,
+  activeModel,
+  availableModels,
+  lastLatencyMs,
+  systemOneDecisionsCount,
+  systemOneCloudTokens,
+  systemOneLocalTokens,
+} = storeToRefs(systemOneStore)
 
 // Active Tab: 'triage' | 'rerank' | 'affect'
 const activeTab = ref<'triage' | 'rerank' | 'affect'>('triage')
@@ -47,6 +55,9 @@ watch(activeProvider, (newProv) => {
   }
   else if (newProv === 'typesafe-ai') {
     activeModel.value = 'jev-latest'
+  }
+  else if (newProv === 'opencode-go') {
+    activeModel.value = 'jev-1.13-free'
   }
   else if (newProv === 'laya-local') {
     const configuredModel = providersStore.getProviderConfig('laya-local')?.model as string | undefined
@@ -231,6 +242,90 @@ const isCurrentProviderConfigured = computed(() => {
       {{ pingResult }}
     </div>
 
+    <!-- Live Telemetry & Performance Stats Strip -->
+    <div :class="['grid grid-cols-2 sm:grid-cols-4 gap-3']">
+      <!-- Latency Card -->
+      <div :class="['p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 flex flex-col justify-between gap-1']">
+        <div :class="['flex items-center justify-between text-[11px] text-neutral-400 font-medium']">
+          <span>Latency</span>
+          <div :class="['i-solar:stopwatch-play-bold-duotone text-sm text-primary-500']" />
+        </div>
+        <div :class="['flex items-baseline gap-1.5 mt-1']">
+          <span
+            :class="[
+              'text-lg font-bold font-mono',
+              lastLatencyMs == null
+                ? 'text-neutral-400'
+                : lastLatencyMs < 250
+                  ? 'text-emerald-500'
+                  : lastLatencyMs < 600
+                    ? 'text-amber-500'
+                    : 'text-red-500',
+            ]"
+          >
+            {{ lastLatencyMs != null ? `${lastLatencyMs}ms` : '—' }}
+          </span>
+          <span
+            v-if="lastLatencyMs != null"
+            :class="[
+              'text-[10px] px-1.5 py-0.2 rounded-full font-semibold',
+              lastLatencyMs < 250
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : lastLatencyMs < 600
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  : 'bg-red-500/10 text-red-600 dark:text-red-400',
+            ]"
+          >
+            {{ lastLatencyMs < 250 ? 'FAST' : lastLatencyMs < 600 ? 'GOOD' : 'SLOW' }}
+          </span>
+        </div>
+        <span :class="['text-[10px] text-neutral-400']">Latest round-trip</span>
+      </div>
+
+      <!-- Decisions Counter Card -->
+      <div :class="['p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 flex flex-col justify-between gap-1']">
+        <div :class="['flex items-center justify-between text-[11px] text-neutral-400 font-medium']">
+          <span>Decisions</span>
+          <div :class="['i-solar:check-read-bold-duotone text-sm text-sky-500']" />
+        </div>
+        <div :class="['text-lg font-bold font-mono text-neutral-800 dark:text-neutral-200 mt-1']">
+          {{ systemOneDecisionsCount.toLocaleString() }}
+        </div>
+        <span :class="['text-[10px] text-neutral-400']">Total evaluated</span>
+      </div>
+
+      <!-- Cloud Tokens Card -->
+      <div :class="['p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 flex flex-col justify-between gap-1']">
+        <div :class="['flex items-center justify-between text-[11px] text-neutral-400 font-medium']">
+          <span>Cloud Tokens</span>
+          <div :class="['i-solar:cloud-bold-duotone text-sm text-indigo-500']" />
+        </div>
+        <div :class="['text-lg font-bold font-mono text-neutral-800 dark:text-neutral-200 mt-1']">
+          {{ systemOneCloudTokens.toLocaleString() }}
+        </div>
+        <span :class="['text-[10px] text-neutral-400']">Processed in cloud</span>
+      </div>
+
+      <!-- Local Tokens / Reset Card -->
+      <div :class="['p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 flex flex-col justify-between gap-1']">
+        <div :class="['flex items-center justify-between text-[11px] text-neutral-400 font-medium']">
+          <span>Local Tokens</span>
+          <button
+            type="button"
+            title="Reset telemetry counters"
+            :class="['text-neutral-400 hover:text-red-500 transition-colors p-0.5 rounded cursor-pointer']"
+            @click="systemOneStore.resetUsageStats()"
+          >
+            <div :class="['i-solar:restart-bold text-xs']" />
+          </button>
+        </div>
+        <div :class="['text-lg font-bold font-mono text-neutral-800 dark:text-neutral-200 mt-1']">
+          {{ systemOneLocalTokens.toLocaleString() }}
+        </div>
+        <span :class="['text-[10px] text-neutral-400']">Processed on-device</span>
+      </div>
+    </div>
+
     <!-- Provider Configuration Card -->
     <div :class="['flex flex-col gap-4 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 bg-white dark:bg-neutral-900/60']">
       <div>
@@ -238,12 +333,12 @@ const isCurrentProviderConfigured = computed(() => {
           System 1 Provider & Model
         </h2>
         <p :class="['text-xs text-neutral-500 dark:text-neutral-400']">
-          Select the backend coprocessor. OpenRouter Decisions uses your existing OpenRouter API key routed specifically to TypeSafe Jev.
+          Select the backend coprocessor. OpenRouter Decisions and OpenCode Go route fast requests to TypeSafe Jev.
         </p>
       </div>
 
       <!-- Provider Radio Cards -->
-      <div :class="['grid grid-cols-1 sm:grid-cols-3 gap-3']">
+      <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3']">
         <div
           v-for="provider in persistedSystem1ProvidersMetadata"
           :key="provider.id"

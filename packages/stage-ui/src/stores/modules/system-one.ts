@@ -186,6 +186,20 @@ export const useSystemOneStore = defineStore('system-one', () => {
         },
       ]
     }
+    if (activeProvider.value === 'opencode-go') {
+      return [
+        {
+          id: 'jev-1.13-free',
+          name: 'TypeSafe Jev 1.13 Free',
+          description: 'Free tier TypeSafe Jev 1.13 fast cognitive classifier via OpenCode Go',
+        },
+        {
+          id: 'jev-1.13',
+          name: 'TypeSafe Jev 1.13',
+          description: 'Standard TypeSafe Jev 1.13 fast cognitive classifier via OpenCode Go',
+        },
+      ]
+    }
     if (activeProvider.value === 'laya-local') {
       return [
         {
@@ -223,7 +237,12 @@ export const useSystemOneStore = defineStore('system-one', () => {
         throw new Error(`Provider ${providerId} does not implement the systemOne interface.`)
       }
 
-      const model = modelOverride || activeModel.value || 'typesafe/jev-1.13'
+      const defaultModel = providerId === 'opencode-go'
+        ? 'jev-1.13-free'
+        : providerId === 'typesafe-ai'
+          ? 'jev-latest'
+          : 'typesafe/jev-1.13'
+      const model = modelOverride || activeModel.value || defaultModel
       const res = await instance.systemOne(state, questions, model)
       options?.signal?.throwIfAborted?.()
       lastLatencyMs.value = Math.round(performance.now() - t0)

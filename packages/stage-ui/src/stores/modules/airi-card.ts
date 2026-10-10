@@ -166,7 +166,7 @@ export interface ScreenWatchingConfig {
   pauseWhenAfk?: boolean
   afkThresholdMinutes?: number
   gatingMode?: 'trigger_tags' | 'system1_sentinel'
-  sentinelProvider?: 'laya-local' | 'typesafe-ai' | 'openrouter-ai'
+  sentinelProvider?: 'laya-local' | 'typesafe-ai' | 'openrouter-ai' | 'opencode-go'
   sentinelModel?: string
   sentinelQuestions?: SentinelQuestionConfig[]
   sentinelPolicy?: 'any' | 'all'
