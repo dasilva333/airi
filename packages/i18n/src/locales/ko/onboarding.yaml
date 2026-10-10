@@ -81,6 +81,8 @@ steps:
         f1: 기기 내 100% 오프라인 저장
         f2: 클라우드 원격 측정 및 외부 통신 제로
         f3: 로컬 데이터베이스 기반 즉각 시작
+      continueAction: Continue locally
+      noSignInNeeded: No sign-in needed.
     cloud:
       badge: 10 GB 무료 + 클라우드 동기화
       title: 계정 로그인 (Cloudflare)
@@ -124,6 +126,14 @@ steps:
           howItWorks: 웹 및 모바일 스테이지를 위해 브라우저 CORS 헤더를 우회하는 개인용 엣지 리버스 프록시를 배포합니다.
           whyItMatters: 모든 것은 개인 Cloudflare 계정 내에서 실행됩니다. AIRI는 중간 서버를 두지 않으며 사용자의 대화를 결코
             읽거나 저장하거나 수집하지 않습니다.
+      signInAction: Sign in & continue
+      signInHelp: Sign in with Cloudflare to continue.
+      useApiToken: Use API token
+      waitingForSignIn: Waiting for sign-in...
+      cancelSignIn: Cancel sign-in
+      finishInBrowser: Finish signing in in your browser.
+      continueAction: Continue with connected account
+      manageConnection: Manage connection
     auth:
       connected: Cloudflare 연결 완료
       disconnect: 연결 해제
@@ -133,6 +143,8 @@ steps:
       oauthButton: Cloudflare로 로그인
       tokenPlaceholder: Cloudflare API 토큰 붙여넣기...
       verifyToken: 토큰 연결
+    changeLater: You can change this later.
+    moreDetails: More details
 
   appearance:
     label: 외관
@@ -162,6 +174,8 @@ steps:
         royal: 로열 & 블룸
       activeColor: '적용 중: {color}'
     perDeviceToggle: 이 외관 설정을 현재 기기에만 유지 (클라우드 동기화 덮어쓰기 방지)
+    companionGreeting: Let’s make this space feel like you. Choose your language, theme, and
+      accent color—you’ll see changes as you go.
 
   experience:
     label: 경험
@@ -243,6 +257,9 @@ steps:
         tools: 도구 (웹 검색 및 데스크톱 MCP)
     hideModules: 모듈 숨기기
     customizeModules: '고급: 개별 모듈 사용자 정의'
+    companionGreeting: Choose an archetype that fits your style. Whether you prefer a quiet
+      observer, voice companion, or full stage performer, every capability can
+      be customized.
 
   profile:
     label: 프로필
@@ -269,6 +286,8 @@ steps:
     userBio:
       label: 당신에 대한 추가 정보 (선택적 맥락)
       placeholder: 취미, 관심사, 일상 루틴을 공유하면 컴패니언이 당신을 더 깊이 이해할 수 있습니다.
+    companionGreeting: What should I call you? Choose a ready-made profile or tell me about
+      yourself, including how you’d like us to interact.
 
   vessel:
     label: 아바타 본체
@@ -370,6 +389,8 @@ steps:
         description: 풍부한 논리적 사고 모드. 답변을 구성하는 동안 내면의 중얼거림을 생생하게 표현합니다.
     subconsciousAsides: 생각 중 내면 독백 발화 (Needle 2 WASM)
     asidesDescription: 복잡한 답변을 생성하는 동안 컴패니언이 머릿속 생각의 흐름을 혼잣말로 작게 말할 수 있도록 허용합니다.
+    companionGreeting: Tune how your companion pauses and speaks while thinking. Choose a cadence
+      that matches your model's reasoning speed.
 
   emotions:
     label: 감정

@@ -53,6 +53,16 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
       localStorage.removeItem('settings/cloudflare/cfOAuthTokens')
     }
 
+    const primaryAccountId = localStorage.getItem('settings/cloudflare/cfAccountId')
+    if (primaryAccountId && (primaryAccountId === '[object Object]' || primaryAccountId.startsWith('[object'))) {
+      localStorage.removeItem('settings/cloudflare/cfAccountId')
+    }
+
+    const primaryApiToken = localStorage.getItem('settings/cloudflare/cfApiToken')
+    if (primaryApiToken && (primaryApiToken === '[object Object]' || primaryApiToken.startsWith('[object'))) {
+      localStorage.removeItem('settings/cloudflare/cfApiToken')
+    }
+
     // 2. Legacy fallback migration
     const legacyRaw = localStorage.getItem('settings/discord/cfOAuthTokens')
     if (legacyRaw) {

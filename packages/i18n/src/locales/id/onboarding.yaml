@@ -90,6 +90,8 @@ steps:
         f1: 100% offline on-device storage
         f2: Zero cloud telemetry or external network calls
         f3: Instant startup with local database
+      continueAction: Continue locally
+      noSignInNeeded: No sign-in needed.
     cloud:
       badge: 10 GB Gratis + Sinkronisasi Cloud
       title: Masuk Akun (Cloudflare)
@@ -147,6 +149,14 @@ steps:
           whyItMatters: Semuanya berjalan di akun Cloudflare pribadi Anda. AIRI tidak
             mengoperasikan server perantara dan tidak pernah membaca, menyimpan,
             atau mengambil percakapan Anda.
+      signInAction: Sign in & continue
+      signInHelp: Sign in with Cloudflare to continue.
+      useApiToken: Use API token
+      waitingForSignIn: Waiting for sign-in...
+      cancelSignIn: Cancel sign-in
+      finishInBrowser: Finish signing in in your browser.
+      continueAction: Continue with connected account
+      manageConnection: Manage connection
     auth:
       connected: Connected to Cloudflare
       disconnect: Disconnect
@@ -156,6 +166,8 @@ steps:
       oauthButton: Sign In with Cloudflare
       tokenPlaceholder: Paste your Cloudflare API token...
       verifyToken: Connect Token
+    changeLater: You can change this later.
+    moreDetails: More details
 
   appearance:
     label: Tampilan
@@ -187,6 +199,8 @@ steps:
       activeColor: 'Aktif: {color}'
     perDeviceToggle: Pertahankan tampilan lokal di perangkat ini (kecualikan dari
       sinkronisasi awan)
+    companionGreeting: Let’s make this space feel like you. Choose your language, theme, and
+      accent color—you’ll see changes as you go.
 
   experience:
     label: Experience
@@ -282,6 +296,9 @@ steps:
         tools: Tools (Web Search & Desktop MCP)
     hideModules: Hide Modules
     customizeModules: 'Advanced: Customize Modules'
+    companionGreeting: Choose an archetype that fits your style. Whether you prefer a quiet
+      observer, voice companion, or full stage performer, every capability can
+      be customized.
 
   profile:
     label: User Profile
@@ -310,6 +327,8 @@ steps:
       label: About You (Optional Context)
       placeholder: Share your interests, hobbies, or daily routine so your companion
         can connect deeper.
+    companionGreeting: What should I call you? Choose a ready-made profile or tell me about
+      yourself, including how you’d like us to interact.
 
   vessel:
     label: Physical Vessel
@@ -420,6 +439,8 @@ steps:
     subconsciousAsides: Subconscious Spoken Asides (Needle 2 WASM)
     asidesDescription: Permit companion to vocalize inner train-of-thought
       mutterings while generating complex answers.
+    companionGreeting: Tune how your companion pauses and speaks while thinking. Choose a cadence
+      that matches your model's reasoning speed.
 
   emotions:
     label: Emotions

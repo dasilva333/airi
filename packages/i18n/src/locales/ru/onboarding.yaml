@@ -90,6 +90,8 @@ steps:
         f1: 100% офлайн-хранилище на устройстве
         f2: Ноль телеметрии и внешних сетевых запросов
         f3: Мгновенный запуск с локальной базой данных
+      continueAction: Continue locally
+      noSignInNeeded: No sign-in needed.
     cloud:
       badge: 10 ГБ Бесплатно + Облачная Синхронизация
       title: Вход в аккаунт (Cloudflare)
@@ -147,6 +149,14 @@ steps:
           whyItMatters: Все работает исключительно в вашей учетной записи Cloudflare. AIRI
             не использует промежуточных серверов и никогда не читает, не хранит
             и не собирает ваши переписки.
+      signInAction: Sign in & continue
+      signInHelp: Sign in with Cloudflare to continue.
+      useApiToken: Use API token
+      waitingForSignIn: Waiting for sign-in...
+      cancelSignIn: Cancel sign-in
+      finishInBrowser: Finish signing in in your browser.
+      continueAction: Continue with connected account
+      manageConnection: Manage connection
     auth:
       connected: Подключено к Cloudflare
       disconnect: Отключить
@@ -156,6 +166,8 @@ steps:
       oauthButton: Войти через Cloudflare
       tokenPlaceholder: Вставьте ваш API токен Cloudflare...
       verifyToken: Подключить токен
+    changeLater: You can change this later.
+    moreDetails: More details
 
   appearance:
     label: Внешность
@@ -187,6 +199,8 @@ steps:
       activeColor: 'Активно: {color}'
     perDeviceToggle: Сохранять это оформление только на этом устройстве (исключить
       из облачной перезаписи)
+    companionGreeting: Let’s make this space feel like you. Choose your language, theme, and
+      accent color—you’ll see changes as you go.
 
   experience:
     label: Опыт
@@ -284,6 +298,9 @@ steps:
         tools: Инструменты (Поиск в сети и системный MCP)
     hideModules: Скрыть модули
     customizeModules: 'Дополнительно: Настроить модули'
+    companionGreeting: Choose an archetype that fits your style. Whether you prefer a quiet
+      observer, voice companion, or full stage performer, every capability can
+      be customized.
 
   profile:
     label: Профиль
@@ -312,6 +329,8 @@ steps:
       label: О вас (Дополнительный контекст)
       placeholder: Расскажите о своих увлечениях или распорядке дня, чтобы компаньон
         лучше вас понимал.
+    companionGreeting: What should I call you? Choose a ready-made profile or tell me about
+      yourself, including how you’d like us to interact.
 
   vessel:
     label: Оболочка
@@ -422,6 +441,8 @@ steps:
     subconsciousAsides: Озвучивание внутренних мыслей (Needle 2 WASM)
     asidesDescription: Разрешить компаньону озвучивать тихий ход мыслей при
       подготовке сложных ответов.
+    companionGreeting: Tune how your companion pauses and speaks while thinking. Choose a cadence
+      that matches your model's reasoning speed.
 
   emotions:
     label: Эмоции

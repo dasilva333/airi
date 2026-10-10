@@ -92,6 +92,8 @@ steps:
         f1: Almacenamiento 100% fuera de línea en el dispositivo
         f2: Cero telemetría en la nube ni llamadas externas
         f3: Inicio instantáneo con base de datos local
+      continueAction: Continue locally
+      noSignInNeeded: No sign-in needed.
     cloud:
       badge: 10 GB Gratis + Sincronización en Nube
       title: Iniciar Sesión (Cloudflare)
@@ -154,6 +156,14 @@ steps:
           whyItMatters: Todo se ejecuta en tu cuenta personal de Cloudflare. AIRI no opera
             servidores intermediarios y nunca lee, almacena ni recopila tus
             conversaciones.
+      signInAction: Sign in & continue
+      signInHelp: Sign in with Cloudflare to continue.
+      useApiToken: Use API token
+      waitingForSignIn: Waiting for sign-in...
+      cancelSignIn: Cancel sign-in
+      finishInBrowser: Finish signing in in your browser.
+      continueAction: Continue with connected account
+      manageConnection: Manage connection
     auth:
       connected: Conectado a Cloudflare
       disconnect: Desconectar
@@ -163,6 +173,8 @@ steps:
       oauthButton: Iniciar sesión con Cloudflare
       tokenPlaceholder: Pega tu token de API de Cloudflare...
       verifyToken: Conectar Token
+    changeLater: You can change this later.
+    moreDetails: More details
 
   appearance:
     label: Apariencia
@@ -195,6 +207,8 @@ steps:
       activeColor: 'Activo: {color}'
     perDeviceToggle: Mantener esta apariencia solo en este dispositivo (excluir de
       la sincronización)
+    companionGreeting: Let’s make this space feel like you. Choose your language, theme, and
+      accent color—you’ll see changes as you go.
 
   experience:
     label: Experiencia
@@ -293,6 +307,9 @@ steps:
         tools: Herramientas (Búsqueda web y MCP de escritorio)
     hideModules: Ocultar Módulos
     customizeModules: 'Avanzado: Personalizar Módulos'
+    companionGreeting: Choose an archetype that fits your style. Whether you prefer a quiet
+      observer, voice companion, or full stage performer, every capability can
+      be customized.
 
   profile:
     label: Perfil
@@ -321,6 +338,8 @@ steps:
       label: Sobre ti (Contexto opcional)
       placeholder: Comparte tus pasatiempos, intereses o rutina diaria para que tu
         acompañante te conozca mejor.
+    companionGreeting: What should I call you? Choose a ready-made profile or tell me about
+      yourself, including how you’d like us to interact.
 
   vessel:
     label: Recipiente físico
@@ -431,6 +450,8 @@ steps:
     subconsciousAsides: Murmullos espontáneos hablados (Needle 2 WASM)
     asidesDescription: Permite al personaje verbalizar pequeños pensamientos en voz
       baja mientras genera respuestas complejas.
+    companionGreeting: Tune how your companion pauses and speaks while thinking. Choose a cadence
+      that matches your model's reasoning speed.
 
   emotions:
     label: Emociones

@@ -78,6 +78,8 @@ steps:
         f1: 设备内 100% 离线存储
         f2: 零云端遥测与外部网络请求
         f3: 基于本地数据库极速秒开
+      continueAction: Continue locally
+      noSignInNeeded: No sign-in needed.
     cloud:
       badge: 10 GB 免费空间 + 云端同步
       title: 账号登录 (Cloudflare)
@@ -116,6 +118,14 @@ steps:
           desc: 安全访问复杂的本地与远程 AI API，100% 零数据截留。
           howItWorks: 自动部署个人边缘反向代理，为 Web 与移动端绕过浏览器 CORS 跨域限制。
           whyItMatters: 所有数据只存在于你自己的 Cloudflare 账号中，AIRI 没有任何中转服务器，绝不窥探或采集你的对话。
+      signInAction: Sign in & continue
+      signInHelp: Sign in with Cloudflare to continue.
+      useApiToken: Use API token
+      waitingForSignIn: Waiting for sign-in...
+      cancelSignIn: Cancel sign-in
+      finishInBrowser: Finish signing in in your browser.
+      continueAction: Continue with connected account
+      manageConnection: Manage connection
     auth:
       connected: 已连接至 Cloudflare
       disconnect: 断开连接
@@ -125,6 +135,8 @@ steps:
       oauthButton: 使用 Cloudflare 登录
       tokenPlaceholder: 粘贴您的 Cloudflare API 令牌...
       verifyToken: 连接令牌
+    changeLater: You can change this later.
+    moreDetails: More details
 
   appearance:
     label: 外观
@@ -154,6 +166,8 @@ steps:
         royal: 尊贵与繁花
       activeColor: '当前应用: {color}'
     perDeviceToggle: 仅在本设备保留此外观（不参与云端同步覆盖）
+    companionGreeting: Let’s make this space feel like you. Choose your language, theme, and
+      accent color—you’ll see changes as you go.
 
   experience:
     label: 体验
@@ -231,6 +245,9 @@ steps:
         tools: 外部工具 (联网搜索与桌面 MCP)
     hideModules: 隐藏模块
     customizeModules: '高级: 自定义单个模块'
+    companionGreeting: Choose an archetype that fits your style. Whether you prefer a quiet
+      observer, voice companion, or full stage performer, every capability can
+      be customized.
 
   profile:
     label: 用户画像
@@ -257,6 +274,8 @@ steps:
     userBio:
       label: 关于你的补充信息（可选上下文）
       placeholder: 分享你的兴趣爱好或作息习惯，让伴侣能够更加懂你。
+    companionGreeting: What should I call you? Choose a ready-made profile or tell me about
+      yourself, including how you’d like us to interact.
 
   vessel:
     label: 物理躯体
@@ -359,6 +378,8 @@ steps:
         description: 深入的逻辑链条推理，在酝酿答案时会伴随丰富的潜意识喃喃自语。
     subconsciousAsides: 潜意识旁白发音 (Needle 2 WASM)
     asidesDescription: 允许伴侣在生成长篇复杂回答时，将内心的思考碎碎念真实念出。
+    companionGreeting: Tune how your companion pauses and speaks while thinking. Choose a cadence
+      that matches your model's reasoning speed.
 
   emotions:
     label: 丰富情感

@@ -184,7 +184,7 @@ export const providerOpenCodeGo = defineProvider<OpenCodeGoConfig>({
     }),
   },
   extraMethods: {
-    async listModels(config, provider) {
+    async listModels(_config, provider) {
       const jevModels = [
         {
           id: 'jev-1.13-free',

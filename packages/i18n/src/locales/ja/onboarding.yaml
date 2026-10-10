@@ -80,6 +80,8 @@ steps:
         f1: 端末内完全オフライン保存
         f2: クラウドテレメトリ・外部通信ゼロ
         f3: ローカルDBによる超高速起動
+      continueAction: Continue locally
+      noSignInNeeded: No sign-in needed.
     cloud:
       badge: 10 GB 無料 + クラウド同期
       title: アカウントサインイン (Cloudflare)
@@ -122,6 +124,14 @@ steps:
           howItWorks: 個人用エッジリバースプロキシをデプロイし、Web およびモバイルステージ向けのブラウザ CORS 制限を回避します。
           whyItMatters: すべてが個人の Cloudflare アカウント内で動作します。AIRI
             は中間サーバーを介さず、会話を盗み見たり保存したりすることは一切ありません。
+      signInAction: Sign in & continue
+      signInHelp: Sign in with Cloudflare to continue.
+      useApiToken: Use API token
+      waitingForSignIn: Waiting for sign-in...
+      cancelSignIn: Cancel sign-in
+      finishInBrowser: Finish signing in in your browser.
+      continueAction: Continue with connected account
+      manageConnection: Manage connection
     auth:
       connected: Cloudflare に接続完了
       disconnect: 接続解除
@@ -131,6 +141,8 @@ steps:
       oauthButton: Cloudflare でサインイン
       tokenPlaceholder: Cloudflare API トークンを入力...
       verifyToken: トークンを接続
+    changeLater: You can change this later.
+    moreDetails: More details
 
   appearance:
     label: 外観
@@ -160,6 +172,8 @@ steps:
         royal: ロイヤル＆ブルーム
       activeColor: '選択中: {color}'
     perDeviceToggle: 外観設定をこのデバイス限定にする (クラウド同期から除外)
+    companionGreeting: Let’s make this space feel like you. Choose your language, theme, and
+      accent color—you’ll see changes as you go.
 
   experience:
     label: 体験
@@ -237,6 +251,9 @@ steps:
         tools: 外部ツール (Web検索とデスクトップMCP)
     hideModules: モジュールを非表示
     customizeModules: '高度な設定: モジュールを個別にカスタマイズ'
+    companionGreeting: Choose an archetype that fits your style. Whether you prefer a quiet
+      observer, voice companion, or full stage performer, every capability can
+      be customized.
 
   profile:
     label: プロフィール
@@ -263,6 +280,8 @@ steps:
     userBio:
       label: あなたについての追加情報 (任意)
       placeholder: 趣味や日々の過ごし方を共有すると、パートナーがよりあなたを理解できるようになります。
+    companionGreeting: What should I call you? Choose a ready-made profile or tell me about
+      yourself, including how you’d like us to interact.
 
   vessel:
     label: アバター体
@@ -364,6 +383,8 @@ steps:
         description: じっくりと考えを巡らせる深い思考モード。回答をまとめる間に豊かなつぶやきを発します。
     subconsciousAsides: 思考中のつぶやき音声 (Needle 2 WASM)
     asidesDescription: 複雑な回答を生成している間に、心の中の思考プロセスをつぶやきとして声に出すことを許可します。
+    companionGreeting: Tune how your companion pauses and speaks while thinking. Choose a cadence
+      that matches your model's reasoning speed.
 
   emotions:
     label: 感情
