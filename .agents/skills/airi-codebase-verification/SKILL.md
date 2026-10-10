@@ -17,6 +17,24 @@ Choose the smallest validation that gives useful confidence; validation is not a
 - Running `pnpm -F <workspace> typecheck` or an affected-workspace build.
 - Weighing whether `pnpm lint:fix` is appropriate.
 - Reporting working-tree state after a modification, commit, or handoff.
+- Inspecting remote CI failures, streaming logs, or watching workflow runs.
+
+## GitHub CI Monitoring & Failure Diagnostics
+
+When diagnosing remote build/test failures or tracking post-push GitHub Actions workflows, use the canonical CI status tool:
+
+- **Check Workflow Status**: `pnpm run ci:status`
+  - Script entry point: `node scripts/github/ci-status.mjs` (powered by `gh` CLI against `dasilva333/airi`).
+  - Summarizes the 8 most recent workflow runs: ID, workflow name, status (`✓ success`, `✗ failure`, `⟳ in_progress`), duration, commit SHA, and the specific active or failed step name (e.g. `FAILED: Lint -> [Run pnpm install --frozen-lockfile --ignore-scripts]`).
+- **Inspect Failed Logs Directly**: `pnpm run ci:status --log-error <runId>` (alias `-e <runId>`)
+  - Fetches the exact failure log output using `gh run view <runId> --log-failed`.
+  - If `<runId>` is omitted, automatically inspects the latest failed workflow run.
+  - Eliminates the need to open a browser or guess why remote jobs failed.
+- **Watch Active Runs Until Completion**: `pnpm run ci:status --watch` (alias `-w`)
+  - Polls active runs every 20 seconds until all in-progress jobs finish.
+  - Exits with `0` if all runs succeed, or `1` if any failed.
+- **Inspect Release Assets**: `pnpm run ci:status --release` (alias `-r`, optional `--tag=<tag>`)
+  - Lists attached release assets (binaries, DMGs, installers) and their sizes for a given release tag.
 
 ## Common Pitfalls
 
