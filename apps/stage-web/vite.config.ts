@@ -372,6 +372,20 @@ export default defineConfig({
           },
           workbox: {
             maximumFileSizeToCacheInBytes: 64 * 1024 * 1024,
+            // The WebAssembly files are over 80% of the build. Precaching them downloads
+            // them all at install, so they are cached on first use instead.
+            globIgnores: ['**/*.wasm'],
+            runtimeCaching: [
+              {
+                urlPattern: ({ url }) => url.pathname.endsWith('.wasm'),
+                // The file names carry a content hash, so a cached file never goes stale.
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'wasm',
+                  expiration: { maxEntries: 8 },
+                },
+              },
+            ],
             navigateFallbackDenylist: [
               /^\/docs\//,
               /^\/ui\//,
