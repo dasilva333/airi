@@ -22,6 +22,7 @@ import { ref } from 'vue'
 
 import { ATTENTION_GUARD_WORKLOAD_ID } from '../../../composables/vision/use-vision-workloads'
 import { createAttentionGuardAdapter } from '../../../libs/inference/adapters/attention-guard'
+import { buildReasoningOverrides } from '../../../libs/providers/reasoning'
 import { shouldDegradeBackgroundWork } from '../../../utils/memory-sentinel'
 import { useChatOrchestratorStore } from '../../chat'
 import { useEntityLedgerStore } from '../../entity-ledger'
@@ -508,7 +509,7 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
                   visionStore.activeModel,
                   vlmProvider,
                   vlmMessages as any,
-                  { vision: true },
+                  { vision: true, requestOverrides: buildReasoningOverrides(visionStore.activeProvider, visionStore.reasoningMode) },
                 )
 
                 const caption = vlmResponse.text?.trim().replace(/^["']|["']$/g, '').replace(/\r?\n+/g, ' ').trim()

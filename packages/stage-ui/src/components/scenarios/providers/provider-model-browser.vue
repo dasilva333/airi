@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import type { ReasoningMode } from '../../../libs/providers/reasoning'
+
 import { FieldSelect } from '@proj-airi/ui'
 import { useLocalStorage } from '@vueuse/core'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { getSupportedReasoningModes, REASONING_MODE_LABELS } from '../../../libs/providers/reasoning'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 import { useProvidersStore } from '../../../stores/providers'
@@ -48,8 +51,11 @@ const filtered = computed(() => {
 
 const options = computed(() => filtered.value.map(m => ({ value: m.id, label: m.name || m.id })))
 
+const reasoningMode = ref<ReasoningMode>('default')
+const reasoningOptions = computed(() => getSupportedReasoningModes(props.providerId).map(mode => ({ value: mode, label: REASONING_MODE_LABELS[mode] })))
+
 // Favorites local storage sync
-const favorites = useLocalStorage<Array<{ id: string, name: string, provider: string, model: string }>>('airi:chat-model-favorites', [])
+const favorites = useLocalStorage<Array<{ id: string, name: string, provider: string, model: string, reasoningMode?: ReasoningMode }>>('airi:chat-model-favorites', [])
 
 function handleSaveAndActivate() {
   if (!model.value)
@@ -70,9 +76,10 @@ function handleSaveAndActivate() {
   // 1. Update runtime consciousness store
   consciousnessStore.activeProvider = providerKey
   consciousnessStore.activeModel = model.value
+  consciousnessStore.activeReasoningMode = reasoningMode.value
 
   // 2. Save into Favorites list if not present
-  const existingIndex = favorites.value.findIndex(f => f.provider === providerKey && f.model === model.value)
+  const existingIndex = favorites.value.findIndex(f => f.provider === providerKey && f.model === model.value && (f.reasoningMode ?? 'default') === reasoningMode.value)
   const favoriteName = `${baseName} (${modelShortName})`
 
   if (existingIndex >= 0) {
@@ -84,6 +91,7 @@ function handleSaveAndActivate() {
       name: favoriteName,
       provider: providerKey,
       model: model.value,
+      reasoningMode: reasoningMode.value,
     })
   }
 
@@ -97,8 +105,10 @@ function handleSaveAndActivate() {
           modules: {
             ...airiCardStore.activeCard.extensions?.airi?.modules,
             consciousness: {
+              ...airiCardStore.activeCard.extensions?.airi?.modules?.consciousness,
               provider: providerKey,
               model: model.value,
+              reasoningMode: reasoningMode.value,
             },
           },
         },
@@ -128,6 +138,9 @@ onMounted(() => {
   if (!model.value && (consciousnessStore.activeProvider === providerKey || consciousnessStore.activeProvider === props.providerId)) {
     model.value = consciousnessStore.activeModel
   }
+
+  if (consciousnessStore.activeProvider === providerKey && consciousnessStore.activeModel === model.value)
+    reasoningMode.value = consciousnessStore.activeReasoningMode
 
   if ((providersStore.providerRuntimeState[props.providerId]?.models?.length ?? 0) === 0)
     handleFetchModels()
@@ -197,6 +210,15 @@ export default { name: 'ProviderModelBrowser' }
       :label="t('settings.pages.providers.common.section.modelBrowser.label')"
       :description="t('settings.pages.providers.common.section.modelBrowser.description')"
       :placeholder="isLoading ? 'Fetching live models...' : (options.length > 0 ? t('settings.pages.providers.common.section.modelBrowser.placeholder') : 'No models loaded. Check API Key or click Refresh.')"
+      layout="vertical"
+    />
+
+    <FieldSelect
+      v-if="reasoningOptions.length > 0"
+      v-model="reasoningMode"
+      :options="reasoningOptions"
+      label="Reasoning"
+      description="Saved together with the model in the favorite and on the active character."
       layout="vertical"
     />
   </div>

@@ -1,3 +1,5 @@
+import type { ReasoningMode } from '../../libs/providers/reasoning'
+
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { refManualReset } from '@vueuse/core'
 import { defineStore } from 'pinia'
@@ -15,6 +17,7 @@ export const useConsciousnessStore = defineStore('consciousness', () => {
   const activeProvider = useLocalStorageManualReset<string>('settings/consciousness/active-provider', '')
   const activeModel = useLocalStorageManualReset<string>('settings/consciousness/active-model', '')
   const activeCustomModelName = useLocalStorageManualReset<string>('settings/consciousness/active-custom-model', '')
+  const activeReasoningMode = useLocalStorageManualReset<ReasoningMode>('settings/consciousness/active-reasoning-mode', 'default')
   const expandedDescriptions = refManualReset<Record<string, boolean>>(() => ({}))
   const modelSearchQuery = refManualReset<string>('')
 
@@ -50,6 +53,7 @@ export const useConsciousnessStore = defineStore('consciousness', () => {
 
   function resetModelSelection() {
     activeModel.reset()
+    activeReasoningMode.reset()
     activeCustomModelName.reset()
     expandedDescriptions.reset()
     modelSearchQuery.reset()
@@ -118,6 +122,7 @@ export const useConsciousnessStore = defineStore('consciousness', () => {
     configured,
     activeProvider,
     activeModel,
+    activeReasoningMode,
     customModelName: activeCustomModelName,
     expandedDescriptions,
     modelSearchQuery,

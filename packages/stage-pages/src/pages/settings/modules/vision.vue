@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Alert, ErrorContainer, RadioCardManySelect, RadioCardSimple } from '@proj-airi/stage-ui/components'
 import { useAnalytics } from '@proj-airi/stage-ui/composables'
+import { buildReasoningOverrides, getSupportedReasoningModes, REASONING_MODE_LABELS } from '@proj-airi/stage-ui/libs/providers/reasoning'
 import { useLLM } from '@proj-airi/stage-ui/stores/llm'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { Button } from '@proj-airi/ui'
+import { Button, FieldSelect } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -24,12 +25,20 @@ const { activeCard } = storeToRefs(cardStore)
 const {
   activeProvider,
   activeModel,
+  reasoningMode,
   supportsModelListing,
   providerModels,
   isLoadingActiveProviderModels,
   activeProviderModelError,
   strategy,
 } = storeToRefs(visionStore)
+
+const reasoningOptions = computed(() => getSupportedReasoningModes(activeProvider.value).map(mode => ({ value: mode, label: REASONING_MODE_LABELS[mode] })))
+
+watch(activeProvider, (provider) => {
+  if (!getSupportedReasoningModes(provider).includes(reasoningMode.value))
+    reasoningMode.value = 'default'
+})
 
 const characterName = computed(() => activeCard.value?.name || 'Airi')
 const characterAvatar = computed(() => {
@@ -267,7 +276,7 @@ async function runSimulation() {
         activeModel.value,
         vlmProvider,
         vlmMessages as any,
-        { vision: true },
+        { vision: true, requestOverrides: buildReasoningOverrides(activeProvider.value, reasoningMode.value) },
       )
       hop1Result.value = vlmResponse.text || '[No visual description generated]'
     }
@@ -302,6 +311,7 @@ async function runSimulation() {
             consciousnessStore.activeModel,
             consciousnessProvider,
             consciousnessMessages as any,
+            { requestOverrides: buildReasoningOverrides(consciousnessStore.activeProvider, consciousnessStore.activeReasoningMode) },
           )
           hop2Result.value = response.text || ''
           hop2Latency.value = Math.round(performance.now() - hop2Start)
@@ -525,6 +535,15 @@ async function runSimulation() {
             >
           </div>
         </div>
+
+        <FieldSelect
+          v-if="activeProvider && reasoningOptions.length > 0"
+          v-model="reasoningMode"
+          :options="reasoningOptions"
+          label="Reasoning"
+          description="Applies to image descriptions, direct vision replies and screen watching captions."
+          layout="vertical"
+        />
       </div>
     </div>
 

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ReasoningMode } from '@proj-airi/stage-ui/libs/providers/reasoning'
+
 import type { RerankerProviderId } from './cognition/CognitionSubTabMemory.vue'
 import type { TriggerGroup } from './cognition/CognitionSubTabTriggers.vue'
 
@@ -26,6 +28,8 @@ const selectedFirstHopProvider = defineModel<string>('selectedFirstHopProvider',
 const selectedFirstHopModel = defineModel<string>('selectedFirstHopModel', { required: true })
 const selectedConsciousnessProvider = defineModel<string>('selectedConsciousnessProvider', { required: true })
 const selectedConsciousnessModel = defineModel<string>('selectedConsciousnessModel', { required: true })
+const selectedFirstHopReasoning = defineModel<ReasoningMode>('selectedFirstHopReasoning', { required: true })
+const selectedConsciousnessReasoning = defineModel<ReasoningMode>('selectedConsciousnessReasoning', { required: true })
 
 // 5-Segment Sub-Tab Navigation (Option 1: Harmonized Architecture)
 type CognitionSubTabId = 'playground' | 'routing' | 'affect' | 'triggers' | 'memory'
@@ -281,6 +285,8 @@ function handleApplyQuestionnaire(config: {
       v-model:selected-first-hop-model="selectedFirstHopModel"
       v-model:selected-consciousness-provider="selectedConsciousnessProvider"
       v-model:selected-consciousness-model="selectedConsciousnessModel"
+      v-model:selected-first-hop-reasoning="selectedFirstHopReasoning"
+      v-model:selected-consciousness-reasoning="selectedConsciousnessReasoning"
       :consciousness-provider-options="consciousnessProviderOptions"
       :consciousness-model-options="consciousnessModelOptions"
       :first-hop-model-options="firstHopModelOptions"

@@ -45,6 +45,7 @@ export const AiriCognitionSchema = looseObject({
   processor: optional(union([literal('none'), literal('local_nan0'), literal('universe_rag')])),
   provider: optional(string()),
   model: optional(string()),
+  reasoningMode: optional(union([literal('default'), literal('off'), literal('on'), literal('low'), literal('medium'), literal('high')])),
   affect: optional(looseObject({
     preset: optional(union([literal('gremlin'), literal('companion'), literal('analyst'), literal('sentry')])),
     baselineSuspicion: optional(number()),

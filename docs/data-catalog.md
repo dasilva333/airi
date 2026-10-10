@@ -859,6 +859,7 @@ interface StoredCustomVrmAnimation {
 | :--- | :--- | :--- | :--- |
 | `settings/consciousness/active-provider` | `string` | `''` | `stores/modules/consciousness.ts` |
 | `settings/consciousness/active-model` | `string` | `''` | `stores/modules/consciousness.ts` |
+| `settings/consciousness/active-reasoning-mode` | `ReasoningMode` | `'default'` | `stores/modules/consciousness.ts` |
 | `settings/consciousness/active-custom-model` | `string` | `''` | `stores/modules/consciousness.ts` |
 
 ### 4.4 Speech (TTS)
@@ -929,6 +930,7 @@ interface VoiceProfile {
 | `settings/vision/strategy` | `'direct' \| 'forward'` | `'direct'` | `stores/modules/vision.ts` |
 | `settings/vision/active-provider` | `string` | `''` | `stores/modules/vision.ts` |
 | `settings/vision/active-model` | `string` | `''` | `stores/modules/vision.ts` |
+| `settings/vision/reasoning-mode` | `ReasoningMode` | `'default'` | `stores/modules/vision.ts` |
 | `settings/vision/context-window` | `number` (images in context) | `1` | `stores/modules/vision.ts` |
 | `settings/vision/prompt-shim` | `string` | — | `stores/modules/vision.ts` |
 | `settings/vision/prompt-shim-forward` | `string` | — | `stores/modules/vision.ts` |

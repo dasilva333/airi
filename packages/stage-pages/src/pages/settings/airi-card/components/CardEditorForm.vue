@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Card } from '@proj-airi/ccc'
+import type { ReasoningMode } from '@proj-airi/stage-ui/libs/providers/reasoning'
 import type { AiriExtension, CharacterCueAllowlist } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import type { SpeechCapabilitiesInfo } from '@proj-airi/stage-ui/stores/providers'
 import type { ThinkingFillerPhrase } from '@proj-airi/stage-ui/types/pacing'
@@ -24,6 +25,7 @@ import {
   DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
   DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION,
 } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
+import { getSupportedReasoningModes } from '@proj-airi/stage-ui/libs/providers/reasoning'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { ensureMcpServersForAllowedTools } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
@@ -199,6 +201,8 @@ const cognitivePipelineEnabled = ref<boolean>(false)
 const firstHopProcessor = ref<'none' | 'local_nan0' | 'universe_rag'>('none')
 const selectedFirstHopProvider = ref<string>('')
 const selectedFirstHopModel = ref<string>('')
+const selectedConsciousnessReasoning = ref<ReasoningMode>('default')
+const selectedFirstHopReasoning = ref<ReasoningMode>('default')
 
 // Cognition - Affect State
 const selectedMoodPreset = ref<'gremlin' | 'companion' | 'analyst' | 'sentry'>('gremlin')
@@ -784,6 +788,16 @@ async function ensureProviderModelsAndVoices() {
   }
 }
 
+// Reset reasoning when the new provider does not support it
+watch(selectedConsciousnessProvider, (provider) => {
+  if (!getSupportedReasoningModes(provider).includes(selectedConsciousnessReasoning.value))
+    selectedConsciousnessReasoning.value = 'default'
+})
+watch(selectedFirstHopProvider, (provider) => {
+  if (!getSupportedReasoningModes(provider).includes(selectedFirstHopReasoning.value))
+    selectedFirstHopReasoning.value = 'default'
+})
+
 // Watch consciousness provider changes and reload models
 watch(selectedConsciousnessProvider, async (newProvider, oldProvider) => {
   if (isInitializing.value || !oldProvider || !newProvider || newProvider === oldProvider) {
@@ -1057,12 +1071,14 @@ async function saveCard(card: Card): Promise<boolean> {
           consciousness: {
             provider: selectedConsciousnessProvider.value || consciousnessProvider.value,
             model: selectedConsciousnessModel.value || defaultConsciousnessModel.value,
+            reasoningMode: selectedConsciousnessReasoning.value,
           },
           cognition: {
             enabled: cognitivePipelineEnabled.value,
             processor: firstHopProcessor.value,
             provider: selectedFirstHopProvider.value || consciousnessProvider.value,
             model: selectedFirstHopModel.value,
+            reasoningMode: selectedFirstHopReasoning.value,
           },
           speech: {
             provider: selectedSpeechProvider.value || speechProvider.value,
@@ -1219,6 +1235,7 @@ async function saveCard(card: Card): Promise<boolean> {
     processor: firstHopProcessor.value,
     provider: selectedFirstHopProvider.value || consciousnessProvider.value,
     model: selectedFirstHopModel.value,
+    reasoningMode: selectedFirstHopReasoning.value,
     affect: {
       preset: selectedMoodPreset.value,
       baselineSuspicion: baselineSuspicion.value,
@@ -1329,6 +1346,7 @@ function initializeCard(): Card {
     // Initialize module selections with fallback logic (handles all cases: create, edit with/without extension)
     selectedConsciousnessProvider.value = airiExt?.modules?.consciousness?.provider || consciousnessProvider.value
     selectedConsciousnessModel.value = airiExt?.modules?.consciousness?.model || defaultConsciousnessModel.value
+    selectedConsciousnessReasoning.value = airiExt?.modules?.consciousness?.reasoningMode ?? 'default'
     selectedSpeechProvider.value = airiExt?.modules?.speech?.provider || speechProvider.value
     selectedSpeechModel.value = airiExt?.modules?.speech?.model || defaultSpeechModel.value
     selectedSpeechVoiceId.value = airiExt?.modules?.speech?.voice_id || defaultSpeechVoiceId.value
@@ -1341,6 +1359,7 @@ function initializeCard(): Card {
     firstHopProcessor.value = cognitionData?.processor ?? 'none'
     selectedFirstHopProvider.value = cognitionData?.provider || consciousnessProvider.value
     selectedFirstHopModel.value = cognitionData?.model || ''
+    selectedFirstHopReasoning.value = cognitionData?.reasoningMode ?? 'default'
 
     // Cognition - Affect
     selectedMoodPreset.value = cognitionData?.affect?.preset ?? 'gremlin'
@@ -1924,6 +1943,7 @@ function handleGeneratorSave(newValue: string) {
         v-else-if="activeTab === 'generation'"
         v-model:consciousness-provider="selectedConsciousnessProvider"
         v-model:consciousness-model="selectedConsciousnessModel"
+        v-model:consciousness-reasoning-mode="selectedConsciousnessReasoning"
         v-model:generation-enabled="generationEnabled"
         v-model:generation-provider="generationProvider"
         v-model:generation-model="generationModel"
@@ -2020,6 +2040,8 @@ function handleGeneratorSave(newValue: string) {
         v-model:selected-first-hop-model="selectedFirstHopModel"
         v-model:selected-consciousness-provider="selectedConsciousnessProvider"
         v-model:selected-consciousness-model="selectedConsciousnessModel"
+        v-model:selected-first-hop-reasoning="selectedFirstHopReasoning"
+        v-model:selected-consciousness-reasoning="selectedConsciousnessReasoning"
         v-model:selected-mood-preset="selectedMoodPreset"
         v-model:baseline-suspicion="baselineSuspicion"
         v-model:baseline-attachment="baselineAttachment"

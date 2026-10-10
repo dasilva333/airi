@@ -1,5 +1,7 @@
 import type { PrimaryDisplaySize } from '@proj-airi/stage-shared'
 
+import type { ReasoningMode } from '../../libs/providers/reasoning'
+
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { isWithinSchedule, visionCaptureScreen, visionCheckPermission, visionGetPrimaryDisplaySize, visionRequestPermission } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
@@ -20,6 +22,7 @@ export const useVisionStore = defineStore('vision', () => {
   const strategy = useLocalStorageManualReset<'direct' | 'forward'>('settings/vision/strategy', 'direct')
   const activeProvider = useLocalStorageManualReset<string>('settings/vision/active-provider', '')
   const activeModel = useLocalStorageManualReset<string>('settings/vision/active-model', '')
+  const reasoningMode = useLocalStorageManualReset<ReasoningMode>('settings/vision/reasoning-mode', 'default')
   const contextWindow = useLocalStorageManualReset<number>('settings/vision/context-window', 1) // Number of images to include in context
   const promptShimDirect = useLocalStorageManualReset<string>(
     'settings/vision/prompt-shim',
@@ -272,6 +275,7 @@ export const useVisionStore = defineStore('vision', () => {
 
   function resetModelSelection() {
     activeModel.reset()
+    reasoningMode.reset()
   }
 
   async function loadModelsForProvider(provider: string) {
@@ -316,6 +320,7 @@ export const useVisionStore = defineStore('vision', () => {
     strategy,
     activeProvider,
     activeModel,
+    reasoningMode,
     contextWindow,
     promptShimDirect,
     promptShimForward,

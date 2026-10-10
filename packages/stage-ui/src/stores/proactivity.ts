@@ -21,6 +21,7 @@ import { computed, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useLlmmarkerParser } from '../composables/llm-marker-parser'
 import { categorizeResponse, createStreamingCategorizer } from '../composables/response-categoriser'
 import { chatSessionsRepo } from '../database/repos/chat-sessions.repo'
+import { buildReasoningOverrides } from '../libs/providers/reasoning'
 import { logMemoryProbe } from '../utils/memory-sentinel'
 import { useAuthStore } from './auth'
 import { useBackgroundStore } from './background'
@@ -740,6 +741,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
       const llmResponse = await llmStore.generate(activeModel, activeProvider, messages, {
         tools: resolvedTools,
         supportsTools: true,
+        requestOverrides: buildReasoningOverrides(activeProviderId, consciousnessStore.activeReasoningMode),
       })
       const rawReply = llmResponse.text
 

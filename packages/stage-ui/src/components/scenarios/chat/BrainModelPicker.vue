@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ReasoningMode } from '../../../libs/providers/reasoning'
+
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
@@ -6,6 +8,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { NativeAI } from '../../../libs/native-ai'
+import { getSupportedReasoningModes, REASONING_MODE_LABELS } from '../../../libs/providers/reasoning'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 import { useProvidersStore } from '../../../stores/providers'
@@ -19,7 +22,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: 'update:provider', value: string): void
   (e: 'update:model', value: string): void
-  (e: 'change', value: { provider: string, model: string }): void
+  (e: 'update:reasoningMode', value: ReasoningMode): void
+  (e: 'change', value: { provider: string, model: string, reasoningMode: ReasoningMode }): void
 }>()
 const isOpen = ref(false)
 
@@ -38,6 +42,8 @@ interface Props {
   provider?: string
   /** Optional custom bound model. If not provided, falls back to consciousnessStore.activeModel */
   model?: string
+  /** Optional custom bound reasoning mode. If not provided, falls back to the active card's main model selection */
+  reasoningMode?: ReasoningMode
 }
 
 // Store bindings
@@ -45,7 +51,7 @@ const consciousnessStore = useConsciousnessStore()
 const providersStore = useProvidersStore()
 const airiCardStore = useAiriCardStore()
 
-const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
+const { activeProvider, activeModel, activeReasoningMode } = storeToRefs(consciousnessStore)
 const { activeCard, activeCardId, cards } = storeToRefs(airiCardStore)
 const { configuredChatProviderOptions } = storeToRefs(providersStore)
 
@@ -74,6 +80,12 @@ const currentModel = computed({
   },
 })
 
+const currentReasoningMode = computed<ReasoningMode>(() => {
+  if (props.reasoningMode !== undefined)
+    return props.reasoningMode
+  return activeReasoningMode.value
+})
+
 const showAddForm = ref(false)
 
 export interface FavoriteModel {
@@ -81,6 +93,13 @@ export interface FavoriteModel {
   name: string
   provider: string
   model: string
+  reasoningMode?: ReasoningMode
+}
+
+function isFavoriteActive(fav: FavoriteModel) {
+  return fav.provider === currentProvider.value
+    && fav.model === currentModel.value
+    && (fav.reasoningMode ?? 'default') === currentReasoningMode.value
 }
 
 // Persistent Storage for Favorites
@@ -91,6 +110,8 @@ const deletedKeys = useLocalStorage<string[]>('airi:chat-model-deleted-keys', []
 const newName = ref('')
 const newProvider = ref('')
 const newModel = ref('')
+const newReasoningMode = ref<ReasoningMode>('default')
+const newReasoningOptions = computed(() => getSupportedReasoningModes(newProvider.value))
 const availableModels = ref<any[]>([])
 const isLoadingModels = ref(false)
 const isManualModel = ref(false)
@@ -153,6 +174,7 @@ onMounted(() => {
 
 // Dynamically fetch and load models when provider changes in form
 watch(newProvider, async (provider) => {
+  newReasoningMode.value = 'default'
   if (!provider) {
     availableModels.value = []
     isManualModel.value = false
@@ -193,11 +215,13 @@ function handleAddFavorite() {
     name: displayName,
     provider: newProvider.value,
     model: modelId,
+    reasoningMode: newReasoningMode.value,
   })
 
   // Reset inputs & hide form
   newName.value = ''
   newModel.value = ''
+  newReasoningMode.value = 'default'
   isManualModel.value = false
   showAddForm.value = false
 }
@@ -213,14 +237,17 @@ function handleDeleteFavorite(fav: FavoriteModel) {
 }
 
 function handleSelectFavorite(fav: FavoriteModel) {
+  const reasoningMode = fav.reasoningMode ?? 'default'
   if (props.provider !== undefined || props.model !== undefined) {
     emit('update:provider', fav.provider)
     emit('update:model', fav.model)
-    emit('change', { provider: fav.provider, model: fav.model })
+    emit('update:reasoningMode', reasoningMode)
+    emit('change', { provider: fav.provider, model: fav.model, reasoningMode })
   }
   else {
     activeProvider.value = fav.provider
     activeModel.value = fav.model
+    activeReasoningMode.value = reasoningMode
 
     // Update active card extensions to keep character state synced
     if (activeCard.value) {
@@ -232,8 +259,10 @@ function handleSelectFavorite(fav: FavoriteModel) {
             modules: {
               ...activeCard.value.extensions?.airi?.modules,
               consciousness: {
+                ...activeCard.value.extensions?.airi?.modules?.consciousness,
                 provider: fav.provider,
                 model: fav.model,
+                reasoningMode,
               },
             },
           },
@@ -272,9 +301,7 @@ watch([currentProvider, currentModel], async ([provider, model]) => {
 }, { immediate: true })
 
 const activeModelDisplay = computed(() => {
-  const matched = favorites.value.find(
-    fav => fav.provider === currentProvider.value && fav.model === currentModel.value,
-  )
+  const matched = favorites.value.find(isFavoriteActive)
   if (matched) {
     return matched.name
   }
@@ -375,7 +402,7 @@ const activeModelDisplay = computed(() => {
               :key="fav.id"
               :class="[
                 'group flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer text-left',
-                fav.provider === currentProvider && fav.model === currentModel
+                isFavoriteActive(fav)
                   ? 'bg-primary-50/50 border-primary-200/50 dark:bg-primary-950/20 dark:border-primary-800/50'
                   : 'bg-white/40 border-neutral-100 hover:bg-neutral-50 dark:bg-neutral-900/40 dark:border-neutral-800 dark:hover:bg-neutral-800/40',
               ]"
@@ -385,7 +412,7 @@ const activeModelDisplay = computed(() => {
                 <div
                   :class="[
                     'text-sm shrink-0',
-                    fav.provider === currentProvider && fav.model === currentModel
+                    isFavoriteActive(fav)
                       ? 'text-primary-500 i-solar:star-bold'
                       : 'text-neutral-300 group-hover:text-primary-400 i-solar:star-linear',
                   ]"
@@ -403,7 +430,7 @@ const activeModelDisplay = computed(() => {
               <div class="flex shrink-0 items-center gap-1 pl-2">
                 <!-- Checkmark when active -->
                 <div
-                  v-if="fav.provider === currentProvider && fav.model === currentModel"
+                  v-if="isFavoriteActive(fav)"
                   class="i-solar:check-circle-bold text-sm text-primary-500"
                 />
                 <!-- Delete Button -->
@@ -513,6 +540,16 @@ const activeModelDisplay = computed(() => {
                   </button>
                 </div>
               </div>
+
+              <select
+                v-if="newReasoningOptions.length > 0"
+                v-model="newReasoningMode"
+                class="w-full border border-neutral-200/60 rounded-lg bg-white px-2 py-1.5 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200 focus:ring-1 focus:ring-primary-500/20"
+              >
+                <option v-for="mode in newReasoningOptions" :key="mode" :value="mode">
+                  Reasoning: {{ REASONING_MODE_LABELS[mode] }}
+                </option>
+              </select>
 
               <!-- Endpoint Model Fallback Hint -->
               <p v-if="!isLoadingModels && availableModels.length === 0" class="text-[10px] text-amber-600/90 leading-tight dark:text-amber-400/90">

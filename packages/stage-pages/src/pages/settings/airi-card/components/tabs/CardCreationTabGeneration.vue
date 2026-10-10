@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ReasoningMode } from '@proj-airi/stage-ui/libs/providers/reasoning'
+
 import { BrainModelPicker } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { FieldCheckbox, FieldInput, FieldTextArea, Select } from '@proj-airi/ui'
@@ -22,6 +24,7 @@ const emit = defineEmits<{
 
 const consciousnessProvider = defineModel<string>('consciousnessProvider', { required: true })
 const consciousnessModel = defineModel<string>('consciousnessModel', { required: true })
+const consciousnessReasoningMode = defineModel<ReasoningMode>('consciousnessReasoningMode', { required: true })
 const generationEnabled = defineModel<boolean>('generationEnabled', { required: true })
 const generationProvider = defineModel<string>('generationProvider', { required: true })
 const generationModel = defineModel<string>('generationModel', { required: true })
@@ -204,6 +207,7 @@ watch([generationContextWidth, generationProvider, generationModel], () => {
       <BrainModelPicker
         v-model:provider="consciousnessProvider"
         v-model:model="consciousnessModel"
+        v-model:reasoning-mode="consciousnessReasoningMode"
         variant="button"
         title="Select Consciousness LLM"
         side="bottom"

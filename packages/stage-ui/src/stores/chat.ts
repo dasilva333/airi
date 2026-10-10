@@ -19,6 +19,7 @@ import { useAnalytics } from '../composables'
 import { createLlmJsonInterceptor } from '../composables/llm-json-interceptor'
 import { useLlmmarkerParser } from '../composables/llm-marker-parser'
 import { categorizeResponse, createStreamingCategorizer } from '../composables/response-categoriser'
+import { buildReasoningOverrides } from '../libs/providers/reasoning'
 import { appendActorAwareTextSlice, captureActorToken, createActorSliceState } from '../utils/chat-actor-slices'
 import { useCompactionStore } from './chat/compaction'
 import { createDatetimeContext, createEternalRecordContext, createExpressionsContext, createScenesContext, createStickersContext } from './chat/context-providers'
@@ -208,6 +209,14 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   >({ name: 'airi-intrusion-staging' })
 
   const toolsResolver = ref<any>(null)
+
+  function resolveReasoningMode(isVlmTurn: boolean, providerId: string, model: string) {
+    if (isVlmTurn)
+      return visionStore.reasoningMode
+    if (providerId === activeProvider.value && model === activeModel.value)
+      return consciousnessStore.activeReasoningMode
+    return undefined
+  }
 
   function setToolsResolver(resolver: any) {
     toolsResolver.value = resolver
@@ -550,7 +559,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           visionStore.activeModel,
           vlmProvider,
           vlmMessages as any,
-          { vision: true },
+          { vision: true, requestOverrides: buildReasoningOverrides(visionStore.activeProvider, visionStore.reasoningMode) },
         )
 
         vlmImageAnalysis = vlmResponse.text || null
@@ -1653,6 +1662,7 @@ Format your output as a raw thought log.`
                   {
                     headers,
                     temperature: 0.7,
+                    requestOverrides: buildReasoningOverrides(firstHopProviderId, cognitionConfig?.reasoningMode),
                   },
                 )
 
@@ -1738,7 +1748,10 @@ Format your output as a raw thought log.`
           contextWidth: generationKnown?.contextWidth,
           vision: isVisionSupported,
           maxSteps: generationKnown?.maxToolSteps ?? 20,
-          requestOverrides: generationConfig?.enabled ? generationConfig.advanced : undefined,
+          requestOverrides: {
+            ...buildReasoningOverrides(effectiveProviderId, resolveReasoningMode(isVlmTurn, effectiveProviderId, effectiveModel)),
+            ...(generationConfig?.enabled ? generationConfig.advanced : undefined),
+          },
           abortSignal: abortController.signal,
           waitForTools: true,
           onStreamEvent: async (event: StreamEvent) => {

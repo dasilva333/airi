@@ -2,9 +2,11 @@
 import { Alert, ErrorContainer, RadioCardManySelect, RadioCardSimple } from '@proj-airi/stage-ui/components'
 import { BrainModelPicker } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { useAnalytics } from '@proj-airi/stage-ui/composables'
+import { getSupportedReasoningModes, REASONING_MODE_LABELS } from '@proj-airi/stage-ui/libs/providers/reasoning'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
+import { FieldSelect } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -19,6 +21,7 @@ const { persistedChatProvidersMetadata, configuredProviders } = storeToRefs(prov
 const {
   activeProvider,
   activeModel,
+  activeReasoningMode,
   customModelName,
   modelSearchQuery,
   supportsModelListing,
@@ -30,6 +33,7 @@ const {
 const { t } = useI18n()
 const { trackProviderClick } = useAnalytics()
 const isOpenAICompatibleProvider = computed(() => activeProvider.value === 'openai-compatible')
+const reasoningOptions = computed(() => getSupportedReasoningModes(activeProvider.value).map(mode => ({ value: mode, label: REASONING_MODE_LABELS[mode] })))
 
 watch(activeProvider, async (provider, oldProvider) => {
   if (!provider)
@@ -39,6 +43,9 @@ watch(activeProvider, async (provider, oldProvider) => {
   if (oldProvider !== undefined && oldProvider !== provider) {
     activeModel.value = ''
   }
+
+  if (!getSupportedReasoningModes(provider).includes(activeReasoningMode.value))
+    activeReasoningMode.value = 'default'
 
   await consciousnessStore.loadModelsForProvider(provider)
 }, { immediate: true })
@@ -292,6 +299,15 @@ function handleDeleteProvider(providerId: string) {
         </div>
       </div>
     </div>
+
+    <FieldSelect
+      v-if="activeProvider && reasoningOptions.length > 0"
+      v-model="activeReasoningMode"
+      :options="reasoningOptions"
+      label="Reasoning"
+      description="Applies to chat replies, heartbeats and screen watching reactions of the selected model."
+      layout="vertical"
+    />
   </div>
 
   <div

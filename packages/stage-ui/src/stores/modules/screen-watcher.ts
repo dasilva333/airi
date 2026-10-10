@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, onUnmounted, ref, toRaw, watch } from 'vue'
 
+import { buildReasoningOverrides } from '../../libs/providers/reasoning'
 import { logMemoryProbe } from '../../utils/memory-sentinel'
 import { useChatOrchestratorStore } from '../chat'
 import { useChatSessionStore } from '../chat/session-store'
@@ -267,7 +268,9 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       ]
 
       console.log('[ScreenWatcher:Reaction] Generating bubble commentary turn from LLM...')
-      const response = await llmStore.generate(activeModel, activeProvider, messages, {})
+      const response = await llmStore.generate(activeModel, activeProvider, messages, {
+        requestOverrides: buildReasoningOverrides(activeProviderId, consciousnessStore.activeReasoningMode),
+      })
       const rawReply = (response.text || '').trim()
 
       if (!rawReply || rawReply === 'NO_REPLY') {

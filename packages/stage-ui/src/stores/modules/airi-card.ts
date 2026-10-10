@@ -1,5 +1,6 @@
 import type { Card, ccv3 } from '@proj-airi/ccc'
 
+import type { ReasoningMode } from '../../libs/providers/reasoning'
 import type { AiriCognition, AiriPacing, CardCustomSticker, CharacterCueAllowlist } from '../../types/card.schema'
 import type { VoiceProfile } from '../providers'
 
@@ -194,6 +195,7 @@ export interface AiriExtension {
     consciousness: {
       provider: string // Example: "openai"
       model: string // Example: "gpt-4o"
+      reasoningMode?: ReasoningMode
       moduleConfigs?: Record<string, any>
     }
 
@@ -500,6 +502,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   const {
     activeProvider: activeConsciousnessProvider,
     activeModel: activeConsciousnessModel,
+    activeReasoningMode: activeConsciousnessReasoningMode,
   } = storeToRefs(consciousnessStore)
 
   const {
@@ -835,6 +838,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     const nextConsciousnessModel = extension.modules?.consciousness?.model
     if (nextConsciousnessModel && activeConsciousnessModel.value !== nextConsciousnessModel)
       activeConsciousnessModel.value = nextConsciousnessModel
+
+    if (nextConsciousnessProvider) {
+      const nextConsciousnessReasoningMode = extension.modules?.consciousness?.reasoningMode ?? 'default'
+      if (activeConsciousnessReasoningMode.value !== nextConsciousnessReasoningMode)
+        activeConsciousnessReasoningMode.value = nextConsciousnessReasoningMode
+    }
 
     // 2. Sync Speech (TTS) with stability guards
     const nextSpeechProvider = extension.modules?.speech?.provider

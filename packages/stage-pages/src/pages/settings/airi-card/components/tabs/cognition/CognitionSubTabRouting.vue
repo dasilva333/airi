@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import type { ReasoningMode } from '@proj-airi/stage-ui/libs/providers/reasoning'
+
+import { getSupportedReasoningModes, REASONING_MODE_LABELS } from '@proj-airi/stage-ui/libs/providers/reasoning'
 import { Select } from '@proj-airi/ui/components/form'
+import { computed } from 'vue'
 
 defineProps<{
   consciousnessProviderOptions: { value: string, label: string }[]
@@ -20,6 +24,15 @@ const selectedFirstHopProvider = defineModel<string>('selectedFirstHopProvider',
 const selectedFirstHopModel = defineModel<string>('selectedFirstHopModel', { required: true })
 const selectedConsciousnessProvider = defineModel<string>('selectedConsciousnessProvider', { required: true })
 const selectedConsciousnessModel = defineModel<string>('selectedConsciousnessModel', { required: true })
+const selectedFirstHopReasoning = defineModel<ReasoningMode>('selectedFirstHopReasoning', { required: true })
+const selectedConsciousnessReasoning = defineModel<ReasoningMode>('selectedConsciousnessReasoning', { required: true })
+
+function toReasoningOptions(provider: string) {
+  return getSupportedReasoningModes(provider).map(mode => ({ value: mode, label: REASONING_MODE_LABELS[mode] }))
+}
+
+const firstHopReasoningOptions = computed(() => toReasoningOptions(selectedFirstHopProvider.value))
+const consciousnessReasoningOptions = computed(() => toReasoningOptions(selectedConsciousnessProvider.value))
 
 const processorOptions = [
   { value: 'none', label: 'None (Direct Proxy / Raw Prompt)' },
@@ -148,6 +161,18 @@ const processorOptions = [
           />
         </div>
 
+        <div v-if="firstHopReasoningOptions.length > 0" class="flex flex-col gap-2 sm:col-span-2">
+          <label class="flex flex-row items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
+            <div i-lucide:lightbulb />
+            1st LLM Reasoning
+          </label>
+          <Select
+            v-model="selectedFirstHopReasoning"
+            :options="firstHopReasoningOptions"
+            class="w-full"
+          />
+        </div>
+
         <!-- 2nd LLM (Speech) -->
         <div class="flex flex-col gap-2">
           <label class="flex flex-row items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
@@ -170,6 +195,18 @@ const processorOptions = [
             v-model="selectedConsciousnessModel"
             :options="consciousnessModelOptions"
             :placeholder="defaultConsciousnessModelPlaceholder"
+            class="w-full"
+          />
+        </div>
+
+        <div v-if="consciousnessReasoningOptions.length > 0" class="flex flex-col gap-2 sm:col-span-2">
+          <label class="flex flex-row items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
+            <div i-lucide:lightbulb />
+            2nd LLM Reasoning
+          </label>
+          <Select
+            v-model="selectedConsciousnessReasoning"
+            :options="consciousnessReasoningOptions"
             class="w-full"
           />
         </div>
