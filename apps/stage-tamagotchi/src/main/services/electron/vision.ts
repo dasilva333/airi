@@ -1,7 +1,7 @@
 import type { ScreenCaptureOptions } from '@proj-airi/stage-shared'
 
 import { defineInvokeHandler } from '@moeru/eventa'
-import { visionCaptureScreen, visionCheckPermission, visionGetPrimaryDisplaySize, visionRequestPermission } from '@proj-airi/stage-shared'
+import { visionCaptureScreen, visionCheckPermission, visionGetPrimaryDisplaySize, visionListWindows, visionRequestPermission } from '@proj-airi/stage-shared'
 import { desktopCapturer, screen } from 'electron'
 
 import * as ScreenCapture from '@proj-airi/electron-screen-capture/main'
@@ -98,6 +98,18 @@ export function createVisionService(params: { context: any }) {
     }
   })
 
+  defineInvokeHandler(params.context, visionListWindows, async () => {
+    try {
+      // A zero thumbnail size skips rendering window bitmaps; only ids and titles are needed.
+      const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } })
+      return sources.map(source => ({ id: source.id, name: source.name }))
+    }
+    catch (err) {
+      console.error('[Vision Service] Failed to list windows:', err)
+      return []
+    }
+  })
+
   let mainProcessCaptureCount = 0
 
   // NOTICE: NativeImage/GPU-compositor pressure lives in the main process heap,
@@ -149,9 +161,17 @@ export function createVisionService(params: { context: any }) {
       console.log(`[Vision Service] desktopCapturer found ${sources.length} sources.`)
 
       // Attempt to find a valid source with a thumbnail
+      const windowTitle = options?.windowTitle?.trim().toLowerCase()
       let selectedSource = options?.sourceId
         ? sources.find(s => s.id === options.sourceId)
-        : sources[0]
+        : windowTitle
+          ? sources.find(s => s.name.toLowerCase() === windowTitle) ?? sources.find(s => s.name.toLowerCase().includes(windowTitle))
+          : sources[0]
+
+      if (!selectedSource && windowTitle) {
+        console.warn(`[Vision Service] No window matches title "${options?.windowTitle}".`)
+        return null
+      }
 
       // Fallback: If sources[0] is problematic, find any source that mentions "Screen" or has a valid-looking ID
       if (!selectedSource && sources.length > 0) {

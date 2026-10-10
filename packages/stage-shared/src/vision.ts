@@ -5,6 +5,8 @@ export interface ScreenCaptureOptions {
   height?: number
   type?: 'screen' | 'window'
   sourceId?: string
+  /** Case-insensitive part of a window title. Used with `type: 'window'` when no `sourceId` is given. */
+  windowTitle?: string
   /** Capture at the source's original (native) resolution. Overrides width/height. */
   native?: boolean
   /** Percent (1-99) of the primary display's native size. Ignored when `native` or explicit dimensions are set. */
@@ -16,6 +18,11 @@ export interface ScreenCaptureResult {
   timestamp: number
 }
 
+export interface VisionWindowSource {
+  id: string
+  name: string
+}
+
 export interface PrimaryDisplaySize {
   width: number
   height: number
@@ -23,6 +30,8 @@ export interface PrimaryDisplaySize {
 }
 
 export const visionCaptureScreen = defineInvokeEventa<ScreenCaptureResult | null, ScreenCaptureOptions | undefined>('eventa:invoke:electron:vision:capture-screen')
+
+export const visionListWindows = defineInvokeEventa<VisionWindowSource[], never>('eventa:invoke:electron:vision:list-windows')
 
 export const visionGetPrimaryDisplaySize = defineInvokeEventa<PrimaryDisplaySize | null, never>('eventa:invoke:electron:vision:get-primary-display-size')
 
