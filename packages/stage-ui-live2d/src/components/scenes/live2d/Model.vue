@@ -40,6 +40,7 @@ import { useLive2d } from '../../../stores/live2d'
 import { getLive2DMotionControlModelOffset, useLive2DMotionControl } from '../../../stores/motion-control'
 import { evaluateLive2dBlend } from '../../../utils/blend-math'
 import { parseCycleMotions as parseRawCycleMotions } from '../../../utils/cycle-motions'
+import { destroyLive2dModel } from '../../../utils/destroy'
 import { isMacOSJunk, setOnZipLoaded } from '../../../utils/live2d-zip-loader'
 import { OPFSCacheV2 } from '../../../utils/opfs-loader'
 import { extractArtMeshColorsFromVTube, listVTubeColorRelatedKeys } from '../../../utils/vtube-artmesh-colors'
@@ -665,7 +666,7 @@ async function resolveMetadata() {
 // Each cached texture holds a listener into the renderer that uploaded it, so a
 // texture left there keeps that renderer's WebGL context and GPU memory alive.
 function destroyModel(target: Live2DModel<PixiLive2DInternalModel>) {
-  target.destroy({ texture: true, baseTexture: true })
+  destroyLive2dModel(target)
 }
 
 async function loadModel() {

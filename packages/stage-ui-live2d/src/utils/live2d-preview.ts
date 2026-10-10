@@ -5,6 +5,8 @@ import { extensions } from '@pixi/extensions'
 import { Ticker, TickerPlugin } from '@pixi/ticker'
 import { Live2DFactory, Live2DModel } from 'pixi-live2d-display/cubism4'
 
+import { destroyLive2dModel } from './destroy'
+
 /**
  * Render a Live2D zip/file to an offscreen canvas and return a padded preview data URL.
  */
@@ -50,7 +52,7 @@ export async function loadLive2DModelPreview(input: File | string, parameters?: 
     // the global texture cache, where they keep this app's WebGL context alive.
     // The model has no internal model when the load failed before it registered.
     if (modelInstance.internalModel)
-      modelInstance.destroy({ texture: true, baseTexture: true })
+      destroyLive2dModel(modelInstance)
     app.destroy()
     if (offscreenCanvas.isConnected)
       document.body.removeChild(offscreenCanvas)
