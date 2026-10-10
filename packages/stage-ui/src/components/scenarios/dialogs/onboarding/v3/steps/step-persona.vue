@@ -771,6 +771,35 @@ const activeProposalGreetingDisplay = computed({
   },
 })
 
+const copiedProposalId = ref<string | null>(null)
+let copyTimeout: ReturnType<typeof setTimeout> | null = null
+
+async function copyProposal(p: StoryProposalItem, idx: number) {
+  try {
+    const formattedTitle = formatField(p.title)
+    const formattedGreeting = formatField(p.greeting)
+    const formattedScenario = formatField(p.scenario)
+
+    const textToCopy = [
+      `### ${formattedTitle}`,
+      `**Opening greeting:**\n${formattedGreeting}`,
+      `**Story setting:**\n${formattedScenario}`,
+    ].join('\n\n')
+
+    await navigator.clipboard.writeText(textToCopy)
+    copiedProposalId.value = p.id
+    if (copyTimeout)
+      clearTimeout(copyTimeout)
+    copyTimeout = setTimeout(() => {
+      copiedProposalId.value = null
+    }, 2000)
+    toast.success(`Copied Variation ${String(idx + 1).padStart(2, '0')} to clipboard`)
+  }
+  catch {
+    toast.error('Failed to copy to clipboard')
+  }
+}
+
 function onSelectTab(tab: PersonaTab) {
   activeTab.value = tab
   if (tab === 'creator') {
@@ -1206,6 +1235,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (copyTimeout)
+    clearTimeout(copyTimeout)
   removeIpcListener()
   if (activeTab.value === 'creator' || draft.state.personaSource === 'creator') {
     syncCreatorDraft()
@@ -1996,11 +2027,11 @@ onBeforeUnmount(() => {
             :duration="300"
             :delay="140"
             :class="[
-              'rounded-[20px] border p-4 sm:p-5 transition-all flex flex-col justify-between gap-4',
+              'rounded-[20px] border p-4 sm:p-5 transition-all flex flex-col gap-4',
               'border-neutral-200/80 bg-white/70 shadow-xs dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
             ]"
           >
-            <!-- Top Section: Header + 3 Title-Only Cards -->
+            <!-- Top Section: Header + 3 Selection Cards -->
             <div :class="['flex flex-col gap-3']">
               <div :class="['flex items-center justify-between']">
                 <div>
@@ -2051,49 +2082,80 @@ onBeforeUnmount(() => {
                 </Button>
               </div>
 
-              <!-- 3 Compact, Equal-Width, Title-Only Selection Cards -->
-              <div v-else :class="['grid grid-cols-1 sm:grid-cols-3 gap-2.5']">
-                <div
-                  v-for="(p, idx) in proposals"
-                  :key="p.id"
-                  :class="[
-                    'relative p-3 rounded-xl border transition-all duration-200 cursor-pointer select-none',
-                    'flex flex-col justify-between min-h-[72px] sm:min-h-[84px]',
-                    activeProposalId === p.id
-                      ? 'border-primary-500 ring-1 ring-primary-500/50 bg-primary-500/10 dark:bg-primary-500/15 shadow-xs'
-                      : 'border-neutral-200/80 dark:border-neutral-800/80 bg-white/60 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-50/50 dark:hover:bg-white/5',
-                  ]"
-                  @click="selectProposal(p.id)"
-                >
-                  <div :class="['flex items-start justify-between gap-2']">
-                    <span
-                      :class="[
-                        'h-5 w-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0',
-                        activeProposalId === p.id
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300',
-                      ]"
-                    >
-                      {{ idx + 1 }}
-                    </span>
-                    <div
-                      v-if="activeProposalId === p.id"
-                      :class="['i-solar:check-circle-bold text-primary-500 text-base shrink-0']"
-                    />
-                  </div>
-                  <div :class="['text-xs font-bold text-neutral-900 dark:text-white leading-snug line-clamp-3 mt-1']">
-                    {{ formatField(p.title) }}
+              <!-- 3 Compact Selection Cards with Subtle Copy Glyph -->
+              <div v-else :class="['flex flex-col gap-2']">
+                <div :class="['grid grid-cols-1 sm:grid-cols-3 gap-2.5']">
+                  <div
+                    v-for="(p, idx) in proposals"
+                    :key="p.id"
+                    :class="[
+                      'relative p-3 rounded-xl border transition-all duration-200 cursor-pointer select-none',
+                      'flex flex-col justify-between min-h-[82px]',
+                      activeProposalId === p.id
+                        ? 'border-primary-500 ring-1 ring-primary-500/50 bg-primary-500/10 dark:bg-primary-500/15 shadow-xs'
+                        : 'border-neutral-200/80 dark:border-neutral-800/80 bg-white/60 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-50/50 dark:hover:bg-white/5',
+                    ]"
+                    @click="selectProposal(p.id)"
+                  >
+                    <div :class="['flex items-center justify-between gap-2 mb-1.5']">
+                      <span
+                        :class="[
+                          'text-xs font-bold font-mono tracking-tight',
+                          activeProposalId === p.id
+                            ? 'text-primary-600 dark:text-primary-400'
+                            : 'text-neutral-400 dark:text-neutral-500',
+                        ]"
+                      >
+                        {{ String(idx + 1).padStart(2, '0') }}
+                      </span>
+                      <button
+                        type="button"
+                        :title="`Copy variation ${idx + 1} to clipboard`"
+                        :class="[
+                          'p-1 -mr-1 -mt-1 rounded-md transition-colors cursor-pointer flex items-center justify-center shrink-0',
+                          'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50',
+                        ]"
+                        @click.stop="copyProposal(p, idx)"
+                      >
+                        <div
+                          :class="[
+                            copiedProposalId === p.id
+                              ? 'i-ph:check text-emerald-500 h-3.5 w-3.5'
+                              : 'i-ph:copy-simple h-3.5 w-3.5',
+                          ]"
+                        />
+                      </button>
+                    </div>
+                    <div :class="['text-xs font-bold text-neutral-900 dark:text-white leading-snug line-clamp-3']">
+                      {{ formatField(p.title) }}
+                    </div>
                   </div>
                 </div>
+
+                <!-- Subtle Helper Text Below Cards -->
+                <p :class="['text-[11px] text-neutral-400 dark:text-neutral-500']">
+                  Copy a variation's title, greeting, and setting with the copy button.
+                </p>
               </div>
             </div>
 
-            <!-- Bottom Section: Opening Greeting & Story Setting Fields -->
-            <div v-if="activeProposal && !isGeneratingStory" :class="['flex flex-col gap-3 pt-2 border-t border-neutral-200/60 dark:border-neutral-800/60']">
+            <!-- Bottom Section: Active Variation Title Header & Fields -->
+            <div v-if="activeProposal && !isGeneratingStory" :class="['flex flex-col gap-3 pt-3 border-t border-neutral-200/60 dark:border-neutral-800/60']">
+              <!-- Active Variation Header Row -->
+              <div :class="['flex items-center justify-between gap-3']">
+                <h3 :class="['text-sm sm:text-base font-bold text-neutral-900 dark:text-white leading-tight truncate']">
+                  {{ formatField(activeProposal.title) }}
+                </h3>
+                <div :class="['flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0']">
+                  <div :class="['i-solar:check-circle-bold-duotone h-3.5 w-3.5']" />
+                  <span>Saved</span>
+                </div>
+              </div>
+
               <!-- Field 1: Opening Greeting -->
-              <div>
-                <div :class="['flex items-center justify-between mb-1']">
-                  <label :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5 flex-wrap']">
+              <div :class="['flex flex-col gap-1.5']">
+                <div :class="['flex items-center gap-2 flex-wrap']">
+                  <label :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
                     <span>Opening greeting</span>
                     <span
                       v-if="activeProposalActorName"
@@ -2106,35 +2168,29 @@ onBeforeUnmount(() => {
                       <span>{{ activeProposalActorName }}</span>
                     </span>
                   </label>
-                  <div :class="['flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400']">
-                    <div :class="['i-solar:check-circle-bold-duotone h-3.5 w-3.5']" />
-                    <span>Changes saved</span>
-                  </div>
                 </div>
                 <textarea
                   v-model="activeProposalGreetingDisplay"
-                  rows="3"
+                  rows="4"
                   placeholder="First words spoken by the companion..."
                   :class="[
-                    'w-full p-2.5 rounded-xl text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-primary-500',
+                    'w-full p-2.5 sm:p-3 rounded-xl text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-primary-500 leading-relaxed',
                     'bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700',
                   ]"
                 />
               </div>
 
               <!-- Field 2: Story Setting -->
-              <div>
-                <div :class="['flex items-center justify-between mb-1']">
-                  <label :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
-                    Story setting
-                  </label>
-                </div>
+              <div :class="['flex flex-col gap-1.5']">
+                <label :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
+                  Story setting
+                </label>
                 <textarea
                   v-model="activeProposal.scenario"
-                  rows="3"
+                  rows="4"
                   placeholder="Rules of the world and companion dynamic..."
                   :class="[
-                    'w-full p-2.5 rounded-xl text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-primary-500',
+                    'w-full p-2.5 sm:p-3 rounded-xl text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-primary-500 leading-relaxed',
                     'bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700',
                   ]"
                   @input="syncCreatorDraft"
