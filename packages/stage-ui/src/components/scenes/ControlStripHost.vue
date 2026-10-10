@@ -1943,13 +1943,11 @@ function resumeAudioContextOnInteraction() {
   })
 }
 
-// Add event listeners for user interaction
+// The listeners close over this setup scope, so a listener that outlives the
+// host keeps the whole unmounted host alive. `useEventListener` removes them on unmount.
+useEventListener(['click', 'touchstart', 'keydown'], resumeAudioContextOnInteraction, { once: true, passive: true })
 if (typeof window !== 'undefined') {
-  const events = ['click', 'touchstart', 'keydown']
-  events.forEach((event) => {
-    window.addEventListener(event, resumeAudioContextOnInteraction, { once: true, passive: true })
-  })
-  window.addEventListener(resizeStateEventName, handleResizeStateChange as EventListener)
+  useEventListener(window, resizeStateEventName, handleResizeStateChange as EventListener)
 }
 
 onMounted(() => {

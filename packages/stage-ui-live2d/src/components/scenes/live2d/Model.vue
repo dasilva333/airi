@@ -661,6 +661,13 @@ async function resolveMetadata() {
   return { cdiData, expFiles, savedActiveExpressions, artMeshColors }
 }
 
+// The textures sit in the global Pixi texture cache under the model's blob URLs.
+// Each cached texture holds a listener into the renderer that uploaded it, so a
+// texture left there keeps that renderer's WebGL context and GPU memory alive.
+function destroyModel(target: Live2DModel<PixiLive2DInternalModel>) {
+  target.destroy({ texture: true, baseTexture: true })
+}
+
 async function loadModel() {
   const hash = window.location.hash || '#/'
   const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
@@ -693,7 +700,7 @@ async function loadModel() {
     if (model.value && pixiApp.value?.stage) {
       try {
         pixiApp.value.stage.removeChild(model.value)
-        model.value.destroy()
+        destroyModel(model.value)
       }
       catch (error) {
         console.warn('Error removing old model:', error)
@@ -714,7 +721,7 @@ async function loadModel() {
 
     // NOTICE: setupLive2DModel is async; pixiApp or stage could have been destroyed during the wait.
     if (isUnmounted || !pixiApp.value || !pixiApp.value.stage) {
-      live2DModel.destroy()
+      destroyModel(live2DModel)
       return
     }
 
@@ -1788,6 +1795,16 @@ onUnmounted(() => {
   if (dropShadowAnimationId.value) {
     cancelAnimationFrame(dropShadowAnimationId.value)
     dropShadowAnimationId.value = 0
+  }
+
+  // The model registers on the global `Ticker.shared` when it is built, and only
+  // `destroy()` removes it. Without this, each stage remount leaves the old model
+  // updating every frame and holding its Cubism memory. This component unmounts
+  // before the canvas, so the stage still exists here.
+  if (model.value) {
+    pixiApp.value?.stage?.removeChild(model.value)
+    destroyModel(model.value)
+    model.value = undefined
   }
 })
 

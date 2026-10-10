@@ -46,6 +46,11 @@ export async function loadLive2DModelPreview(input: File | string, parameters?: 
   const objUrl = typeof input === 'string' ? input : URL.createObjectURL(input)
 
   const cleanup = () => {
+    // A loaded model is on the global `Ticker.shared`, and its textures stay in
+    // the global texture cache, where they keep this app's WebGL context alive.
+    // The model has no internal model when the load failed before it registered.
+    if (modelInstance.internalModel)
+      modelInstance.destroy({ texture: true, baseTexture: true })
     app.destroy()
     if (offscreenCanvas.isConnected)
       document.body.removeChild(offscreenCanvas)
