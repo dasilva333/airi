@@ -88,6 +88,8 @@ steps:
         f1: 100% offline on-device storage
         f2: Zero cloud telemetry or external network calls
         f3: Instant startup with local database
+      continueAction: Continue locally
+      noSignInNeeded: No sign-in needed.
     cloud:
       badge: 10 GB Free + Cloud Sync
       title: Account Sign-In (Cloudflare)
@@ -143,6 +145,14 @@ steps:
           whyItMatters: Everything runs in your personal Cloudflare account. AIRI operates
             zero intermediate servers and never reads, stores, or harvests your
             conversations.
+      signInAction: Sign in & continue
+      signInHelp: Sign in with Cloudflare to continue.
+      useApiToken: Use API token
+      waitingForSignIn: Waiting for sign-in...
+      cancelSignIn: Cancel sign-in
+      finishInBrowser: Finish signing in in your browser.
+      continueAction: Continue with connected account
+      manageConnection: Manage connection
     auth:
       connected: Connected to Cloudflare
       disconnect: Disconnect
@@ -152,6 +162,8 @@ steps:
       oauthButton: Sign In with Cloudflare
       tokenPlaceholder: Paste your Cloudflare API token...
       verifyToken: Connect Token
+    changeLater: You can change this later.
+    moreDetails: More details
 
   appearance:
     label: Appearance
@@ -421,8 +433,8 @@ steps:
     subconsciousAsides: Subconscious Spoken Asides (Needle 2 WASM)
     asidesDescription: Permit companion to vocalize inner train-of-thought
       mutterings while generating complex answers.
-    companionGreeting: Tune how your companion pauses and speaks while thinking. Choose a cadence
-      that matches your model's reasoning speed.
+    companionGreeting: Tune how your companion pauses and speaks while thinking.
+      Choose a cadence that matches your model's reasoning speed.
 
   emotions:
     label: Emotions

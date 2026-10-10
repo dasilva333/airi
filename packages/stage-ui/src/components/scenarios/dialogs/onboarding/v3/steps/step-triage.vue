@@ -2,18 +2,18 @@
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import {
-  TooltipArrow,
-  TooltipContent,
-  TooltipPortal,
-  TooltipProvider,
-  TooltipRoot,
-  TooltipTrigger,
+  PopoverArrow,
+  PopoverContent,
+  PopoverPortal,
+  PopoverRoot,
+  PopoverTrigger,
 } from 'reka-ui'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
 import SelectiveSyncPanel from '../../../../providers/selective-sync-panel.vue'
+import CloudflareAccountHubDialog from '../../../cloudflare/CloudflareAccountHubDialog.vue'
 import AssistantBubble from '../components/assistant-bubble.vue'
 
 import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
@@ -42,15 +42,17 @@ const syncStore = useSyncEngineStore()
 const cardStore = useAiriCardStore()
 const onboardingStore = useOnboardingStore()
 
-const { cfOAuthTokens, cfAccountId, isAuthenticating, isAuthenticated } = storeToRefs(cloudflareStore)
+const { cfAccountId, isAuthenticating, isAuthenticated } = storeToRefs(cloudflareStore)
 
-const authMethod = ref<'auto' | 'token'>('auto')
+const viewMode = ref<'cards' | 'restore'>('cards')
+const isTokenMode = ref(false)
 const tokenInput = ref('')
 const isValidatingToken = ref(false)
 const isLoadingCatalog = ref(false)
 const hasCheckedRemote = ref(false)
 const remoteCardsCount = ref(0)
 const isRestoring = ref(false)
+const showHubDialog = ref(false)
 const selectiveSyncPanelRef = ref<InstanceType<typeof SelectiveSyncPanel> | null>(null)
 
 const selectedPath = computed<'local' | 'cloud'>({
@@ -60,46 +62,112 @@ const selectedPath = computed<'local' | 'cloud'>({
   },
 })
 
-const cloudFeatures = computed(() => [
+// 3 Consumer Bullets for Local Card
+const localBullets = computed(() => [
+  {
+    icon: 'i-solar:disk-bold',
+    title: t('onboarding.steps.triage.local.bullets.storage.title', 'On-device storage'),
+    description: t('onboarding.steps.triage.local.bullets.storage.desc', 'Data stays in your local database.'),
+  },
+  {
+    icon: 'i-solar:user-rounded-bold',
+    title: t('onboarding.steps.triage.local.bullets.account.title', 'No account required'),
+    description: t('onboarding.steps.triage.local.bullets.account.desc', 'Start without signing in.'),
+  },
+  {
+    icon: 'i-solar:settings-minimalistic-bold',
+    title: t('onboarding.steps.triage.local.bullets.setup.title', 'Simple local setup'),
+    description: t('onboarding.steps.triage.local.bullets.setup.desc', 'Manage your companion on this device.'),
+  },
+])
+
+// 3 Consumer Bullets for Cloud Card
+const cloudBullets = computed(() => [
+  {
+    icon: 'i-solar:cloud-upload-bold',
+    title: t('onboarding.steps.triage.cloud.bullets.sync.title', 'Backup & sync'),
+    description: t('onboarding.steps.triage.cloud.bullets.sync.desc', 'Keep companion data across devices.'),
+  },
+  {
+    icon: 'i-solar:stars-minimalistic-bold',
+    title: t('onboarding.steps.triage.cloud.bullets.ai.title', 'Hosted AI access'),
+    description: t('onboarding.steps.triage.cloud.bullets.ai.desc', 'Access daily edge AI credits.'),
+  },
+  {
+    icon: 'i-solar:users-group-rounded-bold',
+    title: t('onboarding.steps.triage.cloud.bullets.relay.title', 'Cloud relay'),
+    description: t('onboarding.steps.triage.cloud.bullets.relay.desc', 'Use your companion through Discord.'),
+  },
+])
+
+// Detailed Technical Specifications for Local Popover
+const localDetails = computed(() => [
+  {
+    key: 'storage',
+    icon: 'i-solar:database-bold',
+    badge: 'IndexedDB & SQLite',
+    title: t('onboarding.steps.triage.local.details.storage.title', 'On-Device Database Storage'),
+    desc: t('onboarding.steps.triage.local.details.storage.desc', 'All companion cards, transcripts, and memory journals are stored strictly in your local IndexedDB and disk vaults. Zero data ever leaves your computer.'),
+  },
+  {
+    key: 'telemetry',
+    icon: 'i-solar:shield-check-bold',
+    badge: '100% Air-Gapped',
+    title: t('onboarding.steps.triage.local.details.telemetry.title', 'Zero Telemetry & Custody'),
+    desc: t('onboarding.steps.triage.local.details.telemetry.desc', 'No accounts, no email addresses, no tracking cookies, and no telemetry pingbacks. Complete anonymity and zero-custody data sovereignty.'),
+  },
+  {
+    key: 'compute',
+    icon: 'i-solar:cpu-bolt-bold',
+    badge: 'WebGPU & Local LLM',
+    title: t('onboarding.steps.triage.local.details.compute.title', 'Bring-Your-Own Compute'),
+    desc: t('onboarding.steps.triage.local.details.compute.desc', 'Run Kokoro TTS, Whisper STT, and Ollama / LM Studio / WebLLM completely offline using your device’s local CPU and GPU acceleration.'),
+  },
+  {
+    key: 'export',
+    icon: 'i-solar:card-2-bold',
+    badge: 'CCv3 / PNG Chunks',
+    title: t('onboarding.steps.triage.local.details.export.title', 'Portable Open Formats'),
+    desc: t('onboarding.steps.triage.local.details.export.desc', 'Export your companions and memories anytime as standard PNG chunks or raw JSON. No proprietary format lock-in or cloud dependencies.'),
+  },
+])
+
+// Detailed Technical Specifications for Cloud Popover
+const cloudDetails = computed(() => [
   {
     key: 'storage',
     icon: 'i-solar:cloud-storage-bold-duotone',
-    title: t('onboarding.steps.triage.cloud.features.storage.title', '10 GB Free Cloud Storage'),
-    summary: t('onboarding.steps.triage.cloud.features.storage.desc', 'Back up 3D models, custom backgrounds, and full memory vaults with zero egress fees.'),
-    howItWorks: t('onboarding.steps.triage.cloud.features.storage.howItWorks', 'Powered by user-owned Cloudflare R2 object storage.'),
-    whyItMatters: t('onboarding.steps.triage.cloud.features.storage.whyItMatters', 'Generous free tier with plenty of room for dozens of VRM/Live2D models and years of chat history. Unlike AWS S3, downloading your assets is 100% free with $0 bandwidth fees.'),
+    badge: 'Cloudflare R2',
+    title: t('onboarding.steps.triage.cloud.features.storage.title', '10 GB Free Object Storage'),
+    desc: t('onboarding.steps.triage.cloud.features.storage.whyItMatters', 'Generous free tier with zero egress fees. Safely backs up 3D/VRM vessels, Live2D assets, custom backgrounds, and entire memory hierarchies across devices.'),
   },
   {
     key: 'ai',
     icon: 'i-solar:cpu-bolt-bold-duotone',
-    title: t('onboarding.steps.triage.cloud.features.ai.title', 'Free Daily Edge AI Credits'),
-    summary: t('onboarding.steps.triage.cloud.features.ai.desc', '10,000 free daily Neurons for DeepSeek, Qwen & Llama (no API key required).'),
-    howItWorks: t('onboarding.steps.triage.cloud.features.ai.howItWorks', 'Directly connects to Cloudflare Workers AI during Step 8 (Consciousness).'),
-    whyItMatters: t('onboarding.steps.triage.cloud.features.ai.whyItMatters', 'Chat immediately with cutting-edge open models at the edge without needing an OpenAI subscription, paid credit card, or a high-end local gaming GPU.'),
+    badge: 'Workers AI',
+    title: t('onboarding.steps.triage.cloud.features.ai.title', '10,000 Free Daily Edge AI Credits'),
+    desc: t('onboarding.steps.triage.cloud.features.ai.whyItMatters', 'Direct connection to Cloudflare’s global edge GPU fleet. Chat with DeepSeek-R1, Qwen 2.5, and Llama 3 without paid API keys or dedicated graphics cards.'),
   },
   {
     key: 'relay',
     icon: 'i-solar:chat-round-dots-bold-duotone',
-    title: t('onboarding.steps.triage.cloud.features.relay.title', '24/7 Discord Cloud Relay'),
-    summary: t('onboarding.steps.triage.cloud.features.relay.desc', 'Keep your companion awake in your Discord server even when your PC is turned off.'),
-    howItWorks: t('onboarding.steps.triage.cloud.features.relay.howItWorks', 'Runs as a serverless Cloudflare Worker (@proj-airi/stage-edge) handling Discord interaction webhooks.'),
-    whyItMatters: t('onboarding.steps.triage.cloud.features.relay.whyItMatters', 'Your companion stays alive 24/7 to chat in Discord, stores context in Edge KV, and syncs conversations back to your desktop when you reopen AIRI.'),
+    badge: '@proj-airi/stage-edge',
+    title: t('onboarding.steps.triage.cloud.features.relay.title', '24/7 Discord Serverless Relay'),
+    desc: t('onboarding.steps.triage.cloud.features.relay.whyItMatters', 'A serverless Cloudflare Worker keeps your companion awake in your Discord server 24/7, syncing conversations back to desktop when you reopen AIRI.'),
   },
   {
     key: 'sync',
     icon: 'i-solar:devices-bold-duotone',
+    badge: 'Edge Key Vault',
     title: t('onboarding.steps.triage.cloud.features.sync.title', 'Multi-Device Sync & 1-Click Restore'),
-    summary: t('onboarding.steps.triage.cloud.features.sync.desc', 'Seamlessly sync Desktop, Web, and Mobile; restore companions in one click.'),
-    howItWorks: t('onboarding.steps.triage.cloud.features.sync.howItWorks', 'Edge Key Vault (airi-edge-vault) securely tracks your active companion state.'),
-    whyItMatters: t('onboarding.steps.triage.cloud.features.sync.whyItMatters', 'Reinstalling AIRI or moving to a new laptop/phone automatically brings back your companion, settings, and memories without manual key entry.'),
+    desc: t('onboarding.steps.triage.cloud.features.sync.whyItMatters', 'Encrypted Edge Key Vault securely synchronizes Desktop, Web, and Mobile companions, enabling one-click instant recovery on any new machine.'),
   },
   {
     key: 'proxy',
     icon: 'i-solar:shield-check-bold-duotone',
+    badge: 'Edge Reverse Proxy',
     title: t('onboarding.steps.triage.cloud.features.proxy.title', 'Private CORS Proxy & Zero-Custody'),
-    summary: t('onboarding.steps.triage.cloud.features.proxy.desc', 'Access tricky local & remote AI APIs with 100% zero-custody data privacy.'),
-    howItWorks: t('onboarding.steps.triage.cloud.features.proxy.howItWorks', 'Deploys a personal edge reverse proxy to bypass browser CORS headers for Web & Mobile stages.'),
-    whyItMatters: t('onboarding.steps.triage.cloud.features.proxy.whyItMatters', 'Everything runs in your personal Cloudflare account. AIRI operates zero intermediate servers and never reads, stores, or harvests your conversations.'),
+    desc: t('onboarding.steps.triage.cloud.features.proxy.whyItMatters', 'Deploys a personal edge reverse proxy allowing Web and Pocket mobile stages to bypass browser CORS headers. Everything runs in your personal account.'),
   },
 ])
 
@@ -165,6 +233,13 @@ async function restoreVaultCredentials() {
   }
 }
 
+// User explicitly picks Local mode
+function chooseLocal() {
+  selectedPath.value = 'local'
+  props.onNext()
+}
+
+// Start 1-Click OAuth PKCE
 async function handleStartOAuth() {
   try {
     await cloudflareStore.authenticateWithCloudflare()
@@ -172,12 +247,23 @@ async function handleStartOAuth() {
     toast.success('Successfully connected to Cloudflare!')
     await restoreVaultCredentials()
     await probeRemoteCatalog()
+    if (remoteCardsCount.value === 0) {
+      props.onNext()
+    }
+    else {
+      viewMode.value = 'restore'
+    }
   }
   catch (err: any) {
     toast.error(err?.message || 'Cloudflare authentication failed')
   }
 }
 
+function handleCancelAuth() {
+  cloudflareStore.isAuthenticating = false
+}
+
+// Connect via API Token
 async function handleConnectApiToken() {
   const clean = tokenInput.value.trim()
   if (!clean) {
@@ -190,8 +276,15 @@ async function handleConnectApiToken() {
     selectedPath.value = 'cloud'
     toast.success('Successfully connected Cloudflare API Token!')
     tokenInput.value = ''
+    isTokenMode.value = false
     await restoreVaultCredentials()
     await probeRemoteCatalog()
+    if (remoteCardsCount.value === 0) {
+      props.onNext()
+    }
+    else {
+      viewMode.value = 'restore'
+    }
   }
   catch (err: any) {
     toast.error(err?.message || 'Failed to verify Cloudflare API token')
@@ -201,27 +294,32 @@ async function handleConnectApiToken() {
   }
 }
 
-function handleDisconnect(e: Event) {
-  e.stopPropagation()
+// User already signed in and continues with connected account
+async function handleCloudContinue() {
+  selectedPath.value = 'cloud'
+  if (remoteCardsCount.value > 0) {
+    viewMode.value = 'restore'
+  }
+  else {
+    props.onNext()
+  }
+}
+
+// Disconnect with confirmed safety prompt
+function handleDisconnect(e?: Event) {
+  e?.stopPropagation()
+  const confirmed = window.confirm(
+    'Are you sure you want to disconnect your Cloudflare account? Your local data will remain safe.',
+  )
+  if (!confirmed)
+    return
   cloudflareStore.logout()
   selectedPath.value = 'local'
   remoteCardsCount.value = 0
   toast.info('Disconnected from Cloudflare')
 }
 
-function chooseLocal() {
-  selectedPath.value = 'local'
-}
-
-function chooseCloud() {
-  selectedPath.value = 'cloud'
-  if (isAuthenticated.value) {
-    void restoreVaultCredentials()
-    void probeRemoteCatalog()
-  }
-}
-
-// Route 4: The Returning Restorer
+// Route 4: Returning Restorer
 async function handleRestoreAndLaunch() {
   if (isRestoring.value)
     return
@@ -263,7 +361,7 @@ async function handleRestoreAndLaunch() {
   }
 }
 
-// Route 5: The Multi-Companion Power User
+// Route 5: Multi-Companion Power User
 async function handleRestoreAndBuildAnother() {
   if (isRestoring.value)
     return
@@ -302,8 +400,8 @@ async function handleRestoreAndBuildAnother() {
     <!-- Scrollable Content Body -->
     <div :class="['flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-4']">
       <!-- Header Section -->
-      <div :class="['flex flex-col items-center text-center gap-3']">
-        <!-- Title -->
+      <div :class="['flex flex-col items-center text-center gap-2.5']">
+        <!-- Title & Subtitle -->
         <div
           v-motion
           :initial="{ opacity: 0, y: -6 }"
@@ -312,8 +410,11 @@ async function handleRestoreAndBuildAnother() {
           :class="['text-center']"
         >
           <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
-            {{ t('onboarding.steps.triage.title') }}
+            {{ t('onboarding.steps.triage.title', 'Choose how AIRI saves your companion') }}
           </h1>
+          <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-lg mx-auto']">
+            {{ t('onboarding.steps.triage.description', 'Keep data on this device, or connect an account for cloud services.') }}
+          </p>
         </div>
 
         <!-- Assistant Guidance Bubble -->
@@ -325,8 +426,9 @@ async function handleRestoreAndBuildAnother() {
         />
       </div>
 
-      <!-- 2-Card Architecture Choice Grid -->
+      <!-- VIEW 1: 2-Card Architecture Selection Grid -->
       <div
+        v-if="viewMode === 'cards'"
         v-motion
         :initial="{ opacity: 0, y: 10 }"
         :enter="{ opacity: 1, y: 0 }"
@@ -334,479 +436,460 @@ async function handleRestoreAndBuildAnother() {
         :delay="150"
         :class="['grid grid-cols-1 md:grid-cols-2 gap-5 w-full pt-1 items-stretch']"
       >
-        <!-- Option 1: Local Companion (100% Offline) -->
+        <!-- CARD 1: Local Only -->
         <div
           :class="[
-            'relative flex flex-col justify-between overflow-hidden rounded-2xl p-5 border-2 transition-all duration-200 cursor-pointer min-h-[340px] backdrop-blur-xl',
-            selectedPath === 'local'
-              ? 'border-primary-500 bg-white/95 dark:bg-neutral-900/95 shadow-lg shadow-primary-500/10 ring-1 ring-primary-500/30'
-              : 'border-neutral-200/80 dark:border-neutral-800 bg-white/85 dark:bg-neutral-900/75 hover:border-neutral-300 dark:hover:border-neutral-700',
+            'relative flex flex-col justify-between rounded-2xl p-6 border transition-all min-h-[380px] backdrop-blur-xl',
+            'border-neutral-200/80 dark:border-neutral-800 bg-white/80 dark:bg-[#121418] shadow-sm',
           ]"
-          @click="chooseLocal"
         >
           <div :class="['space-y-4']">
-            <!-- Top Row: Icon + Badge + Radio Indicator -->
-            <div :class="['flex items-center justify-between']">
-              <div :class="['flex items-center gap-2.5']">
-                <div
-                  :class="[
-                    'h-10 w-10 rounded-xl flex items-center justify-center transition-colors',
-                    selectedPath === 'local'
-                      ? 'bg-primary-500 text-white shadow-md shadow-primary-500/25'
-                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400',
-                  ]"
-                >
-                  <div :class="['i-solar:home-smile-bold-duotone text-xl']" />
+            <!-- Header: Green circle icon + Title & Subtitle -->
+            <div :class="['flex items-start gap-3.5']">
+              <div :class="['w-11 h-11 rounded-full bg-[#46A758] text-white flex items-center justify-center shrink-0 shadow-sm']">
+                <div :class="['i-solar:laptop-minimalistic-bold text-2xl']" />
+              </div>
+              <div :class="['min-w-0']">
+                <h2 :class="['text-base sm:text-lg font-bold text-neutral-900 dark:text-white leading-tight']">
+                  {{ t('onboarding.steps.triage.local.title', 'Local only') }}
+                </h2>
+                <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-snug']">
+                  {{ t('onboarding.steps.triage.local.description', 'Keep companion cards, memories, and settings on this device.') }}
+                </p>
+              </div>
+            </div>
+
+            <!-- 3 Consumer Bullets -->
+            <div :class="['space-y-3 pt-2 border-t border-neutral-100 dark:border-neutral-800/80']">
+              <div
+                v-for="bullet in localBullets"
+                :key="bullet.title"
+                :class="['flex items-start gap-3']"
+              >
+                <div :class="['w-7 h-7 rounded-full bg-[#46A758]/15 text-[#46A758] dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5']">
+                  <div :class="[bullet.icon, 'text-base']" />
                 </div>
-                <span :class="['rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-primary-500/15 text-primary-600 dark:text-primary-400']">
-                  {{ t('onboarding.steps.triage.local.badge') }}
-                </span>
-              </div>
-
-              <!-- Radio Indicator -->
-              <div
-                :class="[
-                  'h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors',
-                  selectedPath === 'local'
-                    ? 'border-primary-500 bg-primary-500'
-                    : 'border-neutral-300 dark:border-neutral-600',
-                ]"
-              >
-                <div
-                  v-if="selectedPath === 'local'"
-                  :class="['h-2 w-2 rounded-full bg-white']"
-                />
+                <div :class="['text-xs leading-snug min-w-0']">
+                  <div :class="['font-semibold text-neutral-900 dark:text-white']">
+                    {{ bullet.title }}
+                  </div>
+                  <div :class="['text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                    {{ bullet.description }}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- Main Info -->
-            <div>
-              <h2 :class="['text-base font-bold text-neutral-900 dark:text-white']">
-                {{ t('onboarding.steps.triage.local.title') }}
-              </h2>
-              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                {{ t('onboarding.steps.triage.local.description') }}
-              </p>
-            </div>
-
-            <!-- Feature Bullets -->
-            <div :class="['space-y-2 pt-1 border-t border-neutral-100 dark:border-neutral-800/80']">
-              <div
-                v-for="(bullet, i) in [
-                  t('onboarding.steps.triage.local.features.f1'),
-                  t('onboarding.steps.triage.local.features.f2'),
-                  t('onboarding.steps.triage.local.features.f3'),
-                ]"
-                :key="i"
-                :class="['flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300']"
-              >
-                <div :class="['i-solar:check-circle-bold text-primary-500 shrink-0 h-4 w-4']" />
-                <span>{{ bullet }}</span>
-              </div>
+            <!-- More details -> Click Popover -->
+            <div :class="['pt-1']">
+              <PopoverRoot>
+                <PopoverTrigger as-child>
+                  <button
+                    type="button"
+                    :class="['text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors group']"
+                  >
+                    <span :class="['group-hover:underline']">{{ t('onboarding.steps.triage.moreDetails', 'More details') }}</span>
+                    <div :class="['i-solar:alt-arrow-right-line-duotone text-xs group-hover:translate-x-0.5 transition-transform']" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverPortal>
+                  <PopoverContent
+                    side="top"
+                    align="start"
+                    :side-offset="10"
+                    :collision-padding="16"
+                    :class="[
+                      'z-50 w-84 sm:w-96 rounded-2xl p-4 shadow-2xl text-xs backdrop-blur-xl',
+                      'bg-white/95 dark:bg-[#16181D]/95 border border-neutral-200/90 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200',
+                      'animate-in fade-in-0 zoom-in-95 duration-150',
+                    ]"
+                  >
+                    <div :class="['pb-2.5 mb-2.5 border-b border-neutral-200/80 dark:border-neutral-800']">
+                      <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-1.5']">
+                        <div :class="['i-solar:shield-check-bold text-sm text-[#46A758] dark:text-emerald-400']" />
+                        <span>Air-Gapped Local Architecture</span>
+                      </h4>
+                      <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
+                        100% on-device execution. Your companion stays completely private to this machine.
+                      </p>
+                    </div>
+                    <div :class="['space-y-2.5 max-h-[280px] overflow-y-auto pr-1']">
+                      <div
+                        v-for="detail in localDetails"
+                        :key="detail.key"
+                        :class="['p-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-100 dark:border-neutral-800/60']"
+                      >
+                        <div :class="['flex items-center justify-between gap-2 mb-1']">
+                          <span :class="['font-semibold text-neutral-900 dark:text-neutral-100 text-xs flex items-center gap-1.5']">
+                            <div :class="[detail.icon, 'text-[#46A758] dark:text-emerald-400 text-sm shrink-0']" />
+                            <span>{{ detail.title }}</span>
+                          </span>
+                          <span :class="['px-1.5 py-0.5 rounded-md text-[9px] font-mono font-medium bg-neutral-200/60 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400']">
+                            {{ detail.badge }}
+                          </span>
+                        </div>
+                        <p :class="['text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed']">
+                          {{ detail.desc }}
+                        </p>
+                      </div>
+                    </div>
+                    <PopoverArrow :class="['fill-white dark:fill-[#16181D] stroke-neutral-200/90 dark:stroke-neutral-800']" />
+                  </PopoverContent>
+                </PopoverPortal>
+              </PopoverRoot>
             </div>
           </div>
 
-          <!-- Action Button -->
-          <div :class="['pt-5']">
-            <Button
+          <!-- Bottom Action CTA -->
+          <div :class="['pt-5 mt-4 border-t border-neutral-100 dark:border-neutral-800/80']">
+            <button
               type="button"
-              :class="['w-full justify-center text-xs py-2.5 font-semibold rounded-xl']"
-              :variant="selectedPath === 'local' ? 'primary' : 'secondary'"
-              @click.stop="chooseLocal"
+              :class="[
+                'w-full py-2.5 rounded-xl border-2 border-[#46A758] dark:border-emerald-500 text-[#46A758] dark:text-emerald-400 hover:bg-[#46A758]/10 dark:hover:bg-emerald-500/10 font-bold text-xs sm:text-sm tracking-wide transition-all active:scale-[0.99] cursor-pointer text-center flex items-center justify-center gap-2',
+              ]"
+              @click="chooseLocal"
             >
-              {{ selectedPath === 'local' ? t('onboarding.steps.triage.local.selectedCta') : t('onboarding.steps.triage.local.selectCta') }}
-            </Button>
+              <span>{{ t('onboarding.steps.triage.local.continueAction', 'Continue locally') }}</span>
+            </button>
+            <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 text-center mt-2']">
+              {{ t('onboarding.steps.triage.local.noSignInNeeded', 'No sign-in needed.') }}
+            </div>
           </div>
         </div>
 
-        <!-- Option 2: Account Sign-In (Cloudflare) -->
+        <!-- CARD 2: Connected Account -->
         <div
           :class="[
-            'relative flex flex-col justify-between overflow-hidden rounded-2xl p-5 border-2 transition-all duration-200 cursor-pointer min-h-[340px] backdrop-blur-xl',
-            selectedPath === 'cloud'
-              ? isAuthenticated
-                ? 'border-emerald-500 bg-white/95 dark:bg-neutral-900/95 shadow-lg shadow-emerald-500/10 ring-1 ring-emerald-500/30'
-                : 'border-primary-500 bg-white/95 dark:bg-neutral-900/95 shadow-lg shadow-primary-500/10 ring-1 ring-primary-500/30'
-              : 'border-neutral-200/80 dark:border-neutral-800 bg-white/85 dark:bg-neutral-900/75 hover:border-neutral-300 dark:hover:border-neutral-700',
+            'relative flex flex-col justify-between rounded-2xl p-6 border transition-all min-h-[380px] backdrop-blur-xl',
+            'border-neutral-200/80 dark:border-neutral-800 bg-white/80 dark:bg-[#121418] shadow-sm',
           ]"
-          @click="chooseCloud"
         >
           <div :class="['space-y-4']">
-            <!-- Top Row: Icon + Badge + Radio Indicator -->
-            <div :class="['flex items-center justify-between']">
-              <div :class="['flex items-center gap-2.5']">
-                <div
-                  :class="[
-                    'h-10 w-10 rounded-xl flex items-center justify-center transition-colors',
-                    isAuthenticated
-                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
-                      : selectedPath === 'cloud'
-                        ? 'bg-primary-500 text-white shadow-md shadow-primary-500/25'
-                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400',
-                  ]"
-                >
-                  <div :class="['i-solar:cloud-storage-line-duotone text-xl']" />
-                </div>
-                <span
-                  :class="[
-                    'rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase',
-                    isAuthenticated
-                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-primary-500/15 text-primary-600 dark:text-primary-400',
-                  ]"
-                >
-                  {{ isAuthenticated ? t('onboarding.steps.triage.auth.connected', { account: '' }) : t('onboarding.steps.triage.cloud.badge') }}
-                </span>
+            <!-- Header: Green circle icon + Title & Subtitle -->
+            <div :class="['flex items-start gap-3.5']">
+              <div :class="['w-11 h-11 rounded-full bg-[#46A758] text-white flex items-center justify-center shrink-0 shadow-sm']">
+                <div :class="['i-solar:cloud-bold text-2xl']" />
               </div>
-
-              <!-- Radio Indicator -->
-              <div
-                :class="[
-                  'h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors',
-                  selectedPath === 'cloud'
-                    ? isAuthenticated ? 'border-emerald-500' : 'border-primary-500'
-                    : 'border-neutral-300 dark:border-neutral-600',
-                ]"
-              >
-                <div
-                  v-if="selectedPath === 'cloud'"
-                  :class="[
-                    'h-2.5 w-2.5 rounded-full shadow-xs',
-                    isAuthenticated ? 'bg-emerald-500' : 'bg-primary-500',
-                  ]"
-                />
-              </div>
-            </div>
-
-            <!-- Title & Description -->
-            <div>
-              <h2 :class="['text-base font-bold text-neutral-900 dark:text-white']">
-                {{ t('onboarding.steps.triage.cloud.title') }}
-              </h2>
-              <p :class="['text-xs text-neutral-600 dark:text-neutral-400 mt-1.5 leading-relaxed']">
-                {{ t('onboarding.steps.triage.cloud.description') }}
-              </p>
-            </div>
-
-            <!-- Authenticated State Banner -->
-            <div
-              v-if="isAuthenticated"
-              :class="['border border-emerald-500/30 rounded-xl bg-emerald-500/10 p-3 text-xs dark:bg-emerald-950/20 space-y-1.5']"
-            >
-              <div :class="['flex items-center justify-between text-emerald-700 dark:text-emerald-300 font-semibold']">
-                <span :class="['flex items-center gap-1.5']">
-                  <div :class="['i-solar:check-circle-bold-duotone text-sm']" />
-                  <span>{{ cfOAuthTokens?.accessToken ? 'Authenticated via OAuth PKCE' : 'Authenticated via API Token' }}</span>
-                </span>
-                <button
-                  type="button"
-                  :class="['text-[10px] text-neutral-500 underline dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white cursor-pointer']"
-                  @click="handleDisconnect"
-                >
-                  {{ t('onboarding.steps.triage.auth.disconnect') }}
-                </button>
-              </div>
-              <div :class="['truncate text-[10px] text-neutral-600 dark:text-neutral-300 font-mono']">
-                <span :class="['text-neutral-400']">Account:</span> {{ cfAccountId || cfOAuthTokens?.accountId || 'Default Account' }}
-              </div>
-              <div :class="['truncate text-[10px] text-neutral-500 dark:text-neutral-400 font-mono']">
-                <span :class="['text-neutral-400']">Edge Vault:</span> Ready & encrypted
-              </div>
-            </div>
-
-            <!-- 5 Feature Bullets with Hover Popovers (Always Visible) -->
-            <TooltipProvider :delay-duration="100">
-              <div :class="['space-y-1 pt-2 border-t border-neutral-100 dark:border-neutral-800/80 text-xs']">
-                <div
-                  v-for="feature in cloudFeatures"
-                  :key="feature.key"
-                  :class="['w-full']"
-                >
-                  <TooltipRoot>
-                    <TooltipTrigger as-child>
-                      <div
-                        :class="[
-                          'group flex items-start gap-2 p-1.5 -mx-1 rounded-lg transition-all cursor-help',
-                          'hover:bg-primary-500/10 dark:hover:bg-primary-400/10',
-                        ]"
-                      >
-                        <div :class="[feature.icon, 'text-primary-500 shrink-0 h-4 w-4 mt-0.5 group-hover:scale-110 transition-transform']" />
-                        <div :class="['flex-1 min-w-0 text-[11px] leading-tight']">
-                          <span :class="['font-semibold text-neutral-900 dark:text-neutral-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors']">
-                            {{ feature.title }}:
-                          </span>
-                          <span :class="['text-neutral-600 dark:text-neutral-400 ml-1']">
-                            {{ feature.summary }}
-                          </span>
-                        </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipPortal>
-                      <TooltipContent
-                        side="right"
-                        :side-offset="12"
-                        :collision-padding="16"
-                        :class="[
-                          'z-50 max-w-xs sm:max-w-sm rounded-xl p-3.5 shadow-2xl text-xs backdrop-blur-xl',
-                          'bg-white/95 dark:bg-neutral-900/95 border border-primary-500/30 text-neutral-800 dark:text-neutral-200',
-                          'animate-in fade-in-0 zoom-in-95 duration-150',
-                        ]"
-                      >
-                        <div :class="['flex items-center gap-2 pb-2 mb-2 border-b border-neutral-200/80 dark:border-neutral-800']">
-                          <div :class="[feature.icon, 'text-primary-500 text-base shrink-0']" />
-                          <span :class="['font-bold text-neutral-900 dark:text-white text-xs']">
-                            {{ feature.title }}
-                          </span>
-                        </div>
-                        <div :class="['space-y-2 text-[11px] leading-relaxed']">
-                          <div>
-                            <span :class="['font-semibold text-primary-600 dark:text-primary-400']">How it works: </span>
-                            <span :class="['text-neutral-600 dark:text-neutral-300']">{{ feature.howItWorks }}</span>
-                          </div>
-                          <div>
-                            <span :class="['font-semibold text-emerald-600 dark:text-emerald-400']">Why it matters: </span>
-                            <span :class="['text-neutral-600 dark:text-neutral-300']">{{ feature.whyItMatters }}</span>
-                          </div>
-                        </div>
-                        <TooltipArrow :class="['fill-white dark:fill-neutral-900 stroke-primary-500/30']" />
-                      </TooltipContent>
-                    </TooltipPortal>
-                  </TooltipRoot>
-                </div>
-              </div>
-            </TooltipProvider>
-          </div>
-
-          <!-- Bottom Action CTA / Auth Module Area -->
-          <div :class="['pt-3 mt-3 border-t border-neutral-100 dark:border-neutral-800/80']">
-            <!-- State A: Card is NOT selected -->
-            <div
-              v-if="selectedPath !== 'cloud'"
-              :class="[
-                'w-full py-2.5 rounded-xl text-xs font-semibold text-center transition-all flex items-center justify-center gap-2',
-                'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700',
-              ]"
-            >
-              <span>{{ t('onboarding.steps.triage.cloud.selectCta') }}</span>
-            </div>
-
-            <!-- State B: Card IS selected AND already Authenticated -->
-            <div
-              v-else-if="isAuthenticated"
-              :class="[
-                'w-full py-2.5 rounded-xl text-xs font-semibold text-center transition-all flex items-center justify-center gap-2',
-                'bg-emerald-600 text-white shadow-md shadow-emerald-600/25',
-              ]"
-            >
-              <div :class="['i-solar:check-circle-bold text-sm']" />
-              <span>{{ t('onboarding.steps.triage.cloud.selectedCta') }}</span>
-            </div>
-
-            <!-- State C: Card IS selected BUT NOT Authenticated (Docked Auth Form) -->
-            <div
-              v-else
-              :class="['space-y-2']"
-              @click.stop
-            >
-              <!-- Tabs: 1-Click vs API Token -->
-              <div :class="['flex rounded-lg bg-neutral-100 dark:bg-neutral-800 p-0.5 text-xs']">
-                <button
-                  type="button"
-                  :class="[
-                    'flex-1 py-1 rounded-md text-center text-[11px] font-medium transition-all cursor-pointer',
-                    authMethod === 'auto'
-                      ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs'
-                      : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white',
-                  ]"
-                  @click="authMethod = 'auto'"
-                >
-                  {{ t('onboarding.steps.triage.auth.autoTab') }}
-                </button>
-                <button
-                  type="button"
-                  :class="[
-                    'flex-1 py-1 rounded-md text-center text-[11px] font-medium transition-all cursor-pointer',
-                    authMethod === 'token'
-                      ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs'
-                      : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white',
-                  ]"
-                  @click="authMethod = 'token'"
-                >
-                  {{ t('onboarding.steps.triage.auth.tokenTab') }}
-                </button>
-              </div>
-
-              <!-- 1-Click Auto OAuth -->
-              <div v-if="authMethod === 'auto'" :class="['space-y-1.5']">
-                <button
-                  type="button"
-                  :disabled="isAuthenticating"
-                  :class="[
-                    'w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer',
-                  ]"
-                  @click="handleStartOAuth"
-                >
-                  <div v-if="isAuthenticating" :class="['i-solar:refresh-line-duotone h-4 w-4 animate-spin']" />
-                  <div v-else :class="['i-solar:login-2-linear h-4 w-4']" />
-                  <span>{{ isAuthenticating ? t('onboarding.steps.triage.auth.verifying') : t('onboarding.steps.triage.auth.oauthButton') }}</span>
-                </button>
-                <p :class="['text-[10px] text-neutral-400 text-center leading-tight']">
-                  Opens your browser for PKCE authorization & Edge Vault pairing.
+              <div :class="['min-w-0']">
+                <h2 :class="['text-base sm:text-lg font-bold text-neutral-900 dark:text-white leading-tight']">
+                  {{ t('onboarding.steps.triage.cloud.title', 'Connected account') }}
+                </h2>
+                <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-snug']">
+                  {{ t('onboarding.steps.triage.cloud.description', 'Powered by Cloudflare · Use an account for backup, sync, and hosted services.') }}
                 </p>
               </div>
+            </div>
 
-              <!-- API Token Direct Input -->
-              <div v-else :class="['space-y-2']">
-                <div :class="['flex items-center gap-2']">
-                  <input
-                    v-model="tokenInput"
-                    type="password"
-                    :placeholder="t('onboarding.steps.triage.auth.tokenPlaceholder')"
-                    :class="[
-                      'flex-1 px-3 py-1.5 rounded-xl border text-xs bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white outline-none focus:border-primary-500',
-                    ]"
-                    @keydown.enter="handleConnectApiToken"
-                  >
+            <!-- 3 Consumer Bullets -->
+            <div :class="['space-y-3 pt-2 border-t border-neutral-100 dark:border-neutral-800/80']">
+              <div
+                v-for="bullet in cloudBullets"
+                :key="bullet.title"
+                :class="['flex items-start gap-3']"
+              >
+                <div :class="['w-7 h-7 rounded-full bg-[#46A758]/15 text-[#46A758] dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5']">
+                  <div :class="[bullet.icon, 'text-base']" />
+                </div>
+                <div :class="['text-xs leading-snug min-w-0']">
+                  <div :class="['font-semibold text-neutral-900 dark:text-white']">
+                    {{ bullet.title }}
+                  </div>
+                  <div :class="['text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                    {{ bullet.description }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- More details -> Click Popover -->
+            <div :class="['pt-1']">
+              <PopoverRoot>
+                <PopoverTrigger as-child>
                   <button
                     type="button"
-                    :disabled="isValidatingToken || !tokenInput.trim()"
-                    :class="[
-                      'px-3 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold disabled:opacity-50 transition-colors cursor-pointer',
-                    ]"
-                    @click="handleConnectApiToken"
+                    :class="['text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors group']"
                   >
-                    {{ isValidatingToken ? t('onboarding.steps.triage.auth.verifying') : t('onboarding.steps.triage.auth.verifyToken') }}
+                    <span :class="['group-hover:underline']">{{ t('onboarding.steps.triage.moreDetails', 'More details') }}</span>
+                    <div :class="['i-solar:alt-arrow-right-line-duotone text-xs group-hover:translate-x-0.5 transition-transform']" />
                   </button>
-                </div>
-                <p :class="['text-[10px] text-neutral-400 leading-tight']">
-                  Requires Workers KV and R2 read/write permissions.
-                </p>
+                </PopoverTrigger>
+                <PopoverPortal>
+                  <PopoverContent
+                    side="top"
+                    align="start"
+                    :side-offset="10"
+                    :collision-padding="16"
+                    :class="[
+                      'z-50 w-84 sm:w-96 rounded-2xl p-4 shadow-2xl text-xs backdrop-blur-xl',
+                      'bg-white/95 dark:bg-[#16181D]/95 border border-neutral-200/90 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200',
+                      'animate-in fade-in-0 zoom-in-95 duration-150',
+                    ]"
+                  >
+                    <div :class="['pb-2.5 mb-2.5 border-b border-neutral-200/80 dark:border-neutral-800']">
+                      <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-1.5']">
+                        <div :class="['i-solar:cloud-bold text-sm text-[#46A758] dark:text-emerald-400']" />
+                        <span>Cloudflare Zero-Custody Architecture</span>
+                      </h4>
+                      <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
+                        Everything runs in your personal Cloudflare account. AIRI operates zero intermediate servers and never touches your data.
+                      </p>
+                    </div>
+                    <div :class="['space-y-2.5 max-h-[280px] overflow-y-auto pr-1']">
+                      <div
+                        v-for="detail in cloudDetails"
+                        :key="detail.key"
+                        :class="['p-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-100 dark:border-neutral-800/60']"
+                      >
+                        <div :class="['flex items-center justify-between gap-2 mb-1']">
+                          <span :class="['font-semibold text-neutral-900 dark:text-neutral-100 text-xs flex items-center gap-1.5']">
+                            <div :class="[detail.icon, 'text-[#46A758] dark:text-emerald-400 text-sm shrink-0']" />
+                            <span>{{ detail.title }}</span>
+                          </span>
+                          <span :class="['px-1.5 py-0.5 rounded-md text-[9px] font-mono font-medium bg-neutral-200/60 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400']">
+                            {{ detail.badge }}
+                          </span>
+                        </div>
+                        <p :class="['text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed']">
+                          {{ detail.desc }}
+                        </p>
+                      </div>
+                    </div>
+                    <PopoverArrow :class="['fill-white dark:fill-[#16181D] stroke-neutral-200/90 dark:stroke-neutral-800']" />
+                  </PopoverContent>
+                </PopoverPortal>
+              </PopoverRoot>
+            </div>
+          </div>
+
+          <!-- Bottom Action CTA / Dynamic States -->
+          <div :class="['pt-5 mt-4 border-t border-neutral-100 dark:border-neutral-800/80']">
+            <!-- State 01: Signed Out (Default) -->
+            <div v-if="!isAuthenticated && !isAuthenticating && !isTokenMode" :class="['space-y-2']">
+              <button
+                type="button"
+                :class="[
+                  'w-full py-2.5 rounded-xl border-2 border-[#46A758] dark:border-emerald-500 text-[#46A758] dark:text-emerald-400 hover:bg-[#46A758]/10 dark:hover:bg-emerald-500/10 font-bold text-xs sm:text-sm tracking-wide transition-all active:scale-[0.99] cursor-pointer text-center flex items-center justify-center gap-2',
+                ]"
+                @click="handleStartOAuth"
+              >
+                <div :class="['i-solar:cloud-bold text-base']" />
+                <span>{{ t('onboarding.steps.triage.cloud.signInAction', 'Sign in & continue') }}</span>
+              </button>
+              <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 text-center']">
+                {{ t('onboarding.steps.triage.cloud.signInHelp', 'Sign in with Cloudflare to continue.') }}
+              </div>
+              <button
+                type="button"
+                :class="['text-[11px] text-[#46A758] dark:text-emerald-400 hover:underline cursor-pointer block mx-auto font-medium']"
+                @click="isTokenMode = true"
+              >
+                {{ t('onboarding.steps.triage.cloud.useApiToken', 'Use API token') }}
+              </button>
+            </div>
+
+            <!-- State 01b: Inline API Token Mode -->
+            <div v-else-if="!isAuthenticated && isTokenMode" :class="['space-y-2']">
+              <div :class="['flex items-center gap-2']">
+                <input
+                  v-model="tokenInput"
+                  type="password"
+                  :placeholder="t('onboarding.steps.triage.auth.tokenPlaceholder', 'Paste your Cloudflare API token...')"
+                  :class="[
+                    'flex-1 px-3 py-2 rounded-xl border text-xs bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white outline-none focus:border-emerald-500',
+                  ]"
+                  @keydown.enter="handleConnectApiToken"
+                >
+                <button
+                  type="button"
+                  :disabled="isValidatingToken || !tokenInput.trim()"
+                  :class="[
+                    'px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold disabled:opacity-50 transition-colors cursor-pointer shrink-0',
+                  ]"
+                  @click="handleConnectApiToken"
+                >
+                  {{ isValidatingToken ? t('onboarding.steps.triage.auth.verifying', 'Verifying...') : t('onboarding.steps.triage.auth.verifyToken', 'Connect') }}
+                </button>
+              </div>
+              <div :class="['flex items-center justify-between text-[10px] text-neutral-400']">
+                <span>Requires Workers KV and R2 read/write permissions.</span>
+                <button
+                  type="button"
+                  :class="['text-neutral-500 hover:text-neutral-800 dark:hover:text-white underline cursor-pointer']"
+                  @click="isTokenMode = false"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            <!-- State 02: Signing In (in progress) -->
+            <div v-else-if="!isAuthenticated && isAuthenticating" :class="['space-y-2']">
+              <div
+                :class="[
+                  'w-full py-2.5 rounded-xl border-2 border-neutral-300 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 font-bold text-xs sm:text-sm tracking-wide cursor-not-allowed text-center flex items-center justify-center gap-2 bg-neutral-50 dark:bg-neutral-900/50',
+                ]"
+              >
+                <div :class="['i-solar:refresh-line-duotone text-base animate-spin text-[#46A758] dark:text-emerald-400']" />
+                <span>{{ t('onboarding.steps.triage.cloud.waitingForSignIn', 'Waiting for sign-in...') }}</span>
+              </div>
+              <button
+                type="button"
+                :class="['text-[11px] text-[#46A758] dark:text-emerald-400 hover:underline cursor-pointer block mx-auto font-medium']"
+                @click="handleCancelAuth"
+              >
+                {{ t('onboarding.steps.triage.cloud.cancelSignIn', 'Cancel sign-in') }}
+              </button>
+              <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 text-center']">
+                {{ t('onboarding.steps.triage.cloud.finishInBrowser', 'Finish signing in in your browser.') }}
+              </div>
+            </div>
+
+            <!-- State 03: Already Signed In -->
+            <div v-else-if="isAuthenticated" :class="['space-y-2']">
+              <button
+                type="button"
+                :class="[
+                  'w-full py-2.5 rounded-xl border-2 border-[#46A758] dark:border-emerald-500 text-[#46A758] dark:text-emerald-400 hover:bg-[#46A758]/10 dark:hover:bg-emerald-500/10 font-bold text-xs sm:text-sm tracking-wide transition-all active:scale-[0.99] cursor-pointer text-center flex items-center justify-center gap-2',
+                ]"
+                @click="handleCloudContinue"
+              >
+                <span>{{ t('onboarding.steps.triage.cloud.continueAction', 'Continue with connected account') }}</span>
+              </button>
+              <div :class="['flex items-center justify-center gap-1.5 text-xs text-[#46A758] dark:text-emerald-400 font-semibold']">
+                <div :class="['i-solar:check-circle-bold text-sm']" />
+                <span>{{ t('onboarding.steps.triage.auth.connected', 'Account connected') }}</span>
+                <span v-if="cfAccountId" :class="['text-[10px] text-neutral-400 font-mono font-normal ml-1']">
+                  ({{ cfAccountId.slice(0, 8) }}...)
+                </span>
+              </div>
+              <div :class="['flex items-center justify-center gap-3 text-[11px] text-neutral-500 dark:text-neutral-400 pt-0.5']">
+                <button
+                  type="button"
+                  :class="['hover:text-neutral-900 dark:hover:text-white underline cursor-pointer transition-colors']"
+                  @click="showHubDialog = true"
+                >
+                  {{ t('onboarding.steps.triage.cloud.manageConnection', 'Manage connection') }}
+                </button>
+                <span>·</span>
+                <button
+                  type="button"
+                  :class="['hover:text-red-600 dark:hover:text-red-400 underline cursor-pointer transition-colors']"
+                  @click="handleDisconnect"
+                >
+                  {{ t('onboarding.steps.triage.auth.disconnect', 'Disconnect') }}
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Remote Companions Found / Selective Restore View (Routes 4 & 5) -->
+      <!-- VIEW 2: Standalone Cloud Vault Restore Screen -->
       <div
-        v-if="selectedPath === 'cloud' && isAuthenticated && remoteCardsCount > 0"
+        v-else-if="viewMode === 'restore'"
         v-motion
-        :initial="{ opacity: 0, y: 10 }"
-        :enter="{ opacity: 1, y: 0 }"
-        :duration="400"
-        :class="['flex flex-col gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/20 p-4 shadow-sm']"
+        :initial="{ opacity: 0, scale: 0.98 }"
+        :enter="{ opacity: 1, scale: 1 }"
+        :duration="350"
+        :class="['flex-1 min-h-0 flex flex-col justify-between gap-4 py-2']"
       >
-        <div :class="['flex items-center justify-between pb-2 border-b border-emerald-500/20']">
-          <div :class="['flex items-center gap-2.5']">
-            <div :class="['h-8 w-8 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0']">
-              <div :class="['i-solar:cloud-check-bold-duotone text-lg']" />
+        <div :class="['flex flex-col gap-3 flex-1 min-h-0']">
+          <!-- Header of Restore Cockpit -->
+          <div :class="['flex items-center justify-between pb-3 border-b border-emerald-500/20']">
+            <div :class="['flex items-center gap-3']">
+              <div :class="['h-10 w-10 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0 shadow-xs']">
+                <div :class="['i-solar:cloud-check-bold-duotone text-2xl']" />
+              </div>
+              <div>
+                <h2 :class="['text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
+                  <span>{{ t('onboarding.steps.triage.restore.bannerTitle', 'Restore from Cloud Vault') }}</span>
+                  <span :class="['px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400']">
+                    {{ remoteCardsCount }} Available
+                  </span>
+                </h2>
+                <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                  {{ t('onboarding.steps.triage.restore.bannerDesc', { count: remoteCardsCount }) }} Choose what to sync to this device.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2']">
-                <span>{{ t('onboarding.steps.triage.restore.bannerTitle') }}</span>
-                <span :class="['px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400']">
-                  Ready to Restore
-                </span>
-              </h3>
-              <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
-                {{ t('onboarding.steps.triage.restore.bannerDesc', { count: remoteCardsCount }) }}
-              </p>
-            </div>
+
+            <button
+              type="button"
+              :class="['text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/50 dark:bg-neutral-900/50 cursor-pointer transition-colors']"
+              @click="probeRemoteCatalog"
+            >
+              <div :class="['i-solar:refresh-linear text-xs', isLoadingCatalog ? 'animate-spin' : '']" />
+              <span>Refresh</span>
+            </button>
           </div>
 
+          <!-- Full-Size Selective Sync Panel -->
+          <div :class="['flex-1 min-h-[300px] max-h-[380px] overflow-y-auto rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60 p-3 shadow-inner']">
+            <SelectiveSyncPanel
+              ref="selectiveSyncPanelRef"
+              :show-actions="false"
+            />
+          </div>
+        </div>
+
+        <!-- Dedicated Restore Action Bar -->
+        <div :class="['pt-3 border-t border-neutral-200/80 dark:border-neutral-800 flex flex-wrap items-center justify-between gap-3']">
           <button
             type="button"
-            :class="['text-[11px] text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors']"
-            @click="probeRemoteCatalog"
+            :class="['flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer']"
+            @click="viewMode = 'cards'"
           >
-            <div :class="['i-solar:refresh-linear text-xs', isLoadingCatalog ? 'animate-spin' : '']" />
-            <span>Refresh</span>
+            <div :class="['i-solar:alt-arrow-left-line-duotone text-sm']" />
+            <span>Back to Options</span>
           </button>
-        </div>
 
-        <!-- Embedded Full Selective Sync Tree -->
-        <div :class="['max-h-[300px] overflow-y-auto rounded-xl border border-neutral-200/80 dark:border-white/5 bg-white/60 dark:bg-neutral-900/60 p-2']">
-          <SelectiveSyncPanel
-            ref="selectiveSyncPanelRef"
-            :show-actions="false"
-          />
-        </div>
+          <div :class="['flex items-center gap-3']">
+            <button
+              type="button"
+              :class="['text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white underline cursor-pointer transition-colors']"
+              @click="props.onNext"
+            >
+              Start fresh without restoring →
+            </button>
 
-        <!-- Route 4 & 5 Action Bar -->
-        <div :class="['flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-emerald-500/20']">
-          <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
-            Restoring pulls active state into your local vault.
-          </div>
-
-          <div :class="['flex items-center gap-2.5']">
-            <!-- Route 5: Multi-Companion Power User -->
+            <!-- Route 5: Restore and Build Another -->
             <button
               type="button"
               :disabled="isRestoring"
               :class="[
-                'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold',
-                'border border-primary-500/30 bg-primary-500/10 hover:bg-primary-500/20 text-primary-600 dark:text-primary-300 transition-all active:scale-95 disabled:opacity-50 cursor-pointer',
+                'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold',
+                'border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 transition-all active:scale-95 disabled:opacity-50 cursor-pointer',
               ]"
               @click="handleRestoreAndBuildAnother"
             >
               <div v-if="isRestoring" :class="['i-solar:refresh-line-duotone text-xs animate-spin']" />
-              <div v-else :class="['i-solar:add-circle-bold text-xs text-primary-500']" />
-              <span>{{ t('onboarding.steps.triage.restore.restoreAndBuild') }}</span>
+              <div v-else :class="['i-solar:add-circle-bold text-xs text-emerald-500']" />
+              <span>{{ t('onboarding.steps.triage.restore.restoreAndBuild', 'Restore & Build Another') }}</span>
             </button>
 
-            <!-- Route 4: Returning Restorer -->
+            <!-- Route 4: Restore All and Launch -->
             <Button
               variant="primary"
               size="md"
               :disabled="isRestoring"
               :class="[
-                'flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-2',
+                'flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5',
                 'text-xs font-semibold text-white shadow-md shadow-emerald-600/25 transition-all active:scale-95 disabled:opacity-50 cursor-pointer',
               ]"
               @click="handleRestoreAndLaunch"
             >
               <div v-if="isRestoring" :class="['i-solar:refresh-line-duotone text-xs animate-spin']" />
               <div v-else :class="['i-solar:rocket-bold-duotone text-xs']" />
-              <span>{{ isRestoring ? t('onboarding.steps.triage.restore.restoring') : t('onboarding.steps.triage.restore.restoreAll') }}</span>
+              <span>{{ isRestoring ? t('onboarding.steps.triage.restore.restoring', 'Restoring...') : t('onboarding.steps.triage.restore.restoreAll', 'Restore & Launch Stage') }}</span>
             </Button>
           </div>
         </div>
       </div>
-
-      <!-- Connected Cloud Account (Fresh / Zero Backups) -->
-      <div
-        v-else-if="selectedPath === 'cloud' && isAuthenticated && !isLoadingCatalog"
-        v-motion
-        :initial="{ opacity: 0, y: 10 }"
-        :enter="{ opacity: 1, y: 0 }"
-        :duration="350"
-        :class="['p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between']"
-      >
-        <div :class="['flex items-center gap-2']">
-          <div :class="['i-solar:check-circle-bold-duotone text-base text-emerald-500 shrink-0']" />
-          <span>Connected to Cloudflare! No existing companion backups found in Cloudflare R2. Your new companion will automatically sync to your cloud vault.</span>
-        </div>
-        <button
-          type="button"
-          :class="['px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs cursor-pointer transition-colors shrink-0 ml-2']"
-          @click="props.onNext"
-        >
-          Continue Setup (Cloud-Backed) →
-        </button>
-      </div>
-
-      <!-- Catalog Scanning Indicator -->
-      <div
-        v-else-if="selectedPath === 'cloud' && isAuthenticated && isLoadingCatalog"
-        :class="['p-3 rounded-xl border border-neutral-200 dark:border-white/5 bg-neutral-50 dark:bg-white/5 text-xs text-neutral-500 flex items-center justify-center gap-2 animate-pulse']"
-      >
-        <div :class="['i-solar:refresh-line-duotone animate-spin text-sm']" />
-        <span>Checking Cloudflare R2 for companion backups...</span>
-      </div>
     </div>
 
-    <!-- Navigation Action Bar -->
+    <!-- Base Navigation Footer (Only on Cards View) -->
     <div
+      v-if="viewMode === 'cards'"
       v-motion
       :initial="{ opacity: 0, y: 10 }"
       :enter="{ opacity: 1, y: 0 }"
@@ -820,25 +903,15 @@ async function handleRestoreAndBuildAnother() {
         @click="props.onPrevious"
       >
         <div :class="['i-solar:alt-arrow-left-line-duotone h-4 w-4']" />
-        <span>{{ t('onboarding.shell.previous') }}</span>
+        <span>{{ t('onboarding.shell.previous', 'Back') }}</span>
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        Path: <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ selectedPath === 'local' ? t('onboarding.steps.triage.local.title') : t('onboarding.steps.triage.cloud.title') }}</span>
+        {{ t('onboarding.steps.triage.changeLater', 'You can change this later.') }}
       </div>
-
-      <Button
-        variant="primary"
-        size="md"
-        :class="[
-          'flex items-center gap-2 rounded-xl bg-primary-600 hover:bg-primary-500 px-5 py-2',
-          'text-xs font-semibold text-white shadow-md shadow-primary-600/25 transition-all active:scale-95 cursor-pointer',
-        ]"
-        @click="props.onNext"
-      >
-        <span>{{ t('onboarding.shell.next') }}</span>
-        <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
-      </Button>
     </div>
+
+    <!-- Cloudflare Account Hub Modal for "Manage connection" -->
+    <CloudflareAccountHubDialog v-model="showHubDialog" />
   </div>
 </template>
