@@ -16,7 +16,7 @@ const showControlsIsland = computed(() => props.needsControlsIslandIconSizeSetti
 const settings = useSettings()
 
 const { t } = useI18n()
-const { isDark: dark } = useTheme()
+const { themeMode } = useTheme()
 
 const languages = computed(() => {
   return Object.entries(all).map(([value, label]) => ({ value, label }))
@@ -25,16 +25,21 @@ const languages = computed(() => {
 
 <template>
   <div rounded-lg bg-neutral-50 p-4 dark:bg-neutral-800 flex="~ col gap-4">
-    <FieldCheckbox
-      v-model="dark"
+    <FieldSelect
+      v-model="themeMode"
       v-motion
-      mb-2
+      :class="['mb-2', 'transition-all', 'ease-in-out', 'duration-250']"
       :initial="{ opacity: 0, y: 10 }"
       :enter="{ opacity: 1, y: 0 }"
       :duration="250 + (2 * 10)"
       :delay="2 * 50"
       :label="t('settings.theme.title')"
       :description="t('settings.theme.description')"
+      :options="[
+        { value: 'auto', label: t('settings.theme.auto') },
+        { value: 'light', label: t('settings.theme.light') },
+        { value: 'dark', label: t('settings.theme.dark') },
+      ]"
     />
 
     <!-- Language Setting -->
