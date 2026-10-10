@@ -308,6 +308,7 @@ function handleDrop(e: DragEvent) {
         <AssistantBubble
           message="Let’s find a look that feels right. Browse the collection or import your own avatar, then preview it on the stage."
           step-key="vessel"
+          sticker-id="airi-surprised"
           tone="primary"
         />
       </div>

@@ -601,6 +601,7 @@ watch(selectedAudioInput, async () => {
         <AssistantBubble
           message="Choose how I’ll hear you, then test your microphone. Once your speech is recognized, you can continue."
           step-key="hearing"
+          sticker-id="airi-confused"
           tone="primary"
         />
       </div>

@@ -480,6 +480,7 @@ function resetToPresetDefaults() {
         <AssistantBubble
           :message="t('onboarding.steps.experience.companionGreeting')"
           step-key="experience"
+          sticker-id="airi-happy"
           tone="primary"
         />
       </div>

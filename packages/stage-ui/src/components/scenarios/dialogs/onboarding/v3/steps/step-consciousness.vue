@@ -852,6 +852,7 @@ onBeforeUnmount(() => {
         <AssistantBubble
           message="Let’s choose the brain behind our conversations. Use a free cloud model, run one locally, or connect your own provider—then try a quick conversation."
           step-key="consciousness"
+          sticker-id="airi-awkward"
           tone="primary"
         />
       </div>

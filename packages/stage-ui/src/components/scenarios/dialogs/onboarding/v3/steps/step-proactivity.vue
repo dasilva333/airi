@@ -294,6 +294,7 @@ onBeforeUnmount(() => {
         <AssistantBubble
           message="Choose when I chime in, and how I stay aware of your day."
           step-key="proactivity"
+          sticker-id="airi-thanks"
           tone="primary"
         />
       </div>

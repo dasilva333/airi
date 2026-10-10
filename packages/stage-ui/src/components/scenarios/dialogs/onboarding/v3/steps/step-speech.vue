@@ -1089,6 +1089,7 @@ function handleContinue() {
         <AssistantBubble
           message="Let’s find a voice that feels right. Choose an engine, adjust the voice, and listen to a sample."
           step-key="speech"
+          sticker-id="airi-agree"
           tone="primary"
         />
       </div>

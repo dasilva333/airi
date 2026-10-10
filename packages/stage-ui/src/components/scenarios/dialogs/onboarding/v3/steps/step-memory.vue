@@ -131,6 +131,7 @@ const hasAnyMemoryEnabled = computed(() => Boolean(
         <AssistantBubble
           message="Choose what I remember, and how I carry our conversations forward."
           step-key="memory"
+          sticker-id="airi-affectionate"
           tone="primary"
         />
       </div>

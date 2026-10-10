@@ -361,6 +361,7 @@ function handleNext() {
         <AssistantBubble
           message="Choose how I create images, and when I bring our stories to life."
           step-key="artistry"
+          sticker-id="airi-celebrate"
           tone="primary"
         />
       </div>

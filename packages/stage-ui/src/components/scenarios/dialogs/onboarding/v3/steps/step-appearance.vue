@@ -143,6 +143,7 @@ const activeColorName = computed(() => {
         <AssistantBubble
           :message="t('onboarding.steps.appearance.companionGreeting')"
           step-key="appearance"
+          sticker-id="airi-celebrate"
           tone="primary"
         />
       </div>

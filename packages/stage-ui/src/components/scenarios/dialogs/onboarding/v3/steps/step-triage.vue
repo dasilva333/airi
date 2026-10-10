@@ -320,6 +320,7 @@ async function handleRestoreAndBuildAnother() {
         <AssistantBubble
           :message="t('onboarding.steps.triage.companionGreeting')"
           step-key="triage"
+          sticker-id="airi-confused"
           tone="primary"
         />
       </div>

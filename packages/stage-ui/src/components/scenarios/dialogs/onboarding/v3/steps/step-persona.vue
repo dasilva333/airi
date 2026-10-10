@@ -1234,6 +1234,7 @@ onBeforeUnmount(() => {
         <AssistantBubble
           message="Give your character a name, a look, and a story direction. Then choose the version that feels right."
           step-key="persona"
+          sticker-id="airi-celebrate"
           tone="primary"
         />
       </div>

@@ -154,6 +154,7 @@ const displayName = computed(() => draft.state.userName?.trim() || 'Richie')
         <AssistantBubble
           :message="t('onboarding.steps.profile.companionGreeting')"
           step-key="profile"
+          sticker-id="airi-affectionate"
           tone="primary"
         />
       </div>

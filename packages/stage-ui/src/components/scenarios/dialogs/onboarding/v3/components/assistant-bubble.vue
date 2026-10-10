@@ -1,18 +1,32 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
+import { chatStickers } from '../../../../../../assets/stickers'
+
 const props = withDefaults(defineProps<{
   message: string
   stepKey?: string
+  stickerId?: string
   tone?: 'primary' | 'sky' | 'purple' | 'amber'
   startDelay?: number
   speed?: number
 }>(), {
   message: '',
   stepKey: '',
+  stickerId: '',
   tone: 'primary',
   startDelay: 120,
   speed: 45,
+})
+
+const resolvedSticker = computed(() => {
+  if (props.stickerId) {
+    const matched = chatStickers.find(s => s.id === props.stickerId)
+    if (matched)
+      return matched
+  }
+  // Default fallback for AIRI
+  return chatStickers.find(s => s.id === 'airi-happy') || chatStickers[0]
 })
 
 // Module-level cache to remember steps visited in this onboarding session.
@@ -146,12 +160,21 @@ const toneClasses = computed(() => {
     <div :class="['relative flex-shrink-0 mt-0.5']">
       <div
         :class="[
-          'h-8 w-8 flex items-center justify-center border rounded-full bg-gradient-to-br shadow-xs',
+          'w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-2xl border p-1 shadow-xs bg-gradient-to-br backdrop-blur-sm',
           toneClasses.avatarRing,
           toneClasses.avatarBg,
         ]"
       >
-        <div :class="['i-solar:emoji-funny-circle-bold-duotone h-5 w-5', toneClasses.avatarIcon]" />
+        <img
+          v-if="resolvedSticker"
+          :src="resolvedSticker.src"
+          :alt="resolvedSticker.description"
+          :class="['w-full h-full object-contain select-none pointer-events-none drop-shadow-xs']"
+        >
+        <div
+          v-else
+          :class="['i-solar:emoji-funny-circle-bold-duotone h-5 w-5', toneClasses.avatarIcon]"
+        />
       </div>
 
       <!-- Subtle Typing Dot Beside Avatar -->

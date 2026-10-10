@@ -601,6 +601,7 @@ function handleSkipPrewarmAndContinue() {
         <AssistantBubble
           message="Choose how I fill the pause, and how much I say when I’m ready."
           step-key="thinking"
+          sticker-id="airi-awkward"
           tone="primary"
         />
       </div>

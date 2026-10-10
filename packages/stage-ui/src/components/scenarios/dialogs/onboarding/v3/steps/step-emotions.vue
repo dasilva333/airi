@@ -109,6 +109,7 @@ function handleContinue() {
         <AssistantBubble
           message="Let’s discover how your companion expresses emotion. Preview your avatar’s expressions, keep the ones that work, and connect them to emotional cues."
           step-key="emotions"
+          sticker-id="airi-happy"
           tone="primary"
         />
       </div>

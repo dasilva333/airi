@@ -566,6 +566,7 @@ async function runSimulation() {
         <AssistantBubble
           message="Choose how I’ll understand images, then send a picture to try it."
           step-key="vision"
+          sticker-id="airi-surprised"
           tone="primary"
         />
       </div>
