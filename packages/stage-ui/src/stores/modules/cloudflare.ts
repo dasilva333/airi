@@ -46,80 +46,56 @@ async function generateWebPkce(): Promise<{ codeVerifier: string, codeChallenge:
 }
 
 export const useCloudflareStore = defineStore('cloudflare', () => {
-  // Fallback migration from legacy settings/discord/... keys and cleanup of corrupted tokens
-  let initialTokens: CloudflareOAuthTokens | null = null
-  let initialAccountId = ''
-  let initialApiToken = ''
-
   if (typeof localStorage !== 'undefined') {
     // 1. Primary key check and corruption cleanup
     const primaryRaw = localStorage.getItem('settings/cloudflare/cfOAuthTokens')
-    if (primaryRaw) {
-      if (primaryRaw === '[object Object]' || primaryRaw.startsWith('[object')) {
-        localStorage.removeItem('settings/cloudflare/cfOAuthTokens')
-      }
-      else {
-        try {
-          const parsed = JSON.parse(primaryRaw)
-          if (parsed && typeof parsed === 'object' && parsed.accessToken) {
-            initialTokens = parsed
-          }
-        }
-        catch {
-          localStorage.removeItem('settings/cloudflare/cfOAuthTokens')
-        }
-      }
+    if (primaryRaw && (primaryRaw === '[object Object]' || primaryRaw.startsWith('[object'))) {
+      localStorage.removeItem('settings/cloudflare/cfOAuthTokens')
     }
 
-    // 2. Legacy fallback check
-    const rawTokens = localStorage.getItem('settings/discord/cfOAuthTokens')
-    if (rawTokens) {
-      if (rawTokens === '[object Object]' || rawTokens.startsWith('[object')) {
+    // 2. Legacy fallback migration
+    const legacyRaw = localStorage.getItem('settings/discord/cfOAuthTokens')
+    if (legacyRaw) {
+      if (legacyRaw === '[object Object]' || legacyRaw.startsWith('[object')) {
         localStorage.removeItem('settings/discord/cfOAuthTokens')
       }
-      else if (!initialTokens) {
+      else if (!localStorage.getItem('settings/cloudflare/cfOAuthTokens')) {
         try {
-          const parsed = JSON.parse(rawTokens)
+          const parsed = JSON.parse(legacyRaw)
           if (parsed && typeof parsed === 'object' && parsed.accessToken) {
-            initialTokens = parsed
+            localStorage.setItem('settings/cloudflare/cfOAuthTokens', legacyRaw)
           }
         }
         catch {
-          localStorage.removeItem('settings/discord/cfOAuthTokens')
+          // ignore
         }
+        localStorage.removeItem('settings/discord/cfOAuthTokens')
+      }
+      else {
+        localStorage.removeItem('settings/discord/cfOAuthTokens')
       }
     }
 
-    const rawAccountId = localStorage.getItem('settings/cloudflare/cfAccountId') || localStorage.getItem('settings/discord/cfAccountId')
-    if (rawAccountId) {
-      if (rawAccountId === '[object Object]' || rawAccountId.startsWith('[object')) {
-        localStorage.removeItem('settings/cloudflare/cfAccountId')
+    const legacyAccountId = localStorage.getItem('settings/discord/cfAccountId')
+    if (legacyAccountId) {
+      if (legacyAccountId === '[object Object]' || legacyAccountId.startsWith('[object')) {
         localStorage.removeItem('settings/discord/cfAccountId')
       }
-      else {
-        try {
-          initialAccountId = JSON.parse(rawAccountId)
-        }
-        catch {
-          initialAccountId = rawAccountId
-        }
+      else if (!localStorage.getItem('settings/cloudflare/cfAccountId')) {
+        localStorage.setItem('settings/cloudflare/cfAccountId', legacyAccountId)
       }
+      localStorage.removeItem('settings/discord/cfAccountId')
     }
 
-    const rawApiToken = localStorage.getItem('settings/cloudflare/cfApiToken') || localStorage.getItem('settings/discord/cfApiToken')
-    if (rawApiToken) {
-      if (rawApiToken === '[object Object]' || rawApiToken.startsWith('[object')) {
-        localStorage.removeItem('settings/cloudflare/cfApiToken')
+    const legacyApiToken = localStorage.getItem('settings/discord/cfApiToken')
+    if (legacyApiToken) {
+      if (legacyApiToken === '[object Object]' || legacyApiToken.startsWith('[object')) {
         localStorage.removeItem('settings/discord/cfApiToken')
       }
-      else {
-        try {
-          initialApiToken = JSON.parse(rawApiToken)
-        }
-        catch {
-          initialApiToken = rawApiToken
-        }
+      else if (!localStorage.getItem('settings/cloudflare/cfApiToken')) {
+        localStorage.setItem('settings/cloudflare/cfApiToken', legacyApiToken)
       }
+      localStorage.removeItem('settings/discord/cfApiToken')
     }
   }
 
@@ -146,16 +122,16 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
 
   const cfOAuthTokens = useLocalStorageManualReset<CloudflareOAuthTokens | null>(
     'settings/cloudflare/cfOAuthTokens',
-    initialTokens,
+    null,
     { serializer: cfOAuthTokensSerializer },
   )
   const cfAccountId = useLocalStorageManualReset<string>(
     'settings/cloudflare/cfAccountId',
-    initialAccountId,
+    '',
   )
   const cfApiToken = useLocalStorageManualReset<string>(
     'settings/cloudflare/cfApiToken',
-    initialApiToken,
+    '',
   )
   const cfSubdomain = useLocalStorageManualReset<string>(
     'settings/cloudflare/cfSubdomain',
@@ -907,9 +883,35 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
     cfOAuthTokens.value = null
     cfApiToken.value = ''
     cfAccountId.value = ''
+    cfSubdomain.value = ''
     authError.value = null
     isHubOpen.value = false
     isConnectOpen.value = false
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('settings/cloudflare/cfOAuthTokens')
+      localStorage.removeItem('settings/cloudflare/cfAccountId')
+      localStorage.removeItem('settings/cloudflare/cfApiToken')
+      localStorage.removeItem('settings/cloudflare/cfSubdomain')
+      localStorage.removeItem('settings/discord/cfOAuthTokens')
+      localStorage.removeItem('settings/discord/cfAccountId')
+      localStorage.removeItem('settings/discord/cfApiToken')
+      localStorage.removeItem('settings/discord/cfSubdomain')
+    }
+
+    try {
+      const syncStore = useSyncEngineStore()
+      if (syncStore.activeProvider === 's3' && (syncStore.s3Endpoint.includes('cloudflarestorage.com') || syncStore.s3Endpoint.includes('r2.cloudflarestorage.com'))) {
+        syncStore.syncEnabled = false
+        syncStore.s3Endpoint = ''
+        syncStore.s3Bucket = ''
+        syncStore.s3AccessKeyId = ''
+        syncStore.s3SecretAccessKey = ''
+      }
+    }
+    catch (e) {
+      console.warn('[useCloudflareStore] Failed to reset syncStore during logout:', e)
+    }
   }
 
   return {
