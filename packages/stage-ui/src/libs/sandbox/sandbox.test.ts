@@ -306,5 +306,55 @@ describe('sandbox subsystem & in-memory posix execution', () => {
       const afterUnmount = await widgetsRepo.getMountedWidgets()
       expect(afterUnmount.some(w => w.id === rehydrated!.id)).toBe(false)
     })
+
+    it('lists persisted widgets with list_widgets / widgets and remounts by title or path', async () => {
+      const sandbox = new SandboxManager()
+      await sandbox.init()
+
+      await sandbox.writeFile('/workspace/clock.ts', `
+        export default function mount({ container }: any) {
+          container.innerHTML = "<div>12:00:00</div>";
+        }
+      `)
+
+      await sandbox.exec('mount_widget /workspace/clock.ts --title "Digital Clock"')
+      expect(sandbox.mountedWidgets.length).toBeGreaterThanOrEqual(1)
+
+      // Test list_widgets command
+      const listRes = await sandbox.exec('list_widgets')
+      expect(listRes.exitCode).toBe(0)
+      expect(listRes.stdout).toContain('Digital Clock')
+      expect(listRes.stdout).toContain('[ACTIVE]')
+
+      // Test widgets alias
+      const aliasRes = await sandbox.exec('widgets')
+      expect(aliasRes.exitCode).toBe(0)
+      expect(aliasRes.stdout).toContain('Digital Clock')
+
+      // Unmount the widget
+      const mountedWidget = sandbox.mountedWidgets.find(w => w.title === 'Digital Clock')!
+      sandbox.unmountWidget(mountedWidget.id)
+      expect(sandbox.mountedWidgets.some(w => w.title === 'Digital Clock')).toBe(false)
+
+      // In list_widgets, it should now show as [UNMOUNTED]
+      const unmountedListRes = await sandbox.exec('list_widgets')
+      expect(unmountedListRes.stdout).toContain('[UNMOUNTED]')
+      expect(unmountedListRes.stdout).toContain('Digital Clock')
+
+      // Delete file from disk to simulate cold remount
+      await sandbox.exec('rm /workspace/clock.ts /workspace/clock.js')
+
+      // Remount using title via mount_widget
+      const remountRes = await sandbox.exec('mount_widget "Digital Clock"')
+      expect(remountRes.exitCode).toBe(0)
+      expect(sandbox.mountedWidgets.some(w => w.title === 'Digital Clock')).toBe(true)
+
+      // Remount via mountPersistedWidget API
+      sandbox.unmountWidget(mountedWidget.id)
+      const apiMounted = await sandbox.mountPersistedWidget(mountedWidget.id)
+      expect(apiMounted).not.toBeNull()
+      expect(apiMounted?.title).toBe('Digital Clock')
+      expect(sandbox.mountedWidgets.some(w => w.id === mountedWidget.id)).toBe(true)
+    })
   })
 })

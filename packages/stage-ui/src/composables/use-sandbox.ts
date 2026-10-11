@@ -1,7 +1,9 @@
+import type { PersistedWidget } from '../database/repos/widgets.repo'
 import type { CommandLogEntry, ExecResult, MountedWidget, SandboxManager, VirtualFileEntry } from '../libs/sandbox'
 
 import { onMounted, ref } from 'vue'
 
+import { widgetsRepo } from '../database/repos/widgets.repo'
 import { getSandboxManager } from '../libs/sandbox'
 
 export function useSandbox() {
@@ -102,6 +104,26 @@ export function useSandbox() {
     }
   }
 
+  async function mountPersistedWidget(idOrPath: string): Promise<void> {
+    await init()
+    if (sandbox.value) {
+      await sandbox.value.mountPersistedWidget(idOrPath)
+      mountedWidgets.value = [...sandbox.value.mountedWidgets]
+    }
+  }
+
+  async function getPersistedWidgets(): Promise<PersistedWidget[]> {
+    return await widgetsRepo.getWidgets()
+  }
+
+  async function deletePersistedWidget(idOrPath: string): Promise<void> {
+    if (sandbox.value) {
+      sandbox.value.unmountWidget(idOrPath)
+      mountedWidgets.value = [...sandbox.value.mountedWidgets]
+    }
+    await widgetsRepo.removeWidget(idOrPath)
+  }
+
   onMounted(() => {
     void init()
   })
@@ -121,5 +143,8 @@ export function useSandbox() {
     reset,
     unmountWidget,
     clearWidgets,
+    mountPersistedWidget,
+    getPersistedWidgets,
+    deletePersistedWidget,
   }
 }

@@ -1,5 +1,7 @@
 import { SandboxManager } from './manager'
 
+export type { PersistedWidget } from '../../database/repos/widgets.repo'
+export { widgetsRepo } from '../../database/repos/widgets.repo'
 export * from './ansi'
 export * from './compiler-bridge'
 export * from './manager'

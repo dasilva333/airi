@@ -373,6 +373,64 @@ export class SandboxManager {
     this.notifyMountListeners()
   }
 
+  async mountPersistedWidget(idOrPath: string): Promise<MountedWidget | null> {
+    const all = await widgetsRepo.getWidgets()
+    const target = all.find(w =>
+      w.id === idOrPath
+      || w.path === idOrPath
+      || w.sourcePath === idOrPath
+      || w.title?.toLowerCase() === idOrPath.toLowerCase(),
+    )
+    if (!target)
+      return null
+
+    // 1. Re-seed files into VFS
+    if (target.sourcePath && target.sourceCode) {
+      try {
+        await this.bash.fs.writeFile(target.sourcePath, target.sourceCode)
+      }
+      catch {}
+    }
+    if (target.path && target.code) {
+      try {
+        await this.bash.fs.writeFile(target.path, target.code)
+      }
+      catch {}
+    }
+
+    // 2. Add or update mounted list
+    const widget: MountedWidget = {
+      id: target.id,
+      path: target.path,
+      code: target.code,
+      title: target.title,
+      target: target.target || 'sidepanel',
+      mountedAt: Date.now(),
+    }
+
+    const existingIdx = this.mountedWidgetsList.findIndex(w => w.id === target.id || w.path === target.path)
+    if (existingIdx >= 0) {
+      this.mountedWidgetsList[existingIdx] = widget
+    }
+    else {
+      this.mountedWidgetsList.push(widget)
+    }
+
+    // 3. Mark mounted in repo
+    await widgetsRepo.setMounted(target.id, true)
+
+    // 4. Broadcast & notify
+    if (this.channel) {
+      try {
+        this.channel.postMessage({ type: 'widget-mount', widget })
+      }
+      catch {}
+    }
+    this.notifyMountListeners(widget)
+
+    return widget
+  }
+
   clearLogs(): void {
     this.commandLogs = []
     if (this.channel) {
@@ -421,11 +479,42 @@ export class SandboxManager {
         }
       }
 
-      const exists = await ctx.fs.exists(fullPath)
+      let exists = await ctx.fs.exists(fullPath)
+      let foundInRepo: any = null
+      if (!exists) {
+        const allPersisted = await widgetsRepo.getWidgets()
+        foundInRepo = allPersisted.find(w =>
+          w.id === file
+          || w.path === file
+          || w.path === fullPath
+          || w.sourcePath === file
+          || w.sourcePath === fullPath
+          || w.title?.toLowerCase() === file.toLowerCase(),
+        )
+
+        if (foundInRepo) {
+          // Re-seed files from repo into VFS
+          if (foundInRepo.sourcePath && foundInRepo.sourceCode) {
+            try {
+              await ctx.fs.writeFile(foundInRepo.sourcePath, foundInRepo.sourceCode)
+            }
+            catch {}
+          }
+          if (foundInRepo.path && foundInRepo.code) {
+            try {
+              await ctx.fs.writeFile(foundInRepo.path, foundInRepo.code)
+            }
+            catch {}
+          }
+          fullPath = foundInRepo.path
+          exists = await ctx.fs.exists(fullPath)
+        }
+      }
+
       if (!exists) {
         return {
           stdout: '',
-          stderr: `mount_widget: File not found: ${fullPath}\n`,
+          stderr: `mount_widget: File not found: ${fullPath}\nTip: Run 'list_widgets' to view all persisted widgets.\n`,
           exitCode: 1,
         }
       }
@@ -444,11 +533,11 @@ export class SandboxManager {
         }
       }
       if (!title) {
-        title = fullPath.split('/').pop() || 'Widget'
+        title = foundInRepo?.title || fullPath.split('/').pop() || 'Widget'
       }
 
       const widget: MountedWidget = {
-        id: `widget-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: foundInRepo?.id || `widget-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         path: fullPath,
         code,
         title,
@@ -456,7 +545,7 @@ export class SandboxManager {
         mountedAt: Date.now(),
       }
 
-      const existingIdx = this.mountedWidgetsList.findIndex(w => w.path === fullPath)
+      const existingIdx = this.mountedWidgetsList.findIndex(w => w.id === widget.id || w.path === fullPath)
       if (existingIdx >= 0) {
         this.mountedWidgetsList[existingIdx] = widget
       }
@@ -474,6 +563,10 @@ export class SandboxManager {
           }
         }
         catch {}
+      }
+      if (!sourcePath && foundInRepo?.sourcePath) {
+        sourcePath = foundInRepo.sourcePath
+        sourceCode = foundInRepo.sourceCode
       }
 
       void widgetsRepo.saveWidget({
@@ -551,6 +644,45 @@ export class SandboxManager {
         exitCode: 0,
       }
     }
+
+    const listWidgetsHandler = async () => {
+      const all = await widgetsRepo.getWidgets()
+      if (all.length === 0) {
+        return {
+          stdout: 'No generative widgets registered yet. Use mount_widget <file.ts|file.js> to create one.\n',
+          stderr: '',
+          exitCode: 0,
+        }
+      }
+
+      let out = 'Persisted Generative Widgets:\n'
+      out += '--------------------------------------------------------------------------------\n'
+      for (const w of all) {
+        const isCurrentlyMounted = this.mountedWidgetsList.some(m => m.id === w.id || m.path === w.path)
+        const status = isCurrentlyMounted ? '[ACTIVE]' : '[UNMOUNTED]'
+        const title = w.title || 'Untitled'
+        const path = w.sourcePath || w.path
+        out += `${status.padEnd(12)} ${title.padEnd(28)} ${path}\n`
+      }
+      out += '--------------------------------------------------------------------------------\n'
+      out += `Total: ${all.length} widget(s). Remount with: mount_widget <path|title>\n`
+
+      return {
+        stdout: out,
+        stderr: '',
+        exitCode: 0,
+      }
+    }
+
+    this.bash.registerCommand({
+      name: 'list_widgets',
+      execute: listWidgetsHandler,
+    })
+
+    this.bash.registerCommand({
+      name: 'widgets',
+      execute: listWidgetsHandler,
+    })
 
     this.bash.registerCommand({
       name: 'mount_widget',

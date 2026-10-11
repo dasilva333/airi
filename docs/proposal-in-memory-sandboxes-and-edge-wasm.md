@@ -488,8 +488,14 @@ By integrating targeted WASM binaries into `apps/stage-edge`, the Discord bot ga
   * Implemented Level 3 reactive `sidecar` and `onUpdate` listener contract with high-resilience normalization (`cpuLoad` array/object dual shapes, `idleSeconds` $\leftrightarrow$ `idleTimeSec`, `activeApp` aliases, computed `isAfk`).
   * Seeded ambient TypeScript definitions at `/workspace/types/airi-widget.d.ts` on sandbox startup.
   * Multi-window BroadcastChannel synchronization (`airi:sandbox:channel`) across Electron Control Strip (leader) and Chat (follower).
-* **Phase 7: Widget Persistence & Standalone Windows [ACTIVE DEVELOPMENT]**
-  * **Phase 7A (Widget Persistence)**: Implement `local:widgets/registry` in `widgets.repo.ts` to auto-rehydrate mounted widgets and VFS source files across HMR and window reloads.
+* **Phase 7: Widget Persistence & Standalone Windows [PHASE 7A COMPLETE & SHIPPED]**
+  * **Phase 7A (Widget Persistence & Generative UI Micro-App Library) [SHIPPED & VERIFIED]**:
+    * Implemented `local:widgets/registry` in `widgets.repo.ts` (`unstorage` IndexedDB layer) to persist widget metadata, `.ts` source code, and compiled bundles.
+    * Added auto-rehydration on boot: automatically restores source files to virtual RAM disk and mounts active widgets on page load or HMR.
+    * Virtual Bash CLI commands: added `list_widgets` and `widgets` formatting an ASCII table with `[ACTIVE]` and `[UNMOUNTED]` statuses.
+    * Intelligent remounting: `mount_widget <title|path|id>` restores widgets from IndexedDB even if the virtual file was cleared.
+    * Auto-focus UX: automatically switches active tabs to newly generated widgets when mounted.
+    * Interactive Glassmorphic Micro-App Library: added full modal UI in `ChatWorkspaceWidgetsPanel.vue` (accessible from empty-state click, "Browse Widget Library" button, and header bar icon) with one-click mount, active badge, and deletion.
   * **Phase 7B (Standalone OS Windows)**: Connect Electron main-process window management (`WidgetsWindowManager`) to load compiled virtual scripts from the in-memory sandbox as floating, frameless, transparent OS windows with persisted coordinates.
 * **Phase 8: Cloudflare Edge Relay WASM Extensions (`apps/stage-edge`)**
   * Add QuickJS-WASM code interpreter module to `apps/stage-edge/src/inference/`.
