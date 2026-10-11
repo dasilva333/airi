@@ -529,7 +529,7 @@ const resolvedSlices = computed(() => {
             type: 'tool-call',
             toolCall: slice.toolCall,
             state: 'done',
-            result: typeof result.result === 'string' ? result.result : JSON.stringify(result.result),
+            result: typeof result.result === 'string' || Array.isArray(result.result) ? result.result : JSON.stringify(result.result),
           })
           continue
         }
