@@ -24,6 +24,8 @@ import {
   DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
   DEFAULT_HEARTBEATS_PROMPT,
   DEFAULT_POST_HISTORY_INSTRUCTIONS,
+  DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION,
+  DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
   DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION,
   STARTER_CHARACTERS,
 } from '../../constants/prompts/character-defaults'
@@ -85,6 +87,11 @@ export interface ShortTermMemoryConfig {
   enabled?: boolean
   windowSize: number
   tokenBudgetPerDay: number
+}
+
+export interface AiriSandboxConfig {
+  enabled?: boolean
+  widgetInstruction?: string
 }
 
 export type { CharacterCueAllowlist } from '../../types/card.schema'
@@ -236,6 +243,8 @@ export interface AiriExtension {
     injectJournalContext?: boolean
     journalIntrusionPrompt?: string
   }
+
+  sandbox?: AiriSandboxConfig
 
   artistry?: {
     provider?: string
@@ -1627,6 +1636,15 @@ export function buildSystemPrompt(card: AiriCard | undefined) {
     }
   }
 
+  const sandbox = card.extensions?.airi?.sandbox
+  const isSandboxAllowed = Boolean(generation?.known?.allowedTools?.includes('bash'))
+  if (isSandboxAllowed) {
+    const sandboxInstruction = sandbox?.widgetInstruction || DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION
+    if (sandboxInstruction && sandboxInstruction.trim() !== '') {
+      components.push(sandboxInstruction)
+    }
+  }
+
   if (isDatingSimActive && story) {
     if (premise) {
       components.push(`The user wants to customize or tweak the premise of this encounter, please adjust to the text below: ${premise}`)
@@ -1640,4 +1658,9 @@ export function buildSystemPrompt(card: AiriCard | undefined) {
   }
 
   return components.join('\n')
+}
+
+export {
+  DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION,
+  DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
 }

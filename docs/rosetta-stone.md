@@ -491,6 +491,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | `dating-sim-sync` | `stores/dating-sim.ts` | **(raw `new BroadcastChannel`)** Dating-sim game-state sync across windows; a dedicated `live2d-dsl-bridge` channel relays DSL motion commands |
 | `airi:inference:web-llm` | `stage-ui/src/libs/inference/adapters/web-llm-channel.ts` | Single-owner WebLLM coordinator (leader election over BroadcastChannel, preventing multi-window VRAM duplication) |
 | `airi:nan0:state-sync` | `stage-ui/src/stores/modules/nan0.ts` | Single-owner Nan0 cognition state sync (Main Stage Window leader broadcasts emotional vectors, reflex badges, and executive decisions to secondary windows like Chatbox) |
+| `airi:sandbox:channel` | `stage-ui/src/libs/sandbox/manager.ts` | Single-owner POSIX sandbox & virtual terminal sync (Main Stage Window leader broadcasts agent command logs and proxies oversight RPCs from secondary windows) |
 
 ---
 

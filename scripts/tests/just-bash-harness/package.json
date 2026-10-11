@@ -1,0 +1,13 @@
+{
+  "name": "@proj-airi/just-bash-harness",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx server.ts"
+  },
+  "dependencies": {
+    "just-bash": "^3.6.0",
+    "tsc-rs": "^0.2.0"
+  }
+}

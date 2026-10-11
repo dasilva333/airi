@@ -145,6 +145,51 @@ This reflects your private thoughts at the time. For this turn only, continue th
 export const DEFAULT_ARTISTRY_INTRUSION_PROMPT = `You just finished creating a new artwork of: "{imagePrompt}".
 For this turn only, continue the conversation and find a natural way to reference or react to having just made this creation.`
 
+export const DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION = `## Instruction: In-Memory POSIX Sandbox & Virtual Workstation
+You have access to an isolated in-memory POSIX workstation via the **bash** tool. Your working directory is \`/workspace\` (a zero-leak RAM disk).
+
+### Core Capabilities & Binaries
+- **POSIX Shell**: \`cat\`, \`echo\`, \`grep\`, \`find\`, \`head\`, \`tail\`, \`wc\`, \`awk\`, \`sed -i\` (permissions preserved).
+- **Structured Data Slicing**: Use \`jq\` to filter large JSON datasets (e.g. \`jq '.windowHistory[0:3]' /workspace/.airi/telemetry.json\`) to preserve context tokens.
+- **Native TypeScript Compiler (\`tsc\` / \`tsc-rs\`)**: Instant compilation of \`.ts\` to \`.js\`.
+- **In-Memory JavaScript Runtime (\`node\`)**: Execute scripts (\`node /workspace/<file>.js [args]\`) or inline expressions (\`node -e "..."\`).
+
+### Live State Projections (\`/workspace/.airi/*.json\`)
+The runtime continuously syncs real-time state into \`/workspace/.airi/\`:
+- \`/workspace/.airi/telemetry.json\`: Live OS telemetry:
+  - \`idleTimeSec\` (user idle seconds)
+  - \`activeProgram\` & \`activeWindowTitle\` (foreground app focus)
+  - \`windowHistory\` (recent window transitions: \`processName\`, \`title\`, \`durationMs\`)
+  - \`cpuLoad\` ([1m, 5m, 15m] load array), \`gpuAvg\` (GPU utilization)
+  - \`volumeLevel\` (audio output 0-100), \`localTime\` (formatted timestamp)
+  - \`usageMetrics\` (\`ttsHourly\`, \`sttHourly\`, \`chatHourly\`, \`journalHourly\`, \`turnCount\`)
+- \`/workspace/.airi/session.json\`: Current character session ID, turn count, and universe metadata.
+- \`/workspace/.airi/cognition.json\`: Intimacy tier, affection, active mood, emotion, and echo chips.
+- \`/workspace/.airi/messages.json\`: Recent conversation messages history.
+
+### TypeScript Compilation & Node Runtime Details
+- **Compiler Defaults**: Target is \`ES2022\`, Module is \`CommonJS\`, Lib is \`es2022,dom\`.
+- **Compiler Flags**: Both space-separated (\`--module commonjs\`) and equals (\`--module=commonjs\`) syntax are supported for \`--target\`, \`--module\`, \`--moduleResolution\`, \`--lib\`, \`--outDir\`, \`--jsx\`.
+- **Ambient Types**: Built-in type definitions for \`node:fs\` and \`node:path\` are automatically injected. You do NOT need to install or stub \`@types/node\`.
+- **Filesystem API in \`node\`**: Synchronous and Promise-based operations directly access the RAM disk:
+  - \`const fs = require('fs')\` (or \`import * as fs from 'fs'\`)
+  - \`fs.readFileSync(path, 'utf-8')\`, \`fs.writeFileSync(path, data)\`, \`fs.existsSync(path)\`, \`fs.readdirSync(path)\`
+- **Imports & Top-Level Await**: Both CommonJS (\`require\`) and ESM imports (\`import ... from '...'\`, \`await import(...)\`) as well as top-level \`await\` are seamlessly supported in \`node\`.
+- **Script Arguments**: Command-line arguments are accessible via \`process.argv\` (\`process.argv[2]\`, etc.).
+- **Global Identifier Precaution**: Because the DOM library is loaded, identifiers like \`top\` exist on the global scope (\`window.top\`). Avoid declaring top-level \`const top = ...\` in scripts; use \`topWindows\`, \`recent\`, or wrap scripts in a function/scope.
+
+### Autonomous Generative UI Micro-Apps
+When asked to build interactive cards, monitors, timers, or companion tools:
+1. Write a clean TypeScript component into \`/workspace/<name>.ts\`.
+2. Compile: \`tsc /workspace/<name>.ts\` (emits \`/workspace/<name>.js\`).
+3. Mount the component dynamically using \`mount_widget /workspace/<name>.js\` (or \`mount\`).`
+
+export const DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION = `## Instruction: In-Memory POSIX Scratchpad
+You have access to an isolated in-memory POSIX environment via the **bash** tool at \`/workspace\` (zero-leak RAM disk).
+- Use \`jq\`, \`grep\`, \`awk\`, and \`sed\` to slice and filter structured data under \`/workspace/.airi/\` (such as \`telemetry.json\` and \`session.json\`) to minimize context tokens.
+- Run JavaScript snippets via \`node -e "..."\` or scripts via \`node\`.
+- Compile and typecheck TypeScript scripts via \`tsc\` (ambient \`fs\` and \`path\` types are preloaded; target defaults to \`ES2022\`).`
+
 export interface StarterCharacterDefinition {
   /** Stable card ID ('default', 'aria', 'lupin', 'kira', 'rin', 'yuki', 'mio', 'hana') */
   id: string

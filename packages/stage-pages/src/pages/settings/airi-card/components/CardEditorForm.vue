@@ -21,6 +21,7 @@ import {
   DEFAULT_HEARTBEATS_PROMPT,
   DEFAULT_JOURNAL_INTRUSION_PROMPT,
   DEFAULT_POST_HISTORY_INSTRUCTIONS,
+  DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
   DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION,
 } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
@@ -287,6 +288,7 @@ const pacingExperimentalOrganicPivots = ref<boolean>(false)
 
 // Placeholder state variables for Tools tab
 const selectedTextJournalInstruction = ref<string>('')
+const selectedSandboxInstruction = ref<string>('')
 const selectedInjectDreamContext = ref<boolean>(false)
 const selectedInjectJournalContext = ref<boolean>(false)
 const selectedInjectArtistryContext = ref<boolean>(false)
@@ -1272,6 +1274,10 @@ async function saveCard(card: Card): Promise<boolean> {
     journalIntrusionPrompt: selectedJournalIntrusionPrompt.value,
   }
 
+  cardWithModules.extensions.airi.sandbox = {
+    widgetInstruction: selectedSandboxInstruction.value,
+  }
+
   console.log('[CardCreationDialog] 📊 DUMPING SAVED CHARACTER PROFILE GRAPH:', {
     isEditMode: isEditMode.value,
     cardId: props.cardId,
@@ -1509,6 +1515,7 @@ function initializeCard(): Card {
     selectedInjectArtistryContext.value = airiExt?.artistry?.injectArtistryContext ?? false
     selectedArtistryIntrusionPrompt.value = airiExt?.artistry?.artistryIntrusionPrompt ?? DEFAULT_ARTISTRY_INTRUSION_PROMPT
     selectedTextJournalInstruction.value = airiExt?.textJournal?.widgetInstruction ?? DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION
+    selectedSandboxInstruction.value = airiExt?.sandbox?.widgetInstruction ?? DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION
 
     loadActingSpeechCapabilities(selectedSpeechProvider.value || speechProvider.value)
 
@@ -2119,6 +2126,7 @@ function handleGeneratorSave(newValue: string) {
         v-model:selected-allowed-tools="generationAllowedTools"
         v-model:selected-image-journal-instruction="selectedArtistryWidgetInstruction"
         v-model:selected-text-journal-instruction="selectedTextJournalInstruction"
+        v-model:selected-sandbox-instruction="selectedSandboxInstruction"
         v-model:selected-inject-dream-context="selectedInjectDreamContext"
         v-model:selected-inject-journal-context="selectedInjectJournalContext"
         v-model:selected-inject-artistry-context="selectedInjectArtistryContext"

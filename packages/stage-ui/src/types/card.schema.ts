@@ -166,6 +166,11 @@ const AiriTextJournalSchema = object({
   })),
 })
 
+const AiriSandboxSchema = object({
+  enabled: optional(boolean()),
+  widgetInstruction: optional(string()),
+})
+
 const AiriShortTermMemorySchema = object({
   enabled: optional(boolean()),
   windowSize: number(),
@@ -283,6 +288,7 @@ const AiriExtensionSchema = looseObject({
   shortTermMemory: optional(AiriShortTermMemorySchema),
   screenWatching: optional(AiriScreenWatchingSchema),
   textJournal: optional(AiriTextJournalSchema),
+  sandbox: optional(AiriSandboxSchema),
   groundingEnabled: optional(boolean()),
   groundingMemoryEnabled: optional(boolean()),
   groundingTopicsEnabled: optional(boolean()),

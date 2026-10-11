@@ -7,6 +7,7 @@ import { resolveAtmosphereComponent } from '@proj-airi/stage-layouts/components/
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
 import { ChatBrainPopover, ChatMemoryPopover, ChatSessionModal } from '@proj-airi/stage-ui/components'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
+import { DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
@@ -22,6 +23,7 @@ import { computed, defineAsyncComponent, markRaw, nextTick, onMounted, onUnmount
 import LogoDark from '../../../../../packages/stage-layouts/src/assets/logo-dark.svg'
 import ChatNan0CognitionPanel from '../components/chat/ChatNan0CognitionPanel.vue'
 import ChatWorkspaceCoordinator from '../components/chat/ChatWorkspaceCoordinator.vue'
+import ChatWorkspaceTerminalPanel from '../components/chat/ChatWorkspaceTerminalPanel.vue'
 
 import { electronApplySizePreset, electronOpenSettings, electronStageToggleVisibility } from '../../shared/eventa'
 
@@ -144,6 +146,7 @@ const mediaDisplayCount = ref(12)
 const rightPanelMemoriesCollapsed = useLocalStorage('airi:chat:rp-memories-collapsed', false)
 const rightPanelCurrentSceneCollapsed = useLocalStorage('airi:chat:rp-current-scene-collapsed', false)
 const rightPanelMediaCollapsed = useLocalStorage('airi:chat:rp-media-collapsed', false)
+const rightPanelTerminalCollapsed = useLocalStorage('airi:chat:rp-terminal-collapsed', false)
 const rightPanelNan0Collapsed = useLocalStorage('airi:chat:rp-nan0-collapsed', false)
 const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
 const rightPanelStageCollapsed = useLocalStorage('airi:chat:rp-stage-collapsed', true)
@@ -651,6 +654,46 @@ function handleToggleScreenWatching() {
           enableVlm: false,
           ...activeCard.value.extensions?.airi?.screenWatching,
           enabled: !current,
+        },
+      },
+    },
+  } as any)
+}
+
+const isSandboxActive = computed(() => {
+  const allowed = activeCard.value?.extensions?.airi?.generation?.known?.allowedTools
+  if (allowed && allowed.includes('bash'))
+    return true
+  return activeCard.value?.extensions?.airi?.sandbox?.enabled ?? false
+})
+
+function handleToggleSandbox() {
+  if (!activeCardId.value || !activeCard.value)
+    return
+  const currentTools = activeCard.value.extensions?.airi?.generation?.known?.allowedTools
+    ?? ['text_journal', 'image_journal']
+  const currentlyActive = currentTools.includes('bash') || (activeCard.value.extensions?.airi?.sandbox?.enabled ?? false)
+  const nextActive = !currentlyActive
+  const nextTools = nextActive
+    ? (currentTools.includes('bash') ? currentTools : [...currentTools, 'bash'])
+    : currentTools.filter(t => t !== 'bash')
+
+  airiCardStore.updateCard(activeCardId.value, {
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...activeCard.value.extensions?.airi,
+        sandbox: {
+          ...activeCard.value.extensions?.airi?.sandbox,
+          enabled: nextActive,
+          widgetInstruction: activeCard.value.extensions?.airi?.sandbox?.widgetInstruction ?? DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
+        },
+        generation: {
+          ...activeCard.value.extensions?.airi?.generation,
+          known: {
+            ...activeCard.value.extensions?.airi?.generation?.known,
+            allowedTools: nextTools,
+          },
         },
       },
     },
@@ -1534,6 +1577,34 @@ function selectSurface(surface: typeof activeSurface.value) {
                   </div>
                 </div>
 
+                <!-- Toggle: Virtual Terminal (RAM disk & tsc-rs) -->
+                <div
+                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  @click="handleToggleSandbox"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <div
+                      class="text-base"
+                      :class="isSandboxActive
+                        ? 'text-violet-500 i-solar:code-square-bold-duotone'
+                        : 'text-neutral-400 dark:text-neutral-500 i-solar:code-square-linear'"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Virtual Terminal</span>
+                      <span class="text-[9px] text-neutral-400">RAM disk & compiler workstation</span>
+                    </div>
+                  </div>
+                  <div
+                    :class="isSandboxActive ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+                  >
+                    <span
+                      :class="isSandboxActive ? 'translate-x-3.5' : 'translate-x-0.5'"
+                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    />
+                  </div>
+                </div>
+
                 <!-- Section: Image Spawn Mode -->
                 <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
                   Image Spawn Mode
@@ -2199,6 +2270,29 @@ function selectSurface(surface: typeof activeSurface.value) {
                     View More
                     <span class="i-solar:alt-arrow-down-bold text-[8px]" />
                   </button>
+                </div>
+              </div>
+
+              <!-- Workspace / Terminal Section -->
+              <div v-if="isSandboxActive" class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <span
+                    :class="['flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase transition-colors',
+                             rightPanelTerminalCollapsed
+                               ? 'bg-neutral-100/50 text-neutral-400 dark:bg-neutral-800/50'
+                               : 'bg-primary-50/50 text-primary-500 dark:bg-primary-950/30 dark:text-primary-400']"
+                    @click="rightPanelTerminalCollapsed = !rightPanelTerminalCollapsed"
+                  >
+                    <span class="i-solar:terminal-bold-duotone text-xs" />
+                    Virtual Terminal
+                    <span :class="rightPanelTerminalCollapsed ? 'i-solar:eye-closed-linear' : 'i-solar:eye-linear'" class="text-xs" />
+                  </span>
+                  <span class="text-[9px] text-neutral-400 font-mono uppercase">
+                    /workspace
+                  </span>
+                </div>
+                <div v-if="!rightPanelTerminalCollapsed">
+                  <ChatWorkspaceTerminalPanel />
                 </div>
               </div>
             </div>
