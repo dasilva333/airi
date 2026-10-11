@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { FacultyName, FailoverTrigger } from '@proj-airi/stage-ui/stores'
 
-import { POLLINATIONS_DEFAULT_MODELS, REPLICATE_IMAGEGEN_PRESETS } from '@proj-airi/stage-shared'
+import { isStageTamagotchi, POLLINATIONS_DEFAULT_MODELS, REPLICATE_IMAGEGEN_PRESETS } from '@proj-airi/stage-shared'
+import { WHISPER_MODELS } from '@proj-airi/stage-ui/libs/inference/constants'
 import { useFacultyDefaultsStore } from '@proj-airi/stage-ui/stores'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
@@ -113,7 +114,7 @@ function formatEngineLabel(provider: string, model: string, voiceId?: string): s
   if (provider === 'kokoro-local')
     return voiceId ? `Kokoro 82M (${voiceId})` : 'Kokoro 82M'
   if (provider === 'whisper-local')
-    return 'Whisper Tiny'
+    return WHISPER_MODELS.find(m => m.id === model)?.name ?? 'Whisper (Local)'
   if (provider === 'blip' || provider === 'wd14' || provider === 'blip-local')
     return 'Waifu Diffusion (WD Tagger)'
   if (provider === 'moondream' || provider === 'moondream-local')
@@ -232,7 +233,7 @@ const allFacultyProviders = computed<ProviderItem[]>(() => {
 
   if (activeDrawerFaculty.value === 'hearing') {
     const recommendedMap: Record<string, string> = {
-      'whisper-local': 'Whisper Tiny (~39MB Local)',
+      'whisper-local': 'Whisper (Local WebGPU)',
       'web-speech-api': 'Web Speech API (Instant Zero-Download)',
     }
     const recommendedList: ProviderItem[] = Object.entries(recommendedMap).map(([id, name]) => ({
@@ -380,29 +381,13 @@ function resolveModelsForFacultyProvider(faculty: FacultyName | null, provider: 
 
   if (faculty === 'hearing') {
     if (provider === 'whisper-local') {
-      return [
-        { id: 'openai/whisper-tiny', name: 'Whisper Tiny (~39MB WebGPU)' },
-        { id: 'openai/whisper-base', name: 'Whisper Base (~74MB WebGPU)' },
-        { id: 'openai/whisper-small', name: 'Whisper Small (~244MB WebGPU)' },
-      ]
+      // On browser WASM platforms, hide Large models prone to OOM / heap aborts (same as onboarding)
+      return WHISPER_MODELS
+        .filter(m => isStageTamagotchi() || !m.id.includes('large'))
+        .map(m => ({ id: m.id, name: `${m.name} · ${m.description}` }))
     }
     if (provider === 'web-speech-api') {
       return [{ id: '', name: 'System Default Speech Recognition' }]
-    }
-    if (provider === 'deepgram') {
-      return [
-        { id: 'nova-2', name: 'Nova-2' },
-        { id: 'nova-2-general', name: 'Nova-2 General' },
-      ]
-    }
-    if (provider === 'openai') {
-      return [{ id: 'whisper-1', name: 'Whisper-1' }]
-    }
-    if (provider === 'groq') {
-      return [
-        { id: 'whisper-large-v3', name: 'Whisper Large v3' },
-        { id: 'whisper-large-v3-turbo', name: 'Whisper Large v3 Turbo' },
-      ]
     }
     const list = providersStore.getModelsForProvider(provider)
     if (list.length > 0)
@@ -608,7 +593,7 @@ const speechFallbackPreset = computed({
 // Proactively fetch models when primary provider changes
 watch(tempPrimaryProvider, async (p) => {
   if (p) {
-    if (activeDrawerFaculty.value === 'consciousness' || activeDrawerFaculty.value === 'vision') {
+    if (activeDrawerFaculty.value === 'consciousness' || activeDrawerFaculty.value === 'vision' || activeDrawerFaculty.value === 'hearing') {
       await providersStore.fetchModelsForProvider(p)
     }
     else if (activeDrawerFaculty.value === 'artistry' && p === 'pollinations') {
@@ -628,7 +613,7 @@ watch(tempPrimaryProvider, async (p) => {
 
 watch(tempFallbackProvider, async (p) => {
   if (p) {
-    if (activeDrawerFaculty.value === 'consciousness' || activeDrawerFaculty.value === 'vision') {
+    if (activeDrawerFaculty.value === 'consciousness' || activeDrawerFaculty.value === 'vision' || activeDrawerFaculty.value === 'hearing') {
       await providersStore.fetchModelsForProvider(p)
     }
     else if (activeDrawerFaculty.value === 'artistry' && p === 'pollinations') {
@@ -666,7 +651,7 @@ function openDrawer(faculty: FacultyName) {
   tempNotificationStyle.value = conf.notificationStyle
   tempRecoveryInterval.value = conf.recoveryIntervalMinutes
 
-  if (faculty === 'consciousness' || faculty === 'vision') {
+  if (faculty === 'consciousness' || faculty === 'vision' || faculty === 'hearing') {
     if (primaryProv)
       providersStore.fetchModelsForProvider(primaryProv)
     if (fallbackProv)

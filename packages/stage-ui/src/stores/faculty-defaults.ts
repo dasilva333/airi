@@ -52,7 +52,7 @@ export const FACTORY_SAFE_DEFAULTS: GlobalFacultyDefaultsState = {
   },
   hearing: {
     primaryProvider: 'whisper-local',
-    primaryModel: 'openai/whisper-tiny',
+    primaryModel: 'onnx-community/whisper-tiny',
     fallbackProvider: 'web-speech-api',
     fallbackModel: '',
     autoFailover: true,
@@ -82,6 +82,12 @@ export const FACTORY_SAFE_DEFAULTS: GlobalFacultyDefaultsState = {
   },
 }
 
+// NOTICE: Earlier defaults saved `openai/whisper-*` ids. The local Whisper worker loads the id as a
+// Hugging Face repo and only the `onnx-community/whisper-*` repos ship ONNX weights.
+function migrateWhisperModelId(model: string): string {
+  return model.replace(/^("?)openai\/whisper-(tiny|base|small)("?)$/, '$1onnx-community/whisper-$2$3')
+}
+
 function getInitialStateWithMigration(): GlobalFacultyDefaultsState {
   const base = JSON.parse(JSON.stringify(FACTORY_SAFE_DEFAULTS)) as GlobalFacultyDefaultsState
 
@@ -89,13 +95,22 @@ function getInitialStateWithMigration(): GlobalFacultyDefaultsState {
     return base
 
   try {
+    const activeHearingModel = window.localStorage.getItem('settings/hearing/active-model')
+    if (activeHearingModel && migrateWhisperModelId(activeHearingModel) !== activeHearingModel)
+      window.localStorage.setItem('settings/hearing/active-model', migrateWhisperModelId(activeHearingModel))
+
     const existing = window.localStorage.getItem('settings/faculties/defaults')
     if (existing) {
       const parsed = JSON.parse(existing)
+      const hearing = { ...base.hearing, ...parsed.hearing }
       return {
         consciousness: { ...base.consciousness, ...parsed.consciousness },
         speech: { ...base.speech, ...parsed.speech },
-        hearing: { ...base.hearing, ...parsed.hearing },
+        hearing: {
+          ...hearing,
+          primaryModel: migrateWhisperModelId(hearing.primaryModel),
+          fallbackModel: migrateWhisperModelId(hearing.fallbackModel),
+        },
         artistry: { ...base.artistry, ...parsed.artistry },
         vision: { ...base.vision, ...parsed.vision },
       }
