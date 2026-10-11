@@ -2,6 +2,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { widgetsRepo } from '../../database/repos/widgets.repo'
+import { useAiriCardStore } from '../../stores/modules/airi-card'
+import { useNan0Store } from '../../stores/modules/nan0'
 import { createBashTool, executeBashCommand } from '../../stores/modules/tools/bash'
 import { ansiToHtml, stripAnsi } from './ansi'
 import { SandboxManager } from './manager'
@@ -147,6 +149,52 @@ describe('sandbox subsystem & in-memory posix execution', () => {
       const resTelemetry = await sandbox.exec('cat /workspace/.airi/telemetry.json | jq -r .activeProgram')
       expect(resTelemetry.exitCode).toBe(0)
       expect(resTelemetry.stdout.trim()).toBeDefined()
+    })
+
+    it('projects rich nan0 cognition state into cognition.json when nan0 is enabled', async () => {
+      const sandbox = new SandboxManager()
+      await sandbox.init()
+
+      const cardStore = useAiriCardStore()
+      const nan0Store = useNan0Store()
+
+      const nan0Card = {
+        id: 'nan0-card',
+        name: 'Nan0',
+        description: 'AI companion with sentient emotions',
+        extensions: {
+          airi: {
+            modules: {
+              cognition: {
+                enabled: true,
+                processor: 'local_nan0',
+              },
+            },
+          },
+        },
+      }
+      cardStore.cards.set('nan0-card', nan0Card as any)
+      cardStore.activeCardId = 'nan0-card'
+
+      nan0Store.emotions = {
+        ...nan0Store.emotions,
+        attachment: 0.88,
+        suspicion: 0.35,
+      }
+
+      await sandbox.syncProjections()
+
+      const cognitionRaw = await sandbox.readFile('/workspace/.airi/cognition.json')
+      const cognition = JSON.parse(cognitionRaw)
+
+      expect(cognition.character.name).toBe('Nan0')
+      expect(cognition.nan0).toBeDefined()
+      expect(cognition.nan0.enabled).toBe(true)
+      expect(cognition.nan0.emotions.attachment).toBe(0.88)
+      expect(cognition.nan0.emotions.suspicion).toBe(0.35)
+      expect(cognition.emotion).toBeDefined()
+      expect(typeof cognition.valence).toBe('number')
+      expect(typeof cognition.energy).toBe('number')
     })
   })
 

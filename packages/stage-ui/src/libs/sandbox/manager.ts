@@ -1082,6 +1082,27 @@ export interface AiriWidgetSidecar {
     }
     provider?: string
     model?: string
+    nan0?: {
+      enabled: boolean
+      emotions: Record<string, number>
+      lastReflex?: {
+        label: string
+        cluster?: string
+        confidence?: number
+        icon?: string
+      } | null
+      decision?: string
+      decisionReason?: string
+      demandsSilence?: boolean
+      isPouting?: boolean
+      innerMonologue?: string
+      moodProfile?: {
+        primary: string
+        secondary?: string | null
+        valence: number
+        arousal: number
+      }
+    }
   }
   telemetry: {
     isAfk: boolean

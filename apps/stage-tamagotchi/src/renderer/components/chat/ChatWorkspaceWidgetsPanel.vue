@@ -250,7 +250,7 @@ async function buildIframeSrcdoc(widget: MountedWidget): Promise<string> {
     window.addEventListener('load', reportH);
     if (window.ResizeObserver) new ResizeObserver(reportH).observe(document.body);
 
-    const context = {
+    const baseContext = {
       container: root,
       sidecar: sidecarData,
       data: sidecarData,
@@ -262,19 +262,28 @@ async function buildIframeSrcdoc(widget: MountedWidget): Promise<string> {
       }
     };
 
-    // Duck-type context so it acts as HTMLElement container if called as mount(container)
-    Object.defineProperty(context, 'innerHTML', {
-      get() { return root.innerHTML; },
-      set(v) { root.innerHTML = v; setTimeout(reportH, 50); },
-    });
-    Object.defineProperty(context, 'querySelector', {
-      value: (...a) => root.querySelector(...a),
-    });
-    Object.defineProperty(context, 'querySelectorAll', {
-      value: (...a) => root.querySelectorAll(...a),
-    });
-    Object.defineProperty(context, 'appendChild', {
-      value: (...a) => { const r = root.appendChild(...a); setTimeout(reportH, 50); return r; },
+    // Proxy so context acts seamlessly as both AiriWidgetContext and HTMLElement container
+    const context = new Proxy(baseContext, {
+      get(target, prop, receiver) {
+        if (prop in target) {
+          return Reflect.get(target, prop, receiver);
+        }
+        const val = Reflect.get(root, prop);
+        if (typeof val === 'function') {
+          return val.bind(root);
+        }
+        return val;
+      },
+      set(target, prop, value, receiver) {
+        if (prop in target) {
+          return Reflect.set(target, prop, value, receiver);
+        }
+        const res = Reflect.set(root, prop, value);
+        if (prop === 'innerHTML' || prop === 'style') {
+          setTimeout(reportH, 50);
+        }
+        return res;
+      }
     });
 
     try {

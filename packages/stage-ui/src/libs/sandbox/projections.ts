@@ -5,9 +5,12 @@ import type {
   SandboxVfsTelemetryProjection,
 } from './types'
 
+import { deriveMood } from '@proj-airi/nan0-runtime'
+
 import { useChatSessionStore } from '../../stores/chat/session-store'
 import { useAiriCardStore } from '../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../stores/modules/consciousness'
+import { useNan0Store } from '../../stores/modules/nan0'
 import { useProactivityStore } from '../../stores/proactivity'
 
 export function buildSessionProjection(): SandboxVfsSessionProjection {
@@ -56,8 +59,14 @@ export function buildCognitionProjection(): SandboxVfsCognitionProjection {
   try {
     const cardStore = useAiriCardStore()
     const consciousnessStore = useConsciousnessStore()
+    const nan0Store = useNan0Store()
 
-    return {
+    const airiExt = cardStore.activeCard?.extensions?.airi as any
+    const cognitionModule = airiExt?.modules?.cognition ?? airiExt?.cognition
+    const processor = cognitionModule?.processor ?? cognitionModule?.firstHopProcessor ?? airiExt?.firstHopProcessor
+    const isNan0Enabled = cognitionModule?.enabled ?? (processor === 'local_nan0' || processor === 'nan0')
+
+    const base: SandboxVfsCognitionProjection = {
       character: {
         name: cardStore.activeCard?.name || 'Airi',
         description: cardStore.activeCard?.description || '',
@@ -67,6 +76,35 @@ export function buildCognitionProjection(): SandboxVfsCognitionProjection {
         activeModel: consciousnessStore.activeModel || '',
       },
     }
+
+    if (isNan0Enabled) {
+      const mood = deriveMood(nan0Store.emotions)
+      return {
+        ...base,
+        emotion: mood.primary,
+        valence: Number(mood.valence.toFixed(2)),
+        energy: Number(mood.arousal.toFixed(2)),
+        somaticState: nan0Store.demandsSilence ? 'silence-demanded' : 'engaged',
+        nan0: {
+          enabled: true,
+          emotions: { ...nan0Store.emotions },
+          lastReflex: nan0Store.lastReflex ? { ...nan0Store.lastReflex } : null,
+          decision: nan0Store.decision,
+          decisionReason: nan0Store.decisionReason,
+          demandsSilence: nan0Store.demandsSilence,
+          isPouting: nan0Store.isPouting,
+          innerMonologue: nan0Store.innerMonologue,
+          moodProfile: {
+            primary: mood.primary,
+            secondary: mood.secondary,
+            valence: Number(mood.valence.toFixed(2)),
+            arousal: Number(mood.arousal.toFixed(2)),
+          },
+        },
+      }
+    }
+
+    return base
   }
   catch (err) {
     console.warn('[Sandbox] Error building cognition projection:', err)

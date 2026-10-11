@@ -48,6 +48,31 @@ export interface SandboxVfsCognitionProjection {
     activeProvider: string
     activeModel: string
   }
+  emotion?: string
+  valence?: number
+  energy?: number
+  somaticState?: string
+  nan0?: {
+    enabled: boolean
+    emotions: Record<string, number>
+    lastReflex?: {
+      label: string
+      cluster?: string
+      confidence?: number
+      icon?: string
+    } | null
+    decision?: string
+    decisionReason?: string
+    demandsSilence?: boolean
+    isPouting?: boolean
+    innerMonologue?: string
+    moodProfile?: {
+      primary: string
+      secondary?: string | null
+      valence: number
+      arousal: number
+    }
+  }
 }
 
 export interface SandboxVfsTelemetryProjection {
