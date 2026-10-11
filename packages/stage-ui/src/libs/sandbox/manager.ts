@@ -3,6 +3,7 @@ import type { CommandLogEntry, ExecResult, MountedWidget, SandboxChannelMessage,
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { Bash } from 'just-bash'
 
+import { widgetsRepo } from '../../database/repos/widgets.repo'
 import { compileTypeScriptInSandbox } from './compiler-bridge'
 import {
   buildCognitionProjection,
@@ -55,10 +56,14 @@ export class SandboxManager {
     if (this.isLeader) {
       await this.seedWorkspace()
       await this.syncProjections()
+      await this.rehydrateMountedWidgets()
     }
     else {
       // In follower window (e.g. Chat Window), request initial state/logs from leader
       await this.requestInitialSync()
+      if (this.mountedWidgetsList.length === 0) {
+        await this.rehydrateMountedWidgets()
+      }
     }
   }
 
@@ -351,6 +356,9 @@ export class SandboxManager {
     if (this.channel) {
       this.channel.postMessage({ type: 'widget-unmount', id: idOrPath })
     }
+    void widgetsRepo.setMounted(idOrPath, false).catch((err) => {
+      console.warn('[SandboxManager] Failed to update unmount state in widgetsRepo:', err)
+    })
     this.notifyMountListeners()
   }
 
@@ -359,6 +367,9 @@ export class SandboxManager {
     if (this.channel) {
       this.channel.postMessage({ type: 'widget-clear' })
     }
+    void widgetsRepo.clearMounted().catch((err) => {
+      console.warn('[SandboxManager] Failed to clear mounted widgets in widgetsRepo:', err)
+    })
     this.notifyMountListeners()
   }
 
@@ -453,6 +464,33 @@ export class SandboxManager {
         this.mountedWidgetsList.push(widget)
       }
 
+      let sourcePath: string | undefined
+      let sourceCode: string | undefined
+      if (file.endsWith('.ts')) {
+        sourcePath = file.startsWith('/') ? file : `${ctx.cwd || '/workspace'}/${file}`
+        try {
+          if (await ctx.fs.exists(sourcePath)) {
+            sourceCode = await ctx.fs.readFile(sourcePath)
+          }
+        }
+        catch {}
+      }
+
+      void widgetsRepo.saveWidget({
+        id: widget.id,
+        title: widget.title || title || 'Widget',
+        path: fullPath,
+        sourcePath,
+        sourceCode,
+        code,
+        target,
+        isMounted: true,
+        mountedAt: widget.mountedAt,
+        updatedAt: Date.now(),
+      }).catch((err) => {
+        console.warn('[SandboxManager] Failed to persist mounted widget in widgetsRepo:', err)
+      })
+
       if (this.channel) {
         try {
           this.channel.postMessage({
@@ -489,6 +527,8 @@ export class SandboxManager {
       if (this.channel) {
         this.channel.postMessage({ type: 'widget-unmount', id: target })
       }
+      void widgetsRepo.setMounted(target, false).catch(() => {})
+      void widgetsRepo.setMounted(fullPath, false).catch(() => {})
       this.notifyMountListeners()
 
       return {
@@ -503,6 +543,7 @@ export class SandboxManager {
       if (this.channel) {
         this.channel.postMessage({ type: 'widget-clear' })
       }
+      void widgetsRepo.clearMounted().catch(() => {})
       this.notifyMountListeners()
       return {
         stdout: 'Cleared all mounted generative widgets.\n',
@@ -1130,5 +1171,55 @@ In-Memory POSIX RAM disk. Zero host filesystem access.
     this.registerCustomCommands()
     await this.seedWorkspace()
     await this.syncProjections()
+    void widgetsRepo.clearMounted().catch(() => {})
+  }
+
+  private async rehydrateMountedWidgets(): Promise<void> {
+    try {
+      const persisted = await widgetsRepo.getMountedWidgets()
+      if (!persisted || persisted.length === 0)
+        return
+
+      for (const item of persisted) {
+        if (item.sourcePath && item.sourceCode) {
+          try {
+            await this.bash.fs.writeFile(item.sourcePath, item.sourceCode)
+          }
+          catch (e) {
+            console.warn(`[SandboxManager] Failed to restore source file ${item.sourcePath}:`, e)
+          }
+        }
+        if (item.path && item.code) {
+          try {
+            await this.bash.fs.writeFile(item.path, item.code)
+          }
+          catch (e) {
+            console.warn(`[SandboxManager] Failed to restore bundle file ${item.path}:`, e)
+          }
+        }
+
+        const widget: MountedWidget = {
+          id: item.id,
+          path: item.path,
+          code: item.code,
+          title: item.title,
+          target: item.target || 'sidepanel',
+          mountedAt: item.mountedAt || Date.now(),
+        }
+
+        const existingIdx = this.mountedWidgetsList.findIndex(w => w.id === item.id || w.path === item.path)
+        if (existingIdx >= 0) {
+          this.mountedWidgetsList[existingIdx] = widget
+        }
+        else {
+          this.mountedWidgetsList.push(widget)
+        }
+      }
+
+      this.notifyMountListeners()
+    }
+    catch (err) {
+      console.warn('[SandboxManager] Failed to rehydrate mounted widgets from repo:', err)
+    }
   }
 }

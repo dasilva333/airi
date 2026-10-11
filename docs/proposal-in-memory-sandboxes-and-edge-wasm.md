@@ -1,10 +1,11 @@
 # Proposal: In-Memory Agent Sandboxes, Zero-VM Workspaces, and Edge WASM Capabilities
 
-> **Status**: Proposed / RFC
+> **Status**: Partially Shipped / Active Development (Phases 1–6 Shipped, Phase 7 Persistence in Progress)
 > **Author**: Richard Pinedo (@dasilva333 / azimuthal)
-> **Date**: 2026-10-10
+> **Date**: 2026-10-10 (Updated with Shipped Inspector Canvas & Sidecar Normalization)
 > **Target Audience**: Core Developers, Architecture Maintainers, Community Extension Developers
-> **Related Documents**: [`docs/design-cloud-relay.md`](./design-cloud-relay.md), [`docs/proposal-plugin-ecosystem-and-community-registry.md`](./proposal-plugin-ecosystem-and-community-registry.md), [`docs/design-discord-control-plane.md`](./design-discord-control-plane.md), [`docs/arch-mcp-integration.md`](./arch-mcp-integration.md), [`docs/proposal-built-in-llm-webgpu.md`](./proposal-built-in-llm-webgpu.md)
+> **Key Commits**: `1db5c5fb94` (`feat(sandbox): generative UI sidecar widgets and chat inspector integration`)
+> **Related Documents**: [`docs/design-cloud-relay.md`](./design-cloud-relay.md), [`docs/proposal-plugin-ecosystem-and-community-registry.md`](./proposal-plugin-ecosystem-and-community-registry.md), [`docs/design-discord-control-plane.md`](./design-discord-control-plane.md), [`docs/arch-mcp-integration.md`](./arch-mcp-integration.md), [`docs/proposal-built-in-llm-webgpu.md`](./proposal-built-in-llm-webgpu.md), [`docs/data-catalog.md`](./data-catalog.md)
 
 ---
 
@@ -106,29 +107,44 @@ export interface DynamicAgentToolManifest {
 4. **Generative UI Component Rendering**:
    Along with logic, the agent can output declarative UI widgets (using `@proj-airi/ui` primitives or sandboxed SVG/HTML) that mount into the desktop chat stream as interactive cards (e.g. tracking progress bars, clickable toggles, status pills).
 
-### 3.3 Tri-Modal Surface Architecture
+### 3.3 Tri-Modal Surface Architecture & The `mount_widget` CLI
 
-To accommodate the user experience across the desktop interface (matching the right-hand Inspector Stack in AIRI's Desktop Chatbox), Generative UI is structured around **three distinct presentation modalities**:
+To accommodate the user experience across the desktop interface (matching the right-hand Inspector Stack in AIRI's Desktop Chatbox), Generative UI is structured around **three distinct presentation modalities**, driven by a unified CLI tool:
 
 ```mermaid
 flowchart TD
-    LLM["Autonomous Agent / LLM"] -->|Writes & Compiles| TS["/workspace/widget.ts -> widget.js"]
-    TS --> Decision{"Target Modality"}
+    LLM["Autonomous Agent / LLM"] -->|Writes TS/JS to VFS| File["/workspace/widget.ts"]
+    File --> CLI["mount_widget &lt;file&gt; [--title &quot;Title&quot;]"]
+    CLI --> Comp["Auto-compile TS -> JS via @tsc-rs/wasm (2ms)"]
+    Comp --> Emits["[GEN_UI_MOUNT:&lt;path&gt;:&lt;title&gt;]"]
+    Emits --> Decision{"Target Modality"}
     Decision -->|Inline in Chat| M1["Modality A: Inline Chat Widget<br/>(Embedded Card in Transcript Bubble)"]
-    Decision -->|Sidepanel Inspector| M2["Modality B: Sidepanel Inspector<br/>(Docked in Accordion Stack)"]
+    Decision -->|Sidepanel Inspector| M2["Modality B: Sidepanel Inspector [SHIPPED]<br/>(Docked in Chat Workspace Accordion)"]
     Decision -->|Floating OS Window| M3["Modality C: Standalone OS Window<br/>(Frameless Desktop Window)"]
 ```
 
-#### Modality A: Inline Chat Widget (`spawn_gen_inline` / `<agent-embed>`)
+#### The Unified `mount_widget` Toolchain
+Rather than requiring separate complex tool definitions, the sandbox provides a single, high-ergonomics CLI command:
+```bash
+airi@sandbox:~$ mount_widget /workspace/cyber_pulse.ts --title "Cyber Pulse HUD"
+[GEN_UI_MOUNT:/workspace/cyber_pulse.js:Cyber Pulse HUD]
+✨ Mounted Cyber Pulse HUD (/workspace/cyber_pulse.js) to sidepanel Generative UI Canvas
+```
+* **Automatic Compilation**: If given a `.ts` file, `mount_widget` invokes `compileTypeScriptInSandbox()` in memory, outputs a clean ES module `.js` bundle, and mounts it.
+* **Ambient Type Grounding**: Every sandbox instance pre-seeds `/workspace/types/airi-widget.d.ts` on initialization so the agent has 100% type safety and zero compiler guesswork.
+
+#### Modality A: Inline Chat Widget (`<agent-embed>`)
 * **Location**: Rendered directly inside the conversational transcript bubble.
 * **Use Case**: Ephemeral calculations, quick inline data graphs, interactive multi-choice polls, or compact visual summaries.
 * **Constraints**: Compact height budget (<500px), transparent card background blending seamlessly with chat typography.
 
-#### Modality B: Sidepanel Inspector Widget (`spawn_gen_sidepanel`)
-* **Location**: Docked within the collapsible right-hand Inspector Stack (alongside `STAGE ⌵`, `NANO COGNITION ⌵`, `MEMORIES ⌵`, `CURRENT SCENE ⌵`, and `MEDIA GALLERY ⌵`).
-* **Collapsible Workspace / Terminal Section**: A dedicated accordion pane (`WORKSPACE / TERMINAL ⌵`) allowing users to expand and monitor the agent's real-time bash execution, `tsc` compilation logs, and virtual filesystem state.
-* **Collapsible Widgets Section**: A dedicated accordion pane (`GENERATIVE WIDGETS ⌵`) rendering persistent micro-apps and tools alongside the 3D Stage.
-* **Use Case**: Ambient companion tools (live session pulse, clock/timer, Spotify mini-player, system health monitor, persistent task list).
+#### Modality B: Sidepanel Inspector Canvas (`ChatWorkspaceWidgetsPanel.vue` — Shipped)
+* **Location**: Docked directly inside the right-hand Inspector Stack (`apps/stage-tamagotchi/src/renderer/pages/chat.vue`) under the `GENERATIVE WIDGETS` accordion.
+* **Multi-Widget Tab Bar**: Renders pill switches for each active widget, displaying the title, an active widget counter, a refresh button, and per-widget unmount (`x`) / clear-all controls.
+* **Dynamic Auto-Height Canvas**: Eliminates scrollbars and clipping using a container `ResizeObserver` that reports rendered dimensions (`widget-resize`) back to the host, smoothly animating between 160px and 520px.
+* **Chromium Iframe Transparency**: Overcomes Chromium's default white iframe canvas by injecting `background: transparent !important; color-scheme: dark;` inside `srcdoc` and enabling `allowtransparency="true"`.
+* **SFC Preprocessor Safety**: Enforces dynamic script tag escaping (`<${'script'}>` / `</${'script'}>`) inside template literals to prevent Vite's `unplugin-vue-named-template-pre` from prematurely closing the parent component's `<script setup>`.
+* **Use Case**: Ambient companion tools (live session pulse, clock/timer, system health monitor, persistent task list).
 
 #### Modality C: Standalone Desktop Widget (`spawn_gen_widget`)
 * **Location**: An independent, frameless, draggable, floating Electron desktop window managed by `WidgetsWindowManager`.
@@ -175,13 +191,20 @@ For formal structured queries within tool-call loops, AIRI exposes native MCP en
 * `airi::get_cognition_vector`: Returns somatic states, mood scores, and active Director concept stacks.
 * Resource `airi://session/active`: Subscribable resource stream for real-time state synchronization.
 
-#### Level 3: Widget Contract Bridge (Reactive `sidecar` Injection)
-When a generative widget is mounted (whether Inline, Sidepanel, or Floating Window), the host runtime injects an `AiriWidgetContext` with a localized, reactive `sidecar` snapshot and an `onUpdate` event listener:
+#### Level 3: Widget Contract Bridge (Reactive `sidecar` Injection & High-Resilience Normalization)
+When a generative widget is mounted (whether Inline, Sidepanel, or Floating Window), the host runtime injects an `AiriWidgetContext` with a localized, reactive `sidecar` snapshot and an `onUpdate` event listener.
+
+To ensure robustness against model pretraining variations and VFS projection differences, the host runtime implements a **High-Resilience Normalization Layer** in `ChatWorkspaceWidgetsPanel.vue`:
+* **`telemetry.cpuLoad`**: Dual-shape normalization supporting both array indexing (`cpuLoad[0]`) and object lookups (`cpuLoad['1m']`).
+* **Telemetry Aliases**: Dual aliases for `idleSeconds` $\leftrightarrow$ `idleTimeSec`, and `activeApp` $\leftrightarrow$ `activeProgram` $\leftrightarrow$ `activeWindowTitle`.
+* **Dynamic AFK Calculation**: Automatically evaluates `isAfk = (idleTimeSec > 60)` if not directly provided.
+* **Cognition & Session Fallbacks**: Safe defaults for `emotion`, `energy`, `valence`, `characterName`, `provider`, and `model`.
 
 ```typescript
 export interface AiriWidgetSidecar {
   session: {
     id: string
+    activeSessionId?: string
     activeCardName: string
     messageCount: number
     lastUserMessageAt: string // ISO-8601
@@ -191,18 +214,26 @@ export interface AiriWidgetSidecar {
     emotion: string
     valence: number // -1.0 to 1.0
     energy: number // 0.0 to 1.0
-    somaticState?: 'focused' | 'restless' | 'sleepy' | 'engaged'
+    somaticState?: 'focused' | 'restless' | 'sleepy' | 'engaged' | string
+    characterName?: string
+    provider?: string
+    model?: string
   }
   telemetry: {
     isAfk: boolean
     idleSeconds: number
+    idleTimeSec: number
     activeApp?: string
+    activeProgram?: string
+    activeWindowTitle?: string
+    cpuLoad?: number[] & { '1m': number, '5m': number, '15m': number }
   }
 }
 
 export interface AiriWidgetContext {
   container: HTMLElement
   sidecar: AiriWidgetSidecar
+  data: AiriWidgetSidecar
   /**
    * Subscribes to live state updates pushed from AIRI's runtime stores.
    * Returns an unsubscribe cleanup function.
@@ -210,6 +241,13 @@ export interface AiriWidgetContext {
   onUpdate: (callback: (updatedSidecar: AiriWidgetSidecar) => void) => () => void
 }
 ```
+
+#### Multi-Window Synchronization via BroadcastChannel
+In Electron multi-window mode, the Control Strip acts as the **leader** process owning the primary `Bash` instance and VFS, while auxiliary windows (such as the Desktop Chat window) act as **followers**.
+The host wires an internal `BroadcastChannel('airi:sandbox:channel')`:
+* Followers request state and command logs from the leader upon initialization.
+* Commands executed in the Chat window's terminal drawer sync execution and output to the leader.
+* `mount_widget` triggers are broadcast so the Inspector canvas stays perfectly synchronized across all open windows.
 
 #### Canonical Reference: "Hours Since Last Message" Companion Widget
 The agent leverages the Level 3 sidecar contract to create a live, reactive companion widget that updates in real time without continuous LLM inference:
@@ -423,8 +461,10 @@ By integrating targeted WASM binaries into `apps/stage-edge`, the Discord bot ga
 
 1. **WASM Binary Size on Cloudflare Workers Free Tier**:
    Cloudflare Workers Free limits script size to 1MB compressed (10MB on Paid). Full compilers like `ts-rust` WASM may exceed 3MB uncompressed. Can we strip unnecessary compiler phases or use dynamic streaming instantiation from an R2 bucket?
-2. **Virtual Filesystem State Persistence**:
-   How frequently should the agent's virtual sandbox state be flushed to IndexedDB / localforage? Should we implement an incremental dirty-page snapshot mechanism to prevent memory spikes during long chat sessions?
+2. **Virtual Filesystem State Persistence & Rehydration**:
+   * **Architectural Decision**: Instead of persisting the entire virtual disk (which creates overhead and stores ephemeral scratch files), AIRI adopts a **Dedicated Widget Repository (`widgets.repo.ts`)** under `local:widgets/registry` in the `unstorage` IndexedDB layer.
+   * **Persistence Model**: Stores `{ id, title, path, sourcePath, sourceCode, code, isMounted, mountedAt, updatedAt }` globally.
+   * **Rehydration Flow**: On startup, page refresh, or Vite HMR, `SandboxManager.init()` loads `local:widgets/registry`. For any widget with `isMounted: true`, it automatically writes the `.ts` and `.js` bundles back into the `/workspace` RAM disk and populates `mountedWidgetsList`, ensuring active widgets survive window reloads seamlessly while keeping `cat /workspace/widget.ts` fully functional in the terminal.
 3. **Template Compilation for Generative UI**:
    While pure TypeScript logic can be checked via `@tsc-rs/wasm`, Vue Single File Components still require Volar template compilation. Should dynamic Generative UI widgets use standard declarative JSON component schemas (like Reka UI / UnoCSS schema) rather than raw arbitrary `.vue` SFC strings?
 4. **Execution Timeout & Infinite Loop Protection**:
@@ -434,21 +474,23 @@ By integrating targeted WASM binaries into `apps/stage-edge`, the Discord bot ga
 
 ## 9. Phased Implementation Roadmap
 
-* **Phase 1-4: Cleanroom Harness & Compiler Engine (Completed & Verified in `scripts/tests/just-bash-harness/`)**
+* **Phase 1-4: Cleanroom Harness & Compiler Engine [COMPLETED & VERIFIED]**
   * **Phase 1**: In-memory POSIX bash (`just-bash`) with zero host disk leakage, RAM disk mounted at `/workspace`, pre-seeded files, and real-time execution streaming.
   * **Phase 2**: Dual-pane UI (Chat on left, Terminal Activity on right) powered by client-side streaming via `@xsai` (`@xsai/stream-text`, `@xsai/tool`) with zero backend chat proxy.
   * **Phase 3**: Remote Model Context Protocol (MCP) client over Streamable HTTP (`@modelcontextprotocol/sdk`) with Cloudflare CORS fallback.
   * **Phase 4**: Native Mach-O arm64 / Linux x64 TypeScript compiler bridge (`tsc-rs` / `ts-rust` masked as TS 5.8.2 compiling in 2ms), dynamic iframe canvas preview, and 4 sandbox friction fixes (`--outDir` compiler normalizer, `sed -i` permissions preservation, in-memory `node`, full ANSI color styling).
-* **Phase 5: Sidepanel Accordion Integration (`packages/stage-ui` / `apps/stage-tamagotchi`)**
-  * Port the collapsible `WORKSPACE / TERMINAL ⌵` and `GENERATIVE WIDGETS ⌵` components into the desktop chat interface.
-  * Dock them into the right-hand Inspector Stack alongside `STAGE ⌵`, `NANO COGNITION ⌵`, `MEMORIES ⌵`, `CURRENT SCENE ⌵`, and `MEDIA GALLERY ⌵`.
-* **Phase 6: Three-Tiered State Bridges & Reactive Sidecar**
-  * Implement the Level 1 virtual filesystem projection in `virtualBash` (`/workspace/.airi/session.json`, `cognition.json`, `telemetry.json`, `messages.json`).
-  * Implement Level 2 MCP endpoints (`airi::get_session_stats`, `airi://session/active`).
-  * Implement Level 3 reactive `sidecar` and `onUpdate` listener contract for dynamic generative micro-apps (enabling live timers and session pulse displays without continuous LLM inference).
-* **Phase 7: Desktop Window Bridge (`WidgetsWindowManager`)**
-  * Connect Electron main-process window management to load compiled virtual scripts from the in-memory sandbox.
-  * Support `spawn_gen_widget` opening floating, frameless, transparent OS windows with persisted screen coordinates.
+* **Phase 5: Sidepanel Accordion Integration [COMPLETED & SHIPPED — Commit `1db5c5fb94`]**
+  * Ported `ChatWorkspaceWidgetsPanel.vue` into the right-hand Inspector Stack (`apps/stage-tamagotchi/src/renderer/pages/chat.vue`).
+  * Docked under the `GENERATIVE WIDGETS` accordion alongside `STAGE ⌵`, `MEMORIES ⌵`, and `CURRENT SCENE ⌵`.
+  * Shipped dynamic `ResizeObserver` auto-height adaptation (160px–520px), multi-widget pill tabs, unmount controls, and Chromium dark iframe transparency (`allowtransparency="true"`).
+* **Phase 6: Three-Tiered State Bridges & Reactive Sidecar [COMPLETED & SHIPPED — Commit `1db5c5fb94`]**
+  * Implemented Level 1 virtual filesystem projections (`/workspace/.airi/session.json`, `cognition.json`, `telemetry.json`, `messages.json`).
+  * Implemented Level 3 reactive `sidecar` and `onUpdate` listener contract with high-resilience normalization (`cpuLoad` array/object dual shapes, `idleSeconds` $\leftrightarrow$ `idleTimeSec`, `activeApp` aliases, computed `isAfk`).
+  * Seeded ambient TypeScript definitions at `/workspace/types/airi-widget.d.ts` on sandbox startup.
+  * Multi-window BroadcastChannel synchronization (`airi:sandbox:channel`) across Electron Control Strip (leader) and Chat (follower).
+* **Phase 7: Widget Persistence & Standalone Windows [ACTIVE DEVELOPMENT]**
+  * **Phase 7A (Widget Persistence)**: Implement `local:widgets/registry` in `widgets.repo.ts` to auto-rehydrate mounted widgets and VFS source files across HMR and window reloads.
+  * **Phase 7B (Standalone OS Windows)**: Connect Electron main-process window management (`WidgetsWindowManager`) to load compiled virtual scripts from the in-memory sandbox as floating, frameless, transparent OS windows with persisted coordinates.
 * **Phase 8: Cloudflare Edge Relay WASM Extensions (`apps/stage-edge`)**
   * Add QuickJS-WASM code interpreter module to `apps/stage-edge/src/inference/`.
   * Implement edge-evaluated Discord slash commands (`/eval`) and dynamic SVG card rendering on Cloudflare Workers.

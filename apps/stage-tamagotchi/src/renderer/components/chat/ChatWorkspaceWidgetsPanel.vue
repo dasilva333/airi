@@ -116,7 +116,7 @@ async function buildIframeSrcdoc(widget: MountedWidget): Promise<string> {
 <html class="dark" style="background: transparent !important; color-scheme: dark;">
 <head>
   <meta charset="UTF-8">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <${'script'} src="https://cdn.tailwindcss.com"></${'script'}>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -132,14 +132,14 @@ async function buildIframeSrcdoc(widget: MountedWidget): Promise<string> {
 </head>
 <body class="antialiased">
   <div id="root" class="w-full">${widget.code}</div>
-  <script>
+  <${'script'}>
     function reportH() {
       const h = document.getElementById('root')?.scrollHeight || document.body.scrollHeight;
       window.parent.postMessage({ type: 'widget-resize', height: h }, '*');
     }
     window.addEventListener('load', reportH);
     if (window.ResizeObserver) new ResizeObserver(reportH).observe(document.body);
-  </script>
+  </${'script'}>
 </body>
 </html>`
   }
@@ -149,7 +149,7 @@ async function buildIframeSrcdoc(widget: MountedWidget): Promise<string> {
 <html class="dark" style="background: transparent !important; color-scheme: dark;">
 <head>
   <meta charset="UTF-8">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <${'script'} src="https://cdn.tailwindcss.com"></${'script'}>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -169,7 +169,7 @@ async function buildIframeSrcdoc(widget: MountedWidget): Promise<string> {
 </head>
 <body class="antialiased">
   <div id="root" class="w-full"></div>
-  <script type="module">
+  <${'script'} type="module">
     const sidecarData = ${JSON.stringify(sidecar)};
     const root = document.getElementById('root');
 
@@ -235,7 +235,7 @@ async function buildIframeSrcdoc(widget: MountedWidget): Promise<string> {
       \`;
       setTimeout(reportH, 50);
     }
-  </script>
+  </${'script'}>
 </body>
 </html>`
 }
@@ -282,11 +282,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2 rounded-xl border border-neutral-200/60 bg-neutral-900/50 p-2.5 backdrop-blur-md dark:border-neutral-800/60 shadow-inner">
+  <div class="flex flex-col gap-2 border border-neutral-200/60 rounded-xl bg-neutral-900/50 p-2.5 shadow-inner backdrop-blur-md dark:border-neutral-800/60">
     <!-- Active Widgets Header / Tabs -->
-    <div v-if="mountedWidgets.length > 0" class="flex items-center justify-between gap-1 pb-1 border-b border-neutral-200/40 dark:border-neutral-800/40">
+    <div v-if="mountedWidgets.length > 0" class="flex items-center justify-between gap-1 border-b border-neutral-200/40 pb-1 dark:border-neutral-800/40">
       <!-- Widget switcher pills -->
-      <div class="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+      <div class="no-scrollbar flex items-center gap-1 overflow-x-auto py-0.5">
         <button
           v-for="w in mountedWidgets"
           :key="w.id"
@@ -299,15 +299,15 @@ onUnmounted(() => {
           @click="selectedWidgetId = w.id"
         >
           <span class="i-solar:widget-5-bold-duotone text-xs" />
-          <span class="truncate max-w-[100px]">{{ w.title || w.path.split('/').pop() }}</span>
+          <span class="max-w-[100px] truncate">{{ w.title || w.path.split('/').pop() }}</span>
         </button>
       </div>
 
       <!-- Actions -->
-      <div class="flex items-center gap-1 shrink-0">
+      <div class="flex shrink-0 items-center gap-1">
         <button
           title="Reload widget canvas"
-          class="flex items-center justify-center rounded p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50 transition-colors"
+          class="flex items-center justify-center rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-800/50 hover:text-neutral-200"
           @click="refreshActiveWidget"
         >
           <span class="i-solar:refresh-linear text-xs" :class="{ 'animate-spin': isLoading }" />
@@ -315,7 +315,7 @@ onUnmounted(() => {
         <button
           v-if="activeWidget"
           title="Unmount this widget"
-          class="flex items-center justify-center rounded p-1 text-neutral-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors"
+          class="flex items-center justify-center rounded p-1 text-neutral-400 transition-colors hover:bg-rose-950/30 hover:text-rose-400"
           @click="unmountWidget(activeWidget.id)"
         >
           <span class="i-solar:close-circle-bold-duotone text-xs" />
@@ -323,7 +323,7 @@ onUnmounted(() => {
         <button
           v-if="mountedWidgets.length > 1"
           title="Clear all widgets"
-          class="flex items-center justify-center rounded p-1 text-neutral-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors"
+          class="flex items-center justify-center rounded p-1 text-neutral-400 transition-colors hover:bg-rose-950/30 hover:text-rose-400"
           @click="clearWidgets"
         >
           <span class="i-solar:trash-bin-trash-bold-duotone text-xs" />
@@ -334,14 +334,14 @@ onUnmounted(() => {
     <!-- Active Widget Viewport -->
     <div
       v-if="mountedWidgets.length > 0 && activeWidget"
-      class="relative w-full overflow-hidden rounded-lg bg-transparent border border-neutral-800/50"
+      class="relative w-full overflow-hidden border border-neutral-800/50 rounded-lg bg-transparent"
     >
       <iframe
         :key="iframeKey"
         :srcdoc="iframeSrcdoc"
         allowtransparency="true"
         sandbox="allow-scripts allow-forms allow-same-origin"
-        class="w-full border-0 bg-transparent block transition-[height] duration-200"
+        class="block w-full border-0 bg-transparent transition-[height] duration-200"
         :style="{ height: `${iframeHeight}px`, backgroundColor: 'transparent', colorScheme: 'dark' }"
       />
     </div>
@@ -349,15 +349,17 @@ onUnmounted(() => {
     <!-- Empty State -->
     <div
       v-else
-      class="flex flex-col items-center justify-center py-6 px-4 text-center rounded-lg bg-neutral-950/40 border border-dashed border-neutral-800/50 space-y-2"
+      class="flex flex-col items-center justify-center border border-neutral-800/50 rounded-lg border-dashed bg-neutral-950/40 px-4 py-6 text-center space-y-2"
     >
-      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-500/10 text-primary-400 border border-primary-500/20">
+      <div class="h-9 w-9 flex items-center justify-center border border-primary-500/20 rounded-xl bg-primary-500/10 text-primary-400">
         <span class="i-solar:widget-5-bold-duotone text-lg" />
       </div>
       <div class="space-y-0.5">
-        <p class="text-xs font-semibold text-neutral-200">No Active Micro-App</p>
-        <p class="text-[10px] text-neutral-400 max-w-[240px]">
-          Run <code class="text-primary-300 font-mono bg-neutral-900 px-1 py-0.5 rounded border border-neutral-800">mount_widget &lt;file.ts|file.js&gt;</code> in the terminal to mount live widgets here.
+        <p class="text-xs text-neutral-200 font-semibold">
+          No Active Micro-App
+        </p>
+        <p class="max-w-[240px] text-[10px] text-neutral-400">
+          Run <code class="border border-neutral-800 rounded bg-neutral-900 px-1 py-0.5 text-primary-300 font-mono">mount_widget &lt;file.ts|file.js&gt;</code> in the terminal to mount live widgets here.
         </p>
       </div>
     </div>

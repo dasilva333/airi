@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { widgetsRepo } from '../../database/repos/widgets.repo'
 import { createBashTool, executeBashCommand } from '../../stores/modules/tools/bash'
 import { ansiToHtml, stripAnsi } from './ansi'
 import { SandboxManager } from './manager'
@@ -13,8 +14,9 @@ vi.mock('vue-i18n', () => ({
 }))
 
 describe('sandbox subsystem & in-memory posix execution', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia())
+    await widgetsRepo.clearMounted()
   })
 
   describe('sandboxManager core', () => {
@@ -252,6 +254,57 @@ describe('sandbox subsystem & in-memory posix execution', () => {
 
       const res42 = await sandbox.exec('node -e "process.exit(42)"')
       expect(res42.exitCode).toBe(42)
+    })
+
+    it('persists mounted widgets in widgetsRepo and rehydrates them across reboots', async () => {
+      // 1. Initial boot: mount a TypeScript widget
+      const sandbox1 = new SandboxManager()
+      await sandbox1.init()
+
+      await sandbox1.writeFile('/workspace/pulse.ts', `
+        export default function mount({ container }: any) {
+          container.innerHTML = "<h1>Pulse Active</h1>";
+        }
+      `)
+
+      const mountRes = await sandbox1.exec('mount_widget /workspace/pulse.ts --title "Pulse HUD"')
+      expect(mountRes.exitCode).toBe(0)
+      expect(sandbox1.mountedWidgets.length).toBe(1)
+      expect(sandbox1.mountedWidgets[0].title).toBe('Pulse HUD')
+
+      // Verify it was saved to widgetsRepo
+      const persisted = await widgetsRepo.getMountedWidgets()
+      expect(persisted.length).toBeGreaterThanOrEqual(1)
+      const found = persisted.find(w => w.path === '/workspace/pulse.js')
+      expect(found).toBeDefined()
+      expect(found?.title).toBe('Pulse HUD')
+      expect(found?.isMounted).toBe(true)
+      expect(found?.sourcePath).toBe('/workspace/pulse.ts')
+      expect(found?.sourceCode).toContain('Pulse Active')
+
+      // 2. Simulate complete restart / reload with a brand new SandboxManager instance
+      const sandbox2 = new SandboxManager()
+      await sandbox2.init()
+
+      // The new sandbox instance should automatically rehydrate the mounted widget
+      expect(sandbox2.mountedWidgets.length).toBeGreaterThanOrEqual(1)
+      const rehydrated = sandbox2.mountedWidgets.find(w => w.path === '/workspace/pulse.js')
+      expect(rehydrated).toBeDefined()
+      expect(rehydrated?.title).toBe('Pulse HUD')
+
+      // Both source and compiled files must exist in the fresh virtual RAM disk
+      const sourceContent = await sandbox2.readFile('/workspace/pulse.ts')
+      expect(sourceContent).toContain('Pulse Active')
+
+      const bundleContent = await sandbox2.readFile('/workspace/pulse.js')
+      expect(bundleContent.length).toBeGreaterThan(0)
+
+      // 3. Unmount widget and verify repo updates
+      sandbox2.unmountWidget(rehydrated!.id)
+      expect(sandbox2.mountedWidgets.some(w => w.id === rehydrated!.id)).toBe(false)
+
+      const afterUnmount = await widgetsRepo.getMountedWidgets()
+      expect(afterUnmount.some(w => w.id === rehydrated!.id)).toBe(false)
     })
   })
 })
