@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 
 import { useChatOrchestratorStore } from '../stores/chat'
+import { appendDraftText } from '../stores/chat/composer-draft-bridge'
 import { useChatSessionStore } from '../stores/chat/session-store'
 import { useShortTermMemoryStore } from '../stores/memory-short-term'
 import { useAiriCardStore } from '../stores/modules/airi-card'
@@ -303,6 +304,13 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
             clearPendingAutoSend()
             if (alreadyDispatched)
               return
+            // With auto-send off the transcript stays in the input for the user to edit and send.
+            // Providers without sentence deltas only deliver the final text here.
+            if (!autoSendEnabled.value) {
+              if (!messageInput.value.includes(text.trim()))
+                messageInput.value = appendDraftText(messageInput.value, text)
+              return
+            }
             void (async () => {
               try {
                 const provider = await providersStore.getProviderInstance(activeProvider.value)
@@ -311,7 +319,6 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
                 await ingest(text, {
                   chatProvider: provider as ChatProvider,
                   model: activeModel.value,
-                  skipAssistant: !autoSendEnabled.value,
                   tools: options.tools,
                 })
                 if (messageInput.value.trim() === text.trim()) {

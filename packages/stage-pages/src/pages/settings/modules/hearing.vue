@@ -727,7 +727,7 @@ onUnmounted(() => {
             <FieldCheckbox
               v-model="autoSendEnabled"
               label="Auto-send transcribed text"
-              description="Automatically send transcribed text to chat after a delay. This may consume tokens, so disable if you want to manually review and edit transcriptions before sending."
+              description="Automatically send transcribed text to chat after a delay. When disabled, transcriptions are added to the chat input so you can review, edit and send them yourself."
             />
 
             <FieldRange

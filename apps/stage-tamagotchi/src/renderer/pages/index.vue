@@ -19,6 +19,7 @@ import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-re
 import { createVoiceInputBinding } from '@proj-airi/stage-ui/libs/audio'
 import { useVAD } from '@proj-airi/stage-ui/stores/ai/models/vad'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
+import { sendTextToChatComposer } from '@proj-airi/stage-ui/stores/chat/composer-draft-bridge'
 import { useLive2d } from '@proj-airi/stage-ui/stores/live2d'
 import { useLLM } from '@proj-airi/stage-ui/stores/llm'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
@@ -525,6 +526,12 @@ async function startAudioInteraction(binding: VoiceInputBinding) {
 
           void (async () => {
             try {
+              if (!hearingStore.autoSendEnabled) {
+                toast.info(`🎤 Added to chat input: ${text}`, { id: 'transcription-feedback' })
+                await sendTextToChatComposer(text)
+                return
+              }
+
               const provider = await providersStore.getProviderInstance(activeChatProvider.value)
               if (!provider || !activeChatModel.value) {
                 console.warn('[Main Page] No provider or model available, skipping chat send')
@@ -534,12 +541,10 @@ async function startAudioInteraction(binding: VoiceInputBinding) {
               toast.info(`🎤 You said: ${text}`, { id: 'transcription-feedback' })
               console.info('[Main Page] Sending transcription to chat:', text)
 
-              const { autoSendEnabled } = storeToRefs(hearingStore)
               await chatStore.ingest(text, {
                 model: activeChatModel.value,
                 chatProvider: provider as ChatProvider,
                 tools: builtinTools,
-                skipAssistant: !autoSendEnabled.value,
               })
             }
             catch (err) {
@@ -584,26 +589,31 @@ async function startAudioInteraction(binding: VoiceInputBinding) {
         return
       }
 
-      toast.info(`🎤 You said: ${text}`, { id: 'transcription-feedback' })
-
       postCaption({ type: 'caption-speaker', text })
 
       if (hearingDialogOpen.value) {
+        toast.info(`🎤 You said: ${text}`, { id: 'transcription-feedback' })
         console.info('[Main Page] (Manual) Hearing dialog is open, skipping duplicate ingestion in favor of ChatArea.')
         return
       }
 
       try {
+        if (!hearingStore.autoSendEnabled) {
+          toast.info(`🎤 Added to chat input: ${text}`, { id: 'transcription-feedback' })
+          await sendTextToChatComposer(text)
+          return
+        }
+
+        toast.info(`🎤 You said: ${text}`, { id: 'transcription-feedback' })
+
         const provider = await providersStore.getProviderInstance(activeChatProvider.value)
         if (!provider || !activeChatModel.value)
           return
 
-        const { autoSendEnabled } = storeToRefs(hearingStore)
         await chatStore.ingest(text, {
           model: activeChatModel.value,
           chatProvider: provider as ChatProvider,
           tools: builtinTools,
-          skipAssistant: !autoSendEnabled.value,
         })
       }
       catch (err) {

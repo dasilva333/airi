@@ -464,6 +464,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | Channel Name | Publisher / Domain | Purpose |
 | :--- | :--- | :--- |
 | `airi-chat-input-bridge` | chat orchestrator | Ingestion pipeline — secondary windows post input to main window |
+| `airi:chat-composer-draft` (`CHAT_COMPOSER_DRAFT_CHANNEL`) | `stores/chat/composer-draft-bridge.ts` (stage window STT) | Appends voice transcriptions to the desktop chat composer when auto-send is off; composer acks, otherwise the sender appends to the `airi-chatbox-draft` localStorage draft. Raw `new BroadcastChannel` sender, VueUse receiver in `InteractiveArea.vue` |
 | `airi-chat-stream` (`CHAT_STREAM_CHANNEL_NAME`) | `stores/chat/session-store.ts` (constant) | Streaming LLM deltas + journal refresh events across windows |
 | `airi-chat-present` | `scenes/ControlStripHost.vue` | Chat presence/active-state relay |
 | `airi-caption-overlay` | caption window | Caption text relay to the overlay window |
