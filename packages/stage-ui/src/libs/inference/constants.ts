@@ -427,10 +427,15 @@ export const TIMEOUTS = {
   /** Attention Ecology Guard per-tick process timeout (unary cascade) */
   ATTENTION_GUARD_PROCESS: 120_000,
 
-  /** Laya System-1 model load timeout (424MB int8 / 843MB fp16 download + compile) */
+  /** Laya System-1 model load timeout (633MB int8 / 847MB fp16 download + compile) */
   LAYA_LOAD: 300_000,
-  /** Laya System-1 single decide timeout (batched session.run on WASM) */
-  LAYA_DECIDE: 15_000,
+  /**
+   * Laya System-1 single decide timeout (batched session.run on WASM).
+   * A timeout terminates the worker, so this is a hang guard, not a latency
+   * budget: single-threaded WASM needs ~3s per question, and a 6-candidate
+   * rerank legitimately runs ~20s. Callers impose their own latency budgets.
+   */
+  LAYA_DECIDE: 60_000,
 
   /** Ming 3.0 TTS bundle download timeout (absolute; 850MB mix bundle in 15 parts) */
   MING3_LOAD: 3_600_000,

@@ -9,7 +9,7 @@ import {
   formatBytes,
   getLayaCacheSize,
   isLayaDownloaded,
-  LAYA_HF_REPO,
+  LAYA_MODEL_SPECS,
   resetLayaSession,
   runLayaSystemOne,
 } from '@proj-airi/stage-ui/libs/inference'
@@ -75,16 +75,21 @@ const enableWebGpu = computed({
   },
 })
 
+// NOTICE: the values are persisted selection keys (provider config and
+// `systemOneStore.activeModel`), not download sources; they only pick the
+// precision. The weights come from LAYA_MODEL_SPECS.
 const modelOptions = [
   {
-    label: 'tozp/laya-onnx (INT8 Quantized, 424 MB - CPU Recommended)',
+    label: `Laya INT8 (${LAYA_MODEL_SPECS.int8.approxSizeMb} MB - CPU Recommended)`,
     value: 'tozp/laya-onnx',
   },
   {
-    label: 'tozp/laya-onnx-fp16 (FP16 Full Precision, 843 MB - CPU)',
+    label: `Laya FP16 (${LAYA_MODEL_SPECS.fp16.approxSizeMb} MB - WebGPU Recommended)`,
     value: 'tozp/laya-onnx-fp16',
   },
 ]
+
+const activeSpec = computed(() => LAYA_MODEL_SPECS[model.value.includes('fp16') ? 'fp16' : 'int8'])
 
 // Cache & Download state
 const isCheckingCache = ref(true)
@@ -279,12 +284,12 @@ watch(model, () => {
             <p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
               Hugging Face repository:
               <a
-                :href="`https://huggingface.co/${LAYA_HF_REPO}`"
+                :href="`https://huggingface.co/${activeSpec.repo}`"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="inline-flex items-center gap-1 text-primary-600 font-mono dark:text-primary-400 hover:underline"
               >
-                {{ LAYA_HF_REPO }}
+                {{ activeSpec.repo }}
                 <div class="i-solar:arrow-right-up-linear text-[10px]" />
               </a>
             </p>

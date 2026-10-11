@@ -1099,7 +1099,9 @@ export const layeredMemory = {
         }
       }
       catch (err) {
-        if ((err as Error)?.name === 'AbortError' || String((err as Error)?.message || '').includes('timed out'))
+        // Only a caller abort ends the search; a slow or failed rerank (e.g. local
+        // Laya over the RERANK_TIMEOUT_MS budget) keeps the RRF order, mirroring triage.
+        if ((err as Error)?.name === 'AbortError' || options?.signal?.aborted)
           throw err
         console.warn('[LayeredMemory] System 1 cross-encoder rerank failed, retaining RRF score:', err)
       }

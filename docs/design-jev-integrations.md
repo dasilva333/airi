@@ -42,7 +42,7 @@ In Project AIRI, conversational dialogue and complex multi-hop roleplay are driv
    - Contract Requirement: Probabilities **must** use `"type": "noul"`. Passing `"type": "boolean"` yields HTTP 400 Bad Request. Categorical selections use `"type": "choice"` with explicit string candidate options.
    - Zero-Friction Setup: Automatically reuses the user's existing OpenRouter API key configured in `providersStore` (`local:providers`).
 2. **Local Laya (WASM / ONNX)**:
-   - Provider: `laya-local` (`tozp/laya-onnx`)
+   - Provider: `laya-local` (weights per `LAYA_MODEL_SPECS` in `packages/stage-ui/src/libs/inference/laya-models.ts`)
    - Fully offline on-device classifier executing locally with zero API cost.
 
 ### 2.3 Management & Debug UI

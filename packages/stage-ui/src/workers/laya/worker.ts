@@ -8,11 +8,16 @@ import * as ort from 'onnxruntime-web'
 
 import { LAYA_CACHE_NAME } from '../../libs/inference/cache-utils'
 import { layaDecideEvent, layaLoadEvent, layaUnloadEvent } from '../../libs/inference/contract'
+import {
+  evictStaleLayaEntries,
+  LAYA_MODEL_SPECS,
+  LAYA_TOKENIZER_REPO,
+  LAYA_TOKENIZER_REVISION,
+  layaFileUrl,
+  layaModelFiles,
+  layaWeightsFile,
+} from '../../libs/inference/laya-models'
 import { decodeAnswers, QTYPES, renderOptions, serializeState, toInternal } from './prep'
-
-export const LAYA_HF_REPO = 'tozp/laya-onnx'
-export const LAYA_INT8_MODEL_FILE = 'model_int8.onnx'
-export const LAYA_FP16_MODEL_FILE = 'model_fp16.onnx'
 
 const { context } = createContext()
 
@@ -38,12 +43,10 @@ function ensureOrtConfigured(): void {
 
 ensureOrtConfigured()
 
-async function downloadFile(fileName: string, onProgress?: (loaded: number, total: number) => void): Promise<void> {
-  const fileUrl = `https://huggingface.co/${LAYA_HF_REPO}/resolve/main/${fileName}`
-  const cache = await caches.open(LAYA_CACHE_NAME)
+async function downloadFile(cache: Cache, fileUrl: string, onProgress?: (loaded: number, total: number) => void): Promise<void> {
   const res = await fetch(fileUrl, { redirect: 'follow' })
   if (!res.ok || !res.body)
-    throw new Error(`Failed to download ${fileName}: HTTP ${res.status}`)
+    throw new Error(`Failed to download ${fileUrl}: HTTP ${res.status}`)
   const total = Number(res.headers.get('content-length')) || 0
   const reader = res.body.getReader()
   const chunks: Uint8Array[] = []
@@ -78,35 +81,46 @@ async function ensureSession(
     return activeSession
 
   ensureOrtConfigured()
-  const targetFile = precision === 'fp16' ? LAYA_FP16_MODEL_FILE : LAYA_INT8_MODEL_FILE
-  const fileUrl = `https://huggingface.co/${LAYA_HF_REPO}/resolve/main/${targetFile}`
+  const spec = LAYA_MODEL_SPECS[precision]
   const cache = await caches.open(LAYA_CACHE_NAME)
-  let match = await cache.match(fileUrl)
-  if (!match) {
-    await downloadFile(targetFile, (loaded, total) => emit?.({
-      kind: 'progress',
-      payload: { phase: 'download', percent: total > 0 ? Math.round((loaded / total) * 100) : -1, message: targetFile, file: targetFile, loaded, total },
-    }))
-    match = await cache.match(fileUrl)
-    if (!match)
-      throw new Error('Failed to retrieve Laya model from cache after download.')
+  const buffers = new Map<string, ArrayBuffer>()
+  for (const file of layaModelFiles(spec)) {
+    const fileUrl = layaFileUrl(spec, file)
+    let match = await cache.match(fileUrl)
+    if (!match) {
+      await evictStaleLayaEntries(cache)
+      await downloadFile(cache, fileUrl, (loaded, total) => emit?.({
+        kind: 'progress',
+        payload: { phase: 'download', percent: total > 0 ? Math.round((loaded / total) * 100) : -1, message: file, file, loaded, total },
+      }))
+      match = await cache.match(fileUrl)
+      if (!match)
+        throw new Error(`Failed to retrieve Laya ${file} from cache after download.`)
+    }
+    buffers.set(file, await match.arrayBuffer())
   }
-  const buffer = await match.arrayBuffer()
-  if (buffer.byteLength < 50_000_000) {
-    await cache.delete(fileUrl)
-    throw new Error(`Cached Laya model truncated (${buffer.byteLength} bytes). Evicted; retry load.`)
+  const weightsFile = layaWeightsFile(spec)
+  const weightsBytes = buffers.get(weightsFile)!.byteLength
+  if (weightsBytes < spec.minWeightsBytes) {
+    await cache.delete(layaFileUrl(spec, weightsFile))
+    throw new Error(`Cached Laya weights truncated (${weightsBytes} bytes). Evicted; retry load.`)
   }
 
-  emit?.({ kind: 'progress', payload: { phase: 'compile', percent: -1, message: `Compiling ${targetFile} (${targetEp})...` } })
+  emit?.({ kind: 'progress', payload: { phase: 'compile', percent: -1, message: `Compiling ${spec.modelFile} (${targetEp})...` } })
   const executionProviders: string[] = targetEp === 'webgpu' ? ['webgpu', 'wasm'] : ['wasm']
   // NOTICE: fp16 ModernBERT trips SimplifiedLayerNormFusion at level 'all'
   // (GetIndexFromName: InsertedPrecisionFreeCast not found); 'basic' skips it.
   const optLevel: 'basic' | 'all' = precision === 'fp16' ? 'basic' : 'all'
+  const modelBytes = new Uint8Array(buffers.get(spec.modelFile)!)
+  // The graph references its external weights by file name relative to itself.
+  const externalData = spec.externalDataFile
+    ? [{ path: spec.externalDataFile.split('/').pop()!, data: new Uint8Array(buffers.get(spec.externalDataFile)!) }]
+    : undefined
   try {
-    activeSession = await ort.InferenceSession.create(new Uint8Array(buffer), { executionProviders, graphOptimizationLevel: optLevel })
+    activeSession = await ort.InferenceSession.create(modelBytes, { executionProviders, graphOptimizationLevel: optLevel, externalData })
   }
   catch {
-    activeSession = await ort.InferenceSession.create(new Uint8Array(buffer), { executionProviders, graphOptimizationLevel: 'disabled' })
+    activeSession = await ort.InferenceSession.create(modelBytes, { executionProviders, graphOptimizationLevel: 'disabled', externalData })
   }
   activePrecision = precision
   activeEp = targetEp
@@ -117,7 +131,7 @@ async function ensureTokenizer(emit?: (item: LoadStreamItem) => void): Promise<a
   if (activeTokenizer)
     return activeTokenizer
   emit?.({ kind: 'progress', payload: { phase: 'download', percent: -1, message: 'Loading Laya tokenizer...' } })
-  activeTokenizer = await AutoTokenizer.from_pretrained(LAYA_HF_REPO)
+  activeTokenizer = await AutoTokenizer.from_pretrained(LAYA_TOKENIZER_REPO, { revision: LAYA_TOKENIZER_REVISION })
   return activeTokenizer
 }
 
@@ -194,8 +208,14 @@ defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => 
   })
 
   const n = items.length
-  const L = maxLen
-  const K = Math.max(...items.map(it => it.markers.length))
+  // Pad only to the longest sequence in the batch: the encoder is length-agnostic
+  // and padding every question to 512 multiplies CPU time ~5x for typical prompts.
+  const L = Math.max(...items.map(it => it.ids.length))
+  // NOTICE: the exported graph computes the act-head features with an
+  // unconditional `topk(2)` over the option axis, so a batch whose widest
+  // question has one option fails with "k argument [2] should not be greater
+  // than specified axis dim value [1]". Extra slots stay masked out.
+  const K = Math.max(2, ...items.map(it => it.markers.length))
   const inputIds = new BigInt64Array(n * L).fill(BigInt(padId))
   const attention = new BigInt64Array(n * L)
   const markerPos = new BigInt64Array(n * K)
