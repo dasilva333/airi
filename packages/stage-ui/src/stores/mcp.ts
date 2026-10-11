@@ -20,3 +20,6 @@ export const useMcpStore = defineStore('mcp', () => {
     resetState,
   }
 })
+
+export * from '../services/mcp/web-client'
+export * from './mcp-web-config'

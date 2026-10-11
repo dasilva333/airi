@@ -69,7 +69,7 @@ export const AiriCognitionSchema = looseObject({
   searchEngine: optional(looseObject({
     universeRagEnabled: optional(boolean()),
     rerankerEnabled: optional(boolean()),
-    rerankerProvider: optional(union([literal('laya-local'), literal('typesafe-ai'), literal('openrouter-ai')])),
+    rerankerProvider: optional(union([literal('laya-local'), literal('typesafe-ai'), literal('openrouter-ai'), literal('opencode-go')])),
     system2EscalationEnabled: optional(boolean()),
     reasoningModel: optional(string()),
     evidenceLimit: optional(number()),
@@ -164,6 +164,11 @@ const AiriTextJournalSchema = object({
     entryText: string(),
     timestamp: number(),
   })),
+})
+
+const AiriSandboxSchema = object({
+  enabled: optional(boolean()),
+  widgetInstruction: optional(string()),
 })
 
 const AiriShortTermMemorySchema = object({
@@ -283,6 +288,7 @@ const AiriExtensionSchema = looseObject({
   shortTermMemory: optional(AiriShortTermMemorySchema),
   screenWatching: optional(AiriScreenWatchingSchema),
   textJournal: optional(AiriTextJournalSchema),
+  sandbox: optional(AiriSandboxSchema),
   groundingEnabled: optional(boolean()),
   groundingMemoryEnabled: optional(boolean()),
   groundingTopicsEnabled: optional(boolean()),

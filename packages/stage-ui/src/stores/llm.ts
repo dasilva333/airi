@@ -251,11 +251,11 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
   const allowedTools = activeCard?.extensions?.airi?.generation?.known?.allowedTools
 
   // Default to allowing text_journal and image_journal only if allowedTools is not specifically set.
-  // Advanced tools (generate_motion, mcp, web_search, filesystem) are strictly opt-in.
+  // Advanced tools (generate_motion, mcp, web_search, filesystem, bash) are strictly opt-in.
   if (!allowedTools) {
     return tools.filter((t: any) => {
       const name = t.function?.name || t.name || ''
-      return !name.includes('generate_motion') && !name.includes('mcp')
+      return !name.includes('generate_motion') && !name.includes('mcp') && !name.includes('bash')
     })
   }
 
@@ -266,6 +266,9 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
     }
     if (name.includes('image_journal')) {
       return allowedTools.includes('image_journal')
+    }
+    if (name.includes('bash')) {
+      return allowedTools.includes('bash')
     }
     if (name.includes('mcp_') || name.startsWith('mcp')) {
       return allowedTools.includes('mcp')

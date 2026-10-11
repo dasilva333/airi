@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-
-
 import type { UnifiedVesselItem } from '../components/vessel-coverflow.vue'
 
 import { SPOTLIGHT_MODELS } from '@proj-airi/stage-ui/constants'
@@ -11,13 +8,11 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
+import AssistantBubble from '../components/assistant-bubble.vue'
 import VesselCoverflow from '../components/vessel-coverflow.vue'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../../../stores/display-models'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
-
-const { displayText } = useOnboardingDisplayText()
-
 
 const props = defineProps<{
   onNext: () => void
@@ -44,7 +39,9 @@ const localPresetModels: UnifiedVesselItem[] = [
     isInstalled: true,
     author: 'Live2D Inc.',
     sourceSiteName: 'Official Live2D Sample',
+    sourceSiteNameKey: 'onboarding.steps.vessel.catalog.live2dSource',
     description: 'Official Live2D Cubism 4 starter avatar with natural breathing, eye gaze physics, and blink sync.',
+    descriptionKey: 'onboarding.steps.vessel.localPresetModels.preset-live2d-2.description',
     prompt: 'masterpiece, best quality, 1girl, hiyori, brown twin tails with blue hair ribbons, brown hair, gentle blue eyes, anime school uniform with blue ribbon tie, clean lineart, soft watercolor anime style,',
   },
   {
@@ -56,7 +53,9 @@ const localPresetModels: UnifiedVesselItem[] = [
     isInstalled: true,
     author: 'VRM Consortium',
     sourceSiteName: 'VRM Sample Model',
+    sourceSiteNameKey: 'onboarding.steps.vessel.catalog.vrmSampleSource',
     description: 'Official VRM 1.0 3D Humanoid companion with full blendshape facial expressions, spring bone hair physics, and full-body IK.',
+    descriptionKey: 'onboarding.steps.vessel.localPresetModels.preset-vrm-2.description',
     prompt: 'masterpiece, best quality, 1girl, seed girl, long dual-tone silvery-blue hair with white highlights, glowing cyan iris, futuristic idol bodysuit with neon accents, cel-shaded 3D anime aesthetic,',
   },
   {
@@ -68,7 +67,9 @@ const localPresetModels: UnifiedVesselItem[] = [
     isInstalled: true,
     author: 'VRM Consortium',
     sourceSiteName: 'VRM Starter Model',
+    sourceSiteNameKey: 'onboarding.steps.vessel.catalog.vrmStarterSource',
     description: 'Starter lightweight humanoid VRM companion with standard spring bone physics and expressive facial presets.',
+    descriptionKey: 'onboarding.steps.vessel.localPresetModels.preset-vrm-1.description',
     prompt: 'masterpiece, best quality, 1girl, avatarsample a, shoulder length brown hair, brown eyes, casual school uniform, simple clean anime style,',
   },
 ]
@@ -87,7 +88,7 @@ const communitySpotlightModels = computed<UnifiedVesselItem[]>(() => {
       sourceSiteName: m.sourceSiteName,
       sourceSiteUrl: m.sourceSiteUrl,
       downloadUrl: m.downloadUrl,
-      description: m.description || `Community-curated ${m.format.toUpperCase()} avatar from ${m.sourceSiteName}.`,
+      description: m.description || t('onboarding.steps.vessel.catalog.communityDescription', { format: m.format.toUpperCase(), source: m.sourceSiteName }),
       prompt: `masterpiece, best quality, 1girl, ${m.name.toLowerCase().replace(/[^a-z0-9 ]/g, ' ')}, anime aesthetic, highly detailed illustration,`,
     }
   })
@@ -129,8 +130,11 @@ const userCustomModels = computed<UnifiedVesselItem[]>(() => {
       previewUrl: ('previewImage' in m && m.previewImage) ? m.previewImage : (('authorIcon' in m && m.authorIcon) ? m.authorIcon : ''),
       isInstalled: true,
       author: 'Custom Import',
+      authorKey: 'onboarding.steps.vessel.import.author',
       sourceSiteName: 'Local Vault',
+      sourceSiteNameKey: 'onboarding.steps.vessel.import.source',
       description: 'Custom imported companion avatar stored in your IndexedDB repository.',
+      descriptionKey: 'onboarding.steps.vessel.import.description',
       prompt: `masterpiece, best quality, 1girl, ${cleanName || 'custom avatar'}, detailed anime aesthetic,`,
     }
   })
@@ -178,6 +182,25 @@ const activeModel = computed<UnifiedVesselItem>(() => {
   )
 })
 
+const isActiveCommitted = computed(() => {
+  return draft.state?.vesselDisplayModelId === activeModel.value.id
+})
+
+// Editable visual-style descriptor: seeded from the browsed model's prompt on
+// selection (via applyVesselToDraft), then freely editable. Stored in the draft
+// and consumed by Artistry, so moving/editing it never changes the pipeline.
+const descriptorText = computed({
+  get: () => draft.state.artistryVisualPrompt ?? activeModel.value.prompt,
+  set: (val: string) => {
+    if (typeof (draft as any).setArtistry === 'function') {
+      draft.setArtistry({ visualPrompt: val })
+    }
+    else {
+      draft.state.artistryVisualPrompt = val
+    }
+  },
+})
+
 function applyVesselToDraft(modelId: string, visualPrompt?: string) {
   if (typeof (draft as any).setVessel === 'function') {
     draft.setVessel(modelId, visualPrompt)
@@ -206,15 +229,16 @@ watch(
   { immediate: true },
 )
 
-function handleActionButtonClick() {
+function handleDownloadClick() {
   if (!activeModel.value.isInstalled && activeModel.value.downloadUrl) {
     window.open(activeModel.value.downloadUrl, '_blank', 'noopener,noreferrer')
-    toast.info(displayText(`Opening download page for ${activeModel.value.name}...`))
+    toast.info(t('onboarding.steps.vessel.openingDownloadPageForValue', { name: activeModel.value.name }))
   }
-  else {
-    applyVesselToDraft(activeModel.value.id, activeModel.value.prompt)
-    toast.success(displayText(`Mounted ${activeModel.value.name} as companion vessel!`))
-  }
+}
+
+function handleReselectActive() {
+  applyVesselToDraft(activeModel.value.id, activeModel.value.prompt)
+  toast.success(t('onboarding.steps.vessel.mountedValueAsCompanionVessel', { name: activeModel.value.name }))
 }
 
 // Custom model upload seam
@@ -223,7 +247,7 @@ const showCustomDropzone = ref(false)
 
 async function processModelFile(file: File) {
   isUploading.value = true
-  toast.info(displayText(`Importing ${file.name}...`))
+  toast.info(t('onboarding.steps.vessel.importingValue', { name: file.name }))
   try {
     const ext = file.name.split('.').pop()?.toLowerCase()
     let format: DisplayModelFormat = DisplayModelFormat.VRM
@@ -238,12 +262,12 @@ async function processModelFile(file: File) {
     const newModel = displayModelsStore.displayModels[0]
     if (newModel?.id) {
       selectedModelId.value = newModel.id
-      toast.success(displayText(`Loaded avatar "${newModel.name || file.name}"!`))
+      toast.success(t('onboarding.steps.vessel.loadedAvatarValue', { name: newModel.name || file.name }))
     }
   }
   catch (error: any) {
     console.error('[Step 5 Vessel] Failed to upload model file:', error)
-    toast.error(displayText(`Failed to load avatar: ${error?.message || 'Invalid model file'}`))
+    toast.error(t('onboarding.steps.vessel.failedToLoadAvatarValue', { messageInvalidmodelfile: error?.message || t('onboarding.steps.vessel.invalidModelFile') }))
   }
   finally {
     isUploading.value = false
@@ -273,310 +297,346 @@ function handleDrop(e: DragEvent) {
 </script>
 
 <template>
-  <div :class="['h-full w-full max-w-5xl mx-auto flex flex-col justify-between gap-3 select-none animate-fadeIn']">
-    <!-- Header -->
-    <div
-      v-motion
-      :initial="{ opacity: 0, y: -6 }"
-      :enter="{ opacity: 1, y: 0 }"
-      :duration="300"
-      :class="['flex-shrink-0']"
-    >
-      <div :class="['flex items-center justify-between text-xs text-neutral-400 mb-0.5']">
-        <span :class="['text-primary-500 font-semibold']">{{ t('onboarding.ui.step-6-of-16') }}</span>
-        <span :class="['font-medium tracking-wide uppercase']">{{ t('onboarding.ui.avatar-selection-staging') }}</span>
-      </div>
-      <div :class="['flex items-center justify-between']">
-        <div>
-          <h2 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+  <div :class="['w-full h-full flex flex-col justify-between select-none animate-fadeIn']">
+    <!-- Scrollable Content Body -->
+    <div :class="['flex-1 min-h-0 min-w-0 overflow-y-auto px-4 sm:px-6 pt-2 pb-5 flex flex-col gap-4']">
+      <!-- Shared centered header -->
+      <div :class="['flex flex-col items-center text-center gap-3']">
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white']">
             {{ t('onboarding.steps.vessel.title') }}
-          </h2>
-          <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
-            {{ t('onboarding.steps.vessel.description') }}
-          </p>
+          </h1>
         </div>
-        <div :class="['flex items-center gap-2']">
-          <span :class="['px-3 py-1 rounded-full text-xs font-medium border border-neutral-200/80 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 text-neutral-600 dark:text-neutral-300 backdrop-blur-md']">
-            👤 {{ displayText(installedCount) }} {{ t('onboarding.ui.installed-avatars') }}
-          </span>
-          <button
-            type="button"
-            :class="[
-              'px-3 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors',
-              showCustomDropzone
-                ? 'bg-primary-600 text-white'
-                : 'bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/15 text-neutral-700 dark:text-neutral-200',
-            ]"
-            @click="showCustomDropzone = !showCustomDropzone"
-          >
-            <span>{{ t('onboarding.ui.import-custom') }}</span>
-          </button>
-        </div>
-      </div>
-    </div>
 
-    <!-- Filter Control Strip -->
-    <div
-      v-motion
-      :initial="{ opacity: 0, y: 6 }"
-      :enter="{ opacity: 1, y: 0 }"
-      :duration="300"
-      :delay="100"
-      :class="['flex flex-wrap items-center justify-between gap-2 px-1 flex-shrink-0']"
-    >
-      <!-- Source Filter Pills (All / Installed / Free Downloads) -->
-      <div :class="['flex items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/5 text-xs font-medium']">
-        <button
-          type="button"
-          :class="[
-            'px-3 py-1 rounded-lg transition-all cursor-pointer font-medium',
-            activeSourceFilter === 'all'
-              ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white font-semibold'
-              : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
-          ]"
-          @click="activeSourceFilter = 'all'"
-        >
-          {{ t('onboarding.ui.all-sources') }}{{ displayText(allModels.length) }})
-        </button>
-        <button
-          type="button"
-          :class="[
-            'px-3 py-1 rounded-lg transition-all cursor-pointer font-medium',
-            activeSourceFilter === 'installed'
-              ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white font-semibold'
-              : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
-          ]"
-          @click="activeSourceFilter = 'installed'"
-        >
-          {{ t('onboarding.ui.installed') }}{{ displayText(installedCount) }})
-        </button>
-        <button
-          type="button"
-          :class="[
-            'px-3 py-1 rounded-lg transition-all cursor-pointer font-medium',
-            activeSourceFilter === 'free'
-              ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white font-semibold'
-              : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
-          ]"
-          @click="activeSourceFilter = 'free'"
-        >
-          {{ t('onboarding.ui.free-downloads') }}{{ displayText(freeCount) }})
-        </button>
+        <AssistantBubble
+          :message="t('onboarding.steps.vessel.companionGreeting')"
+          step-key="vessel"
+          sticker-id="airi-surprised"
+          tone="primary"
+        />
       </div>
 
-      <!-- Format Filter Pills (All / Live2D / VRM / MMD) -->
-      <div :class="['flex items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/5 text-xs font-medium']">
-        <button
-          type="button"
+      <!-- Two-panel content grid -->
+      <div :class="['w-full max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,32fr)_minmax(0,68fr)] gap-5 lg:gap-6 items-stretch flex-1 min-h-0 min-w-0']">
+        <!-- Left panel: selected-avatar inspector -->
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="300"
+          :delay="100"
           :class="[
-            'px-2.5 py-1 rounded-lg transition-all cursor-pointer',
-            activeFormatFilter === 'all'
-              ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white font-semibold'
-              : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+            'rounded-[20px] border p-5 sm:p-6 transition-all flex flex-col gap-4 min-w-0 min-h-0',
+            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
           ]"
-          @click="activeFormatFilter = 'all'"
         >
-          {{ t('onboarding.steps.vessel.filters.all') }}
-        </button>
-        <button
-          type="button"
-          :class="[
-            'px-2.5 py-1 rounded-lg transition-all cursor-pointer',
-            activeFormatFilter === 'vrm'
-              ? 'bg-blue-500 text-white shadow-xs font-semibold'
-              : 'text-neutral-500 hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-300',
-          ]"
-          @click="activeFormatFilter = 'vrm'"
-        >
-          {{ t('onboarding.steps.vessel.filters.vrm') }}
-        </button>
-        <button
-          type="button"
-          :class="[
-            'px-2.5 py-1 rounded-lg transition-all cursor-pointer',
-            activeFormatFilter === 'live2d'
-              ? 'bg-teal-500 text-white shadow-xs font-semibold'
-              : 'text-neutral-500 hover:text-teal-600 dark:text-neutral-400 dark:hover:text-teal-300',
-          ]"
-          @click="activeFormatFilter = 'live2d'"
-        >
-          {{ t('onboarding.steps.vessel.filters.live2d') }}
-        </button>
-        <button
-          type="button"
-          :class="[
-            'px-2.5 py-1 rounded-lg transition-all cursor-pointer',
-            activeFormatFilter === 'spine'
-              ? 'bg-emerald-500 text-white shadow-xs font-semibold'
-              : 'text-neutral-500 hover:text-emerald-600 dark:text-neutral-400 dark:hover:text-emerald-300',
-          ]"
-          @click="activeFormatFilter = 'spine'"
-        >
-          {{ t('onboarding.ui.spine-2d') }}
-        </button>
-        <button
-          type="button"
-          :class="[
-            'px-2.5 py-1 rounded-lg transition-all cursor-pointer',
-            activeFormatFilter === 'mmd'
-              ? 'bg-pink-500 text-white shadow-xs font-semibold'
-              : 'text-neutral-500 hover:text-pink-600 dark:text-neutral-400 dark:hover:text-pink-300',
-          ]"
-          @click="activeFormatFilter = 'mmd'"
-        >
-          MMD
-        </button>
-      </div>
-    </div>
+          <!-- Avatar identity and metadata -->
+          <div :class="['flex flex-col gap-3']">
+            <span :class="['text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400']">
+              {{ t('onboarding.steps.vessel.selectedAvatar') }}
+            </span>
 
-    <!-- Custom Model Upload Dropzone (Collapsible) -->
-    <div
-      v-if="showCustomDropzone"
-      v-motion
-      :initial="{ opacity: 0, height: 0 }"
-      :enter="{ opacity: 1, height: 'auto' }"
-      :duration="250"
-      :class="[
-        'p-3.5 rounded-2xl border-2 border-dashed border-primary-500/50 bg-primary-500/5 backdrop-blur-md',
-        'flex items-center justify-between gap-4 cursor-pointer hover:bg-primary-500/10 transition-colors flex-shrink-0',
-      ]"
-      @dragover.prevent
-      @drop="handleDrop"
-      @click="openFileDialog()"
-    >
-      <div :class="['flex items-center gap-3']">
-        <div :class="['h-10 w-10 rounded-xl bg-primary-500/20 text-primary-500 flex items-center justify-center flex-shrink-0']">
-          <div :class="['i-solar:cloud-upload-bold-duotone h-6 w-6']" />
-        </div>
-        <div>
-          <div :class="['text-xs font-bold text-neutral-800 dark:text-white flex items-center gap-2']">
-            <span>{{ t('onboarding.ui.drop-your-custom-model-here-vrm-or-zip') }}</span>
-            <span v-if="isUploading" :class="['text-[10px] text-primary-500 font-mono animate-pulse']">{{ t('onboarding.ui.shared-pages-screen-capture-loading') }}</span>
-          </div>
-          <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5']">
-            {{ t('onboarding.ui.supports-vrm-0-0-1-0-3d-humanoids-and-live2d-cubism-model-zip-packages') }}
-          </p>
-        </div>
-      </div>
-      <Button
-        variant="primary"
-        size="sm"
-        :class="['flex-shrink-0']"
-        @click.stop="openFileDialog()"
-      >
-        {{ t('onboarding.ui.choose-file') }}
-      </Button>
-    </div>
+            <div :class="['flex items-start gap-3 min-w-0']">
+              <div :class="['h-14 w-14 rounded-xl overflow-hidden border border-neutral-200/80 dark:border-white/15 shadow-xs flex-shrink-0 bg-neutral-100 dark:bg-neutral-800']">
+                <img
+                  v-if="activeModel.previewUrl"
+                  :src="activeModel.previewUrl"
+                  :alt="activeModel.name"
+                  class="h-full w-full object-cover object-top"
+                >
+                <div v-else :class="['h-full w-full flex items-center justify-center text-neutral-400']">
+                  <div :class="['i-solar:user-bold-duotone h-6 w-6 opacity-40']" />
+                </div>
+              </div>
 
-    <!-- 3D Pure Avatar Coverflow Stage (No cards, pure skins!) -->
-    <div :class="['my-auto flex-shrink-0']">
-      <VesselCoverflow
-        :models="filteredModels"
-        :model-value="selectedModelId"
-        @select="handleSelectModel"
-      />
-    </div>
-
-    <!-- Active Model Details Card & Metadata Strip (Inspired by explore.vue bottom card) -->
-    <div
-      v-motion
-      :initial="{ opacity: 0, y: 8 }"
-      :enter="{ opacity: 1, y: 0 }"
-      :duration="300"
-      :delay="150"
-      :class="[
-        'p-3 sm:p-3.5 rounded-2xl border transition-all flex-shrink-0',
-        'border-neutral-200/80 bg-white/70 shadow-xs dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md flex flex-col gap-2.5',
-      ]"
-    >
-      <div :class="['flex items-center justify-between gap-3']">
-        <!-- Avatar Preview Thumbnail + Metadata -->
-        <div :class="['flex items-center gap-3 min-w-0 flex-1']">
-          <div :class="['h-11 w-11 rounded-xl overflow-hidden border border-neutral-200/80 dark:border-white/15 shadow-xs flex-shrink-0 bg-neutral-100 dark:bg-neutral-800']">
-            <img
-              v-if="activeModel.previewUrl"
-              :src="activeModel.previewUrl"
-              :alt="displayText(activeModel.name)"
-              class="h-full w-full object-cover object-top"
-            >
-            <div v-else :class="['h-full w-full flex items-center justify-center text-neutral-400']">
-              <div :class="['i-solar:user-bold-duotone h-6 w-6 opacity-40']" />
+              <div :class="['min-w-0 flex-1']">
+                <div :title="activeModel.name" :class="['text-sm font-bold text-neutral-900 dark:text-white leading-tight break-words line-clamp-2']">
+                  {{ activeModel.name }}
+                </div>
+                <div v-if="activeModel.sourceSiteName" :title="activeModel.sourceSiteNameKey ? t(activeModel.sourceSiteNameKey) : activeModel.sourceSiteName" :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 truncate']">
+                  {{ activeModel.sourceSiteNameKey ? t(activeModel.sourceSiteNameKey) : activeModel.sourceSiteName }}
+                </div>
+                <div :class="['flex flex-wrap items-center gap-1.5 mt-1.5']">
+                  <span
+                    :class="[
+                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold',
+                      activeModel.isInstalled
+                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+                    ]"
+                  >
+                    <span v-if="activeModel.isInstalled" :class="['i-solar:check-circle-bold h-3 w-3']" />
+                    <span>{{ activeModel.isInstalled ? t('onboarding.steps.vessel.installedBadge') : t('onboarding.steps.vessel.downloadBadge') }}</span>
+                  </span>
+                  <span
+                    :class="[
+                      'rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase',
+                      activeModel.format === 'live2d'
+                        ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400'
+                        : activeModel.format === 'vrm'
+                          ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                          : 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
+                    ]"
+                  >
+                    {{ activeModel.formatLabel || activeModel.format.toUpperCase() }}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div :class="['min-w-0 flex-1']">
-            <div :class="['flex items-center gap-2 flex-wrap']">
-              <span :class="['text-sm font-bold text-neutral-900 dark:text-white truncate']">
-                {{ displayText(activeModel.name) }}
-              </span>
-              <span
-                :class="[
-                  'rounded px-1.5 py-0.2 text-[9px] font-bold tracking-wider uppercase',
-                  activeModel.format === 'live2d'
-                    ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400'
-                    : activeModel.format === 'vrm'
-                      ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
-                      : 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
-                ]"
-              >
-                {{ displayText(activeModel.formatLabel || activeModel.format.toUpperCase()) }}
-              </span>
-              <span
-                v-if="activeModel.sourceSiteName"
-                :class="['text-[10px] text-neutral-400 dark:text-neutral-500']"
-              >
-                {{ t('onboarding.ui.via') }} {{ displayText(activeModel.sourceSiteName) }}
-              </span>
-            </div>
-
-            <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 truncate']">
-              <span v-if="activeModel.author" :class="['text-neutral-700 dark:text-neutral-300 font-medium']">{{ displayText(activeModel.author) }} • </span>
-              <span>{{ displayText(activeModel.description) }}</span>
+          <!-- Description and selection state -->
+          <div :class="['flex flex-col gap-2']">
+            <p :class="['text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed break-words']">
+              <span v-if="activeModel.author" :class="['text-neutral-700 dark:text-neutral-300 font-medium']">{{ activeModel.authorKey ? t(activeModel.authorKey) : activeModel.author }} • </span>
+              <span>{{ activeModel.descriptionKey ? t(activeModel.descriptionKey) : activeModel.description }}</span>
             </p>
+
+            <div :class="['flex items-center gap-2']">
+              <span v-if="isActiveCommitted" :class="['inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400']">
+                <span :class="['i-solar:check-circle-bold h-4 w-4']" />
+                <span>{{ t('onboarding.steps.vessel.selected') }}</span>
+              </span>
+              <span v-else-if="activeModel.isInstalled" :class="['inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400']">
+                <span>{{ t('onboarding.steps.vessel.browsing') }}</span>
+                <button
+                  type="button"
+                  :class="['text-primary-600 dark:text-primary-400 font-semibold hover:underline cursor-pointer']"
+                  @click="handleReselectActive"
+                >
+                  {{ t('onboarding.steps.vessel.select') }}
+                </button>
+              </span>
+              <Button
+                v-else-if="activeModel.downloadUrl"
+                variant="secondary"
+                size="sm"
+                :class="['inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl cursor-pointer']"
+                @click="handleDownloadClick"
+              >
+                <span :class="['i-solar:download-minimalistic-bold-duotone h-4 w-4']" />
+                <span>{{ t('onboarding.steps.vessel.downloadModel') }}</span>
+              </Button>
+            </div>
+          </div>
+
+          <div :class="['border-t border-neutral-200/70 dark:border-white/10']" />
+
+          <!-- Visual-style descriptor -->
+          <div :class="['flex flex-col gap-1.5 flex-1 min-h-0']">
+            <label :class="['text-xs font-semibold text-neutral-700 dark:text-neutral-300']" for="vessel-visual-descriptor">
+              {{ t('onboarding.steps.vessel.visualStyleDescriptor') }}
+            </label>
+            <textarea
+              id="vessel-visual-descriptor"
+              v-model="descriptorText"
+              rows="4"
+              :class="['w-full flex-1 min-h-28 resize-y rounded-lg border border-neutral-200/80 dark:border-white/10 bg-white/80 dark:bg-black/30 px-3 py-2 font-mono text-xs leading-relaxed text-neutral-700 dark:text-neutral-300 outline-none transition focus:border-primary-500 break-words']"
+            />
+            <span :class="['text-[11px] text-neutral-400 dark:text-neutral-500']">
+              {{ t('onboarding.steps.vessel.visualStyleHint') }}
+            </span>
           </div>
         </div>
 
-        <!-- Action / Mount Button -->
-        <Button
-          :variant="activeModel.isInstalled ? 'primary' : 'secondary'"
-          size="sm"
+        <!-- Right panel: avatar gallery -->
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :delay="100"
           :class="[
-            'flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl transition-all active:scale-95 cursor-pointer',
+            'rounded-[20px] border p-4 sm:p-5 min-w-0 min-h-0 flex flex-col gap-3',
+            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
           ]"
-          @click="handleActionButtonClick"
         >
-          <span v-if="draft.state?.vesselDisplayModelId === activeModel.id" class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-            <span class="i-solar:check-circle-bold h-4 w-4" />
-            <span>{{ t('onboarding.ui.selected-vessel') }}</span>
-          </span>
-          <span v-else-if="activeModel.isInstalled">{{ t('onboarding.ui.select-avatar') }}</span>
-          <span v-else class="flex items-center gap-1">
-            <span class="i-solar:download-minimalistic-bold-duotone h-4 w-4" />
-            <span>{{ t('onboarding.ui.download-model') }}</span>
-          </span>
-        </Button>
-      </div>
+          <!-- First toolbar row: source filters + import -->
+          <div :class="['flex flex-wrap items-center justify-between gap-2']">
+            <div :class="['flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-950/60 border border-neutral-200/80 dark:border-white/5 text-xs font-medium min-w-0']">
+              <button
+                type="button"
+                :class="[
+                  'px-3 py-1 rounded-lg transition-all cursor-pointer font-medium whitespace-nowrap',
+                  activeSourceFilter === 'all'
+                    ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white font-semibold'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+                ]"
+                @click="activeSourceFilter = 'all'"
+              >
+                {{ t('onboarding.steps.vessel.filters.allCount', { count: allModels.length }) }}
+              </button>
+              <button
+                type="button"
+                :class="[
+                  'px-3 py-1 rounded-lg transition-all cursor-pointer font-medium whitespace-nowrap',
+                  activeSourceFilter === 'installed'
+                    ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white font-semibold'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+                ]"
+                @click="activeSourceFilter = 'installed'"
+              >
+                {{ t('onboarding.steps.vessel.filters.installedCount', { count: installedCount }) }}
+              </button>
+              <button
+                type="button"
+                :class="[
+                  'px-3 py-1 rounded-lg transition-all cursor-pointer font-medium whitespace-nowrap',
+                  activeSourceFilter === 'free'
+                    ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white font-semibold'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+                ]"
+                @click="activeSourceFilter = 'free'"
+              >
+                {{ t('onboarding.steps.vessel.filters.freeCount', { count: freeCount }) }}
+              </button>
+            </div>
 
-      <!-- Visual Style Descriptor Sub-Strip (Artistry auto-injection) -->
-      <div :class="['pt-2 border-t border-neutral-200/50 dark:border-white/5 flex flex-col gap-1']">
-        <div :class="['flex items-center justify-between text-[10px]']">
-          <span :class="['text-neutral-500 dark:text-neutral-400 font-medium']">{{ t('onboarding.ui.visual-style-descriptor') }}</span>
-          <span :class="['text-primary-600 dark:text-primary-400 font-semibold flex items-center gap-1']">
-            <span :class="['i-solar:sparkles-bold-duotone h-3 w-3']" />
-            <span>{{ t('onboarding.ui.auto-injected-to-artistry') }}</span>
-          </span>
-        </div>
-        <div :class="['p-1.5 px-2.5 rounded-lg bg-neutral-100/70 dark:bg-black/30 border border-neutral-200/50 dark:border-white/5 font-mono text-[10px] text-neutral-600 dark:text-neutral-400 line-clamp-1']">
-          {{ displayText(activeModel.prompt) }}
+            <button
+              type="button"
+              :class="[
+                'px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors border whitespace-nowrap',
+                showCustomDropzone
+                  ? 'bg-primary-600 text-white border-primary-600'
+                  : 'border-neutral-200 dark:border-white/10 bg-white/60 dark:bg-white/5 text-neutral-700 dark:text-neutral-200 hover:border-primary-500/50 hover:text-primary-600 dark:hover:text-primary-400',
+              ]"
+              @click="showCustomDropzone = !showCustomDropzone"
+            >
+              <span>{{ t('onboarding.steps.vessel.importCustom') }}</span>
+            </button>
+          </div>
+
+          <!-- Second toolbar row: format filters -->
+          <div :class="['flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-950/60 border border-neutral-200/80 dark:border-white/5 text-xs font-medium w-fit max-w-full']">
+            <button
+              type="button"
+              :class="[
+                'px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap',
+                activeFormatFilter === 'all'
+                  ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white font-semibold'
+                  : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+              ]"
+              @click="activeFormatFilter = 'all'"
+            >
+              {{ t('onboarding.steps.vessel.filters.all') }}
+            </button>
+            <button
+              type="button"
+              :class="[
+                'px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap',
+                activeFormatFilter === 'vrm'
+                  ? 'bg-blue-500 text-white shadow-xs font-semibold'
+                  : 'text-neutral-500 hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-300',
+              ]"
+              @click="activeFormatFilter = 'vrm'"
+            >
+              {{ t('onboarding.steps.vessel.filters.vrm') }}
+            </button>
+            <button
+              type="button"
+              :class="[
+                'px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap',
+                activeFormatFilter === 'live2d'
+                  ? 'bg-teal-500 text-white shadow-xs font-semibold'
+                  : 'text-neutral-500 hover:text-teal-600 dark:text-neutral-400 dark:hover:text-teal-300',
+              ]"
+              @click="activeFormatFilter = 'live2d'"
+            >
+              {{ t('onboarding.steps.vessel.filters.live2d') }}
+            </button>
+            <button
+              type="button"
+              :class="[
+                'px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap',
+                activeFormatFilter === 'spine'
+                  ? 'bg-emerald-500 text-white shadow-xs font-semibold'
+                  : 'text-neutral-500 hover:text-emerald-600 dark:text-neutral-400 dark:hover:text-emerald-300',
+              ]"
+              @click="activeFormatFilter = 'spine'"
+            >
+              {{ t('onboarding.steps.vessel.spine2d') }}
+            </button>
+            <button
+              type="button"
+              :class="[
+                'px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap',
+                activeFormatFilter === 'mmd'
+                  ? 'bg-pink-500 text-white shadow-xs font-semibold'
+                  : 'text-neutral-500 hover:text-pink-600 dark:text-neutral-400 dark:hover:text-pink-300',
+              ]"
+              @click="activeFormatFilter = 'mmd'"
+            >
+              MMD
+            </button>
+          </div>
+
+          <!-- Custom model upload dropzone (collapsible) -->
+          <div
+            v-if="showCustomDropzone"
+            v-motion
+            :initial="{ opacity: 0, height: 0 }"
+            :enter="{ opacity: 1, height: 'auto' }"
+            :duration="250"
+            :class="[
+              'p-3.5 rounded-2xl border-2 border-dashed border-primary-500/50 bg-primary-500/5 backdrop-blur-md',
+              'flex items-center justify-between gap-4 cursor-pointer hover:bg-primary-500/10 transition-colors flex-shrink-0',
+            ]"
+            @dragover.prevent
+            @drop="handleDrop"
+            @click="openFileDialog()"
+          >
+            <div :class="['flex items-center gap-3 min-w-0']">
+              <div :class="['h-10 w-10 rounded-xl bg-primary-500/20 text-primary-500 flex items-center justify-center flex-shrink-0']">
+                <div :class="['i-solar:cloud-upload-bold-duotone h-6 w-6']" />
+              </div>
+              <div :class="['min-w-0']">
+                <div :class="['text-xs font-bold text-neutral-800 dark:text-white flex items-center gap-2']">
+                  <span>{{ t('onboarding.steps.vessel.dropYourCustomModelHereVrmOrZip') }}</span>
+                  <span v-if="isUploading" :class="['text-[10px] text-primary-500 font-mono animate-pulse']">{{ t('onboarding.steps.vessel.import.loading') }}</span>
+                </div>
+                <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                  {{ t('onboarding.steps.vessel.supportsVrm00103dHumanoidsAndLive2dCubismModelZipPackages') }}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              :class="['flex-shrink-0']"
+              @click.stop="openFileDialog()"
+            >
+              {{ t('onboarding.steps.vessel.chooseFile') }}
+            </Button>
+          </div>
+
+          <!-- Flexible carousel stage (renderer sizes from this container) -->
+          <div :class="['min-w-0 min-h-0 w-full flex-1 flex items-center']">
+            <VesselCoverflow
+              :models="filteredModels"
+              :model-value="selectedModelId"
+              @select="handleSelectModel"
+            />
+          </div>
+
+          <!-- Selected-avatar caption -->
+          <div :class="['text-center text-xs text-neutral-500 dark:text-neutral-400 truncate px-2']">
+            <span :title="activeModel.name" :class="['font-bold text-neutral-800 dark:text-neutral-100']">{{ activeModel.name }}</span>
+            <span> · {{ activeModel.formatLabel || activeModel.format.toUpperCase() }} · {{ activeModel.isInstalled ? t('onboarding.steps.vessel.installedBadge') : t('onboarding.steps.vessel.downloadBadge') }}</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Bottom Navigation Bar -->
+    <!-- Shared navigation footer -->
     <div
       :class="[
-        'h-14 border-t border-neutral-200/80 dark:border-neutral-800/80',
-        'flex items-center justify-between flex-shrink-0 pt-2',
+        'flex-shrink-0 pt-4 px-4 sm:px-6 flex items-center justify-between border-t border-neutral-200/80 dark:border-neutral-800/80',
       ]"
     >
       <button
@@ -592,8 +652,12 @@ function handleDrop(e: DragEvent) {
         <span>{{ t('onboarding.shell.previous') }}</span>
       </button>
 
-      <div :class="['text-[11px] text-neutral-400 font-medium']">
-        {{ t('onboarding.ui.selected-vessel-1014e6c6') }} <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ displayText(activeModel.name) }}</span>
+      <div :class="['text-[11px] text-neutral-400 font-medium truncate px-2']">
+        <i18n-t scope="global" keypath="onboarding.steps.vessel.summary.selected" tag="span">
+          <template #name>
+            <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ activeModel.name }}</span>
+          </template>
+        </i18n-t>
       </div>
 
       <Button

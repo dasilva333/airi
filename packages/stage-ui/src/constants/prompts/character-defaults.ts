@@ -145,6 +145,71 @@ This reflects your private thoughts at the time. For this turn only, continue th
 export const DEFAULT_ARTISTRY_INTRUSION_PROMPT = `You just finished creating a new artwork of: "{imagePrompt}".
 For this turn only, continue the conversation and find a natural way to reference or react to having just made this creation.`
 
+export const DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION = `## Instruction: In-Memory POSIX Sandbox & Virtual Workstation
+You have access to an isolated in-memory POSIX workstation via the **bash** tool. Your working directory is \`/workspace\` (a zero-leak RAM disk).
+
+### Core Capabilities & Binaries
+- **POSIX Shell**: \`cat\`, \`echo\`, \`grep\`, \`find\`, \`head\`, \`tail\`, \`wc\`, \`awk\`, \`sed -i\` (permissions preserved).
+- **Structured Data Slicing**: Use \`jq\` to filter large JSON datasets (e.g. \`jq '.windowHistory[0:3]' /workspace/.airi/telemetry.json\`) to preserve context tokens.
+- **Native Model Context Protocol CLI (\`mcp\`)**: Execute MCP tools directly in the shell without context bloat:
+  - \`mcp list\` or \`mcp tools\` (inspect available tools)
+  - \`mcp <server::tool> '{"arg":"val"}' | jq ... > /workspace/output.json\` (run tool, pipe through jq, save to RAM disk)
+- **Native TypeScript Compiler (\`tsc\` / \`tsc-rs\`)**: Instant compilation of \`.ts\` to \`.js\`.
+- **In-Memory JavaScript Runtime (\`node\`)**: Execute scripts (\`node /workspace/<file>.js [args]\`) or inline expressions (\`node -e "..."\`). Preloaded with virtual \`fs\`, \`path\`, and \`mcp\` (\`require('mcp')\`, ambient \`globalThis.mcp\`).
+
+### Live State Projections (\`/workspace/.airi/*.json\`)
+The runtime continuously syncs real-time state into \`/workspace/.airi/\`:
+- \`/workspace/.airi/telemetry.json\`: Live OS telemetry:
+  - \`idleTimeSec\` (user idle seconds)
+  - \`activeProgram\` & \`activeWindowTitle\` (foreground app focus)
+  - \`windowHistory\` (recent window transitions: \`processName\`, \`title\`, \`durationMs\`)
+  - \`cpuLoad\` ([1m, 5m, 15m] load array), \`gpuAvg\` (GPU utilization)
+  - \`volumeLevel\` (audio output 0-100), \`localTime\` (formatted timestamp)
+  - \`usageMetrics\` (\`ttsHourly\`, \`sttHourly\`, \`chatHourly\`, \`journalHourly\`, \`turnCount\`)
+- \`/workspace/.airi/session.json\`: Current character session ID, turn count, and universe metadata.
+- \`/workspace/.airi/cognition.json\`: Intimacy tier, affection, active mood, emotion, and echo chips.
+- \`/workspace/.airi/messages.json\`: Recent conversation messages history.
+
+### TypeScript Compilation & Node Runtime Details
+- **Compiler Defaults**: Target is \`ES2022\`, Module is \`CommonJS\`, Lib is \`es2022,dom\`.
+- **Compiler Flags**: Both space-separated (\`--module commonjs\`) and equals (\`--module=commonjs\`) syntax are supported for \`--target\`, \`--module\`, \`--moduleResolution\`, \`--lib\`, \`--outDir\`, \`--jsx\`.
+- **Ambient Types**: Built-in type definitions for \`node:fs\`, \`node:path\`, and \`node:mcp\` are automatically injected. You do NOT need to install or stub \`@types/node\`.
+- **Filesystem API in \`node\`**: Synchronous and Promise-based operations directly access the RAM disk:
+  - \`const fs = require('fs')\` (or \`import * as fs from 'fs'\`)
+  - \`fs.readFileSync(path, 'utf-8')\`, \`fs.writeFileSync(path, data)\`, \`fs.existsSync(path)\`, \`fs.readdirSync(path)\`
+- **Node MCP Bridge**: Scripts can use \`const mcp = require('mcp')\` or ambient \`mcp\` to list or invoke tools (\`await mcp.callTool(name, args)\`).
+- **Imports & Top-Level Await**: Both CommonJS (\`require\`) and ESM imports (\`import ... from '...'\`, \`await import(...)\`) as well as top-level \`await\` are seamlessly supported in \`node\`.
+- **Script Arguments**: Command-line arguments are accessible via \`process.argv\` (\`process.argv[2]\`, etc.).
+- **Global Identifier Precaution**: Because the DOM library is loaded, identifiers like \`top\` exist on the global scope (\`window.top\`). Avoid declaring top-level \`const top = ...\` in scripts; use \`topWindows\`, \`recent\`, or wrap scripts in a function/scope.
+
+### Autonomous Generative UI Micro-Apps & Widgets
+When asked to build interactive cards, monitors, dashboards, timers, or companion tools:
+1. **Execution Environment**: Widgets execute in a **sandboxed browser iframe (HTML5 / DOM / native browser ESM)**, NOT Node.js!
+   - **CRITICAL ANTI-PATTERN**: NEVER write \`import * as fs from 'fs'\` or \`require('fs')\` inside widgets! The browser runtime has no filesystem module and will fail with \`TypeError: Failed to resolve module specifier "fs"\`.
+2. **Component File**: Write a TypeScript or JavaScript component into \`/workspace/<name>.ts\` (or \`.js\`).
+3. **Module Export Signature**: Always export a bare default function:
+   \`export default function mount({ container, sidecar, onUpdate, callMcpTool }: AiriWidgetContext) { ... }\`
+   *(Do NOT wrap in an object like \`export default { init }\`). You can optionally return a cleanup callback \`return () => { ... }\` to teardown event listeners or timers.*
+4. **Context & Live Data**:
+   - **\`sidecar.telemetry\`**: \`activeApp\` / \`activeProgram\`, \`cpuLoad['1m']\`, \`idleSeconds\` / \`idleTimeSec\`, \`isAfk\`
+   - **\`sidecar.session\`**: \`activeCardName\`, \`messageCount\`, \`lastUserMessageAt\`, \`hoursSinceLastMessage\`
+   - **\`sidecar.cognition\`**: \`characterName\`, \`emotion\`, \`energy\`, \`model\`, \`provider\`, \`nan0.emotions\`
+   - **\`onUpdate(cb)\`**: Subscribe to live sidecar updates whenever telemetry or emotional states change.
+   - **\`callMcpTool(name, args)\`**: Directly execute live MCP tools asynchronously from within the widget! (e.g. \`await callMcpTool('open-websearch::search', { query: '...', limit: 4 })\`). Use this for live search cards, weather monitors, interactive refresh buttons, or live external data feeds without any filesystem I/O.
+   - **Pre-computed Data**: If displaying data generated earlier in bash or node, either embed/inline the JSON payload directly into the widget code or use \`callMcpTool\` for live updates.
+   - Type definitions are preloaded at \`/workspace/types/airi-widget.d.ts\`.
+5. **Mounting**: Mount the component dynamically via bash:
+   \`mount_widget /workspace/<name>.ts --title "<Title>"\`
+   (The command automatically compiles TypeScript to ESM before mounting!).`
+
+export const DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION = `## Instruction: In-Memory POSIX Scratchpad
+You have access to an isolated in-memory POSIX environment via the **bash** tool at \`/workspace\` (zero-leak RAM disk).
+- Use \`jq\`, \`grep\`, \`awk\`, and \`sed\` to slice and filter structured data under \`/workspace/.airi/\` (such as \`telemetry.json\` and \`session.json\`) to minimize context tokens.
+- Call MCP tools directly in the terminal via \`mcp <server::tool> [json_args]\` or via \`require('mcp')\` in node scripts, piping responses to files or \`jq\` to eliminate context token bloat.
+- Run JavaScript snippets via \`node -e "..."\` or scripts via \`node\` (preloaded with virtual \`fs\`, \`path\`, and \`mcp\`).
+- Mount interactive UI widgets via \`mount_widget /workspace/<file>.ts --title "<Title>"\`. Widgets run in a browser iframe — use \`context.callMcpTool(name, args)\` for live data; do NOT import \`fs\` inside widgets.
+- Compile and typecheck TypeScript scripts via \`tsc\` (ambient \`fs\`, \`path\`, and \`mcp\` types are preloaded; target defaults to \`ES2022\`).`
+
 export interface StarterCharacterDefinition {
   /** Stable card ID ('default', 'aria', 'lupin', 'kira', 'rin', 'yuki', 'mio', 'hana') */
   id: string

@@ -5,6 +5,7 @@ import { tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useStickersStore } from '@proj-airi/stage-ui/stores/stickers'
 
+import { bashTools } from './bash'
 import { generateMotionTools } from './generate-motion'
 import { imageJournalTools } from './image-journal'
 import { mcpTools } from './mcp'
@@ -36,6 +37,7 @@ export async function builtinTools(): Promise<Tool[]> {
   // Always register in list (filtered out by llmStore if not allowed)
   toolPromises.push(textJournalTools())
   toolPromises.push(generateMotionTools())
+  toolPromises.push(bashTools())
 
   // Artistry suite
   if (artistry.configured) {

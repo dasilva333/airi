@@ -5,7 +5,8 @@ import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useMmd } from '@proj-airi/stage-ui-mmd/stores/mmd'
 import { useSpine } from '@proj-airi/stage-ui-spine'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
-import { onClickOutside, useBroadcastChannel, useColorMode, useLocalStorage } from '@vueuse/core'
+import { useTheme } from '@proj-airi/ui'
+import { onClickOutside, useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, toRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -42,7 +43,7 @@ const stageModelSettings = useSettingsStageModel()
 const { gunslingerStance } = storeToRefs(stageModelSettings)
 
 console.log('[ControlStrip.vue] Setup loaded with Selfie feature support')
-const colorMode = useColorMode()
+const { themeMode, isDark } = useTheme()
 const controlStripStore = useSettingsControlStrip()
 const { orientation, buttons, stageEnabled, stageMateEnabled, chatOpen, captionOpen, backgroundTint, stageMode, collapsed, dockedEdge, selfieIncludeBg } = storeToRefs(controlStripStore)
 const isHoveredHandle = ref(false)
@@ -1374,7 +1375,9 @@ function getButtonIcon(btnId: string, defaultIcon: string): string {
     return 'i-solar:cursor-bold-duotone'
   }
   if (btnId === 'theme-mode') {
-    return colorMode.value === 'light' ? 'i-solar:moon-linear' : 'i-solar:sun-linear'
+    if (themeMode.value === 'auto')
+      return 'i-solar:laptop-minimalistic-linear'
+    return isDark.value ? 'i-solar:moon-linear' : 'i-solar:sun-linear'
   }
   if (btnId === 'caption-docking') {
     return settingsStore.captionDocking === 'top' ? 'i-solar:align-top-line-duotone' : 'i-solar:align-bottom-line-duotone'
@@ -1822,7 +1825,7 @@ function getShortLabel(btnId: string): string {
           v-if="btn.id === 'theme-mode'"
           :class="[
             'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            colorMode === 'dark' ? 'bg-green-500' : 'bg-red-500',
+            themeMode === 'auto' ? 'bg-cyan-500' : isDark ? 'bg-green-500' : 'bg-amber-500',
           ]"
         />
 

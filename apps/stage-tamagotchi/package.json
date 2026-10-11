@@ -110,6 +110,7 @@
     "replicate": "^1.0.1",
     "systeminformation": "^5.23.5",
     "three": "^0.184.0",
+    "tsc-rs": "catalog:",
     "unified": "^11.0.5",
     "unspeech": "catalog:xsai",
     "uuid": "^13.0.0",

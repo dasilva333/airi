@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIRI In-Memory Sandbox — Phase 2 (@xsai Agent Loop)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <!-- Top Navigation Bar -->
+  <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md px-6 py-3 flex items-center justify-between sticky top-0 z-40">
+    <div class="flex items-center gap-3">
+      <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 font-bold text-white text-base">
+        A
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm font-semibold tracking-wide text-white">Project AIRI</h1>
+          <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Phase 4 · tsc-rs + Generative UI Canvas</span>
+        </div>
+        <p class="text-xs text-slate-400">Zero-VM Virtual Workspace, Native Rust tsc & Dynamic Canvas</p>
+      </div>
+    </div>
+
+    <!-- Right Header Actions -->
+    <div class="flex items-center gap-3 text-xs">
+      <!-- Remote MCP Status Pill -->
+      <div
+        id="mcpStatusBadge"
+        class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-mono text-[11px]"
+        title="Remote MCP Server Status (/mcp via Streamable HTTP)"
+      >
+        <span id="mcpStatusDot" class="h-2 w-2 rounded-full bg-indigo-400 animate-pulse"></span>
+        <span id="mcpStatusText" class="font-medium">MCP: Connecting...</span>
+      </div>
+
+      <!-- Provider & Model Status Pill -->
+      <button
+        id="providerStatusBtn"
+        onclick="openSettingsModal()"
+        class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition cursor-pointer"
+        title="Click to configure API Key & Provider"
+      >
+        <span id="providerStatusDot" class="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="providerStatusText" class="font-medium font-mono text-[11px]">⚠️ Set API Key</span>
+      </button>
+
+      <!-- Settings Button -->
+      <button
+        onclick="openSettingsModal()"
+        class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>Settings</span>
+      </button>
+
+      <!-- Clear Chat Button -->
+      <button
+        onclick="clearChat()"
+        class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+        title="Reset conversation history"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        <span>Clear Chat</span>
+      </button>
+
+      <!-- Reset Filesystem Button -->
+      <button
+        onclick="resetSandbox()"
+        class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+        title="Reset RAM disk to default seeded files"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        <span>Reset FS</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Settings Modal (Pure Client-Side Configuration) -->
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
+        <div class="flex items-center gap-2.5">
+          <div class="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-white">LLM Provider Configuration</h3>
+            <p class="text-[11px] text-slate-400">Pure client-side @xsai stream loop — credentials never touch any server</p>
+          </div>
+        </div>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-200 p-1 cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 text-xs">
+        <!-- API Key Input -->
+        <div class="space-y-1.5">
+          <label class="font-medium text-slate-200 flex items-center justify-between">
+            <span>API Key <span class="text-rose-400">*</span></span>
+            <span class="text-[10px] text-slate-500">Stored in browser localStorage</span>
+          </label>
+          <div class="relative">
+            <input
+              id="cfgApiKey"
+              type="password"
+              placeholder="sk-or-v1-... (OpenRouter / OpenAI key)"
+              class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono text-xs pr-10"
+            />
+            <button
+              type="button"
+              onclick="toggleApiKeyVisibility()"
+              class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-200 cursor-pointer"
+              title="Toggle visibility"
+            >
+              <svg id="eyeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Base URL Input -->
+        <div class="space-y-1.5">
+          <label class="font-medium text-slate-200 flex items-center justify-between">
+            <span>Base URL</span>
+            <span class="text-[10px] text-slate-500">OpenRouter or OpenAI-compatible endpoint</span>
+          </label>
+          <input
+            id="cfgBaseUrl"
+            type="text"
+            placeholder="https://openrouter.ai/api/v1"
+            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono text-xs"
+          />
+        </div>
+
+        <!-- Model ID Input -->
+        <div class="space-y-1.5">
+          <label class="font-medium text-slate-200 flex items-center justify-between">
+            <span>Model ID</span>
+            <span class="text-[10px] text-slate-500">Pick a preset or enter custom model</span>
+          </label>
+          <input
+            id="cfgModel"
+            type="text"
+            placeholder="deepseek/deepseek-v4.1-flash"
+            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono text-xs"
+          />
+          <!-- Preset Chips -->
+          <div class="flex flex-wrap gap-1.5 pt-1">
+            <button type="button" onclick="setModelPreset('deepseek/deepseek-v4.1-flash')" class="px-2 py-0.5 rounded bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 border border-blue-700/60 text-[10px] font-mono cursor-pointer">deepseek-v4.1-flash</button>
+            <button type="button" onclick="setModelPreset('anthropic/claude-3.5-sonnet')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 text-[10px] font-mono cursor-pointer">claude-3.5-sonnet</button>
+            <button type="button" onclick="setModelPreset('anthropic/claude-3.7-sonnet')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 text-[10px] font-mono cursor-pointer">claude-3.7-sonnet</button>
+            <button type="button" onclick="setModelPreset('google/gemini-2.5-flash')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 text-[10px] font-mono cursor-pointer">gemini-2.5-flash</button>
+            <button type="button" onclick="setModelPreset('openai/gpt-4o-mini')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 text-[10px] font-mono cursor-pointer">gpt-4o-mini</button>
+            <button type="button" onclick="setModelPreset('meta-llama/llama-3.3-70b-instruct')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 text-[10px] font-mono cursor-pointer">llama-3.3-70b</button>
+          </div>
+        </div>
+
+        <!-- System Prompt -->
+        <div class="space-y-1.5">
+          <label class="font-medium text-slate-200 flex items-center justify-between">
+            <span>System Persona & Instructions</span>
+            <button type="button" onclick="resetDefaultSystemPrompt()" class="text-[10px] text-blue-400 hover:underline cursor-pointer">Reset Default</button>
+          </label>
+          <textarea
+            id="cfgSystemPrompt"
+            rows="3"
+            class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono text-[11px] resize-none"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="px-6 py-3.5 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between">
+        <span id="cfgSaveNotice" class="text-[11px] text-emerald-400 opacity-0 transition-opacity font-medium">✓ Configuration saved!</span>
+        <div class="flex items-center gap-2">
+          <button onclick="closeSettingsModal()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition cursor-pointer">
+            Cancel
+          </button>
+          <button onclick="saveSettings()" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-md shadow-blue-500/20 transition cursor-pointer">
+            Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Split Layout (Strict Two Columns) -->
+  <main class="flex-1 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-800/80 overflow-hidden">
+    
+    <!-- LEFT COLUMN: Chat Interface -->
+    <section class="w-full md:w-1/2 flex flex-col h-[calc(100vh-65px)] bg-slate-900/30">
+      <div class="px-6 py-3.5 border-b border-slate-800/80 bg-slate-900/40 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="h-2.5 w-2.5 rounded-full bg-blue-500"></div>
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Companion Chat Interface</h2>
+        </div>
+        <span class="text-[11px] text-slate-500 font-mono">Client-Side @xsai Loop</span>
+      </div>
+
+      <!-- Chat Stream Messages -->
+      <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-4 chat-scroll">
+        <!-- System greeting pill -->
+        <div class="flex justify-center">
+          <div class="text-[11px] text-slate-400 bg-slate-800/60 border border-slate-700/50 rounded-full px-3.5 py-1 flex items-center gap-2">
+            <span>✨ In-memory POSIX workspace active at <span class="font-mono text-blue-400">/workspace</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Composer Box -->
+      <div class="p-4 border-t border-slate-800/80 bg-slate-900/60 backdrop-blur-sm">
+        <form id="chatForm" onsubmit="handleChatSubmit(event)" class="relative flex items-center">
+          <input
+            id="chatInput"
+            type="text"
+            placeholder="Ask Airi: 'Ping the remote MCP server' or 'Check weather in Tokyo and save to tokyo.json'..."
+            class="w-full rounded-xl bg-slate-800/80 border border-slate-700/60 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition pr-24"
+          />
+          <button
+            type="submit"
+            id="chatSubmitBtn"
+            class="absolute right-2 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-medium text-white transition shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span>Send</span>
+          </button>
+        </form>
+        <div class="flex items-center justify-between mt-2 px-1 text-[11px] text-slate-500">
+          <span>Direct browser-to-LLM dispatch via @xsai</span>
+          <span class="font-mono">bash() + tsc + Remote MCP + mount_widget()</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: Dual-Mode Workspace (Terminal ↔ Generative Canvas) -->
+    <section class="w-full md:w-1/2 flex flex-col h-[calc(100vh-65px)] bg-slate-950">
+      
+      <!-- Right Pane Tab Bar -->
+      <div class="px-4 py-2.5 border-b border-slate-800/80 bg-slate-900/50 flex items-center justify-between select-none">
+        <!-- Tabs -->
+        <div class="flex items-center gap-1.5 p-1 bg-slate-950/60 rounded-xl border border-slate-800/80 text-xs font-medium">
+          <button
+            id="tabBtnTerminal"
+            onclick="switchRightTab('terminal')"
+            class="px-3 py-1.5 rounded-lg flex items-center gap-2 bg-slate-800 text-white font-medium shadow-sm transition cursor-pointer"
+          >
+            <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+            <span>Terminal</span>
+          </button>
+          <button
+            id="tabBtnCanvas"
+            onclick="switchRightTab('canvas')"
+            class="px-3 py-1.5 rounded-lg flex items-center gap-2 text-slate-400 hover:text-slate-200 transition cursor-pointer"
+          >
+            <span id="canvasTabDot" class="h-2 w-2 rounded-full bg-slate-600"></span>
+            <span>Generative Canvas</span>
+            <span id="canvasActiveBadge" class="hidden text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Live</span>
+          </button>
+        </div>
+
+        <!-- Terminal Specific Header Controls -->
+        <div id="terminalHeaderControls" class="flex items-center gap-2 text-xs">
+          <span class="text-slate-500 font-mono text-[11px]">cwd: /workspace</span>
+          <button onclick="clearTerminal()" class="text-slate-400 hover:text-slate-200 text-xs cursor-pointer px-2 py-1 rounded hover:bg-slate-800 transition">Clear</button>
+        </div>
+
+        <!-- Canvas Specific Header Controls -->
+        <div id="canvasHeaderControls" class="hidden items-center gap-2 text-xs">
+          <div id="canvasArtifactPill" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-mono text-[11px] truncate max-w-[200px]">
+            <span>✨</span>
+            <span id="canvasArtifactName" class="truncate">No widget mounted</span>
+          </div>
+          <button onclick="reloadCanvasWidget()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer" title="Reload widget">
+            ↻ Reload
+          </button>
+          <button onclick="switchRightTab('terminal')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition cursor-pointer">
+            Terminal
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 1: Terminal Panel -->
+      <div id="terminalPanel" class="flex-1 flex flex-col overflow-hidden">
+        <!-- Quick Command Chips Bar -->
+        <div class="px-4 py-2 border-b border-slate-800/50 bg-slate-900/20 flex flex-wrap gap-1.5 items-center">
+          <span class="text-[11px] text-slate-500 mr-1 font-mono">Quick Runs:</span>
+          <button onclick="runHumanCommand('ls -la')" class="px-2 py-0.5 rounded text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono border border-slate-700/60 cursor-pointer">ls -la</button>
+          <button onclick="runHumanCommand('tsc -v')" class="px-2 py-0.5 rounded text-[11px] bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 font-mono border border-blue-700/60 cursor-pointer">tsc -v</button>
+          <button onclick="runHumanCommand('tsc src/index.ts')" class="px-2 py-0.5 rounded text-[11px] bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 font-mono border border-blue-700/60 cursor-pointer">tsc src/index.ts</button>
+          <button onclick="runHumanCommand('cat notes.txt')" class="px-2 py-0.5 rounded text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono border border-slate-700/60 cursor-pointer">cat notes.txt</button>
+          <button onclick="runHumanCommand('cat data.json | jq .')" class="px-2 py-0.5 rounded text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono border border-slate-700/60 cursor-pointer">cat data.json | jq .</button>
+          <button onclick="runHumanCommand('grep -i phase todo.md')" class="px-2 py-0.5 rounded text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono border border-slate-700/60 cursor-pointer">grep phase</button>
+        </div>
+
+        <!-- Terminal Output Display -->
+        <div id="terminalOutput" class="flex-1 overflow-y-auto p-4 terminal-scroll font-mono text-xs text-slate-200 space-y-3">
+          <div class="text-slate-500 select-none">
+            ══════════════════════════════════════════════════════════════════<br>
+            AIRI IN-MEMORY BASH ENVIRONMENT (just-bash v3.6.0)<br>
+            TypeScript 7.1.0-dev Compiler (tsc-rs) bound as 'tsc'<br>
+            Virtual RAM Disk: 100% Host-Isolated. Shared with AI Agent.<br>
+            Human commands run in emerald; Agent tool calls echo in indigo.<br>
+            ══════════════════════════════════════════════════════════════════
+          </div>
+        </div>
+
+        <!-- Terminal Input Line -->
+        <div class="p-3 border-t border-slate-800/80 bg-slate-900/60">
+          <form id="termForm" onsubmit="handleTerminalSubmit(event)" class="flex items-center gap-2">
+            <span class="font-mono text-xs text-emerald-400 font-semibold select-none pl-1">airi@sandbox:~$</span>
+            <input
+              id="termInput"
+              type="text"
+              autofocus
+              placeholder="ls -la /workspace or tsc /workspace/src/index.ts"
+              class="flex-1 bg-transparent border-0 font-mono text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-0"
+            />
+            <button
+              type="submit"
+              id="termBtn"
+              class="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-xs font-mono font-medium text-white transition shadow-sm cursor-pointer disabled:opacity-50"
+            >
+              Exec
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- TAB 2: Generative Canvas Panel (Preview) -->
+      <div id="canvasPanel" class="hidden flex-1 flex flex-col overflow-hidden bg-slate-950">
+        <!-- Empty State (Shown before any widget is mounted) -->
+        <div id="canvasEmptyState" class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+          <div class="h-16 w-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-3xl shadow-lg shadow-indigo-500/10 mb-4 animate-bounce">
+            ✨
+          </div>
+          <h3 class="text-sm font-semibold text-white">Generative UI Canvas</h3>
+          <p class="text-xs text-slate-400 max-w-sm mt-1.5 leading-relaxed">
+            Dynamic Generative UI stage. The AI agent compiles TypeScript modules with <code class="text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/60">tsc</code> and mounts interactive widgets here using <code class="text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/60">mount_widget()</code>.
+          </p>
+          <div class="mt-6 flex flex-wrap gap-2 justify-center">
+            <button onclick="demoWeatherWidget()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-md shadow-indigo-500/20 transition cursor-pointer flex items-center gap-2">
+              <span>🚀 Launch Sample Weather Widget</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Mounted Widget Frame Container -->
+        <div id="canvasFrameWrapper" class="hidden flex-1 p-4 overflow-hidden">
+          <div class="w-full h-full rounded-2xl border border-slate-800/80 bg-slate-900/40 overflow-hidden shadow-2xl relative">
+            <iframe
+              id="canvasIframe"
+              class="w-full h-full border-0 bg-transparent"
+              sandbox="allow-scripts allow-modals"
+              title="Generative UI Preview"
+            ></iframe>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

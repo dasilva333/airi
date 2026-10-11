@@ -1549,6 +1549,9 @@ theme:
   title: 테마
   description: |
     AIRI의 전반적인 테마를 바꿉니다.
+  auto: 시스템
+  light: 라이트
+  dark: 다크
 title: 설정
 voices: 음성
 vrm:

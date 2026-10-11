@@ -164,6 +164,244 @@ If CUIPP is ever extracted into something open and reusable, the scope should be
 
 `remix` should be treated as a CUIPP-first capability that can later expand to other providers, not as something every provider must support on day one.
 
+## 13. The Generative UI Breakthrough: From Static Templates to Autonomous Micro-Apps
+
+### The Legacy Bottleneck
+Sections 3 through 6 outlined the original 2026 widget paradigm:
+- The model called `stage_widgets` with `{ componentName: "weather", componentProps: "..." }`.
+- The renderer looked up `Registry[componentName]` (`Weather.vue`, `Map.vue`, `Artistry.vue`, `Sticker.vue`).
+- Anything unknown fell back to `GenericWidget` (an unstyled `JSON.stringify` text dump).
+- The prompt explicitly forbade HTML: *"Never write raw HTML for widgets. Always use the stage_widgets tool."*
+
+This meant the agent was handcuffed to pre-compiled templates. It could not customize layout, build a Pomodoro timer, compose an interactive audio visualizer, design an arcade game (like Snake), or craft a bespoke financial dashboard.
+
+### The Missing Link: Sandbox + `tsc-rs` + Dynamic Generative UI
+The prototype developed in `scripts/tests/just-bash-harness` bridges this gap completely:
+1. **In-Memory POSIX Workspace (`just-bash`)**: Provides an isolated RAM disk at `/workspace` with zero host disk leakage.
+2. **Native Rust TypeScript Compiler (`tsc-rs`)**: Drop-in `tsc` compiler executing in 2ms on macOS ARM64 / Linux x64 with full static typechecking and diagnostic feedback loop.
+3. **Dynamic Generative UI Execution**: The agent fetches external data (e.g. via Remote MCP), writes a typed component (`/workspace/<widget>.ts`), compiles it via `tsc`, and mounts it dynamically.
+
+## 14. Tri-Modal Surface Architecture
+
+To accommodate the user experience across the desktop interface (as seen in the Chat Window and Inspector Stack), Generative UI is structured around **three distinct presentation modalities**:
+
+```mermaid
+flowchart TD
+    LLM["Autonomous Agent / LLM"] -->|Writes & Compiles| TS["/workspace/widget.ts -> widget.js"]
+    TS --> Decision{"Target Modality"}
+    Decision -->|Inline in Chat| M1["Modality A: Inline Chat Widget<br/>(Embedded Card in Bubble)"]
+    Decision -->|Sidepanel Inspector| M2["Modality B: Sidepanel Inspector<br/>(Docked in Accordion Stack)"]
+    Decision -->|Floating OS Window| M3["Modality C: Standalone OS Window<br/>(Frameless Electron Window)"]
+```
+
+### Modality A: Inline Chat Widget (`spawn_gen_inline` / `<agent-embed>`)
+- **Location**: Rendered directly inside the conversational transcript bubble.
+- **Use Case**: Ephemeral calculations, quick inline data graphs, interactive multi-choice polls, or compact visual summaries.
+- **Constraints**: Compact height budget (<500px), transparent card background blending seamlessly with chat typography.
+
+### Modality B: Sidepanel Inspector Widget (`spawn_gen_sidepanel`)
+- **Location**: Docked within the collapsible right-hand Inspector Stack (alongside `STAGE`, `NANO COGNITION`, `MEMORIES`, `CURRENT SCENE`, and `MEDIA GALLERY`).
+- **Collapsible Workspace / Terminal Section**: A dedicated accordion pane (`WORKSPACE / TERMINAL ⌵`) that allows the user to expand and monitor the agent's real-time bash execution, `tsc` compilation logs, and filesystem state.
+- **Collapsible Widgets Section**: A dedicated accordion pane (`GENERATIVE WIDGETS ⌵`) that renders persistent micro-apps and tools alongside the 3D Stage.
+- **Use Case**: Ambient companion tools (live clock/timer, Spotify mini-player, system health monitor, persistent task list).
+
+### Modality C: Standalone Desktop Widget (`spawn_gen_widget`)
+- **Location**: An independent, frameless, draggable, floating Electron desktop window managed by `WidgetsWindowManager`.
+- **Use Case**: Desktop "living wall" accessories that stay on screen even when the main chat window is minimized or collapsed (e.g. floating weather radar, pet tamagotchi mini-display, persistent calendar HUD).
+
+## 15. Unified Tool Contract Evolution
+
+To unify legacy pre-baked templates with dynamic generative micro-apps, the `stage_widgets` tool contract expands:
+
+```typescript
+export const stageWidgetsSchema = z.object({
+  action: z.enum(['spawn', 'spawn_gen_widget', 'spawn_gen_sidepanel', 'spawn_gen_inline', 'update', 'remove', 'clear', 'open']),
+  id: z.string().optional(),
+  title: z.string().optional(),
+  // For legacy pre-compiled Vue templates:
+  componentName: z.enum(['weather', 'map', 'artistry', 'comfy', 'sticker']).optional(),
+  componentProps: z.string().optional(),
+  // For dynamic generative micro-apps:
+  scriptPath: z.string().optional().describe('Path to compiled ES module in /workspace, e.g. /workspace/weather_card.js'),
+  data: z.record(z.any()).optional().describe('Context data passed to the widget mount function'),
+  size: z.enum(['s', 'm', 'l']).default('m'),
+  ttlSeconds: z.number().default(0),
+})
+```
+
+### 15.1 The Three-Tiered State Bridges: Connecting Generative Micro-Apps to AIRI's Live State
+
+A generative widget is only as compelling as the data powering it. Rather than forcing widgets to be static snapshots or requiring continuous LLM polling, AIRI establishes a **Three-Tiered State Bridge** connecting the agent and its widgets directly to AIRI's rich in-memory session, cognition, and telemetry state:
+
+```mermaid
+flowchart LR
+    State["AIRI In-Memory State<br/>(Session • Cognition • Telemetry)"]
+
+    State -->|Level 1: Virtual Filesystem Projection| VFS["/workspace/.airi/<br/>(session.json, cognition.json)"]
+    State -->|Level 2: Remote MCP Protocol| MCP["airi::* Tools & Resources<br/>(get_session_stats, airi://session)"]
+    State -->|Level 3: Reactive Sidecar Injection| Widget["Widget Mount Contract<br/>mount({ container, sidecar, onUpdate })"]
+
+    VFS -->|CLI Inspection: jq, cat, awk| LLM["Agent Bash Scratchpad"]
+    MCP -->|Structured Querying| LLM
+    Widget -->|Live Subscriptions & Rerendering| UI["Rendered Micro-App UI"]
+```
+
+#### Level 1: Virtual Filesystem Bridge (`/workspace/.airi/`)
+The in-memory RAM disk projects read-only virtual state files under `/workspace/.airi/`:
+* `/workspace/.airi/session.json`: Current session ID, active character card name, total message count, last user message timestamp, and elapsed hours.
+* `/workspace/.airi/cognition.json`: Active emotional valence, arousal, somatic state (e.g. `focused`, `sleepy`, `daydreaming`), and attention focus.
+* `/workspace/.airi/telemetry.json`: AFK/idle seconds, active foreground application, window dimensions, and audio playback status.
+* `/workspace/.airi/messages.json`: Recent transcript turns with role, timestamp, and token counts.
+
+**Why this matters**: The model can use native POSIX tools (`cat`, `jq`, `awk`, `head`) to inspect real timestamps, calculate diffs, and test formulas before writing widget code—without cluttering the LLM conversation context with massive state dumps:
+```bash
+airi@sandbox:~$ cat /workspace/.airi/session.json | jq '{hours: .hoursSinceLastMessage, messages: .messageCount}'
+{
+  "hours": 3.42,
+  "messages": 18
+}
+```
+
+#### Level 2: MCP State Bridge (`airi::*` Tools & Resources)
+For formal structured queries within tool-call loops, AIRI exposes native MCP endpoints over Streamable HTTP:
+* `airi::get_session_stats`: Returns validated session metadata, turn history, and interaction velocity.
+* `airi::get_cognition_vector`: Returns somatic states, mood scores, and active Director concept stacks.
+* Resource `airi://session/active`: Subscribable resource stream for real-time state synchronization.
+
+#### Level 3: Widget Contract Bridge (Reactive `sidecar` Injection)
+When a generative widget is mounted (whether Inline, Sidepanel, or Floating Window), the host runtime injects an `AiriWidgetContext` with a localized, reactive `sidecar` snapshot and an `onUpdate` event listener:
+
+```typescript
+export interface AiriWidgetSidecar {
+  session: {
+    id: string
+    activeCardName: string
+    messageCount: number
+    lastUserMessageAt: string // ISO-8601
+    hoursSinceLastMessage: number
+  }
+  cognition: {
+    emotion: string
+    valence: number // -1.0 to 1.0
+    energy: number // 0.0 to 1.0
+    somaticState?: 'focused' | 'restless' | 'sleepy' | 'engaged'
+  }
+  telemetry: {
+    isAfk: boolean
+    idleSeconds: number
+    activeApp?: string
+  }
+}
+
+export interface AiriWidgetContext {
+  container: HTMLElement
+  sidecar: AiriWidgetSidecar
+  /**
+   * Subscribes to live state updates pushed from AIRI's runtime stores.
+   * Returns an unsubscribe cleanup function.
+   */
+  onUpdate: (callback: (updatedSidecar: AiriWidgetSidecar) => void) => () => void
+}
+```
+
+### 15.2 Canonical Reference: The "Hours Since Last Message" Companion Widget
+
+The following is a complete, typed component demonstrating how the agent leverages the Level 3 sidecar contract to create a live, reactive companion widget:
+
+```typescript
+// /workspace/time_since_last_message.ts
+import type { AiriWidgetContext, AiriWidgetSidecar } from './types/airi-widget'
+
+export default function mount({ container, sidecar, onUpdate }: AiriWidgetContext) {
+  let currentSidecar = sidecar
+
+  function formatDuration(ms: number): string {
+    const totalSecs = Math.max(0, Math.floor(ms / 1000))
+    const hours = Math.floor(totalSecs / 3600)
+    const mins = Math.floor((totalSecs % 3600) / 60)
+    const secs = totalSecs % 60
+    if (hours > 0)
+      return `${hours}h ${mins}m ${secs}s`
+    if (mins > 0)
+      return `${mins}m ${secs}s`
+    return `${secs}s`
+  }
+
+  container.innerHTML = `
+    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-700/60 backdrop-blur-md text-white shadow-xl">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs uppercase tracking-wider text-slate-400 font-medium">Session Pulse</span>
+        <span id="emotion-tag" class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono"></span>
+      </div>
+      <div class="text-2xl font-bold font-mono text-emerald-400 mb-1" id="timer-display">--:--:--</div>
+      <div class="text-xs text-slate-400 flex justify-between">
+        <span>Since last talk with <span class="text-slate-200 font-medium" id="card-name"></span></span>
+        <span id="msg-count" class="font-mono text-slate-300"></span>
+      </div>
+    </div>
+  `
+
+  const timerEl = container.querySelector('#timer-display')!
+  const emotionEl = container.querySelector('#emotion-tag')!
+  const cardNameEl = container.querySelector('#card-name')!
+  const msgCountEl = container.querySelector('#msg-count')!
+
+  function renderStatic() {
+    cardNameEl.textContent = currentSidecar.session.activeCardName || 'AIRI'
+    emotionEl.textContent = `${currentSidecar.cognition.emotion} (${Math.round(currentSidecar.cognition.energy * 100)}% nrg)`
+    msgCountEl.textContent = `${currentSidecar.session.messageCount} msgs`
+  }
+
+  function updateTimer() {
+    const lastDate = new Date(currentSidecar.session.lastUserMessageAt).getTime()
+    const elapsedMs = Date.now() - lastDate
+    timerEl.textContent = formatDuration(elapsedMs)
+  }
+
+  renderStatic()
+  updateTimer()
+
+  // 1. Live tick every second inside the container (zero LLM overhead)
+  const timerInterval = setInterval(updateTimer, 1000)
+
+  // 2. React to real-time session events (new messages, emotion transitions)
+  const unsubscribe = onUpdate((newSidecar) => {
+    currentSidecar = newSidecar
+    renderStatic()
+    updateTimer()
+  })
+
+  // Cleanup on unmount
+  return () => {
+    clearInterval(timerInterval)
+    unsubscribe()
+  }
+}
+```
+
+## 16. Roadmap & Implementation Phases
+
+1. **Phase 1-4 (Completed & Verified in Harness)**:
+   - In-memory POSIX bash (`just-bash`) with zero-leak RAM disk at `/workspace`.
+   - Client-side streaming and tool loop via `@xsai` (`@xsai/stream-text`, `@xsai/tool`).
+   - Remote Model Context Protocol (MCP) client over Streamable HTTP (`@modelcontextprotocol/sdk`).
+   - Native Mach-O arm64 / Linux x64 TypeScript compiler bridge (`tsc-rs` / `ts-rust` masked as TS 5.8.2) compiling components in 2ms.
+   - Dynamic Generative UI canvas iframe with Tailwind CSS CDN, ANSI escape parsing, and `mount_widget` tool.
+   - 4 sandbox friction fixes: compiler outDir normalizer, `sed -i` file mode preservation, in-memory `node` command, and full-fidelity terminal ANSI color rendering.
+2. **Phase 5 (Sidepanel Accordion Integration)**:
+   - Port the collapsible `WORKSPACE / TERMINAL ⌵` and `GENERATIVE WIDGETS ⌵` components into `packages/stage-ui` / `apps/stage-tamagotchi`.
+   - Wire them as native accordion sections in the right-hand Inspector Stack alongside `STAGE`, `NANO COGNITION`, `MEMORIES`, `CURRENT SCENE`, and `MEDIA GALLERY`.
+3. **Phase 6 (State Bridge Projections & Reactive Sidecar)**:
+   - Implement the Level 1 virtual filesystem projection in `virtualBash` (`/workspace/.airi/session.json`, etc.).
+   - Wire `AiriWidgetContext` sidecar injection and `onUpdate` store listeners into the widget mounting runtime.
+4. **Phase 7 (Desktop Window Bridge)**:
+   - Connect `WidgetsWindowManager` in the Electron main process to load compiled virtual scripts from the in-memory sandbox.
+   - Support `spawn_gen_widget` opening floating, frameless, transparent OS windows with persisted screen coordinates.
+
 ## Relevant Skills
 
 - [[airi-artistry-comfyui-widgets]]
+- [[generative_ui]]
+- [[airi-desktop-chatbox]]
+- [[airi-stage-ui-surfaces]]
+

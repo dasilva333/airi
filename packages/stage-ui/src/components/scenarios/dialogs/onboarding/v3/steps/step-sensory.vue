@@ -1,22 +1,17 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-import { useI18n } from 'vue-i18n'
-
 import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { formatSensorPayload } from '@proj-airi/stage-ui/stores/proactivity-telemetry'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
-
-const { t } = useI18n()
-
-const { displayText } = useOnboardingDisplayText()
-
 
 const props = defineProps<{
   onNext: () => void
   onPrevious: () => void
 }>()
+
+const { t } = useI18n()
 
 const draft = useOnboardingV3Draft()
 const proactivityStore = useProactivityStore()
@@ -26,7 +21,7 @@ const screenWatcherEnabled = ref<boolean>(draft.state.screenWatcherEnabled !== f
 const screenWatcherMode = ref<'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'>(
   draft.state.screenWatcherMode || 'voice-and-bubble',
 )
-const screenWatcherTier = ref<'lightweight' | 'moondream'>(
+const screenWatcherTier = ref<'lightweight' | 'moondream' | 'external'>(
   draft.state.screenWatcherTier || 'lightweight',
 )
 const screenWatcherInterval = ref<number>(
@@ -70,72 +65,72 @@ function toggleLedgerDomain(domain: string) {
 }
 
 // --- Reaction Delivery Modes Catalog ---
-const reactionModes = [
+const reactionModes = computed(() => [
   {
     id: 'voice-and-bubble' as const,
-    title: 'Voice & Bubble',
-    badge: 'Full Immersion',
+    title: t('onboarding.steps.sensory.reactionModes.voice-and-bubble.title'),
+    badge: t('onboarding.steps.sensory.reactionModes.voice-and-bubble.badge'),
     badgeColor: 'bg-primary-500/10 text-primary-500 border-primary-500/20',
-    desc: 'Companion speaks out loud with floating speech bubbles on screen.',
+    desc: t('onboarding.steps.sensory.reactionModes.voice-and-bubble.desc'),
     icon: 'i-solar:chat-round-line-bold',
   },
   {
     id: 'bubble-only' as const,
-    title: 'Bubble Only',
-    badge: 'Silent Subtitles',
+    title: t('onboarding.steps.sensory.reactionModes.bubble-only.title'),
+    badge: t('onboarding.steps.sensory.reactionModes.bubble-only.badge'),
     badgeColor: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-    desc: 'Floating subtitles without audio interruptions. Ideal for gaming or streaming.',
+    desc: t('onboarding.steps.sensory.reactionModes.bubble-only.desc'),
     icon: 'i-solar:chat-square-bold-duotone',
   },
   {
     id: 'voice-only' as const,
-    title: 'Voice Only',
-    badge: 'Audio Commentary',
+    title: t('onboarding.steps.sensory.reactionModes.voice-only.title'),
+    badge: t('onboarding.steps.sensory.reactionModes.voice-only.badge'),
     badgeColor: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
-    desc: 'Audio commentary without any floating visual bubbles overlay.',
+    desc: t('onboarding.steps.sensory.reactionModes.voice-only.desc'),
     icon: 'i-solar:soundwave-bold-duotone',
   },
   {
     id: 'muted' as const,
-    title: 'Silent Telemetry',
-    badge: 'Log & Ledger',
+    title: t('onboarding.steps.sensory.reactionModes.muted.title'),
+    badge: t('onboarding.steps.sensory.reactionModes.muted.badge'),
     badgeColor: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-    desc: 'Telemetry observations recorded silently to context and event ledger.',
+    desc: t('onboarding.steps.sensory.reactionModes.muted.desc'),
     icon: 'i-solar:eye-bold-duotone',
   },
-]
+])
 
 // --- Vision Analysis Tiers ---
-const visionTiers = [
+const visionTiers = computed(() => [
   {
     id: 'lightweight' as const,
-    title: 'Lightweight OCR & Frame Diff',
-    vram: '0 MB VRAM',
-    desc: 'Instant local WASM OCR + perceptual pHash gating. Ultra-fast with zero cloud API costs.',
+    title: t('onboarding.steps.sensory.visionTiers.lightweight.title'),
+    vram: t('onboarding.steps.sensory.visionTiers.lightweight.vram'),
+    desc: t('onboarding.steps.sensory.visionTiers.lightweight.desc'),
     icon: 'i-solar:shield-check-bold-duotone',
   },
   {
     id: 'moondream' as const,
-    title: 'Moondream2 VLM',
-    vram: '~700 MB WebGPU',
-    desc: 'Local vision language model. Synthesizes 1-sentence contextual scene descriptions for promoted events.',
+    title: t('onboarding.steps.sensory.visionTiers.moondream.title'),
+    vram: t('onboarding.steps.sensory.visionTiers.moondream.vram'),
+    desc: t('onboarding.steps.sensory.visionTiers.moondream.desc'),
     icon: 'i-solar:magic-stick-3-bold-duotone',
   },
-]
+])
 
 // --- Interval Presets ---
 const screenIntervalPresets = [
-  { label: '1s (High)', value: 1000 },
-  { label: '2s (Balanced)', value: 2000 },
-  { label: '5s (Gentle)', value: 5000 },
-  { label: '10s (Eco)', value: 10000 },
+  { label: '1s (High)', labelKey: 'onboarding.steps.sensory.screenIntervalPresets.1000.label', value: 1000 },
+  { label: '2s (Balanced)', labelKey: 'onboarding.steps.sensory.screenIntervalPresets.2000.label', value: 2000 },
+  { label: '5s (Gentle)', labelKey: 'onboarding.steps.sensory.screenIntervalPresets.5000.label', value: 5000 },
+  { label: '10s (Eco)', labelKey: 'onboarding.steps.sensory.screenIntervalPresets.10000.label', value: 10000 },
 ]
 
 const heartbeatIntervalPresets = [
-  { label: '2 min', value: 2 },
-  { label: '5 min (Recommended)', value: 5 },
-  { label: '10 min', value: 10 },
-  { label: '20 min', value: 20 },
+  { label: '2 min', labelKey: 'onboarding.steps.sensory.heartbeatIntervalPresets.2.label', value: 2 },
+  { label: '5 min (Recommended)', labelKey: 'onboarding.steps.sensory.heartbeatIntervalPresets.5.label', value: 5 },
+  { label: '10 min', labelKey: 'onboarding.steps.sensory.heartbeatIntervalPresets.10.label', value: 10 },
+  { label: '20 min', labelKey: 'onboarding.steps.sensory.heartbeatIntervalPresets.20.label', value: 20 },
 ]
 
 // --- Circadian Status Calculation ---
@@ -304,14 +299,27 @@ function handleNext() {
         <div>
           <div :class="['flex items-center gap-2']">
             <h2 :class="['text-lg font-bold text-neutral-900 dark:text-white tracking-tight']">
-              {{ t('onboarding.ui.sensory-perception-proactivity') }}
+              {{ t('onboarding.steps.sensory.sensoryPerceptionProactivity') }}
             </h2>
             <span :class="['text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400']">
-              {{ t('onboarding.ui.step-13') }}
+              {{ t('onboarding.steps.sensory.step13') }}
             </span>
           </div>
           <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            {{ t('onboarding.ui.equip-your-companion-with-real-time-environmental-awareness-balance') }} <span class="text-neutral-800 font-semibold dark:text-neutral-200">{{ t('onboarding.ui.visual-push') }}</span> {{ t('onboarding.ui.screen-watching-and') }} <span class="text-neutral-800 font-semibold dark:text-neutral-200">{{ t('onboarding.ui.ambient-pull') }}</span> {{ t('onboarding.ui.proactive-heartbeats-governed-by-an') }} <span class="text-neutral-800 font-semibold dark:text-neutral-200">{{ t('onboarding.ui.operating-sleep-schedule') }}</span> {{ t('onboarding.ui.and') }} <span class="text-neutral-800 font-semibold dark:text-neutral-200">{{ t('onboarding.ui.smart-silence-no-reply') }}</span>.
+            <i18n-t scope="global" keypath="onboarding.steps.sensory.environmentDescription" tag="span">
+              <template #emphasis>
+                <span class="text-neutral-800 font-semibold dark:text-neutral-200">{{ t('onboarding.steps.sensory.visualPush') }}</span>
+              </template>
+              <template #emphasis2>
+                <span class="text-neutral-800 font-semibold dark:text-neutral-200">{{ t('onboarding.steps.sensory.ambientPull') }}</span>
+              </template>
+              <template #emphasis3>
+                <span class="text-neutral-800 font-semibold dark:text-neutral-200">{{ t('onboarding.steps.sensory.operatingSleepSchedule') }}</span>
+              </template>
+              <template #emphasis4>
+                <span class="text-neutral-800 font-semibold dark:text-neutral-200">{{ t('onboarding.steps.sensory.smartSilenceNoReply') }}</span>
+              </template>
+            </i18n-t>
           </p>
         </div>
       </div>
@@ -327,7 +335,7 @@ function handleNext() {
           ]"
         >
           <span :class="['w-1.5 h-1.5 rounded-full', screenWatcherEnabled || heartbeatsEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400']" />
-          <span>{{ displayText(screenWatcherEnabled || heartbeatsEnabled ? 'PERCEPTION ACTIVE' : 'PASSIVE / DORMANT') }}</span>
+          <span>{{ screenWatcherEnabled || heartbeatsEnabled ? t('onboarding.steps.sensory.perceptionActive') : t('onboarding.steps.sensory.passiveDormant') }}</span>
         </span>
       </div>
     </div>
@@ -343,14 +351,14 @@ function handleNext() {
           <div>
             <div :class="['flex items-center gap-2']">
               <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                {{ t('onboarding.ui.screen-perception-visual-push') }}
+                {{ t('onboarding.steps.sensory.screenPerceptionVisualPush') }}
               </h3>
               <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20']">
-                {{ t('onboarding.ui.event-driven-push') }}
+                {{ t('onboarding.steps.sensory.eventDrivenPush') }}
               </span>
             </div>
             <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-              {{ t('onboarding.ui.autonomous-perception-ticker-analyzing-your-desktop-display-reacts-in-real-tim') }}
+              {{ t('onboarding.steps.sensory.autonomousPerceptionTickerAnalyzingYourDesktopDisplayReactsInRealTim') }}
             </p>
           </div>
         </div>
@@ -378,8 +386,8 @@ function handleNext() {
         <!-- Reaction Delivery Modes -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
-            <span>{{ t('onboarding.ui.reaction-delivery-mode') }}</span>
-            <span :class="['text-[10px] text-neutral-400 font-normal font-sans']">{{ t('onboarding.ui.choose-how-your-companion-chimes-in') }}</span>
+            <span>{{ t('onboarding.steps.sensory.reactionDeliveryMode') }}</span>
+            <span :class="['text-[10px] text-neutral-400 font-normal font-sans']">{{ t('onboarding.steps.sensory.chooseHowYourCompanionChimesIn') }}</span>
           </label>
 
           <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5']">
@@ -400,14 +408,14 @@ function handleNext() {
                     <div :class="[mode.icon, 'w-4 h-4']" />
                   </div>
                   <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase font-mono', mode.badgeColor]">
-                    {{ displayText(mode.badge) }}
+                    {{ mode.badge }}
                   </span>
                 </div>
                 <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-                  {{ displayText(mode.title) }}
+                  {{ mode.title }}
                 </h4>
                 <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-normal']">
-                  {{ displayText(mode.desc) }}
+                  {{ mode.desc }}
                 </p>
               </div>
             </div>
@@ -419,7 +427,7 @@ function handleNext() {
           <!-- Analysis Engine Tier -->
           <div :class="['flex flex-col gap-2']">
             <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-              {{ t('onboarding.ui.perception-engine-tier') }}
+              {{ t('onboarding.steps.sensory.perceptionEngineTier') }}
             </label>
             <div :class="['grid grid-cols-1 gap-2']">
               <div
@@ -439,15 +447,15 @@ function handleNext() {
                   </div>
                   <div>
                     <h5 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-                      {{ displayText(tier.title) }}
+                      {{ tier.title }}
                     </h5>
                     <p :class="['text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-snug']">
-                      {{ displayText(tier.desc) }}
+                      {{ tier.desc }}
                     </p>
                   </div>
                 </div>
                 <span :class="['text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-neutral-200/60 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 flex-shrink-0 whitespace-nowrap']">
-                  {{ displayText(tier.vram) }}
+                  {{ tier.vram }}
                 </span>
               </div>
             </div>
@@ -456,7 +464,7 @@ function handleNext() {
           <!-- Capture Cadence Presets -->
           <div :class="['flex flex-col gap-2']">
             <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-              {{ t('onboarding.ui.capture-sampling-frequency') }}
+              {{ t('onboarding.steps.sensory.captureSamplingFrequency') }}
             </label>
             <div :class="['grid grid-cols-2 gap-2']">
               <button
@@ -471,12 +479,12 @@ function handleNext() {
                 ]"
                 @click="screenWatcherInterval = preset.value; syncDraft()"
               >
-                <span>{{ displayText(preset.label) }}</span>
-                <span :class="['text-[9px] opacity-70 font-mono']">{{ displayText(preset.value) }}{{ t('onboarding.ui.ms-ticker') }}</span>
+                <span>{{ 'labelKey' in preset && preset.labelKey ? t(preset.labelKey) : preset.label }}</span>
+                <span :class="['text-[9px] opacity-70 font-mono']">{{ t('onboarding.steps.sensory.ambient.intervalLabel', { interval: preset.value }) }}</span>
               </button>
             </div>
             <p :class="['text-[10px] text-neutral-400 mt-1 leading-snug']">
-              {{ t('onboarding.ui.frames-are-continuously-hashed-with-phash-only-frames-with-meaningful-visual-d') }}
+              {{ t('onboarding.steps.sensory.framesAreContinuouslyHashedWithPhashOnlyFramesWithMeaningfulVisualD') }}
             </p>
           </div>
         </div>
@@ -488,10 +496,14 @@ function handleNext() {
           </div>
           <div>
             <h5 :class="['text-xs font-bold text-sky-900 dark:text-sky-300']">
-              {{ t('onboarding.ui.the-visual-push-sentinel-silent-by-default') }}
+              {{ t('onboarding.steps.sensory.theVisualPushSentinelSilentByDefault') }}
             </h5>
             <p :class="['text-[11px] text-sky-800/80 dark:text-sky-300/70 mt-0.5 leading-relaxed']">
-              {{ t('onboarding.ui.whenever-screen-shifts-occur-your-companion-evaluates-whether-the-change-is-ge') }} <code class="rounded bg-sky-500/15 px-1 py-0.2 text-[10px] font-mono">NO_REPLY</code> {{ t('onboarding.ui.without-interrupting-your-flow') }}
+              <i18n-t scope="global" keypath="onboarding.steps.sensory.screenSilenceDescription" tag="span">
+                <template #code>
+                  <code class="rounded bg-sky-500/15 px-1 py-0.2 text-[10px] font-mono">NO_REPLY</code>
+                </template>
+              </i18n-t>
             </p>
           </div>
         </div>
@@ -509,14 +521,14 @@ function handleNext() {
           <div>
             <div :class="['flex items-center gap-2']">
               <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                {{ t('onboarding.ui.proactive-heartbeats-sleep-schedule') }}
+                {{ t('onboarding.steps.sensory.proactiveHeartbeatsSleepSchedule') }}
               </h3>
               <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20']">
-                {{ t('onboarding.ui.ambient-pull-96855e5d') }}
+                {{ t('onboarding.steps.sensory.ambient.sectionLabel') }}
               </span>
             </div>
             <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-              {{ t('onboarding.ui.periodic-background-timer-check-ins-evaluating-whether-to-speak-bound-to-your') }}
+              {{ t('onboarding.steps.sensory.periodicBackgroundTimerCheckInsEvaluatingWhetherToSpeakBoundToYour') }}
             </p>
           </div>
         </div>
@@ -544,7 +556,7 @@ function handleNext() {
         <!-- Cadence Presets -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-            {{ t('onboarding.ui.ambient-check-in-interval') }}
+            {{ t('onboarding.steps.sensory.ambientCheckInInterval') }}
           </label>
           <div :class="['grid grid-cols-2 sm:grid-cols-4 gap-2']">
             <button
@@ -559,8 +571,8 @@ function handleNext() {
               ]"
               @click="heartbeatsInterval = preset.value; syncDraft()"
             >
-              <span>{{ displayText(preset.label) }}</span>
-              <span :class="['text-[9px] opacity-70 font-mono']">{{ t('onboarding.ui.timer-pulse') }}</span>
+              <span>{{ 'labelKey' in preset && preset.labelKey ? t(preset.labelKey) : preset.label }}</span>
+              <span :class="['text-[9px] opacity-70 font-mono']">{{ t('onboarding.steps.sensory.timerPulse') }}</span>
             </button>
           </div>
         </div>
@@ -572,7 +584,7 @@ function handleNext() {
               <div :class="['flex items-center gap-2']">
                 <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white flex items-center gap-1.5']">
                   <div :class="['i-solar:moon-sleep-bold-duotone w-4 h-4 text-indigo-500']" />
-                  <span>{{ t('onboarding.ui.operating-schedule-quiet-hours') }}</span>
+                  <span>{{ t('onboarding.steps.sensory.operatingScheduleQuietHours') }}</span>
                 </h4>
                 <span
                   :class="[
@@ -582,11 +594,11 @@ function handleNext() {
                       : 'bg-amber-500/10 text-amber-500 border-amber-500/20',
                   ]"
                 >
-                  {{ displayText(isQuietHoursActive ? '🌙 QUIET HOURS ACTIVE' : '☀️ COMPANION AWAKE') }}
+                  {{ isQuietHoursActive ? t('onboarding.steps.sensory.quietHoursActive') : t('onboarding.steps.sensory.companionAwake') }}
                 </span>
               </div>
               <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-normal']">
-                {{ t('onboarding.ui.define-quiet-hours-when-your-companion-sleeps-during-quiet-hours-companion-wil') }}
+                {{ t('onboarding.steps.sensory.defineQuietHoursWhenYourCompanionSleepsDuringQuietHoursCompanionWil') }}
               </p>
             </div>
 
@@ -613,7 +625,7 @@ function handleNext() {
             <div :class="['flex items-center justify-between p-2.5 rounded-lg bg-neutral-100/60 dark:bg-white/5 border border-neutral-200/60 dark:border-white/10']">
               <div :class="['flex items-center gap-2 text-xs font-medium text-neutral-700 dark:text-neutral-300']">
                 <div :class="['i-solar:sun-2-bold-duotone text-amber-500 w-4 h-4']" />
-                <span>{{ t('onboarding.ui.wake-up-time-7d8d56ef') }}</span>
+                <span>{{ t('onboarding.steps.sensory.wakeUpTime') }}</span>
               </div>
               <input
                 v-model="wakeUpTime"
@@ -626,7 +638,7 @@ function handleNext() {
             <div :class="['flex items-center justify-between p-2.5 rounded-lg bg-neutral-100/60 dark:bg-white/5 border border-neutral-200/60 dark:border-white/10']">
               <div :class="['flex items-center gap-2 text-xs font-medium text-neutral-700 dark:text-neutral-300']">
                 <div :class="['i-solar:moon-bold-duotone text-indigo-400 w-4 h-4']" />
-                <span>{{ t('onboarding.ui.bedtime-quiet-hours') }}</span>
+                <span>{{ t('onboarding.steps.sensory.bedtimeQuietHours') }}</span>
               </div>
               <input
                 v-model="bedTime"
@@ -644,10 +656,17 @@ function handleNext() {
             </div>
             <div>
               <h5 :class="['text-xs font-bold text-indigo-900 dark:text-indigo-300']">
-                {{ t('onboarding.ui.sleep-schedule-applies-to-both-screen-watching-heartbeats') }}
+                {{ t('onboarding.steps.sensory.sleepScheduleAppliesToBothScreenWatchingHeartbeats') }}
               </h5>
               <p :class="['text-[11px] text-indigo-800/80 dark:text-indigo-300/70 mt-0.5 leading-relaxed']">
-                {{ t('onboarding.ui.during-bedtime-quiet-hours') }} <span class="text-neutral-900 font-semibold dark:text-white">{{ t('onboarding.ui.both') }}</span> {{ t('onboarding.ui.systems-go-completely-dormant-screen-frame-capture-is-frozen-for') }} <span class="text-neutral-900 font-semibold dark:text-white">{{ t('onboarding.ui.100-display-privacy') }}</span> {{ t('onboarding.ui.no-watching-during-off-hours-and-background-heartbeat-timers-cease-all-evaluat') }}
+                <i18n-t scope="global" keypath="onboarding.steps.sensory.quietHoursDescription" tag="span">
+                  <template #emphasis>
+                    <span class="text-neutral-900 font-semibold dark:text-white">{{ t('onboarding.steps.sensory.both') }}</span>
+                  </template>
+                  <template #emphasis2>
+                    <span class="text-neutral-900 font-semibold dark:text-white">{{ t('onboarding.steps.sensory.100DisplayPrivacy') }}</span>
+                  </template>
+                </i18n-t>
               </p>
             </div>
           </div>
@@ -660,10 +679,10 @@ function handleNext() {
               </div>
               <div>
                 <h5 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-                  {{ t('onboarding.ui.pause-when-away-from-computer-afk-gate') }}
+                  {{ t('onboarding.steps.sensory.pauseWhenAwayFromComputerAfkGate') }}
                 </h5>
                 <p :class="['text-[10px] text-neutral-500 dark:text-neutral-400']">
-                  {{ t('onboarding.ui.automatically-pauses-screen-watching-and-heartbeats-after-5-min-of-mouse-keybo') }}
+                  {{ t('onboarding.steps.sensory.automaticallyPausesScreenWatchingAndHeartbeatsAfter5MinOfMouseKeybo') }}
                 </p>
               </div>
             </div>
@@ -696,14 +715,18 @@ function handleNext() {
               <div>
                 <div :class="['flex items-center gap-2']">
                   <h5 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-                    {{ t('onboarding.ui.context-aware-smart-silence-directive') }}
+                    {{ t('onboarding.steps.sensory.contextAwareSmartSilenceDirective') }}
                   </h5>
                   <span :class="['text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 uppercase']">
-                    {{ t('onboarding.ui.no-yap-guarantee') }}
+                    {{ t('onboarding.steps.sensory.noYapGuarantee') }}
                   </span>
                 </div>
                 <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-                  {{ t('onboarding.ui.automatically-bakes-a-hardened-anti-yapping-instruction-directly-into-your-com') }} <code class="rounded bg-neutral-200 px-1 py-0.2 text-[10px] font-mono dark:bg-white/10">NO_REPLY</code> {{ t('onboarding.ui.instead-of-speaking-unsolicited-spam') }}
+                  <i18n-t scope="global" keypath="onboarding.steps.sensory.smartSilenceDescription" tag="span">
+                    <template #code>
+                      <code class="rounded bg-neutral-200 px-1 py-0.2 text-[10px] font-mono dark:bg-white/10">NO_REPLY</code>
+                    </template>
+                  </i18n-t>
                 </p>
               </div>
             </div>
@@ -738,14 +761,14 @@ function handleNext() {
         <div>
           <div :class="['flex items-center gap-2']">
             <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-              {{ t('onboarding.ui.situational-grounding-event-ledger') }}
+              {{ t('onboarding.steps.sensory.situationalGroundingEventLedger') }}
             </h3>
             <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20']">
-              {{ t('onboarding.ui.context-injections') }}
+              {{ t('onboarding.steps.sensory.contextInjections') }}
             </span>
           </div>
           <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            {{ t('onboarding.ui.feed-real-world-desktop-state-active-application-history-and-system-ledger-eve') }}
+            {{ t('onboarding.steps.sensory.feedRealWorldDesktopStateActiveApplicationHistoryAndSystemLedgerEve') }}
           </p>
         </div>
       </div>
@@ -762,10 +785,10 @@ function handleNext() {
           >
           <div :class="['flex flex-col']">
             <label for="manual-grounding-toggle" :class="['text-xs text-neutral-800 font-semibold dark:text-neutral-200 cursor-pointer']">
-              {{ t('onboarding.ui.attach-sensor-telemetry-to-manual-chat-messages-chatbox-grounding') }}
+              {{ t('onboarding.steps.sensory.attachSensorTelemetryToManualChatMessagesChatboxGrounding') }}
             </label>
             <span :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
-              {{ t('onboarding.ui.grounds-normal-user-prompts-with-your-active-window-title-application-name-and') }}
+              {{ t('onboarding.steps.sensory.groundsNormalUserPromptsWithYourActiveWindowTitleApplicationNameAnd') }}
             </span>
           </div>
         </div>
@@ -773,7 +796,7 @@ function handleNext() {
         <!-- Active OS Sensor Probes -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs text-neutral-700 font-medium dark:text-neutral-300']">
-            {{ t('onboarding.ui.active-os-sensor-probes') }}
+            {{ t('onboarding.steps.sensory.activeOsSensorProbes') }}
           </label>
           <div :class="['grid grid-cols-1 sm:grid-cols-3 gap-2.5']">
             <label :class="['flex items-center gap-2.5 border border-neutral-200/80 dark:border-white/10 rounded-xl bg-neutral-50/70 dark:bg-white/[0.02] p-3 text-xs cursor-pointer hover:border-neutral-300 dark:hover:border-white/20 transition-all']">
@@ -783,7 +806,7 @@ function handleNext() {
                 :class="['h-3.5 w-3.5 rounded text-primary-600 focus:ring-primary-500 cursor-pointer']"
                 @change="syncDraft()"
               >
-              <span :class="['font-medium text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.window-history') }}</span>
+              <span :class="['font-medium text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.steps.sensory.windowHistory') }}</span>
             </label>
 
             <label :class="['flex items-center gap-2.5 border border-neutral-200/80 dark:border-white/10 rounded-xl bg-neutral-50/70 dark:bg-white/[0.02] p-3 text-xs cursor-pointer hover:border-neutral-300 dark:hover:border-white/20 transition-all']">
@@ -793,7 +816,7 @@ function handleNext() {
                 :class="['h-3.5 w-3.5 rounded text-primary-600 focus:ring-primary-500 cursor-pointer']"
                 @change="syncDraft()"
               >
-              <span :class="['font-medium text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.cpu-system-load') }}</span>
+              <span :class="['font-medium text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.steps.sensory.cpuSystemLoad') }}</span>
             </label>
 
             <label :class="['flex items-center gap-2.5 border border-neutral-200/80 dark:border-white/10 rounded-xl bg-neutral-50/70 dark:bg-white/[0.02] p-3 text-xs cursor-pointer hover:border-neutral-300 dark:hover:border-white/20 transition-all']">
@@ -803,7 +826,7 @@ function handleNext() {
                 :class="['h-3.5 w-3.5 rounded text-primary-600 focus:ring-primary-500 cursor-pointer']"
                 @change="syncDraft()"
               >
-              <span :class="['font-medium text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.usage-metrics') }}</span>
+              <span :class="['font-medium text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.steps.sensory.usageMetrics') }}</span>
             </label>
           </div>
         </div>
@@ -820,11 +843,11 @@ function handleNext() {
                 @change="syncDraft()"
               >
               <label for="ledger-stream-toggle" :class="['text-xs text-neutral-700 font-medium dark:text-neutral-300 cursor-pointer']">
-                {{ t('onboarding.ui.attach-unified-event-ledger-stream') }}
+                {{ t('onboarding.steps.sensory.attachUnifiedEventLedgerStream') }}
               </label>
             </div>
             <div :class="['flex items-center gap-1.5 text-xs text-neutral-500']">
-              <span>{{ t('onboarding.ui.sample-last') }}</span>
+              <span>{{ t('onboarding.steps.sensory.sampleLast') }}</span>
               <input
                 v-model.number="eventLedgerSampleDepth"
                 type="number"
@@ -833,7 +856,7 @@ function handleNext() {
                 :class="['w-12 border border-neutral-200 dark:border-white/10 rounded-lg bg-neutral-100 dark:bg-white/5 px-2 py-0.5 text-center text-xs font-mono text-neutral-800 dark:text-white outline-none focus:border-primary-500']"
                 @change="syncDraft()"
               >
-              <span>{{ t('onboarding.ui.events') }}</span>
+              <span>{{ t('onboarding.steps.sensory.events') }}</span>
             </div>
           </div>
 
@@ -851,7 +874,7 @@ function handleNext() {
               ]"
               @click="toggleLedgerDomain(domain)"
             >
-              [{{ displayText(domain.toUpperCase()) }}]
+              [{{ domain.toUpperCase() }}]
             </button>
           </div>
         </div>
@@ -861,11 +884,11 @@ function handleNext() {
           <div :class="['flex items-center justify-between']">
             <div :class="['flex items-center gap-2']">
               <span :class="['text-xs text-neutral-700 font-medium dark:text-neutral-300']">
-                {{ t('onboarding.ui.live-sensor-ledger-ingestion-preview') }}
+                {{ t('onboarding.steps.sensory.liveSensorLedgerIngestionPreview') }}
               </span>
               <span
                 :class="['i-solar:info-circle-bold cursor-help text-xs text-neutral-400']"
-                :title="t('onboarding.ui.this-block-is-appended-at-the-tail-of-the-llm-prompt-to-preserve-kv-prefix-cac')"
+                :title="t('onboarding.steps.sensory.thisBlockIsAppendedAtTheTailOfTheLlmPromptToPreserveKvPrefixCac')"
               />
             </div>
 
@@ -878,12 +901,12 @@ function handleNext() {
               @click="refreshTelemetry"
             >
               <div :class="['i-solar:restart-bold text-xs', isRefreshingSensors ? 'animate-spin' : '']" />
-              <span>{{ displayText(isRefreshingSensors ? 'Polling OS Probes...' : 'Refresh Telemetry') }}</span>
+              <span>{{ isRefreshingSensors ? t('onboarding.steps.sensory.pollingOsProbes') : t('onboarding.steps.sensory.refreshTelemetry') }}</span>
             </button>
           </div>
 
           <!-- Monospace Full Dump Box -->
-          <pre :class="['max-h-56 overflow-y-auto border border-neutral-200 dark:border-white/10 rounded-xl bg-neutral-950 p-3.5 text-[11px] text-green-400 font-mono leading-relaxed select-text']">{{ displayText(displayPayload) }}</pre>
+          <pre :class="['max-h-56 overflow-y-auto border border-neutral-200 dark:border-white/10 rounded-xl bg-neutral-950 p-3.5 text-[11px] text-green-400 font-mono leading-relaxed select-text']">{{ displayPayload }}</pre>
         </div>
       </div>
     </div>
@@ -895,7 +918,7 @@ function handleNext() {
         :class="['px-4 py-2 rounded-xl bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"
         @click="props.onPrevious"
       >
-        {{ t('onboarding.ui.previous') }}
+        {{ t('onboarding.steps.sensory.previous') }}
       </button>
 
       <button
@@ -903,7 +926,7 @@ function handleNext() {
         :class="['px-5 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-md shadow-primary-600/30 transition-colors cursor-pointer']"
         @click="handleNext"
       >
-        {{ t('onboarding.ui.confirm-continue') }}
+        {{ t('onboarding.steps.sensory.confirmContinue') }}
       </button>
     </div>
   </div>

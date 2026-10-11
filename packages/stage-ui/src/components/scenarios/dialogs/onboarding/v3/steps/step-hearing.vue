@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-
-
 import type { MicToggleHotkey } from '@proj-airi/stage-shared/shortcuts'
 
 import type { ProviderMetadata } from '../../../../../../stores/providers'
@@ -21,6 +18,7 @@ import LevelMeter from '../../../../../gadgets/level-meter.vue'
 import RadioCardDetail from '../../../../../menu/radio-card-detail.vue'
 import RadioCardSimple from '../../../../../menu/radio-card-simple.vue'
 import StepProviderConfiguration from '../../step-provider-configuration.vue'
+import AssistantBubble from '../components/assistant-bubble.vue'
 
 import { getWhisperAdapter } from '../../../../../../libs/inference/adapters/whisper'
 import { WHISPER_MODELS } from '../../../../../../libs/inference/constants'
@@ -30,9 +28,6 @@ import { useProvidersStore } from '../../../../../../stores/providers'
 import { useSettingsAudioDevice } from '../../../../../../stores/settings'
 import { ensureWhisperLoaded } from '../../v2/whisper-loader'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
-
-const { displayText, displayOptions } = useOnboardingDisplayText()
-
 
 const props = defineProps<{
   onNext: () => void
@@ -75,7 +70,7 @@ const activeMicLabel = computed(() => {
   if (audioInputs.value.length > 0 && audioInputs.value[0].label) {
     return audioInputs.value[0].label
   }
-  return 'Default Microphone Input'
+  return t('onboarding.steps.hearing.defaultMicrophoneInput')
 })
 
 // --- Whisper WebGPU Management ---
@@ -84,7 +79,9 @@ const whisperDownloadState = ref<WhisperDL>('idle')
 const whisperProgress = ref(0)
 const whisperAbort = ref<AbortController>()
 const whisperErrorMessage = ref('')
-const whisperPhaseMessage = ref('Downloading model shards into local cache…')
+const whisperPhaseMessage = ref('')
+const whisperPhaseKey = ref('onboarding.steps.hearing.messages.downloadingModelShardsIntoLocalCache')
+const whisperPhaseDisplay = computed(() => whisperPhaseMessage.value || t(whisperPhaseKey.value))
 
 const isTamagotchi = isStageTamagotchi()
 const availableWhisperModels = computed(() => {
@@ -164,7 +161,8 @@ async function startWhisperDownload(force = false) {
   whisperDownloadState.value = 'downloading'
   whisperProgress.value = 0
   whisperErrorMessage.value = ''
-  whisperPhaseMessage.value = 'Downloading model shards into local cache…'
+  whisperPhaseMessage.value = ''
+  whisperPhaseKey.value = 'onboarding.steps.hearing.messages.downloadingModelShardsIntoLocalCache'
 
   const shardMap = new Map<string, { loaded: number, total: number }>()
   const expectedTotalBytes = selectedModelInfo.value?.downloadBytes || (800 * 1024 * 1024)
@@ -176,7 +174,8 @@ async function startWhisperDownload(force = false) {
       force,
       onProgress: (p: ProgressPayload) => {
         if (p.phase === 'warmup' || (p.message && p.message.includes('warm'))) {
-          whisperPhaseMessage.value = p.message || 'Compiling WebGPU shaders and warming up model…'
+          whisperPhaseMessage.value = p.message || ''
+          whisperPhaseKey.value = 'onboarding.steps.hearing.download.warmingUp'
           whisperProgress.value = 100
         }
         else if (p.file) {
@@ -211,7 +210,7 @@ async function startWhisperDownload(force = false) {
       whisperDownloadState.value = 'error'
       const rawMsg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
       const msg = rawMsg.includes('Aborted()') || rawMsg.includes('assertions')
-        ? 'Model allocation failed (Out of Memory). Please choose a lighter shard like Whisper Tiny.'
+        ? t('onboarding.steps.hearing.download.outOfMemory')
         : rawMsg
       whisperErrorMessage.value = msg
       console.error('[V3 Hearing] Whisper download failed:', msg, err)
@@ -284,7 +283,7 @@ function handleConfigured(config?: Record<string, unknown>) {
       ...config,
     }
     providersStore.markProviderAdded(selectedCloudProviderId.value)
-    toast.success(displayText(`${inlineConfigProvider.value?.name || 'Provider'} connected!`))
+    toast.success(t('onboarding.steps.hearing.valueConnected', { nameProvider: inlineConfigProvider.value?.name || t('onboarding.steps.hearing.provider.fallbackName') }))
   }
 }
 
@@ -324,15 +323,16 @@ const selectedHotkey = computed<MicToggleHotkey>({
 const lastPressAt = ref(0)
 let pressFlashTimer: ReturnType<typeof setTimeout> | undefined
 
-const hotkeyOptions: { id: MicToggleHotkey, label: string }[] = [
-  { id: 'Scroll', label: 'Scroll Lock' },
-  { id: 'Caps', label: 'Caps Lock' },
-  { id: 'Num', label: 'Num Lock' },
-]
+const hotkeyOptions = computed<{ id: MicToggleHotkey, label: string }[]>(() => [
+  { id: 'Scroll', label: t('onboarding.steps.hearing.hotkeyOptions.scroll.label') },
+  { id: 'Caps', label: t('onboarding.steps.hearing.hotkeyOptions.caps.label') },
+  { id: 'Num', label: t('onboarding.steps.hearing.hotkeyOptions.num.label') },
+])
 
 // --- Live Audio Test & Level Meter ---
 const isTesting = ref(false)
 const testStatusMessage = ref('')
+const testStatusDisplay = computed(() => testStatusMessage.value ? t(testStatusMessage.value) : '')
 const testError = ref('')
 const testStreamWasStarted = ref(false)
 
@@ -353,6 +353,44 @@ const canStartTest = computed(() => {
   if (isWhisperSelected.value && whisperDownloadState.value !== 'ready')
     return false
   return true
+})
+
+// Effective engine summary for the listening-check panel (bound to committed draft state)
+const effectiveEngineLabel = computed(() => {
+  if (isWebSpeechSelected.value)
+    return t('onboarding.steps.hearing.webSpeechApi')
+  if (isWhisperSelected.value)
+    return t('onboarding.steps.hearing.localWhisper')
+  const meta = allAudioTranscriptionProvidersMetadata.value.find(p => p.id === draft.state.sttProvider)
+  return meta?.name || draft.state.sttProvider || t('onboarding.steps.hearing.noEngine')
+})
+
+const effectiveModelLabel = computed(() => {
+  if (isWebSpeechSelected.value)
+    return 'web-speech-api'
+  return (draft.state.sttModel || '').trim() || t('onboarding.steps.hearing.noModel')
+})
+
+type CheckStatus = 'empty' | 'not-ready' | 'ready' | 'listening' | 'heard' | 'verified' | 'failed'
+const checkStatus = computed<CheckStatus>(() => {
+  if (!draft.state.sttProvider)
+    return 'empty'
+  if (testError.value)
+    return 'failed'
+  if (isVerified.value)
+    return 'verified'
+  if (verification.value === 'listening')
+    return 'listening'
+  if (verification.value === 'transcribed' || testStreamingText.value.trim())
+    return 'heard'
+  if (isWhisperSelected.value && whisperDownloadState.value !== 'ready') {
+    if (whisperDownloadState.value === 'downloading')
+      return 'listening'
+    if (whisperDownloadState.value === 'error')
+      return 'failed'
+    return 'not-ready'
+  }
+  return 'ready'
 })
 
 watch([transcribedText, testStreamingText], ([text, streaming]) => {
@@ -387,18 +425,18 @@ async function startTest() {
   try {
     if (!stream.value) {
       testStreamWasStarted.value = true
-      testStatusMessage.value = 'Starting audio stream...'
+      testStatusMessage.value = 'onboarding.steps.hearing.messages.startingAudioStream'
       await startStream()
       testStatusMessage.value = ''
     }
 
     if (!stream.value)
-      throw new Error('Microphone stream unavailable. Check permissions.')
+      throw new Error(t('onboarding.steps.hearing.verification.microphoneUnavailable'))
 
     verification.value = 'listening'
 
     if (supportsStreamInput.value && stream.value) {
-      testStatusMessage.value = 'Listening for speech...'
+      testStatusMessage.value = 'onboarding.steps.hearing.messages.listeningForSpeech'
       await transcribeForMediaStream(stream.value, {
         providerId: draft.state.sttProvider,
         model: draft.state.sttModel,
@@ -413,7 +451,7 @@ async function startTest() {
           if (text) {
             transcribedText.value = text
             testStreamingText.value = ''
-            testStatusMessage.value = 'Transcription received.'
+            testStatusMessage.value = 'onboarding.steps.hearing.messages.transcriptionReceived'
           }
         },
         onError: (errMsg) => {
@@ -425,11 +463,11 @@ async function startTest() {
       })
     }
     else {
-      testStatusMessage.value = 'Recording 3 seconds...'
+      testStatusMessage.value = 'onboarding.steps.hearing.messages.recording3Seconds'
       await startRecord()
       setTimeout(async () => {
         await stopRecord()
-        testStatusMessage.value = 'Transcribing...'
+        testStatusMessage.value = 'onboarding.steps.hearing.messages.transcribing'
       }, 3000)
     }
   }
@@ -452,7 +490,7 @@ onStopRecord(async (recording) => {
     if (result)
       transcribedText.value = result
     else
-      testError.value = 'No transcription returned from provider. Please check microphone input volume and model status.'
+      testError.value = t('onboarding.steps.hearing.messages.noTranscriptionReturnedFromProviderPleaseCheckMicrophoneInputVolumeA')
   }
   catch (err) {
     testError.value = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
@@ -548,520 +586,597 @@ watch(selectedAudioInput, async () => {
 </script>
 
 <template>
-  <div :class="['w-full max-w-4xl mx-auto h-full flex flex-col justify-between select-none animate-fadeIn']">
+  <div :class="['w-full h-full flex flex-col justify-between select-none animate-fadeIn']">
     <!-- Scrollable Content Body -->
-    <div :class="['flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-4']">
-      <!-- Step Subtitle & Header -->
-      <div :class="['flex items-center justify-between text-xs text-neutral-400 font-medium']">
-        <span>{{ t('onboarding.steps.hearing.label') }}</span>
-        <span>{{ t('onboarding.steps.hearing.subtitle') }}</span>
-      </div>
-
-      <div class="flex-shrink-0">
-        <h2 class="text-xl text-neutral-800 font-bold md:text-2xl dark:text-neutral-100">
-          {{ t('onboarding.steps.hearing.title') }}
-        </h2>
-        <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          {{ t('onboarding.steps.hearing.description') }}
-        </p>
-      </div>
-
-      <!-- Blue Companion Alert Bubble -->
-      <div :class="['flex items-center gap-3 p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-700 dark:text-sky-300 text-xs backdrop-blur-md']">
-        <div :class="['h-8 w-8 rounded-xl bg-sky-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-sky-500/30']">
-          <div :class="['i-solar:chat-round-dots-bold text-base']" />
+    <div :class="['flex-1 min-h-0 min-w-0 overflow-y-auto px-4 sm:px-6 pt-2 pb-5 flex flex-col gap-4']">
+      <!-- Shared centered header -->
+      <div :class="['flex flex-col items-center text-center gap-3']">
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            {{ t('onboarding.steps.hearing.title') }}
+          </h1>
         </div>
-        <p :class="['leading-relaxed font-medium']">
-          {{ t('onboarding.ui.pick-a-speech-engine-below-then-talk-to-me-the-big-button-unlocks-as-soon-as-i') }}
-        </p>
-      </div>
 
-      <!-- Microphone Device Selection & Active Device Transparency -->
-      <!-- Case A: Multiple Microphone Devices Detected (> 1) -->
-      <div
-        v-if="audioInputs.length > 1"
-        :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md']"
-      >
-        <FieldSelect
-          v-model="selectedAudioInput"
-          :label="t('onboarding.ui.microphone-input-device')"
-          :description="t('onboarding.ui.select-which-physical-microphone-device-to-use-for-speech-verification')"
-          :options="displayOptions(micOptions)"
-          :placeholder="t('onboarding.ui.select-an-audio-input-device')"
-          layout="vertical"
+        <AssistantBubble
+          :message="t('onboarding.steps.hearing.assistantMessage')"
+          step-key="hearing"
+          sticker-id="airi-confused"
+          tone="primary"
         />
       </div>
 
-      <!-- Case B: Single Active Microphone Detected (1 Device) -->
-      <div
-        v-else-if="audioInputs.length === 1"
-        :class="[
-          'p-3.5 rounded-xl flex items-center justify-between gap-3',
-          'bg-white/40 dark:bg-neutral-900/40',
-          'border border-neutral-200/60 dark:border-neutral-800/80 backdrop-blur-md',
-        ]"
-      >
-        <div :class="['flex items-center gap-3 min-w-0']">
-          <div :class="['h-9 w-9 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0']">
-            <div :class="['i-solar:microphone-3-bold-duotone text-lg']" />
-          </div>
-          <div :class="['flex flex-col min-w-0']">
-            <div :class="['flex items-center gap-2 font-bold text-xs text-neutral-800 dark:text-neutral-100']">
-              <span>{{ t('onboarding.ui.active-microphone-input') }}</span>
-              <span :class="['w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse']" />
-            </div>
-            <span :class="['text-xs text-neutral-500 dark:text-neutral-400 truncate font-mono']">
-              {{ displayText(activeMicLabel) }}
-            </span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          :title="t('onboarding.ui.rescan-audio-devices')"
-          :class="['p-2 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors cursor-pointer shrink-0']"
-          @click="startStream"
-        >
-          <div :class="['i-solar:restart-bold w-4 h-4']" />
-        </button>
-      </div>
-
-      <!-- Case C: 0 Devices Detected or Permission Unprompted -->
-      <div
-        v-else
-        :class="[
-          'p-3.5 rounded-xl flex items-center justify-between gap-3',
-          'bg-amber-500/10 border border-amber-500/30 backdrop-blur-md',
-        ]"
-      >
-        <div :class="['flex items-center gap-3 min-w-0']">
-          <div :class="['h-9 w-9 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0']">
-            <div :class="['i-solar:shield-warning-bold text-lg']" />
-          </div>
-          <div :class="['flex flex-col min-w-0']">
-            <span :class="['font-bold text-xs text-amber-900 dark:text-amber-200']">
-              {{ t('onboarding.ui.microphone-access-required') }}
-            </span>
-            <span :class="['text-[11px] text-amber-700/80 dark:text-amber-300/80']">
-              {{ t('onboarding.ui.click-below-to-grant-microphone-permission-in-your-browser-app') }}
-            </span>
-          </div>
-        </div>
-
-        <Button
-          variant="primary"
-          class="h-8 shrink-0 px-3 text-xs font-semibold"
-          @click="startStream"
-        >
-          <span>{{ t('onboarding.ui.grant-access') }}</span>
-        </Button>
-      </div>
-
-      <!-- Choose Speech Engine: Hero Cards -->
-      <div class="flex flex-col gap-2.5">
-        <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
-          {{ t('onboarding.ui.choose-a-speech-engine') }}
-        </span>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <!-- Hero Card 1: Web Speech API -->
+      <!-- Two-column workspace -->
+      <div :class="['w-full max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,65%)_minmax(0,35%)] gap-5 lg:gap-6 items-start']">
+        <!-- Left: scrollable provider selection -->
+        <div :class="['flex flex-col gap-4 min-w-0 min-h-0']">
+          <!-- Microphone Device Selection & Active Device Transparency -->
+          <!-- Case A: Multiple Microphone Devices Detected (> 1) -->
           <div
-            :class="[
-              'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
-              'backdrop-blur-md',
-              isWebSpeechSelected
-                ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
-                : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
-            ]"
-            @click="selectWebSpeech"
+            v-if="audioInputs.length > 1"
+            :class="['p-4 sm:p-5 rounded-[20px]', 'bg-white/70 dark:bg-neutral-900/60', 'border border-neutral-200/80 dark:border-neutral-800/80', 'backdrop-blur-md']"
           >
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex items-center gap-3">
-                <div
-                  :class="[
-                    'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
-                    isWebSpeechSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
-                  ]"
-                >
-                  <div class="i-solar:microphone-3-bold-duotone h-5 w-5" />
-                </div>
-                <div class="flex flex-col">
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('settings.pages.providers.provider.browser-web-speech-api.title') }}</span>
-                    <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400">
-                      {{ t('onboarding.ui.built-in') }}
-                    </span>
-                  </div>
-                  <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ t('onboarding.ui.zero-setup-realtime-streaming') }}</span>
-                </div>
-              </div>
-              <div
-                v-if="isWebSpeechSelected"
-                class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
-              />
-            </div>
-            <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
-              {{ t('onboarding.ui.uses-your-browser-os-speech-recognition-engine-instant-streaming-transcription') }}
-            </p>
-          </div>
-
-          <!-- Hero Card 2: App (Local) Whisper -->
-          <div
-            :class="[
-              'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
-              'backdrop-blur-md',
-              isWhisperSelected
-                ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
-                : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
-            ]"
-            @click="selectLocalWhisper"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex items-center gap-3">
-                <div
-                  :class="[
-                    'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
-                    isWhisperSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
-                  ]"
-                >
-                  <div class="i-solar:cpu-bolt-bold-duotone h-5 w-5" />
-                </div>
-                <div class="flex flex-col">
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.ui.app-local-whisper') }}</span>
-                    <span class="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-600 font-medium dark:text-purple-400">
-                      {{ t('onboarding.ui.webgpu-offline') }}
-                    </span>
-                  </div>
-                  <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ t('onboarding.ui.100-private-on-device') }}</span>
-                </div>
-              </div>
-              <div
-                v-if="isWhisperSelected"
-                class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
-              />
-            </div>
-            <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
-              {{ t('onboarding.ui.runs-openai-whisper-locally-in-your-browser-app-complete-offline-privacy-with') }}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Whisper WebGPU Model Shard & In-Context Download Panel -->
-      <div
-        v-if="isWhisperSelected"
-        :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3.5']"
-      >
-        <div class="flex flex-col gap-1">
-          <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.ui.whisper-webgpu-model') }}</span>
-          <p class="text-xs text-neutral-500 dark:text-neutral-400">
-            {{ t('onboarding.ui.larger-models-offer-higher-accuracy-smaller-models-download-faster-with-less-v') }}
-          </p>
-        </div>
-
-        <div class="flex flex-col gap-2.5 sm:flex-row sm:items-end">
-          <div class="flex-1">
             <FieldSelect
-              v-model="selectedWhisperModel"
-              :label="t('onboarding.ui.model-shard')"
-              :options="displayOptions(availableWhisperModels.map(m => ({ label: `${m.name} (${getWhisperModelSpec(m.id)})`, value: m.id })))"
+              v-model="selectedAudioInput"
+              :label="t('onboarding.steps.hearing.microphone')"
+              :description="t('onboarding.steps.hearing.microphoneDescription')"
+              :options="micOptions"
+              :placeholder="t('onboarding.steps.hearing.selectAnAudioInputDevice')"
               layout="vertical"
-              :disabled="whisperDownloadState === 'downloading'"
             />
           </div>
-          <div class="flex flex-shrink-0 items-center gap-2">
+
+          <!-- Case B: Single Active Microphone Detected (1 Device) -->
+          <div
+            v-else-if="audioInputs.length === 1"
+            :class="[
+              'p-3.5 sm:p-4 rounded-[20px] flex items-center justify-between gap-3',
+              'bg-white/70 dark:bg-neutral-900/60',
+              'border border-neutral-200/80 dark:border-neutral-800/80 backdrop-blur-md',
+            ]"
+          >
+            <div :class="['flex items-center gap-3 min-w-0']">
+              <div :class="['h-9 w-9 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0']">
+                <div :class="['i-solar:microphone-3-bold-duotone text-lg']" />
+              </div>
+              <div :class="['flex flex-col min-w-0']">
+                <div :class="['flex items-center gap-2 font-bold text-xs text-neutral-800 dark:text-neutral-100']">
+                  <span>{{ t('onboarding.steps.hearing.activeMicrophoneInput') }}</span>
+                  <span :class="['w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse']" />
+                </div>
+                <span :class="['text-xs text-neutral-500 dark:text-neutral-400 truncate font-mono']">
+                  {{ activeMicLabel }}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              :title="t('onboarding.steps.hearing.rescanAudioDevices')"
+              :class="['p-2 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors cursor-pointer shrink-0']"
+              @click="startStream"
+            >
+              <div :class="['i-solar:restart-bold w-4 h-4']" />
+            </button>
+          </div>
+
+          <!-- Case C: 0 Devices Detected or Permission Unprompted -->
+          <div
+            v-else
+            :class="[
+              'p-3.5 sm:p-4 rounded-[20px] flex items-center justify-between gap-3',
+              'bg-amber-500/10 border border-amber-500/30 backdrop-blur-md',
+            ]"
+          >
+            <div :class="['flex items-center gap-3 min-w-0']">
+              <div :class="['h-9 w-9 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0']">
+                <div :class="['i-solar:shield-warning-bold text-lg']" />
+              </div>
+              <div :class="['flex flex-col min-w-0']">
+                <span :class="['font-bold text-xs text-amber-900 dark:text-amber-200']">
+                  {{ t('onboarding.steps.hearing.microphoneAccessRequired') }}
+                </span>
+                <span :class="['text-[11px] text-amber-700/80 dark:text-amber-300/80']">
+                  {{ t('onboarding.steps.hearing.clickBelowToGrantMicrophonePermissionInYourBrowserApp') }}
+                </span>
+              </div>
+            </div>
+
             <Button
-              v-if="whisperDownloadState === 'idle'"
               variant="primary"
-              class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
-              @click="startWhisperDownload"
+              class="h-8 shrink-0 px-3 text-xs font-semibold"
+              @click="startStream"
             >
-              <div class="i-solar:cloud-download-bold-duotone text-base" />
-              <span>{{ t('onboarding.ui.download-model') }}</span>
+              <span>{{ t('onboarding.steps.hearing.grantAccess') }}</span>
             </Button>
+          </div>
 
-            <Button
-              v-else-if="whisperDownloadState === 'downloading'"
-              variant="secondary"
-              class="h-[38px] flex items-center gap-1.5 px-4 text-xs font-medium"
-              @click="cancelWhisperDownload"
-            >
-              <div class="i-solar:close-circle-bold-duotone text-base" />
-              <span>{{ t('onboarding.ui.shared-ui-settings-search-cancel') }}</span>
-            </Button>
+          <!-- Choose Speech Engine: Hero Cards -->
+          <div class="flex flex-col gap-2.5">
+            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
+              {{ t('onboarding.steps.hearing.speechRecognition') }}
+            </span>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <!-- Hero Card 1: Web Speech API -->
+              <div
+                :class="[
+                  'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
+                  'backdrop-blur-md',
+                  isWebSpeechSelected
+                    ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
+                    : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
+                ]"
+                @click="selectWebSpeech"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <div
+                      :class="[
+                        'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
+                        isWebSpeechSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+                      ]"
+                    >
+                      <div class="i-solar:microphone-3-bold-duotone h-5 w-5" />
+                    </div>
+                    <div class="flex flex-col">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.steps.hearing.webSpeechApi') }}</span>
+                        <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400">
+                          {{ t('onboarding.steps.hearing.builtIn') }}
+                        </span>
+                      </div>
+                      <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ t('onboarding.steps.hearing.zeroSetupNoDownload') }}</span>
+                    </div>
+                  </div>
+                  <div
+                    v-if="isWebSpeechSelected"
+                    class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
+                  />
+                </div>
+                <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
+                  {{ t('onboarding.steps.hearing.browserRecognitionDescription') }}
+                </p>
+              </div>
 
-            <Button
-              v-else-if="whisperDownloadState === 'ready'"
-              variant="secondary"
-              class="h-[38px] flex items-center gap-1.5 px-3.5 text-xs font-medium"
-              @click="startWhisperDownload(true)"
-            >
-              <div class="i-solar:refresh-circle-bold-duotone text-base" />
-              <span>{{ t('onboarding.ui.re-download') }}</span>
-            </Button>
+              <!-- Hero Card 2: Local Whisper -->
+              <div
+                :class="[
+                  'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
+                  'backdrop-blur-md',
+                  isWhisperSelected
+                    ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
+                    : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
+                ]"
+                @click="selectLocalWhisper"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <div
+                      :class="[
+                        'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
+                        isWhisperSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+                      ]"
+                    >
+                      <div class="i-solar:cpu-bolt-bold-duotone h-5 w-5" />
+                    </div>
+                    <div class="flex flex-col">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.steps.hearing.localWhisper') }}</span>
+                        <span class="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-600 font-medium dark:text-purple-400">
+                          {{ t('onboarding.steps.hearing.webgpuOffline') }}
+                        </span>
+                      </div>
+                      <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ t('onboarding.steps.hearing.processedOnDevice') }}</span>
+                    </div>
+                  </div>
+                  <div
+                    v-if="isWhisperSelected"
+                    class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
+                  />
+                </div>
+                <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
+                  {{ t('onboarding.steps.hearing.localWhisperDescription') }}
+                </p>
+              </div>
+            </div>
+          </div>
 
-            <Button
-              v-else-if="whisperDownloadState === 'error'"
-              variant="primary"
-              class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
-              @click="startWhisperDownload(true)"
-            >
-              <div class="i-solar:restart-bold-duotone text-base" />
-              <span>{{ t('onboarding.ui.retry-download') }}</span>
-            </Button>
+          <!-- Whisper WebGPU Model & In-Context Download Panel -->
+          <div
+            v-if="isWhisperSelected"
+            :class="['p-4 sm:p-5 rounded-[20px]', 'bg-white/70 dark:bg-neutral-900/60', 'border border-neutral-200/80 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3.5']"
+          >
+            <div class="flex flex-col gap-1">
+              <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.steps.hearing.whisperWebgpuModel') }}</span>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                {{ t('onboarding.steps.hearing.largerModelsOfferHigherAccuracySmallerModelsDownloadFasterWithLessV') }}
+              </p>
+            </div>
+
+            <div class="flex flex-col gap-2.5 sm:flex-row sm:items-end">
+              <div class="flex-1">
+                <FieldSelect
+                  v-model="selectedWhisperModel"
+                  :label="t('onboarding.steps.hearing.provider.modelLabel')"
+                  :options="availableWhisperModels.map(m => ({ label: `${m.name} (${getWhisperModelSpec(m.id)})`, value: m.id }))"
+                  layout="vertical"
+                  :disabled="whisperDownloadState === 'downloading'"
+                />
+              </div>
+              <div class="flex flex-shrink-0 items-center gap-2">
+                <Button
+                  v-if="whisperDownloadState === 'idle'"
+                  variant="primary"
+                  class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
+                  @click="startWhisperDownload"
+                >
+                  <div class="i-solar:cloud-download-bold-duotone text-base" />
+                  <span>{{ t('onboarding.steps.hearing.downloadModel') }}</span>
+                </Button>
+
+                <Button
+                  v-else-if="whisperDownloadState === 'downloading'"
+                  variant="secondary"
+                  class="h-[38px] flex items-center gap-1.5 px-4 text-xs font-medium"
+                  @click="cancelWhisperDownload"
+                >
+                  <div class="i-solar:close-circle-bold-duotone text-base" />
+                  <span>{{ t('onboarding.steps.hearing.download.cancel') }}</span>
+                </Button>
+
+                <Button
+                  v-else-if="whisperDownloadState === 'ready'"
+                  variant="secondary"
+                  class="h-[38px] flex items-center gap-1.5 px-3.5 text-xs font-medium"
+                  @click="startWhisperDownload(true)"
+                >
+                  <div class="i-solar:refresh-circle-bold-duotone text-base" />
+                  <span>{{ t('onboarding.steps.hearing.reDownload') }}</span>
+                </Button>
+
+                <Button
+                  v-else-if="whisperDownloadState === 'error'"
+                  variant="primary"
+                  class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
+                  @click="startWhisperDownload(true)"
+                >
+                  <div class="i-solar:restart-bold-duotone text-base" />
+                  <span>{{ t('onboarding.steps.hearing.retryDownload') }}</span>
+                </Button>
+              </div>
+            </div>
+
+            <!-- Download Progress Display -->
+            <div v-if="whisperDownloadState === 'downloading'" class="flex flex-col gap-2 border border-primary-500/20 rounded-xl bg-primary-500/5 p-3">
+              <div class="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-300">
+                <div class="flex items-center gap-1.5">
+                  <div class="i-solar:cloud-download-bold-duotone animate-pulse text-primary-500" />
+                  <span>{{ whisperPhaseDisplay }}</span>
+                </div>
+                <span class="font-medium font-mono">
+                  {{ Math.floor(whisperProgress) }}%
+                  <template v-if="whisperProgress > 0"> ({{ formatMB((whisperProgress / 100) * selectedModelInfo.downloadBytes) }} / {{ formatMB(selectedModelInfo.downloadBytes) }})</template>
+                </span>
+              </div>
+              <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+                <div class="h-full rounded-full from-primary-500 to-indigo-500 bg-gradient-to-r transition-all duration-150" :style="{ width: `${whisperProgress}%` }" />
+              </div>
+            </div>
+
+            <!-- Ready Status -->
+            <div v-else-if="whisperDownloadState === 'ready'" class="flex items-center gap-2 border border-emerald-500/20 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-700 font-medium dark:text-emerald-300">
+              <div class="i-solar:check-circle-bold-duotone h-4 w-4 flex-shrink-0 text-emerald-500" />
+              <span>{{ t('onboarding.steps.hearing.whisperModelShardIsCachedResidentInMemoryReadyToTranscribe') }}</span>
+            </div>
+
+            <!-- Error Status -->
+            <div v-else-if="whisperDownloadState === 'error'" class="flex flex-col gap-1 border border-red-500/20 rounded-xl bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-300">
+              <div class="flex items-center gap-2 font-bold">
+                <div class="i-solar:danger-circle-bold-duotone h-4 w-4 text-red-500" />
+                <span>{{ t('onboarding.steps.hearing.downloadFailedOrConnectionInterrupted') }}</span>
+              </div>
+              <span v-if="whisperErrorMessage" class="break-all text-[11px] text-red-600/80 dark:text-red-400/80">
+                {{ whisperErrorMessage }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Cloud & Remote Engines (API Key Required) -->
+          <div
+            v-if="cloudProviders.length > 0"
+            :class="['p-4 sm:p-5 rounded-[20px]', 'bg-white/70 dark:bg-neutral-900/60', 'border border-neutral-200/80 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']"
+          >
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
+                {{ t('onboarding.steps.hearing.cloudRemoteEnginesApiKeyRequired') }}
+              </span>
+              <span class="text-[11px] text-neutral-400">{{ t('onboarding.steps.hearing.optional') }}</span>
+            </div>
+
+            <!-- Deployment / Pricing Filter Pills -->
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div class="flex flex-col gap-1.5">
+                <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">{{ t('onboarding.steps.hearing.deployment') }}</span>
+                <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
+                  <button
+                    v-for="opt in [
+                      { label: t('onboarding.steps.hearing.filters.all'), value: 'all' },
+                      { label: t('onboarding.steps.hearing.filters.cloud'), value: 'cloud' },
+                      { label: t('onboarding.steps.hearing.filters.local'), value: 'local' },
+                    ]"
+                    :key="opt.value"
+                    type="button"
+                    class="cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-all"
+                    :class="[
+                      deploymentFilter === opt.value
+                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-white'
+                        : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+                    ]"
+                    @click="deploymentFilter = opt.value as any"
+                  >
+                    {{ opt.label }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">{{ t('onboarding.steps.hearing.pricing') }}</span>
+                <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
+                  <button
+                    v-for="opt in [
+                      { label: t('onboarding.steps.hearing.filters.all'), value: 'all' },
+                      { label: t('onboarding.steps.hearing.filters.free'), value: 'free' },
+                      { label: t('onboarding.steps.hearing.filters.paid'), value: 'paid' },
+                    ]"
+                    :key="opt.value"
+                    type="button"
+                    class="cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-all"
+                    :class="[
+                      pricingFilter === opt.value
+                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-white'
+                        : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+                    ]"
+                    @click="pricingFilter = opt.value as any"
+                  >
+                    {{ opt.label }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cloud Providers Grid -->
+            <div v-if="filteredCloudProviders.length > 0" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <RadioCardDetail
+                v-for="provider in filteredCloudProviders"
+                :id="provider.id"
+                :key="provider.id"
+                v-model="selectedCloudProviderId"
+                name="onboarding-v3-stt-provider"
+                :value="provider.id"
+                :title="provider.localizedName || provider.name || provider.id"
+                :description="provider.localizedDescription || provider.description || ''"
+                :pricing="provider.pricing"
+                :deployment="provider.deployment"
+                :beginner-recommended="provider.beginnerRecommended"
+              />
+            </div>
+          </div>
+
+          <!-- Inline Cloud Credential Configuration -->
+          <div
+            v-if="showInlineConfig && inlineConfigProvider"
+            :class="['border border-dashed border-amber-300/60 rounded-[20px]', 'bg-amber-50/60 dark:bg-amber-900/10 dark:border-amber-700/60', 'backdrop-blur-md']"
+          >
+            <StepProviderConfiguration
+              :selected-provider-id="inlineConfigProvider.id"
+              :selected-provider="inlineConfigProvider"
+              :on-next="handleConfigured"
+              :on-previous="handleCancelConfig"
+            />
+          </div>
+
+          <!-- Cloud Model Sub-Picker Dropdown -->
+          <div
+            v-if="!isWhisperSelected && !isWebSpeechSelected && providerModels.length > 0"
+            :class="['p-4 sm:p-5 rounded-[20px]', 'bg-white/70 dark:bg-neutral-900/60', 'border border-neutral-200/80 dark:border-neutral-800/80', 'backdrop-blur-md']"
+          >
+            <FieldSelect
+              v-model="activeCloudModel"
+              :label="t('onboarding.steps.hearing.provider.modelLabel')"
+              :options="providerModels.map((m: any) => ({ label: m.name || m.id, value: m.id }))"
+              :placeholder="t('onboarding.steps.hearing.selectATranscriptionModel')"
+              layout="vertical"
+            />
+          </div>
+
+          <!-- Push-to-Talk Trigger Key (Desktop Electron Only) -->
+          <div
+            v-if="isElectron"
+            :class="['p-4 sm:p-5 rounded-[20px]', 'bg-white/70 dark:bg-neutral-900/60', 'border border-neutral-200/80 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <div class="text-sm text-neutral-800 font-bold dark:text-neutral-100">
+                  {{ t('onboarding.steps.hearing.pushToTalkTriggerKey') }}
+                </div>
+                <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                  {{ t('onboarding.steps.hearing.pickALockKeyToToggleTheMicrophoneHandsFree') }}
+                </p>
+              </div>
+              <span
+                v-if="lastPressAt"
+                class="flex animate-pulse items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-600 font-bold dark:text-emerald-400"
+              >
+                <div class="i-solar:check-circle-bold-duotone h-3.5 w-3.5" />
+                {{ t('onboarding.steps.hearing.keyDetected') }}
+              </span>
+            </div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <RadioCardSimple
+                v-for="opt in hotkeyOptions"
+                :id="`onboarding-v3-hotkey-${opt.id}`"
+                :key="opt.id"
+                v-model="selectedHotkey"
+                name="onboarding-v3-hotkey"
+                :value="opt.id"
+                :title="opt.label"
+              />
+            </div>
           </div>
         </div>
 
-        <!-- Download Progress Display -->
-        <div v-if="whisperDownloadState === 'downloading'" class="flex flex-col gap-2 border border-primary-500/20 rounded-xl bg-primary-500/5 p-3">
-          <div class="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-300">
-            <div class="flex items-center gap-1.5">
-              <div class="i-solar:cloud-download-bold-duotone animate-pulse text-primary-500" />
-              <span>{{ displayText(whisperPhaseMessage) }}</span>
+        <!-- Right: listening check -->
+        <aside
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :delay="150"
+          :class="[
+            'rounded-[20px] border p-4 sm:p-5 flex flex-col gap-3 min-w-0 lg:sticky lg:top-0 self-start w-full',
+            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
+          ]"
+        >
+          <div :class="['flex items-start gap-2.5']">
+            <div :class="['h-8 w-8 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm']">
+              <div :class="['i-solar:microphone-3-bold-duotone text-sm']" />
             </div>
-            <span class="font-medium font-mono">
-              {{ displayText(Math.floor(whisperProgress)) }}%
-              <template v-if="whisperProgress > 0"> ({{ displayText(formatMB((whisperProgress / 100) * selectedModelInfo.downloadBytes)) }} / {{ displayText(formatMB(selectedModelInfo.downloadBytes)) }})</template>
+            <div :class="['min-w-0']">
+              <h2 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+                {{ t('onboarding.steps.hearing.listeningCheck') }}
+              </h2>
+              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
+                {{ t('onboarding.steps.hearing.listeningCheckDescription') }}
+              </p>
+            </div>
+            <span
+              v-if="isVerified"
+              :class="['ml-auto flex flex-shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-600 font-bold dark:text-emerald-400']"
+            >
+              <div :class="['i-solar:verified-check-bold-duotone h-4 w-4']" />
+              {{ t('onboarding.steps.hearing.verified') }}
             </span>
           </div>
-          <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-            <div class="h-full rounded-full from-primary-500 to-indigo-500 bg-gradient-to-r transition-all duration-150" :style="{ width: `${whisperProgress}%` }" />
-          </div>
-        </div>
 
-        <!-- Ready Status -->
-        <div v-else-if="whisperDownloadState === 'ready'" class="flex items-center gap-2 border border-emerald-500/20 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-700 font-medium dark:text-emerald-300">
-          <div class="i-solar:check-circle-bold-duotone h-4 w-4 flex-shrink-0 text-emerald-500" />
-          <span>{{ t('onboarding.ui.whisper-model-shard-is-cached-resident-in-memory-ready-to-transcribe') }}</span>
-        </div>
+          <div :class="['border-t border-neutral-200/70 dark:border-white/10']" />
 
-        <!-- Error Status -->
-        <div v-else-if="whisperDownloadState === 'error'" class="flex flex-col gap-1 border border-red-500/20 rounded-xl bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-300">
-          <div class="flex items-center gap-2 font-bold">
-            <div class="i-solar:danger-circle-bold-duotone h-4 w-4 text-red-500" />
-            <span>{{ t('onboarding.ui.download-failed-or-connection-interrupted') }}</span>
-          </div>
-          <span v-if="whisperErrorMessage" class="break-all text-[11px] text-red-600/80 dark:text-red-400/80">
-            {{ displayText(whisperErrorMessage) }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Cloud & Remote Engines (API Key Required) -->
-      <div
-        v-if="cloudProviders.length > 0"
-        :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']"
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
-            {{ t('onboarding.ui.cloud-remote-engines-api-key-required') }}
-          </span>
-          <span class="text-[11px] text-neutral-400">{{ t('onboarding.ui.optional-59be7133') }}</span>
-        </div>
-
-        <!-- Deployment / Pricing Filter Pills -->
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
-          <div class="flex flex-col gap-1.5">
-            <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">{{ t('settings.pages.providers.filters.deployment') }}</span>
-            <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
-              <button
-                v-for="opt in [
-                  { label: 'All', value: 'all' },
-                  { label: 'Cloud', value: 'cloud' },
-                  { label: 'Local', value: 'local' },
-                ]"
-                :key="opt.value"
-                type="button"
-                class="cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-all"
-                :class="[
-                  deploymentFilter === opt.value
-                    ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-white'
-                    : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-                ]"
-                @click="deploymentFilter = opt.value as any"
-              >
-                {{ displayText(opt.label) }}
-              </button>
-            </div>
+          <!-- Effective engine summary (bound to committed draft state) -->
+          <div :class="['rounded-xl border border-neutral-200/70 dark:border-white/10 bg-neutral-50/70 dark:bg-black/20 px-3 py-2.5 flex flex-col gap-1']">
+            <span :class="['text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500']">
+              {{ t('onboarding.steps.hearing.testing') }}
+            </span>
+            <span :title="effectiveModelLabel" :class="['text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate']">
+              {{ effectiveModelLabel }}
+            </span>
+            <span :title="effectiveEngineLabel" :class="['text-[11px] text-neutral-500 dark:text-neutral-400 truncate']">
+              {{ effectiveEngineLabel }}
+            </span>
           </div>
 
-          <div class="flex flex-col gap-1.5">
-            <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">{{ t('settings.pages.providers.filters.pricing') }}</span>
-            <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
-              <button
-                v-for="opt in [
-                  { label: 'All', value: 'all' },
-                  { label: 'Free', value: 'free' },
-                  { label: 'Paid', value: 'paid' },
-                ]"
-                :key="opt.value"
-                type="button"
-                class="cursor-pointer rounded-md px-3 py-1 text-xs font-medium transition-all"
-                :class="[
-                  pricingFilter === opt.value
-                    ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-white'
-                    : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-                ]"
-                @click="pricingFilter = opt.value as any"
-              >
-                {{ displayText(opt.label) }}
-              </button>
-            </div>
+          <LevelMeter :level="volumeLevel" :label="t('onboarding.steps.hearing.microphoneLevel')" />
+
+          <div v-if="testStatusMessage" class="flex items-center gap-2 border border-primary-200 rounded-lg bg-primary-50 p-3 text-primary-700 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-300">
+            <div v-if="isTesting" class="i-solar:spinner-line-duotone animate-spin text-sm" />
+            <div v-else class="i-solar:info-circle-line-duotone text-sm" />
+            <span class="text-sm font-medium">{{ testStatusDisplay }}</span>
           </div>
-        </div>
 
-        <!-- Cloud Providers Grid -->
-        <div v-if="filteredCloudProviders.length > 0" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <RadioCardDetail
-            v-for="provider in filteredCloudProviders"
-            :id="provider.id"
-            :key="provider.id"
-            v-model="selectedCloudProviderId"
-            name="onboarding-v3-stt-provider"
-            :value="provider.id"
-            :title="displayText(provider.localizedName || provider.name || provider.id)"
-            :description="displayText(provider.localizedDescription || provider.description || '')"
-            :pricing="provider.pricing"
-            :deployment="provider.deployment"
-            :beginner-recommended="provider.beginnerRecommended"
-          />
-        </div>
-      </div>
-
-      <!-- Inline Cloud Credential Configuration -->
-      <div
-        v-if="showInlineConfig && inlineConfigProvider"
-        :class="['border border-dashed border-amber-300/60 rounded-xl', 'bg-amber-50/60 dark:bg-amber-900/10 dark:border-amber-700/60', 'backdrop-blur-md']"
-      >
-        <StepProviderConfiguration
-          :selected-provider-id="inlineConfigProvider.id"
-          :selected-provider="inlineConfigProvider"
-          :on-next="handleConfigured"
-          :on-previous="handleCancelConfig"
-        />
-      </div>
-
-      <!-- Cloud Model Sub-Picker Dropdown -->
-      <div
-        v-if="!isWhisperSelected && !isWebSpeechSelected && providerModels.length > 0"
-        :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md']"
-      >
-        <FieldSelect
-          v-model="activeCloudModel"
-          :label="t('onboarding.ui.shared-control-strip-radial-model')"
-          :options="displayOptions(providerModels.map((m: any) => ({ label: m.name || m.id, value: m.id })))"
-          :placeholder="t('onboarding.ui.select-a-transcription-model')"
-          layout="vertical"
-        />
-      </div>
-
-      <!-- Push-to-Talk Trigger Key (Desktop Electron Only) -->
-      <div
-        v-if="isElectron"
-        :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <div>
-            <div class="text-sm text-neutral-800 font-bold dark:text-neutral-100">
-              {{ t('onboarding.ui.push-to-talk-trigger-key') }}
-            </div>
-            <p class="text-xs text-neutral-500 dark:text-neutral-400">
-              {{ t('onboarding.ui.pick-a-lock-key-to-toggle-the-microphone-hands-free') }}
-            </p>
-          </div>
-          <span
-            v-if="lastPressAt"
-            class="flex animate-pulse items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-600 font-bold dark:text-emerald-400"
+          <Button
+            variant="primary"
+            :disabled="!canStartTest && !isTesting"
+            :class="[
+              'w-full flex items-center justify-center gap-2 rounded-xl px-4 min-h-[44px]',
+              'text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
+            ]"
+            @click="isTesting ? stopTest() : startTest()"
           >
-            <div class="i-solar:check-circle-bold-duotone h-3.5 w-3.5" />
-            {{ t('onboarding.ui.key-detected') }}
-          </span>
-        </div>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <RadioCardSimple
-            v-for="opt in hotkeyOptions"
-            :id="`onboarding-v3-hotkey-${opt.id}`"
-            :key="opt.id"
-            v-model="selectedHotkey"
-            name="onboarding-v3-hotkey"
-            :value="opt.id"
-            :title="displayText(opt.label)"
-          />
-        </div>
-      </div>
+            <div :class="[isTesting ? 'i-solar:stop-circle-bold-duotone' : 'i-solar:microphone-3-bold-duotone', 'h-4 w-4']" />
+            <span>{{ isTesting ? t('onboarding.steps.hearing.stopTest') : t('onboarding.steps.hearing.startListeningTest') }}</span>
+          </Button>
 
-      <!-- Live Transcription Test -->
-      <div :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-4']">
-        <div class="flex items-center justify-between">
-          <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">{{ t('onboarding.ui.live-transcription-test') }}</span>
-          <span
-            v-if="isVerified"
-            class="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-600 font-bold dark:text-emerald-400"
-          >
-            <div class="i-solar:verified-check-bold-duotone h-4 w-4" />
-            {{ t('onboarding.ui.verified-working') }}
-          </span>
-        </div>
+          <div v-if="testError" class="border border-red-200 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+            {{ testError }}
+          </div>
 
-        <LevelMeter :level="volumeLevel" :label="t('onboarding.ui.input-level')" />
-
-        <div v-if="testStatusMessage" class="flex items-center gap-2 border border-primary-200 rounded-lg bg-primary-50 p-3 text-primary-700 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-300">
-          <div v-if="isTesting" class="i-solar:spinner-line-duotone animate-spin text-sm" />
-          <div v-else class="i-solar:info-circle-line-duotone text-sm" />
-          <span class="text-sm font-medium">{{ displayText(testStatusMessage) }}</span>
-        </div>
-
-        <button
-          type="button"
-          class="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm text-white font-semibold shadow-lg shadow-primary-500/25 transition-all active:scale-95 disabled:cursor-not-allowed hover:bg-primary-600 disabled:opacity-50"
-          :disabled="!canStartTest && !isTesting"
-          @click="isTesting ? stopTest() : startTest()"
-        >
-          <div :class="isTesting ? 'i-solar:stop-circle-bold-duotone' : 'i-solar:microphone-3-bold-duotone'" class="h-4 w-4" />
-          {{ displayText(isTesting ? 'Stop Test' : 'Start Speaking Test') }}
-        </button>
-
-        <div v-if="testError" class="border border-red-200 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-          {{ displayText(testError) }}
-        </div>
-
-        <!-- Real-time Transcription Stream Result -->
-        <div
-          class="min-h-[96px] border rounded-lg p-3 text-sm"
-          :class="transcribedText || testStreamingText ? 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900' : 'border-dashed border-neutral-300 bg-neutral-50 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-900/50 dark:text-neutral-500'"
-        >
-          <template v-if="testStreamingText && supportsStreamInput">
-            <div class="mb-1 text-xs text-neutral-400 font-medium">
-              {{ t('onboarding.ui.hearing-you') }}
+          <!-- Transcription result -->
+          <div :class="['flex flex-col gap-1.5 min-w-0']">
+            <span :class="['text-xs font-semibold text-neutral-700 dark:text-neutral-300']">
+              {{ t('onboarding.steps.hearing.recognizedSpeech') }}
+            </span>
+            <div
+              class="max-h-64 min-h-[96px] overflow-y-auto border rounded-lg p-3 text-sm"
+              :class="transcribedText || testStreamingText ? 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900' : 'border-dashed border-neutral-300 bg-neutral-50 text-neutral-400 dark:border-neutral-700 dark:bg-neutral-900/50 dark:text-neutral-500'"
+            >
+              <template v-if="testStreamingText && supportsStreamInput">
+                <div class="mb-1 text-xs text-neutral-400 font-medium">
+                  {{ t('onboarding.steps.hearing.hearingYou') }}
+                </div>
+                <div class="whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">
+                  {{ testStreamingText }}
+                </div>
+              </template>
+              <template v-if="transcribedText">
+                <div class="mb-1 text-xs text-emerald-600 font-bold dark:text-emerald-400" :class="{ 'mt-2 border-t border-neutral-200 pt-2 dark:border-neutral-700': testStreamingText && supportsStreamInput }">
+                  {{ t('onboarding.steps.hearing.finalTranscription') }}
+                </div>
+                <div class="whitespace-pre-wrap text-neutral-700 dark:text-neutral-200">
+                  {{ transcribedText }}
+                </div>
+              </template>
+              <span v-if="!transcribedText && !testStreamingText">{{ t('onboarding.steps.hearing.noTranscriptionYetStartTheTestAndSpeakIntoYourMicrophone') }}</span>
             </div>
-            <div class="whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">
-              {{ displayText(testStreamingText) }}
-            </div>
-          </template>
-          <template v-if="transcribedText">
-            <div class="mb-1 text-xs text-emerald-600 font-bold dark:text-emerald-400" :class="{ 'mt-2 border-t border-neutral-200 pt-2 dark:border-neutral-700': testStreamingText && supportsStreamInput }">
-              {{ t('onboarding.ui.final-transcription') }}
-            </div>
-            <div class="whitespace-pre-wrap text-neutral-700 dark:text-neutral-200">
-              {{ displayText(transcribedText) }}
-            </div>
-          </template>
-          <span v-if="!transcribedText && !testStreamingText">{{ t('onboarding.ui.no-transcription-yet-start-the-test-and-speak-into-your-microphone') }}</span>
-        </div>
+          </div>
+
+          <!-- Check status -->
+          <div :class="['flex items-center gap-1.5 text-xs font-semibold']">
+            <span v-if="checkStatus === 'empty'" :class="['flex items-center gap-1.5 text-neutral-400']">
+              <span :class="['h-2 w-2 rounded-full bg-neutral-300 dark:bg-neutral-600']" />
+              <span>{{ t('onboarding.steps.hearing.notConfigured') }}</span>
+            </span>
+            <span v-else-if="checkStatus === 'not-ready'" :class="['flex items-center gap-1.5 text-amber-600 dark:text-amber-400']">
+              <span :class="['h-2 w-2 rounded-full bg-amber-500']" />
+              <span>{{ t('onboarding.steps.hearing.downloadRequired') }}</span>
+            </span>
+            <span v-else-if="checkStatus === 'ready'" :class="['flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400']">
+              <span :class="['h-2 w-2 rounded-full bg-emerald-500']" />
+              <span>{{ t('onboarding.steps.hearing.readyToTest') }}</span>
+            </span>
+            <span v-else-if="checkStatus === 'listening'" :class="['flex items-center gap-1.5 text-primary-600 dark:text-primary-400']">
+              <span :class="['h-2 w-2 rounded-full bg-primary-500 animate-pulse']" />
+              <span>{{ t('onboarding.steps.hearing.listening') }}</span>
+            </span>
+            <span v-else-if="checkStatus === 'heard'" :class="['flex items-center gap-1.5 text-primary-600 dark:text-primary-400']">
+              <span :class="['h-2 w-2 rounded-full bg-primary-500']" />
+              <span>{{ t('onboarding.steps.hearing.heardFinishing') }}</span>
+            </span>
+            <span v-else-if="checkStatus === 'verified'" :class="['flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400']">
+              <span :class="['h-2 w-2 rounded-full bg-emerald-500']" />
+              <span>{{ t('onboarding.steps.hearing.earVerified') }}</span>
+            </span>
+            <span v-else :class="['flex items-center gap-1.5 text-red-600 dark:text-red-400']">
+              <span :class="['h-2 w-2 rounded-full bg-red-500']" />
+              <span>{{ t('onboarding.steps.hearing.checkFailed') }}</span>
+            </span>
+          </div>
+        </aside>
       </div>
     </div>
 
-    <!-- Bottom Navigation Bar -->
+    <!-- Shared footer -->
     <div
       :class="[
-        'h-14 border-t border-neutral-200/80 dark:border-neutral-800/80',
-        'flex items-center justify-between flex-shrink-0 pt-2 mt-2',
+        'flex-shrink-0 pt-4 px-4 sm:px-6 flex items-center justify-between border-t border-neutral-200/80 dark:border-neutral-800/80 gap-2',
       ]"
     >
       <button
         type="button"
         :class="[
-          'flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium cursor-pointer',
+          'flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium cursor-pointer flex-shrink-0',
           'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
           'hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors',
         ]"
@@ -1072,17 +1187,29 @@ watch(selectedAudioInput, async () => {
       </button>
 
       <!-- Center Status Hint -->
-      <div :class="['text-[11px] text-neutral-400 font-medium italic hidden sm:block text-center truncate max-w-sm']">
+      <div :class="['text-[11px] text-neutral-400 font-medium italic hidden sm:block text-center truncate max-w-sm min-w-0']">
         <span v-if="isVerified" class="text-emerald-500 font-semibold not-italic dark:text-emerald-400">
-          {{ t('onboarding.ui.ear-verified-ready-to-proceed') }}
+          {{ t('onboarding.steps.hearing.earVerifiedReadyToProceed') }}
+        </span>
+        <span v-else-if="checkStatus === 'not-ready'">
+          {{ t('onboarding.steps.hearing.downloadHint') }}
+        </span>
+        <span v-else-if="checkStatus === 'listening'">
+          {{ t('onboarding.steps.hearing.speakNow') }}
+        </span>
+        <span v-else-if="checkStatus === 'heard'">
+          {{ t('onboarding.steps.hearing.hearingFinishing') }}
+        </span>
+        <span v-else-if="checkStatus === 'ready'">
+          {{ t('onboarding.steps.hearing.startTestHint') }}
         </span>
         <span v-else>
-          {{ t('onboarding.ui.speak-into-your-microphone-next-unlocks-once-we-hear-you') }}
+          {{ t('onboarding.steps.hearing.speakIntoYourMicrophoneNextUnlocksOnceWeHearYou') }}
         </span>
       </div>
 
       <!-- Action Group: Skip Step + Next -->
-      <div :class="['flex items-center gap-3']">
+      <div :class="['flex items-center gap-3 flex-shrink-0']">
         <button
           type="button"
           :class="[

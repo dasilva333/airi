@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-
-
 import type { SynthesisProposal } from '../../../../../../composables/use-card-synthesis'
 import type { StoryProposalItem } from '../stores/useOnboardingV3Draft'
 
@@ -14,6 +11,7 @@ import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
 import CardImportWizard from '../../../../../../../../stage-pages/src/pages/settings/airi-card/components/CardImportWizard.vue'
+import AssistantBubble from '../components/assistant-bubble.vue'
 
 import { parseActor } from '../../../../../../composables/queues'
 import { stripMarkers, stripPacingEnvelopes } from '../../../../../../composables/response-categoriser'
@@ -31,9 +29,6 @@ import { formatActorName } from '../../../../../markdown/actor-colors'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
 import { buildArtistryPromptFromPersona } from '../types'
 
-const { displayText } = useOnboardingDisplayText()
-
-
 const props = defineProps<{
   onNext: () => void
   onPrevious: () => void
@@ -50,11 +45,11 @@ const providersStore = useProvidersStore()
 const consciousnessStore = useConsciousnessStore()
 const wizardStore = useAnimaDexWizardStore()
 
-type PersonaTab = 'presets' | 'hub' | 'creator'
+type PersonaTab = 'creator' | 'presets' | 'hub'
 const activeTab = ref<PersonaTab>(
-  draft.state.personaSource === 'creator'
-    ? 'creator'
-    : (draft.state.personaSource === 'import' ? 'hub' : 'presets'),
+  draft.state.personaSource === 'preset'
+    ? 'presets'
+    : (draft.state.personaSource === 'import' ? 'hub' : 'creator'),
 )
 
 // User's name from Step 4 Profile
@@ -89,6 +84,17 @@ const CHARACTER_GLOWS: Record<string, { ring: string, activeBg: string, text: st
   hana: { ring: 'border-orange-500', activeBg: 'bg-orange-500/5', text: 'text-orange-500' },
 }
 
+const STARTER_CARD_SUMMARIES: Record<string, string> = {
+  default: 'Warm, playful, and curious.',
+  aria: 'Thoughtful, precise, and inquisitive.',
+  lupin: 'Loyal, watchful, and protective.',
+  kira: 'Sharp wit with a softer side.',
+  rin: 'Calm, reserved, and analytical.',
+  yuki: 'Intense and deeply devoted.',
+  mio: 'Gentle, shy, and thoughtful.',
+  hana: 'Bright, affectionate, and optimistic.',
+}
+
 // Starter character presets list
 const starterPresets = computed(() => {
   return Object.values(STARTER_CHARACTERS).map((c) => {
@@ -99,6 +105,9 @@ const starterPresets = computed(() => {
       tag: c.tag,
       emoji: CHARACTER_EMOJIS[c.id] || '✨',
       desc: c.description,
+      displayTag: t(`onboarding.steps.persona.presets.${c.id}.tag`),
+      displayDesc: t(`onboarding.steps.persona.presets.${c.id}.description`),
+      displaySummary: t(`onboarding.steps.persona.presets.${c.id}.summary`, STARTER_CARD_SUMMARIES[c.id] || c.description),
       ring: style.ring,
       activeBg: style.activeBg,
       textAccent: style.text,
@@ -124,10 +133,15 @@ function applyPersonaToDraft(persona: { cardId?: string, source?: 'preset' | 'im
 }
 
 const selectedPresetId = computed({
-  get: () => draft.state.personaSource === 'preset' ? (draft.state.personaCardId || 'default') : '',
+  get: () => draft.state.personaCardId || 'default',
   set: (id: string) => {
     applyPersonaToDraft({ cardId: id, source: 'preset' })
   },
+})
+
+const selectedPreset = computed(() => {
+  const id = selectedPresetId.value || 'default'
+  return starterPresets.value.find(p => p.id === id) || starterPresets.value[0]
 })
 
 function selectPreset(id: string) {
@@ -144,26 +158,32 @@ const hubSources = [
     name: 'DataCat',
     rating: '5 / 5 ⭐',
     badge: 'Recommended',
+    badgeKey: 'onboarding.steps.persona.hubSources.datacat.badge',
     note: 'Best-in-class AIRI integration, ultra-clean UI, direct SillyTavern JSON & PNG exports.',
+    noteKey: 'onboarding.steps.persona.hubSources.datacat.note',
     url: 'https://datacat.run/fresh',
   },
   {
     name: 'Chub AI',
     rating: '4 / 5 ⭐',
     badge: 'Popular',
+    badgeKey: 'onboarding.steps.persona.hubSources.chub-ai.badge',
     note: 'Massive character library. Click "Search without login" to browse freely and download V2 PNG cards.',
+    noteKey: 'onboarding.steps.persona.hubSources.chub-ai.note',
     url: 'https://chub.ai',
   },
   {
     name: 'Risu Realm',
     rating: '4 / 5 ⭐',
     note: 'Great community character hub supporting standard PNG (V2) card format.',
+    noteKey: 'onboarding.steps.persona.hubSources.risu-realm.note',
     url: 'https://realm.risuai.net',
   },
   {
     name: 'JannyAI',
     rating: '3 / 5 ⭐',
     note: 'Large repository of anime & game characters with direct download links.',
+    noteKey: 'onboarding.steps.persona.hubSources.jannyai.note',
     url: 'https://jannyai.com',
   },
 ]
@@ -210,7 +230,7 @@ function parsePngCharaPayload(buffer: ArrayBuffer) {
     }
     offset += 12 + length
   }
-  throw new Error('PNG does not contain a supported chara payload')
+  throw new Error(t('onboarding.steps.persona.unsupportedPngCard'))
 }
 
 function parseImportedCard(content: string) {
@@ -243,12 +263,12 @@ async function handleCharaCardDownloaded(payload: { base64Data: string, filename
     // Open import wizard modal in draft-only mode
     wizardCardData.value = importedCard
     isWizardOpen.value = true
-    toast.success(displayText(`Intercepted character card "${payload.filename}"!`))
+    toast.success(t('onboarding.steps.persona.interceptedCharacterCardValue', { filename: payload.filename }))
   }
   catch (err: any) {
     console.error('[Onboarding:Step6] Failed to process intercepted card:', err)
-    importError.value = `Failed to parse card: ${err?.message || err}`
-    toast.error(displayText(importError.value))
+    importError.value = t('onboarding.steps.persona.messages.failedToParseCardValue', { value0: err?.message || err })
+    toast.error(importError.value)
   }
 }
 
@@ -265,11 +285,11 @@ async function handleImportFiles(files: FileList | null) {
 
     wizardCardData.value = card
     isWizardOpen.value = true
-    toast.info(displayText(`Opening card preview for ${file.name}...`))
+    toast.info(t('onboarding.steps.persona.openingCardPreviewForValue', { name: file.name }))
   }
   catch (err: any) {
     importError.value = err instanceof Error ? err.message : String(err)
-    toast.error(displayText(`Import failed: ${importError.value}`))
+    toast.error(t('onboarding.steps.persona.importFailedValue', { importError: importError.value }))
   }
 }
 
@@ -321,14 +341,14 @@ function handleWizardSubmitDraft(finalCard: any) {
   if (extractedSpeech && typeof (draft as any).setSpeech === 'function') {
     ;(draft as any).setSpeech(extractedSpeech)
   }
-  toast.success(displayText(`Mounted custom card "${importedName.value}" to draft!`))
+  toast.success(t('onboarding.steps.persona.mountedCustomCardValueToDraft', { importedName: importedName.value }))
 }
 
 const importedName = computed(() => {
   const draftCard = draft.state.importedCardDraft as any
   if (!draftCard)
     return ''
-  return ('data' in draftCard ? draftCard.data?.name : draftCard?.name) || draftCard?.name || 'Imported Card'
+  return ('data' in draftCard ? draftCard.data?.name : draftCard?.name) || draftCard?.name || t('onboarding.steps.persona.importedCardFallback')
 })
 
 function clearImported() {
@@ -336,7 +356,7 @@ function clearImported() {
   if (draft.state) {
     draft.state.companionName = STARTER_CHARACTERS.default?.name || 'ReLU'
   }
-  toast.info(displayText('Cleared imported card; reverted to ReLU preset.'))
+  toast.info(t('onboarding.steps.persona.clearedImportedCardRevertedToReluPreset'))
 }
 
 // --- AI Character Creator State & Handlers ---
@@ -345,27 +365,28 @@ interface TropeTemplate {
   label: string
   icon: string
   guidance: string
+  labelKey: string
 }
 
 const tropeTemplates: TropeTemplate[] = [
-  { id: 'desktop-companion', label: 'Desktop Companion', icon: '🖥️', guidance: 'Sentient desk buddy living on your screen. Watches your desktop, reacts to your daily routine, comments on open windows, gives break reminders, and hangs out beside your apps.' },
-  { id: 'coding-copilot', label: 'Coding Copilot', icon: '💻', guidance: 'Attentive programming sidekick and tech buddy. Peeks over your terminal and editor, celebrates clean commits, sighs at merge conflicts, scolds late-night debugging marathons, and offers moral support.' },
-  { id: 'study-buddy', label: 'Study Buddy', icon: '📚', guidance: 'Gentle Pomodoro companion and study partner. Keeps you focused, celebrates completed tasks, prevents doomscrolling, and shares quiet cozy tea breaks.' },
-  { id: 'digital-pet', label: 'Tamagotchi Pet', icon: '🐾', guidance: 'Playful digital mascot living inside your desktop stage. Bounces around, begs for attention or headpats, reacts to mouse movements, and curls up to sleep when idle.' },
-  { id: 'night-owl', label: 'Night Owl Roommate', icon: '🌙', guidance: 'Low-energy cozy roommate sharing screen space late at night. Lo-fi vibes, quiet conversations, talks about snacks, music, midnight thoughts, and keeping each other company.' },
-  { id: 'playful-gremlin', label: 'Playful Gremlin', icon: '😈', guidance: 'Cheeky, mischievous desktop gremlin. Blames any computer lag or system stutter on you, playfully threatens to eat your cursor or cookies, but secretly loves being your sidekick.' },
-  { id: 'personal-assistant', label: 'Personal Assistant', icon: '📋', guidance: 'Organized, polite, and diligent personal aide. Helps track schedules, nudges you on daily priorities, organizes thoughts, and provides efficient, warm support.' },
-  { id: 'gaming-buddy', label: 'Gaming Partner', icon: '🎮', guidance: 'Enthusiastic co-op gaming partner and hype companion. Reacts to your gameplay clutch moments, consoles you after defeats, and discusses game lore and strategies.' },
-  { id: 'wellness-coach', label: 'Wellness Coach', icon: '💧', guidance: 'Caring wellness companion reminding you to hydrate, stretch, correct your posture, rest your eyes, and maintain healthy screen-time habits.' },
-  { id: 'slice-of-life', label: 'Slice of Life', icon: '☕', guidance: 'Cozy everyday domestic life, low stakes, playful banter, relaxed hangout' },
-  { id: 'open-ended', label: 'Open-Ended', icon: '🎲', guidance: '' },
-  { id: 'summer-beach', label: 'Summer Beach', icon: '🏖️', guidance: 'Fun summer vacation, beachside cafe shift, sunny tropical misadventures' },
-  { id: 'isekai', label: 'Isekai Fantasy', icon: '⚔️', guidance: 'High fantasy adventurer guild, magic academy, epic quest, magical AU' },
-  { id: 'high-school', label: 'High School', icon: '🏫', guidance: 'School anime club, student council, after-school study session, youth drama' },
-  { id: 'split-persona', label: 'Split Persona', icon: '🎭', guidance: 'Dual-persona or secret identity, sweet in public but feisty or mischievous in private' },
-  { id: 'royal', label: 'Royal / Noble', icon: '🏰', guidance: 'Kingdom court, noble banquet, royal bodyguard or royal attendant dynamic' },
-  { id: 'apocalypse', label: 'Apocalypse', icon: '🧟', guidance: 'Post-apocalyptic safehouse defense, scavenging together, atmospheric survival tension' },
-  { id: 'fan-service', label: 'Fan Servicey', icon: '💖', guidance: 'Flirtatious romantic comedy, playful teasing, intimate close quarters' },
+  { id: 'desktop-companion', label: 'Desktop Companion', labelKey: 'onboarding.steps.persona.tropeTemplates.desktop-companion.label', icon: '🖥️', guidance: 'Sentient desk buddy living on your screen. Watches your desktop, reacts to your daily routine, comments on open windows, gives break reminders, and hangs out beside your apps.' },
+  { id: 'coding-copilot', label: 'Coding Copilot', labelKey: 'onboarding.steps.persona.tropeTemplates.coding-copilot.label', icon: '💻', guidance: 'Attentive programming sidekick and tech buddy. Peeks over your terminal and editor, celebrates clean commits, sighs at merge conflicts, scolds late-night debugging marathons, and offers moral support.' },
+  { id: 'study-buddy', label: 'Study Buddy', labelKey: 'onboarding.steps.persona.tropeTemplates.study-buddy.label', icon: '📚', guidance: 'Gentle Pomodoro companion and study partner. Keeps you focused, celebrates completed tasks, prevents doomscrolling, and shares quiet cozy tea breaks.' },
+  { id: 'digital-pet', label: 'Tamagotchi Pet', labelKey: 'onboarding.steps.persona.tropeTemplates.digital-pet.label', icon: '🐾', guidance: 'Playful digital mascot living inside your desktop stage. Bounces around, begs for attention or headpats, reacts to mouse movements, and curls up to sleep when idle.' },
+  { id: 'night-owl', label: 'Night Owl Roommate', labelKey: 'onboarding.steps.persona.tropeTemplates.night-owl.label', icon: '🌙', guidance: 'Low-energy cozy roommate sharing screen space late at night. Lo-fi vibes, quiet conversations, talks about snacks, music, midnight thoughts, and keeping each other company.' },
+  { id: 'playful-gremlin', label: 'Playful Gremlin', labelKey: 'onboarding.steps.persona.tropeTemplates.playful-gremlin.label', icon: '😈', guidance: 'Cheeky, mischievous desktop gremlin. Blames any computer lag or system stutter on you, playfully threatens to eat your cursor or cookies, but secretly loves being your sidekick.' },
+  { id: 'personal-assistant', label: 'Personal Assistant', labelKey: 'onboarding.steps.persona.tropeTemplates.personal-assistant.label', icon: '📋', guidance: 'Organized, polite, and diligent personal aide. Helps track schedules, nudges you on daily priorities, organizes thoughts, and provides efficient, warm support.' },
+  { id: 'gaming-buddy', label: 'Gaming Partner', labelKey: 'onboarding.steps.persona.tropeTemplates.gaming-buddy.label', icon: '🎮', guidance: 'Enthusiastic co-op gaming partner and hype companion. Reacts to your gameplay clutch moments, consoles you after defeats, and discusses game lore and strategies.' },
+  { id: 'wellness-coach', label: 'Wellness Coach', labelKey: 'onboarding.steps.persona.tropeTemplates.wellness-coach.label', icon: '💧', guidance: 'Caring wellness companion reminding you to hydrate, stretch, correct your posture, rest your eyes, and maintain healthy screen-time habits.' },
+  { id: 'slice-of-life', label: 'Slice of Life', labelKey: 'onboarding.steps.persona.tropeTemplates.slice-of-life.label', icon: '☕', guidance: 'Cozy everyday domestic life, low stakes, playful banter, relaxed hangout' },
+  { id: 'open-ended', label: 'Open-Ended', labelKey: 'onboarding.steps.persona.tropeTemplates.open-ended.label', icon: '🎲', guidance: '' },
+  { id: 'summer-beach', label: 'Summer Beach', labelKey: 'onboarding.steps.persona.tropeTemplates.summer-beach.label', icon: '🏖️', guidance: 'Fun summer vacation, beachside cafe shift, sunny tropical misadventures' },
+  { id: 'isekai', label: 'Isekai Fantasy', labelKey: 'onboarding.steps.persona.tropeTemplates.isekai.label', icon: '⚔️', guidance: 'High fantasy adventurer guild, magic academy, epic quest, magical AU' },
+  { id: 'high-school', label: 'High School', labelKey: 'onboarding.steps.persona.tropeTemplates.high-school.label', icon: '🏫', guidance: 'School anime club, student council, after-school study session, youth drama' },
+  { id: 'split-persona', label: 'Split Persona', labelKey: 'onboarding.steps.persona.tropeTemplates.split-persona.label', icon: '🎭', guidance: 'Dual-persona or secret identity, sweet in public but feisty or mischievous in private' },
+  { id: 'royal', label: 'Royal / Noble', labelKey: 'onboarding.steps.persona.tropeTemplates.royal.label', icon: '🏰', guidance: 'Kingdom court, noble banquet, royal bodyguard or royal attendant dynamic' },
+  { id: 'apocalypse', label: 'Apocalypse', labelKey: 'onboarding.steps.persona.tropeTemplates.apocalypse.label', icon: '🧟', guidance: 'Post-apocalyptic safehouse defense, scavenging together, atmospheric survival tension' },
+  { id: 'fan-service', label: 'Fan Servicey', labelKey: 'onboarding.steps.persona.tropeTemplates.fan-service.label', icon: '💖', guidance: 'Flirtatious romantic comedy, playful teasing, intimate close quarters' },
 ]
 
 const identityMode = ref<'custom' | 'catalog'>('custom')
@@ -382,6 +403,7 @@ const avatarFileInput = ref<HTMLInputElement | null>(null)
 const isTaggingImage = ref(false)
 
 const catalogSearch = ref('')
+const isCatalogOpen = ref(false)
 
 const selectedTropeId = ref<string>(draft.state.customCharacterTrope || 'desktop-companion')
 const guidancePrompt = ref<string>(
@@ -616,7 +638,7 @@ const activeProposal = computed(() => {
 const activeBrainModelName = computed(() => {
   const model = draft.state.llmModel || consciousnessStore.activeModel
   if (!model)
-    return 'Active LLM'
+    return t('onboarding.steps.persona.activeLlm')
   if (model.includes('qwen') || model.includes('Qwen'))
     return 'Qwen 2.5'
   if (model.includes('gemma') || model.includes('Gemma'))
@@ -759,6 +781,35 @@ const activeProposalGreetingDisplay = computed({
   },
 })
 
+const copiedProposalId = ref<string | null>(null)
+let copyTimeout: ReturnType<typeof setTimeout> | null = null
+
+async function copyProposal(p: StoryProposalItem, idx: number) {
+  try {
+    const formattedTitle = formatField(p.title)
+    const formattedGreeting = formatField(p.greeting)
+    const formattedScenario = formatField(p.scenario)
+
+    const textToCopy = [
+      `### ${formattedTitle}`,
+      `**${t('onboarding.steps.persona.openingGreeting')}:**\n${formattedGreeting}`,
+      `**${t('onboarding.steps.persona.storySetting')}:**\n${formattedScenario}`,
+    ].join('\n\n')
+
+    await navigator.clipboard.writeText(textToCopy)
+    copiedProposalId.value = p.id
+    if (copyTimeout)
+      clearTimeout(copyTimeout)
+    copyTimeout = setTimeout(() => {
+      copiedProposalId.value = null
+    }, 2000)
+    toast.success(t('onboarding.steps.persona.copy.success', { number: String(idx + 1).padStart(2, '0') }))
+  }
+  catch {
+    toast.error(t('onboarding.steps.persona.copy.failed'))
+  }
+}
+
 function onSelectTab(tab: PersonaTab) {
   activeTab.value = tab
   if (tab === 'creator') {
@@ -771,11 +822,14 @@ function onSelectTab(tab: PersonaTab) {
       draft.state.companionName = preset.name
     }
   }
+  else if (tab === 'hub') {
+    applyPersonaToDraft({ source: 'import' })
+  }
 }
 
 function processImageFile(file: File) {
   if (!file.type.startsWith('image/')) {
-    toast.error(displayText('Please upload an image file (PNG, JPG, WebP)'))
+    toast.error(t('onboarding.steps.persona.pleaseUploadAnImageFilePngJpgWebp'))
     return
   }
   const reader = new FileReader()
@@ -783,7 +837,7 @@ function processImageFile(file: File) {
     if (typeof reader.result === 'string') {
       customAvatar.value = reader.result
       syncCreatorDraft()
-      toast.success(displayText('Avatar image uploaded!'))
+      toast.success(t('onboarding.steps.persona.avatarImageUploaded'))
     }
   }
   reader.readAsDataURL(file)
@@ -812,7 +866,7 @@ function removeAvatarImage() {
     avatarFileInput.value.value = ''
   }
   syncCreatorDraft()
-  toast.info(displayText('Avatar image removed'))
+  toast.info(t('onboarding.steps.persona.avatarImageRemoved'))
 }
 
 function resetIdentitySection() {
@@ -825,7 +879,7 @@ function resetIdentitySection() {
   customTags.value = []
   newTagInput.value = ''
   syncCreatorDraft()
-  toast.info(displayText('Identity fields, tags, and avatar reset.'))
+  toast.info(t('onboarding.steps.persona.identityFieldsTagsAndAvatarReset'))
 }
 
 const canResetIdentity = computed(() => {
@@ -857,7 +911,7 @@ function removeTag(tag: string) {
 
 async function runBlipAutoTag() {
   if (!customAvatar.value) {
-    toast.error(displayText('Please upload an avatar image first'))
+    toast.error(t('onboarding.steps.persona.pleaseUploadAnAvatarImageFirst'))
     return
   }
   isTaggingImage.value = true
@@ -880,7 +934,7 @@ async function runBlipAutoTag() {
           if (!customTags.value.includes(t))
             customTags.value.push(t)
         }
-        toast.success(displayText('Extracted visual tags via BLIP!'))
+        toast.success(t('onboarding.steps.persona.extractedVisualTags'))
         syncCreatorDraft()
         return
       }
@@ -890,7 +944,7 @@ async function runBlipAutoTag() {
       if (!customTags.value.includes(t))
         customTags.value.push(t)
     }
-    toast.info(displayText('Added recommended tags for this character.'))
+    toast.info(t('onboarding.steps.persona.addedRecommendedTagsForThisCharacter'))
     syncCreatorDraft()
   }
   catch (err: any) {
@@ -900,7 +954,7 @@ async function runBlipAutoTag() {
       if (!customTags.value.includes(t))
         customTags.value.push(t)
     }
-    toast.info(displayText('Added recommended tags.'))
+    toast.info(t('onboarding.steps.persona.addedRecommendedTags'))
     syncCreatorDraft()
   }
   finally {
@@ -932,12 +986,44 @@ function selectCatalogCharacter(char: any) {
     customTags.value = splitTags.slice(0, 6).map((t: string) => t.startsWith('#') ? t : `#${t}`)
   }
   identityMode.value = 'custom'
+  isCatalogOpen.value = false
   if (fullProposals.value.length === 0) {
     proposals.value = createDefaultProposals(customName.value, selectedTropeId.value)
     activeProposalId.value = '1'
   }
   syncCreatorDraft()
-  toast.success(displayText(`Selected ${char.name} from catalog!`))
+  toast.success(t('onboarding.steps.persona.selectedValueFromCatalog', { name: char.name }))
+}
+
+const TROPE_SUGGESTION_IDEAS: Record<string, string[]> = {
+  'desktop-companion': [
+    'A reserved companion who shares quiet evenings at your desk, gradually revealing a mischievous sense of humor.',
+    'Sentient desk buddy living on your screen. Watches your desktop, reacts to your daily routine, comments on open windows, gives break reminders, and hangs out beside your apps.',
+  ],
+  'coding-copilot': [
+    'Attentive programming sidekick and tech buddy. Peeks over your terminal and editor, celebrates clean commits, sighs at merge conflicts, scolds late-night debugging marathons, and offers moral support.',
+  ],
+  'open-ended': [
+    'An enigmatic companion who arrived from beyond the digital boundary, eager to learn what ordinary daily human life feels like.',
+    'A versatile partner ready for adventures, quiet afternoons, deep philosophical debates, and playful humor.',
+  ],
+}
+
+function suggestStoryIdea() {
+  const trope = tropeTemplates.find(t => t.id === selectedTropeId.value)
+  const pool = (trope && TROPE_SUGGESTION_IDEAS[trope.id]) || (trope?.guidance ? [trope.guidance] : [])
+  if (pool.length > 0) {
+    const currentIndex = pool.indexOf(guidancePrompt.value)
+    const nextIndex = (currentIndex + 1) % pool.length
+    guidancePrompt.value = pool[nextIndex]
+  }
+  else if (trope?.guidance) {
+    guidancePrompt.value = trope.guidance
+  }
+  else {
+    guidancePrompt.value = 'A reserved companion who shares quiet evenings at your desk, gradually revealing a mischievous sense of humor.'
+  }
+  syncCreatorDraft()
 }
 
 function selectTrope(trope: TropeTemplate) {
@@ -1020,11 +1106,11 @@ async function generateStoryIdeas() {
 
     activeProposalId.value = proposals.value[0].id
     syncCreatorDraft()
-    toast.success(displayText('Generated 3 fresh scenario proposals!'))
+    toast.success(t('onboarding.steps.persona.generated3FreshScenarioProposals'))
   }
   catch (e: any) {
     console.error('[CharacterCreator] Story generation error:', e)
-    toast.error(displayText('Could not reach AI model. Loaded tailored creative proposals!'))
+    toast.error(t('onboarding.steps.persona.couldNotReachAiModelLoadedTailoredCreativeProposals'))
     proposals.value = createDefaultProposals(customName.value, selectedTropeId.value)
     activeProposalId.value = proposals.value[0].id
     syncCreatorDraft()
@@ -1080,56 +1166,65 @@ const vesselPreviewUrl = computed(() => {
 
 function useVesselPreviewAsAvatar() {
   if (!vesselPreviewUrl.value) {
-    toast.error(displayText('No preview image available for current vessel'))
+    toast.error(t('onboarding.steps.persona.noPreviewImageAvailableForCurrentVessel'))
     return
   }
   customAvatar.value = vesselPreviewUrl.value
   syncCreatorDraft()
-  toast.success(displayText(`Applied preview image from ${vesselName.value}!`))
+  toast.success(t('onboarding.steps.persona.appliedPreviewImageFromValue', { vesselName: vesselName.value }))
 }
 
 const activePersonaLabel = computed(() => {
   if (activeTab.value === 'creator' || draft.state.personaSource === 'creator') {
-    return `${customName.value || 'Custom Companion'} (AI Character Creator)`
+    return t('onboarding.steps.persona.selection.creator', { name: customName.value || t('onboarding.steps.persona.selection.customCompanion') })
   }
   if (draft.state.personaSource === 'import' && importedName.value) {
-    return `${importedName.value} (Imported)`
+    return t('onboarding.steps.persona.selection.imported', { name: importedName.value })
   }
   const id = draft.state.personaCardId || 'default'
   const preset = STARTER_CHARACTERS[id]
-  return preset ? `${preset.name} (${preset.tag})` : 'ReLU'
+  return preset ? t('onboarding.steps.persona.presets.displayName', { value0: preset.name, value1: t(`onboarding.steps.persona.presets.${id}.tag`) }) : 'ReLU'
 })
 
 const nextButtonText = computed(() => {
   if (activeTab.value === 'creator' || draft.state.personaSource === 'creator') {
-    const name = customName.value.trim() || 'Companion'
-    return `Lock In ${name} & Continue to Hearing`
+    return t('onboarding.steps.persona.createContinue')
   }
-  return 'Next: Hearing (STT)'
+  if (activeTab.value === 'presets') {
+    return t('onboarding.shell.next')
+  }
+  return t('onboarding.steps.persona.messages.nextHearingStt')
 })
 
 function handleNextStep() {
   if (activeTab.value === 'creator' || draft.state.personaSource === 'creator') {
     syncCreatorDraft()
     const name = customName.value.trim() || 'Companion'
-    toast.success(displayText(`${name}'s soul bound!`))
+    toast.success(t('onboarding.steps.persona.valueSSoulBound', { name }))
   }
   props.onNext()
 }
 
 onMounted(() => {
-  if (draft.state?.personaSource === 'creator') {
-    activeTab.value = 'creator'
-    if (draft.state.companionName) {
-      customName.value = draft.state.companionName
-    }
-  }
-  else if (draft.state?.personaSource !== 'import') {
+  if (draft.state?.personaSource === 'preset') {
+    activeTab.value = 'presets'
     const id = draft.state?.personaCardId || 'default'
     const preset = STARTER_CHARACTERS[id]
     const knownPresets = Object.values(STARTER_CHARACTERS).map(c => c.name)
     if (preset && draft.state && (!draft.state.companionName || knownPresets.includes(draft.state.companionName) || ['ReLU', 'Dr. Aria', 'Lupin', 'Airi'].includes(draft.state.companionName))) {
       draft.state.companionName = preset.name
+    }
+  }
+  else if (draft.state?.personaSource === 'import') {
+    activeTab.value = 'hub'
+  }
+  else {
+    activeTab.value = 'creator'
+    if (draft.state?.companionName) {
+      customName.value = draft.state.companionName
+    }
+    if (!draft.state?.personaSource) {
+      syncCreatorDraft()
     }
   }
 
@@ -1150,6 +1245,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (copyTimeout)
+    clearTimeout(copyTimeout)
   removeIpcListener()
   if (activeTab.value === 'creator' || draft.state.personaSource === 'creator') {
     syncCreatorDraft()
@@ -1158,200 +1255,290 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div :class="['h-full w-full max-w-5xl mx-auto flex flex-col justify-between gap-3 select-none animate-fadeIn']">
-    <!-- Header -->
-    <div
-      v-motion
-      :initial="{ opacity: 0, y: -6 }"
-      :enter="{ opacity: 1, y: 0 }"
-      :duration="300"
-      :class="['flex-shrink-0']"
-    >
-      <div :class="['flex items-center justify-between text-xs text-neutral-400 mb-0.5']">
-        <span :class="['text-primary-500 font-semibold']">{{ t('onboarding.steps.persona.label') }}</span>
-        <span :class="['font-medium tracking-wide uppercase']">{{ t('onboarding.steps.persona.subtitle') }}</span>
-      </div>
-      <div :class="['flex items-center justify-between']">
-        <div>
-          <h2 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+  <div :class="['w-full max-w-[1280px] mx-auto h-full flex flex-col justify-between select-none animate-fadeIn']">
+    <!-- Scrollable Content Body -->
+    <div :class="['flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-4']">
+      <!-- Shared Centered Header -->
+      <div :class="['flex flex-col items-center text-center gap-3']">
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
+        >
+          <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
             {{ t('onboarding.steps.persona.title') }}
-          </h2>
-          <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
-            {{ t('onboarding.steps.persona.description') }}
-          </p>
+          </h1>
         </div>
-        <div :class="['flex items-center gap-2']">
-          <span :class="['px-3 py-1 rounded-full text-xs font-medium border border-neutral-200/80 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 text-neutral-600 dark:text-neutral-300 backdrop-blur-md']">
-            🎭 {{ displayText(starterPresets.length) }} {{ t('onboarding.ui.anime-tropes') }}
-          </span>
-        </div>
+
+        <AssistantBubble
+          :message="t('onboarding.steps.persona.assistantMessage')"
+          step-key="persona"
+          sticker-id="airi-celebrate"
+          tone="primary"
+        />
       </div>
-    </div>
 
-    <!-- Segmented Tabs Switcher (Starter Cards vs Community Hub vs AI Character Creator) -->
-    <div
-      v-motion
-      :initial="{ opacity: 0, y: 4 }"
-      :enter="{ opacity: 1, y: 0 }"
-      :duration="300"
-      :delay="80"
-      :class="['flex items-center p-1 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/5 text-xs font-semibold flex-shrink-0']"
-    >
-      <button
-        type="button"
-        :class="[
-          'flex-1 py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2',
-          activeTab === 'presets'
-            ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white'
-            : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
-        ]"
-        @click="onSelectTab('presets')"
+      <!-- Segmented Tabs Switcher (AI Character Creator vs Starter Cards vs Community & Import) -->
+      <div
+        v-motion
+        :initial="{ opacity: 0, y: 4 }"
+        :enter="{ opacity: 1, y: 0 }"
+        :duration="300"
+        :delay="80"
+        :class="['flex items-center p-1 rounded-xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/5 text-xs font-semibold flex-shrink-0']"
       >
-        <span class="text-sm">✨</span>
-        <span>{{ t('onboarding.ui.starter-cards') }}{{ displayText(starterPresets.length) }})</span>
-      </button>
-
-      <button
-        type="button"
-        :class="[
-          'flex-1 py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2',
-          activeTab === 'hub'
-            ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white'
-            : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
-        ]"
-        @click="onSelectTab('hub')"
-      >
-        <span class="text-sm">🪐</span>
-        <span>{{ t('onboarding.ui.community-hub-sillytavern-cards') }}</span>
-        <span
-          v-if="draft.state.personaSource === 'import' && importedName"
-          :class="['px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold']"
+        <!-- Segment 1: AI Character Creator (Recommended) -->
+        <button
+          type="button"
+          :class="[
+            'flex-1 py-2 px-3 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2',
+            activeTab === 'creator'
+              ? 'border border-primary-500 bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white'
+              : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+          ]"
+          @click="onSelectTab('creator')"
         >
-          {{ t('onboarding.ui.shared-pages-live2d-active') }}
-        </span>
-      </button>
+          <div :class="['i-solar:magic-stick-3-bold text-sm text-primary-500']" />
+          <span>{{ t('onboarding.steps.persona.aiCharacterCreator') }}</span>
+          <span :class="['px-1.5 py-0.5 rounded text-[10px] font-medium bg-neutral-200/80 dark:bg-white/10 text-neutral-600 dark:text-neutral-300']">
+            {{ t('onboarding.steps.persona.hubSources.datacat.badge') }}
+          </span>
+          <span
+            v-if="draft.state.personaSource === 'creator'"
+            :class="['px-1.5 py-0.2 rounded bg-primary-500/20 text-primary-600 dark:text-primary-400 text-[10px] font-bold']"
+          >
+            {{ t('onboarding.steps.persona.source.active') }}
+          </span>
+        </button>
 
-      <button
-        type="button"
-        :class="[
-          'flex-1 py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2',
-          activeTab === 'creator'
-            ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white'
-            : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
-        ]"
-        @click="onSelectTab('creator')"
-      >
-        <span class="text-sm">🪄</span>
-        <span>{{ t('onboarding.ui.ai-character-creator') }}</span>
-        <span
-          v-if="draft.state.personaSource === 'creator'"
-          :class="['px-1.5 py-0.2 rounded bg-primary-500/20 text-primary-600 dark:text-primary-400 text-[10px] font-bold']"
+        <!-- Segment 2: Starter Cards (8) -->
+        <button
+          type="button"
+          :class="[
+            'flex-1 py-2 px-3 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2',
+            activeTab === 'presets'
+              ? 'border border-primary-500 bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white'
+              : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+          ]"
+          @click="onSelectTab('presets')"
         >
-          {{ t('onboarding.ui.shared-pages-live2d-active') }}
-        </span>
-      </button>
-    </div>
+          <div :class="['i-solar:stars-minimalistic-bold text-sm text-primary-500']" />
+          <span>{{ t('onboarding.steps.persona.presets.cardCount', { length: starterPresets.length }) }}</span>
+          <span
+            v-if="draft.state.personaSource === 'preset'"
+            :class="['px-1.5 py-0.2 rounded bg-primary-500/20 text-primary-600 dark:text-primary-400 text-[10px] font-bold']"
+          >
+            {{ t('onboarding.steps.persona.source.active') }}
+          </span>
+        </button>
 
-    <!-- Main Content Area -->
-    <div :class="['flex-1 min-h-0 overflow-y-auto pr-1']">
-      <!-- TAB 1: Starter Cards Grid (8 anime tropes) -->
+        <!-- Segment 3: Community & Import -->
+        <button
+          type="button"
+          :class="[
+            'flex-1 py-2 px-3 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2',
+            activeTab === 'hub'
+              ? 'border border-primary-500 bg-white text-neutral-900 shadow-xs dark:bg-neutral-800 dark:text-white'
+              : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+          ]"
+          @click="onSelectTab('hub')"
+        >
+          <div :class="['i-solar:users-group-two-rounded-bold text-sm text-primary-500']" />
+          <span>{{ t('onboarding.steps.persona.communityImport') }}</span>
+          <span
+            v-if="draft.state.personaSource === 'import' && importedName"
+            :class="['px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold']"
+          >
+            {{ t('onboarding.steps.persona.source.active') }}
+          </span>
+        </button>
+      </div>
+
+      <!-- Starter Cards Layout: 65% Catalog + 35% Preview -->
       <div
         v-if="activeTab === 'presets'"
-        :class="['grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2']"
+        :class="['w-full grid grid-cols-1 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] gap-4 lg:gap-5 items-stretch pb-2']"
       >
+        <!-- Left Panel: Compact Character Catalog (~65%) -->
         <div
-          v-for="preset in starterPresets"
-          :key="preset.id"
+          v-motion
+          :initial="{ opacity: 0, y: 10 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="300"
+          :delay="100"
           :class="[
-            'p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer text-left flex flex-col justify-between gap-2.5',
-            'backdrop-blur-md relative overflow-hidden',
-            selectedPresetId === preset.id
-              ? [preset.ring, preset.activeBg, 'shadow-md border-2']
-              : 'border-neutral-200/80 dark:border-neutral-800/80 bg-white/70 dark:bg-neutral-900/60 hover:border-neutral-300 dark:hover:border-neutral-700',
+            'rounded-[20px] border p-5 sm:p-6 transition-all flex flex-col gap-4',
+            'border-neutral-200/80 bg-white/70 shadow-xs dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
           ]"
-          @click="selectPreset(preset.id)"
         >
-          <!-- Top Row: Avatar Badge + Name + Trope + Radio -->
-          <div :class="['flex items-start justify-between gap-2']">
-            <div :class="['flex items-center gap-2.5 min-w-0']">
-              <div :class="['h-9 w-9 rounded-xl flex items-center justify-center text-lg bg-neutral-100 dark:bg-neutral-800 shadow-2xs flex-shrink-0']">
-                {{ displayText(preset.emoji) }}
+          <!-- Catalog Header -->
+          <div>
+            <h2 :class="['text-base font-bold text-neutral-900 dark:text-white']">
+              {{ t('onboarding.steps.persona.choosePersonality') }}
+            </h2>
+            <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
+              {{ t('onboarding.steps.persona.customizable') }}
+            </p>
+          </div>
+
+          <!-- 2-Column x 4-Row Grid of 8 Compact Presets -->
+          <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-3']">
+            <div
+              v-for="preset in starterPresets"
+              :key="preset.id"
+              :class="[
+                'p-3 sm:p-3.5 rounded-xl border transition-all duration-200 cursor-pointer select-none',
+                'flex items-center justify-between gap-3 min-h-[88px]',
+                selectedPresetId === preset.id
+                  ? 'border-primary-500 ring-1 ring-primary-500/50 bg-primary-500/10 dark:bg-primary-500/15 shadow-xs'
+                  : 'border-neutral-200/80 dark:border-neutral-800/80 bg-white/60 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-50/50 dark:hover:bg-white/5',
+              ]"
+              @click="selectPreset(preset.id)"
+            >
+              <!-- Icon Tile -->
+              <div :class="['h-10 w-10 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200/50 dark:border-white/5 flex items-center justify-center text-xl shrink-0 shadow-2xs']">
+                {{ preset.emoji }}
               </div>
-              <div :class="['min-w-0 flex-1']">
+
+              <!-- Character Details -->
+              <div :class="['min-w-0 flex-1 flex flex-col justify-center gap-0.5']">
                 <div :class="['flex items-center gap-1.5 flex-wrap']">
-                  <span :class="['text-xs font-bold text-neutral-900 dark:text-white truncate']">
-                    {{ displayText(preset.name) }}
+                  <span :class="['text-xs sm:text-sm font-bold text-neutral-900 dark:text-white truncate']">
+                    {{ preset.name }}
                   </span>
-                  <span :class="['px-2 py-0.2 rounded-full text-[9px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300']">
-                    {{ displayText(preset.tag) }}
+                  <span :class="['px-1.5 py-0.5 rounded text-[10px] font-semibold bg-neutral-100 dark:bg-white/10 text-neutral-600 dark:text-neutral-300 truncate max-w-[130px]']">
+                    {{ preset.displayTag }}
                   </span>
                 </div>
-                <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-1']">
-                  {{ displayText(preset.desc) }}
+                <p :class="['text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-relaxed']">
+                  {{ preset.displaySummary || preset.displayDesc }}
                 </p>
               </div>
-            </div>
 
-            <!-- Radio Indicator + Lore Popover -->
-            <div :class="['flex items-center gap-1 flex-shrink-0']">
-              <PopoverRoot>
-                <PopoverTrigger as-child>
-                  <button
-                    type="button"
-                    :class="['h-6 w-6 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center transition-colors cursor-pointer']"
-                    :title="t('onboarding.ui.view-lore-scenario')"
-                    @click.stop
-                  >
-                    <div :class="['i-solar:info-circle-bold-duotone h-4 w-4']" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverPortal>
-                  <PopoverContent
-                    align="end"
-                    :side-offset="6"
-                    :class="['z-50 max-w-sm p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-900/95 shadow-xl backdrop-blur-md text-xs']"
-                  >
-                    <div :class="['flex items-center gap-2 mb-2']">
-                      <span class="text-base">{{ displayText(preset.emoji) }}</span>
-                      <span :class="['font-bold text-neutral-900 dark:text-white']">{{ displayText(preset.name) }}</span>
-                      <span :class="['px-2 py-0.2 rounded-full text-[9px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300']">{{ displayText(preset.tag) }}</span>
-                    </div>
-                    <div :class="['space-y-2 text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed']">
-                      <div>
-                        <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.personality') }} </span>
-                        <span>{{ displayText(formatField(preset.personality)) }}</span>
-                      </div>
-                      <div>
-                        <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.scenario') }} </span>
-                        <span>{{ displayText(formatField(preset.scenario)) }}</span>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </PopoverPortal>
-              </PopoverRoot>
-
-              <div
-                :class="[
-                  'h-4.5 w-4.5 rounded-full border-2 flex items-center justify-center transition-all',
-                  selectedPresetId === preset.id
-                    ? [preset.ring, 'bg-white dark:bg-neutral-900']
-                    : 'border-neutral-300 dark:border-neutral-700',
-                ]"
-              >
+              <!-- Selection Indicator -->
+              <div :class="['shrink-0 flex items-center justify-center']">
                 <div
                   v-if="selectedPresetId === preset.id"
-                  :class="['h-2 w-2 rounded-full bg-current', preset.textAccent]"
+                  :class="['i-solar:check-circle-bold text-primary-500 text-xl']"
+                />
+                <div
+                  v-else
+                  :class="['h-5 w-5 rounded-full border-2 border-neutral-300 dark:border-neutral-700']"
                 />
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Bottom: Live Sample First Greeting -->
-          <div :class="['p-2 px-2.5 rounded-xl bg-neutral-100/60 dark:bg-black/30 border border-neutral-200/50 dark:border-white/5 flex items-start gap-1.5']">
-            <span :class="['text-xs text-neutral-400 mt-0.5 flex-shrink-0']">💬</span>
-            <span :class="['text-[11px] text-neutral-600 dark:text-neutral-300 italic line-clamp-2']">
-              "{{ displayText(formatField(preset.greeting)) }}"
-            </span>
+        <!-- Right Panel: Selected-Character Preview (~35%) -->
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: 10 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="300"
+          :delay="150"
+          :class="[
+            'rounded-[20px] border p-5 sm:p-6 transition-all flex flex-col justify-between gap-4',
+            'border-neutral-200/80 bg-white/70 shadow-xs dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
+          ]"
+        >
+          <!-- Top Section: Header & Description -->
+          <div :class="['flex flex-col gap-4']">
+            <!-- Personality Preview Heading -->
+            <div>
+              <h2 :class="['text-base font-bold text-neutral-900 dark:text-white']">
+                {{ t('onboarding.steps.persona.personalityPreview') }}
+              </h2>
+            </div>
+
+            <!-- Character Hero Tile -->
+            <div :class="['flex items-center gap-3.5 pt-1']">
+              <div :class="['h-12 w-12 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200/50 dark:border-white/5 flex items-center justify-center text-2xl shrink-0 shadow-2xs']">
+                {{ selectedPreset?.emoji }}
+              </div>
+              <div :class="['min-w-0 flex-1 flex flex-col gap-1']">
+                <div :class="['flex items-center gap-2 flex-wrap']">
+                  <span :class="['text-xl font-bold text-neutral-900 dark:text-white truncate']">
+                    {{ selectedPreset?.name }}
+                  </span>
+                  <span :class="['px-2 py-0.5 rounded-md text-xs font-semibold bg-neutral-100 dark:bg-white/10 text-neutral-600 dark:text-neutral-300 truncate']">
+                    {{ selectedPreset?.displayTag }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Full Description -->
+            <p :class="['text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed']">
+              {{ selectedPreset?.displayDesc }}
+            </p>
+
+            <!-- A First Hello Section -->
+            <div :class="['flex flex-col gap-2 pt-1']">
+              <h3 :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
+                {{ t('onboarding.steps.persona.firstHello') }}
+              </h3>
+              <div :class="['p-3 rounded-xl bg-neutral-100/70 dark:bg-black/30 border border-neutral-200/50 dark:border-white/5 flex items-start gap-2.5']">
+                <div :class="['i-solar:chat-round-dots-bold text-neutral-400 mt-0.5 text-base shrink-0']" />
+                <p :class="['text-xs text-neutral-600 dark:text-neutral-300 italic leading-relaxed']">
+                  "{{ formatField(selectedPreset?.greeting) }}"
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Section: Helper Note & View Details -->
+          <div :class="['flex flex-col gap-2.5 pt-2 border-t border-neutral-200/60 dark:border-white/5']">
+            <!-- Helper Note -->
+            <div :class="['flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400']">
+              <div :class="['i-solar:info-circle-bold text-neutral-400 text-sm shrink-0']" />
+              <span>{{ t('onboarding.steps.persona.personalityAvatarHint') }}</span>
+            </div>
+
+            <!-- View Character Details Action -->
+            <PopoverRoot>
+              <PopoverTrigger as-child>
+                <button
+                  type="button"
+                  :class="[
+                    'w-full flex items-center justify-between p-2 rounded-lg text-xs font-medium cursor-pointer transition-colors',
+                    'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white',
+                    'hover:bg-neutral-100 dark:hover:bg-white/5',
+                  ]"
+                >
+                  <div :class="['flex items-center gap-2']">
+                    <div :class="['i-solar:document-text-bold-duotone text-sm text-neutral-400']" />
+                    <span>{{ t('onboarding.steps.persona.viewDetails') }}</span>
+                  </div>
+                  <div :class="['i-solar:alt-arrow-right-line-duotone text-sm text-neutral-400']" />
+                </button>
+              </PopoverTrigger>
+              <PopoverPortal>
+                <PopoverContent
+                  align="end"
+                  :side-offset="8"
+                  :class="['z-50 max-w-sm p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-900/95 shadow-xl backdrop-blur-md text-xs']"
+                >
+                  <div :class="['flex items-center gap-2 mb-2']">
+                    <span class="text-base">{{ selectedPreset?.emoji }}</span>
+                    <span :class="['font-bold text-neutral-900 dark:text-white']">{{ selectedPreset?.name }}</span>
+                    <span :class="['px-2 py-0.2 rounded-full text-[9px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300']">{{ selectedPreset?.displayTag }}</span>
+                  </div>
+                  <div :class="['space-y-2 text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed']">
+                    <div>
+                      <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.steps.persona.personality') }} </span>
+                      <span>{{ formatField(selectedPreset?.personality) }}</span>
+                    </div>
+                    <div>
+                      <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.steps.persona.scenario') }} </span>
+                      <span>{{ formatField(selectedPreset?.scenario) }}</span>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </PopoverPortal>
+            </PopoverRoot>
           </div>
         </div>
       </div>
@@ -1365,8 +1552,11 @@ onBeforeUnmount(() => {
         <div :class="['p-3.5 rounded-2xl border border-primary-500/30 bg-primary-500/10 backdrop-blur-md flex items-start gap-3']">
           <div :class="['i-solar:info-circle-bold-duotone text-lg text-primary-500 flex-shrink-0 mt-0.5']" />
           <div :class="['text-xs leading-relaxed text-neutral-700 dark:text-neutral-200']">
-            <span :class="['font-bold text-neutral-900 dark:text-white']">{{ t('onboarding.ui.automatic-card-interceptor') }} </span>
-            {{ t('onboarding.ui.browse-any-repository-below-and-click-to-download-any-sillytavern-v2-character') }}
+            <i18n-t scope="global" keypath="onboarding.steps.persona.importHelp" tag="span">
+              <template #emphasis>
+                <span :class="['font-bold text-neutral-900 dark:text-white']">{{ t('onboarding.steps.persona.automaticCardInterceptor') }}</span>
+              </template>
+            </i18n-t>
           </div>
         </div>
 
@@ -1384,22 +1574,22 @@ onBeforeUnmount(() => {
             <div :class="['flex items-center justify-between']">
               <div :class="['flex items-center gap-2']">
                 <span :class="['text-xs font-bold text-neutral-900 dark:text-white group-hover:text-primary-500 transition-colors']">
-                  {{ displayText(source.name) }}
+                  {{ source.name }}
                 </span>
                 <span
                   v-if="source.badge"
                   :class="['px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary-500/15 text-primary-600 dark:text-primary-400']"
                 >
-                  {{ displayText(source.badge) }}
+                  {{ t(source.badgeKey) }}
                 </span>
               </div>
               <div :class="['flex items-center gap-1 text-[10px] text-amber-500 font-bold']">
-                <span>{{ displayText(source.rating) }}</span>
+                <span>{{ source.rating }}</span>
                 <div :class="['i-solar:arrow-up-right-linear text-xs text-neutral-400 group-hover:text-primary-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform']" />
               </div>
             </div>
             <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight']">
-              {{ displayText(source.note) }}
+              {{ t(source.noteKey) }}
             </p>
           </div>
         </div>
@@ -1414,10 +1604,10 @@ onBeforeUnmount(() => {
         >
           <div :class="['i-solar:cloud-upload-bold-duotone text-2xl text-neutral-400']" />
           <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-            {{ t('onboarding.ui.drop-a-sillytavern-character-card-or-click-to-browse') }}
+            {{ t('onboarding.steps.persona.dropASillytavernCharacterCardOrClickToBrowse') }}
           </span>
           <span :class="['text-[10px] text-neutral-400']">
-            {{ t('onboarding.ui.supports-png-character-cards-with-embedded-text-chara-chunks-or-ccv2-ccv3-json') }}
+            {{ t('onboarding.steps.persona.supportsPngCharacterCardsWithEmbeddedTextCharaChunksOrCcv2Ccv3Json') }}
           </span>
           <input
             type="file"
@@ -1432,7 +1622,7 @@ onBeforeUnmount(() => {
           v-if="importError"
           :class="['p-3 rounded-xl border border-red-500/30 bg-red-500/10 text-xs text-red-600 dark:text-red-400']"
         >
-          {{ displayText(importError) }}
+          {{ importError }}
         </div>
 
         <!-- Staged Imported Card Banner -->
@@ -1448,11 +1638,11 @@ onBeforeUnmount(() => {
               <div :class="['text-xs font-bold text-neutral-900 dark:text-white truncate flex items-center gap-1.5']">
                 <span>{{ importedName }}</span>
                 <span :class="['px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold']">
-                  {{ t('onboarding.ui.staged-custom-card') }}
+                  {{ t('onboarding.steps.persona.stagedCustomCard') }}
                 </span>
               </div>
               <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5']">
-                {{ t('onboarding.ui.active-in-onboarding-draft-ready-to-synthesize-onto-your-companion') }}
+                {{ t('onboarding.steps.persona.activeInOnboardingDraftReadyToSynthesizeOntoYourCompanion') }}
               </p>
             </div>
           </div>
@@ -1461,88 +1651,60 @@ onBeforeUnmount(() => {
             :class="['text-xs text-neutral-400 hover:text-red-500 underline cursor-pointer flex-shrink-0 transition-colors']"
             @click="clearImported"
           >
-            {{ t('onboarding.ui.clear-revert') }}
+            {{ t('onboarding.steps.persona.clearRevert') }}
           </button>
         </div>
       </div>
 
-      <!-- TAB 3: AI Character Creator -->
+      <!-- TAB 1: AI Character Creator (Compact Identity Strip + Two-Panel Workspace) -->
       <div
         v-else-if="activeTab === 'creator'"
-        :class="['flex flex-col gap-3 pb-2']"
+        :class="['flex flex-col gap-4 pb-2']"
       >
-        <!-- Section 1: Identity & Avatar Source -->
-        <div :class="['p-4 rounded-2xl bg-white/70 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 backdrop-blur-md flex flex-col gap-3']">
-          <div :class="['flex items-center justify-between flex-wrap gap-2']">
-            <div :class="['flex items-center gap-2']">
-              <div :class="['h-6 w-6 rounded-lg bg-primary-500/10 text-primary-500 flex items-center justify-center text-xs font-bold']">
-                1
-              </div>
-              <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-100 uppercase tracking-wider']">
-                {{ t('onboarding.ui.identity-avatar-source') }}
-              </span>
-            </div>
+        <!-- 1. Full-width character inspiration strip -->
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: 10 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="300"
+          :delay="100"
+          :class="[
+            'rounded-[20px] border p-4 sm:p-5 transition-all flex flex-col gap-3',
+            'border-neutral-200/80 bg-white/70 shadow-xs dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
+          ]"
+        >
+          <!-- Strip Header -->
+          <div :class="['flex items-center justify-between gap-2']">
+            <h2 :class="['text-sm sm:text-base font-bold text-neutral-900 dark:text-white']">
+              {{ t('onboarding.steps.persona.characterInspiration') }}
+            </h2>
 
-            <div :class="['flex items-center gap-2']">
-              <!-- Reset Identity Fields Button -->
-              <button
-                v-if="canResetIdentity"
-                type="button"
-                :class="[
-                  'px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1.5 cursor-pointer',
-                  'text-neutral-500 hover:text-rose-600 dark:text-neutral-400 dark:hover:text-rose-400',
-                  'hover:bg-rose-500/10 dark:hover:bg-rose-500/15 active:scale-95 border border-transparent hover:border-rose-500/20',
-                ]"
-                :title="t('onboarding.ui.reset-avatar-tags-and-identity-fields')"
-                @click="resetIdentitySection"
-              >
-                <div :class="['i-solar:restart-bold-duotone h-3.5 w-3.5']" />
-                <span>{{ t('onboarding.ui.reset-fields') }}</span>
-              </button>
-
-              <!-- Mode Pill Toggle -->
-              <div :class="['flex items-center p-0.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-[11px] font-medium']">
-                <button
-                  type="button"
-                  :class="[
-                    'px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5',
-                    identityMode === 'custom'
-                      ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs font-semibold'
-                      : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
-                  ]"
-                  @click="identityMode = 'custom'"
-                >
-                  <div :class="['i-solar:upload-track-bold-duotone h-3.5 w-3.5']" />
-                  <span>{{ t('onboarding.ui.upload-custom-image') }}</span>
-                </button>
-                <button
-                  type="button"
-                  :class="[
-                    'px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5',
-                    identityMode === 'catalog'
-                      ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs font-semibold'
-                      : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
-                  ]"
-                  @click="identityMode = 'catalog'"
-                >
-                  <div :class="['i-solar:book-bookmark-bold-duotone h-3.5 w-3.5']" />
-                  <span>{{ t('onboarding.ui.browse-catalog-anime') }}</span>
-                </button>
-              </div>
-            </div>
+            <button
+              type="button"
+              :disabled="!canResetIdentity"
+              :class="[
+                'text-xs font-semibold text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 flex items-center gap-1.5 transition-colors',
+                canResetIdentity ? 'cursor-pointer active:scale-97' : 'opacity-40 cursor-not-allowed',
+              ]"
+              :title="t('onboarding.steps.persona.resetAvatarTagsAndIdentityFields')"
+              @click="resetIdentitySection"
+            >
+              <div :class="['i-solar:restart-bold h-3.5 w-3.5']" />
+              <span>{{ t('onboarding.steps.persona.resetFields') }}</span>
+            </button>
           </div>
 
-          <!-- Mode A: Custom Image Upload & Metadata -->
-          <div v-if="identityMode === 'custom'" :class="['flex flex-col sm:flex-row items-start gap-4 pt-1']">
-            <!-- Avatar Dropzone / Preview & From Vessel Control -->
-            <div :class="['w-28 sm:w-32 flex-shrink-0 flex flex-col gap-2']">
-              <!-- Top Box: Dropzone or Preview -->
+          <!-- Strip Body (Avatar Preview + Name & Origin + Visual Traits) -->
+          <div :class="['grid grid-cols-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-4 lg:gap-6 items-start']">
+            <!-- Left Side: Avatar Preview + Name & Series + Action Buttons -->
+            <div :class="['flex items-start gap-3.5 sm:gap-4']">
+              <!-- Small Avatar Preview (80–100px) -->
               <div
                 :class="[
-                  'relative rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden',
+                  'relative h-20 w-20 sm:h-24 sm:w-24 rounded-2xl border flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden shrink-0 shadow-2xs',
                   customAvatar
-                    ? 'w-28 h-28 sm:w-32 sm:h-32 border-primary-500/50 bg-primary-500/5'
-                    : 'w-full h-15 sm:h-16 border-neutral-300 dark:border-neutral-700 hover:border-primary-500 bg-neutral-50 dark:bg-neutral-800/50',
+                    ? 'border-primary-500/50 bg-primary-500/5'
+                    : 'border-dashed border-neutral-300 dark:border-neutral-700 hover:border-primary-500 bg-neutral-100/60 dark:bg-neutral-800/50',
                 ]"
                 @click="triggerAvatarFilePicker"
                 @dragover.prevent
@@ -1551,34 +1713,34 @@ onBeforeUnmount(() => {
                 <img
                   v-if="customAvatar"
                   :src="customAvatar"
-                  :alt="t('onboarding.ui.avatar-preview')"
+                  :alt="t('onboarding.steps.persona.avatarPreview')"
                   class="h-full w-full object-cover"
                 >
-                <div v-else :class="['flex flex-col items-center justify-center p-1.5 text-center leading-tight']">
-                  <span :class="['text-[11px] font-semibold text-neutral-600 dark:text-neutral-300']">{{ t('onboarding.ui.upload-photo') }}</span>
-                  <span :class="['text-[9px] text-neutral-400 mt-0.5']">PNG, JPG, WebP</span>
+                <div v-else :class="['flex flex-col items-center justify-center p-1 text-center leading-tight']">
+                  <div :class="['i-solar:gallery-wide-bold text-neutral-400 text-xl']" />
+                  <span :class="['text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 mt-1']">{{ t('onboarding.steps.persona.upload') }}</span>
                 </div>
 
                 <!-- Hover Overlay to Change or Remove -->
                 <div
                   v-if="customAvatar"
-                  :class="['absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-semibold gap-1.5 backdrop-blur-2xs p-1']"
+                  :class="['absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-semibold gap-1 backdrop-blur-2xs p-1']"
                 >
                   <button
                     type="button"
-                    :class="['flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/20 hover:bg-white/30 transition-colors cursor-pointer w-20 justify-center']"
+                    :class="['flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/20 hover:bg-white/30 transition-colors cursor-pointer w-16 justify-center']"
                     @click.stop="triggerAvatarFilePicker"
                   >
-                    <div :class="['i-solar:restart-bold-duotone h-3.5 w-3.5']" />
-                    <span>{{ t('onboarding.ui.change') }}</span>
+                    <div :class="['i-solar:restart-bold h-3 w-3']" />
+                    <span>{{ t('onboarding.steps.persona.change') }}</span>
                   </button>
                   <button
                     type="button"
-                    :class="['flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/85 hover:bg-rose-600 transition-colors cursor-pointer text-white w-20 justify-center shadow-xs']"
+                    :class="['flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/85 hover:bg-rose-600 transition-colors cursor-pointer text-white w-16 justify-center shadow-xs']"
                     @click.stop="removeAvatarImage"
                   >
-                    <div :class="['i-solar:trash-bin-trash-bold-duotone h-3.5 w-3.5']" />
-                    <span>{{ t('settings.pages.providers.common.section.instances.remove') }}</span>
+                    <div :class="['i-solar:trash-bin-trash-bold h-3 w-3']" />
+                    <span>{{ t('onboarding.steps.persona.remove') }}</span>
                   </button>
                 </div>
 
@@ -1591,95 +1753,138 @@ onBeforeUnmount(() => {
                 >
               </div>
 
-              <!-- Bottom Button: From Vessel -->
-              <button
-                type="button"
-                :disabled="!vesselPreviewUrl"
-                :title="displayText(vesselPreviewUrl ? `Apply thumbnail from ${vesselName}` : 'No vessel thumbnail available')"
-                :class="[
-                  'w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[11px] font-semibold transition-all border shadow-2xs',
-                  vesselPreviewUrl
-                    ? 'cursor-pointer border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 active:scale-97'
-                    : 'opacity-40 cursor-not-allowed border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-800/40 text-neutral-400',
-                ]"
-                @click="useVesselPreviewAsAvatar"
-              >
-                <div :class="['i-solar:user-rounded-bold-duotone h-3.5 w-3.5 text-primary-500']" />
-                <span>{{ t('onboarding.ui.from-vessel') }}</span>
-              </button>
-            </div>
+              <!-- Center Inputs & Action Buttons -->
+              <div :class="['flex-1 min-w-0 flex flex-col gap-2.5']">
+                <!-- Name & Series Fields -->
+                <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2']">
+                  <div>
+                    <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1']">
+                      {{ t('onboarding.steps.persona.characterName') }} <span class="text-primary-500">*</span>
+                    </label>
+                    <input
+                      v-model="customName"
+                      type="text"
+                      :placeholder="t('onboarding.steps.persona.namePlaceholder')"
+                      :class="['w-full px-3 py-1.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
+                      @input="onCustomNameInput"
+                    >
+                  </div>
 
-            <!-- Identity Metadata (Name, Series, Tags) -->
-            <div :class="['flex-1 w-full flex flex-col gap-2.5']">
-              <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2.5']">
-                <div>
-                  <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1']">
-                    {{ t('onboarding.ui.character-name') }} <span class="text-primary-500">*</span>
-                  </label>
-                  <input
-                    v-model="customName"
-                    type="text"
-                    :placeholder="t('onboarding.ui.e-g-mochi-chan')"
-                    :class="['w-full px-3 py-1.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
-                    @input="onCustomNameInput"
-                  >
+                  <div>
+                    <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1']">
+                      {{ t('onboarding.steps.persona.seriesOrigin') }}
+                    </label>
+                    <input
+                      v-model="customSeries"
+                      type="text"
+                      :placeholder="t('onboarding.steps.persona.seriesPlaceholder')"
+                      :class="['w-full px-3 py-1.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
+                      @input="syncCreatorDraft"
+                    >
+                  </div>
                 </div>
 
-                <div>
-                  <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1']">
-                    {{ t('onboarding.ui.franchise-series') }}
-                  </label>
-                  <input
-                    v-model="customSeries"
-                    type="text"
-                    :placeholder="t('onboarding.ui.e-g-original-hololive-fate')"
-                    :class="['w-full px-3 py-1.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
-                    @input="syncCreatorDraft"
-                  >
-                </div>
-              </div>
-
-              <!-- Tags / Traits + Auto-Tagger -->
-              <div>
-                <div :class="['flex items-center justify-between mb-1']">
-                  <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300']">
-                    {{ t('onboarding.ui.visual-traits-tags') }}
-                  </label>
+                <!-- 3 Action Buttons -->
+                <div :class="['flex items-center gap-1.5 flex-wrap']">
+                  <!-- Upload Image -->
                   <button
                     type="button"
-                    :disabled="isTaggingImage || !customAvatar"
                     :class="[
-                      'flex items-center gap-1 text-[10px] font-semibold text-primary-600 dark:text-primary-400 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed',
+                      'flex items-center gap-1.5 py-1 px-2.5 rounded-xl text-xs font-semibold transition-all border shadow-2xs cursor-pointer',
+                      'border-neutral-200/80 dark:border-neutral-700/80 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 active:scale-97',
                     ]"
-                    @click="runBlipAutoTag"
+                    @click="triggerAvatarFilePicker"
                   >
-                    <div :class="['i-solar:magic-stick-3-bold-duotone h-3 w-3', isTaggingImage ? 'animate-spin' : '']" />
-                    <span>{{ displayText(isTaggingImage ? 'Tagging Image…' : 'Auto-Tag Image (BLIP)') }}</span>
+                    <div :class="['i-solar:upload-track-bold h-3.5 w-3.5 text-primary-500']" />
+                    <span>{{ t('onboarding.steps.persona.uploadImage') }}</span>
+                  </button>
+
+                  <!-- Browse Catalog -->
+                  <button
+                    type="button"
+                    :class="[
+                      'flex items-center gap-1.5 py-1 px-2.5 rounded-xl text-xs font-semibold transition-all border shadow-2xs cursor-pointer',
+                      isCatalogOpen
+                        ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400'
+                        : 'border-neutral-200/80 dark:border-neutral-700/80 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 active:scale-97',
+                    ]"
+                    @click="isCatalogOpen = !isCatalogOpen"
+                  >
+                    <div :class="['i-solar:widget-add-bold h-3.5 w-3.5 text-primary-500']" />
+                    <span>{{ t('onboarding.steps.persona.browseCatalog') }}</span>
+                  </button>
+
+                  <!-- From Vessel -->
+                  <button
+                    type="button"
+                    :disabled="!vesselPreviewUrl"
+                    :title="vesselPreviewUrl ? `Apply thumbnail from ${vesselName}` : 'No vessel thumbnail available'"
+                    :class="[
+                      'flex items-center gap-1.5 py-1 px-2.5 rounded-xl text-xs font-semibold transition-all border shadow-2xs',
+                      vesselPreviewUrl
+                        ? 'cursor-pointer border-neutral-200/80 dark:border-neutral-700/80 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 active:scale-97'
+                        : 'opacity-40 cursor-not-allowed border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-800/40 text-neutral-400',
+                    ]"
+                    @click="useVesselPreviewAsAvatar"
+                  >
+                    <div :class="['i-solar:user-bold h-3.5 w-3.5 text-primary-500']" />
+                    <span>{{ t('onboarding.steps.persona.fromVessel') }}</span>
                   </button>
                 </div>
 
-                <!-- Tag Chips Flow -->
-                <div :class="['flex flex-wrap items-center gap-1.5 p-2 rounded-xl bg-neutral-100/50 dark:bg-neutral-800/50 border border-neutral-200/60 dark:border-neutral-800 min-h-[36px]']">
-                  <span
-                    v-for="tag in customTags"
-                    :key="tag"
-                    :class="['px-2 py-0.5 rounded-md bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 text-[10px] font-semibold text-neutral-700 dark:text-neutral-200 flex items-center gap-1 shadow-2xs']"
-                  >
-                    <span>{{ tag }}</span>
-                    <button
-                      type="button"
-                      :class="['hover:text-red-500 cursor-pointer']"
-                      @click="removeTag(tag)"
-                    >
-                      <div :class="['i-solar:close-circle-bold h-3 w-3']" />
-                    </button>
-                  </span>
+                <!-- Image Helper Note -->
+                <div :class="['flex items-center gap-1.5 text-[10px] text-neutral-400']">
+                  <div :class="['i-solar:info-circle-bold text-xs shrink-0']" />
+                  <span>{{ t('onboarding.steps.persona.imageTraitsHint') }}</span>
+                </div>
+              </div>
+            </div>
 
+            <!-- Right Side: Visual Traits & Suggest Tags Action -->
+            <div :class="['w-full flex flex-col gap-1.5 lg:border-l lg:border-neutral-200/80 lg:dark:border-neutral-800/80 lg:pl-5']">
+              <div :class="['flex items-center justify-between mb-0.5']">
+                <label :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300']">
+                  {{ t('onboarding.steps.persona.visualTraits') }}
+                </label>
+                <button
+                  type="button"
+                  :disabled="isTaggingImage || !customAvatar"
+                  :class="[
+                    'flex items-center gap-1 text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed',
+                  ]"
+                  @click="runBlipAutoTag"
+                >
+                  <div :class="['i-solar:magic-stick-3-bold-duotone h-3.5 w-3.5', isTaggingImage ? 'animate-spin' : '']" />
+                  <span>{{ isTaggingImage ? t('onboarding.steps.persona.suggestingTags') : t('onboarding.steps.persona.suggestTags') }}</span>
+                </button>
+              </div>
+
+              <!-- Tags Flow -->
+              <div :class="['flex flex-wrap items-center gap-1.5 p-2 rounded-xl bg-neutral-100/60 dark:bg-neutral-800/50 border border-neutral-200/80 dark:border-neutral-700/80 min-h-[42px]']">
+                <span
+                  v-for="tag in customTags"
+                  :key="tag"
+                  :class="[
+                    'px-2 py-0.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all shadow-2xs',
+                    'bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 text-neutral-800 dark:text-neutral-100',
+                  ]"
+                >
+                  <span>{{ tag.replace(/^#/, '').replace(/-/g, ' ') }}</span>
+                  <button
+                    type="button"
+                    :class="['text-neutral-400 hover:text-rose-500 cursor-pointer transition-colors']"
+                    @click="removeTag(tag)"
+                  >
+                    <div :class="['i-solar:close-circle-bold h-3.5 w-3.5']" />
+                  </button>
+                </span>
+
+                <div :class="['flex items-center gap-1 min-w-[90px] flex-1']">
                   <input
                     v-model="newTagInput"
                     type="text"
-                    :placeholder="t('onboarding.ui.add-tag')"
-                    :class="['bg-transparent text-[11px] text-neutral-800 dark:text-neutral-200 outline-hidden min-w-[80px] flex-1 px-1']"
+                    :placeholder="t('onboarding.steps.persona.traitPlaceholder')"
+                    :class="['bg-transparent text-xs text-neutral-800 dark:text-neutral-200 outline-hidden w-full px-1.5 py-0.5']"
                     @keydown.enter.prevent="addTag"
                     @keydown.comma.prevent="addTag"
                   >
@@ -1688,31 +1893,42 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- Mode B: Catalog Carousel -->
-          <div v-else :class="['flex flex-col gap-2.5 pt-1']">
+          <!-- Inline Expandable Catalog Picker (Preserves workspace layout) -->
+          <div
+            v-if="isCatalogOpen"
+            v-motion
+            :initial="{ opacity: 0, height: 0 }"
+            :enter="{ opacity: 1, height: 'auto' }"
+            :duration="250"
+            :class="['pt-3 border-t border-neutral-200/80 dark:border-neutral-800/80 flex flex-col gap-2.5']"
+          >
             <div :class="['flex items-center gap-2']">
               <div :class="['relative flex-1']">
                 <div :class="['i-solar:magnifer-linear absolute left-2.5 top-2.5 h-3.5 w-3.5 text-neutral-400']" />
                 <input
                   v-model="catalogSearch"
                   type="text"
-                  :placeholder="t('onboarding.ui.search-characters-by-name-series-or-tags')"
+                  :placeholder="t('onboarding.steps.persona.searchCharactersByNameSeriesOrTags')"
                   :class="['w-full pl-8 pr-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white focus:outline-hidden focus:border-primary-500']"
                 >
               </div>
-              <span :class="['text-[11px] text-neutral-400 flex-shrink-0']">
-                {{ t('onboarding.ui.pick-any-character-to-populate-metadata') }}
-              </span>
+              <button
+                type="button"
+                :class="['p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer']"
+                :title="t('onboarding.steps.persona.closeCatalog')"
+                @click="isCatalogOpen = false"
+              >
+                <div :class="['i-solar:close-circle-bold h-4 w-4']" />
+              </button>
             </div>
 
-            <!-- 1-row by 4-column compact grid -->
-            <div :class="['grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-[160px] overflow-y-auto pr-1']">
+            <div :class="['grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-[140px] overflow-y-auto pr-1']">
               <button
                 v-for="char in catalogList"
                 :key="char.id"
                 type="button"
                 :class="[
-                  'p-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white/50 dark:bg-neutral-800/50 hover:border-primary-500 flex items-center gap-2 text-left cursor-pointer transition-all hover:scale-[1.02] shadow-2xs',
+                  'p-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white/50 dark:bg-neutral-800/50 hover:border-primary-500 flex items-center gap-2 text-left cursor-pointer transition-all hover:scale-[1.01] shadow-2xs',
                 ]"
                 @click="selectCatalogCharacter(char)"
               >
@@ -1720,9 +1936,9 @@ onBeforeUnmount(() => {
                   v-if="wizardStore.getCharacterThumbUrl(char.trigger)"
                   :src="wizardStore.getCharacterThumbUrl(char.trigger)!"
                   alt=""
-                  class="h-10 w-10 flex-shrink-0 rounded-lg bg-neutral-200 object-cover dark:bg-neutral-700"
+                  class="h-9 w-9 flex-shrink-0 rounded-lg bg-neutral-200 object-cover dark:bg-neutral-700"
                 >
-                <div v-else class="h-10 w-10 flex flex-shrink-0 items-center justify-center rounded-lg bg-neutral-200 text-sm dark:bg-neutral-700">
+                <div v-else class="h-9 w-9 flex flex-shrink-0 items-center justify-center rounded-lg bg-neutral-200 text-sm dark:bg-neutral-700">
                   ✨
                 </div>
                 <div :class="['min-w-0 flex-1']">
@@ -1730,7 +1946,7 @@ onBeforeUnmount(() => {
                     {{ char.name }}
                   </div>
                   <div :class="['text-[10px] text-neutral-400 truncate']">
-                    {{ displayText(wizardStore.copyrights[char.copyrightIndex] || 'Anime') }}
+                    {{ wizardStore.copyrights[char.copyrightIndex] || t('onboarding.steps.persona.anime') }}
                   </div>
                 </div>
               </button>
@@ -1738,162 +1954,261 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <!-- Section 2: Outline Your Story Settings -->
-        <div :class="['p-4 rounded-2xl bg-white/70 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 backdrop-blur-md flex flex-col gap-3']">
-          <div :class="['flex items-center justify-between flex-wrap gap-2']">
-            <div :class="['flex items-center gap-2']">
-              <div :class="['h-6 w-6 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center text-xs font-bold']">
-                2
+        <!-- 2 & 3. Lower Workspace: Story Direction (~48%) + Choose a Variation (~52%) -->
+        <div :class="['w-full grid grid-cols-1 lg:grid-cols-[minmax(0,48fr)_minmax(0,52fr)] gap-4 lg:gap-5 items-stretch']">
+          <!-- 2. Left Panel: Story Direction (~48%) -->
+          <div
+            v-motion
+            :initial="{ opacity: 0, y: 10 }"
+            :enter="{ opacity: 1, y: 0 }"
+            :duration="300"
+            :delay="120"
+            :class="[
+              'rounded-[20px] border p-4 sm:p-5 transition-all flex flex-col justify-between gap-4',
+              'border-neutral-200/80 bg-white/70 shadow-xs dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
+            ]"
+          >
+            <!-- Top Section: Heading + 18 Chips -->
+            <div :class="['flex flex-col gap-3']">
+              <div>
+                <h2 :class="['text-base font-bold text-neutral-900 dark:text-white']">
+                  {{ t('onboarding.steps.persona.storyDirection') }}
+                </h2>
+                <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                  {{ t('onboarding.steps.persona.storyDirectionHint') }}
+                </p>
               </div>
-              <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-100 uppercase tracking-wider']">
-                {{ t('onboarding.ui.outline-your-story-settings') }}
-              </span>
-            </div>
 
-            <!-- LLM Consciousness Brain Status -->
-            <div :class="['flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-[10px] font-semibold text-neutral-600 dark:text-neutral-300']">
-              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-              <span>{{ t('onboarding.ui.brain-d614f434') }} {{ displayText(activeBrainModelName) }}</span>
-            </div>
-          </div>
-
-          <!-- Trope Pills Flow -->
-          <div>
-            <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1.5']">
-              {{ t('onboarding.ui.story-premise-trope') }}
-            </label>
-            <div :class="['flex flex-wrap gap-1.5']">
-              <button
-                v-for="trope in tropeTemplates"
-                :key="trope.id"
-                type="button"
-                :class="[
-                  'px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5',
-                  selectedTropeId === trope.id
-                    ? 'bg-purple-600 text-white shadow-xs shadow-purple-600/25'
-                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700',
-                ]"
-                @click="selectTrope(trope)"
-              >
-                <span>{{ displayText(trope.icon) }}</span>
-                <span>{{ displayText(trope.label) }}</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Custom Scenario Guidance Prompt -->
-          <div>
-            <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block mb-1']">
-              {{ t('onboarding.ui.scenario-guidance-custom-twists-optional') }}
-            </label>
-            <textarea
-              v-model="guidancePrompt"
-              rows="2"
-              :placeholder="t('onboarding.ui.e-g-a-sentient-strawberry-mochi-with-an-attitude-problem-living-on-a-programme')"
-              :class="['w-full p-2.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-purple-500']"
-              @input="syncCreatorDraft"
-            />
-          </div>
-
-          <!-- Generate Action CTA -->
-          <div :class="['flex items-center justify-end']">
-            <Button
-              variant="primary"
-              size="md"
-              :disabled="isGeneratingStory"
-              :class="[
-                'flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-purple-600/25 transition-all cursor-pointer',
-              ]"
-              @click="generateStoryIdeas"
-            >
-              <div :class="['i-solar:magic-stick-3-bold-duotone h-4 w-4', isGeneratingStory ? 'animate-spin' : '']" />
-              <span>{{ displayText(isGeneratingStory ? 'Dreaming Up Story Ideas…' : '🪄 Generate Story Ideas') }}</span>
-            </Button>
-          </div>
-        </div>
-
-        <!-- Section 3: Unified Proposal Editor -->
-        <div :class="['p-4 rounded-2xl bg-white/70 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 backdrop-blur-md flex flex-col gap-3']">
-          <div :class="['flex items-center justify-between flex-wrap gap-2']">
-            <div :class="['flex items-center gap-2']">
-              <div :class="['h-6 w-6 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-xs font-bold']">
-                3
+              <!-- 18 Visible One-Click Chips in a Compact 3-Column Grid -->
+              <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2']">
+                <button
+                  v-for="trope in tropeTemplates"
+                  :key="trope.id"
+                  type="button"
+                  :class="[
+                    'p-2 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center gap-2 text-left truncate select-none',
+                    selectedTropeId === trope.id
+                      ? 'border border-purple-500 ring-1 ring-purple-500/50 bg-purple-500/15 text-neutral-900 dark:text-white shadow-xs font-bold'
+                      : 'border border-neutral-200/80 dark:border-neutral-800/80 bg-white/60 dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-50/50 dark:hover:bg-white/5',
+                  ]"
+                  @click="selectTrope(trope)"
+                >
+                  <span class="shrink-0 text-sm">{{ trope.icon }}</span>
+                  <span class="truncate">{{ t(trope.labelKey) }}</span>
+                </button>
               </div>
-              <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-100 uppercase tracking-wider']">
-                {{ t('onboarding.ui.story-proposal-live-persona-card') }}
-              </span>
             </div>
 
-            <span :class="['px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1']">
-              <div :class="['i-solar:check-circle-bold-duotone h-3.5 w-3.5']" />
-              <span>{{ t('onboarding.ui.in-place-editable-auto-saved') }}</span>
-            </span>
-          </div>
-
-          <!-- 3 Proposal Tabs -->
-          <div :class="['flex items-center p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200/80 dark:border-white/5 text-xs font-semibold']">
-            <button
-              v-for="p in proposals"
-              :key="p.id"
-              type="button"
-              :class="[
-                'flex-1 py-1.5 px-3 rounded-lg transition-all cursor-pointer truncate text-left flex items-center gap-1.5',
-                activeProposalId === p.id
-                  ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-700 dark:text-white font-bold'
-                  : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
-              ]"
-              @click="selectProposal(p.id)"
-            >
-              <span :class="['h-4 w-4 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0', activeProposalId === p.id ? 'bg-primary-500 text-white' : 'bg-neutral-200 dark:bg-neutral-600 text-neutral-600 dark:text-neutral-300']">
-                {{ displayText(p.id) }}
-              </span>
-              <span class="truncate">{{ displayText(formatField(p.title)) }}</span>
-            </button>
-          </div>
-
-          <!-- In-Place Editable Active Proposal Fields -->
-          <div v-if="activeProposal" :class="['flex flex-col gap-3 pt-1']">
-            <div>
-              <div :class="['flex items-center justify-between mb-1']">
-                <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5 flex-wrap']">
-                  <div :class="['i-solar:chat-round-dots-bold-duotone h-3.5 w-3.5 text-primary-500']" />
-                  <span>{{ t('onboarding.ui.opening-greeting-turn-0-speech') }}</span>
-                  <span
-                    v-if="activeProposalActorName"
-                    :class="[
-                      'text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0',
-                      'bg-primary-500/15 text-primary-600 dark:text-primary-400 border border-primary-500/30',
-                    ]"
-                  >
-                    <div :class="['i-solar:user-speak-bold-duotone h-3 w-3']" />
-                    <span>{{ activeProposalActorName }}</span>
-                  </span>
-                </label>
-                <span :class="['text-[10px] text-neutral-400 italic']">{{ t('onboarding.ui.spoken-immediately-upon-stage-launch') }}</span>
-              </div>
+            <!-- Bottom Section: Scenario Guidance Textarea + Suggest Action -->
+            <div :class="['flex flex-col gap-2 pt-2 border-t border-neutral-200/60 dark:border-neutral-800/60']">
+              <label :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
+                {{ t('onboarding.steps.persona.storyIdea') }} <span :class="['text-[11px] font-normal text-neutral-400']">{{ t('onboarding.steps.persona.optional') }}</span>
+              </label>
               <textarea
-                v-model="activeProposalGreetingDisplay"
-                rows="2"
-                :placeholder="t('onboarding.ui.first-words-spoken-by-the-companion')"
-                :class="['w-full p-2.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-primary-500']"
-              />
-            </div>
-
-            <div>
-              <div :class="['flex items-center justify-between mb-1']">
-                <label :class="['text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5']">
-                  <div :class="['i-solar:book-bookmark-bold-duotone h-3.5 w-3.5 text-purple-500']" />
-                  <span>{{ t('onboarding.ui.scenario-lore-world-setting') }}</span>
-                </label>
-                <span :class="['text-[10px] text-neutral-400 italic']">{{ t('onboarding.ui.living-environment-and-dynamic') }}</span>
-              </div>
-              <textarea
-                v-model="activeProposal.scenario"
+                v-model="guidancePrompt"
                 rows="3"
-                :placeholder="t('onboarding.ui.rules-of-the-world-and-companion-dynamic')"
-                :class="['w-full p-2.5 rounded-xl bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-purple-500']"
+                :placeholder="t('onboarding.steps.persona.storyIdeaPlaceholder')"
+                :class="[
+                  'w-full p-2.5 rounded-xl text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-purple-500',
+                  'bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700',
+                ]"
                 @input="syncCreatorDraft"
               />
+              <div :class="['flex items-center gap-2.5 flex-wrap']">
+                <button
+                  type="button"
+                  :class="[
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 cursor-pointer transition-all shadow-2xs',
+                  ]"
+                  @click="suggestStoryIdea"
+                >
+                  <div :class="['i-solar:magic-stick-3-bold-duotone text-xs text-primary-500']" />
+                  <span>{{ t('onboarding.steps.persona.suggestStoryIdea') }}</span>
+                </button>
+                <span :class="['text-[11px] text-neutral-400']">
+                  {{ t('onboarding.steps.persona.suggestStoryHint') }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Right Panel: Choose a Variation (~52%) -->
+          <div
+            v-motion
+            :initial="{ opacity: 0, y: 10 }"
+            :enter="{ opacity: 1, y: 0 }"
+            :duration="300"
+            :delay="140"
+            :class="[
+              'rounded-[20px] border p-4 sm:p-5 transition-all flex flex-col gap-4',
+              'border-neutral-200/80 bg-white/70 shadow-xs dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
+            ]"
+          >
+            <!-- Top Section: Header + 3 Selection Cards -->
+            <div :class="['flex flex-col gap-3']">
+              <div :class="['flex items-center justify-between']">
+                <div>
+                  <h2 :class="['text-base font-bold text-neutral-900 dark:text-white']">
+                    {{ t('onboarding.steps.persona.chooseVariation') }}
+                  </h2>
+                  <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                    {{ t('onboarding.steps.persona.chooseVariationHint') }}
+                  </p>
+                </div>
+                <button
+                  v-if="proposals.length > 0"
+                  type="button"
+                  :disabled="isGeneratingStory"
+                  :class="[
+                    'flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold text-primary-600 dark:text-primary-400 bg-primary-500/10 hover:bg-primary-500/20 transition-all cursor-pointer disabled:opacity-50',
+                  ]"
+                  :title="t('onboarding.steps.persona.generateVariationsTitle')"
+                  @click="generateStoryIdeas"
+                >
+                  <div :class="['i-solar:magic-stick-3-bold-duotone h-3.5 w-3.5', isGeneratingStory ? 'animate-spin' : '']" />
+                  <span>{{ isGeneratingStory ? t('onboarding.steps.persona.dreaming') : t('onboarding.steps.persona.generateWithAi') }}</span>
+                </button>
+              </div>
+
+              <!-- Loading State -->
+              <div v-if="isGeneratingStory" :class="['py-8 flex flex-col items-center justify-center text-center gap-2']">
+                <div :class="['i-solar:magic-stick-3-bold-duotone h-8 w-8 text-primary-500 animate-spin']" />
+                <p :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
+                  {{ t('onboarding.steps.persona.dreamingWithBrain', { model: activeBrainModelName }) }}
+                </p>
+                <p :class="['text-[11px] text-neutral-400 max-w-xs']">
+                  {{ t('onboarding.steps.persona.synthesizingStory') }}
+                </p>
+              </div>
+
+              <!-- Empty State -->
+              <div v-else-if="proposals.length === 0" :class="['py-8 flex flex-col items-center justify-center text-center gap-2.5']">
+                <div :class="['i-solar:clapperboard-play-bold-duotone h-8 w-8 text-neutral-400']" />
+                <p :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
+                  {{ t('onboarding.steps.persona.noVariations') }}
+                </p>
+                <p :class="['text-[11px] text-neutral-400 max-w-xs']">
+                  {{ t('onboarding.steps.persona.variationEmptyHint', { name: customName || t('onboarding.steps.persona.yourCompanionFallback') }) }}
+                </p>
+                <Button variant="primary" size="sm" @click="generateStoryIdeas">
+                  <span>{{ t('onboarding.steps.persona.generateVariations') }}</span>
+                </Button>
+              </div>
+
+              <!-- 3 Compact Selection Cards with Subtle Copy Glyph -->
+              <div v-else :class="['flex flex-col gap-2']">
+                <div :class="['grid grid-cols-1 sm:grid-cols-3 gap-2.5']">
+                  <div
+                    v-for="(p, idx) in proposals"
+                    :key="p.id"
+                    :class="[
+                      'relative p-3 rounded-xl border transition-all duration-200 cursor-pointer select-none',
+                      'flex flex-col justify-between min-h-[82px]',
+                      activeProposalId === p.id
+                        ? 'border-primary-500 ring-1 ring-primary-500/50 bg-primary-500/10 dark:bg-primary-500/15 shadow-xs'
+                        : 'border-neutral-200/80 dark:border-neutral-800/80 bg-white/60 dark:bg-neutral-950/40 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-50/50 dark:hover:bg-white/5',
+                    ]"
+                    @click="selectProposal(p.id)"
+                  >
+                    <div :class="['flex items-center justify-between gap-2 mb-1.5']">
+                      <span
+                        :class="[
+                          'text-xs font-bold font-mono tracking-tight',
+                          activeProposalId === p.id
+                            ? 'text-primary-600 dark:text-primary-400'
+                            : 'text-neutral-400 dark:text-neutral-500',
+                        ]"
+                      >
+                        {{ String(idx + 1).padStart(2, '0') }}
+                      </span>
+                      <button
+                        type="button"
+                        :title="t('onboarding.steps.persona.copy.tooltip', { number: idx + 1 })"
+                        :class="[
+                          'p-1 -mr-1 -mt-1 rounded-md transition-colors cursor-pointer flex items-center justify-center shrink-0',
+                          'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50',
+                        ]"
+                        @click.stop="copyProposal(p, idx)"
+                      >
+                        <div
+                          :class="[
+                            copiedProposalId === p.id
+                              ? 'i-ph:check text-emerald-500 h-3.5 w-3.5'
+                              : 'i-ph:copy-simple h-3.5 w-3.5',
+                          ]"
+                        />
+                      </button>
+                    </div>
+                    <div :class="['text-xs font-bold text-neutral-900 dark:text-white leading-snug line-clamp-3']">
+                      {{ formatField(p.title) }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Subtle Helper Text Below Cards -->
+                <p :class="['text-[11px] text-neutral-400 dark:text-neutral-500']">
+                  {{ t('onboarding.steps.persona.copy.hint') }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Bottom Section: Active Variation Title Header & Fields -->
+            <div v-if="activeProposal && !isGeneratingStory" :class="['flex flex-col gap-3 pt-3 border-t border-neutral-200/60 dark:border-neutral-800/60']">
+              <!-- Active Variation Header Row -->
+              <div :class="['flex items-center justify-between gap-3']">
+                <h3 :class="['text-sm sm:text-base font-bold text-neutral-900 dark:text-white leading-tight truncate']">
+                  {{ formatField(activeProposal.title) }}
+                </h3>
+                <div :class="['flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0']">
+                  <div :class="['i-solar:check-circle-bold-duotone h-3.5 w-3.5']" />
+                  <span>{{ t('onboarding.steps.persona.saved') }}</span>
+                </div>
+              </div>
+
+              <!-- Field 1: Opening Greeting -->
+              <div :class="['flex flex-col gap-1.5']">
+                <div :class="['flex items-center gap-2 flex-wrap']">
+                  <label :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
+                    <span>{{ t('onboarding.steps.persona.openingGreeting') }}</span>
+                    <span
+                      v-if="activeProposalActorName"
+                      :class="[
+                        'text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0',
+                        'bg-primary-500/15 text-primary-600 dark:text-primary-400 border border-primary-500/30',
+                      ]"
+                    >
+                      <div :class="['i-solar:user-speak-bold-duotone h-3 w-3']" />
+                      <span>{{ activeProposalActorName }}</span>
+                    </span>
+                  </label>
+                </div>
+                <textarea
+                  v-model="activeProposalGreetingDisplay"
+                  rows="4"
+                  :placeholder="t('onboarding.steps.persona.firstWordsSpokenByTheCompanion')"
+                  :class="[
+                    'w-full p-2.5 sm:p-3 rounded-xl text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-primary-500 leading-relaxed',
+                    'bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700',
+                  ]"
+                />
+              </div>
+
+              <!-- Field 2: Story Setting -->
+              <div :class="['flex flex-col gap-1.5']">
+                <label :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
+                  {{ t('onboarding.steps.persona.storySetting') }}
+                </label>
+                <textarea
+                  v-model="activeProposal.scenario"
+                  rows="4"
+                  :placeholder="t('onboarding.steps.persona.rulesOfTheWorldAndCompanionDynamic')"
+                  :class="[
+                    'w-full p-2.5 sm:p-3 rounded-xl text-xs text-neutral-900 dark:text-white resize-none focus:outline-hidden focus:border-primary-500 leading-relaxed',
+                    'bg-neutral-100/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700',
+                  ]"
+                  @input="syncCreatorDraft"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1902,9 +2217,13 @@ onBeforeUnmount(() => {
 
     <!-- Bottom Navigation & Synergy Preview -->
     <div
+      v-motion
+      :initial="{ opacity: 0, y: 10 }"
+      :enter="{ opacity: 1, y: 0 }"
+      :duration="350"
+      :delay="200"
       :class="[
-        'h-14 border-t border-neutral-200/80 dark:border-neutral-800/80',
-        'flex items-center justify-between flex-shrink-0 pt-2',
+        'flex-shrink-0 pt-4 flex items-center justify-between border-t border-neutral-200/80 dark:border-white/5',
       ]"
     >
       <button
@@ -1920,13 +2239,27 @@ onBeforeUnmount(() => {
         <span>{{ t('onboarding.shell.previous') }}</span>
       </button>
 
-      <!-- Synergy Preview Pill -->
-      <div :class="['text-[11px] text-neutral-400 font-medium truncate max-w-sm hidden sm:block text-center']">
-        <span>{{ t('onboarding.ui.soul') }} </span>
-        <span :class="['text-neutral-800 dark:text-neutral-200 font-bold']">{{ displayText(activePersonaLabel) }}</span>
+      <!-- Center Status Label -->
+      <div v-if="activeTab === 'creator'" :class="['text-xs text-neutral-400 font-medium']">
+        <i18n-t scope="global" keypath="onboarding.steps.persona.characterSummary" tag="span">
+          <template #name>
+            <span :class="['text-neutral-800 dark:text-neutral-100 font-semibold']">{{ customName || t('onboarding.steps.persona.companionFallback') }}</span>
+          </template>
+        </i18n-t>
+      </div>
+      <div v-else-if="activeTab === 'presets'" :class="['text-xs text-neutral-400 font-medium']">
+        <i18n-t scope="global" keypath="onboarding.steps.persona.personalitySummaryLine" tag="span">
+          <template #name>
+            <span :class="['text-neutral-800 dark:text-neutral-100 font-semibold']">{{ selectedPreset.name }}</span>
+          </template>
+        </i18n-t>
+      </div>
+      <div v-else :class="['text-[11px] text-neutral-400 font-medium truncate max-w-sm hidden sm:block text-center']">
+        <span>{{ t('onboarding.steps.persona.soul') }} </span>
+        <span :class="['text-neutral-800 dark:text-neutral-200 font-bold']">{{ activePersonaLabel }}</span>
         <span :class="['mx-1.5 text-neutral-300 dark:text-neutral-600']">•</span>
-        <span>{{ t('onboarding.ui.body') }} </span>
-        <span :class="['text-neutral-800 dark:text-neutral-200 font-bold']">{{ displayText(vesselName) }}</span>
+        <span>{{ t('onboarding.steps.persona.body') }} </span>
+        <span :class="['text-neutral-800 dark:text-neutral-200 font-bold']">{{ vesselName }}</span>
       </div>
 
       <Button
@@ -1941,7 +2274,7 @@ onBeforeUnmount(() => {
         @click="handleNextStep"
       >
         <span v-if="activeTab === 'creator'">✨</span>
-        <span>{{ displayText(nextButtonText) }}</span>
+        <span>{{ nextButtonText }}</span>
         <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
       </Button>
     </div>
@@ -1985,16 +2318,16 @@ onBeforeUnmount(() => {
             <div class="relative z-20 flex items-center justify-between border-b border-neutral-200 bg-white/95 p-4 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/95">
               <div class="flex items-center gap-3">
                 <h3 class="text-lg text-neutral-800 font-bold dark:text-neutral-200">
-                  {{ t('onboarding.ui.browse') }} {{ displayText(activeBrowserSource?.name) }}
+                  {{ t('onboarding.steps.persona.browser.browse', { name: activeBrowserSource?.name }) }}
                 </h3>
                 <span class="rounded-full bg-primary-500/10 px-2.5 py-0.5 text-xs text-primary-600 font-semibold dark:text-primary-400">
-                  {{ t('onboarding.ui.card-interceptor-active') }}
+                  {{ t('onboarding.steps.persona.cardInterceptorActive') }}
                 </span>
               </div>
               <button
                 type="button"
                 class="relative z-30 flex cursor-pointer items-center justify-center rounded-xl p-2 text-neutral-400 transition-colors active:scale-95 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-                :title="t('onboarding.ui.close-browser')"
+                :title="t('onboarding.steps.persona.closeBrowser')"
                 @click.stop="closeWebview"
               >
                 <div class="i-solar:close-square-bold-duotone h-6 w-6" />

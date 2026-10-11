@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-
-
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import memoryPersonalJournalUrl from '../../../../../../assets/memory-personal-journal.avif'
+import memoryQuietReflectionUrl from '../../../../../../assets/memory-quiet-reflection.avif'
+import memorySharedHistoryUrl from '../../../../../../assets/memory-shared-history.avif'
+import AssistantBubble from '../components/assistant-bubble.vue'
+
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
-
-const { displayText } = useOnboardingDisplayText()
-
 
 const props = defineProps<{
   onNext: () => void
@@ -48,7 +47,7 @@ const stmmTiers: StmmTier[] = [
   },
   {
     id: 'deep',
-    label: 'Deep History',
+    label: 'Deep history',
     windowSize: 7,
     tokenBudget: 2000,
     description: '7-day rolling window. Full week of deep episodic awareness (~2,000 tok/day) across conversational resets.',
@@ -69,49 +68,6 @@ function selectStmmTier(tier: StmmTier) {
   draftStore.setMemory({
     shortTermWindowSize: tier.windowSize,
     shortTermTokenBudget: tier.tokenBudget,
-  })
-}
-
-// Lifetime Memory Tiers
-interface LifetimeTier {
-  id: 'lightweight' | 'relational' | 'deep'
-  label: string
-  tokens: string
-  description: string
-  badge: string
-}
-
-const lifetimeTiers: LifetimeTier[] = [
-  {
-    id: 'lightweight',
-    label: 'Lightweight Essence',
-    tokens: '~500 tokens',
-    description: 'Distills only core milestones and relationship anchors. Highly efficient for smaller local models.',
-    badge: '~500 tok',
-  },
-  {
-    id: 'relational',
-    label: 'Relational Thread',
-    tokens: '~1,000 tokens',
-    description: 'Balanced relationship evolution, nickname memories, and shared milestone tracking across long horizons.',
-    badge: '~1,000 tok (Default)',
-  },
-  {
-    id: 'deep',
-    label: 'Deep Foundation',
-    tokens: '~2,500 tokens',
-    description: 'Rich narrative foundation with dense milestone graphs and character personality nuance.',
-    badge: '~2,500 tok',
-  },
-]
-
-const currentLifetimeTier = computed(() => {
-  return draftStore.state.memoryLifetimeTier || 'relational'
-})
-
-function selectLifetimeTier(tierId: 'lightweight' | 'relational' | 'deep') {
-  draftStore.setMemory({
-    lifetimeTier: tierId,
   })
 }
 
@@ -138,313 +94,340 @@ function handleToggleDreamState() {
     dreamStateEnabled: !draftStore.state.memoryDreamStateEnabled,
   })
 }
+
+function formatWindowDays(days?: number | null) {
+  const n = days ?? 3
+  return n <= 1 ? t('onboarding.steps.memory.window.oneDay') : t('onboarding.steps.memory.window.days', { count: n })
+}
+
+const summaryWindowLabel = computed(() => formatWindowDays(draftStore.state.memoryShortTermWindowSize))
+
+const hasAnyMemoryEnabled = computed(() => Boolean(
+  draftStore.state.memoryShortTermEnabled
+  || draftStore.state.memoryLongTermJournalEnabled
+  || draftStore.state.memoryLifetimeEnabled
+  || draftStore.state.memoryDreamStateEnabled,
+))
 </script>
 
 <template>
-  <div :class="['w-full max-w-4xl mx-auto flex flex-col gap-5 py-1 select-none animate-fadeIn']">
-    <!-- Header Section -->
-    <div :class="['flex flex-col items-center text-center gap-2']">
-      <div :class="['inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary-500/20 bg-primary-500/10 text-primary-400 text-xs font-semibold']">
-        <div :class="['i-solar:book-bookmark-bold-duotone h-3.5 w-3.5']" />
-        <span>{{ t('onboarding.steps.memory.subtitle') }}</span>
-      </div>
-      <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white']">
-        {{ t('onboarding.steps.memory.title') }}
-      </h1>
-      <p :class="['text-xs text-neutral-500 dark:text-neutral-400 max-w-xl text-center leading-relaxed']">
-        {{ t('onboarding.steps.memory.description') }}
-      </p>
-    </div>
-
-    <!-- The 4 Temporal Memory Quadrants -->
-    <div :class="['flex flex-col gap-4']">
-      <!-- 1. Short-Term Memory (STMM) — The Active Pulse -->
-      <div
-        :class="[
-          'rounded-2xl border transition-all p-4.5 flex flex-col gap-3',
-          draftStore.state.memoryShortTermEnabled
-            ? 'border-cyan-500/40 bg-white/70 dark:bg-cyan-950/10 shadow-sm'
-            : 'border-neutral-200/70 bg-white/40 dark:border-neutral-800/70 dark:bg-neutral-900/30 opacity-75',
-        ]"
-      >
-        <div :class="['flex items-start justify-between gap-4']">
-          <div :class="['flex items-start gap-3 min-w-0']">
-            <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-cyan-500/15 text-cyan-500']">
-              <div :class="['i-solar:alarm-bold-duotone text-xl']" />
-            </div>
-            <div :class="['flex flex-col min-w-0']">
-              <div :class="['flex items-center gap-2 flex-wrap']">
-                <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                  {{ t('onboarding.ui.24-hour-short-term-memory-stmm') }}
-                </h3>
-                <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-600 dark:text-cyan-300']">
-                  {{ t('onboarding.ui.the-active-pulse') }}
-                </span>
-              </div>
-              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                {{ t('onboarding.ui.proactively-summarizes-each-24-hour-conversational-block-into-daily-memory-chu') }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Switch Toggle -->
-          <label :class="['relative inline-flex items-center cursor-pointer shrink-0 mt-1']">
-            <input
-              type="checkbox"
-              :checked="draftStore.state.memoryShortTermEnabled"
-              :class="['sr-only peer']"
-              @change="handleToggleShortTerm"
-            >
-            <div :class="['w-11 h-6 bg-neutral-200 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-empty after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600']" />
-          </label>
-        </div>
-
-        <!-- STMM Tiers Selector (Visible when enabled) -->
+  <div :class="['w-full h-full flex flex-col justify-between select-none animate-fadeIn']">
+    <!-- Scrollable Content Body -->
+    <div :class="['flex-1 min-h-0 min-w-0 overflow-y-auto px-4 sm:px-6 pt-2 pb-5 flex flex-col gap-4']">
+      <!-- Shared centered header -->
+      <div :class="['flex flex-col items-center text-center gap-3 flex-shrink-0']">
         <div
-          v-if="draftStore.state.memoryShortTermEnabled"
-          :class="['pt-3 border-t border-cyan-500/20 flex flex-col gap-2']"
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
         >
-          <span :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
-            {{ t('onboarding.ui.context-window-daily-budget-tier') }}
-          </span>
-          <div :class="['grid grid-cols-1 sm:grid-cols-3 gap-2.5']">
-            <div
-              v-for="tier in stmmTiers"
-              :key="tier.id"
-              :class="[
-                'p-3 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between gap-1.5',
-                currentStmmTier === tier.id
-                  ? 'border-cyan-500 bg-cyan-500/10 text-neutral-900 dark:text-white shadow-xs'
-                  : 'border-neutral-200/80 dark:border-neutral-800 bg-black/2 dark:bg-white/2 hover:border-neutral-300 dark:hover:border-neutral-700 text-neutral-600 dark:text-neutral-400',
-              ]"
-              @click="selectStmmTier(tier)"
-            >
-              <div :class="['flex items-center justify-between']">
-                <span :class="['text-xs font-bold']">{{ displayText(tier.label) }}</span>
-                <span :class="['text-[9px] font-mono font-medium px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-600 dark:text-cyan-300']">
-                  {{ displayText(tier.badge) }}
-                </span>
-              </div>
-              <p :class="['text-[11px] leading-snug opacity-90']">
-                {{ displayText(tier.description) }}
-              </p>
-            </div>
-          </div>
+          <h1 :class="['text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            {{ t('onboarding.steps.memory.label') }}
+          </h1>
         </div>
+
+        <AssistantBubble
+          :message="t('onboarding.steps.memory.companionGreeting')"
+          step-key="memory"
+          sticker-id="airi-affectionate"
+          tone="primary"
+        />
       </div>
 
-      <!-- 2. Sacred Long-Term Text Journal (LTMM) — Episodic Records -->
-      <div
-        :class="[
-          'rounded-2xl border transition-all p-4.5 flex flex-col gap-3',
-          draftStore.state.memoryLongTermJournalEnabled
-            ? 'border-emerald-500/40 bg-white/70 dark:bg-emerald-950/10 shadow-sm'
-            : 'border-neutral-200/70 bg-white/40 dark:border-neutral-800/70 dark:bg-neutral-900/30 opacity-75',
-        ]"
-      >
-        <div :class="['flex items-start justify-between gap-4']">
-          <div :class="['flex items-start gap-3 min-w-0']">
-            <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-500/15 text-emerald-500']">
-              <div :class="['i-solar:notebook-bookmark-bold-duotone text-xl']" />
-            </div>
-            <div :class="['flex flex-col min-w-0']">
-              <div :class="['flex items-center gap-2 flex-wrap']">
-                <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                  {{ t('onboarding.ui.sacred-long-term-text-journal-ltmm') }}
-                </h3>
-                <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 font-mono']">
-                  {{ t('onboarding.ui.tool-text-journal') }}
-                </span>
-              </div>
-              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                {{ t('onboarding.ui.equips-your-companion-with-the-append-only') }} <code :class="['text-emerald-500 font-mono text-[11px]']">text_journal</code> {{ t('onboarding.ui.tool-allows-them-to-record-meaningful-autobiographical-memories-feelings-and-s') }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Switch Toggle -->
-          <label :class="['relative inline-flex items-center cursor-pointer shrink-0 mt-1']">
-            <input
-              type="checkbox"
-              :checked="draftStore.state.memoryLongTermJournalEnabled"
-              :class="['sr-only peer']"
-              @change="handleToggleLongTermJournal"
-            >
-            <div :class="['w-11 h-6 bg-neutral-200 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-empty after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600']" />
-          </label>
-        </div>
-
+      <!-- Memory cards, row one -->
+      <div :class="['w-full max-w-[1280px] mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0 items-stretch']">
+        <!-- Recent context -->
         <div
-          v-if="draftStore.state.memoryLongTermJournalEnabled"
-          :class="['rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-[11px] text-emerald-800 dark:text-emerald-200 flex items-start gap-2.5']"
+          :class="[
+            'rounded-[20px] border transition-all p-5 flex flex-col gap-3 min-w-0',
+            draftStore.state.memoryShortTermEnabled
+              ? 'border-cyan-500/40 bg-white/70 dark:bg-cyan-950/10 shadow-sm'
+              : 'border-neutral-200/70 bg-white/40 dark:border-neutral-800/70 dark:bg-neutral-900/30',
+          ]"
         >
-          <div :class="['i-solar:shield-check-bold text-emerald-500 text-base shrink-0 mt-0.5']" />
-          <div :class="['leading-relaxed']">
-            <strong>{{ t('onboarding.ui.the-sacred-record-rule') }}</strong> {{ t('onboarding.ui.journal-entries-are-strictly-append-only-and-immortal-the-companion-will-auton') }}
-          </div>
-        </div>
-      </div>
-
-      <!-- 3. The Eternal Thread — Lifetime Relational Essence -->
-      <div
-        :class="[
-          'rounded-2xl border transition-all p-4.5 flex flex-col gap-3',
-          draftStore.state.memoryLifetimeEnabled
-            ? 'border-amber-500/40 bg-white/70 dark:bg-amber-950/10 shadow-sm'
-            : 'border-neutral-200/70 bg-white/40 dark:border-neutral-800/70 dark:bg-neutral-900/30 opacity-75',
-        ]"
-      >
-        <div :class="['flex items-start justify-between gap-4']">
-          <div :class="['flex items-start gap-3 min-w-0']">
-            <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-amber-500/15 text-amber-500']">
-              <div :class="['i-solar:dna-bold-duotone text-xl']" />
-            </div>
-            <div :class="['flex flex-col min-w-0']">
-              <div :class="['flex items-center gap-2 flex-wrap']">
-                <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                  {{ t('onboarding.ui.the-eternal-thread-lifetime-artifact') }}
+          <div :class="['flex items-start justify-between gap-3']">
+            <div :class="['flex items-center gap-3 min-w-0']">
+              <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-cyan-500/15 text-cyan-500']">
+                <div :class="['i-solar:alarm-bold-duotone text-xl']" />
+              </div>
+              <div :class="['min-w-0']">
+                <h3 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+                  {{ t('onboarding.steps.memory.recentContext.title') }}
                 </h3>
-                <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-300']">
-                  {{ t('onboarding.ui.relational-essence') }}
-                </span>
+                <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-2 leading-relaxed']">
+                  {{ t('onboarding.steps.memory.recentContext.description') }}
+                </p>
               </div>
-              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                {{ t('onboarding.ui.maintains-the-companion-s-core-relational-identity-and-shared-milestones-acros') }}
-              </p>
             </div>
+
+            <label :class="['relative inline-flex items-center cursor-pointer shrink-0 mt-1']">
+              <input
+                type="checkbox"
+                :checked="draftStore.state.memoryShortTermEnabled"
+                :aria-label="t('onboarding.steps.memory.recentContext.title')"
+                :class="['sr-only peer']"
+                @change="handleToggleShortTerm"
+              >
+              <div :class="['w-11 h-6 bg-neutral-200 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-empty after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600']" />
+            </label>
           </div>
 
-          <!-- Switch Toggle -->
-          <label :class="['relative inline-flex items-center cursor-pointer shrink-0 mt-1']">
-            <input
-              type="checkbox"
-              :checked="draftStore.state.memoryLifetimeEnabled"
-              :class="['sr-only peer']"
-              @change="handleToggleLifetime"
-            >
-            <div :class="['w-11 h-6 bg-neutral-200 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-empty after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600']" />
-          </label>
+          <div
+            v-if="draftStore.state.memoryShortTermEnabled"
+            :class="['flex flex-col gap-2']"
+          >
+            <span :class="['text-xs font-semibold text-neutral-700 dark:text-neutral-300']">
+              {{ t('onboarding.steps.memory.recentContext.window') }}
+            </span>
+            <div :class="['grid grid-cols-3 gap-2']">
+              <button
+                v-for="tier in stmmTiers"
+                :key="tier.id"
+                type="button"
+                :class="[
+                  'rounded-xl border p-2.5 text-left cursor-pointer transition-all flex items-start gap-2 min-w-0',
+                  currentStmmTier === tier.id
+                    ? 'border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/30'
+                    : 'border-neutral-200/80 dark:border-neutral-800 bg-white/50 dark:bg-white/[0.02] hover:border-neutral-300 dark:hover:border-neutral-700',
+                ]"
+                @click="selectStmmTier(tier)"
+              >
+                <div :class="['w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5', currentStmmTier === tier.id ? 'border-cyan-500 bg-cyan-500' : 'border-neutral-300 dark:border-neutral-600']">
+                  <div v-if="currentStmmTier === tier.id" :class="['w-1.5 h-1.5 rounded-full bg-white']" />
+                </div>
+                <div :class="['min-w-0']">
+                  <div :class="['text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate']">
+                    {{ t(`onboarding.steps.memory.stmmTiers.${tier.id}.label`) }}
+                  </div>
+                  <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+                    {{ formatWindowDays(tier.windowSize) }}
+                  </div>
+                </div>
+              </button>
+            </div>
+            <span :class="['text-[11px] text-neutral-400 dark:text-neutral-500']">
+              {{ t('onboarding.steps.memory.recentContext.windowHint') }}
+            </span>
+          </div>
         </div>
 
-        <!-- Lifetime Tiers Selector (Visible when enabled) -->
+        <!-- Personal journal -->
         <div
-          v-if="draftStore.state.memoryLifetimeEnabled"
-          :class="['pt-3 border-t border-amber-500/20 flex flex-col gap-2']"
+          :class="[
+            'rounded-[20px] border transition-all p-5 flex flex-col gap-3 min-w-0',
+            draftStore.state.memoryLongTermJournalEnabled
+              ? 'border-emerald-500/40 bg-white/70 dark:bg-emerald-950/10 shadow-sm'
+              : 'border-neutral-200/70 bg-white/40 dark:border-neutral-800/70 dark:bg-neutral-900/30',
+          ]"
         >
-          <span :class="['text-[11px] font-semibold text-neutral-700 dark:text-neutral-300']">
-            {{ t('onboarding.ui.relational-distillation-density') }}
-          </span>
-          <div :class="['grid grid-cols-1 sm:grid-cols-3 gap-2.5']">
-            <div
-              v-for="tier in lifetimeTiers"
-              :key="tier.id"
-              :class="[
-                'p-3 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between gap-1.5',
-                currentLifetimeTier === tier.id
-                  ? 'border-amber-500 bg-amber-500/10 text-neutral-900 dark:text-white shadow-xs'
-                  : 'border-neutral-200/80 dark:border-neutral-800 bg-black/2 dark:bg-white/2 hover:border-neutral-300 dark:hover:border-neutral-700 text-neutral-600 dark:text-neutral-400',
-              ]"
-              @click="selectLifetimeTier(tier.id)"
-            >
-              <div :class="['flex items-center justify-between']">
-                <span :class="['text-xs font-bold']">{{ displayText(tier.label) }}</span>
-                <span :class="['text-[9px] font-mono font-medium px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-300']">
-                  {{ displayText(tier.badge) }}
-                </span>
+          <div :class="['flex items-start justify-between gap-3']">
+            <div :class="['flex items-center gap-3 min-w-0']">
+              <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-500/15 text-emerald-500']">
+                <div :class="['i-solar:notebook-bookmark-bold-duotone text-xl']" />
               </div>
-              <p :class="['text-[11px] leading-snug opacity-90']">
-                {{ displayText(tier.description) }}
-              </p>
+              <div :class="['min-w-0']">
+                <h3 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+                  {{ t('onboarding.steps.memory.personalJournal.title') }}
+                </h3>
+                <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-2 leading-relaxed']">
+                  {{ t('onboarding.steps.memory.personalJournal.description') }}
+                </p>
+              </div>
             </div>
+
+            <label :class="['relative inline-flex items-center cursor-pointer shrink-0 mt-1']">
+              <input
+                type="checkbox"
+                :checked="draftStore.state.memoryLongTermJournalEnabled"
+                :aria-label="t('onboarding.steps.memory.personalJournal.title')"
+                :class="['sr-only peer']"
+                @change="handleToggleLongTermJournal"
+              >
+              <div :class="['w-11 h-6 bg-neutral-200 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-empty after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600']" />
+            </label>
+          </div>
+
+          <div :class="['rounded-xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 px-3 py-2.5 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-200']">
+            <div :class="['i-solar:shield-check-bold text-emerald-500 text-base shrink-0']" />
+            <span :class="['leading-relaxed']">
+              {{ t('onboarding.steps.memory.personalJournal.appendOnly') }}
+            </span>
+          </div>
+
+          <div :class="['relative h-[104px] hidden sm:block']">
+            <img
+              :src="memoryPersonalJournalUrl"
+              alt=""
+              width="140"
+              height="140"
+              draggable="false"
+              :class="['absolute right-0 bottom-0 w-[120px] h-auto select-none pointer-events-none']"
+            >
           </div>
         </div>
       </div>
 
-      <!-- 4. Day Dreaming (Echo Chips) — The Echoes -->
-      <div
-        :class="[
-          'rounded-2xl border transition-all p-4.5 flex items-start justify-between gap-4',
-          draftStore.state.memoryDreamStateEnabled
-            ? 'border-violet-500/40 bg-white/70 dark:bg-violet-950/10 shadow-sm'
-            : 'border-neutral-200/70 bg-white/40 dark:border-neutral-800/70 dark:bg-neutral-900/30 opacity-75',
-        ]"
-      >
-        <div :class="['flex items-start gap-3 min-w-0']">
-          <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-violet-500/15 text-violet-500']">
-            <div :class="['i-solar:sleeping-bold-duotone text-xl']" />
+      <!-- Memory cards, row two -->
+      <div :class="['w-full max-w-[1280px] mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0 items-stretch']">
+        <!-- Shared history -->
+        <div
+          :class="[
+            'rounded-[20px] border transition-all p-5 flex flex-col gap-3 min-w-0',
+            draftStore.state.memoryLifetimeEnabled
+              ? 'border-amber-500/40 bg-white/70 dark:bg-amber-950/10 shadow-sm'
+              : 'border-neutral-200/70 bg-white/40 dark:border-neutral-800/70 dark:bg-neutral-900/30',
+          ]"
+        >
+          <div :class="['flex items-start justify-between gap-3']">
+            <div :class="['flex items-center gap-3 min-w-0']">
+              <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-amber-500/15 text-amber-500']">
+                <div :class="['i-solar:infinity-bold-duotone text-xl']" />
+              </div>
+              <div :class="['min-w-0']">
+                <h3 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+                  {{ t('onboarding.steps.memory.sharedHistory.title') }}
+                </h3>
+                <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-2 leading-relaxed']">
+                  {{ t('onboarding.steps.memory.sharedHistory.description') }}
+                </p>
+              </div>
+            </div>
+
+            <label :class="['relative inline-flex items-center cursor-pointer shrink-0 mt-1']">
+              <input
+                type="checkbox"
+                :checked="draftStore.state.memoryLifetimeEnabled"
+                :aria-label="t('onboarding.steps.memory.sharedHistory.title')"
+                :class="['sr-only peer']"
+                @change="handleToggleLifetime"
+              >
+              <div :class="['w-11 h-6 bg-neutral-200 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-empty after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600']" />
+            </label>
           </div>
-          <div :class="['flex flex-col min-w-0']">
-            <div :class="['flex items-center gap-2 flex-wrap']">
-              <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                {{ t('onboarding.ui.day-dreaming-echo-chips') }}
-              </h3>
-              <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-violet-500/15 text-violet-600 dark:text-violet-300']">
-                {{ t('onboarding.ui.the-echoes') }}
+
+          <div :class="['flex items-end gap-3']">
+            <div :class="['rounded-xl border border-neutral-200/60 dark:border-white/10 bg-neutral-50/60 dark:bg-black/20 px-3 py-2.5 flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300 flex-1 min-w-0']">
+              <div :class="['i-solar:info-circle-bold text-neutral-400 text-base shrink-0']" />
+              <span :class="['leading-relaxed']">
+                {{ t('onboarding.steps.memory.sharedHistory.summary') }}
               </span>
             </div>
-            <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              {{ t('onboarding.ui.when-you-go-idle-after-a-conversation-session-background-consolidation-distill') }}
-            </p>
+            <img
+              :src="memorySharedHistoryUrl"
+              alt=""
+              width="140"
+              height="140"
+              draggable="false"
+              :class="['hidden sm:block w-[110px] h-auto shrink-0 select-none pointer-events-none']"
+            >
           </div>
         </div>
 
-        <!-- Switch Toggle -->
-        <label :class="['relative inline-flex items-center cursor-pointer shrink-0 mt-1']">
-          <input
-            type="checkbox"
-            :checked="draftStore.state.memoryDreamStateEnabled"
-            :class="['sr-only peer']"
-            @change="handleToggleDreamState"
-          >
-          <div :class="['w-11 h-6 bg-neutral-200 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-empty after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600']" />
-        </label>
-      </div>
-    </div>
+        <!-- Quiet reflection -->
+        <div
+          :class="[
+            'rounded-[20px] border transition-all p-5 flex flex-col gap-3 min-w-0',
+            draftStore.state.memoryDreamStateEnabled
+              ? 'border-violet-500/40 bg-white/70 dark:bg-violet-950/10 shadow-sm'
+              : 'border-neutral-200/70 bg-white/40 dark:border-neutral-800/70 dark:bg-neutral-900/30',
+          ]"
+        >
+          <div :class="['flex items-start justify-between gap-3']">
+            <div :class="['flex items-center gap-3 min-w-0']">
+              <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-violet-500/15 text-violet-500']">
+                <div :class="['i-solar:moon-bold-duotone text-xl']" />
+              </div>
+              <div :class="['min-w-0']">
+                <h3 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+                  {{ t('onboarding.steps.memory.quietReflection.title') }}
+                </h3>
+                <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-2 leading-relaxed']">
+                  {{ t('onboarding.steps.memory.quietReflection.description') }}
+                </p>
+              </div>
+            </div>
 
-    <!-- Active Memory Footprint Summary -->
-    <div :class="['rounded-2xl border border-neutral-200/80 bg-neutral-100/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50 flex flex-col gap-2.5']">
-      <div :class="['flex items-center justify-between text-xs font-bold text-neutral-700 dark:text-neutral-200']">
-        <div :class="['flex items-center gap-2']">
-          <div :class="['i-solar:layers-bold-duotone text-primary-500']" />
-          <span>{{ t('onboarding.ui.active-cognitive-memory-footprint') }}</span>
+            <label :class="['relative inline-flex items-center cursor-pointer shrink-0 mt-1']">
+              <input
+                type="checkbox"
+                :checked="draftStore.state.memoryDreamStateEnabled"
+                :aria-label="t('onboarding.steps.memory.quietReflection.title')"
+                :class="['sr-only peer']"
+                @change="handleToggleDreamState"
+              >
+              <div :class="['w-11 h-6 bg-neutral-200 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-empty after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600']" />
+            </label>
+          </div>
+
+          <div :class="['flex items-end gap-3']">
+            <div :class="['rounded-xl border border-neutral-200/60 dark:border-white/10 bg-neutral-50/60 dark:bg-black/20 px-3 py-2.5 flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300 flex-1 min-w-0']">
+              <div :class="['i-solar:info-circle-bold text-neutral-400 text-base shrink-0']" />
+              <span :class="['leading-relaxed']">
+                {{ t('onboarding.steps.memory.quietReflection.idle') }}
+              </span>
+            </div>
+            <img
+              :src="memoryQuietReflectionUrl"
+              alt=""
+              width="140"
+              height="137"
+              draggable="false"
+              :class="['hidden sm:block w-[110px] h-auto shrink-0 select-none pointer-events-none']"
+            >
+          </div>
         </div>
-        <span :class="['text-[11px] font-mono text-emerald-500 font-medium']">{{ t('onboarding.ui.ready-for-compilation') }}</span>
       </div>
 
-      <div :class="['flex flex-wrap gap-2 pt-1']">
-        <span
-          v-if="draftStore.state.memoryShortTermEnabled"
-          :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 flex items-center gap-1.5']"
-        >
-          <div :class="['i-solar:alarm-bold text-cyan-500']" />
-          {{ t('onboarding.ui.stmm') }} {{ displayText(currentStmmTier.toUpperCase()) }} ({{ displayText(draftStore.state.memoryShortTermWindowSize) }}d / {{ displayText(draftStore.state.memoryShortTermTokenBudget) }} {{ t('onboarding.ui.tok') }}
-        </span>
-        <span
-          v-if="draftStore.state.memoryLongTermJournalEnabled"
-          :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1.5']"
-        >
-          <div :class="['i-solar:notebook-bookmark-bold text-emerald-500']" />
-          {{ t('onboarding.ui.ltmm-text-journal-sacred-records') }}
-        </span>
-        <span
-          v-if="draftStore.state.memoryLifetimeEnabled"
-          :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 flex items-center gap-1.5']"
-        >
-          <div :class="['i-solar:dna-bold text-amber-500']" />
-          {{ t('onboarding.ui.lifetime') }} {{ displayText(currentLifetimeTier.toUpperCase()) }}
-        </span>
-        <span
-          v-if="draftStore.state.memoryDreamStateEnabled"
-          :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20 flex items-center gap-1.5']"
-        >
-          <div :class="['i-solar:sleeping-bold text-violet-500']" />
-          {{ t('onboarding.ui.dreams-active-on-idle') }}
+      <!-- Your memory setup -->
+      <div :class="['w-full max-w-[1280px] mx-auto rounded-[20px] border border-neutral-200/80 dark:border-neutral-800/80 bg-white/60 dark:bg-neutral-900/60 backdrop-blur-md px-4 sm:px-5 py-3.5 flex flex-wrap items-center gap-x-5 gap-y-2 min-w-0']">
+        <div :class="['flex items-center gap-2']">
+          <div :class="['h-8 w-8 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center shrink-0']">
+            <div :class="['i-solar:layers-bold-duotone text-base']" />
+          </div>
+          <span :class="['text-sm font-bold text-neutral-900 dark:text-white']">
+            {{ t('onboarding.steps.memory.setup.title') }}
+          </span>
+        </div>
+        <template v-if="hasAnyMemoryEnabled">
+          <span
+            v-if="draftStore.state.memoryShortTermEnabled"
+            :class="['flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 sm:border-l sm:border-neutral-200/70 dark:sm:border-white/10 sm:pl-4']"
+          >
+            <div :class="['i-solar:alarm-bold-duotone text-cyan-500']" />
+            <span>{{ t('onboarding.steps.memory.setup.recentContext', { window: summaryWindowLabel }) }}</span>
+          </span>
+          <span
+            v-if="draftStore.state.memoryLongTermJournalEnabled"
+            :class="['flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 sm:border-l sm:border-neutral-200/70 dark:sm:border-white/10 sm:pl-4']"
+          >
+            <div :class="['i-solar:notebook-bookmark-bold-duotone text-emerald-500']" />
+            <span>{{ t('onboarding.steps.memory.personalJournal.title') }}</span>
+          </span>
+          <span
+            v-if="draftStore.state.memoryLifetimeEnabled"
+            :class="['flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 sm:border-l sm:border-neutral-200/70 dark:sm:border-white/10 sm:pl-4']"
+          >
+            <div :class="['i-solar:infinity-bold-duotone text-amber-500']" />
+            <span>{{ t('onboarding.steps.memory.sharedHistory.title') }}</span>
+          </span>
+          <span
+            v-if="draftStore.state.memoryDreamStateEnabled"
+            :class="['flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 sm:border-l sm:border-neutral-200/70 dark:sm:border-white/10 sm:pl-4']"
+          >
+            <div :class="['i-solar:moon-bold-duotone text-violet-500']" />
+            <span>{{ t('onboarding.steps.memory.quietReflection.title') }}</span>
+          </span>
+        </template>
+        <span v-else :class="['text-xs text-neutral-500 dark:text-neutral-400']">
+          {{ t('onboarding.steps.memory.setup.disabled') }}
         </span>
       </div>
     </div>
 
     <!-- Navigation Footer -->
-    <div :class="['flex items-center justify-between pt-2 border-t border-neutral-200/80 dark:border-white/5']">
+    <div :class="['flex items-center justify-between pt-4 px-4 sm:px-6 border-t border-neutral-200/80 dark:border-white/5 shrink-0']">
       <button
         type="button"
         :class="['px-4 py-2 rounded-xl bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer']"

@@ -26,6 +26,28 @@ export interface McpHttpServerConfig {
 
 export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig
 
+export function isHttpServerConfig(config: McpServerConfig): config is McpHttpServerConfig {
+  return 'url' in config && typeof (config as McpHttpServerConfig).url === 'string'
+}
+
+export function isStdioServerConfig(config: McpServerConfig): config is McpStdioServerConfig {
+  return 'command' in config && typeof (config as McpStdioServerConfig).command === 'string'
+}
+
+export const toolNameSeparator = '::'
+
+export function parseQualifiedToolName(name: string): { serverName: string, toolName: string } {
+  const separatorIndex = name.indexOf(toolNameSeparator)
+  if (separatorIndex <= 0 || separatorIndex === name.length - toolNameSeparator.length) {
+    throw new Error(`invalid qualified tool name: ${name}`)
+  }
+
+  return {
+    serverName: name.slice(0, separatorIndex),
+    toolName: name.slice(separatorIndex + toolNameSeparator.length),
+  }
+}
+
 export interface McpConfigFile {
   mcpServers: Record<string, McpServerConfig>
 }
@@ -68,13 +90,26 @@ export interface McpStdioServerConfig {
   enabled?: boolean
 }
 
+export interface McpTestResult {
+  ok: boolean
+  error?: string
+  tools?: string[]
+  durationMs: number
+}
+
+export interface McpTestPayload {
+  name: string
+  config: McpServerConfig
+}
+
 export interface McpToolBridge {
   listTools: () => Promise<McpToolDescriptor[]>
   callTool: (payload: McpCallToolPayload) => Promise<McpCallToolResult>
   getRuntimeStatus: () => Promise<McpRuntimeStatus>
-  getConfig?: () => Promise<McpStdioConfigFile>
-  updateConfig?: (partial: Partial<McpStdioConfigFile>) => Promise<void>
+  getConfig?: () => Promise<McpConfigFile>
+  updateConfig?: (partial: Partial<McpConfigFile>) => Promise<void>
   applyAndRestart?: () => Promise<unknown>
+  testServer?: (payload: McpTestPayload) => Promise<McpTestResult>
 }
 
 export async function ensureMcpServersForAllowedTools(allowedTools: string[] | undefined): Promise<boolean> {

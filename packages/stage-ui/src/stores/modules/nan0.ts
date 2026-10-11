@@ -298,6 +298,17 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
 
   function setReflex(reflex: Nan0ReflexInfo | null, shouldBroadcast = true) {
     lastReflex.value = reflex
+    if (typeof globalThis.localStorage !== 'undefined' && activeCardId.value) {
+      try {
+        if (reflex) {
+          globalThis.localStorage.setItem(`nan0/last-reflex/${activeCardId.value}`, JSON.stringify(reflex))
+        }
+        else {
+          globalThis.localStorage.removeItem(`nan0/last-reflex/${activeCardId.value}`)
+        }
+      }
+      catch {}
+    }
     if (shouldBroadcast)
       broadcastCurrentState()
   }
@@ -412,6 +423,14 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
                 || (lastDecision.reasonCodes?.length ? lastDecision.reasonCodes.join(', ') : 'Nan0 Decision')
             }
           }
+        }
+
+        const reflexRaw = globalThis.localStorage.getItem(`nan0/last-reflex/${targetCardId}`)
+        if (reflexRaw) {
+          try {
+            lastReflex.value = JSON.parse(reflexRaw)
+          }
+          catch {}
         }
       }
       catch (e) {

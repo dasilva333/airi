@@ -1587,6 +1587,9 @@ theme:
   title: Theme
   description: |
     Switch the base theme of AIRI, Light mode or Dark mode.
+  auto: System
+  light: Light
+  dark: Dark
 title: Settings
 voices: Voice
 vrm:

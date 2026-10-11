@@ -1,15 +1,9 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-
-
 import { Button } from '@proj-airi/ui'
-import { onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
-
-const { displayText } = useOnboardingDisplayText()
-
 
 const props = defineProps<{
   onNext: () => void
@@ -25,7 +19,7 @@ const screenWatcherEnabled = ref<boolean>(draft.state.screenWatcherEnabled !== f
 const screenWatcherMode = ref<'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'>(
   draft.state.screenWatcherMode || 'voice-and-bubble',
 )
-const screenWatcherTier = ref<'lightweight' | 'moondream'>(
+const screenWatcherTier = ref<'lightweight' | 'moondream' | 'external'>(
   draft.state.screenWatcherTier || 'lightweight',
 )
 const screenWatcherInterval = ref<number>(
@@ -33,65 +27,65 @@ const screenWatcherInterval = ref<number>(
 )
 
 // --- Reaction Delivery Modes Catalog ---
-const reactionModes = [
+const reactionModes = computed(() => [
   {
     id: 'voice-and-bubble' as const,
-    title: 'Voice & Bubble',
-    badge: 'Full Immersion',
+    title: t('onboarding.steps.screen.reactionModes.voice-and-bubble.title'),
+    badge: t('onboarding.steps.screen.reactionModes.voice-and-bubble.badge'),
     badgeColor: 'bg-primary-500/10 text-primary-500 border-primary-500/20',
-    desc: 'Companion speaks out loud with floating speech bubbles on screen.',
+    desc: t('onboarding.steps.screen.reactionModes.voice-and-bubble.desc'),
     icon: 'i-solar:chat-round-line-bold',
   },
   {
     id: 'bubble-only' as const,
-    title: 'Bubble Only',
-    badge: 'Silent Subtitles',
+    title: t('onboarding.steps.screen.reactionModes.bubble-only.title'),
+    badge: t('onboarding.steps.screen.reactionModes.bubble-only.badge'),
     badgeColor: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-    desc: 'Floating subtitles without audio interruptions. Ideal for gaming or streaming.',
+    desc: t('onboarding.steps.screen.reactionModes.bubble-only.desc'),
     icon: 'i-solar:chat-square-bold-duotone',
   },
   {
     id: 'voice-only' as const,
-    title: 'Voice Only',
-    badge: 'Audio Commentary',
+    title: t('onboarding.steps.screen.reactionModes.voice-only.title'),
+    badge: t('onboarding.steps.screen.reactionModes.voice-only.badge'),
     badgeColor: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
-    desc: 'Audio commentary without any floating visual bubbles overlay.',
+    desc: t('onboarding.steps.screen.reactionModes.voice-only.desc'),
     icon: 'i-solar:soundwave-bold-duotone',
   },
   {
     id: 'muted' as const,
-    title: 'Silent Telemetry',
-    badge: 'Log & Ledger',
+    title: t('onboarding.steps.screen.reactionModes.muted.title'),
+    badge: t('onboarding.steps.screen.reactionModes.muted.badge'),
     badgeColor: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-    desc: 'Telemetry observations recorded silently to context and event ledger.',
+    desc: t('onboarding.steps.screen.reactionModes.muted.desc'),
     icon: 'i-solar:eye-bold-duotone',
   },
-]
+])
 
 // --- Vision Analysis Tiers ---
-const visionTiers = [
+const visionTiers = computed(() => [
   {
     id: 'lightweight' as const,
-    title: 'Lightweight OCR & Frame Diff',
-    vram: '0 MB VRAM',
-    desc: 'Instant local WASM OCR + perceptual pHash gating. Ultra-fast with zero cloud API costs.',
+    title: t('onboarding.steps.screen.visionTiers.lightweight.title'),
+    vram: t('onboarding.steps.screen.visionTiers.lightweight.vram'),
+    desc: t('onboarding.steps.screen.visionTiers.lightweight.desc'),
     icon: 'i-solar:shield-check-bold-duotone',
   },
   {
     id: 'moondream' as const,
-    title: 'Moondream2 VLM',
-    vram: '~700 MB WebGPU',
-    desc: 'Local vision language model. Synthesizes 1-sentence contextual scene descriptions for promoted events.',
+    title: t('onboarding.steps.screen.visionTiers.moondream.title'),
+    vram: t('onboarding.steps.screen.visionTiers.moondream.vram'),
+    desc: t('onboarding.steps.screen.visionTiers.moondream.desc'),
     icon: 'i-solar:magic-stick-3-bold-duotone',
   },
-]
+])
 
 // --- Interval Presets ---
 const screenIntervalPresets = [
-  { label: '1s (High)', value: 1000 },
-  { label: '2s (Balanced)', value: 2000 },
-  { label: '5s (Gentle)', value: 5000 },
-  { label: '10s (Eco)', value: 10000 },
+  { label: '1s (High)', labelKey: 'onboarding.steps.screen.screenIntervalPresets.1000.label', value: 1000 },
+  { label: '2s (Balanced)', labelKey: 'onboarding.steps.screen.screenIntervalPresets.2000.label', value: 2000 },
+  { label: '5s (Gentle)', labelKey: 'onboarding.steps.screen.screenIntervalPresets.5000.label', value: 5000 },
+  { label: '10s (Eco)', labelKey: 'onboarding.steps.screen.screenIntervalPresets.10000.label', value: 10000 },
 ]
 
 function syncDraft() {
@@ -142,7 +136,7 @@ onBeforeUnmount(() => {
           ]"
         >
           <span :class="['w-1.5 h-1.5 rounded-full', screenWatcherEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400']" />
-          <span>{{ displayText(screenWatcherEnabled ? 'SCREEN WATCHING ACTIVE' : 'WATCHER PAUSED') }}</span>
+          <span>{{ screenWatcherEnabled ? t('onboarding.steps.screen.screenWatchingActive') : t('onboarding.steps.screen.watcherPaused') }}</span>
         </span>
       </div>
     </div>
@@ -157,14 +151,14 @@ onBeforeUnmount(() => {
           <div>
             <div :class="['flex items-center gap-2']">
               <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                {{ t('onboarding.ui.screen-perception-visual-push') }}
+                {{ t('onboarding.steps.screen.screenPerceptionVisualPush') }}
               </h3>
               <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20']">
-                {{ t('onboarding.ui.event-driven-push') }}
+                {{ t('onboarding.steps.screen.eventDrivenPush') }}
               </span>
             </div>
             <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-              {{ t('onboarding.ui.enable-background-desktop-frame-captures-promotes-significant-visual-differenc') }}
+              {{ t('onboarding.steps.screen.enableBackgroundDesktopFrameCapturesPromotesSignificantVisualDifferenc') }}
             </p>
           </div>
         </div>
@@ -192,8 +186,8 @@ onBeforeUnmount(() => {
         <!-- Reaction Delivery Modes -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
-            <span>{{ t('onboarding.ui.reaction-delivery-mode') }}</span>
-            <span :class="['text-[10px] font-normal text-neutral-400']">{{ t('onboarding.ui.how-reactions-are-presented') }}</span>
+            <span>{{ t('onboarding.steps.screen.reactionDeliveryMode') }}</span>
+            <span :class="['text-[10px] font-normal text-neutral-400']">{{ t('onboarding.steps.screen.howReactionsArePresented') }}</span>
           </label>
           <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5']">
             <button
@@ -210,16 +204,16 @@ onBeforeUnmount(() => {
             >
               <div>
                 <div :class="['flex items-center justify-between gap-1 mb-1']">
-                  <span :class="['text-xs font-bold truncate']">{{ displayText(mode.title) }}</span>
+                  <span :class="['text-xs font-bold truncate']">{{ mode.title }}</span>
                   <div :class="[mode.icon, 'text-sm shrink-0 text-neutral-400']" />
                 </div>
                 <p :class="['text-[10px] text-neutral-500 dark:text-neutral-400 leading-snug']">
-                  {{ displayText(mode.desc) }}
+                  {{ mode.desc }}
                 </p>
               </div>
               <div :class="['mt-2 pt-1 border-t border-neutral-200/40 dark:border-white/5']">
                 <span :class="['text-[9px] font-medium px-1.5 py-0.5 rounded border', mode.badgeColor]">
-                  {{ displayText(mode.badge) }}
+                  {{ mode.badge }}
                 </span>
               </div>
             </button>
@@ -229,7 +223,7 @@ onBeforeUnmount(() => {
         <!-- Vision Analysis Tiers -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-            {{ t('onboarding.ui.perception-engine-tier') }}
+            {{ t('onboarding.steps.screen.perceptionEngineTier') }}
           </label>
           <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2.5']">
             <button
@@ -249,13 +243,13 @@ onBeforeUnmount(() => {
               </div>
               <div :class="['flex flex-col gap-0.5 min-w-0 flex-1']">
                 <div :class="['flex items-center justify-between gap-1']">
-                  <span :class="['text-xs font-bold truncate']">{{ displayText(tier.title) }}</span>
+                  <span :class="['text-xs font-bold truncate']">{{ tier.title }}</span>
                   <span :class="['text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-neutral-200/60 dark:bg-white/10 text-neutral-600 dark:text-neutral-300']">
-                    {{ displayText(tier.vram) }}
+                    {{ tier.vram }}
                   </span>
                 </div>
                 <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug']">
-                  {{ displayText(tier.desc) }}
+                  {{ tier.desc }}
                 </p>
               </div>
             </button>
@@ -265,7 +259,7 @@ onBeforeUnmount(() => {
         <!-- Capture Cadence Presets -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-            {{ t('onboarding.ui.screen-sampling-cadence') }}
+            {{ t('onboarding.steps.screen.screenSamplingCadence') }}
           </label>
           <div :class="['grid grid-cols-2 sm:grid-cols-4 gap-2']">
             <button
@@ -280,7 +274,7 @@ onBeforeUnmount(() => {
               ]"
               @click="screenWatcherInterval = preset.value; syncDraft()"
             >
-              {{ displayText(preset.label) }}
+              {{ 'labelKey' in preset && preset.labelKey ? t(preset.labelKey) : preset.label }}
             </button>
           </div>
         </div>
@@ -299,8 +293,8 @@ onBeforeUnmount(() => {
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        {{ t('onboarding.ui.status') }} <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ displayText(screenWatcherEnabled ? 'Enabled' : 'Paused') }}</span>
-        <span v-if="screenWatcherEnabled" :class="['text-sky-500 ml-1 font-bold']">({{ displayText(screenWatcherTier) }})</span>
+        {{ t('onboarding.steps.screen.status') }} <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ screenWatcherEnabled ? t('onboarding.steps.screen.enabled') : t('onboarding.steps.screen.paused') }}</span>
+        <span v-if="screenWatcherEnabled" :class="['text-sky-500 ml-1 font-bold']">({{ screenWatcherTier }})</span>
       </div>
 
       <Button

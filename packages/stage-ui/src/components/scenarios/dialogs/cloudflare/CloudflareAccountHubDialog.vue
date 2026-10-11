@@ -29,6 +29,7 @@ const syncStore = useSyncEngineStore()
 const {
   cfAccountId,
   cfSubdomain,
+  isAuthenticated,
 } = storeToRefs(cloudflareStore)
 
 const {
@@ -177,8 +178,17 @@ async function onSaveSelectiveSync(checkedIds: string[]) {
             <div>
               <DialogTitle class="flex items-center gap-2 text-lg text-neutral-900 font-bold sm:text-xl dark:text-neutral-100">
                 <span>Cloudflare & Edge Hub</span>
-                <span class="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400">
+                <span
+                  v-if="isAuthenticated"
+                  class="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400"
+                >
                   CONNECTED
+                </span>
+                <span
+                  v-else
+                  class="rounded-full bg-neutral-500/15 px-2 py-0.5 text-[10px] text-neutral-500 font-bold dark:text-neutral-400"
+                >
+                  DISCONNECTED
                 </span>
               </DialogTitle>
               <DialogDescription class="text-xs text-neutral-500 dark:text-neutral-400">
@@ -202,21 +212,31 @@ async function onSaveSelectiveSync(checkedIds: string[]) {
             <div class="min-w-0 flex flex-col gap-1">
               <span class="text-[11px] text-neutral-400 font-semibold tracking-wider uppercase">Account ID</span>
               <span class="truncate text-xs text-neutral-800 font-bold font-mono dark:text-neutral-200" :title="cfAccountId">
-                {{ cfAccountId ? `${cfAccountId.slice(0, 16)}...` : 'Connected via OAuth' }}
+                {{ cfAccountId ? `${cfAccountId.slice(0, 16)}...` : (isAuthenticated ? 'Connected via OAuth' : 'Not Connected') }}
               </span>
-              <div v-if="cfSubdomain" class="flex items-center gap-1 text-xs text-primary-600 font-mono dark:text-primary-400">
+              <div v-if="cfSubdomain && isAuthenticated" class="flex items-center gap-1 text-xs text-primary-600 font-mono dark:text-primary-400">
                 <div class="i-solar:link-circle-bold text-xs" />
                 <span>{{ cfSubdomain }}.workers.dev</span>
               </div>
             </div>
 
             <Button
+              v-if="isAuthenticated"
               size="sm"
               variant="secondary"
               class="shrink-0 font-bold !text-red-500 hover:!bg-red-500/10"
               @click="handleDisconnect"
             >
               Disconnect
+            </Button>
+            <Button
+              v-else
+              size="sm"
+              variant="primary"
+              class="shrink-0 font-bold"
+              @click="showDialog = false; emit('open-connect')"
+            >
+              Connect
             </Button>
           </div>
 

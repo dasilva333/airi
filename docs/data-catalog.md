@@ -574,6 +574,31 @@ interface SyncConflict {
 | **Exclusions** | `airi-cards`, `scene/backgrounds`, `airi_cc_*`, `settings/sync/*`, `settings/cloudflare/*` |
 | **Sync** | Full LWW |
 
+### 1.18 Generative UI Widgets Registry
+
+| Attribute | Value |
+| :--- | :--- |
+| **Key** | `local:widgets/registry` |
+| **Repo** | `packages/stage-ui/src/database/repos/widgets.repo.ts` — `widgetsRepo` |
+| **Type** | `PersistedWidget[]` |
+| **Description** | Persisted catalog of Generative UI micro-apps and their active mount state. Used to rehydrate mounted widgets and VFS source files into the in-memory sandbox (`SandboxManager`) across window reloads and Vite HMR cycles. |
+| **Sync** | Merged / Full LWW |
+
+```typescript
+export interface PersistedWidget {
+  id: string
+  title: string
+  path: string
+  sourcePath?: string
+  sourceCode?: string
+  code: string
+  target?: 'sidepanel' | 'inline' | 'window'
+  isMounted: boolean
+  mountedAt: number
+  updatedAt: number
+}
+```
+
 ---
 
 ## 2. IndexedDB — Sync Outbox Queue (`outbox:*`)

@@ -8,6 +8,8 @@ import type {
   ElectronMcpServerConfig,
   ElectronMcpServerRuntimeStatus,
   ElectronMcpStdioApplyResult,
+  ElectronMcpTestPayload,
+  ElectronMcpTestResult,
   ElectronMcpToolDescriptor,
 } from '../../../../shared/eventa'
 
@@ -29,6 +31,7 @@ import {
   electronMcpGetRuntimeStatus,
   electronMcpListTools,
   electronMcpOpenConfigFile,
+  electronMcpTestServer,
   electronMcpUpdateConfig,
   electronSelectDirectories,
 } from '../../../../shared/eventa'
@@ -53,6 +56,7 @@ export interface McpStdioManager {
   getRuntimeStatus: () => ElectronMcpRuntimeStatus
   getConfig: () => Promise<ElectronMcpConfigFile>
   updateConfig: (config: Partial<ElectronMcpConfigFile>) => Promise<void>
+  testServer: (payload: ElectronMcpTestPayload) => Promise<ElectronMcpTestResult>
 }
 
 export function isHttpUrl(value: string) {
@@ -109,10 +113,42 @@ const defaultMcpConfig: ElectronMcpConfigFile = {
 const toolNameSeparator = '::'
 const mcpRequestTimeoutMsec = 10_000
 const mcpRequestMaxTotalTimeoutMsec = 15_000
+const mcpTestStderrMaxChars = 16_000
 
 function stringifyError(error: unknown) {
   if (error instanceof Error) {
-    return error.message
+    // NOTICE: undici fetch failures surface as `TypeError: fetch failed` with the
+    // real reason (e.g. ENOTFOUND, ECONNREFUSED, TLS) nested in `cause`. Walk the
+    // chain so the settings UI shows actionable detail instead of a bare message.
+    const parts: string[] = [error.message || String(error)]
+    const seen = new Set<unknown>([error])
+    let cause = (error as { cause?: unknown }).cause
+    while (cause && !seen.has(cause)) {
+      seen.add(cause)
+      if (cause instanceof Error) {
+        if (cause.message && !parts.includes(cause.message))
+          parts.push(cause.message)
+        cause = (cause as { cause?: unknown }).cause
+      }
+      else if (typeof cause === 'string') {
+        if (!parts.includes(cause))
+          parts.push(cause)
+        break
+      }
+      else {
+        try {
+          parts.push(JSON.stringify(cause))
+        }
+        catch {
+          parts.push(String(cause))
+        }
+        break
+      }
+    }
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string' && !parts.join(' ').includes(code))
+      parts.push(`(code: ${code})`)
+    return parts.join('\nCaused by: ')
   }
 
   return String(error)
@@ -467,6 +503,81 @@ export function createMcpStdioManager(): McpStdioManager {
     log.log('mcp config updated')
   }
 
+  const testServer = async (payload: ElectronMcpTestPayload): Promise<ElectronMcpTestResult> => {
+    const startedAt = Date.now()
+    let transport: McpTransport | null = null
+    let client: Client | null = null
+    const stderrChunks: string[] = []
+
+    const withDeadline = <V>(promise: Promise<V>, ms: number, label: string): Promise<V> => {
+      let timer: NodeJS.Timeout | undefined
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+      })
+      return Promise.race([promise, timeout]).finally(() => {
+        if (timer)
+          clearTimeout(timer)
+      })
+    }
+
+    try {
+      transport = createTransport(payload.config)
+      client = new Client({
+        name: `proj-airi:stage-tamagotchi:mcp:test:${payload.name}`,
+        version: app.getVersion(),
+      })
+
+      if (transport instanceof StdioClientTransport) {
+        transport.stderr?.on('data', (data) => {
+          const text = data.toString('utf-8')
+          if (text)
+            stderrChunks.push(text)
+        })
+      }
+
+      await withDeadline(client.connect(transport), mcpRequestMaxTotalTimeoutMsec, 'connect')
+
+      const response = await client.listTools(undefined, {
+        timeout: mcpRequestTimeoutMsec,
+        maxTotalTimeout: mcpRequestMaxTotalTimeoutMsec,
+      })
+
+      if (stderrChunks.length > 0) {
+        log.withFields({ serverName: payload.name }).debug(stderrChunks.join('').trim())
+      }
+
+      return {
+        ok: true,
+        tools: response.tools.map(tool => tool.name),
+        durationMs: Date.now() - startedAt,
+      }
+    }
+    catch (error) {
+      const message = stringifyError(error)
+      // NOTICE: test runs in the Electron main process, so it never appears in
+      // the renderer Network tab. Log the full error (with stack) to main logs.
+      log.withFields({
+        serverName: payload.name,
+        target: isHttpServerConfig(payload.config) ? payload.config.url : payload.config.command,
+      }).withError(error).error('mcp test connection failed')
+      // Keep only the tail so a noisy failed server cannot flood the settings UI.
+      const stderr = stderrChunks.join('').trim().slice(-mcpTestStderrMaxChars)
+      return {
+        ok: false,
+        error: stderr ? `${message}\n\n${stderr}` : message,
+        durationMs: Date.now() - startedAt,
+      }
+    }
+    finally {
+      if (client) {
+        await client.close().catch(() => {})
+      }
+      if (transport) {
+        await transport.close().catch(() => {})
+      }
+    }
+  }
+
   return {
     ensureConfigFile,
     openConfigFile,
@@ -477,6 +588,7 @@ export function createMcpStdioManager(): McpStdioManager {
     getRuntimeStatus,
     getConfig,
     updateConfig,
+    testServer,
   }
 }
 
@@ -528,6 +640,10 @@ export function createMcpServersService(params: { context: ReturnType<typeof cre
 
   defineInvokeHandler(params.context, electronMcpUpdateConfig, async (payload) => {
     return params.manager.updateConfig(payload)
+  })
+
+  defineInvokeHandler(params.context, electronMcpTestServer, async (payload) => {
+    return params.manager.testServer(payload)
   })
 
   defineInvokeHandler(params.context, electronSelectDirectories, async (payload) => {

@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from './v3/composables/use-onboarding-display-text'
-
-
 import type { ProviderMetadata } from '../../../../stores/providers'
 import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
 
@@ -12,8 +9,6 @@ import { useI18n } from 'vue-i18n'
 import { useProvidersStore } from '../../../../stores/providers'
 import { Alert } from '../../../misc'
 import { ProviderAccountIdInput } from '../../../scenarios/providers'
-
-const { displayText } = useOnboardingDisplayText()
 
 interface Props {
   selectedProviderId: string
@@ -222,15 +217,15 @@ initializeForm()
       <div h-5 w-5 />
     </div>
     <div v-if="props.selectedProvider" flex-1 overflow-y-auto space-y-4>
-      <Callout :label="t('onboarding.ui.keep-your-api-keys-and-credentials-safe')" theme="violet">
+      <Callout label="Keep your API keys and credentials safe!" theme="violet">
         <div>
           <div>
-            {{ t('onboarding.ui.airi-is-running-pure-locally-in-your-browser-and-we-will-never-steal-your-cred') }}
+            AIRI is running pure locally in your browser, and we will never steal your credentials for AI / LLM providers. But keep in mind that your API keys are sensitive information. Make sure to keep them safe and do not share them with anyone.
           </div>
           <div>
-            {{ t('onboarding.ui.airi-is-open-sourced-at') }} <div inline-flex translate-y-1 items-center gap-1>
+            AIRI is open sourced at <div inline-flex translate-y-1 items-center gap-1>
               <div i-simple-icons:github inline-block /><a decoration-underline decoration-dashed href="https://github.com/moeru-ai/airi" target="_blank" rel="noopener noreferrer">GitHub</a>
-            </div>{{ t('onboarding.ui.if-you-want-to-check-how-we-handle-your-credentials-feel-free-to-inspect-our-c') }}
+            </div>, if you want to check how we handle your credentials, feel free to inspect our code.
           </div>
         </div>
       </Callout>
@@ -267,10 +262,10 @@ initializeForm()
           <div v-if="needsApiKey">
             <FieldInput
               v-model="apiKey"
-              :placeholder="displayText(getApiKeyPlaceholder(props.selectedProvider.id))"
+              :placeholder="getApiKeyPlaceholder(props.selectedProvider.id)"
               type="password"
-              :label="t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label')"
-              :description="t('onboarding.ui.enter-your-api-key-for-the-selected-provider')"
+              label="API Key"
+              description="Enter your API key for the selected provider."
               required
             />
           </div>
@@ -279,10 +274,10 @@ initializeForm()
           <div v-if="needsBaseUrl">
             <FieldInput
               v-model="baseUrl"
-              :placeholder="displayText(getBaseUrlPlaceholder(props.selectedProvider.id))"
+              :placeholder="getBaseUrlPlaceholder(props.selectedProvider.id)"
               type="text"
-              :label="t('settings.dialogs.onboarding.baseUrl')"
-              :description="t('onboarding.ui.enter-the-base-url-for-the-provider-s-api')"
+              label="Base URL"
+              description="Enter the base URL for the provider's API."
             />
           </div>
 
@@ -308,14 +303,14 @@ initializeForm()
           </div>
         </template>
         <template v-if="validationError" #content>
-          <pre class="whitespace-pre-wrap break-all">{{ displayText(String(validationError)) }}</pre>
+          <pre class="whitespace-pre-wrap break-all">{{ String(validationError) }}</pre>
         </template>
       </Alert>
     </div>
 
     <!-- Action Buttons -->
     <Button
-      :label="displayText(primaryActionLabel)"
+      :label="primaryActionLabel"
       :loading="validation === 'pending'"
       :disabled="!canProceed"
       @click="handleNext"

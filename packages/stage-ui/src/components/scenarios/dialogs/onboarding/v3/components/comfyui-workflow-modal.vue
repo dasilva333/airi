@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-import { useI18n } from 'vue-i18n'
-
 import type { ComfyUIWorkflowTemplate } from '../../../../../../stores/modules/artistry'
 
 import {
@@ -12,18 +9,7 @@ import {
   DialogTitle,
 } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
-
-const { t } = useI18n()
-
-const { displayText } = useOnboardingDisplayText()
-
-
-interface ParsedNode {
-  id: string
-  title: string
-  type: string
-  inputs: Record<string, any>
-}
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
   open: boolean
@@ -36,6 +22,15 @@ const emit = defineEmits<{
   (e: 'save', template: ComfyUIWorkflowTemplate): void
   (e: 'close'): void
 }>()
+
+const { t } = useI18n()
+
+interface ParsedNode {
+  id: string
+  title: string
+  type: string
+  inputs: Record<string, any>
+}
 
 const workflowName = ref('')
 const promptNodeId = ref('')
@@ -78,7 +73,7 @@ const promptPropertyOptions = computed(() => {
 
 const imageNodeOptions = computed(() => {
   return [
-    { id: '', label: '(None - Text to Image Only)' },
+    { id: '', label: t('onboarding.steps.artistry.workflow.textToImageOnly') },
     ...parsedNodes.value.map(n => ({
       id: n.id,
       label: `${n.title} (${n.type}) [ID: ${n.id}]`,
@@ -192,10 +187,10 @@ function handleClose() {
             </div>
             <div>
               <DialogTitle :class="['text-sm font-bold text-white tracking-wide']">
-                {{ t('onboarding.ui.configure-comfyui-workflow') }}
+                {{ t('onboarding.steps.artistry.workflow.configureComfyuiWorkflow') }}
               </DialogTitle>
               <p :class="['text-[11px] text-neutral-400 mt-0.5']">
-                {{ t('onboarding.ui.map-prompt-and-image-injection-points-into-the-workflow-graph') }}
+                {{ t('onboarding.steps.artistry.workflow.mapPromptAndImageInjectionPointsIntoTheWorkflowGraph') }}
               </p>
             </div>
           </div>
@@ -210,14 +205,14 @@ function handleClose() {
 
         <!-- Workflow Name -->
         <div :class="['space-y-1.5']">
-          <label :class="['text-xs font-semibold text-neutral-200 block']">{{ t('onboarding.ui.workflow-name') }}</label>
+          <label :class="['text-xs font-semibold text-neutral-200 block']">{{ t('onboarding.steps.artistry.workflow.workflowName') }}</label>
           <p :class="['text-[11px] text-neutral-400']">
-            {{ t('onboarding.ui.give-this-workflow-a-recognizable-template-name') }}
+            {{ t('onboarding.steps.artistry.workflow.giveThisWorkflowARecognizableTemplateName') }}
           </p>
           <input
             v-model="workflowName"
             type="text"
-            :placeholder="t('onboarding.ui.e-g-anima-hikarun')"
+            :placeholder="t('onboarding.steps.artistry.workflow.eGAnimaHikarun')"
             :class="['w-full rounded-xl bg-neutral-950 border border-neutral-800 px-3.5 py-2.5 text-xs text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none']"
           >
         </div>
@@ -226,32 +221,32 @@ function handleClose() {
         <div :class="['rounded-xl border border-primary-500/30 bg-primary-950/10 p-4 space-y-3']">
           <div :class="['flex items-center gap-2 text-xs font-bold text-primary-300']">
             <span>📝</span>
-            <span>{{ t('onboarding.ui.1-positive-prompt-target-required') }}</span>
+            <span>{{ t('onboarding.steps.artistry.workflow.1PositivePromptTargetRequired') }}</span>
           </div>
           <p :class="['text-[11px] text-neutral-400']">
-            {{ t('onboarding.ui.select-the-node-and-property-where-airi-will-inject-generated-positive-prompts') }}
+            {{ t('onboarding.steps.artistry.workflow.selectTheNodeAndPropertyWhereAiriWillInjectGeneratedPositivePrompts') }}
           </p>
 
           <div :class="['space-y-1']">
-            <label :class="['text-[10px] uppercase font-bold tracking-wider text-neutral-400']">{{ t('onboarding.ui.target-node') }}</label>
+            <label :class="['text-[10px] uppercase font-bold tracking-wider text-neutral-400']">{{ t('onboarding.steps.artistry.workflow.targetNode') }}</label>
             <select
               v-model="promptNodeId"
               :class="['w-full rounded-lg bg-neutral-950 border border-neutral-800 px-3 py-2 text-xs text-neutral-200 focus:border-primary-500 focus:outline-none cursor-pointer']"
             >
               <option v-for="n in promptNodeOptions" :key="n.id" :value="n.id">
-                {{ displayText(n.label) }}
+                {{ n.label }}
               </option>
             </select>
           </div>
 
           <div v-if="promptPropertyOptions.length > 0" :class="['space-y-1']">
-            <label :class="['text-[10px] uppercase font-bold tracking-wider text-neutral-400']">{{ t('onboarding.ui.target-property') }}</label>
+            <label :class="['text-[10px] uppercase font-bold tracking-wider text-neutral-400']">{{ t('onboarding.steps.artistry.workflow.targetProperty') }}</label>
             <select
               v-model="promptProperty"
               :class="['w-full rounded-lg bg-neutral-950 border border-neutral-800 px-3 py-2 text-xs text-neutral-200 focus:border-primary-500 focus:outline-none cursor-pointer']"
             >
               <option v-for="prop in promptPropertyOptions" :key="prop" :value="prop">
-                {{ displayText(prop) }}
+                {{ prop }}
               </option>
             </select>
           </div>
@@ -261,32 +256,32 @@ function handleClose() {
         <div :class="['rounded-xl border border-neutral-800 bg-neutral-950/40 p-4 space-y-3']">
           <div :class="['flex items-center gap-2 text-xs font-bold text-neutral-200']">
             <span>🖼️</span>
-            <span>{{ t('onboarding.ui.2-image-input-target-optional-img2img-controlnet') }}</span>
+            <span>{{ t('onboarding.steps.artistry.workflow.2ImageInputTargetOptionalImg2imgControlnet') }}</span>
           </div>
           <p :class="['text-[11px] text-neutral-400']">
-            {{ t('onboarding.ui.select-a-node-to-receive-character-input-images-airi-will-upload-the-image-to') }}
+            {{ t('onboarding.steps.artistry.workflow.selectANodeToReceiveCharacterInputImagesAiriWillUploadTheImageTo') }}
           </p>
 
           <div :class="['space-y-1']">
-            <label :class="['text-[10px] uppercase font-bold tracking-wider text-neutral-400']">{{ t('onboarding.ui.image-node') }}</label>
+            <label :class="['text-[10px] uppercase font-bold tracking-wider text-neutral-400']">{{ t('onboarding.steps.artistry.workflow.imageNode') }}</label>
             <select
               v-model="imageNodeId"
               :class="['w-full rounded-lg bg-neutral-950 border border-neutral-800 px-3 py-2 text-xs text-neutral-200 focus:border-primary-500 focus:outline-none cursor-pointer']"
             >
               <option v-for="n in imageNodeOptions" :key="n.id" :value="n.id">
-                {{ displayText(n.label) }}
+                {{ n.label }}
               </option>
             </select>
           </div>
 
           <div v-if="imageNodeId && imagePropertyOptions.length > 0" :class="['space-y-1']">
-            <label :class="['text-[10px] uppercase font-bold tracking-wider text-neutral-400']">{{ t('onboarding.ui.image-property') }}</label>
+            <label :class="['text-[10px] uppercase font-bold tracking-wider text-neutral-400']">{{ t('onboarding.steps.artistry.workflow.imageProperty') }}</label>
             <select
               v-model="imageProperty"
               :class="['w-full rounded-lg bg-neutral-950 border border-neutral-800 px-3 py-2 text-xs text-neutral-200 focus:border-primary-500 focus:outline-none cursor-pointer']"
             >
               <option v-for="prop in imagePropertyOptions" :key="prop" :value="prop">
-                {{ displayText(prop) }}
+                {{ prop }}
               </option>
             </select>
           </div>
@@ -299,7 +294,7 @@ function handleClose() {
             :class="['px-4 py-2 rounded-xl text-xs font-medium text-neutral-400 hover:text-white transition-colors cursor-pointer']"
             @click="handleClose"
           >
-            {{ t('onboarding.ui.shared-ui-settings-search-cancel') }}
+            {{ t('onboarding.steps.artistry.workflow.cancel') }}
           </button>
           <button
             type="button"
@@ -312,7 +307,7 @@ function handleClose() {
             ]"
             @click="handleSave"
           >
-            {{ t('onboarding.ui.save-workflow') }}
+            {{ t('onboarding.steps.artistry.workflow.saveWorkflow') }}
           </button>
         </div>
       </DialogContent>

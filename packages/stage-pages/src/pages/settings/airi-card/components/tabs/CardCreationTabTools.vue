@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION,
+  DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
+} from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { ensureMcpServersForAllowedTools, tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { FieldInput } from '@proj-airi/ui'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -115,6 +119,23 @@ const hasCustomMcp = computed({
   },
 })
 
+// Opt-in only: In-Memory POSIX Sandbox & Workstation (disabled by default)
+const hasSandbox = computed({
+  get() {
+    return generationAllowedTools.value !== undefined && generationAllowedTools.value.includes('bash')
+  },
+  set(checked) {
+    const current = generationAllowedTools.value ?? ['text_journal', 'image_journal']
+    if (checked) {
+      if (!current.includes('bash'))
+        generationAllowedTools.value = [...current, 'bash']
+    }
+    else {
+      generationAllowedTools.value = current.filter(t => t !== 'bash')
+    }
+  },
+})
+
 interface ConnectedMcpServer {
   name: string
   toolCount: number
@@ -168,6 +189,13 @@ watch(hasCustomMcp, (enabled) => {
 // Widget instructions text
 const selectedImageJournalInstruction = defineModel<string>('selectedImageJournalInstruction', { required: false, default: '' })
 const selectedTextJournalInstruction = defineModel<string>('selectedTextJournalInstruction', { required: false, default: '' })
+const selectedSandboxInstruction = defineModel<string>('selectedSandboxInstruction', { required: false, default: '' })
+
+function loadSandboxTemplate(templateType: 'workstation' | 'scratchpad') {
+  selectedSandboxInstruction.value = templateType === 'workstation'
+    ? DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION
+    : DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION
+}
 
 // Introspective Context Injection Toggles
 const selectedInjectDreamContext = defineModel<boolean>('selectedInjectDreamContext', { required: false, default: false })
@@ -810,6 +838,100 @@ const textJournalConflictWarning = computed(() => {
         <div class="rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-300">
           ⚙️ <strong>Configuration:</strong> Add and configure third-party MCP servers in <strong>Settings &rarr; MCP Servers & Tools</strong>. When this pack is enabled, this character card allows unrestricted tool discovery and execution across all running servers.
         </div>
+      </div>
+    </section>
+
+    <!-- 7. In-Memory POSIX Sandbox & Workstation Pack -->
+    <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="size-10 flex shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400">
+            <div class="i-solar:code-square-bold-duotone text-2xl" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+              <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
+                In-Memory POSIX Sandbox & Workstation Pack
+              </h3>
+              <span class="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] text-violet-700 font-bold uppercase dark:bg-violet-900/40 dark:text-violet-300">
+                RAMDISK POSIX & TSC-RS
+              </span>
+            </div>
+            <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+              Provides the character with a private, zero-leak in-memory RAM disk (<code class="rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-800">/workspace</code>), native TypeScript compilation (<code class="rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-800">tsc-rs</code>), and POSIX shell tools for data analysis and Generative UI.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          :class="[
+            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+            hasSandbox ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+          ]"
+          @click="hasSandbox = !hasSandbox"
+        >
+          <span
+            aria-hidden="true"
+            :class="[
+              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+              hasSandbox ? 'translate-x-5' : 'translate-x-0',
+            ]"
+          />
+        </button>
+      </div>
+
+      <div v-if="hasSandbox" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-4 dark:border-neutral-800">
+        <div class="flex flex-wrap gap-2">
+          <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+            <div class="i-carbon:terminal text-violet-500" />
+            bash (in-memory)
+          </span>
+          <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+            <div class="i-solar:code-file-bold text-violet-500" />
+            tsc-rs (TypeScript 2ms)
+          </span>
+          <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+            <div class="i-solar:play-circle-bold text-violet-500" />
+            node (in-isolate)
+          </span>
+          <span class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700 font-medium dark:bg-emerald-950/30 dark:text-emerald-300">
+            <div class="i-solar:shield-check-bold text-emerald-500" />
+            Zero Host Leakage
+          </span>
+        </div>
+
+        <div class="rounded-xl bg-violet-50/50 p-3 text-xs text-violet-700 dark:bg-violet-950/20 dark:text-violet-300">
+          💡 <strong>POSIX Workstation:</strong> Commands execute inside an ephemeral RAM disk at <code class="font-mono">/workspace</code> with no access to host directories. The agent can compile components and query live state projections under <code class="font-mono">/workspace/.airi/</code>.
+        </div>
+
+        <div class="flex items-center justify-between">
+          <label class="text-xs text-neutral-700 font-bold dark:text-neutral-300">bash System Instructions</label>
+          <div class="flex gap-2">
+            <button
+              type="button"
+              class="dark:hover:bg-neutral-750 rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300"
+              @click="loadSandboxTemplate('workstation')"
+            >
+              Generative UI Template
+            </button>
+            <button
+              type="button"
+              class="dark:hover:bg-neutral-750 rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300"
+              @click="loadSandboxTemplate('scratchpad')"
+            >
+              POSIX Scratchpad Template
+            </button>
+          </div>
+        </div>
+
+        <FieldInput
+          v-model="selectedSandboxInstruction"
+          label=""
+          placeholder="Enter custom bash instructions..."
+          :single-line="false"
+          :rows="6"
+        />
       </div>
     </section>
   </div>

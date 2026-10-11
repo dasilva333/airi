@@ -25,6 +25,7 @@ import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useVisionStore } from '../../../../../../stores/modules/vision'
 import { useOnboardingStore } from '../../../../../../stores/onboarding'
+import { useSettings } from '../../../../../../stores/settings'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
 import { useSyncEngineStore } from '../../../../../../stores/sync-engine'
 
@@ -454,11 +455,11 @@ export function populateAiriExtensions(
     airi.screenWatching = {
       enabled: Boolean(draft.screenWatcherEnabled),
       deliveryMode: draft.screenWatcherMode === 'voice-and-bubble' ? 'both' : draft.screenWatcherMode === 'bubble-only' ? 'bubble_only' : draft.screenWatcherMode === 'voice-only' ? 'tts_only' : 'off',
-      sourceType: 'displays',
-      sourceId: 'primary',
+      sourceType: draft.screenWatcherSourceType || 'displays',
+      sourceId: draft.screenWatcherSourceId || 'primary',
       captureIntervalMs: draft.screenWatcherInterval || 2000,
       downscalePercent: 50,
-      workload: draft.screenWatcherTier === 'moondream' ? 'screen:interpret' : 'screen:ocr',
+      workload: draft.screenWatcherTier === 'external' ? 'attention-guard' : draft.screenWatcherTier === 'moondream' ? 'screen:interpret' : 'screen:ocr',
       publishToContext: true,
       interestTags: [],
       deferWhileSpeaking: true,
@@ -467,6 +468,7 @@ export function populateAiriExtensions(
       respectSchedule: Boolean(draft.operatingScheduleEnabled),
       pauseWhenAfk: Boolean(draft.pauseOnAfk),
       afkThresholdMinutes: draft.afkMinutes || 5,
+      vlmTier: draft.screenWatcherTier || 'lightweight',
     }
   }
 
@@ -758,6 +760,11 @@ export function useStarterCardCommit() {
     // 5. Activate Card on Stage
     try {
       await cardStore.activateCard(createdCardId, true)
+      if (isNoModel) {
+        const settingsStore = useSettings()
+        settingsStore.stageModelSelected = ''
+        settingsStore.stageModelRenderer = 'disabled'
+      }
     }
     catch (err) {
       console.warn('[useStarterCardCommit] Card stage activation warning:', err)

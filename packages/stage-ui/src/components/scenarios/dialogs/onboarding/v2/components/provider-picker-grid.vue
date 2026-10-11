@@ -1,16 +1,9 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../../v3/composables/use-onboarding-display-text'
-import { useI18n } from 'vue-i18n'
-
 import type { ProviderMetadata } from '../../../../../../stores/providers'
 
 import { computed, ref } from 'vue'
 
 import { RadioCardDetail } from '../../../../../menu'
-
-const { t } = useI18n()
-
-const { displayText } = useOnboardingDisplayText()
 
 // V2 onboarding — reusable, category-agnostic provider grid + filter primitive,
 // lifted from step-provider-selection.vue but driven by an injected provider
@@ -67,7 +60,7 @@ const pricingOptions = [
     <!-- Deployment / Pricing filters -->
     <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
       <div class="flex flex-col gap-1.5">
-        <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">{{ t('settings.pages.providers.filters.deployment') }}</span>
+        <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">Deployment</span>
         <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
           <button
             v-for="opt in deploymentOptions"
@@ -80,12 +73,12 @@ const pricingOptions = [
             ]"
             @click="deploymentFilter = opt.value"
           >
-            {{ displayText(opt.label) }}
+            {{ opt.label }}
           </button>
         </div>
       </div>
       <div class="flex flex-col gap-1.5">
-        <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">{{ t('settings.pages.providers.filters.pricing') }}</span>
+        <span class="text-xs text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400">Pricing</span>
         <div class="flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
           <button
             v-for="opt in pricingOptions"
@@ -98,7 +91,7 @@ const pricingOptions = [
             ]"
             @click="pricingFilter = opt.value"
           >
-            {{ displayText(opt.label) }}
+            {{ opt.label }}
           </button>
         </div>
       </div>
@@ -113,8 +106,8 @@ const pricingOptions = [
         v-model="selectedIdModel"
         name="onboarding-v2-provider"
         :value="provider.id"
-        :title="displayText(provider.localizedName || provider.name || provider.id)"
-        :description="displayText(provider.localizedDescription || provider.description || '')"
+        :title="provider.localizedName || provider.name || provider.id"
+        :description="provider.localizedDescription || provider.description || ''"
         :pricing="provider.pricing"
         :deployment="provider.deployment"
         :beginner-recommended="provider.beginnerRecommended"
@@ -122,9 +115,9 @@ const pricingOptions = [
     </div>
     <div v-else class="h-28 flex flex-col items-center justify-center gap-2 text-neutral-500">
       <div class="i-solar:shield-warning-line-duotone h-8 w-8 opacity-50" />
-      <span class="text-sm italic">{{ t('onboarding.ui.no-providers-match-your-current-filters') }}</span>
+      <span class="text-sm italic">No providers match your current filters.</span>
       <button class="text-xs underline" @click="deploymentFilter = 'all'; pricingFilter = 'all'">
-        {{ t('onboarding.ui.clear-filters') }}
+        Clear filters
       </button>
     </div>
   </div>

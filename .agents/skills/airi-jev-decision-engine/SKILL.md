@@ -17,9 +17,15 @@ Paths are repository-relative. Read the relevant implementation before changing 
 
 | Responsibility | Source and anchor |
 | --- | --- |
+| System 1 Coprocessor Settings | `packages/stage-pages/src/pages/settings/modules/system-one.vue` — `#/settings/modules/system-one` (4-provider grid, model selector, telemetry & latency strip, interactive playground) |
+| System 1 Providers Hub | `packages/stage-pages/src/pages/settings/providers/index.vue` (`#/settings/providers#system1`) & `system1/[providerId].vue` (credential configuration) |
 | System 1 Pinia Store | `packages/stage-ui/src/stores/modules/system-one.ts` — `useSystemOneStore`, `execute()`, `runTriage()`, `runRerank()` |
 | Store Test Suite | `packages/stage-ui/src/stores/modules/system-one.test.ts` — CI-blocking mock Decisions API tests |
 | Provider Interface | `packages/stage-ui/src/libs/providers/types.ts` — `System1Provider`, `System1Response` |
+| OpenCode Go Provider | `packages/stage-ui/src/libs/providers/providers/opencode-go/index.ts` — `systemOne()`, `/zen/v1/systemone`, `jev-1.13-free`, `jev-1.13` |
+| OpenRouter Provider | `packages/stage-ui/src/libs/providers/providers/openrouter-ai/index.ts` — `systemOne()`, `/api/alpha/decisions`, `typesafe/jev-1.13` |
+| Direct TypeSafe AI Provider | `packages/stage-ui/src/libs/providers/providers/typesafe-ai/index.ts` — `systemOne()`, `/v1/systemone` |
+| Local Laya Provider | `packages/stage-ui/src/libs/providers/providers/laya-local/index.ts` — on-device WebGPU/WASM ModernBERT |
 | Vision Orchestrator Gate | `packages/stage-ui/src/stores/modules/vision/orchestrator.ts` — `processCapture()`, `evaluateJevVisualAttentionGate()` |
 | Vision Store & Settings | `packages/stage-ui/src/stores/modules/vision.ts` — `useVisionStore` (`settings/vision/programmable-gate-question`) |
 | AnimaDex Voice Matching | `packages/stage-pages/src/pages/settings/airi-card/guided.vue` — `prefillRosterBindings()`, `autoMatchCharacterVoiceWithJev()` |
@@ -33,13 +39,21 @@ Paths are repository-relative. Read the relevant implementation before changing 
 1. **OpenRouter Decisions Compatibility**:
    - OpenRouter's decisions endpoint (`POST https://openrouter.ai/api/alpha/decisions`) requires `"type": "noul"` for probability queries. Supplying `"type": "boolean"` causes an immediate HTTP 400 Bad Request.
    - Categorical questions must use `"type": "choice"` with explicit candidate string options.
-2. **Universal Consumer Gate**:
+2. **OpenCode Go Coprocessor Integration**:
+   - Dedicated endpoint is `POST https://opencode.ai/zen/v1/systemone` (distinct from chat base URL `/zen/go/v1/`).
+   - Supports `jev-1.13-free` (free tier) and `jev-1.13` (paid/standard tier).
+   - Automatically forwards session identification via `x-opencode-session` header and normalizes model names (stripping any foreign `typesafe/` prefix).
+3. **Four-Provider System 1 Surface Parity**:
+   - Both `#/settings/modules/system-one` and `#/settings/providers#system1` maintain parity across the four supported backends: `openrouter-ai`, `typesafe-ai`, `laya-local`, and `opencode-go`.
+4. **Universal Consumer Gate**:
    - Always check `systemOneStore.configured` before executing queries. If false, degrade gracefully to local regex, keyword heuristics, or baseline defaults without throwing unhandled exceptions.
-3. **Distractor Attractor Baselines**:
+5. **Telemetry & Latency Observability**:
+   - Every `systemOneStore.execute()` call records round-trip latency (`lastLatencyMs`), increments `systemOneDecisionsCount`, and separates `systemOneCloudTokens` from `systemOneLocalTokens`.
+6. **Distractor Attractor Baselines**:
    - For nuanced pragmatics, sarcasm, or negative actions, always provide explicit negative attractor options (e.g. `refused_or_negated_roast`, `routine_correction`, `fictional_framing`). This absorbs false-positive spillover and yields 100% precision.
-4. **Decoupled Actuation**:
+7. **Decoupled Actuation**:
    - Jev evaluates decisions; actuators execute them. Jev does not render Live2D blendshapes, synthesize TTS waveforms, or press gamepad buttons directly. Keep decision state strictly separated from renderer buffers.
-5. **Batching Efficiency**:
+8. **Batching Efficiency**:
    - Jev evaluates multiple questions in parallel across internal classification heads within a single model forward pass (~100–150ms). Bundle related questions (e.g. voice match + pitch + speed) into a single `execute(state, questions)` call rather than sequential requests.
 
 ## Integration Recipes

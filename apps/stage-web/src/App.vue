@@ -4,8 +4,11 @@ import { GetNativeAppDialog, OnboardingV3, ToasterRoot } from '@proj-airi/stage-
 import { useGetNativeAppModal } from '@proj-airi/stage-ui/composables'
 import { useSharedAnalyticsStore } from '@proj-airi/stage-ui/stores/analytics'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
+import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
+import { createWebMcpClient } from '@proj-airi/stage-ui/stores/mcp'
+import { clearMcpToolBridge, ensureMcpServersForAllowedTools, setMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useModsServerChannelStore } from '@proj-airi/stage-ui/stores/mods/api/channel-server'
 import { useContextBridgeStore } from '@proj-airi/stage-ui/stores/mods/api/context-bridge'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
@@ -16,6 +19,7 @@ import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
+import { mcpTools } from '@proj-airi/stage-ui/tools/mcp'
 import { useTheme } from '@proj-airi/ui'
 import { StageTransitionGroup } from '@proj-airi/ui-transitions'
 import { storeToRefs } from 'pinia'
@@ -39,6 +43,7 @@ const onboardingStore = useOnboardingStore()
 const chatSessionStore = useChatSessionStore()
 const serverChannelStore = useModsServerChannelStore()
 const characterOrchestratorStore = useCharacterOrchestratorStore()
+const chatOrchestratorStore = useChatOrchestratorStore()
 const { showingSetup } = storeToRefs(onboardingStore)
 const { isDark } = useTheme()
 const cardStore = useAiriCardStore()
@@ -48,6 +53,18 @@ const providersStore = useProvidersStore()
 const consciousnessStore = useConsciousnessStore()
 const speechStore = useSpeechStore()
 const stageModelStore = useSettingsStageModel()
+
+// In web runtime, connect remote MCP servers via in-browser HTTP/SSE transport
+const webMcpClient = createWebMcpClient()
+setMcpToolBridge(webMcpClient)
+chatOrchestratorStore.setToolsResolver(mcpTools)
+
+watch(() => cardStore.activeCard, (card) => {
+  const allowed = card?.extensions?.airi?.generation?.known?.allowedTools
+  if (allowed?.length) {
+    void ensureMcpServersForAllowedTools(allowed)
+  }
+}, { immediate: true })
 
 const primaryColor = computed(() => {
   return isDark.value
@@ -135,10 +152,15 @@ onMounted(async () => {
 
   triggerDelayedGetAppPopup()
 
+  void webMcpClient.applyAndRestart().catch((err) => {
+    console.warn('[App:Web] MCP background connection error:', err)
+  })
+
   debug('[App] onMounted complete')
 })
 
 onUnmounted(() => {
+  clearMcpToolBridge()
   contextBridgeStore.dispose()
   proactivityStore.stopHeartbeatLoop()
 })

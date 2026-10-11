@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-
-
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { storeToRefs } from 'pinia'
 import {
@@ -28,9 +25,6 @@ import { useSettingsUserProfile } from '../../../../../../stores/settings/user-p
 import { formatActorName } from '../../../../../markdown/actor-colors'
 import { useStarterCardCommit } from '../composables/useStarterCardCommit'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
-
-const { displayText } = useOnboardingDisplayText()
-
 
 const props = defineProps<{
   onNext?: () => void
@@ -67,12 +61,12 @@ const motionPrompt = ref('')
 const isGeneratingMotion = ref(false)
 const motionDemoStatus = ref('')
 
-const motionPresets = [
-  { label: '👋 Wave Hello', prompt: 'Waving right hand while left arm up' },
-  { label: '💋 Blow Kiss', prompt: 'Hand extended towards viewer on chin blowing kisses' },
-  { label: '🙇 Graceful Bow', prompt: 'Graceful bow with hand on chest' },
-  { label: '💃 Celebration', prompt: 'Spin around and wave with both hands' },
-]
+const motionPresets = computed(() => [
+  { label: t('onboarding.steps.finale.motion.presets.wave.label'), prompt: 'Waving right hand while left arm up' },
+  { label: t('onboarding.steps.finale.motion.presets.kiss.label'), prompt: 'Hand extended towards viewer on chin blowing kisses' },
+  { label: t('onboarding.steps.finale.motion.presets.bow.label'), prompt: 'Graceful bow with hand on chest' },
+  { label: t('onboarding.steps.finale.motion.presets.celebration.label'), prompt: 'Spin around and wave with both hands' },
+])
 
 function selectMotionPreset(presetPrompt: string) {
   motionPrompt.value = presetPrompt
@@ -84,7 +78,7 @@ async function handleGenerateMotionDemo() {
     return
 
   isGeneratingMotion.value = true
-  motionDemoStatus.value = 'Generating 3D VRMA animation...'
+  motionDemoStatus.value = t('onboarding.steps.finale.messages.generating3dVrmaAnimation')
   try {
     const result = await textToMotionStore.generateMotion(prompt, {
       onLog: (msg) => { motionDemoStatus.value = msg },
@@ -97,14 +91,14 @@ async function handleGenerateMotionDemo() {
       })
       const motionKey = await customVrmAnimationsStore.addCustomAnimation(file)
       modelStore.triggerMotion(motionKey)
-      toast.success(displayText('3D Motion compiled & playing on stage!'))
-      motionDemoStatus.value = 'Motion active on stage!'
+      toast.success(t('onboarding.steps.finale.3dMotionCompiledPlayingOnStage'))
+      motionDemoStatus.value = t('onboarding.steps.finale.messages.motionActiveOnStage')
     }
   }
   catch (err) {
     console.error('[StepFinale] Failed to generate motion demo:', err)
-    toast.error(displayText('Motion generation failed.'))
-    motionDemoStatus.value = 'Generation failed.'
+    toast.error(t('onboarding.steps.finale.motionGenerationFailed'))
+    motionDemoStatus.value = t('onboarding.steps.finale.messages.generationFailed')
   }
   finally {
     isGeneratingMotion.value = false
@@ -204,6 +198,13 @@ function resetPreviewPosition() {
 }
 
 async function initializeStageRenderer() {
+  if (draft.state.experienceArchetype === 'quiet' || draft.state.vesselDisplayModelId === '') {
+    settingsStore.stageModelSelected = ''
+    settingsStore.stageModelRenderer = 'disabled'
+    stageModelReady.value = true
+    return
+  }
+
   isLoadingModel.value = true
   try {
     if (activeModelId.value) {
@@ -254,7 +255,7 @@ const cleanGreeting = computed(() => {
   return stripPacingEnvelopes(stripMarkers(fullGreeting.value)).trim()
 })
 
-const displayGreeting = computed(() => displayText(cleanGreeting.value))
+const displayGreeting = computed(() => cleanGreeting.value)
 
 // --- 3. Typewriter Effect ---
 const typedGreeting = ref('')
@@ -299,7 +300,7 @@ async function playGreetingVoice() {
   }
 
   if (!draft.state.modules.speech) {
-    toast.info(displayText('Speech is disabled for this companion (Silent Mode).'))
+    toast.info(t('onboarding.steps.finale.speechIsDisabledForThisCompanionSilentMode'))
     return
   }
 
@@ -362,6 +363,8 @@ onBeforeUnmount(() => {
 
 // --- 5. Pre-Flight Honesty Matrix Items ---
 interface HonestyItem {
+  titleKey?: string
+  subtitleKey?: string
   id: string
   title: string
   status: string
@@ -375,22 +378,22 @@ const activeMemoryQuadrants = computed(() => {
   if (draft.state.memoryShortTermEnabled)
     list.push('STMM')
   if (draft.state.memoryLongTermJournalEnabled)
-    list.push('Journal')
+    list.push(t('onboarding.steps.finale.memory.journal'))
   if (draft.state.memoryLifetimeEnabled)
-    list.push('Lifetime')
+    list.push(t('onboarding.steps.finale.memory.lifetime'))
   if (draft.state.memoryDreamStateEnabled)
-    list.push('Dreams')
+    list.push(t('onboarding.steps.finale.memory.dreams'))
   return list
 })
 
 const activeToolsList = computed(() => {
   const list: string[] = []
   if (draft.state.mcpWebSearchEnabled)
-    list.push('Web Search')
+    list.push(t('onboarding.steps.finale.tools.webSearch'))
   if (draft.state.mcpFilesystemEnabled)
-    list.push('Filesystem')
+    list.push(t('onboarding.steps.finale.tools.filesystem'))
   if (draft.state.toolMotionGeneratorEnabled)
-    list.push('3D Motions')
+    list.push(t('onboarding.steps.finale.tools.motions'))
   return list
 })
 
@@ -404,7 +407,7 @@ const honestyMatrix = computed<HonestyItem[]>(() => {
       id: 'hearing',
       title: t('onboarding.steps.finale.pillars.audio'),
       status: t('onboarding.steps.finale.status.ready'),
-      subtitle: `${d.sttProvider || 'whisper-local'} · Mic Active`,
+      subtitle: t('onboarding.steps.finale.summary.microphone', { provider: d.sttProvider || 'whisper-local' }),
       icon: 'i-solar:microphone-3-bold-duotone',
       theme: 'green',
     })
@@ -415,6 +418,7 @@ const honestyMatrix = computed<HonestyItem[]>(() => {
       title: t('onboarding.steps.finale.pillars.audio'),
       status: t('onboarding.steps.finale.status.optional'),
       subtitle: 'Microphone input disabled',
+      subtitleKey: 'onboarding.steps.finale.honestyMatrix.hearing.subtitle',
       icon: 'i-solar:muted-bold-duotone',
       theme: 'gray',
     })
@@ -447,6 +451,7 @@ const honestyMatrix = computed<HonestyItem[]>(() => {
       title: t('onboarding.steps.finale.pillars.speech'),
       status: t('onboarding.steps.finale.status.optional'),
       subtitle: 'Zero audio output · Subtitles only',
+      subtitleKey: 'onboarding.steps.finale.honestyMatrix.speech.subtitle',
       icon: 'i-solar:volume-cross-bold-duotone',
       theme: 'gray',
     })
@@ -468,8 +473,9 @@ const honestyMatrix = computed<HonestyItem[]>(() => {
     items.push({
       id: 'memory',
       title: 'Memory Hierarchy',
-      status: 'Memory Active',
-      subtitle: `${quads.length} Active: ${quads.join(', ')}`,
+      titleKey: 'onboarding.steps.finale.honestyMatrix.memory.title',
+      status: t('onboarding.steps.finale.summary.memoryActive'),
+      subtitle: t('onboarding.steps.finale.summary.memoryList', { count: quads.length, names: quads.join(', ') }),
       icon: 'i-solar:bookmark-opened-bold-duotone',
       theme: 'purple',
     })
@@ -481,8 +487,9 @@ const honestyMatrix = computed<HonestyItem[]>(() => {
     items.push({
       id: 'tools',
       title: 'Autonomous Tools',
-      status: tools.length > 0 ? 'Toolbelt Armed' : 'Safe Sandboxed',
-      subtitle: tools.length > 0 ? `${tools.length} Granted: ${tools.join(', ')}` : 'No external tools',
+      titleKey: 'onboarding.steps.finale.honestyMatrix.tools.title',
+      status: tools.length > 0 ? t('onboarding.steps.finale.summary.toolsActive') : t('onboarding.steps.finale.summary.sandbox'),
+      subtitle: tools.length > 0 ? t('onboarding.steps.finale.summary.toolList', { count: tools.length, names: tools.join(', ') }) : t('onboarding.steps.finale.summary.noTools'),
       icon: 'i-solar:widget-bold-duotone',
       theme: 'sky',
     })
@@ -493,8 +500,9 @@ const honestyMatrix = computed<HonestyItem[]>(() => {
     items.push({
       id: 'artistry',
       title: 'Visual Artistry',
-      status: 'Art Engine Ready',
-      subtitle: `${d.artistryProvider || 'pollinations'}${d.artistryDirectorEnabled ? ' · Director Active' : ''}`,
+      titleKey: 'onboarding.steps.finale.honestyMatrix.artistry.title',
+      status: t('onboarding.steps.finale.summary.artReady'),
+      subtitle: t('onboarding.steps.finale.summary.artProvider', { provider: d.artistryProvider || 'pollinations', director: d.artistryDirectorEnabled ? t('onboarding.steps.finale.summary.directorActive') : '' }),
       icon: 'i-solar:gallery-bold-duotone',
       theme: 'green',
     })
@@ -505,8 +513,9 @@ const honestyMatrix = computed<HonestyItem[]>(() => {
     items.push({
       id: 'sensory',
       title: 'Sensory Perception',
-      status: 'Sensory Active',
-      subtitle: `Screen Watching (${d.screenWatcherMode || 'voice-and-bubble'})`,
+      titleKey: 'onboarding.steps.finale.honestyMatrix.sensory.title',
+      status: t('onboarding.steps.finale.summary.sensoryActive'),
+      subtitle: t('onboarding.steps.finale.summary.screenWatching', { mode: d.screenWatcherMode || 'voice-and-bubble' }),
       icon: 'i-solar:eye-bold-duotone',
       theme: 'green',
     })
@@ -526,9 +535,7 @@ function copyPayload() {
     : JSON.stringify(draft.state, null, 2)
   navigator.clipboard.writeText(content)
   toast.success(
-    displayText(activeInspectorTab.value === 'compiled'
-      ? 'Compiled Card JSON copied to clipboard'
-      : 'Raw Draft State JSON copied to clipboard'),
+    activeInspectorTab.value === 'compiled' ? t('onboarding.steps.finale.clipboard.compiled') : t('onboarding.steps.finale.clipboard.draft'),
   )
 }
 
@@ -546,13 +553,13 @@ async function handleLaunch() {
 
   try {
     createdCardId = await commitStarterCompanion(draft.state)
-    toast.success(displayText('Companion ready on stage!'))
+    toast.success(t('onboarding.steps.finale.companionReadyOnStage'))
   }
   catch (err) {
     console.error('[StepFinale] Failed to launch companion:', err)
     const msg = err instanceof Error ? err.message : String(err)
     launchError.value = msg
-    toast.error(displayText(`Failed to create companion card: ${msg}`))
+    toast.error(t('onboarding.steps.finale.failedToCreateCompanionCardValue', { msg }))
   }
   finally {
     isSubmitting.value = false
@@ -587,13 +594,13 @@ async function handleLaunch() {
                 'w-3.5 h-3.5',
               ]"
             />
-            <span class="max-w-[170px] truncate">{{ displayText(modelFormatLabel) }}</span>
+            <span class="max-w-[170px] truncate">{{ modelFormatLabel }}</span>
           </div>
 
           <!-- Top Right: Stage Preview Beacon -->
           <div :class="['absolute top-3 right-3 z-10 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono text-emerald-400 flex items-center gap-1 shadow-md']">
             <span :class="['w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse']" />
-            <span>{{ t('onboarding.ui.stage-ready') }}</span>
+            <span>{{ t('onboarding.steps.finale.stageReady') }}</span>
           </div>
 
           <!-- Live Model Viewport / Fallback -->
@@ -624,7 +631,7 @@ async function handleLaunch() {
               <img
                 v-if="avatarPreviewUrl"
                 :src="avatarPreviewUrl"
-                :alt="t('onboarding.ui.avatar-preview')"
+                :alt="t('onboarding.steps.finale.avatarPreview')"
                 :class="['h-44 w-44 object-contain rounded-2xl shadow-md border border-neutral-700/50 bg-black/40']"
               >
               <div
@@ -638,15 +645,15 @@ async function handleLaunch() {
                   ]"
                 />
                 <span class="max-w-full truncate text-xs text-neutral-300 font-medium font-mono">
-                  {{ displayText(currentModel?.name || activeModelId) }}
+                  {{ currentModel?.name || activeModelId }}
                 </span>
                 <span class="text-[10px] text-neutral-500 font-mono uppercase">
-                  {{ displayText(modelType) }}
+                  {{ modelType }}
                 </span>
               </div>
               <div v-if="isLoadingModel" :class="['text-xs text-primary-400 flex items-center gap-1.5 animate-pulse']">
                 <div :class="['i-solar:restart-bold w-3.5 h-3.5 animate-spin']" />
-                <span>{{ t('onboarding.ui.mounting-avatar-vessel') }}</span>
+                <span>{{ t('onboarding.steps.finale.mountingAvatarVessel') }}</span>
               </div>
             </div>
 
@@ -654,12 +661,12 @@ async function handleLaunch() {
             <button
               v-if="previewXOffset !== 0 || previewYOffset !== 0 || previewScale !== 1"
               type="button"
-              :title="t('onboarding.ui.reset-avatar-position')"
+              :title="t('onboarding.steps.finale.resetAvatarPosition')"
               :class="['absolute bottom-3 right-3 z-10 px-2 py-1 rounded-lg bg-neutral-900/80 backdrop-blur-md border border-neutral-700/60 text-[10px] font-mono text-neutral-300 hover:text-white flex items-center gap-1 shadow-md cursor-pointer transition-all']"
               @click="resetPreviewPosition"
             >
               <div :class="['i-solar:restart-bold w-3 h-3']" />
-              <span>{{ t('onboarding.ui.reset-pos') }}</span>
+              <span>{{ t('onboarding.steps.finale.resetPos') }}</span>
             </button>
           </div>
         </div>
@@ -669,7 +676,7 @@ async function handleLaunch() {
           <div :class="['flex items-center justify-between text-xs gap-2']">
             <div :class="['flex items-center gap-2 font-bold text-neutral-800 dark:text-neutral-200 min-w-0 flex-wrap']">
               <div :class="['w-2 h-2 rounded-full bg-primary-500 shrink-0']" />
-              <span :class="['truncate max-w-[150px]']">{{ displayText(resolvedPersona.name) }}</span>
+              <span :class="['truncate max-w-[150px]']">{{ resolvedPersona.name }}</span>
               <span
                 v-if="greetingActorName"
                 :class="[
@@ -699,14 +706,14 @@ async function handleLaunch() {
               @click="playGreetingVoice"
             >
               <div :class="[isPlayingAudio ? 'i-solar:soundwave-bold-duotone' : 'i-solar:volume-loud-bold-duotone', 'w-3.5 h-3.5']" />
-              <span>{{ displayText(isPlayingAudio ? 'Playing...' : 'Replay') }}</span>
+              <span>{{ isPlayingAudio ? t('onboarding.steps.finale.audition.playing') : t('onboarding.steps.finale.replay') }}</span>
             </button>
             <span
               v-else
               :class="['text-[10px] text-neutral-400 font-mono flex items-center gap-1 shrink-0']"
             >
               <div :class="['i-solar:volume-cross-bold w-3 h-3 text-neutral-400']" />
-              <span>{{ t('onboarding.ui.silent-mode') }}</span>
+              <span>{{ t('onboarding.steps.finale.silentMode') }}</span>
             </span>
           </div>
 
@@ -734,25 +741,25 @@ async function handleLaunch() {
           <!-- Manifest Summary Pill -->
           <div :class="['rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-100/70 dark:bg-neutral-900/60 px-3.5 py-2 text-xs flex items-center justify-between flex-wrap gap-2 text-neutral-600 dark:text-neutral-300']">
             <div :class="['flex items-center gap-3 flex-wrap']">
-              <span :class="['font-semibold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.manifest') }}</span>
+              <span :class="['font-semibold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.steps.finale.manifest') }}</span>
               <span :class="['flex items-center gap-1 font-mono text-[11px]']">
-                <span class="text-neutral-400">{{ t('onboarding.ui.soul') }}</span>
-                <strong>{{ displayText(resolvedPersona.name) }}</strong>
+                <span class="text-neutral-400">{{ t('onboarding.steps.finale.soul') }}</span>
+                <strong>{{ resolvedPersona.name }}</strong>
               </span>
               <span class="text-neutral-300 dark:text-neutral-700">•</span>
               <span :class="['flex items-center gap-1 font-mono text-[11px]']">
-                <span class="text-neutral-400">{{ t('onboarding.ui.vessel') }}</span>
-                <strong>{{ displayText(modelType.toUpperCase()) }}</strong>
+                <span class="text-neutral-400">{{ t('onboarding.steps.finale.vessel') }}</span>
+                <strong>{{ modelType.toUpperCase() }}</strong>
               </span>
               <span class="text-neutral-300 dark:text-neutral-700">•</span>
               <span :class="['flex items-center gap-1 font-mono text-[11px]']">
-                <span class="text-neutral-400">{{ t('onboarding.ui.brain-d614f434') }}</span>
-                <strong>{{ displayText(draft.state.llmModel || 'gpt-4o') }}</strong>
+                <span class="text-neutral-400">{{ t('onboarding.steps.finale.brain') }}</span>
+                <strong>{{ draft.state.llmModel || 'gpt-4o' }}</strong>
               </span>
               <span class="text-neutral-300 dark:text-neutral-700">•</span>
               <span :class="['flex items-center gap-1 font-mono text-[11px]']">
-                <span class="text-neutral-400">{{ t('onboarding.ui.voice') }}</span>
-                <strong>{{ displayText(draft.state.modules.speech ? (draft.state.ttsVoiceId || 'af_bella') : 'None') }}</strong>
+                <span class="text-neutral-400">{{ t('onboarding.steps.finale.voice') }}</span>
+                <strong>{{ draft.state.modules.speech ? (draft.state.ttsVoiceId || 'af_bella') : t('onboarding.steps.finale.none') }}</strong>
               </span>
             </div>
           </div>
@@ -760,9 +767,9 @@ async function handleLaunch() {
           <!-- Pre-Flight Honesty Matrix Grid -->
           <div :class="['flex flex-col gap-2']">
             <div :class="['text-xs font-bold text-neutral-700 dark:text-neutral-300 flex items-center justify-between']">
-              <span>{{ t('onboarding.ui.pre-flight-readiness-honesty-matrix') }}</span>
+              <span>{{ t('onboarding.steps.finale.preFlightReadinessHonestyMatrix') }}</span>
               <span :class="['text-[11px] font-mono text-emerald-500 font-medium']">
-                {{ displayText(honestyMatrix.length) }} {{ t('onboarding.ui.faculties-verified') }}
+                {{ t('onboarding.steps.finale.verification.count', { length: honestyMatrix.length }) }}
               </span>
             </div>
 
@@ -801,7 +808,7 @@ async function handleLaunch() {
                 <div :class="['flex-1 min-w-0 flex flex-col gap-0.5']">
                   <div :class="['flex items-center justify-between gap-1']">
                     <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 truncate']">
-                      {{ displayText(item.title) }}
+                      {{ 'titleKey' in item && item.titleKey ? t(item.titleKey) : item.title }}
                     </span>
                     <span
                       :class="[
@@ -817,11 +824,11 @@ async function handleLaunch() {
                     >
                       <div v-if="item.theme !== 'gray'" :class="['i-solar:check-circle-bold w-3 h-3']" />
                       <div v-else :class="['i-solar:minus-circle-linear w-3 h-3']" />
-                      <span>{{ displayText(item.status) }}</span>
+                      <span>{{ item.status }}</span>
                     </span>
                   </div>
                   <span :class="['text-[11px] text-neutral-500 dark:text-neutral-400 truncate leading-snug']">
-                    {{ displayText(item.subtitle) }}
+                    {{ 'subtitleKey' in item && item.subtitleKey ? t(item.subtitleKey) : item.subtitle }}
                   </span>
                 </div>
               </div>
@@ -836,7 +843,7 @@ async function handleLaunch() {
             <div :class="['flex items-center justify-between gap-2']">
               <div :class="['flex items-center gap-2 text-xs font-bold text-neutral-800 dark:text-neutral-100']">
                 <div :class="['i-solar:running-2-bold-duotone text-rose-500 text-base']" />
-                <span>{{ t('onboarding.ui.kinetic-3d-motion-live-playground') }}</span>
+                <span>{{ t('onboarding.steps.finale.kinetic3dMotionLivePlayground') }}</span>
               </div>
               <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-300 font-mono']">
                 generate_motion
@@ -857,7 +864,7 @@ async function handleLaunch() {
                 ]"
                 @click="selectMotionPreset(preset.prompt)"
               >
-                {{ displayText(preset.label) }}
+                {{ preset.label }}
               </button>
             </div>
 
@@ -866,7 +873,7 @@ async function handleLaunch() {
               <input
                 v-model="motionPrompt"
                 type="text"
-                :placeholder="t('onboarding.ui.type-how-you-want-her-to-move-e-g-wave-hello-graceful-bow')"
+                :placeholder="t('onboarding.steps.finale.typeHowYouWantHerToMoveEGWaveHelloGracefulBow')"
                 :class="[
                   'flex-1 px-3 py-1.5 rounded-xl border border-neutral-300/80 dark:border-neutral-700/80 bg-white dark:bg-neutral-900/90',
                   'text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-rose-500/60',
@@ -886,12 +893,12 @@ async function handleLaunch() {
               >
                 <div v-if="isGeneratingMotion" :class="['i-solar:restart-bold w-3.5 h-3.5 animate-spin']" />
                 <div v-else :class="['i-solar:running-2-bold w-3.5 h-3.5']" />
-                <span>{{ displayText(isGeneratingMotion ? 'Generating...' : 'Animate VRM') }}</span>
+                <span>{{ isGeneratingMotion ? t('onboarding.steps.finale.motion.generating') : t('onboarding.steps.finale.animateVrm') }}</span>
               </button>
             </div>
 
             <div v-if="motionDemoStatus" :class="['text-[10px] font-mono text-rose-600 dark:text-rose-300 truncate']">
-              {{ displayText(motionDemoStatus) }}
+              {{ motionDemoStatus }}
             </div>
           </div>
         </div>
@@ -906,14 +913,14 @@ async function handleLaunch() {
             <div :class="['flex items-start gap-2.5 min-w-0']">
               <div :class="['i-solar:danger-triangle-bold text-rose-500 w-4 h-4 shrink-0 mt-0.5']" />
               <div :class="['flex flex-col gap-0.5 min-w-0']">
-                <span :class="['font-semibold text-rose-700 dark:text-rose-300']">{{ t('onboarding.ui.launch-issue') }}</span>
-                <span :class="['text-[11px] opacity-90 break-words font-mono select-text']">{{ displayText(launchError) }}</span>
+                <span :class="['font-semibold text-rose-700 dark:text-rose-300']">{{ t('onboarding.steps.finale.launchIssue') }}</span>
+                <span :class="['text-[11px] opacity-90 break-words font-mono select-text']">{{ launchError }}</span>
               </div>
             </div>
             <button
               type="button"
               :class="['p-1 rounded-lg hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition-colors shrink-0 cursor-pointer']"
-              :title="t('onboarding.ui.dismiss-error')"
+              :title="t('onboarding.steps.finale.dismissError')"
               @click="launchError = null"
             >
               <div :class="['i-solar:close-circle-bold w-4 h-4']" />
@@ -936,11 +943,11 @@ async function handleLaunch() {
               <button
                 type="button"
                 :class="['px-3.5 py-2.5 rounded-xl bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300 text-xs font-medium border border-neutral-200 dark:border-white/10 transition-colors cursor-pointer flex items-center gap-1.5']"
-                :title="t('onboarding.ui.inspect-the-compiled-airicard-payload')"
+                :title="t('onboarding.steps.finale.inspectTheCompiledAiricardPayload')"
                 @click="isPayloadModalOpen = true"
               >
                 <div :class="['i-solar:code-file-bold-duotone w-4 h-4 text-neutral-400']" />
-                <span>{{ t('onboarding.ui.view-card-json') }}</span>
+                <span>{{ t('onboarding.steps.finale.viewCardJson') }}</span>
               </button>
 
               <!-- Primary Hero Launch CTA -->
@@ -957,7 +964,7 @@ async function handleLaunch() {
               >
                 <div v-if="isSubmitting" :class="['i-solar:restart-bold w-4 h-4 animate-spin']" />
                 <div v-else :class="['i-solar:rocket-bold w-4 h-4']" />
-                <span>{{ displayText(isSubmitting ? t('onboarding.steps.finale.launching') : t('onboarding.steps.finale.launchButton')) }}</span>
+                <span>{{ isSubmitting ? t('onboarding.steps.finale.launching') : t('onboarding.steps.finale.launchButton') }}</span>
               </button>
             </div>
           </div>
@@ -981,10 +988,10 @@ async function handleLaunch() {
                 </div>
                 <div>
                   <DialogTitle :class="['text-base font-bold text-neutral-900 dark:text-white']">
-                    {{ t('onboarding.ui.pre-flight-specification-inspector') }}
+                    {{ t('onboarding.steps.finale.preFlightSpecificationInspector') }}
                   </DialogTitle>
                   <p :class="['text-xs text-neutral-400']">
-                    {{ t('onboarding.ui.review-raw-draft-inputs-vs-deterministic-compiled-card-specification-before-st') }}
+                    {{ t('onboarding.steps.finale.reviewRawDraftInputsVsDeterministicCompiledCardSpecificationBeforeSt') }}
                   </p>
                 </div>
               </div>
@@ -1011,9 +1018,9 @@ async function handleLaunch() {
                 @click="activeInspectorTab = 'compiled'"
               >
                 <div :class="['i-solar:rocket-bold-duotone h-3.5 w-3.5 text-emerald-500']" />
-                <span>{{ t('onboarding.ui.compiled-airicard-chara-card-v3') }}</span>
+                <span>{{ t('onboarding.steps.finale.compiledAiricardCharaCardV3') }}</span>
                 <span :class="['px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold']">
-                  {{ t('onboarding.ui.target-payload') }}
+                  {{ t('onboarding.steps.finale.targetPayload') }}
                 </span>
               </button>
 
@@ -1028,9 +1035,9 @@ async function handleLaunch() {
                 @click="activeInspectorTab = 'draft'"
               >
                 <div :class="['i-solar:clipboard-list-bold-duotone h-3.5 w-3.5 text-amber-500']" />
-                <span>{{ t('onboarding.ui.raw-draft-state-pre-compilation') }}</span>
+                <span>{{ t('onboarding.steps.finale.rawDraftStatePreCompilation') }}</span>
                 <span :class="['px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[10px] font-bold']">
-                  {{ t('onboarding.ui.inputs') }}
+                  {{ t('onboarding.steps.finale.inputs') }}
                 </span>
               </button>
             </div>
@@ -1041,11 +1048,11 @@ async function handleLaunch() {
             <pre
               v-if="activeInspectorTab === 'compiled'"
               :class="['w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-950 p-4 text-[11px] font-mono text-emerald-400 overflow-x-auto leading-relaxed']"
-            >{{ displayText(JSON.stringify(compiledCardPayload, null, 2)) }}</pre>
+            >{{ JSON.stringify(compiledCardPayload, null, 2) }}</pre>
             <pre
               v-else
               :class="['w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-950 p-4 text-[11px] font-mono text-amber-400 overflow-x-auto leading-relaxed']"
-            >{{ displayText(JSON.stringify(draft.state, null, 2)) }}</pre>
+            >{{ JSON.stringify(draft.state, null, 2) }}</pre>
           </div>
 
           <!-- Modal Footer -->
@@ -1056,7 +1063,7 @@ async function handleLaunch() {
               @click="copyPayload"
             >
               <div :class="['i-solar:copy-bold w-3.5 h-3.5']" />
-              <span>{{ t('onboarding.ui.shared-devtools-core-ai-lab-copy') }} {{ displayText(activeInspectorTab === 'compiled' ? 'Compiled Card JSON' : 'Raw Draft JSON') }}</span>
+              <span>{{ t('onboarding.steps.finale.copy', { rawDraftJson: activeInspectorTab === 'compiled' ? t('onboarding.steps.finale.compiledCardJson') : t('onboarding.steps.finale.rawDraftJson') }) }}</span>
             </button>
 
             <button
@@ -1064,7 +1071,7 @@ async function handleLaunch() {
               :class="['px-5 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-md shadow-primary-600/30 transition-all cursor-pointer']"
               @click="isPayloadModalOpen = false"
             >
-              {{ t('onboarding.ui.shared-pages-knowledge-graph-done') }}
+              {{ t('onboarding.steps.finale.compiler.close') }}
             </button>
           </div>
         </DialogContent>

@@ -1,16 +1,10 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-
-
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../../../stores/display-models'
 import { useTextToMotionStore } from '../../../../../../stores/modules/text-to-motion'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
-
-const { displayText } = useOnboardingDisplayText()
-
 
 const props = defineProps<{
   onNext: () => void
@@ -137,14 +131,18 @@ const activeToolCount = computed(() => {
             <div :class="['flex flex-col min-w-0']">
               <div :class="['flex items-center gap-2 flex-wrap']">
                 <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                  {{ t('onboarding.ui.web-research-pack') }}
+                  {{ t('onboarding.steps.tools.webResearchPack') }}
                 </h3>
                 <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-300 font-mono']">
-                  {{ t('onboarding.ui.0-key-web-search') }}
+                  {{ t('onboarding.steps.tools.0KeyWebSearch') }}
                 </span>
               </div>
               <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                {{ t('onboarding.ui.equips-the-companion-with-real-time-web-search-and-page-markdown-extraction-vi') }} <code :class="['text-sky-500 font-mono text-[11px]']">open-websearch</code> {{ t('onboarding.ui.duckduckgo-bing-brave-baidu-without-requiring-paid-api-keys-or-subscription-to') }}
+                <i18n-t scope="global" keypath="onboarding.steps.tools.webSearchDescription" tag="span">
+                  <template #code>
+                    <code :class="['text-sky-500 font-mono text-[11px]']">open-websearch</code>
+                  </template>
+                </i18n-t>
               </p>
             </div>
           </div>
@@ -171,11 +169,11 @@ const activeToolCount = computed(() => {
           </span>
           <span :class="['inline-flex items-center gap-1 rounded-md bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-700 dark:text-sky-300 font-mono']">
             <div :class="['i-solar:document-text-bold text-sky-500']" />
-            {{ t('onboarding.ui.fetch-content-markdown') }}
+            {{ t('onboarding.steps.tools.fetchContentMarkdown') }}
           </span>
           <span :class="['inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium']">
             <div :class="['i-solar:check-circle-bold text-emerald-500']" />
-            {{ t('onboarding.ui.zero-setup-needed') }}
+            {{ t('onboarding.steps.tools.zeroSetupNeeded') }}
           </span>
         </div>
       </div>
@@ -197,14 +195,18 @@ const activeToolCount = computed(() => {
             <div :class="['flex flex-col min-w-0']">
               <div :class="['flex items-center gap-2 flex-wrap']">
                 <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                  {{ t('onboarding.ui.local-workspace-filesystem-pack') }}
+                  {{ t('onboarding.steps.tools.localWorkspaceFilesystemPack') }}
                 </h3>
                 <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-300 font-mono']">
-                  {{ t('onboarding.ui.desktop-mcp') }}
+                  {{ t('onboarding.steps.tools.desktopMcp') }}
                 </span>
               </div>
               <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                {{ t('onboarding.ui.allows-the-companion-to-read-list-and-search-files-inside-designated-project-d') }} <code :class="['text-amber-500 font-mono text-[11px]']">@modelcontextprotocol/server-filesystem</code>{{ t('onboarding.ui.with-user-configured-read-boundaries') }}
+                <i18n-t scope="global" keypath="onboarding.steps.tools.filesystemDescription" tag="span">
+                  <template #code>
+                    <code :class="['text-amber-500 font-mono text-[11px]']">@modelcontextprotocol/server-filesystem</code>
+                  </template>
+                </i18n-t>
               </p>
             </div>
           </div>
@@ -227,15 +229,15 @@ const activeToolCount = computed(() => {
         >
           <span :class="['inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-700 dark:text-amber-300 font-mono']">
             <div :class="['i-solar:file-check-bold text-amber-500']" />
-            {{ t('onboarding.ui.read-file-list-directory') }}
+            {{ t('onboarding.steps.tools.readFileListDirectory') }}
           </span>
           <span :class="['inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-700 dark:text-amber-300 font-mono']">
             <div :class="['i-solar:folder-security-bold text-amber-500']" />
-            {{ t('onboarding.ui.directory-tree-search-files') }}
+            {{ t('onboarding.steps.tools.directoryTreeSearchFiles') }}
           </span>
           <span :class="['inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-700 dark:text-amber-300 font-medium']">
             <div :class="['i-solar:shield-warning-bold text-amber-500']" />
-            {{ t('onboarding.ui.scoped-to-projects') }}
+            {{ t('onboarding.steps.tools.scopedToProjects') }}
           </span>
         </div>
       </div>
@@ -257,7 +259,7 @@ const activeToolCount = computed(() => {
             <div :class="['flex flex-col min-w-0']">
               <div :class="['flex items-center gap-2 flex-wrap']">
                 <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                  {{ t('onboarding.ui.kinetic-motion-generator-pack') }}
+                  {{ t('onboarding.steps.tools.kineticMotionGeneratorPack') }}
                 </h3>
                 <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-300 font-mono']">
                   generate_motion
@@ -267,11 +269,11 @@ const activeToolCount = computed(() => {
                   :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-300 font-mono flex items-center gap-1']"
                 >
                   <div :class="['i-solar:shield-warning-bold text-amber-500 w-3 h-3']" />
-                  <span>{{ t('onboarding.ui.vrm-avatar-optimized') }}</span>
+                  <span>{{ t('onboarding.steps.tools.vrmAvatarOptimized') }}</span>
                 </span>
               </div>
               <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                {{ t('onboarding.ui.allows-humanoid-vrm-companions-to-autonomously-author-and-generate-new-3d-skel') }}
+                {{ t('onboarding.steps.tools.allowsHumanoidVrmCompanionsToAutonomouslyAuthorAndGenerateNew3dSkel') }}
               </p>
             </div>
           </div>
@@ -296,7 +298,7 @@ const activeToolCount = computed(() => {
           <div :class="['flex items-center justify-between gap-3 flex-wrap']">
             <div :class="['flex items-center gap-2 text-xs font-semibold text-rose-900 dark:text-rose-200']">
               <div :class="['i-solar:cpu-bolt-bold text-rose-500']" />
-              <span>{{ t('onboarding.ui.engine-status') }} {{ displayText(prewarmDone ? 'Primed & Ready' : isPrewarming ? 'Pre-warming Shards...' : 'Enabled') }}</span>
+              <span>{{ t('onboarding.steps.tools.motion.status', { status: prewarmDone ? t('onboarding.steps.tools.primedReady') : isPrewarming ? t('onboarding.steps.tools.preWarmingShards') : t('onboarding.steps.tools.enabled') }) }}</span>
             </div>
 
             <button
@@ -318,11 +320,7 @@ const activeToolCount = computed(() => {
 
               <span>
                 {{
-                  displayText(isPrewarming
-                    ? `Downloading Shards (${textToMotionStore.downloadProgress.percentage || 15}%)...`
-                    : prewarmDone
-                      ? 'Pre-warmed & Cached'
-                      : 'Pre-warm & Download Engine')
+                  isPrewarming ? t('onboarding.steps.tools.downloadingShardsValue', { percentage15: textToMotionStore.downloadProgress.percentage || 15 }) : prewarmDone ? t('onboarding.steps.tools.preWarmedCached') : t('onboarding.steps.tools.preWarmDownloadEngine')
                 }}
               </span>
             </button>
@@ -334,8 +332,8 @@ const activeToolCount = computed(() => {
             :class="['rounded-xl bg-rose-500/10 border border-rose-500/20 p-2.5 flex flex-col gap-1.5']"
           >
             <div :class="['flex items-center justify-between text-[11px] font-mono text-rose-700 dark:text-rose-300']">
-              <span>{{ displayText(textToMotionStore.downloadProgress.status || 'Loading CLIP Encoder & ONNX Denoiser...') }}</span>
-              <span>{{ displayText(textToMotionStore.downloadProgress.percentage || 15) }}%</span>
+              <span>{{ textToMotionStore.downloadProgress.status || t('onboarding.steps.tools.loadingClipEncoderOnnxDenoiser') }}</span>
+              <span>{{ textToMotionStore.downloadProgress.percentage || 15 }}%</span>
             </div>
             <div :class="['w-full h-1.5 bg-rose-500/20 rounded-full overflow-hidden']">
               <div
@@ -351,8 +349,11 @@ const activeToolCount = computed(() => {
           >
             <div :class="['i-solar:info-circle-bold text-rose-500 text-sm shrink-0 mt-0.5']" />
             <div :class="['leading-relaxed']">
-              {{ t('onboarding.ui.output-motions-compile-directly-to-vrma-binary-tracks-and-play-live-on-stage') }}
-              <span v-if="!isVrmModel" class="text-amber-600 font-semibold dark:text-amber-300"> {{ t('onboarding.ui.note-your-selected-vessel-live2d-spine-uses-2d-animation-channels-switch-to-a') }}</span>
+              <i18n-t scope="global" keypath="onboarding.steps.tools.motionOutputDescription" tag="span">
+                <template #emphasis>
+                  <span v-if="!isVrmModel" class="text-amber-600 font-semibold dark:text-amber-300"> {{ t('onboarding.steps.tools.noteYourSelectedVesselLive2dSpineUses2dAnimationChannelsSwitchToA') }}</span>
+                </template>
+              </i18n-t>
             </div>
           </div>
         </div>
@@ -364,10 +365,10 @@ const activeToolCount = computed(() => {
       <div :class="['flex items-center justify-between text-xs font-bold text-neutral-700 dark:text-neutral-200']">
         <div :class="['flex items-center gap-2']">
           <div :class="['i-solar:widget-bold-duotone text-primary-500']" />
-          <span>{{ t('onboarding.ui.active-desktop-toolbelt') }}</span>
+          <span>{{ t('onboarding.steps.tools.activeDesktopToolbelt') }}</span>
         </div>
         <span :class="['text-[11px] font-mono text-emerald-500 font-medium']">
-          {{ displayText(activeToolCount) }} {{ t('onboarding.ui.tool') }}{{ displayText(activeToolCount === 1 ? '' : 's') }} {{ t('onboarding.ui.granted') }}
+          {{ t('onboarding.steps.tools.toolGranted', { count: activeToolCount }, activeToolCount) }}
         </span>
       </div>
 
@@ -377,27 +378,27 @@ const activeToolCount = computed(() => {
           :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 flex items-center gap-1.5']"
         >
           <div :class="['i-solar:global-bold text-sky-500']" />
-          {{ t('onboarding.ui.web-search-0-key') }}
+          {{ t('onboarding.steps.tools.webSearch0Key') }}
         </span>
         <span
           v-if="draftStore.state.mcpFilesystemEnabled"
           :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 flex items-center gap-1.5']"
         >
           <div :class="['i-solar:folder-with-files-bold text-amber-500']" />
-          {{ t('onboarding.ui.filesystem-desktop-mcp') }}
+          {{ t('onboarding.steps.tools.filesystemDesktopMcp') }}
         </span>
         <span
           v-if="draftStore.state.toolMotionGeneratorEnabled"
           :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20 flex items-center gap-1.5']"
         >
           <div :class="['i-solar:running-2-bold text-rose-500']" />
-          {{ t('onboarding.ui.generate-motion-3d-vrma') }}
+          {{ t('onboarding.steps.tools.generateMotion3dVrma') }}
         </span>
         <span
           v-if="activeToolCount === 0"
           :class="['text-xs text-neutral-400 dark:text-neutral-500 italic py-0.5']"
         >
-          {{ t('onboarding.ui.no-external-tools-enabled-safe-sandboxed-mode') }}
+          {{ t('onboarding.steps.tools.noExternalToolsEnabledSafeSandboxedMode') }}
         </span>
       </div>
     </div>

@@ -5,10 +5,6 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { RadioCardDetail } from '../../../../../menu'
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-
-const { t } = useI18n()
-const { displayText } = useOnboardingDisplayText()
 
 // V3 onboarding — reusable provider grid + filter primitive.
 // Driven by an injected provider list (chat, speech, transcription).
@@ -21,6 +17,8 @@ const emit = defineEmits<{
   (e: 'update:modelValue', id: string): void
   (e: 'select', provider: ProviderMetadata): void
 }>()
+
+const { t } = useI18n()
 
 const deploymentFilter = ref<'all' | 'local' | 'cloud'>('all')
 const pricingFilter = ref<'all' | 'free' | 'paid'>('all')
@@ -77,7 +75,7 @@ const pricingOptions = [
             ]"
             @click="deploymentFilter = opt.value"
           >
-            {{ displayText(opt.label) }}
+            {{ t(`onboarding.steps.consciousness.providerPicker.deploymentOptions.${opt.value}`) }}
           </button>
         </div>
       </div>
@@ -95,7 +93,7 @@ const pricingOptions = [
             ]"
             @click="pricingFilter = opt.value"
           >
-            {{ displayText(opt.label) }}
+            {{ t(`onboarding.steps.consciousness.providerPicker.pricingOptions.${opt.value}`) }}
           </button>
         </div>
       </div>
@@ -110,8 +108,8 @@ const pricingOptions = [
         v-model="selectedIdModel"
         name="onboarding-v3-provider"
         :value="provider.id"
-        :title="displayText(provider.localizedName || provider.name || provider.id)"
-        :description="displayText(provider.localizedDescription || provider.description || '')"
+        :title="provider.localizedName || provider.name || provider.id"
+        :description="provider.localizedDescription || provider.description || ''"
         :pricing="provider.pricing"
         :deployment="provider.deployment"
         :beginner-recommended="provider.beginnerRecommended"
@@ -119,9 +117,9 @@ const pricingOptions = [
     </div>
     <div v-else class="h-28 flex flex-col items-center justify-center gap-2 text-neutral-500">
       <div class="i-solar:shield-warning-line-duotone h-8 w-8 opacity-50" />
-      <span class="text-sm italic">{{ t('onboarding.ui.no-providers-match-your-current-filters') }}</span>
+      <span class="text-sm italic">{{ t('onboarding.steps.consciousness.providerPicker.noProvidersMatchYourCurrentFilters') }}</span>
       <button class="text-xs underline" @click="deploymentFilter = 'all'; pricingFilter = 'all'">
-        {{ t('onboarding.ui.clear-filters') }}
+        {{ t('onboarding.steps.consciousness.providerPicker.clearFilters') }}
       </button>
     </div>
   </div>

@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-
-
 import { computed } from 'vue'
-
-const { displayText } = useOnboardingDisplayText()
-
 
 const props = withDefaults(defineProps<{
   message?: string
@@ -64,7 +58,7 @@ const toneClasses = computed(() => {
         toneClasses.bubble,
       ]"
     >
-      <slot>{{ displayText(message) }}</slot>
+      <slot>{{ message }}</slot>
     </div>
   </div>
 </template>

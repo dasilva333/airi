@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-
-
+import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
+
+import AssistantBubble from '../components/assistant-bubble.vue'
 
 import { isThinkingAudioCached, prewarmThinkingFillers } from '../../../../../../libs/pacing/pacing-prewarm'
 import { useLLM } from '../../../../../../stores/llm'
@@ -15,9 +15,6 @@ import { useProvidersStore } from '../../../../../../stores/providers'
 import { DEFAULT_PACING_FILLERS } from '../../../../../../types/pacing'
 import { resolvePersona } from '../composables/useStarterCardCommit'
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
-
-const { displayText } = useOnboardingDisplayText()
-
 
 const props = defineProps<{
   onNext: () => void
@@ -71,6 +68,14 @@ const currentModelId = computed(() => draftStore.state.llmModel || '')
 const benchmarkLatency = computed(() => draftStore.state.brainBenchmark?.latencyMs ?? null)
 const hasBenchmarkReasoning = computed(() => draftStore.state.brainBenchmark?.hasReasoning ?? false)
 
+const benchmarkLatencyLabel = computed(() => {
+  if (benchmarkLatency.value == null)
+    return t('onboarding.steps.thinking.notTested')
+  if (benchmarkLatency.value >= 1000)
+    return `${(benchmarkLatency.value / 1000).toFixed(1)} s`
+  return `${benchmarkLatency.value}ms`
+})
+
 const isKnownReasoningModel = computed(() => {
   const m = currentModelId.value.toLowerCase()
   return /(r1|qwq|o1|o3|reason|thinking|kimi-k1\.5)/i.test(m)
@@ -80,11 +85,9 @@ const isReasoningModel = computed(() => {
   return hasBenchmarkReasoning.value || isKnownReasoningModel.value || selectedProfile.value === 'deep'
 })
 
-const reasoningModelSubtitle = computed(() => {
-  return isReasoningModel.value
-    ? 'Emits <think> / reasoning_content (Requires Deep CoT)'
-    : 'Low-latency direct reply (Ideal for Snappy / Balanced)'
-})
+// Settings tabs + disclosures (presentation only)
+const activeSettingsTab = ref<'thinking' | 'length'>('thinking')
+const showTimingDetails = ref(false)
 
 const isProbingBenchmark = ref(false)
 
@@ -95,7 +98,7 @@ async function runBenchmarkProbe() {
   const providerId = currentProviderId.value
   const modelId = currentModelId.value
   if (!providerId || !modelId) {
-    toast.warning(displayText('No Consciousness Brain Model configured in Step 8 yet.'))
+    toast.warning(t('onboarding.steps.thinking.noConsciousnessBrainModelConfiguredInStep8Yet'))
     return
   }
 
@@ -103,7 +106,7 @@ async function runBenchmarkProbe() {
   try {
     const providerInstance = await providersStore.getProviderInstance(providerId)
     if (!providerInstance || typeof (providerInstance as any).chat !== 'function') {
-      throw new Error(`Provider "${providerId}" does not expose chat completions.`)
+      throw new Error(t('onboarding.steps.thinking.provider.noChat', { providerId }))
     }
 
     const startTime = performance.now()
@@ -141,11 +144,11 @@ async function runBenchmarkProbe() {
     selectedProfile.value = recommendedPreset
     syncDraft()
 
-    toast.success(displayText(`Hardware benchmarked: ${elapsedMs}ms TTFT (${isReasoning ? 'Reasoning Model' : 'Standard Stream'})`))
+    toast.success(t('onboarding.steps.thinking.hardwareBenchmarkedValuemsTtftValue', { elapsedMs, detail: isReasoning ? t('onboarding.steps.thinking.benchmark.reasoningModel') : t('onboarding.steps.thinking.benchmark.standardModel') }))
   }
   catch (err: any) {
     console.error('[Step 10 Thinking] Probe error:', err)
-    toast.error(displayText(err?.message || 'Hardware benchmark failed. Check network & API key.'))
+    toast.error(err?.message || t('onboarding.steps.thinking.hardwareBenchmarkFailedCheckNetworkApiKey'))
   }
   finally {
     isProbingBenchmark.value = false
@@ -157,6 +160,45 @@ type PacingSelection = 'disabled' | 'snappy' | 'balanced' | 'deep'
 const selectedProfile = ref<PacingSelection>(
   draftStore.state.pacingPreset || 'balanced',
 )
+
+const pacingCards = [
+  {
+    id: 'disabled' as const,
+    name: 'Quiet',
+    desc: 'Wait without spoken fillers.',
+    icon: 'i-solar:forbidden-circle-bold-duotone',
+  },
+  {
+    id: 'snappy' as const,
+    name: 'Snappy',
+    desc: 'Brief fillers for short pauses.',
+    icon: 'i-solar:bolt-bold-duotone',
+  },
+  {
+    id: 'balanced' as const,
+    name: 'Balanced',
+    desc: 'Natural asides during longer pauses.',
+    icon: 'i-solar:chat-round-line-bold',
+  },
+  {
+    id: 'deep' as const,
+    name: 'Extended',
+    desc: 'More room for longer waits.',
+    icon: 'i-solar:soundwave-bold-duotone',
+  },
+]
+
+const pacingCardMessages = {
+  disabled: { name: 'onboarding.steps.thinking.pacingCards.disabled.name', desc: 'onboarding.steps.thinking.pacingCards.disabled.desc' },
+  snappy: { name: 'onboarding.steps.thinking.presets.snappy.title', desc: 'onboarding.steps.thinking.pacingCards.snappy.desc' },
+  balanced: { name: 'onboarding.steps.thinking.presets.balanced.title', desc: 'onboarding.steps.thinking.pacingCards.balanced.desc' },
+  deep: { name: 'onboarding.steps.thinking.pacingCards.deep.name', desc: 'onboarding.steps.thinking.pacingCards.deep.desc' },
+}
+const pacingCardOptions = computed(() => pacingCards.map(card => ({
+  ...card,
+  name: t(pacingCardMessages[card.id].name),
+  desc: t(pacingCardMessages[card.id].desc),
+})))
 
 // 2. 3-Tier Cascade State
 const tier1Enabled = ref<boolean>(draftStore.state.subconsciousTier1 ?? true)
@@ -256,6 +298,13 @@ const RESPONSE_LENGTH_TIERS: ResponseLengthTier[] = [
   },
 ]
 
+const responseLengthOptions = computed(() => RESPONSE_LENGTH_TIERS.map(tier => ({
+  ...tier,
+  title: t(`onboarding.steps.thinking.RESPONSE_LENGTH_TIERS.${tier.id}.title`),
+  tag: t(`onboarding.steps.thinking.RESPONSE_LENGTH_TIERS.${tier.id}.tag`),
+  desc: t(`onboarding.steps.thinking.RESPONSE_LENGTH_TIERS.${tier.id}.desc`),
+})))
+
 const overrideLimits = ref<boolean>(draftStore.state.overrideLimits ?? false)
 const contextWidth = ref<number | undefined>(draftStore.state.contextWidth)
 const selectedLengthTier = ref<ResponseLengthTierId>(
@@ -308,12 +357,12 @@ function handleResetToDefaults() {
   maxTokens.value = 200
   customProse.value = RESPONSE_LENGTH_TIERS[1].prose
   isProseEditing.value = false
-  toast.info(displayText('Response length reset to defaults'))
+  toast.info(t('onboarding.steps.thinking.responseLengthResetToDefaults'))
 }
 
 function toggleOverrideLimits() {
   if (isReasoningModel.value) {
-    toast.warning(displayText('Response length cannot be enforced on reasoning models. Hard token limits truncate internal chain-of-thought.'))
+    toast.warning(t('onboarding.steps.thinking.responseLengthCannotBeEnforcedOnReasoningModelsHardTokenLimitsTrunc'))
     return
   }
   overrideLimits.value = !overrideLimits.value
@@ -335,7 +384,7 @@ async function runCadenceSimulation() {
   const providerId = currentProviderId.value
   const modelId = currentModelId.value
   if (!providerId || !modelId) {
-    simulationError.value = 'Please configure a Brain Model in Step 8 (Consciousness) first.'
+    simulationError.value = t('onboarding.steps.thinking.simulation.brainRequired')
     return
   }
 
@@ -351,7 +400,7 @@ async function runCadenceSimulation() {
   try {
     const providerInstance = await providersStore.getProviderInstance(providerId) as any
     if (!providerInstance) {
-      throw new Error(`Unable to initialize provider "${providerId}".`)
+      throw new Error(t('onboarding.steps.thinking.provider.initializationFailed', { providerId }))
     }
 
     const messages = [
@@ -396,7 +445,7 @@ async function runCadenceSimulation() {
   }
   catch (err: any) {
     console.error('[Step 10 Cadence Simulation] Error:', err)
-    simulationError.value = err?.message || 'Simulation failed. Check provider credentials.'
+    simulationError.value = err?.message || t('onboarding.steps.thinking.simulation.failed')
   }
   finally {
     isSimulating.value = false
@@ -440,7 +489,7 @@ async function handlePrewarmAudioCache() {
   try {
     const providerInstance = await providersStore.getProviderInstance(ttsProvider)
     if (!providerInstance) {
-      toast.warning(displayText('Speech provider instance not ready for pre-warming yet. Skipping live synthesis.'))
+      toast.warning(t('onboarding.steps.thinking.speechProviderInstanceNotReadyForPreWarmingYetSkippingLiveSynthesis'))
       prewarmSuccessCount.value = DEFAULT_PACING_FILLERS.length
       isPrewarming.value = false
       return
@@ -469,12 +518,12 @@ async function handlePrewarmAudioCache() {
     })
 
     prewarmSuccessCount.value = result.succeeded + result.cached
-    toast.success(displayText(`Pre-warmed ${prewarmSuccessCount.value} thinking fillers into audio cache!`))
+    toast.success(t('onboarding.steps.thinking.preWarmedValueThinkingFillersIntoAudioCache', { prewarmSuccessCount: prewarmSuccessCount.value }))
   }
   catch (err: any) {
     console.warn('[Step 10 Thinking] Prewarm notice:', err)
     prewarmSuccessCount.value = DEFAULT_PACING_FILLERS.length
-    toast.info(displayText('Audio cache initialized'))
+    toast.info(t('onboarding.steps.thinking.audioCacheInitialized'))
   }
   finally {
     isPrewarming.value = false
@@ -551,853 +600,719 @@ function handleSkipPrewarmAndContinue() {
 </script>
 
 <template>
-  <div :class="['w-full max-w-4xl mx-auto flex flex-col gap-6 py-2 my-auto animate-fadeIn']">
-    <!-- Step Header (Sticky so navigation/status is always visible) -->
-    <div :class="['sticky top-0 z-20 bg-neutral-50/95 dark:bg-[#0c0c0e]/95 backdrop-blur-md flex items-start justify-between gap-4 border-b border-neutral-200/60 dark:border-white/5 pb-3 pt-2 -mx-2 px-2']">
-      <div :class="['flex items-center gap-3']">
-        <div :class="['w-10 h-10 rounded-2xl bg-primary-500/10 text-primary-500 flex items-center justify-center text-xl flex-shrink-0']">
-          <div :class="['i-ph:brain-duotone w-5 h-5']" />
-        </div>
-        <div>
-          <div :class="['flex items-center gap-2']">
-            <h2 :class="['text-lg font-bold text-neutral-900 dark:text-white tracking-tight']">
-              {{ t('onboarding.steps.thinking.title') }}
-            </h2>
-            <span :class="['text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400']">
-              {{ t('onboarding.steps.thinking.label') }}
-            </span>
-          </div>
-          <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            {{ t('onboarding.steps.thinking.description') }}
-          </p>
-        </div>
-      </div>
-
-      <!-- Active Status Badge -->
-      <div :class="['flex items-center gap-2 flex-shrink-0']">
-        <span
-          :class="[
-            'text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full font-mono border flex items-center gap-1.5',
-            selectedProfile === 'disabled'
-              ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border-neutral-200 dark:border-neutral-700'
-              : 'bg-primary-500/10 text-primary-600 dark:text-primary-400 border-primary-500/20',
-          ]"
-        >
-          <span :class="['w-1.5 h-1.5 rounded-full', selectedProfile === 'disabled' ? 'bg-neutral-400' : 'bg-primary-500 animate-pulse']" />
-          <span>{{ displayText(selectedProfile === 'disabled' ? 'SILENT • 0 MB VRAM' : 'PACING ACTIVE') }}</span>
-        </span>
-      </div>
-    </div>
-
-    <!-- Model Hardware Telemetry & Benchmark Profile Card -->
-    <div
-      :class="[
-        'p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs transition-all',
-        isReasoningModel
-          ? 'bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/30'
-          : 'bg-white/70 dark:bg-white/[0.02] border-neutral-200/80 dark:border-white/10',
-      ]"
-    >
-      <div :class="['flex items-center gap-3 min-w-0']">
+  <div :class="['w-full h-full flex flex-col justify-between select-none animate-fadeIn']">
+    <!-- Scrollable Content Body -->
+    <div :class="['flex-1 min-h-0 min-w-0 overflow-y-auto px-4 sm:px-6 pt-2 pb-5 flex flex-col gap-4']">
+      <!-- Shared centered header -->
+      <div :class="['flex flex-col items-center text-center gap-3 flex-shrink-0']">
         <div
-          :class="[
-            'w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 shadow-xs border',
-            isReasoningModel
-              ? 'bg-amber-500/20 text-amber-500 border-amber-500/30'
-              : 'bg-primary-500/10 text-primary-500 border-primary-500/20',
-          ]"
+          v-motion
+          :initial="{ opacity: 0, y: -6 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :class="['text-center']"
         >
-          <div :class="isReasoningModel ? 'i-solar:brain-bold-duotone w-5 h-5' : 'i-solar:bolt-bold-duotone w-5 h-5'" />
+          <h1 :class="['text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white']">
+            {{ t('onboarding.steps.thinking.conversationTitle') }}
+          </h1>
         </div>
-        <div :class="['flex flex-col min-w-0']">
-          <div :class="['flex items-center gap-2 flex-wrap']">
-            <span :class="['text-xs font-bold text-neutral-900 dark:text-white truncate']">
-              {{ displayText(currentModelId || 'Brain Model (Not Selected)') }}
-            </span>
-            <span
-              :class="[
-                'text-[9px] font-mono font-bold px-1.5 py-0.2 rounded uppercase',
-                isReasoningModel
-                  ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                  : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-              ]"
-            >
-              {{ displayText(isReasoningModel ? '🧠 Reasoning Model' : '⚡ Standard Stream') }}
-            </span>
-            <span
-              v-if="currentProviderId"
-              :class="['text-[9px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-500']"
-            >
-              {{ displayText(currentProviderId) }}
-            </span>
-          </div>
-          <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-2 mt-0.5']">
-            <span :class="['font-mono font-semibold', benchmarkLatency ? 'text-primary-600 dark:text-primary-400' : 'text-neutral-400']">
-              {{ displayText(benchmarkLatency ? `${benchmarkLatency}ms TTFT` : 'Latency Unmeasured') }}
-            </span>
-            <span>•</span>
-            <span>{{ displayText(reasoningModelSubtitle) }}</span>
-          </div>
-        </div>
+
+        <AssistantBubble
+          :message="t('onboarding.steps.thinking.assistantMessage')"
+          step-key="thinking"
+          sticker-id="airi-awkward"
+          tone="primary"
+        />
       </div>
 
-      <!-- Benchmark Probe Button -->
-      <button
-        type="button"
-        :disabled="isProbingBenchmark || !currentModelId"
+      <!-- Brain context strip -->
+      <div
+        v-motion
+        :initial="{ opacity: 0, y: 8 }"
+        :enter="{ opacity: 1, y: 0 }"
+        :duration="350"
+        :delay="100"
         :class="[
-          'px-3 py-1.5 rounded-xl border text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs',
-          isProbingBenchmark
-            ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400 border-transparent cursor-not-allowed'
-            : 'border-neutral-200 dark:border-white/10 hover:border-primary-500/40 hover:bg-primary-500/5 text-neutral-700 dark:text-neutral-200',
+          'w-full max-w-[1280px] mx-auto rounded-[20px] border px-4 sm:px-5 py-3 flex flex-wrap items-center gap-x-5 gap-y-2 flex-shrink-0',
+          'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md text-xs',
         ]"
-        @click="runBenchmarkProbe"
       >
-        <div :class="[isProbingBenchmark ? 'i-solar:restart-circle-bold animate-spin text-primary-500' : 'i-solar:link-circle-bold text-primary-500', 'w-3.5 h-3.5']" />
-        <span>{{ displayText(isProbingBenchmark ? 'Probing...' : benchmarkLatency ? 'Re-benchmark' : 'Probe Hardware') }}</span>
-      </button>
-    </div>
-
-    <!-- Section 1: Pacing Profile Presets -->
-    <div :class="['flex flex-col gap-3']">
-      <div :class="['flex flex-col']">
-        <div :class="['flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400']">
-          <div :class="['w-2 h-4 rounded bg-primary-500']" />
-          <span>{{ t('onboarding.ui.pacing-profile-presets') }}</span>
-        </div>
-        <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-          {{ t('onboarding.ui.select-a-cadence-profile-matching-your-model-s-reasoning-latency-these-setting') }}
-        </p>
-      </div>
-
-      <!-- 4 Presets Grid -->
-      <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3']">
-        <!-- 0: Disabled / None -->
-        <div
-          :class="[
-            'p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between text-left group relative',
-            selectedProfile === 'disabled'
-              ? 'border-neutral-400/80 bg-neutral-100/80 dark:bg-white/10 ring-1 ring-neutral-400'
-              : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] hover:border-neutral-300 dark:hover:border-white/20',
-          ]"
-          @click="selectedProfile = 'disabled'"
-        >
-          <div>
-            <div :class="['flex items-center justify-between mb-2']">
-              <div :class="['w-7 h-7 rounded-xl bg-neutral-200/70 dark:bg-white/10 flex items-center justify-center text-sm text-neutral-500 dark:text-neutral-400']">
-                <div :class="['i-solar:forbidden-circle-bold-duotone w-4 h-4']" />
-              </div>
-              <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 uppercase font-mono']">
-                {{ t('onboarding.ui.0-mb-vram') }}
-              </span>
-            </div>
-            <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              {{ t('onboarding.ui.disabled-none') }}
-            </h4>
-            <span :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mt-0.5']">
-              {{ t('onboarding.ui.pure-direct-output') }}
-            </span>
-            <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              {{ t('onboarding.ui.complete-silence-during-generation-no-thinking-fillers-audio-pauses-or-backgro') }}
-            </p>
+        <div :class="['flex items-center gap-2.5 min-w-0']">
+          <div :class="['h-8 w-8 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center flex-shrink-0']">
+            <div :class="['i-solar:cpu-bolt-bold-duotone h-4 w-4']" />
           </div>
-          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-400']">
-            <span>{{ t('onboarding.ui.0-mb-vram') }}</span>
-            <span>·</span>
-            <span>{{ t('onboarding.ui.zero-overhead') }}</span>
-            <span>·</span>
-            <span>{{ t('onboarding.ui.silent') }}</span>
-          </div>
-        </div>
-
-        <!-- 1: Snappy Chat -->
-        <div
-          :class="[
-            'p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between text-left group relative',
-            selectedProfile === 'snappy'
-              ? 'border-sky-500/80 bg-sky-500/5 dark:bg-sky-500/10 ring-1 ring-sky-500/40'
-              : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] hover:border-neutral-300 dark:hover:border-white/20',
-          ]"
-          @click="selectedProfile = 'snappy'"
-        >
-          <div>
-            <div :class="['flex items-center justify-between mb-2']">
-              <div :class="['w-7 h-7 rounded-xl bg-sky-500/10 flex items-center justify-center text-sm text-sky-500']">
-                <div :class="['i-solar:bolt-bold-duotone w-4 h-4']" />
-              </div>
-              <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 uppercase font-mono']">
-                {{ t('onboarding.ui.fast-2-5s-ttft') }}
-              </span>
-            </div>
-            <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              {{ t('onboarding.ui.snappy-chat') }}
-            </h4>
-            <span :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mt-0.5']">
-              {{ t('onboarding.ui.fast-conversational') }}
-            </span>
-            <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              {{ t('onboarding.ui.standard-chat-models-with-fast-initial-response-gemini-flash-claude-haiku-smal') }}
-            </p>
-          </div>
-          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
-            <span>{{ t('onboarding.ui.filler-1-8s') }}</span>
-            <span>·</span>
-            <span>{{ t('onboarding.ui.every-8s') }}</span>
-            <span>·</span>
-            <span>{{ t('onboarding.ui.budget-2s') }}</span>
-          </div>
-        </div>
-
-        <!-- 2: Balanced -->
-        <div
-          :class="[
-            'p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between text-left group relative',
-            selectedProfile === 'balanced'
-              ? 'border-primary-500/80 bg-primary-500/5 dark:bg-primary-500/10 ring-1 ring-primary-500/40'
-              : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] hover:border-neutral-300 dark:hover:border-white/20',
-          ]"
-          @click="selectedProfile = 'balanced'"
-        >
-          <div>
-            <div :class="['flex items-center justify-between mb-2']">
-              <div :class="['w-7 h-7 rounded-xl bg-primary-500/10 flex items-center justify-center text-sm text-primary-500']">
-                <div :class="['i-solar:scale-bold-duotone w-4 h-4']" />
-              </div>
-              <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-600 dark:text-primary-400 uppercase font-mono']">
-                {{ t('onboarding.ui.everyday-10-25s') }}
-              </span>
-            </div>
-            <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              {{ t('settings.pages.system.sections.section.custom-color.fields.field.vibrancy.balanced') }}
-            </h4>
-            <span :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mt-0.5']">
-              {{ t('onboarding.ui.everyday-reasoning') }}
-            </span>
-            <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              {{ t('onboarding.ui.everyday-reasoning-models-deepseek-4-pro-gpt-4o-claude-3-5-sonnet-gemini-pro-n') }}
-            </p>
-          </div>
-          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
-            <span>{{ t('onboarding.ui.filler-3-0s') }}</span>
-            <span>·</span>
-            <span>{{ t('onboarding.ui.every-15s') }}</span>
-            <span>·</span>
-            <span>{{ t('onboarding.ui.budget-3-2s') }}</span>
-          </div>
-        </div>
-
-        <!-- 3: Deep CoT Explorer -->
-        <div
-          :class="[
-            'p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between text-left group relative',
-            selectedProfile === 'deep'
-              ? 'border-cyan-500/80 bg-cyan-500/5 dark:bg-cyan-500/10 ring-1 ring-cyan-500/40'
-              : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] hover:border-neutral-300 dark:hover:border-white/20',
-          ]"
-          @click="selectedProfile = 'deep'"
-        >
-          <div>
-            <div :class="['flex items-center justify-between mb-2']">
-              <div :class="['w-7 h-7 rounded-xl bg-cyan-500/10 flex items-center justify-center text-sm text-cyan-500']">
-                <div :class="['i-solar:atom-bold-duotone w-4 h-4']" />
-              </div>
-              <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 uppercase font-mono']">
-                {{ t('onboarding.ui.extended-40-90s') }}
-              </span>
-            </div>
-            <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              {{ t('onboarding.ui.deep-cot-explorer') }}
-            </h4>
-            <span :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mt-0.5']">
-              {{ t('onboarding.ui.extended-deliberation') }}
-            </span>
-            <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-              {{ t('onboarding.ui.heavy-chain-of-thought-models-kimi-k3-deepseek-r1-glyph-deep-cot-longer-delibe') }}
-            </p>
-          </div>
-          <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[9px] font-mono text-neutral-500 dark:text-neutral-400']">
-            <span>{{ t('onboarding.ui.filler-4-8s') }}</span>
-            <span>·</span>
-            <span>{{ t('onboarding.ui.every-18s') }}</span>
-            <span>·</span>
-            <span>{{ t('onboarding.ui.budget-5s') }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 2: Thinking Voice Sources (formerly 3-Tier Aside Extraction Cascade) -->
-    <!-- When Disabled / None is selected: Reassuring zero-overhead banner -->
-    <div
-      v-if="selectedProfile === 'disabled'"
-      :class="['p-4 rounded-2xl border border-emerald-500/20 dark:border-emerald-500/10 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.02] flex items-center justify-between gap-4 animate-fadeIn']"
-    >
-      <div :class="['flex items-start gap-3']">
-        <div :class="['w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg flex-shrink-0 mt-0.5']">
-          <div :class="['i-solar:shield-check-bold w-5 h-5 text-emerald-500']" />
-        </div>
-        <div>
-          <div :class="['flex items-center gap-2']">
-            <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              {{ t('onboarding.ui.thinking-voice-sources-fillers-disabled') }}
-            </h4>
-            <span :class="['text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20']">
-              {{ t('onboarding.ui.0-mb-vram-0-background-overhead') }}
-            </span>
-          </div>
-          <p :class="['text-[11px] text-neutral-600 dark:text-neutral-300 mt-0.5 leading-relaxed']">
-            {{ t('onboarding.ui.complete-silence-is-guaranteed-while-reasoning-no-background-neural-slms-audio') }}
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- When Active: Thinking Voice Sources Pipeline -->
-    <div
-      v-else
-      :class="['p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col gap-3 transition-all animate-fadeIn']"
-    >
-      <div :class="['flex items-center justify-between border-b border-neutral-200/40 dark:border-white/5 pb-2']">
-        <div :class="['flex items-center gap-2']">
-          <div :class="['i-solar:microphone-3-bold-duotone text-primary-500 w-4 h-4']" />
-          <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
-            {{ t('onboarding.ui.thinking-voice-sources') }}
+          <span :title="currentModelId" :class="['font-bold text-neutral-900 dark:text-white truncate']">
+            {{ currentModelId || t('onboarding.steps.thinking.noModelSelected') }}
           </span>
-        </div>
-        <span :class="['text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono']">
-          {{ displayText([tier1Enabled, tier2Enabled, tier3Enabled].filter(Boolean).length) }} {{ t('onboarding.ui.active') }}
-        </span>
-      </div>
-      <p :class="['text-xs text-neutral-500 dark:text-neutral-400 -mt-1 leading-relaxed']">
-        {{ t('onboarding.ui.choose-where-airi-sources-spoken-words-and-vocalizations-during-model-delibera') }}
-      </p>
-
-      <!-- Source 1 -->
-      <label :class="['flex items-start gap-3 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/40 cursor-pointer hover:border-neutral-300 dark:hover:border-white/10 transition-colors']">
-        <input
-          v-model="tier1Enabled"
-          type="checkbox"
-          :class="['mt-0.5 w-4 h-4 rounded text-primary-600 accent-primary-500 cursor-pointer']"
-        >
-        <div :class="['flex-1 min-w-0']">
-          <div :class="['flex items-center justify-between gap-2']">
-            <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              {{ t('onboarding.ui.natural-in-character-thoughts-think-aloud') }}
-            </span>
-            <span :class="['text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono flex-shrink-0']">
-              {{ t('onboarding.ui.prompt-directives') }}
-            </span>
-          </div>
-          <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            {{ t('onboarding.ui.synthesizes-in-character-thoughts-when-the-model-emits-intentional-think-aloud') }}
-          </p>
-        </div>
-      </label>
-
-      <!-- Source 2 -->
-      <label :class="['flex items-start gap-3 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/40 cursor-pointer hover:border-neutral-300 dark:hover:border-white/10 transition-colors']">
-        <input
-          v-model="tier2Enabled"
-          type="checkbox"
-          :class="['mt-0.5 w-4 h-4 rounded text-primary-600 accent-primary-500 cursor-pointer']"
-        >
-        <div :class="['flex-1 min-w-0']">
-          <div :class="['flex items-center justify-between gap-2']">
-            <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              {{ t('onboarding.ui.smart-reasoning-extractor-needle-45m-slm') }}
-            </span>
-            <span :class="['text-[9px] font-bold px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 font-mono flex-shrink-0']">
-              {{ t('onboarding.ui.lightweight-slm-14-mb') }}
-            </span>
-          </div>
-          <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            {{ t('onboarding.ui.runs-an-ultra-lightweight-on-device-model-to-extract-genuine-moments-of-realiz') }}
-          </p>
-          <div :class="['mt-2 flex items-center justify-between text-[10px] bg-neutral-50 dark:bg-neutral-800/40 p-1.5 rounded-lg border border-neutral-200/40 dark:border-white/5']">
-            <span :class="['flex items-center gap-1.5 font-medium text-neutral-600 dark:text-neutral-300']">
-              <span :class="['w-1.5 h-1.5 rounded-full bg-emerald-500']" />
-              <span>{{ t('onboarding.ui.status-ready-14-mb-in-cache') }}</span>
-            </span>
-            <span :class="['text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-bold flex items-center gap-1']">
-              <div :class="['i-solar:check-circle-bold w-3 h-3']" />
-              <span>{{ t('onboarding.ui.zero-cloud-cost-pre-warmed') }}</span>
-            </span>
-          </div>
-        </div>
-      </label>
-
-      <!-- Source 3 -->
-      <label :class="['flex items-start gap-3 p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/40 cursor-pointer hover:border-neutral-300 dark:hover:border-white/10 transition-colors']">
-        <input
-          v-model="tier3Enabled"
-          type="checkbox"
-          :class="['mt-0.5 w-4 h-4 rounded text-primary-600 accent-primary-500 cursor-pointer']"
-        >
-        <div :class="['flex-1 min-w-0']">
-          <div :class="['flex items-center justify-between gap-2']">
-            <span :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-              {{ t('onboarding.ui.casual-spoken-fillers-organic-reactions-audio-clips') }}
-            </span>
-            <span :class="['text-[9px] font-bold px-1.5 py-0.2 rounded bg-neutral-200/60 dark:bg-white/10 text-neutral-600 dark:text-neutral-400 font-mono flex-shrink-0']">
-              {{ t('onboarding.ui.natural-transitions') }}
-            </span>
-          </div>
-          <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-            {{ t('onboarding.ui.speaks-short-vocal-reactions-and-organic-transitions-wait-hmm-let-me-see-when') }}
-          </p>
-
-          <!-- Inline Pre-warm Audio Cache Strip -->
-          <div
-            v-if="tier3Enabled"
-            :class="['mt-2 flex items-center justify-between gap-2 text-[10px] bg-neutral-50 dark:bg-neutral-800/40 p-1.5 rounded-lg border border-neutral-200/40 dark:border-white/5']"
-            @click.stop
+          <span
+            v-if="currentProviderId"
+            :title="currentProviderId"
+            :class="['shrink-0 rounded-lg border border-neutral-200/80 dark:border-white/10 bg-neutral-100 dark:bg-white/5 px-2 py-0.5 text-[11px] font-medium text-neutral-500 dark:text-neutral-400 truncate max-w-[140px]']"
           >
-            <div :class="['flex items-center gap-1.5 font-medium min-w-0 truncate']">
-              <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', prewarmSuccessCount ? 'bg-emerald-500' : isPrewarming ? 'bg-amber-500 animate-ping' : 'bg-neutral-400 dark:bg-neutral-500']" />
-              <span :class="['truncate text-neutral-600 dark:text-neutral-300']">
-                <template v-if="isPrewarming">
-                  {{ t('onboarding.ui.synthesizing-fillers') }}{{ displayText(prewarmProgress?.completed || 0) }}/{{ displayText(prewarmProgress?.total || 9) }})...
-                </template>
-                <template v-else-if="prewarmSuccessCount">
-                  {{ t('onboarding.ui.cache-primed') }} {{ displayText(prewarmSuccessCount) }} {{ t('onboarding.ui.fillers-ready-instant-playback') }}
-                </template>
-                <template v-else>
-                  {{ t('onboarding.ui.cache-unprimed-pre-synthesize-clips-to-eliminate-pause-latency') }}
-                </template>
-              </span>
-            </div>
-
-            <div :class="['flex items-center gap-1.5 flex-shrink-0']">
-              <span
-                v-if="prewarmSuccessCount"
-                :class="['text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-bold flex items-center gap-1']"
-              >
-                <div :class="['i-solar:check-circle-bold w-3 h-3']" />
-                <span>{{ t('onboarding.ui.zero-latency') }}</span>
-              </span>
-
-              <button
-                type="button"
-                :disabled="isPrewarming"
-                :class="[
-                  'px-2.5 py-1 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-xs',
-                  isPrewarming
-                    ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed'
-                    : prewarmSuccessCount
-                      ? 'bg-neutral-200/80 hover:bg-neutral-300 dark:bg-neutral-700/80 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200'
-                      : 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/25',
-                ]"
-                @click.stop.prevent="handlePrewarmAudioCache"
-              >
-                <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin w-3 h-3' : 'i-solar:bolt-bold w-3 h-3']" />
-                <span>{{ displayText(isPrewarming ? 'Pre-warming...' : prewarmSuccessCount ? 'Re-warm' : 'Pre-warm Audio Cache') }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </label>
-    </div>
-
-    <!-- Section 4: Max Response Length & Cadence -->
-    <div :class="['p-4 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] flex flex-col gap-3.5']">
-      <!-- Section Header -->
-      <div :class="['flex items-center justify-between border-b border-neutral-200/40 dark:border-white/5 pb-2']">
-        <div :class="['flex items-center gap-2']">
-          <div :class="['i-solar:chat-square-arrow-bold-duotone text-primary-500 w-4 h-4']" />
-          <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
-            {{ t('onboarding.ui.max-response-length') }}
+            {{ currentProviderId }}
           </span>
         </div>
+
+        <span :class="['hidden sm:inline w-px h-5 bg-neutral-200 dark:bg-white/10']" />
+
+        <span :class="['flex items-center gap-1.5 text-[11px] font-medium text-neutral-500 dark:text-neutral-400']">
+          <div :class="['i-solar:document-text-bold-duotone h-4 w-4 shrink-0 text-neutral-400']" />
+          <span>{{ isReasoningModel ? t('onboarding.steps.thinking.reasoningDetected') : t('onboarding.steps.thinking.standardOutput') }}</span>
+        </span>
+
+        <span :class="['hidden sm:inline w-px h-5 bg-neutral-200 dark:bg-white/10']" />
+
+        <span :class="['flex items-center gap-1.5 text-[11px] font-medium text-neutral-500 dark:text-neutral-400']">
+          <div :class="['i-solar:clock-circle-bold-duotone h-4 w-4 shrink-0 text-neutral-400']" />
+          <i18n-t scope="global" keypath="onboarding.steps.thinking.benchmark.lastTest" tag="span"><template #latency><span :class="['font-mono font-semibold text-neutral-700 dark:text-neutral-300']">{{ benchmarkLatencyLabel }}</span></template></i18n-t>
+        </span>
+
+        <span :class="['flex-1']" />
+
         <button
-          v-if="overrideLimits"
           type="button"
-          :class="['text-[10px] text-red-500 font-bold hover:underline cursor-pointer']"
-          @click="handleResetToDefaults"
+          :disabled="isProbingBenchmark || !currentModelId"
+          :class="['shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-primary-500/40 text-primary-600 dark:text-primary-400 text-xs font-semibold hover:bg-primary-500/10 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed']"
+          @click="runBenchmarkProbe"
         >
-          {{ t('onboarding.ui.shared-pages-chat-reset-defaults') }}
+          <div :class="[isProbingBenchmark ? 'i-solar:refresh-circle-bold animate-spin h-3.5 w-3.5' : 'i-solar:play-bold h-3.5 w-3.5']" />
+          <span>{{ isProbingBenchmark ? t('onboarding.steps.thinking.testingBenchmark') : t('onboarding.steps.thinking.testAgain') }}</span>
         </button>
       </div>
 
-      <!-- Warning for Deep CoT / Reasoning Models -->
-      <div
-        v-if="isReasoningModel || selectedProfile === 'deep'"
-        :class="['p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs flex items-start gap-2.5 animate-fadeIn']"
-      >
-        <div :class="['i-solar:lock-bold w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500']" />
-        <div :class="['leading-relaxed text-[11px]']">
-          <span :class="['font-bold block text-amber-900 dark:text-amber-100 text-xs mb-0.5']">
-            {{ t('onboarding.ui.reasoning-architecture-incompatibility-keep-limits-disabled') }}
-          </span>
-          {{ t('onboarding.ui.thinking-and-reasoning-models') }}{{ displayText(currentModelId || 'Deep CoT') }}{{ t('onboarding.ui.consume-tokens-dynamically-during-internal-chain-of-thought-deliberation-befor') }}
-        </div>
-      </div>
-
-      <!-- Override Limits Switch -->
-      <div
-        :class="[
-          'flex items-center justify-between rounded-xl p-2.5 bg-white dark:bg-neutral-900/50 border border-neutral-200/60 dark:border-white/5 transition-colors',
-          isReasoningModel ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:border-neutral-300 dark:hover:border-white/10',
-        ]"
-        @click="toggleOverrideLimits"
-      >
-        <div :class="['flex flex-col']">
-          <div :class="['flex items-center gap-2']">
-            <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.enforce-response-length') }}</span>
-            <span
-              v-if="isReasoningModel"
-              :class="['text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1']"
-            >
-              <div :class="['i-solar:lock-bold w-2.5 h-2.5']" />
-              <span>{{ t('onboarding.ui.locked-off-reasoning-model') }}</span>
-            </span>
-          </div>
-          <span :class="['text-[10px] text-neutral-400']">{{ t('onboarding.ui.guide-companion-response-brevity-and-maximum-token-budget') }}</span>
-        </div>
+      <!-- Two-panel workspace -->
+      <div :class="['w-full max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] gap-5 lg:gap-6 items-start']">
+        <!-- Left panel: conversation settings -->
         <div
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :delay="100"
           :class="[
-            'relative h-5 w-9 inline-flex shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out',
-            isReasoningModel ? 'cursor-not-allowed bg-neutral-200 dark:bg-neutral-800' : 'cursor-pointer',
-            overrideLimits ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-700',
+            'rounded-[20px] border p-5 sm:p-6 min-w-0 min-h-0 flex flex-col gap-4',
+            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
           ]"
         >
-          <span
-            :class="[
-              'inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-              overrideLimits ? 'translate-x-4.5' : 'translate-x-0.5',
-            ]"
-          />
-        </div>
-      </div>
+          <h2 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+            {{ t('onboarding.steps.thinking.conversationSettings') }}
+          </h2>
 
-      <!-- Interactive Settings (Active when Override Limits is enabled) -->
-      <div
-        :class="[
-          'flex flex-col gap-3.5 transition-opacity duration-200',
-          !overrideLimits ? 'opacity-40 pointer-events-none' : '',
-        ]"
-      >
-        <!-- 4 Length Tiers Side-by-Side Cards -->
-        <div :class="['flex flex-col gap-1.5']">
-          <label :class="['text-[10px] text-neutral-400 font-bold uppercase tracking-tight']">
-            {{ t('onboarding.ui.spoken-cadence-depth') }}
-          </label>
-          <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3']">
-            <div
-              v-for="tier in RESPONSE_LENGTH_TIERS"
-              :key="tier.id"
-              :class="[
-                'p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between text-left group relative',
-                selectedLengthTier === tier.id
-                  ? 'border-primary-500/80 bg-primary-500/5 dark:bg-primary-500/10 ring-1 ring-primary-500/40'
-                  : 'border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/40 hover:border-neutral-300 dark:hover:border-white/10',
-              ]"
-              @click="selectLengthTier(tier)"
-            >
-              <div>
-                <div :class="['flex items-center justify-between mb-2']">
-                  <div :class="['w-7 h-7 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center text-sm']">
-                    <div :class="[tier.icon, 'w-4 h-4']" />
-                  </div>
-                  <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-600 dark:text-primary-400 uppercase font-mono']">
-                    {{ displayText(tier.tag) }}
-                  </span>
-                </div>
-                <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
-                  {{ displayText(tier.title) }}
-                </h4>
-                <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
-                  {{ displayText(tier.desc) }}
-                </p>
-              </div>
-
-              <div :class="['mt-3 pt-2.5 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[10px] font-mono']">
-                <span :class="['text-neutral-400']">{{ t('onboarding.ui.token-ceiling') }}</span>
-                <span :class="['text-primary-500 font-bold']">
-                  {{ displayText(tier.id === 'custom' ? `~${maxTokens} tokens` : `~${tier.tokens} tokens`) }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Custom Token Budget Slider (When Custom tier is selected) -->
-        <div
-          v-if="selectedLengthTier === 'custom'"
-          :class="['p-3 rounded-xl border border-primary-500/30 bg-primary-500/5 flex flex-col gap-2 animate-fadeIn']"
-        >
-          <div :class="['flex items-center justify-between']">
-            <div :class="['flex items-center gap-1.5']">
-              <div :class="['i-solar:tuning-square-2-bold-duotone text-primary-500 w-4 h-4']" />
-              <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.ui.custom-token-ceiling') }}</span>
-            </div>
-            <div :class="['flex items-center gap-1.5']">
-              <input
-                v-model.number="maxTokens"
-                type="number"
-                min="50"
-                max="2000"
-                step="10"
-                :class="['w-20 px-2 py-0.5 text-xs font-mono font-bold text-right border border-neutral-200 dark:border-white/10 rounded-lg bg-white dark:bg-neutral-900 text-primary-600 dark:text-primary-400 focus:outline-none focus:border-primary-500']"
-              >
-              <span :class="['text-[11px] font-mono text-neutral-400 font-medium']">{{ t('onboarding.ui.tokens') }}</span>
-            </div>
-          </div>
-          <input
-            v-model.number="maxTokens"
-            type="range"
-            min="50"
-            max="2000"
-            step="10"
-            :class="['w-full accent-primary-500 cursor-pointer']"
-          >
-          <div :class="['flex justify-between text-[9px] font-mono text-neutral-400']">
-            <span>{{ t('onboarding.ui.50-micro') }}</span>
-            <span>{{ t('onboarding.ui.200-standard') }}</span>
-            <span>{{ t('onboarding.ui.500-rich') }}</span>
-            <span>{{ t('onboarding.ui.1000-detailed') }}</span>
-            <span>{{ t('onboarding.ui.2000-max') }}</span>
-          </div>
-        </div>
-
-        <!-- Context Width Limits (Optional) -->
-        <div :class="['flex flex-col gap-1.5 p-3 rounded-xl border border-neutral-200/40 dark:border-white/5 bg-white/60 dark:bg-neutral-900/30']">
-          <div :class="['flex items-center justify-between']">
-            <label :class="['text-[10px] text-neutral-400 font-bold uppercase tracking-tight']">
-              {{ t('onboarding.ui.context-width-threshold-optional') }}
-            </label>
-            <span :class="['text-[9px] text-neutral-400 font-medium italic']">
-              {{ t('onboarding.ui.only-set-if-known') }}
-            </span>
-          </div>
-          <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-            {{ t('onboarding.ui.optional-only-enter-if-you-know-your-model-s-context-window-providing-this-all') }}
-          </p>
-          <div :class="['flex items-center gap-2 mt-1']">
-            <input
-              v-model.number="contextWidth"
-              type="number"
-              :placeholder="t('onboarding.ui.e-g-128000-optional')"
-              :class="['w-44 border border-neutral-200 dark:border-white/10 rounded-lg bg-white dark:bg-neutral-900 px-2.5 py-1 text-xs text-neutral-800 dark:text-neutral-200 outline-none focus:border-primary-400']"
-            >
-            <div :class="['flex gap-1.5']">
-              <button
-                v-for="widthPreset in [65536, 204800, 1048576]"
-                :key="widthPreset"
-                type="button"
-                :class="[
-                  'border border-neutral-200 dark:border-white/10 rounded-md px-2 py-0.5 text-[9px] font-mono font-bold cursor-pointer transition-colors',
-                  contextWidth === widthPreset
-                    ? 'bg-primary-500 text-white border-primary-500'
-                    : 'bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-white/10',
-                ]"
-                @click="handleContextPresetClick(widthPreset)"
-              >
-                {{ displayText(widthPreset >= 1048576 ? '1M' : widthPreset >= 204800 ? '200K' : '64K') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Dynamic Prose Indicator & Inline Editor -->
-        <div :class="['flex flex-col gap-1.5 border-t border-neutral-200/40 dark:border-white/5 pt-2.5']">
-          <div :class="['flex items-center justify-between']">
-            <span :class="['text-[10px] text-neutral-400 font-bold uppercase tracking-tight']">
-              {{ t('onboarding.ui.shared-pages-chat-compliance-instruction') }}
-            </span>
+          <!-- Settings tabs -->
+          <div :class="['flex items-center gap-1 rounded-xl bg-neutral-200/50 p-1 dark:bg-neutral-800/50']">
             <button
               type="button"
-              :class="['flex items-center justify-center rounded p-1 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer']"
-              :title="t('onboarding.ui.shared-pages-chat-edit-instruction')"
-              @click="isProseEditing = !isProseEditing"
+              :class="[
+                'flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer min-h-[44px]',
+                activeSettingsTab === 'thinking'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+              ]"
+              @click="activeSettingsTab = 'thinking'"
             >
-              <div :class="[isProseEditing ? 'i-solar:check-read-linear text-xs text-green-500' : 'i-solar:pen-linear text-xs']" />
+              {{ t('onboarding.steps.thinking.whileThinking') }}
+            </button>
+            <button
+              type="button"
+              :class="[
+                'flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer min-h-[44px]',
+                activeSettingsTab === 'length'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+              ]"
+              @click="activeSettingsTab = 'length'"
+            >
+              {{ t('onboarding.steps.thinking.replyLength') }}
             </button>
           </div>
 
-          <!-- Read-Only Prose Preview / Text Area Editor -->
-          <div
-            v-if="!isProseEditing"
-            :class="['select-text border border-neutral-200/50 dark:border-white/5 rounded-xl bg-white/80 dark:bg-neutral-900/60 p-2.5 text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed italic']"
-          >
-            "{{ displayText(customProse) }}"
+          <!-- While thinking -->
+          <div v-if="activeSettingsTab === 'thinking'" :class="['flex flex-col gap-4 min-w-0']">
+            <div :class="['flex flex-col gap-1']">
+              <span :class="['text-sm font-bold text-neutral-900 dark:text-white']">{{ t('onboarding.steps.thinking.pacing') }}</span>
+              <p :class="['text-xs text-neutral-500 dark:text-neutral-400']">
+                {{ t('onboarding.steps.thinking.pacingDescription') }}
+              </p>
+            </div>
+
+            <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2.5']">
+              <div
+                v-for="card in pacingCardOptions"
+                :key="card.id"
+                :class="[
+                  'p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 text-left min-w-0',
+                  selectedProfile === card.id
+                    ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10 ring-1 ring-primary-500/40'
+                    : 'border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02] hover:border-neutral-300 dark:hover:border-white/20',
+                ]"
+                @click="selectedProfile = card.id"
+              >
+                <div :class="['w-9 h-9 rounded-xl bg-neutral-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-neutral-500 dark:text-neutral-400']">
+                  <div :class="[card.icon, 'w-4.5 h-4.5']" />
+                </div>
+                <div :class="['flex-1 min-w-0']">
+                  <div :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                    {{ card.name }}
+                  </div>
+                  <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-snug']">
+                    {{ card.desc }}
+                  </p>
+                </div>
+                <div :class="['w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5', selectedProfile === card.id ? 'border-primary-500 bg-primary-500' : 'border-neutral-300 dark:border-neutral-600']">
+                  <div v-if="selectedProfile === card.id" :class="['w-1.5 h-1.5 rounded-full bg-white']" />
+                </div>
+              </div>
+            </div>
+
+            <div :class="['flex flex-col gap-2']">
+              <span :class="['text-sm font-bold text-neutral-900 dark:text-white']">{{ t('onboarding.steps.thinking.pauseSources') }}</span>
+
+              <div
+                v-if="selectedProfile === 'disabled'"
+                :class="['p-3.5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] flex items-start gap-3']"
+              >
+                <div :class="['w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0']">
+                  <div :class="['i-solar:shield-check-bold w-4 h-4']" />
+                </div>
+                <p :class="['text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed']">
+                  {{ t('onboarding.steps.thinking.quietModeDescription') }}
+                </p>
+              </div>
+
+              <template v-else>
+                <label :class="['flex items-start gap-3 p-3 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/40 cursor-pointer hover:border-neutral-300 dark:hover:border-white/10 transition-colors']">
+                  <input
+                    v-model="tier1Enabled"
+                    type="checkbox"
+                    :class="['mt-1 w-4 h-4 rounded text-primary-600 accent-primary-500 cursor-pointer shrink-0']"
+                  >
+                  <div :class="['w-8 h-8 rounded-xl bg-neutral-100 dark:bg-white/10 text-neutral-500 dark:text-neutral-400 flex items-center justify-center shrink-0']">
+                    <div :class="['i-solar:chat-round-dots-bold-duotone w-4 h-4']" />
+                  </div>
+                  <div :class="['flex-1 min-w-0']">
+                    <div :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                      {{ t('onboarding.steps.thinking.spokenAsides') }}
+                    </div>
+                    <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-snug']">
+                      {{ t('onboarding.steps.thinking.spokenAsidesDescription') }}
+                    </p>
+                  </div>
+                </label>
+
+                <label :class="['flex items-start gap-3 p-3 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/40 cursor-pointer hover:border-neutral-300 dark:hover:border-white/10 transition-colors']">
+                  <input
+                    v-model="tier2Enabled"
+                    type="checkbox"
+                    :class="['mt-1 w-4 h-4 rounded text-primary-600 accent-primary-500 cursor-pointer shrink-0']"
+                  >
+                  <div :class="['w-8 h-8 rounded-xl bg-neutral-100 dark:bg-white/10 text-neutral-500 dark:text-neutral-400 flex items-center justify-center shrink-0']">
+                    <div :class="['i-solar:document-text-bold-duotone w-4 h-4']" />
+                  </div>
+                  <div :class="['flex-1 min-w-0']">
+                    <div :class="['flex items-center justify-between gap-2']">
+                      <div :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                        {{ t('onboarding.steps.thinking.reasoningCues') }}
+                      </div>
+                      <span :class="['shrink-0 flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-white/5 border border-neutral-200/60 dark:border-white/10 px-2 py-0.5 text-[10px] font-medium text-neutral-500 dark:text-neutral-400']">
+                        <span :class="['w-1.5 h-1.5 rounded-full bg-emerald-500']" />
+                        <span>{{ t('onboarding.steps.thinking.localModelReady') }}</span>
+                      </span>
+                    </div>
+                    <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-snug']">
+                      {{ t('onboarding.steps.thinking.reasoningCuesDescription') }}
+                    </p>
+                  </div>
+                </label>
+
+                <label :class="['flex items-start gap-3 p-3 rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/40 cursor-pointer hover:border-neutral-300 dark:hover:border-white/10 transition-colors']">
+                  <input
+                    v-model="tier3Enabled"
+                    type="checkbox"
+                    :class="['mt-1 w-4 h-4 rounded text-primary-600 accent-primary-500 cursor-pointer shrink-0']"
+                  >
+                  <div :class="['w-8 h-8 rounded-xl bg-neutral-100 dark:bg-white/10 text-neutral-500 dark:text-neutral-400 flex items-center justify-center shrink-0']">
+                    <div :class="['i-solar:soundwave-bold-duotone w-4 h-4']" />
+                  </div>
+                  <div :class="['flex-1 min-w-0 flex flex-col gap-2']">
+                    <div>
+                      <div :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                        {{ t('onboarding.steps.thinking.casualFillers') }}
+                      </div>
+                      <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-snug']">
+                        {{ t('onboarding.steps.thinking.casualFillersDescription') }}
+                      </p>
+                    </div>
+                    <div
+                      :class="['flex items-center justify-between gap-2 text-[11px] rounded-lg border border-neutral-200/60 dark:border-white/5 bg-neutral-50 dark:bg-neutral-800/40 px-2.5 py-1.5']"
+                      @click.stop.prevent
+                    >
+                      <span :class="['flex items-center gap-1.5 font-medium min-w-0 truncate text-neutral-600 dark:text-neutral-300']">
+                        <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', prewarmSuccessCount ? 'bg-emerald-500' : isPrewarming ? 'bg-amber-500 animate-pulse' : 'bg-neutral-400 dark:bg-neutral-500']" />
+                        <span class="truncate">
+                          <template v-if="isPrewarming">
+                            {{ t('onboarding.steps.thinking.prewarm.synthesisProgress', { completed: prewarmProgress?.completed || 0, total: prewarmProgress?.total || 9 }) }}
+                          </template>
+                          <template v-else-if="prewarmSuccessCount">
+                            {{ t('onboarding.steps.thinking.prewarm.cacheReady', { count: prewarmSuccessCount }) }}
+                          </template>
+                          <template v-else>
+                            {{ t('onboarding.steps.thinking.audioNotPrepared') }}
+                          </template>
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        :disabled="isPrewarming"
+                        :class="['shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-[11px] font-semibold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed']"
+                        @click.stop.prevent="handlePrewarmAudioCache"
+                      >
+                        <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin w-3 h-3' : 'i-solar:bolt-bold w-3 h-3']" />
+                        <span>{{ isPrewarming ? t('onboarding.steps.thinking.preparingAudio') : prewarmSuccessCount ? t('onboarding.steps.thinking.reWarm') : t('onboarding.steps.thinking.prepareAudio') }}</span>
+                      </button>
+                    </div>
+                  </div>
+                </label>
+              </template>
+            </div>
+
+            <!-- Timing details -->
+            <div :class="['rounded-2xl border border-neutral-200/60 dark:border-white/5 bg-neutral-50/50 dark:bg-white/[0.02]']">
+              <button
+                type="button"
+                :class="['w-full flex items-center justify-between p-3 cursor-pointer']"
+                @click="showTimingDetails = !showTimingDetails"
+              >
+                <span :class="['flex items-center gap-2 text-xs font-bold text-neutral-800 dark:text-neutral-200']">
+                  <div :class="['i-solar:settings-bold-duotone w-4 h-4 text-neutral-400']" />
+                  <span>{{ t('onboarding.steps.thinking.timingDetails') }}</span>
+                </span>
+                <div :class="['i-solar:alt-arrow-down-line-duotone w-4 h-4 text-neutral-400 transition-transform', showTimingDetails && 'rotate-180']" />
+              </button>
+              <div v-if="showTimingDetails" :class="['px-3 pb-3 flex flex-col gap-1.5']">
+                <div :class="['flex items-center justify-between']">
+                  <label :class="['text-[11px] text-neutral-500 font-bold uppercase tracking-wide dark:text-neutral-400']">
+                    {{ t('onboarding.steps.thinking.contextWidthThreshold') }}
+                  </label>
+                  <span :class="['text-[10px] text-neutral-400 italic']">
+                    {{ t('onboarding.steps.thinking.onlySetIfKnown') }}
+                  </span>
+                </div>
+                <div :class="['flex items-center gap-2']">
+                  <input
+                    v-model.number="contextWidth"
+                    type="number"
+                    :placeholder="t('onboarding.steps.thinking.eG128000Optional')"
+                    :class="['w-44 border border-neutral-200 dark:border-white/10 rounded-lg bg-white dark:bg-neutral-900 px-2.5 py-1.5 text-xs text-neutral-800 dark:text-neutral-200 outline-none focus:border-primary-400']"
+                  >
+                  <div :class="['flex gap-1.5']">
+                    <button
+                      v-for="widthPreset in [65536, 204800, 1048576]"
+                      :key="widthPreset"
+                      type="button"
+                      :class="[
+                        'border border-neutral-200 dark:border-white/10 rounded-md px-2 py-0.5 text-[9px] font-mono font-bold cursor-pointer transition-colors',
+                        contextWidth === widthPreset
+                          ? 'bg-primary-500 text-white border-primary-500'
+                          : 'bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-white/10',
+                      ]"
+                      @click="handleContextPresetClick(widthPreset)"
+                    >
+                      {{ widthPreset >= 1048576 ? '1M' : widthPreset >= 204800 ? '200K' : '64K' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <textarea
-            v-else
-            v-model="customProse"
-            rows="3"
-            :class="['w-full border border-neutral-200 dark:border-white/10 rounded-xl bg-white dark:bg-neutral-900 p-2.5 text-[11px] text-neutral-800 dark:text-neutral-200 outline-none focus:border-primary-400']"
-          />
-        </div>
-      </div>
 
-      <!-- Interactive Cadence Simulator / Response Preview (Always Interactive) -->
-      <div :class="['flex flex-col gap-2.5 border-t border-neutral-200/40 dark:border-white/5 pt-3']">
-        <div :class="['flex items-center justify-between']">
-          <div :class="['flex items-center gap-2']">
-            <div :class="['i-solar:play-circle-bold-duotone text-primary-500 w-4 h-4']" />
-            <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider']">
-              {{ t('onboarding.ui.response-cadence-simulator') }}
-            </span>
-          </div>
-          <span :class="['text-[9px] font-mono text-neutral-400']">
-            {{ t('onboarding.ui.live-test-with') }} {{ displayText(currentModelId || 'Configured Model') }}
-          </span>
-        </div>
-        <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-          {{ t('onboarding.ui.simulate-a-turn-to-verify-how-your-companion-speaks-under-current-settings') }}{{ displayText(overrideLimits ? ' (with token budget and compliance instruction enforced)' : ' (unconstrained output)') }}.
-        </p>
-
-        <div :class="['flex gap-2']">
-          <input
-            v-model="testSimulationPrompt"
-            type="text"
-            :placeholder="t('onboarding.ui.enter-a-test-prompt-for-your-companion')"
-            :disabled="isSimulating"
-            :class="['flex-1 text-xs border border-neutral-200 dark:border-white/10 rounded-xl px-3 py-2 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 focus:outline-none focus:border-primary-500 disabled:opacity-50']"
-            @keydown.enter="runCadenceSimulation"
-          >
-          <button
-            type="button"
-            :disabled="isSimulating || !currentModelId"
-            :class="[
-              'px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer',
-              isSimulating
-                ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed'
-                : !currentModelId
-                  ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed'
-                  : 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/20',
-            ]"
-            @click="runCadenceSimulation"
-          >
-            <div :class="[isSimulating ? 'i-solar:refresh-circle-bold animate-spin w-3.5 h-3.5' : 'i-solar:play-bold w-3.5 h-3.5']" />
-            <span>{{ displayText(isSimulating ? 'Simulating...' : 'Simulate Turn') }}</span>
-          </button>
-        </div>
-
-        <!-- Simulation Error Banner -->
-        <div
-          v-if="simulationError"
-          :class="['p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2']"
-        >
-          <div :class="['i-solar:danger-triangle-bold w-4 h-4 flex-shrink-0']" />
-          <span :class="['text-[11px] leading-relaxed']">{{ displayText(simulationError) }}</span>
-        </div>
-
-        <!-- Simulation Output Box -->
-        <div
-          v-if="simulationResult || isSimulating"
-          :class="['p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/60 flex flex-col gap-2 animate-fadeIn']"
-        >
-          <div :class="['flex items-center justify-between border-b border-neutral-200/40 dark:border-white/5 pb-1.5']">
-            <span :class="['text-[10px] font-bold text-neutral-500 uppercase tracking-wider font-mono']">
-              {{ t('onboarding.ui.simulated-companion-output') }}
-            </span>
+          <!-- Reply length -->
+          <div v-else :class="['flex flex-col gap-4 min-w-0']">
             <div
-              v-if="simulationLatencyMs"
-              :class="['flex items-center gap-2 text-[10px] font-mono']"
+              v-if="isReasoningModel"
+              :class="['p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs flex items-start gap-2.5']"
             >
-              <span :class="['px-1.5 py-0.2 rounded bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300']">
-                ⏱️ {{ displayText(simulationLatencyMs) }}{{ t('onboarding.ui.ms-ttft') }}
-              </span>
-              <span :class="['px-1.5 py-0.2 rounded bg-primary-500/10 text-primary-600 dark:text-primary-400 font-bold']">
-                📝 ~{{ displayText(simulationTokens) }} {{ t('onboarding.ui.tokens') }}
-              </span>
-              <span :class="['px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400']">
-                💬 {{ displayText(simulationSentences) }} {{ t('onboarding.ui.sentences') }}
+              <div :class="['i-solar:lock-bold w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500']" />
+              <p :class="['leading-relaxed text-[11px]']">
+                <span :class="['font-bold block text-xs mb-0.5']">
+                  {{ t('onboarding.steps.thinking.reasoningLengthTitle') }}
+                </span>
+                {{ t('onboarding.steps.thinking.reasoningLengthDescription') }}
+              </p>
+            </div>
+
+            <div
+              :class="[
+                'flex items-center justify-between rounded-xl p-2.5 bg-white dark:bg-neutral-900/50 border border-neutral-200/60 dark:border-white/5 transition-colors',
+                isReasoningModel ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:border-neutral-300 dark:hover:border-white/10',
+              ]"
+              @click="toggleOverrideLimits"
+            >
+              <div :class="['flex flex-col']">
+                <span :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.steps.thinking.enforceReplyLength') }}</span>
+                <span :class="['text-[10px] text-neutral-400']">{{ t('onboarding.steps.thinking.replyBudgetDescription') }}</span>
+              </div>
+              <div
+                :class="[
+                  'relative h-5 w-9 inline-flex shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out',
+                  isReasoningModel ? 'cursor-not-allowed bg-neutral-200 dark:bg-neutral-800' : 'cursor-pointer',
+                  overrideLimits ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-700',
+                ]"
+              >
+                <span
+                  :class="[
+                    'inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                    overrideLimits ? 'translate-x-4.5' : 'translate-x-0.5',
+                  ]"
+                />
+              </div>
+            </div>
+
+            <div
+              :class="[
+                'flex flex-col gap-3 transition-opacity duration-200',
+                !overrideLimits ? 'opacity-40 pointer-events-none' : '',
+              ]"
+            >
+              <div :class="['flex items-center justify-between']">
+                <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">
+                  {{ t('onboarding.steps.thinking.replyLength') }}
+                </span>
+                <button
+                  v-if="overrideLimits"
+                  type="button"
+                  :class="['text-[10px] text-red-500 font-bold hover:underline cursor-pointer']"
+                  @click="handleResetToDefaults"
+                >
+                  {{ t('onboarding.steps.thinking.responseLength.reset') }}
+                </button>
+              </div>
+
+              <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2.5']">
+                <div
+                  v-for="tier in responseLengthOptions"
+                  :key="tier.id"
+                  :class="[
+                    'p-3 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between text-left min-w-0',
+                    selectedLengthTier === tier.id
+                      ? 'border-primary-500/80 bg-primary-500/5 dark:bg-primary-500/10 ring-1 ring-primary-500/40'
+                      : 'border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/40 hover:border-neutral-300 dark:hover:border-white/10',
+                  ]"
+                  @click="selectLengthTier(tier)"
+                >
+                  <div>
+                    <div :class="['flex items-center justify-between mb-1.5']">
+                      <div :class="['w-7 h-7 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center']">
+                        <div :class="[tier.icon, 'w-4 h-4']" />
+                      </div>
+                      <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-600 dark:text-primary-400 uppercase font-mono']">
+                        {{ tier.tag }}
+                      </span>
+                    </div>
+                    <h4 :class="['text-xs font-bold text-neutral-900 dark:text-white']">
+                      {{ tier.title }}
+                    </h4>
+                    <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-snug']">
+                      {{ tier.desc }}
+                    </p>
+                  </div>
+                  <div :class="['mt-2.5 pt-2 border-t border-neutral-200/40 dark:border-white/5 flex items-center justify-between text-[10px] font-mono']">
+                    <span :class="['text-neutral-400']">{{ t('onboarding.steps.thinking.tokenCeilingLabel') }}</span>
+                    <span :class="['text-primary-500 font-bold']">
+                      {{ t('onboarding.steps.thinking.responseLength.tokenEstimate', { tokens: tier.id === 'custom' ? maxTokens : tier.tokens }) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-if="selectedLengthTier === 'custom'"
+                :class="['p-3 rounded-xl border border-primary-500/30 bg-primary-500/5 flex flex-col gap-2']"
+              >
+                <div :class="['flex items-center justify-between']">
+                  <span :class="['text-xs font-bold text-neutral-800 dark:text-neutral-200']">{{ t('onboarding.steps.thinking.customTokenCeilingLabel') }}</span>
+                  <div :class="['flex items-center gap-1.5']">
+                    <input
+                      v-model.number="maxTokens"
+                      type="number"
+                      min="50"
+                      max="2000"
+                      step="10"
+                      :class="['w-20 px-2 py-0.5 text-xs font-mono font-bold text-right border border-neutral-200 dark:border-white/10 rounded-lg bg-white dark:bg-neutral-900 text-primary-600 dark:text-primary-400 focus:outline-none focus:border-primary-500']"
+                    >
+                    <span :class="['text-[11px] font-mono text-neutral-400 font-medium']">{{ t('onboarding.steps.thinking.tokens') }}</span>
+                  </div>
+                </div>
+                <input
+                  v-model.number="maxTokens"
+                  type="range"
+                  min="50"
+                  max="2000"
+                  step="10"
+                  :class="['w-full accent-primary-500 cursor-pointer']"
+                >
+              </div>
+
+              <div :class="['flex flex-col gap-1.5 border-t border-neutral-200/40 dark:border-white/5 pt-2.5']">
+                <div :class="['flex items-center justify-between']">
+                  <span :class="['text-[11px] text-neutral-500 font-bold uppercase tracking-wide dark:text-neutral-400']">
+                    {{ t('onboarding.steps.thinking.replyGuidance') }}
+                  </span>
+                  <button
+                    type="button"
+                    :class="['flex items-center justify-center rounded p-1 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer']"
+                    :title="t('onboarding.steps.thinking.editGuidance')"
+                    @click="isProseEditing = !isProseEditing"
+                  >
+                    <div :class="[isProseEditing ? 'i-solar:check-read-linear text-xs text-green-500' : 'i-solar:pen-linear text-xs']" />
+                  </button>
+                </div>
+                <div
+                  v-if="!isProseEditing"
+                  :class="['select-text border border-neutral-200/50 dark:border-white/5 rounded-xl bg-white/80 dark:bg-neutral-900/60 p-2.5 text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed italic']"
+                >
+                  "{{ customProse }}"
+                </div>
+                <textarea
+                  v-else
+                  v-model="customProse"
+                  rows="3"
+                  :class="['w-full border border-neutral-200 dark:border-white/10 rounded-xl bg-white dark:bg-neutral-900 p-2.5 text-[11px] text-neutral-800 dark:text-neutral-200 outline-none focus:border-primary-400']"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right panel: try a conversation -->
+        <aside
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0 }"
+          :duration="350"
+          :delay="150"
+          :class="[
+            'rounded-[20px] border p-5 sm:p-6 min-w-0 min-h-0 flex flex-col gap-3.5 lg:sticky lg:top-0 self-start w-full',
+            'border-neutral-200/80 bg-white/70 shadow-sm dark:border-neutral-800/80 dark:bg-neutral-900/60 backdrop-blur-md',
+          ]"
+        >
+          <div :class="['min-w-0']">
+            <h2 :class="['text-base font-bold text-neutral-900 dark:text-white leading-tight']">
+              {{ t('onboarding.steps.thinking.tryConversation') }}
+            </h2>
+            <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
+              {{ t('onboarding.steps.thinking.testSettingsDescription') }}
+            </p>
+          </div>
+
+          <div :class="['flex flex-col gap-1.5']">
+            <span :class="['text-xs font-semibold text-neutral-700 dark:text-neutral-300']">{{ t('onboarding.steps.thinking.yourMessage') }}</span>
+            <textarea
+              v-model="testSimulationPrompt"
+              rows="3"
+              :placeholder="t('onboarding.steps.vision.whatDoYouThinkOfThisPicture')"
+              :disabled="isSimulating"
+              :class="['w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 text-xs text-neutral-800 dark:text-neutral-100 outline-none transition focus:border-primary-500 disabled:opacity-50 leading-relaxed resize-y']"
+            />
+          </div>
+
+          <div :class="['flex flex-col gap-1.5']">
+            <Button
+              variant="primary"
+              :disabled="isSimulating || !currentModelId"
+              :class="['w-full flex items-center justify-center gap-2 rounded-xl px-4 min-h-[44px] text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed']"
+              @click="runCadenceSimulation"
+            >
+              <div :class="[isSimulating ? 'i-solar:refresh-circle-bold animate-spin h-4 w-4' : 'i-solar:play-bold h-4 w-4']" />
+              <span>{{ isSimulating ? t('onboarding.steps.thinking.simulating') : t('onboarding.steps.thinking.runConversationTest') }}</span>
+            </Button>
+            <p :class="['text-[11px] text-neutral-400 dark:text-neutral-500 text-center']">
+              {{ t('onboarding.steps.thinking.testRequestNotice') }}
+            </p>
+          </div>
+
+          <div :class="['border-t border-neutral-200/70 dark:border-white/10']" />
+
+          <div :class="['flex flex-col gap-2 min-w-0']">
+            <span :class="['text-xs font-semibold text-neutral-700 dark:text-neutral-300']">
+              {{ t('onboarding.steps.thinking.conversationPreview') }}
+            </span>
+
+            <div
+              v-if="simulationError"
+              :class="['p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2']"
+            >
+              <div :class="['i-solar:danger-triangle-bold w-4 h-4 flex-shrink-0']" />
+              <span :class="['text-[11px] leading-relaxed']">{{ simulationError }}</span>
+            </div>
+
+            <div
+              v-else-if="simulationResult || isSimulating"
+              :class="['p-3 rounded-xl border border-neutral-200/60 dark:border-white/5 bg-white dark:bg-neutral-900/60 flex flex-col gap-2']"
+            >
+              <div :class="['flex flex-wrap items-center gap-1.5 text-[10px] font-mono']">
+                <span v-if="simulationLatencyMs" :class="['rounded bg-neutral-100 dark:bg-white/5 px-1.5 py-0.5 text-neutral-600 dark:text-neutral-300']">
+                  {{ t('onboarding.steps.thinking.preview.latency', { latency: simulationLatencyMs }) }}
+                </span>
+                <span v-if="simulationTokens" :class="['rounded bg-primary-500/10 px-1.5 py-0.5 text-primary-600 dark:text-primary-400 font-bold']">
+                  {{ t('onboarding.steps.thinking.responseLength.tokenEstimate', { tokens: simulationTokens }) }}
+                </span>
+                <span v-if="simulationSentences" :class="['rounded bg-emerald-500/10 px-1.5 py-0.5 text-emerald-600 dark:text-emerald-400']">
+                  {{ t('onboarding.steps.thinking.preview.sentences', { count: simulationSentences }) }}
+                </span>
+              </div>
+              <div
+                v-if="isSimulating"
+                :class="['flex items-center gap-2 text-xs text-neutral-400 italic py-2']"
+              >
+                <div :class="['i-solar:refresh-circle-bold animate-spin w-4 h-4 text-primary-500']" />
+                <span>{{ t('onboarding.steps.thinking.generatingResponse') }}</span>
+              </div>
+              <p
+                v-else
+                :class="['text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap select-text']"
+              >
+                {{ simulationResult }}
+              </p>
+            </div>
+
+            <div
+              v-else
+              :class="['rounded-xl border border-dashed border-neutral-300/70 dark:border-neutral-700/70 bg-neutral-50/50 dark:bg-black/20 px-3 py-6 flex flex-col items-center justify-center gap-2 text-center']"
+            >
+              <div :class="['i-solar:chat-round-dots-linear h-7 w-7 text-neutral-300 dark:text-neutral-600']" />
+              <span :class="['text-xs text-neutral-400 dark:text-neutral-500']">
+                {{ t('onboarding.steps.thinking.testEmptyHint') }}
               </span>
             </div>
           </div>
-          <div
-            v-if="isSimulating"
-            :class="['flex items-center gap-2 text-xs text-neutral-400 italic py-2']"
-          >
-            <div :class="['i-solar:refresh-circle-bold animate-spin w-4 h-4 text-primary-500']" />
-            <span>{{ t('onboarding.ui.generating-response-with-cadence-enforcement') }}</span>
-          </div>
-          <p
-            v-else
-            :class="['text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap select-text']"
-          >
-            {{ displayText(simulationResult) }}
+
+          <p :class="['text-[11px] text-neutral-400 dark:text-neutral-500 text-center']">
+            {{ t('onboarding.steps.thinking.testSharedSettings') }}
           </p>
-        </div>
+        </aside>
       </div>
     </div>
 
-    <!-- Bottom Navigation Bar -->
-    <div :class="['flex items-center justify-between pt-4 border-t border-neutral-200/60 dark:border-white/5']">
+    <!-- Shared footer -->
+    <div
+      :class="[
+        'flex-shrink-0 pt-4 px-4 sm:px-6 flex items-center justify-between border-t border-neutral-200/80 dark:border-neutral-800/80 gap-2',
+      ]"
+    >
       <button
         type="button"
-        :class="['px-5 py-2 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer']"
+        :class="[
+          'flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium cursor-pointer flex-shrink-0',
+          'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white',
+          'hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors',
+        ]"
         @click="props.onPrevious"
       >
-        {{ t('onboarding.shell.previous') }}
+        <div :class="['i-solar:alt-arrow-left-line-duotone h-4 w-4']" />
+        <span>{{ t('onboarding.shell.previous') }}</span>
       </button>
 
-      <button
-        type="button"
-        :class="['px-6 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-md shadow-primary-600/30 transition-all cursor-pointer flex items-center gap-2']"
+      <div :class="['text-[11px] text-neutral-400 font-medium hidden sm:block text-center truncate max-w-sm min-w-0']">
+        {{ t('onboarding.steps.thinking.footerHint') }}
+      </div>
+
+      <Button
+        variant="primary"
+        size="md"
+        :class="[
+          'flex items-center gap-2 rounded-xl bg-primary-600 hover:bg-primary-500 px-5 py-2 flex-shrink-0',
+          'text-xs font-semibold text-white shadow-md shadow-primary-600/25 transition-all active:scale-95 cursor-pointer',
+        ]"
         @click="onContinueClick"
       >
         <span>{{ t('onboarding.shell.next') }}</span>
-        <div :class="['i-solar:arrow-right-linear w-4 h-4']" />
-      </button>
+        <div :class="['i-solar:alt-arrow-right-line-duotone h-4 w-4']" />
+      </Button>
     </div>
 
     <!-- Option A: Pre-warm Thinking Fillers Confirmation Modal -->
-    <div
-      v-if="showPrewarmPrompt"
-      :class="['fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn']"
-    >
-      <div :class="['relative max-w-md w-full rounded-2xl border border-neutral-200 dark:border-white/15 bg-white dark:bg-[#10101c] p-6 text-center shadow-2xl space-y-4']">
-        <div :class="['mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-primary-500/30 bg-primary-950/20 text-primary-400 shadow-inner']">
-          <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin h-8 w-8' : 'i-solar:bolt-circle-bold h-8 w-8']" />
-        </div>
+    <Teleport to="body">
+      <div
+        v-if="showPrewarmPrompt"
+        :class="['fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn']"
+      >
+        <div :class="['relative max-w-md w-full rounded-2xl border border-neutral-200 dark:border-white/15 bg-white dark:bg-[#10101c] p-6 text-center shadow-2xl space-y-4']">
+          <div :class="['mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-primary-500/30 bg-primary-950/20 text-primary-400 shadow-inner']">
+            <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin h-8 w-8' : 'i-solar:bolt-circle-bold h-8 w-8']" />
+          </div>
 
-        <div>
-          <h3 :class="['text-base font-bold text-neutral-900 dark:text-white']">
-            {{ t('onboarding.ui.pre-warm-thinking-fillers') }}
-          </h3>
-          <p :class="['mt-2 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed text-left']">
-            {{ t('onboarding.ui.you-ve-enabled') }} <strong>{{ t('onboarding.ui.casual-spoken-fillers') }}</strong>{{ t('onboarding.ui.but-the-audio-cache-is-currently-empty') }}
-          </p>
-          <p :class="['mt-2 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed text-left']">
-            {{ t('onboarding.ui.to-eliminate-voice-latency-during-reasoning-pauses-airi-needs-to-make') }} <strong>{{ t('onboarding.ui.9-quick-synthesis-requests') }}</strong> {{ t('onboarding.ui.to-your-configured-voice-provider') }}<span class="text-primary-600 font-semibold font-mono dark:text-primary-400">{{ displayText(ttsVoiceLabel) }}</span>).
-          </p>
-          <p :class="['mt-2 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed text-left']">
-            {{ t('onboarding.ui.would-you-like-to-pre-generate-these-clips-now-or-continue-and-generate-them-o') }}
-          </p>
+          <div>
+            <h3 :class="['text-base font-bold text-neutral-900 dark:text-white']">
+              {{ t('onboarding.steps.thinking.preWarmThinkingFillers') }}
+            </h3>
+            <p :class="['mt-2 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed text-left']">
+              <i18n-t scope="global" keypath="onboarding.steps.thinking.emptyCacheDescription" tag="span">
+                <template #emphasis>
+                  <strong>{{ t('onboarding.steps.thinking.casualSpokenFillers') }}</strong>
+                </template>
+              </i18n-t>
+            </p>
+            <p :class="['mt-2 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed text-left']">
+              <i18n-t scope="global" keypath="onboarding.steps.thinking.prewarmRequestsDescription" tag="span">
+                <template #emphasis>
+                  <strong>{{ t('onboarding.steps.thinking.9QuickSynthesisRequests') }}</strong>
+                </template><template #emphasis2>
+                  <span class="text-primary-600 font-semibold font-mono dark:text-primary-400">{{ ttsVoiceLabel }}</span>
+                </template>
+              </i18n-t>
+            </p>
+            <p :class="['mt-2 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed text-left']">
+              {{ t('onboarding.steps.thinking.wouldYouLikeToPreGenerateTheseClipsNowOrContinueAndGenerateThemO') }}
+            </p>
 
-          <!-- Prewarm progress indicator if running inside modal -->
-          <div
-            v-if="isPrewarming"
-            :class="['mt-3 p-2.5 rounded-xl bg-primary-500/10 border border-primary-500/20 text-xs font-semibold text-primary-600 dark:text-primary-300 flex items-center justify-center gap-2']"
-          >
-            <div :class="['i-solar:refresh-circle-bold animate-spin h-4 w-4']" />
-            <span>{{ t('onboarding.ui.pre-warming-fillers') }}{{ displayText(prewarmProgress?.completed || 0) }}/{{ displayText(prewarmProgress?.total || 9) }})...</span>
+            <!-- Prewarm progress indicator if running inside modal -->
+            <div
+              v-if="isPrewarming"
+              :class="['mt-3 p-2.5 rounded-xl bg-primary-500/10 border border-primary-500/20 text-xs font-semibold text-primary-600 dark:text-primary-300 flex items-center justify-center gap-2']"
+            >
+              <div :class="['i-solar:refresh-circle-bold animate-spin h-4 w-4']" />
+              <span>{{ t('onboarding.steps.thinking.prewarm.progress', { completed: prewarmProgress?.completed || 0, total: prewarmProgress?.total || 9 }) }}</span>
+            </div>
+          </div>
+
+          <div :class="['flex flex-col sm:flex-row items-center gap-2.5 pt-2']">
+            <button
+              type="button"
+              :disabled="isPrewarming"
+              :class="['w-full sm:flex-1 rounded-xl border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-white/5 px-4 py-2.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed']"
+              @click="handleSkipPrewarmAndContinue"
+            >
+              {{ t('onboarding.steps.thinking.generateOnDemandLater') }}
+            </button>
+            <button
+              type="button"
+              :disabled="isPrewarming"
+              :class="['w-full sm:flex-1 rounded-xl bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-500 hover:to-indigo-500 px-4 py-2.5 text-xs font-semibold text-white transition-all shadow-md shadow-primary-600/30 cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed']"
+              @click="handleConfirmPrewarmAndContinue"
+            >
+              <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin w-4 h-4' : 'i-solar:bolt-bold w-4 h-4']" />
+              <span>{{ isPrewarming ? t('onboarding.steps.thinking.prewarm.synthesizing') : t('onboarding.steps.thinking.preGenerate9ClipsNow') }}</span>
+            </button>
           </div>
         </div>
-
-        <div :class="['flex flex-col sm:flex-row items-center gap-2.5 pt-2']">
-          <button
-            type="button"
-            :disabled="isPrewarming"
-            :class="['w-full sm:flex-1 rounded-xl border border-neutral-200 dark:border-white/10 bg-neutral-100 dark:bg-white/5 px-4 py-2.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed']"
-            @click="handleSkipPrewarmAndContinue"
-          >
-            {{ t('onboarding.ui.generate-on-demand-later') }}
-          </button>
-          <button
-            type="button"
-            :disabled="isPrewarming"
-            :class="['w-full sm:flex-1 rounded-xl bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-500 hover:to-indigo-500 px-4 py-2.5 text-xs font-semibold text-white transition-all shadow-md shadow-primary-600/30 cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed']"
-            @click="handleConfirmPrewarmAndContinue"
-          >
-            <div :class="[isPrewarming ? 'i-solar:refresh-circle-bold animate-spin w-4 h-4' : 'i-solar:bolt-bold w-4 h-4']" />
-            <span>{{ displayText(isPrewarming ? 'Synthesizing...' : '⚡ Pre-generate 9 Clips Now') }}</span>
-          </button>
-        </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+</style>

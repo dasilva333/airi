@@ -1,15 +1,9 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from '../composables/use-onboarding-display-text'
-
-
 import type { OnboardingV3StepDef } from '../types'
 
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-const { displayText } = useOnboardingDisplayText()
-
 
 const props = withDefaults(
   defineProps<{
@@ -110,7 +104,7 @@ function handleNextBatch() {
         ]"
         @click="handleStepClick(step.index)"
       >
-        {{ displayText(getStepLabel(step)) }}
+        {{ getStepLabel(step) }}
       </button>
     </div>
 
@@ -164,14 +158,14 @@ function handleNextBatch() {
             >
               <div :class="['flex items-center gap-2 min-w-0']">
                 <span :class="['text-[10px] font-mono text-neutral-400 w-4 text-right flex-shrink-0']">
-                  {{ displayText(step.index + 1) }}.
+                  {{ step.index + 1 }}.
                 </span>
                 <div :class="['min-w-0']">
                   <div :class="['truncate']">
-                    {{ displayText(getStepLabel(step)) }}
+                    {{ getStepLabel(step) }}
                   </div>
                   <div :class="['text-[9px] text-neutral-400 truncate']">
-                    {{ displayText(getStepSubtitle(step)) }}
+                    {{ getStepSubtitle(step) }}
                   </div>
                 </div>
               </div>

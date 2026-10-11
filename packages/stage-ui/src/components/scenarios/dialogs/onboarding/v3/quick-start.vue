@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { useOnboardingDisplayText } from './composables/use-onboarding-display-text'
-
-
 import { isApplePlatform } from '@proj-airi/stage-shared'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -22,9 +19,6 @@ import { KOKORO_MODELS } from '../../../../../workers/kokoro/constants'
 import { ensureWhisperLoaded } from '../v2/whisper-loader'
 import { useStarterCardCommit } from './composables/useStarterCardCommit'
 import { useOnboardingV3Draft } from './stores/useOnboardingV3Draft'
-
-const { displayText } = useOnboardingDisplayText()
-
 
 const props = defineProps<{
   onContinueFullSetup: () => void
@@ -62,6 +56,9 @@ interface StarterCompanion {
   defaultKokoroVoice: string
   defaultPocketVoice: string
   defaultMossVoice?: string
+
+  tagKey?: string
+  personalityKey?: string
 }
 
 const starterCompanions: StarterCompanion[] = [
@@ -70,7 +67,9 @@ const starterCompanions: StarterCompanion[] = [
     name: 'ReLU',
     title: 'ReLU',
     tag: '🌸 Empathetic Companion',
+    tagKey: 'onboarding.quickStart.starterCompanions.default.tag',
     personality: 'Warm, playful kitten-girl soul mate',
+    personalityKey: 'onboarding.quickStart.starterCompanions.default.personality',
     previewImg: new URL('../../../../../assets/live2d/models/hiyori/preview.png', import.meta.url).href,
     greeting: (name: string) => `Good morning, ${name || 'there'}! Nya~ I've been waiting for the screen to light up. Did you sleep well?`,
     personaCardId: 'default',
@@ -84,7 +83,9 @@ const starterCompanions: StarterCompanion[] = [
     name: 'Dr. Aria',
     title: 'Dr. Aria',
     tag: '🔬 Analytical Scientist',
+    tagKey: 'onboarding.quickStart.starterCompanions.aria.tag',
     personality: 'Rigorous science, sharp dry wit',
+    personalityKey: 'onboarding.quickStart.starterCompanions.aria.personality',
     previewImg: new URL('../../../../../assets/vrm/models/AvatarSample-A/preview.png', import.meta.url).href,
     greeting: (name: string) => `Monitoring signal drift... Ah, you've returned, ${name || 'collaborator'}. Ready for another session of intellectual entropy?`,
     personaCardId: 'aria',
@@ -98,7 +99,9 @@ const starterCompanions: StarterCompanion[] = [
     name: 'Lupin',
     title: 'Lupin',
     tag: '🛡️ Fierce Guardian',
+    tagKey: 'onboarding.quickStart.starterCompanions.lupin.tag',
     personality: 'Vigilant guardian, stoic & loyal',
+    personalityKey: 'onboarding.quickStart.starterCompanions.lupin.personality',
     previewImg: new URL('../../../../../assets/vrm/models/AvatarSample-B/preview.png', import.meta.url).href,
     greeting: (name: string) => `[nods] I've been watching the perimeter. All is secure, ${name || 'there'}.`,
     personaCardId: 'lupin',
@@ -122,10 +125,7 @@ const activeCompanion = computed(() => {
 })
 
 // Dynamic Greeting Reactivity: updates whenever userName changes
-const activeGreeting = computed(() => {
-  const name = userName.value?.trim() || 'there'
-  return activeCompanion.value.greeting(name)
-})
+const localizedGreeting = computed(() => t(`onboarding.quickStart.starterCompanions.${activeCompanion.value.id}.greeting`, { name: userName.value?.trim() || t('onboarding.quickStart.greetingDefaultName') }))
 
 // Companion name freedom: defaults to ReLU, follows selection until user types custom name
 const isCompanionNameManuallyEdited = ref(
@@ -283,12 +283,12 @@ const calibratedPacing = computed(() => {
   const ms = benchmarkDurationMs.value
   const ttft = ms < 1000 ? `${Math.round(ms)}ms TTFT` : `${(ms / 1000).toFixed(1)}s TTFT`
   if (ms < 800) {
-    return { preset: 'snappy' as const, label: 'Snappy', icon: '⚡', ttft }
+    return { preset: 'snappy' as const, label: t('onboarding.quickStart.messages.snappy'), icon: '⚡', ttft }
   }
   if (ms > 2500) {
-    return { preset: 'deep' as const, label: 'Deep CoT', icon: '🧠', ttft }
+    return { preset: 'deep' as const, label: t('onboarding.quickStart.messages.deepCot'), icon: '🧠', ttft }
   }
-  return { preset: 'balanced' as const, label: 'Balanced', icon: '⚖️', ttft }
+  return { preset: 'balanced' as const, label: t('onboarding.quickStart.messages.balanced'), icon: '⚖️', ttft }
 })
 
 async function testConnection() {
@@ -296,7 +296,7 @@ async function testConnection() {
     return
 
   if (!isLocalLlmProvider.value && !apiKey.value.trim()) {
-    toast.error(displayText('Please enter an API key before testing connection.'))
+    toast.error(t('onboarding.quickStart.pleaseEnterAnApiKeyBeforeTestingConnection'))
     connectionStatus.value = 'idle'
     return
   }
@@ -343,12 +343,12 @@ async function testConnection() {
     // Auto-calibrate draftStore pacingPreset based on measured latency
     const recommendedPreset = elapsed < 800 ? 'snappy' : elapsed > 2500 ? 'deep' : 'balanced'
     draftStore.setThinking({ pacingPreset: recommendedPreset })
-    toast.success(displayText(`Connected! (${elapsed < 1000 ? `${elapsed}ms` : `${(elapsed / 1000).toFixed(1)}s`} TTFT)`))
+    toast.success(t('onboarding.quickStart.connection.connected', { elapsed }))
   }
   catch (err: any) {
     console.error('[QuickStart] Connection test failed:', err)
     connectionStatus.value = 'error'
-    toast.error(displayText(err?.message || 'Connection test failed. Check API key, model ID, and network.'))
+    toast.error(err?.message || t('onboarding.quickStart.connection.failed'))
   }
   finally {
     if (benchmarkTimer) {
@@ -418,29 +418,29 @@ const availableTtsModels = computed(() => {
   const normId = normalizeSpeechProviderId(ttsEngine.value)
   if (normId === 'kokoro-local') {
     return [
-      { id: 'q4', label: 'Kokoro Q4 (Fast CPU WASM · Recommended)' },
-      { id: 'q8', label: 'Kokoro Q8 (High Quality WASM)' },
-      { id: 'q4-webgpu', label: 'Kokoro Q4 (WebGPU)' },
+      { id: 'q4', label: 'Kokoro Q4 (Fast CPU WASM · Recommended)', labelKey: 'onboarding.quickStart.availableTtsModels.q4.label' },
+      { id: 'q8', label: 'Kokoro Q8 (High Quality WASM)', labelKey: 'onboarding.quickStart.availableTtsModels.q8.label' },
+      { id: 'q4-webgpu', label: 'Kokoro Q4 (WebGPU)', labelKey: 'onboarding.quickStart.availableTtsModels.q4-webgpu.label' },
     ]
   }
   if (normId === 'pocket-tts-local') {
     return [
-      { id: 'english_2026-04', label: 'Pocket English (100M CPU)' },
-      { id: 'french_24l', label: 'Pocket French (24L)' },
-      { id: 'spanish_24l', label: 'Pocket Spanish (24L)' },
-      { id: 'german_24l', label: 'Pocket German (24L)' },
-      { id: 'italian_24l', label: 'Pocket Italian (24L)' },
+      { id: 'english_2026-04', label: 'Pocket English (100M CPU)', labelKey: 'onboarding.quickStart.availableTtsModels.english-2026-04.label' },
+      { id: 'french_24l', label: 'Pocket French (24L)', labelKey: 'onboarding.quickStart.availableTtsModels.french-24l.label' },
+      { id: 'spanish_24l', label: 'Pocket Spanish (24L)', labelKey: 'onboarding.quickStart.availableTtsModels.spanish-24l.label' },
+      { id: 'german_24l', label: 'Pocket German (24L)', labelKey: 'onboarding.quickStart.availableTtsModels.german-24l.label' },
+      { id: 'italian_24l', label: 'Pocket Italian (24L)', labelKey: 'onboarding.quickStart.availableTtsModels.italian-24l.label' },
     ]
   }
   if (normId === 'moss-nano-local') {
-    return [{ id: 'moss-tts-nano-100m', label: 'Moss-Nano Fast Engine (100M)' }]
+    return [{ id: 'moss-tts-nano-100m', label: 'Moss-Nano Fast Engine (100M)', labelKey: 'onboarding.quickStart.availableTtsModels.moss-tts-nano-100m.label' }]
   }
 
   const pModels = providersStore.getModelsForProvider(normId) || []
   if (pModels.length > 0) {
     return pModels.map((m: any) => ({ id: m.id, label: m.name || m.id }))
   }
-  return [{ id: 'default', label: 'Standard Voice Model' }]
+  return [{ id: 'default', label: 'Standard Voice Model', labelKey: 'onboarding.quickStart.availableTtsModels.default.label' }]
 })
 
 const ttsModel = computed({
@@ -452,32 +452,32 @@ const availableTtsVoices = computed(() => {
   const normId = normalizeSpeechProviderId(ttsEngine.value)
   if (normId === 'kokoro-local') {
     return [
-      { id: 'af_bella', label: 'Bella (Soft Anime Tone · Sweet)' },
-      { id: 'af_sarah', label: 'Sarah (Professional · Clear)' },
-      { id: 'af_nicole', label: 'Nicole (Crisp & Focused)' },
-      { id: 'af_heart', label: 'Heart (Warm & Natural)' },
-      { id: 'af_sky', label: 'Sky (Gentle Whisper)' },
-      { id: 'am_adam', label: 'Adam (Natural Male)' },
-      { id: 'am_michael', label: 'Michael (Executive Male)' },
+      { id: 'af_bella', label: 'Bella (Soft Anime Tone · Sweet)', labelKey: 'onboarding.quickStart.availableTtsVoices.af-bella.label' },
+      { id: 'af_sarah', label: 'Sarah (Professional · Clear)', labelKey: 'onboarding.quickStart.availableTtsVoices.af-sarah.label' },
+      { id: 'af_nicole', label: 'Nicole (Crisp & Focused)', labelKey: 'onboarding.quickStart.availableTtsVoices.af-nicole.label' },
+      { id: 'af_heart', label: 'Heart (Warm & Natural)', labelKey: 'onboarding.quickStart.availableTtsVoices.af-heart.label' },
+      { id: 'af_sky', label: 'Sky (Gentle Whisper)', labelKey: 'onboarding.quickStart.availableTtsVoices.af-sky.label' },
+      { id: 'am_adam', label: 'Adam (Natural Male)', labelKey: 'onboarding.quickStart.availableTtsVoices.am-adam.label' },
+      { id: 'am_michael', label: 'Michael (Executive Male)', labelKey: 'onboarding.quickStart.availableTtsVoices.am-michael.label' },
     ]
   }
   if (normId === 'pocket-tts-local') {
     return [
       ...STARTER_VOICE_CATALOG.map(v => ({ id: v.id, label: `★ ${v.name}` })),
-      { id: 'anna', label: 'Anna (Warm & Conversational)' },
-      { id: 'claire', label: 'Claire (Articulate & Clear)' },
-      { id: 'vera', label: 'Vera (Deep & Conversational)' },
-      { id: 'bella', label: 'Bella (Gentle & Sweet)' },
-      { id: 'daniel', label: 'Daniel (Deep Male)' },
-      { id: 'elena', label: 'Elena (Soft Expressive)' },
-      { id: 'frank', label: 'Frank (Warm Narrator)' },
+      { id: 'anna', label: 'Anna (Warm & Conversational)', labelKey: 'onboarding.quickStart.availableTtsVoices.anna.label' },
+      { id: 'claire', label: 'Claire (Articulate & Clear)', labelKey: 'onboarding.quickStart.availableTtsVoices.claire.label' },
+      { id: 'vera', label: 'Vera (Deep & Conversational)', labelKey: 'onboarding.quickStart.availableTtsVoices.vera.label' },
+      { id: 'bella', label: 'Bella (Gentle & Sweet)', labelKey: 'onboarding.quickStart.availableTtsVoices.bella.label' },
+      { id: 'daniel', label: 'Daniel (Deep Male)', labelKey: 'onboarding.quickStart.availableTtsVoices.daniel.label' },
+      { id: 'elena', label: 'Elena (Soft Expressive)', labelKey: 'onboarding.quickStart.availableTtsVoices.elena.label' },
+      { id: 'frank', label: 'Frank (Warm Narrator)', labelKey: 'onboarding.quickStart.availableTtsVoices.frank.label' },
     ]
   }
   if (normId === 'moss-nano-local') {
     return [
       ...STARTER_VOICE_CATALOG.map(v => ({ id: v.id, label: `★ ${v.name}` })),
-      { id: 'Trump', label: 'EN Trump' },
-      { id: 'LJS', label: 'EN LJS' },
+      { id: 'Trump', label: 'EN Trump', labelKey: 'onboarding.quickStart.availableTtsVoices.trump.label' },
+      { id: 'LJS', label: 'EN LJS', labelKey: 'onboarding.quickStart.availableTtsVoices.ljs.label' },
     ]
   }
 
@@ -486,7 +486,7 @@ const availableTtsVoices = computed(() => {
     return storeVoices.map((v: any) => ({ id: v.id, label: v.name || v.id }))
   }
   return [
-    { id: 'default', label: 'Default Voice' },
+    { id: 'default', label: 'Default Voice', labelKey: 'onboarding.quickStart.availableTtsVoices.default.label' },
     { id: 'alloy', label: 'Alloy' },
     { id: 'echo', label: 'Echo' },
     { id: 'fable', label: 'Fable' },
@@ -510,7 +510,7 @@ function auditionGreeting() {
 
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(activeGreeting.value)
+    const utterance = new SpeechSynthesisUtterance(localizedGreeting.value)
     utterance.onend = () => { isAuditioning.value = false }
     utterance.onerror = () => { isAuditioning.value = false }
     window.speechSynthesis.speak(utterance)
@@ -536,9 +536,9 @@ const sttEngine = computed({
 })
 
 const whisperModelOptions = [
-  { id: 'onnx-community/whisper-tiny', label: 'Whisper Tiny (75 MB · Recommended)' },
-  { id: 'onnx-community/whisper-base', label: 'Whisper Base (145 MB · Balanced)' },
-  { id: 'onnx-community/whisper-small', label: 'Whisper Small (480 MB · Precise)' },
+  { id: 'onnx-community/whisper-tiny', label: 'Whisper Tiny (75 MB · Recommended)', labelKey: 'onboarding.quickStart.whisperModelOptions.onnx-community-whisper-tiny.label' },
+  { id: 'onnx-community/whisper-base', label: 'Whisper Base (145 MB · Balanced)', labelKey: 'onboarding.quickStart.whisperModelOptions.onnx-community-whisper-base.label' },
+  { id: 'onnx-community/whisper-small', label: 'Whisper Small (480 MB · Precise)', labelKey: 'onboarding.quickStart.whisperModelOptions.onnx-community-whisper-small.label' },
 ]
 
 const sttModel = computed({
@@ -549,9 +549,9 @@ const sttModel = computed({
 const availableMics = computed(() => {
   const inputs = (audioDevice.audioInputs || []) as MediaDeviceInfo[]
   if (inputs.length > 0) {
-    return inputs.map(d => ({ id: d.deviceId, label: d.label || 'Microphone' }))
+    return inputs.map(d => ({ id: d.deviceId, label: d.label || t('onboarding.steps.hearing.microphone') }))
   }
-  return [{ id: 'default', label: 'Default Microphone' }]
+  return [{ id: 'default', label: 'Default Microphone', labelKey: 'onboarding.quickStart.availableMics.default.label' }]
 })
 
 const selectedMicId = computed({
@@ -644,6 +644,7 @@ const isPreparingModalOpen = ref(false)
 const preparationProgress = ref(0)
 
 interface PrepStep {
+  labelKey?: string
   id: string
   label: string
   desc: string
@@ -654,29 +655,33 @@ interface PrepStep {
 const prepSteps = ref<PrepStep[]>([
   {
     id: 'brain',
-    label: 'Brain Consciousness',
-    desc: 'Connecting neural reasoning pipeline...',
+    label: t('onboarding.quickStart.messages.brainConsciousness'),
+    labelKey: 'onboarding.quickStart.prepSteps.brain.label',
+    desc: t('onboarding.quickStart.messages.connectingNeuralReasoningPipeline'),
     icon: 'i-ph:brain-duotone',
     status: 'pending',
   },
   {
     id: 'hearing',
-    label: 'Hearing Acoustics',
-    desc: 'Verifying Whisper Local on-device model...',
+    label: t('onboarding.quickStart.messages.hearingAcoustics'),
+    labelKey: 'onboarding.quickStart.prepSteps.hearing.label',
+    desc: t('onboarding.quickStart.messages.verifyingWhisperLocalOnDeviceModel'),
     icon: 'i-solar:microphone-3-bold-duotone',
     status: 'pending',
   },
   {
     id: 'voice',
-    label: 'Vocal Synthesis',
-    desc: 'Synthesizing Kokoro 82M voice engine...',
+    label: t('onboarding.quickStart.messages.vocalSynthesis'),
+    labelKey: 'onboarding.quickStart.prepSteps.voice.label',
+    desc: t('onboarding.quickStart.messages.synthesizingKokoro82mVoiceEngine'),
     icon: 'i-solar:volume-loud-bold-duotone',
     status: 'pending',
   },
   {
     id: 'persona',
-    label: 'Soul Manifestation',
-    desc: 'Seeding companion persona & memory...',
+    label: t('onboarding.quickStart.messages.soulManifestation'),
+    labelKey: 'onboarding.quickStart.prepSteps.persona.label',
+    desc: t('onboarding.quickStart.messages.seedingCompanionPersonaMemory'),
     icon: 'i-solar:heart-bold-duotone',
     status: 'pending',
   },
@@ -703,12 +708,12 @@ async function handleStartChatting() {
     // ----------------------------------------------------
     prepSteps.value[0].status = 'active'
     if (llmProvider.value === 'web-llm') {
-      prepSteps.value[0].desc = 'Checking on-device WebLLM model cache...'
+      prepSteps.value[0].desc = t('onboarding.quickStart.preparation.checkingCache')
       try {
         const { getWebLlmAdapter } = await import('../../../../../libs/inference/adapters/web-llm')
         const adapter = await getWebLlmAdapter()
         if (adapter.state !== 'ready' || adapter.manifest?.modelId !== llmModel.value) {
-          prepSteps.value[0].desc = 'Downloading WebLLM model weights...'
+          prepSteps.value[0].desc = t('onboarding.quickStart.preparation.downloadingWeights')
           const curated = WEB_LLM_MODELS.find(m => m.id === llmModel.value)
           await adapter.loadModel(
             { modelId: llmModel.value, vramMB: curated?.vramMB },
@@ -717,7 +722,7 @@ async function handleStartChatting() {
                 const percent = typeof p?.percent === 'number' && p.percent >= 0
                   ? p.percent
                   : (p && p.loaded && p.total ? (p.loaded / p.total) * 100 : 0)
-                prepSteps.value[0].desc = `Downloading WebLLM (${Math.round(percent)}%)...`
+                prepSteps.value[0].desc = t('onboarding.quickStart.preparation.webLlmProgress', { percent: Math.round(percent) })
                 preparationProgress.value = Math.max(5, Math.min(24, Math.round(5 + (percent * 0.2))))
               },
             },
@@ -729,7 +734,7 @@ async function handleStartChatting() {
       }
     }
     else {
-      prepSteps.value[0].desc = `Configuring ${llmProvider.value} provider...`
+      prepSteps.value[0].desc = t('onboarding.quickStart.preparation.configuringProvider', { provider: llmProvider.value })
       if (apiKey.value) {
         providersStore.providers[llmProvider.value] = {
           ...providersStore.providers[llmProvider.value],
@@ -740,7 +745,7 @@ async function handleStartChatting() {
       }
       await new Promise(resolve => setTimeout(resolve, 280))
     }
-    prepSteps.value[0].desc = 'Consciousness Core calibrated'
+    prepSteps.value[0].desc = t('onboarding.quickStart.preparation.brainReady')
     prepSteps.value[0].status = 'done'
     preparationProgress.value = 25
 
@@ -750,33 +755,33 @@ async function handleStartChatting() {
     prepSteps.value[1].status = 'active'
     if (isHearingEnabled.value) {
       if (sttEngine.value === 'whisper-local') {
-        prepSteps.value[1].desc = 'Verifying Whisper Local weights...'
+        prepSteps.value[1].desc = t('onboarding.quickStart.preparation.checkingWhisper')
         try {
           await ensureWhisperLoaded({
             model: sttModel.value,
             onProgress: (p: any) => {
               if (p.phase === 'warmup') {
-                prepSteps.value[1].desc = 'Compiling WebGPU shaders & warming up...'
+                prepSteps.value[1].desc = t('onboarding.quickStart.preparation.warmingUp')
               }
               else if (typeof p.percent === 'number' && p.percent >= 0) {
-                prepSteps.value[1].desc = `Downloading Whisper (${Math.round(p.percent)}%)...`
+                prepSteps.value[1].desc = t('onboarding.quickStart.preparation.whisperProgress', { percent: Math.round(p.percent) })
                 preparationProgress.value = Math.max(25, Math.min(49, Math.round(25 + (p.percent * 0.25))))
               }
             },
           })
-          prepSteps.value[1].desc = 'Whisper Local acoustic engine ready'
+          prepSteps.value[1].desc = t('onboarding.quickStart.preparation.whisperReady')
         }
         catch (err) {
           console.warn('[QuickStart] Whisper initialization notice:', err)
         }
       }
       else {
-        prepSteps.value[1].desc = 'Microphone acoustics configured'
+        prepSteps.value[1].desc = t('onboarding.quickStart.preparation.microphoneReady')
         await new Promise(resolve => setTimeout(resolve, 200))
       }
     }
     else {
-      prepSteps.value[1].desc = 'Hearing disabled (muted)'
+      prepSteps.value[1].desc = t('onboarding.quickStart.preparation.hearingMuted')
       await new Promise(resolve => setTimeout(resolve, 150))
     }
     prepSteps.value[1].status = 'done'
@@ -788,25 +793,25 @@ async function handleStartChatting() {
     prepSteps.value[2].status = 'active'
     if (isVoiceEnabled.value) {
       if (normSpeechId === 'kokoro-local') {
-        prepSteps.value[2].desc = 'Synthesizing Kokoro 82M voice weights...'
+        prepSteps.value[2].desc = t('onboarding.quickStart.preparation.checkingKokoro')
         try {
           const adapter = await getKokoroAdapter()
           const modelDef = KOKORO_MODELS.find(m => m.id === ttsModel.value) || KOKORO_MODELS.find(m => m.id === 'q4') || KOKORO_MODELS[0]
           await adapter.loadModel(modelDef.quantization, modelDef.platform, {
             onProgress: (p: any) => {
               const percent = Math.round(p.percent ?? (p.loaded && p.total ? (p.loaded / p.total) * 100 : 0))
-              prepSteps.value[2].desc = `Loading Kokoro weights (${percent}%)...`
+              prepSteps.value[2].desc = t('onboarding.quickStart.preparation.kokoroProgress', { percent })
               preparationProgress.value = Math.max(50, Math.min(74, Math.round(50 + (percent * 0.24))))
             },
           })
-          prepSteps.value[2].desc = `Kokoro 82M ready with voice "${charRawVoice}"`
+          prepSteps.value[2].desc = t('onboarding.quickStart.preparation.kokoroReady', { voice: charRawVoice })
         }
         catch (err) {
           console.warn('[QuickStart] Kokoro weights loading notice:', err)
         }
       }
       else if (normSpeechId === 'pocket-tts-local') {
-        prepSteps.value[2].desc = 'Loading Pocket-TTS weights...'
+        prepSteps.value[2].desc = t('onboarding.quickStart.preparation.loadingPocket')
         try {
           const adapter = await getPocketTtsAdapterInstance()
           await adapter.loadModel({ language: ttsModel.value || 'english_2026-04' })
@@ -825,7 +830,7 @@ async function handleStartChatting() {
         }
       }
       else {
-        prepSteps.value[2].desc = `Connected ${normSpeechId} speech provider`
+        prepSteps.value[2].desc = t('onboarding.quickStart.preparation.speechConnected', { provider: normSpeechId })
         await new Promise(resolve => setTimeout(resolve, 200))
       }
 
@@ -868,7 +873,7 @@ async function handleStartChatting() {
       }
     }
     else {
-      prepSteps.value[2].desc = 'Vocal synthesis muted'
+      prepSteps.value[2].desc = t('onboarding.quickStart.preparation.speechMuted')
       await new Promise(resolve => setTimeout(resolve, 150))
     }
     prepSteps.value[2].status = 'done'
@@ -878,7 +883,7 @@ async function handleStartChatting() {
     // Step 3: Soul Manifestation (Card & Stage Seeding)
     // ----------------------------------------------------
     prepSteps.value[3].status = 'active'
-    prepSteps.value[3].desc = `Seeding ${charName}'s soul & stage card...`
+    prepSteps.value[3].desc = t('onboarding.quickStart.preparation.seedingPersona', { name: charName })
 
     const starter = getStarterCharacter(selectedCompanionId.value)
 
@@ -915,7 +920,7 @@ async function handleStartChatting() {
       console.warn('[QuickStart] Companion commit notice:', err)
     }
 
-    prepSteps.value[3].desc = `${charName} is alive and ready on Stage!`
+    prepSteps.value[3].desc = t('onboarding.quickStart.preparation.stageReady', { name: charName })
     prepSteps.value[3].status = 'done'
     preparationProgress.value = 100
 
@@ -924,7 +929,7 @@ async function handleStartChatting() {
   }
   catch (err: any) {
     console.error('[QuickStart] Pre-flight preparation error:', err)
-    toast.error(displayText('Setup encountered an issue, but you can continue into Stage.'))
+    toast.error(t('onboarding.quickStart.setupEncounteredAnIssueButYouCanContinueIntoStage'))
     await new Promise(resolve => setTimeout(resolve, 500))
     props.onComplete()
   }
@@ -939,7 +944,7 @@ async function handleStartChatting() {
         <h1 :class="['text-2xl font-bold tracking-tight text-neutral-900 dark:text-white flex items-center gap-2']">
           <span>{{ t('onboarding.quickStart.title') }}</span>
           <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-500 border border-cyan-500/20']">
-            {{ t('onboarding.ui.fast-track-60s') }}
+            {{ t('onboarding.quickStart.fastTrack60s') }}
           </span>
         </h1>
         <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5']">
@@ -982,22 +987,22 @@ async function handleStartChatting() {
                 <div :class="['i-ph:brain-duotone text-base']" />
               </div>
               <h2 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                {{ t('onboarding.ui.brain') }}
+                {{ t('onboarding.quickStart.brain') }}
               </h2>
             </div>
             <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono']">
-              {{ t('onboarding.ui.required') }}
+              {{ t('onboarding.quickStart.required') }}
             </span>
           </div>
           <p :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-            {{ t('onboarding.ui.connect-your-ai-provider-to-power') }} {{ companionName }}{{ t('onboarding.ui.s-consciousness') }}
+            {{ t('onboarding.quickStart.brainDescription', { companionName }) }}
           </p>
         </div>
 
         <div :class="['space-y-2.5 text-xs']">
           <!-- Full Provider Dropdown -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.shared-control-strip-ui-provider') }}</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.quickStart.providers.providerLabel') }}</span>
             <select
               v-model="llmProvider"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
@@ -1007,14 +1012,14 @@ async function handleStartChatting() {
                 :key="p.id"
                 :value="p.id"
               >
-                {{ displayText((p as any).name || p.id) }}
+                {{ (p as any).name || p.id }}
               </option>
             </select>
           </div>
 
           <!-- API Key Input (Hidden for local on-device providers) -->
           <div v-if="!isLocalLlmProvider" :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.api-key') }}</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.quickStart.apiKey') }}</span>
             <div :class="['relative flex-1']">
               <input
                 v-model="apiKey"
@@ -1034,7 +1039,7 @@ async function handleStartChatting() {
 
           <!-- Model Selector -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.shared-control-strip-radial-model') }}</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.quickStart.providers.modelLabel') }}</span>
             <select
               v-if="availableLlmModels.length > 0"
               v-model="llmModel"
@@ -1045,7 +1050,7 @@ async function handleStartChatting() {
                 :key="m.id"
                 :value="m.id"
               >
-                {{ displayText(m.name || m.id) }}
+                {{ m.name || m.id }}
               </option>
             </select>
             <input
@@ -1067,7 +1072,7 @@ async function handleStartChatting() {
             @click="testConnection"
           >
             <div :class="[isTestingConnection ? 'i-solar:restart-circle-bold animate-spin text-cyan-400' : 'i-solar:link-circle-bold text-cyan-400', 'w-3.5 h-3.5']" />
-            <span>{{ displayText(isTestingConnection ? `Testing (${benchmarkElapsedSeconds})...` : 'Test connection') }}</span>
+            <span>{{ isTestingConnection ? t('onboarding.quickStart.testingValue', { benchmarkElapsedSeconds }) : t('onboarding.quickStart.testConnection') }}</span>
           </button>
 
           <div :class="['flex items-center gap-2']">
@@ -1076,8 +1081,8 @@ async function handleStartChatting() {
               v-if="connectionStatus === 'connected' && calibratedPacing"
               :class="['inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 text-[10px] font-mono font-medium shadow-xs']"
             >
-              <span>{{ displayText(calibratedPacing.icon) }}</span>
-              <span>{{ t('onboarding.ui.calibrated') }} {{ displayText(calibratedPacing.label) }} ({{ displayText(calibratedPacing.ttft) }})</span>
+              <span>{{ calibratedPacing.icon }}</span>
+              <span>{{ t('onboarding.quickStart.calibratedPacing', { label: calibratedPacing.label, ttft: calibratedPacing.ttft }) }}</span>
             </div>
 
             <!-- Status Indicator -->
@@ -1093,21 +1098,21 @@ async function handleStartChatting() {
               :class="['flex items-center gap-1.5 text-[11px] font-medium text-rose-500 dark:text-rose-400 font-mono']"
             >
               <span :class="['w-2 h-2 rounded-full bg-rose-500']" />
-              <span>{{ t('onboarding.ui.failed') }}</span>
+              <span>{{ t('onboarding.quickStart.failed') }}</span>
             </div>
             <div
               v-else-if="!isLocalLlmProvider && !apiKey.trim()"
               :class="['flex items-center gap-1.5 text-[11px] font-medium text-neutral-400 font-mono']"
             >
               <span :class="['w-2 h-2 rounded-full bg-neutral-300 dark:bg-neutral-600']" />
-              <span>{{ t('onboarding.ui.key-required') }}</span>
+              <span>{{ t('onboarding.quickStart.keyRequired') }}</span>
             </div>
             <div
               v-else
               :class="['flex items-center gap-1.5 text-[11px] font-medium text-neutral-400 font-mono']"
             >
               <span :class="['w-2 h-2 rounded-full bg-neutral-300 dark:bg-neutral-600']" />
-              <span>{{ t('onboarding.ui.not-tested') }}</span>
+              <span>{{ t('onboarding.quickStart.notTested') }}</span>
             </div>
           </div>
         </div>
@@ -1121,11 +1126,11 @@ async function handleStartChatting() {
               <div :class="['i-solar:heart-bold-duotone text-base']" />
             </div>
             <h2 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-              {{ t('onboarding.ui.companion') }}
+              {{ t('onboarding.quickStart.companion') }}
             </h2>
           </div>
           <p :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-            {{ t('onboarding.ui.choose-who-will-be-by-your-side') }}
+            {{ t('onboarding.quickStart.chooseWhoWillBeByYourSide') }}
           </p>
         </div>
 
@@ -1154,7 +1159,7 @@ async function handleStartChatting() {
             <div :class="['w-full h-20 rounded-lg overflow-hidden mb-2 bg-neutral-100 dark:bg-neutral-800/80 relative']">
               <img
                 :src="c.previewImg"
-                :alt="displayText(c.name)"
+                :alt="c.name"
                 :class="['h-full w-full object-cover group-hover:scale-105 transition-transform duration-300']"
                 @error="(e: any) => { e.target.style.display = 'none' }"
               >
@@ -1162,10 +1167,10 @@ async function handleStartChatting() {
 
             <!-- Name & Tag -->
             <span :class="['text-xs font-bold text-neutral-900 dark:text-white truncate max-w-full']">
-              {{ displayText(c.name) }}
+              {{ c.name }}
             </span>
             <span :class="['text-[10px] text-neutral-400 dark:text-neutral-500 font-medium truncate max-w-full']">
-              {{ displayText(c.tag) }}
+              {{ 'tagKey' in c && c.tagKey ? t(c.tagKey) : c.tag }}
             </span>
           </div>
         </div>
@@ -1173,14 +1178,14 @@ async function handleStartChatting() {
         <!-- Active Companion Subtitle & Reactive Speech Bubble Preview -->
         <div :class="['space-y-1.5 pt-0.5']">
           <div :class="['text-[11px] font-medium text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5']">
-            <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">{{ displayText(activeCompanion.title) }}</span>
+            <span :class="['font-bold text-neutral-800 dark:text-neutral-200']">{{ activeCompanion.title }}</span>
             <span>•</span>
-            <span :class="['truncate']">{{ displayText(activeCompanion.personality) }}</span>
+            <span :class="['truncate']">{{ activeCompanion.personalityKey ? t(activeCompanion.personalityKey) : activeCompanion.personality }}</span>
           </div>
 
           <!-- Dynamic Speech Bubble (Reacts immediately to userName change) -->
           <div :class="['relative rounded-xl border border-cyan-500/30 bg-cyan-500/5 dark:bg-cyan-950/20 px-3 py-2 text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed']">
-            "{{ displayText(activeGreeting) }}"
+            "{{ localizedGreeting }}"
           </div>
         </div>
       </div>
@@ -1198,7 +1203,7 @@ async function handleStartChatting() {
               </h2>
             </div>
             <p :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-              {{ t('onboarding.ui.give') }} {{ companionName }} {{ t('onboarding.ui.a-clear-voice') }}
+              {{ t('onboarding.quickStart.voiceDescription', { companionName }) }}
             </p>
           </div>
 
@@ -1216,20 +1221,20 @@ async function handleStartChatting() {
         <div :class="['space-y-2.5 text-xs', !isVoiceEnabled && 'opacity-50 pointer-events-none']">
           <!-- 1. Engine Dropdown (Kokoro 82M Default) -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.engine') }}</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.quickStart.engine') }}</span>
             <select
               v-model="ttsEngine"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
             >
-              <optgroup :label="t('onboarding.ui.local-on-device-zero-cloud')">
+              <optgroup :label="t('onboarding.quickStart.localOnDeviceZeroCloud')">
                 <option value="kokoro-local">
-                  {{ t('onboarding.ui.kokoro-82m-tts-zero-gate-webgpu-wasm') }}
+                  {{ t('onboarding.quickStart.kokoro82mTtsZeroGateWebgpuWasm') }}
                 </option>
                 <option value="pocket-tts-local">
-                  {{ t('onboarding.ui.pocket-tts-local-100m-cpu') }}
+                  {{ t('onboarding.quickStart.pocketTtsLocal100mCpu') }}
                 </option>
                 <option value="moss-nano-local">
-                  {{ t('onboarding.ui.moss-nano-local-ultra-fast') }}
+                  {{ t('onboarding.quickStart.mossNanoLocalUltraFast') }}
                 </option>
               </optgroup>
               <optgroup v-if="cloudSpeechProviders.length > 0" :label="t('onboarding.steps.vision.tabs.custom')">
@@ -1238,7 +1243,7 @@ async function handleStartChatting() {
                   :key="p.id"
                   :value="p.id"
                 >
-                  {{ displayText(p.name) }}
+                  {{ p.name }}
                 </option>
               </optgroup>
             </select>
@@ -1246,7 +1251,7 @@ async function handleStartChatting() {
 
           <!-- 2. Model Dropdown -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.shared-control-strip-radial-model') }}</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.quickStart.providers.modelLabel') }}</span>
             <select
               v-model="ttsModel"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
@@ -1256,7 +1261,7 @@ async function handleStartChatting() {
                 :key="m.id"
                 :value="m.id"
               >
-                {{ displayText(m.label) }}
+                {{ 'labelKey' in m && m.labelKey ? t(m.labelKey) : m.label }}
               </option>
             </select>
           </div>
@@ -1277,7 +1282,7 @@ async function handleStartChatting() {
                 :key="v.id"
                 :value="v.id"
               >
-                {{ displayText(v.label) }}
+                {{ 'labelKey' in v && v.labelKey ? t(v.labelKey) : v.label }}
               </option>
             </select>
           </div>
@@ -1292,12 +1297,12 @@ async function handleStartChatting() {
             @click="auditionGreeting"
           >
             <div :class="[isAuditioning ? 'i-solar:soundwave-bold animate-pulse text-cyan-400' : 'i-solar:volume-loud-bold text-cyan-400', 'w-3.5 h-3.5']" />
-            <span>{{ displayText(isAuditioning ? 'Speaking...' : 'Hear greeting') }}</span>
+            <span>{{ isAuditioning ? t('onboarding.quickStart.voiceAudition.speaking') : t('onboarding.quickStart.hearGreeting') }}</span>
           </button>
 
           <div :class="['flex items-center gap-1.5 text-[11px] font-medium font-mono', isVoiceEnabled ? 'text-emerald-500 dark:text-emerald-400' : 'text-neutral-400']">
             <span :class="['w-2 h-2 rounded-full', isVoiceEnabled ? 'bg-emerald-500' : 'bg-neutral-400']" />
-            <span>{{ displayText(isVoiceEnabled ? 'Ready' : 'Muted') }}</span>
+            <span>{{ isVoiceEnabled ? t('onboarding.quickStart.ready') : t('onboarding.quickStart.muted') }}</span>
           </div>
         </div>
       </div>
@@ -1315,7 +1320,7 @@ async function handleStartChatting() {
               </h2>
             </div>
             <p :class="['text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-              {{ t('onboarding.ui.let') }} {{ companionName }} {{ t('onboarding.ui.hear-your-voice') }}
+              {{ t('onboarding.quickStart.hearingDescription', { companionName }) }}
             </p>
           </div>
 
@@ -1333,23 +1338,23 @@ async function handleStartChatting() {
         <div :class="['space-y-2.5 text-xs', !isHearingEnabled && 'opacity-50 pointer-events-none']">
           <!-- Engine Selector (Whisper Local Default) -->
           <div :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.engine') }}</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.quickStart.engine') }}</span>
             <select
               v-model="sttEngine"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
             >
               <option value="whisper-local">
-                {{ t('onboarding.ui.whisper-local-webgpu-on-device') }}
+                {{ t('onboarding.quickStart.whisperLocalWebgpuOnDevice') }}
               </option>
               <option value="browser-web-speech-api">
-                {{ t('onboarding.ui.browser-web-speech') }}
+                {{ t('onboarding.quickStart.browserWebSpeech') }}
               </option>
             </select>
           </div>
 
           <!-- Model Picker (When Whisper Local selected, defaults to tiny) -->
           <div v-if="sttEngine === 'whisper-local'" :class="['flex items-center justify-between gap-3']">
-            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.ui.shared-control-strip-radial-model') }}</span>
+            <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.quickStart.providers.modelLabel') }}</span>
             <select
               v-model="sttModel"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer font-mono text-[11px]']"
@@ -1359,7 +1364,7 @@ async function handleStartChatting() {
                 :key="m.id"
                 :value="m.id"
               >
-                {{ displayText(m.label) }}
+                {{ 'labelKey' in m && m.labelKey ? t(m.labelKey) : m.label }}
               </option>
             </select>
           </div>
@@ -1376,7 +1381,7 @@ async function handleStartChatting() {
                 :key="mic.id"
                 :value="mic.id"
               >
-                {{ displayText(mic.label) }}
+                {{ 'labelKey' in mic && mic.labelKey ? t(mic.labelKey) : mic.label }}
               </option>
             </select>
           </div>
@@ -1399,7 +1404,7 @@ async function handleStartChatting() {
               />
             </div>
             <span :class="['text-[10px] text-neutral-400 font-mono truncate']">
-              {{ displayText(isTestingMic ? 'Listening...' : 'Idle') }}
+              {{ isTestingMic ? t('onboarding.quickStart.hearing.listening') : t('onboarding.quickStart.idle') }}
             </span>
           </div>
 
@@ -1410,7 +1415,7 @@ async function handleStartChatting() {
             @click="toggleTestMic"
           >
             <div :class="[isTestingMic ? 'i-solar:microphone-bold text-cyan-400 animate-pulse' : 'i-solar:microphone-3-bold text-cyan-400', 'w-3.5 h-3.5']" />
-            <span>{{ displayText(isTestingMic ? 'Stop test' : 'Test microphone') }}</span>
+            <span>{{ isTestingMic ? t('onboarding.quickStart.stopTest') : t('onboarding.quickStart.testMicrophone') }}</span>
           </button>
         </div>
       </div>
@@ -1425,8 +1430,8 @@ async function handleStartChatting() {
             <div :class="['i-solar:database-bold-duotone text-sm']" />
           </div>
           <div :class="['flex flex-col min-w-0']">
-            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.ui.memory-ltmm') }}</span>
-            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.ui.remember-across-sessions') }}</span>
+            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.quickStart.memoryLtmm') }}</span>
+            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.quickStart.rememberAcrossSessions') }}</span>
           </div>
         </div>
         <label :class="['relative inline-flex items-center cursor-pointer shrink-0']">
@@ -1446,8 +1451,8 @@ async function handleStartChatting() {
             <div :class="['i-solar:magnifer-bold-duotone text-sm']" />
           </div>
           <div :class="['flex flex-col min-w-0']">
-            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.ui.web-search') }}</span>
-            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.ui.real-time-open-search') }}</span>
+            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.quickStart.webSearch') }}</span>
+            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.quickStart.realTimeOpenSearch') }}</span>
           </div>
         </div>
         <label :class="['relative inline-flex items-center cursor-pointer shrink-0']">
@@ -1467,8 +1472,8 @@ async function handleStartChatting() {
             <div :class="['i-solar:folder-with-files-bold-duotone text-sm']" />
           </div>
           <div :class="['flex flex-col min-w-0']">
-            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.ui.workspace-files') }}</span>
-            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.ui.safe-projects-reading') }}</span>
+            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.quickStart.workspaceFiles') }}</span>
+            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.quickStart.safeProjectsReading') }}</span>
           </div>
         </div>
         <label :class="['relative inline-flex items-center cursor-pointer shrink-0']">
@@ -1488,8 +1493,8 @@ async function handleStartChatting() {
             <div :class="['i-solar:palette-round-bold-duotone text-sm']" />
           </div>
           <div :class="['flex flex-col min-w-0']">
-            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.ui.visual-artistry') }}</span>
-            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.ui.1-click-free-pollinations') }}</span>
+            <span :class="['font-bold text-neutral-900 dark:text-white text-[11px] truncate']">{{ t('onboarding.quickStart.visualArtistry') }}</span>
+            <span :class="['text-[10px] text-neutral-400 leading-none truncate']">{{ t('onboarding.quickStart.1ClickFreePollinations') }}</span>
           </div>
         </div>
         <label :class="['relative inline-flex items-center cursor-pointer shrink-0']">
@@ -1508,8 +1513,8 @@ async function handleStartChatting() {
       <div :class="['flex items-center gap-2 text-xs']">
         <span :class="['w-2.5 h-2.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse']" />
         <div :class="['flex flex-col']">
-          <span :class="['font-bold text-neutral-900 dark:text-white text-[11px]']">{{ t('onboarding.ui.ready-to-meet') }} {{ companionName }}</span>
-          <span :class="['text-[10px] text-neutral-400 leading-none']">{{ t('onboarding.ui.all-systems-configured-and-calibrated') }}</span>
+          <span :class="['font-bold text-neutral-900 dark:text-white text-[11px]']">{{ t('onboarding.quickStart.readyTitle', { companionName }) }}</span>
+          <span :class="['text-[10px] text-neutral-400 leading-none']">{{ t('onboarding.quickStart.allSystemsConfiguredAndCalibrated') }}</span>
         </div>
       </div>
 
@@ -1549,10 +1554,10 @@ async function handleStartChatting() {
             </div>
             <div>
               <h3 :class="['text-base font-bold text-neutral-900 dark:text-white']">
-                {{ t('onboarding.ui.preparing') }} {{ companionName }}...
+                {{ t('onboarding.quickStart.preparingCompanion', { companionName }) }}
               </h3>
               <p :class="['text-xs text-neutral-500 dark:text-neutral-400']">
-                {{ t('onboarding.ui.initializing-neural-engines-and-local-memory') }}
+                {{ t('onboarding.quickStart.initializingNeuralEnginesAndLocalMemory') }}
               </p>
             </div>
           </div>
@@ -1560,8 +1565,8 @@ async function handleStartChatting() {
           <!-- Overall Progress Bar -->
           <div :class="['space-y-1.5']">
             <div :class="['flex items-center justify-between text-[11px] font-mono text-neutral-500 dark:text-neutral-400']">
-              <span>{{ t('onboarding.ui.setup-progress') }}</span>
-              <span>{{ displayText(preparationProgress) }}%</span>
+              <span>{{ t('onboarding.quickStart.setupProgress') }}</span>
+              <span>{{ preparationProgress }}%</span>
             </div>
             <div :class="['w-full h-2 rounded-full bg-neutral-200 dark:bg-white/10 overflow-hidden']">
               <div
@@ -1588,8 +1593,8 @@ async function handleStartChatting() {
               <div :class="['flex items-center gap-2.5 min-w-0']">
                 <div :class="[step.icon, 'text-base shrink-0 text-cyan-400']" />
                 <div :class="['flex flex-col min-w-0']">
-                  <span :class="['font-semibold text-xs truncate']">{{ displayText(step.label) }}</span>
-                  <span :class="['text-[10px] text-neutral-400 dark:text-neutral-500 truncate']">{{ displayText(step.desc) }}</span>
+                  <span :class="['font-semibold text-xs truncate']">{{ 'labelKey' in step && step.labelKey ? t(step.labelKey) : step.label }}</span>
+                  <span :class="['text-[10px] text-neutral-400 dark:text-neutral-500 truncate']">{{ step.desc }}</span>
                 </div>
               </div>
 
@@ -1609,7 +1614,7 @@ async function handleStartChatting() {
                   v-else
                   :class="['text-[10px] text-neutral-400 font-mono']"
                 >
-                  {{ t('onboarding.ui.queued') }}
+                  {{ t('onboarding.quickStart.queued') }}
                 </span>
               </div>
             </div>

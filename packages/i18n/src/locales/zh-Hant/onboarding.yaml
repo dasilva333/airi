@@ -78,6 +78,8 @@ steps:
         f1: 裝置內 100% 離線儲存
         f2: 零雲端遙測與外部網路請求
         f3: 基於本機資料庫極速秒開
+      continueAction: Continue locally
+      noSignInNeeded: No sign-in needed.
     cloud:
       badge: 10 GB 免費 + 雲端同步
       title: 帳號登入 (Cloudflare)
@@ -103,7 +105,8 @@ steps:
         relay:
           title: 24/7 Discord 雲端接力
           desc: 即使電腦關機或休眠，伴侶也能在你的專屬 Discord 伺服器中保持清醒。
-          howItWorks: 作為無伺服器 Cloudflare Worker (@proj-airi/stage-edge) 運行並處理 Discord 互動 Webhook。
+          howItWorks: 作為無伺服器 Cloudflare Worker (@proj-airi/stage-edge) 運行並處理 Discord 互動
+            Webhook。
           whyItMatters: 伴侶全天候回應 Discord 訊息並在邊緣保存記憶，當你再次打開電腦時自動回傳同步。
         sync:
           title: 多裝置同步與一鍵復原
@@ -115,6 +118,14 @@ steps:
           desc: 安全存取複雜的本機與遠端 AI API，100% 零資料截留。
           howItWorks: 自動部署個人邊緣反向代理，為 Web 與行動端繞過瀏覽器 CORS 跨域限制。
           whyItMatters: 所有資料只存在於你自己的 Cloudflare 帳號中，AIRI 沒有任何中轉伺服器，絕不窺探或收集你的對話。
+      signInAction: Sign in & continue
+      signInHelp: Sign in with Cloudflare to continue.
+      useApiToken: Use API token
+      waitingForSignIn: Waiting for sign-in...
+      cancelSignIn: Cancel sign-in
+      finishInBrowser: Finish signing in in your browser.
+      continueAction: Continue with connected account
+      manageConnection: Manage connection
     auth:
       connected: 已連線至 Cloudflare
       disconnect: 中斷連線
@@ -124,6 +135,8 @@ steps:
       oauthButton: 使用 Cloudflare 登入
       tokenPlaceholder: 貼上您的 Cloudflare API 權杖...
       verifyToken: 連接權杖
+    changeLater: You can change this later.
+    moreDetails: More details
 
   appearance:
     label: 外觀
@@ -153,6 +166,8 @@ steps:
         royal: 尊貴與繁花
       activeColor: '目前套用: {color}'
     perDeviceToggle: 僅在本裝置保留此外觀（不參與雲端同步覆蓋）
+    companionGreeting: Let’s make this space feel like you. Choose your language, theme, and
+      accent color—you’ll see changes as you go.
 
   experience:
     label: 體驗
@@ -187,7 +202,7 @@ steps:
       quiet:
         title: 靜默觀察者
         badge: ⚡ 極速 · 極簡主義
-        subtitle: 文字、表情與記憶
+        subtitle: 文字、工具與記憶
         description: 零音訊開銷，具備舞台化身表情、思考節奏與長期記憶的輕量級文字夥伴。
       casual:
         title: 日常夥伴
@@ -212,7 +227,7 @@ steps:
       swiss-army:
         title: 全能瑞士刀
         badge: 🔥 全功能 · 應有盡有
-        subtitle: 全功能自主多模態
+        subtitle: 語音、視覺與行動
         description: 旗艦級全能數位夥伴。聽覺、神經語音、思考節奏、雙階段ACT表情、螢幕觀察、藝術生成與認知記憶層級。
     advanced:
       toggle: '高級：自訂各個模組開關'
@@ -230,6 +245,9 @@ steps:
         tools: 外部工具 (聯網搜尋與桌面 MCP)
     hideModules: 隱藏模組
     customizeModules: '進階: 自訂個別模組'
+    companionGreeting: Choose an archetype that fits your style. Whether you prefer a quiet
+      observer, voice companion, or full stage performer, every capability can
+      be customized.
 
   profile:
     label: 使用者畫像
@@ -256,6 +274,8 @@ steps:
     userBio:
       label: 關於你的補充資訊（選填上下文）
       placeholder: 分享你的興趣愛好或作息習慣，讓伴侶能夠更加懂你。
+    companionGreeting: What should I call you? Choose a ready-made profile or tell me about
+      yourself, including how you’d like us to interact.
 
   vessel:
     label: 物理軀體
@@ -357,6 +377,8 @@ steps:
         description: 深入的邏輯鏈條推理，在醞釀答案時會伴隨豐富的潛意識喃喃自語。
     subconsciousAsides: 潛意識旁白發音 (Needle 2 WASM)
     asidesDescription: 允許伴侶在生成長篇複雜回答時，將內心的思考碎碎念真實念出。
+    companionGreeting: Tune how your companion pauses and speaks while thinking. Choose a cadence
+      that matches your model's reasoning speed.
 
   emotions:
     label: 豐富情感

@@ -1682,6 +1682,9 @@ theme:
   title: Thème
   description: |
     Changez le thème de base d’AIRI, mode clair ou mode sombre.
+  auto: Système
+  light: Clair
+  dark: Sombre
 title: Paramètres
 voices: Voix
 vrm:
