@@ -22,8 +22,11 @@ export interface VirtualFileEntry {
 }
 
 export interface MountedWidget {
+  id: string
   path: string
   code: string
+  title?: string
+  target?: 'sidepanel' | 'inline' | 'window'
   mountedAt: number
 }
 
@@ -78,8 +81,11 @@ export interface SandboxVfsMessageItem {
 
 export type SandboxChannelMessage
   = | { type: 'sync-request', requestId: string }
-    | { type: 'sync-response', requestId: string, commandLogs: CommandLogEntry[] }
+    | { type: 'sync-response', requestId: string, commandLogs: CommandLogEntry[], mountedWidgets?: MountedWidget[] }
     | { type: 'command-log', entry: CommandLogEntry }
+    | { type: 'widget-mount', widget: MountedWidget }
+    | { type: 'widget-unmount', id: string }
+    | { type: 'widget-clear' }
     | { type: 'exec', requestId: string, command: string }
     | { type: 'exec-done', requestId: string, result: ExecResult }
     | { type: 'exec-error', requestId: string, error: string }

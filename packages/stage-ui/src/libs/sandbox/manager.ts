@@ -104,6 +104,7 @@ export class SandboxManager {
               type: 'sync-response',
               requestId: msg.requestId,
               commandLogs: [...this.commandLogs],
+              mountedWidgets: [...this.mountedWidgetsList],
             })
             break
           }
@@ -170,6 +171,16 @@ export class SandboxManager {
             this.notifyCommandListeners()
             break
           }
+          case 'widget-unmount': {
+            this.mountedWidgetsList = this.mountedWidgetsList.filter(w => w.id !== msg.id && w.path !== msg.id)
+            this.notifyMountListeners()
+            break
+          }
+          case 'widget-clear': {
+            this.mountedWidgetsList = []
+            this.notifyMountListeners()
+            break
+          }
           case 'reset': {
             await this.resetInternal()
             this.channel?.postMessage({
@@ -187,7 +198,32 @@ export class SandboxManager {
               this.commandLogs = [...msg.commandLogs]
               this.notifyCommandListeners()
             }
+            if (msg.mountedWidgets) {
+              this.mountedWidgetsList = [...msg.mountedWidgets]
+              this.notifyMountListeners()
+            }
             this.resolvePending(msg.requestId, msg.commandLogs)
+            break
+          }
+          case 'widget-mount': {
+            const existingIdx = this.mountedWidgetsList.findIndex(w => w.path === msg.widget.path || w.id === msg.widget.id)
+            if (existingIdx >= 0) {
+              this.mountedWidgetsList[existingIdx] = msg.widget
+            }
+            else {
+              this.mountedWidgetsList.push(msg.widget)
+            }
+            this.notifyMountListeners(msg.widget)
+            break
+          }
+          case 'widget-unmount': {
+            this.mountedWidgetsList = this.mountedWidgetsList.filter(w => w.id !== msg.id && w.path !== msg.id)
+            this.notifyMountListeners()
+            break
+          }
+          case 'widget-clear': {
+            this.mountedWidgetsList = []
+            this.notifyMountListeners()
             break
           }
           case 'command-log': {
@@ -298,6 +334,34 @@ export class SandboxManager {
     }
   }
 
+  private notifyMountListeners(widget?: MountedWidget): void {
+    const target = widget || this.mountedWidgetsList[this.mountedWidgetsList.length - 1] || ({ path: '', code: '', id: '', mountedAt: 0 } as MountedWidget)
+    for (const listener of this.mountListeners) {
+      try {
+        listener(target)
+      }
+      catch (err) {
+        console.error('[Sandbox] Mount listener error:', err)
+      }
+    }
+  }
+
+  unmountWidget(idOrPath: string): void {
+    this.mountedWidgetsList = this.mountedWidgetsList.filter(w => w.id !== idOrPath && w.path !== idOrPath)
+    if (this.channel) {
+      this.channel.postMessage({ type: 'widget-unmount', id: idOrPath })
+    }
+    this.notifyMountListeners()
+  }
+
+  clearWidgets(): void {
+    this.mountedWidgetsList = []
+    if (this.channel) {
+      this.channel.postMessage({ type: 'widget-clear' })
+    }
+    this.notifyMountListeners()
+  }
+
   clearLogs(): void {
     this.commandLogs = []
     if (this.channel) {
@@ -324,11 +388,28 @@ export class SandboxManager {
       if (!file) {
         return {
           stdout: '',
-          stderr: 'Usage: mount_widget <file.js|file.html>\n',
+          stderr: 'Usage: mount_widget <file.ts|file.js|file.html> [--title <title>] [--target sidepanel|inline|window]\n',
           exitCode: 1,
         }
       }
-      const fullPath = file.startsWith('/') ? file : `${ctx.cwd || '/workspace'}/${file}`
+      let fullPath = file.startsWith('/') ? file : `${ctx.cwd || '/workspace'}/${file}`
+
+      // Auto-compile if .ts
+      if (fullPath.endsWith('.ts')) {
+        const jsPath = fullPath.replace(/\.ts$/, '.js')
+        const compileRes = await compileTypeScriptInSandbox([fullPath, '--module', 'esnext', '--target', 'es2022', '--lib', 'es2022,dom'], ctx)
+        if (compileRes.exitCode !== 0) {
+          return {
+            stdout: compileRes.stdout,
+            stderr: `mount_widget: TypeScript compilation failed for ${fullPath}:\n${compileRes.stderr}`,
+            exitCode: compileRes.exitCode,
+          }
+        }
+        if (await ctx.fs.exists(jsPath)) {
+          fullPath = jsPath
+        }
+      }
+
       const exists = await ctx.fs.exists(fullPath)
       if (!exists) {
         return {
@@ -339,23 +420,92 @@ export class SandboxManager {
       }
 
       const code = await ctx.fs.readFile(fullPath)
+
+      // Parse optional args
+      let target: 'sidepanel' | 'inline' | 'window' = 'sidepanel'
+      let title: string | undefined
+      for (let i = 1; i < args.length; i++) {
+        if (args[i] === '--target' && args[i + 1]) {
+          target = args[++i] as any
+        }
+        else if (args[i] === '--title' && args[i + 1]) {
+          title = args[++i]
+        }
+      }
+      if (!title) {
+        title = fullPath.split('/').pop() || 'Widget'
+      }
+
       const widget: MountedWidget = {
+        id: `widget-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         path: fullPath,
         code,
+        title,
+        target,
         mountedAt: Date.now(),
       }
-      this.mountedWidgetsList.push(widget)
-      for (const listener of this.mountListeners) {
+
+      const existingIdx = this.mountedWidgetsList.findIndex(w => w.path === fullPath)
+      if (existingIdx >= 0) {
+        this.mountedWidgetsList[existingIdx] = widget
+      }
+      else {
+        this.mountedWidgetsList.push(widget)
+      }
+
+      if (this.channel) {
         try {
-          listener(widget)
+          this.channel.postMessage({
+            type: 'widget-mount',
+            widget,
+          })
         }
         catch (err) {
-          console.error('[Sandbox] Mount listener error:', err)
+          console.warn('[SandboxManager] Failed to broadcast widget-mount:', err)
         }
       }
 
+      this.notifyMountListeners(widget)
+
       return {
-        stdout: `[GEN_UI_MOUNT:${fullPath}]\n✨ Mounted ${fullPath} to Generative UI Canvas\n`,
+        stdout: `[GEN_UI_MOUNT:${fullPath}]\n✨ Mounted ${title} (${fullPath}) to ${target} Generative UI Canvas\n`,
+        stderr: '',
+        exitCode: 0,
+      }
+    }
+
+    const unmountHandler = async (args: string[], ctx: any) => {
+      const target = args[0]
+      if (!target) {
+        return {
+          stdout: '',
+          stderr: 'Usage: unmount_widget <file|id>\n',
+          exitCode: 1,
+        }
+      }
+      const fullPath = target.startsWith('/') ? target : `${ctx.cwd || '/workspace'}/${target}`
+      this.mountedWidgetsList = this.mountedWidgetsList.filter(w => w.id !== target && w.path !== target && w.path !== fullPath)
+
+      if (this.channel) {
+        this.channel.postMessage({ type: 'widget-unmount', id: target })
+      }
+      this.notifyMountListeners()
+
+      return {
+        stdout: `Unmounted widget: ${target}\n`,
+        stderr: '',
+        exitCode: 0,
+      }
+    }
+
+    const clearWidgetsHandler = async () => {
+      this.mountedWidgetsList = []
+      if (this.channel) {
+        this.channel.postMessage({ type: 'widget-clear' })
+      }
+      this.notifyMountListeners()
+      return {
+        stdout: 'Cleared all mounted generative widgets.\n',
         stderr: '',
         exitCode: 0,
       }
@@ -374,6 +524,21 @@ export class SandboxManager {
     this.bash.registerCommand({
       name: 'show',
       execute: mountHandler,
+    })
+
+    this.bash.registerCommand({
+      name: 'unmount_widget',
+      execute: unmountHandler,
+    })
+
+    this.bash.registerCommand({
+      name: 'unmount',
+      execute: unmountHandler,
+    })
+
+    this.bash.registerCommand({
+      name: 'clear_widgets',
+      execute: clearWidgetsHandler,
     })
 
     // 3. sed -i permission preservation wrapper
@@ -714,13 +879,69 @@ export class SandboxManager {
   }
 
   async seedWorkspace(): Promise<void> {
-    await this.bash.exec('mkdir -p /workspace')
+    await this.bash.exec('mkdir -p /workspace/types')
+
+    await this.bash.fs.writeFile('/workspace/types/airi-widget.d.ts', `// Project AIRI Generative UI Sidecar Contract
+export interface AiriWidgetSidecar {
+  session: {
+    id: string
+    activeSessionId?: string
+    activeCardName: string
+    characterName?: string
+    messageCount: number
+    lastUserMessageAt: string
+    lastMessageAt?: string | null
+    hoursSinceLastMessage: number
+  }
+  cognition: {
+    emotion: string
+    valence: number
+    energy: number
+    somaticState?: string
+    characterName?: string
+    character?: {
+      name: string
+      description?: string
+    }
+    consciousness?: {
+      activeProvider: string
+      activeModel: string
+    }
+    provider?: string
+    model?: string
+  }
+  telemetry: {
+    isAfk: boolean
+    idleSeconds: number
+    idleTimeSec: number
+    activeApp: string
+    activeProgram: string
+    activeWindowTitle: string
+    cpuLoad: [number, number, number] & {
+      '1m': number
+      '5m': number
+      '15m': number
+    }
+    gpuAvg?: number
+    volumeLevel?: number
+    localTime?: string
+  }
+}
+
+export interface AiriWidgetContext extends HTMLElement {
+  container: HTMLElement
+  sidecar: AiriWidgetSidecar
+  data: AiriWidgetSidecar
+  onUpdate: (callback: (updatedSidecar: AiriWidgetSidecar) => void) => () => void
+}
+`)
 
     await this.bash.fs.writeFile('/workspace/README.md', `# Project AIRI Workstation
 In-Memory POSIX RAM disk. Zero host filesystem access.
 - Live system projections: /workspace/.airi/*.json
 - TypeScript compiler: tsc <file.ts>
-- Generative UI: mount_widget <file.js>
+- Generative UI: mount_widget <file.ts|file.js>
+- Micro-App Types: /workspace/types/airi-widget.d.ts
 `)
   }
 

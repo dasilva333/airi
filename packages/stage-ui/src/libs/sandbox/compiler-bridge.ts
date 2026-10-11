@@ -95,7 +95,9 @@ export async function compileTypeScriptInSandbox(
   try {
     const rawPaths = ctx.fs.getAllPaths()
     const allPaths: string[] = Array.isArray(rawPaths) ? rawPaths : await rawPaths
-    const targetFiles = args.filter(a => !a.startsWith('-')).map(a => a.startsWith('/') ? a : `/workspace/${a}`)
+    const targetFiles = args
+      .filter(a => !a.startsWith('-') && (a.endsWith('.ts') || a.endsWith('.tsx')) && !a.endsWith('.d.ts'))
+      .map(a => a.startsWith('/') ? a : `/workspace/${a}`)
     const filesToCompile = targetFiles.length > 0
       ? targetFiles
       : allPaths.filter(p => p.startsWith('/workspace') && (p.endsWith('.ts') || p.endsWith('.tsx')) && !p.endsWith('.d.ts'))

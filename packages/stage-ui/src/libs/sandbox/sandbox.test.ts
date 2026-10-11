@@ -92,6 +92,28 @@ describe('sandbox subsystem & in-memory posix execution', () => {
       expect(mountedWidgetCaptured.path).toBe('/workspace/widget.js')
       expect(mountedWidgetCaptured.code).toContain('render()')
     })
+
+    it('auto-compiles .ts files on mount_widget and unmounts properly', async () => {
+      const sandbox = new SandboxManager()
+      await sandbox.init()
+
+      await sandbox.writeFile('/workspace/counter.ts', `
+        export default function mount(ctx: any) {
+          ctx.innerHTML = '<div>Count: 1</div>'
+        }
+      `)
+
+      const mountRes = await sandbox.exec('mount_widget /workspace/counter.ts --title "Counter Gauge" --target sidepanel')
+      expect(mountRes.exitCode).toBe(0)
+      expect(mountRes.stdout).toContain('Mounted Counter Gauge (/workspace/counter.js) to sidepanel')
+      expect(sandbox.mountedWidgets.length).toBe(1)
+      expect(sandbox.mountedWidgets[0].title).toBe('Counter Gauge')
+      expect(sandbox.mountedWidgets[0].target).toBe('sidepanel')
+
+      const unmountRes = await sandbox.exec('unmount_widget /workspace/counter.js')
+      expect(unmountRes.exitCode).toBe(0)
+      expect(sandbox.mountedWidgets.length).toBe(0)
+    })
   })
 
   describe('level 1 vfs state projections', () => {

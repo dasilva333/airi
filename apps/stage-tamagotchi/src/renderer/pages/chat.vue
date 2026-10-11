@@ -7,6 +7,7 @@ import { resolveAtmosphereComponent } from '@proj-airi/stage-layouts/components/
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
 import { ChatBrainPopover, ChatMemoryPopover, ChatSessionModal } from '@proj-airi/stage-ui/components'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
+import { useSandbox } from '@proj-airi/stage-ui/composables/use-sandbox'
 import { DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
@@ -24,6 +25,7 @@ import LogoDark from '../../../../../packages/stage-layouts/src/assets/logo-dark
 import ChatNan0CognitionPanel from '../components/chat/ChatNan0CognitionPanel.vue'
 import ChatWorkspaceCoordinator from '../components/chat/ChatWorkspaceCoordinator.vue'
 import ChatWorkspaceTerminalPanel from '../components/chat/ChatWorkspaceTerminalPanel.vue'
+import ChatWorkspaceWidgetsPanel from '../components/chat/ChatWorkspaceWidgetsPanel.vue'
 
 import { electronApplySizePreset, electronOpenSettings, electronStageToggleVisibility } from '../../shared/eventa'
 
@@ -147,6 +149,16 @@ const rightPanelMemoriesCollapsed = useLocalStorage('airi:chat:rp-memories-colla
 const rightPanelCurrentSceneCollapsed = useLocalStorage('airi:chat:rp-current-scene-collapsed', false)
 const rightPanelMediaCollapsed = useLocalStorage('airi:chat:rp-media-collapsed', false)
 const rightPanelTerminalCollapsed = useLocalStorage('airi:chat:rp-terminal-collapsed', false)
+const rightPanelWidgetsCollapsed = useLocalStorage('airi:chat:rp-widgets-collapsed', false)
+const { mountedWidgets } = useSandbox()
+const activeWidgetsCount = computed(() => mountedWidgets.value.length)
+
+watch(() => mountedWidgets.value.length, (newCount, oldCount) => {
+  if (newCount > (oldCount ?? 0)) {
+    rightPanelWidgetsCollapsed.value = false
+  }
+})
+
 const rightPanelNan0Collapsed = useLocalStorage('airi:chat:rp-nan0-collapsed', false)
 const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
 const rightPanelStageCollapsed = useLocalStorage('airi:chat:rp-stage-collapsed', true)
@@ -2270,6 +2282,32 @@ function selectSurface(surface: typeof activeSurface.value) {
                     View More
                     <span class="i-solar:alt-arrow-down-bold text-[8px]" />
                   </button>
+                </div>
+              </div>
+
+              <!-- Generative Widgets Section -->
+              <div v-if="isSandboxActive" class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <span
+                    :class="['flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase transition-colors',
+                             rightPanelWidgetsCollapsed
+                               ? 'bg-neutral-100/50 text-neutral-400 dark:bg-neutral-800/50'
+                               : 'bg-primary-50/50 text-primary-500 dark:bg-primary-950/30 dark:text-primary-400']"
+                    @click="rightPanelWidgetsCollapsed = !rightPanelWidgetsCollapsed"
+                  >
+                    <span class="i-solar:widget-5-bold-duotone text-xs" />
+                    Generative Widgets
+                    <span v-if="activeWidgetsCount > 0" class="rounded-full bg-primary-500/20 px-1.5 py-0.2 text-[9px] text-primary-400 font-bold font-mono">
+                      {{ activeWidgetsCount }}
+                    </span>
+                    <span :class="rightPanelWidgetsCollapsed ? 'i-solar:eye-closed-linear' : 'i-solar:eye-linear'" class="text-xs" />
+                  </span>
+                  <span class="text-[9px] text-neutral-400 font-mono uppercase">
+                    Sidepanel UI
+                  </span>
+                </div>
+                <div v-if="!rightPanelWidgetsCollapsed">
+                  <ChatWorkspaceWidgetsPanel />
                 </div>
               </div>
 

@@ -88,6 +88,20 @@ export function useSandbox() {
     lastResult.value = null
   }
 
+  function unmountWidget(idOrPath: string): void {
+    if (sandbox.value) {
+      sandbox.value.unmountWidget(idOrPath)
+      mountedWidgets.value = [...sandbox.value.mountedWidgets]
+    }
+  }
+
+  function clearWidgets(): void {
+    if (sandbox.value) {
+      sandbox.value.clearWidgets()
+      mountedWidgets.value = []
+    }
+  }
+
   onMounted(() => {
     void init()
   })
@@ -105,5 +119,7 @@ export function useSandbox() {
     readFile,
     writeFile,
     reset,
+    unmountWidget,
+    clearWidgets,
   }
 }

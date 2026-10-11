@@ -180,9 +180,13 @@ The runtime continuously syncs real-time state into \`/workspace/.airi/\`:
 
 ### Autonomous Generative UI Micro-Apps
 When asked to build interactive cards, monitors, timers, or companion tools:
-1. Write a clean TypeScript component into \`/workspace/<name>.ts\`.
-2. Compile: \`tsc /workspace/<name>.ts\` (emits \`/workspace/<name>.js\`).
-3. Mount the component dynamically using \`mount_widget /workspace/<name>.js\` (or \`mount\`).`
+1. Write a TypeScript or HTML component into \`/workspace/<name>.ts\`.
+2. Micro-apps receive the Level 3 Sidecar context:
+   - \`sidecar.telemetry\`: \`activeApp\` / \`activeProgram\`, \`cpuLoad['1m']\` (or \`cpuLoad[0]\`), \`idleSeconds\` / \`idleTimeSec\`, \`isAfk\`
+   - \`sidecar.session\`: \`activeCardName\`, \`messageCount\`, \`lastUserMessageAt\`, \`hoursSinceLastMessage\`
+   - \`sidecar.cognition\`: \`characterName\`, \`emotion\`, \`energy\`, \`model\`, \`provider\`
+   - Type definitions are preloaded at \`/workspace/types/airi-widget.d.ts\`.
+3. Mount the component dynamically in one shot via: \`mount_widget /workspace/<name>.ts --title "<Title>"\`. (The command automatically compiles \`.ts\` to \`.js\` if needed!).`
 
 export const DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION = `## Instruction: In-Memory POSIX Scratchpad
 You have access to an isolated in-memory POSIX environment via the **bash** tool at \`/workspace\` (zero-leak RAM disk).
