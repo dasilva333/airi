@@ -402,6 +402,14 @@ const allImageEntries = computed(() => {
   return backgroundStore.journalEntries
 })
 
+// A section without entries (e.g. no images yet) counts as hidden, otherwise hiding the
+// only populated section left the strip at full height with an empty area.
+const isJournalStripCollapsed = computed(() => {
+  const isMemoriesOpen = groupedTextEntries.value.length > 0 && !isMemoriesCollapsed.value
+  const isMediaOpen = latestImageEntries.value.length > 0 && !isMediaCollapsed.value
+  return !isMemoriesOpen && !isMediaOpen
+})
+
 // --- Date Formatting ---
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-CA') // YYYY-MM-DD
@@ -969,55 +977,33 @@ defineExpose({
     </div>
 
     <!-- Journal Preview Chips -->
-    <div v-if="latestTextEntries.length > 0 || latestImageEntries.length > 0" class="w-full px-2 py-0.5">
-      <!-- Collapsed State: both sections are collapsed -> Slim pill bar (~22px) -->
+    <div
+      v-if="latestTextEntries.length > 0 || latestImageEntries.length > 0"
+      :class="isJournalStripCollapsed ? 'relative h-0 w-full' : 'w-full px-2 py-0.5'"
+    >
+      <!-- Collapsed State: no section is open -> floating pills over the history, no layout height -->
       <div
-        v-if="isMemoriesCollapsed && isMediaCollapsed"
-        class="h-[22px] flex select-none items-center justify-between px-1"
+        v-if="isJournalStripCollapsed"
+        class="absolute bottom-1 left-2 z-10 flex select-none items-center gap-2"
       >
-        <div class="flex items-center gap-2">
-          <!-- Memories Badge -->
-          <span
-            v-if="groupedTextEntries.length > 0"
-            class="flex cursor-pointer items-center gap-1.5 rounded-full bg-neutral-100/60 px-2.5 py-0.5 text-[10px] text-neutral-400 font-bold tracking-wider uppercase transition-colors dark:bg-neutral-800/60 hover:bg-neutral-200/60 dark:text-neutral-400"
-            @click="isMemoriesCollapsed = false"
-          >
-            Memories
-            <span class="i-solar:eye-closed-linear text-xs" />
-          </span>
-          <!-- Media Gallery Badge -->
-          <span
-            v-if="latestImageEntries.length > 0"
-            class="flex cursor-pointer items-center gap-1.5 rounded-full bg-neutral-100/60 px-2.5 py-0.5 text-[10px] text-neutral-400 font-bold tracking-wider uppercase transition-colors dark:bg-neutral-800/60 hover:bg-neutral-200/60 dark:text-neutral-400"
-            @click="isMediaCollapsed = false"
-          >
-            Media Gallery
-            <span class="i-solar:eye-closed-linear text-xs" />
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
-          <button
-            v-if="groupedTextEntries.length > 0"
-            class="select-none text-[10px] text-primary-500 font-bold transition-colors hover:text-primary-600"
-            @click="showJournalModal = true"
-          >
-            + New
-          </button>
-          <button
-            v-if="latestImageEntries.length > 0"
-            class="select-none text-[10px] text-primary-500 font-bold transition-colors hover:text-primary-600"
-            @click="showImagineDialog = true; imaginePrompt = ''"
-          >
-            + Add
-          </button>
-          <button
-            v-if="latestImageEntries.length > 0"
-            class="select-none text-[10px] text-neutral-400 font-bold transition-colors hover:text-neutral-600 dark:hover:text-neutral-300"
-            @click="stageBackgroundDialogOpen = true"
-          >
-            View All
-          </button>
-        </div>
+        <!-- Memories Badge -->
+        <span
+          v-if="groupedTextEntries.length > 0"
+          class="flex cursor-pointer items-center gap-1.5 rounded-full bg-neutral-100/60 px-2.5 py-0.5 text-[10px] text-neutral-400 font-bold tracking-wider uppercase transition-colors dark:bg-neutral-800/60 hover:bg-neutral-200/60 dark:text-neutral-400"
+          @click="isMemoriesCollapsed = false"
+        >
+          Memories
+          <span class="i-solar:eye-closed-linear text-xs" />
+        </span>
+        <!-- Media Gallery Badge -->
+        <span
+          v-if="latestImageEntries.length > 0"
+          class="flex cursor-pointer items-center gap-1.5 rounded-full bg-neutral-100/60 px-2.5 py-0.5 text-[10px] text-neutral-400 font-bold tracking-wider uppercase transition-colors dark:bg-neutral-800/60 hover:bg-neutral-200/60 dark:text-neutral-400"
+          @click="isMediaCollapsed = false"
+        >
+          Media Gallery
+          <span class="i-solar:eye-closed-linear text-xs" />
+        </span>
       </div>
 
       <!-- Expanded State: at least one section is expanded -> Single-row side-by-side (~85px total height) -->
