@@ -279,10 +279,10 @@ const formattedArgs = computed(() => {
       </template>
 
       <template v-else-if="screenshotResult">
-        <div v-if="screenshotResult.imageUrl" class="mb-2 overflow-hidden border border-primary-500/20 rounded-xl">
+        <div v-if="screenshotResult.imageUrl" class="mb-2 max-w-sm w-fit overflow-hidden border border-primary-500/20 rounded-xl">
           <img
             :src="screenshotResult.imageUrl"
-            class="w-full cursor-zoom-in object-contain transition-all hover:ring-2 hover:ring-primary-500/50"
+            class="max-h-64 cursor-zoom-in object-contain transition-all hover:ring-2 hover:ring-primary-500/50"
             @click="openImagePreview({ title: 'Screenshot', url: screenshotResult.imageUrl })"
           >
         </div>
