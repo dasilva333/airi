@@ -39,7 +39,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   const { activeCardId } = storeToRefs(airiCardStore)
   const { messages, activeSessionId } = storeToRefs(chatSession)
   const { ingest, stopCurrentGeneration } = chatOrchestrator
-  const { sending } = storeToRefs(chatOrchestrator)
+  const { sending, isSpeaking, canStop } = storeToRefs(chatOrchestrator)
   const { stream, enabled } = storeToRefs(settingsAudioDevice)
 
   // Transcription/Hearing
@@ -227,6 +227,9 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
       if (!activeSessionId.value) {
         await chatSession.ensureActiveSessionForCharacter()
       }
+      if (canStop.value && activeSessionId.value) {
+        await stopCurrentGeneration(activeSessionId.value)
+      }
       const providerConfig = providersStore.getProviderConfig(activeProvider.value)
       await ingest(textToSend, {
         chatProvider: await providersStore.getProviderInstance(activeProvider.value) as ChatProvider,
@@ -404,6 +407,8 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     isListening,
     trashConfirmOpen,
     sending,
+    isSpeaking,
+    canStop,
 
     handleFilePaste,
     handleFileSelect,

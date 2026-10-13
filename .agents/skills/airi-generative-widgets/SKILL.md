@@ -260,6 +260,7 @@ Widgets can call external Model Context Protocol (MCP) tools from within their s
 ## Related Skills & Authoritative References
 
 - [docs/proposal-in-memory-sandboxes-and-edge-wasm.md](docs/proposal-in-memory-sandboxes-and-edge-wasm.md) — Master proposal and architectural specification.
+- [docs/design-generative-widgets-export-and-scoping.md](docs/design-generative-widgets-export-and-scoping.md) — Export interface, global vs card scoping, and bundled starter presets.
 - [docs/data-catalog.md](docs/data-catalog.md) — `local:widgets/registry` persistence schema.
 - [[airi-artistry-comfyui-widgets]] — Contrast peer: image-generation stage widgets and ComfyUI bridge.
 - [[airi-mcp-integration]] — External Model Context Protocol server configuration and tool execution.

@@ -32,6 +32,8 @@ export interface MountedWidget {
   target?: 'sidepanel' | 'inline' | 'window'
   position?: { x: number, y: number }
   state?: any
+  scope?: 'global' | 'card'
+  cardId?: string
   _lastSyncedJsonContent?: string
   mountedAt: number
 }

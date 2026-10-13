@@ -5,9 +5,10 @@ import { ChatHistory, ChatWorkspaceTerminalPanel, ChatWorkspaceWidgetsPanel } fr
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useDeferredMount } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import ChatArea from '../Widgets/ChatArea.vue'
 import ChatContainer from '../Widgets/ChatContainer.vue'
@@ -23,6 +24,22 @@ const { isReady } = useDeferredMount()
 const { sending } = storeToRefs(useChatOrchestratorStore())
 const { messages } = storeToRefs(useChatSessionStore())
 const { streamingMessage } = storeToRefs(useChatStreamStore())
+
+const cardStore = useAiriCardStore()
+const { activeCard } = storeToRefs(cardStore)
+
+const hasVirtualTerminal = computed(() => {
+  const allowed = activeCard.value?.extensions?.airi?.generation?.known?.allowedTools
+  if (allowed && (allowed.includes('bash') || allowed.includes('mcp_bash')))
+    return true
+  return activeCard.value?.extensions?.airi?.sandbox?.enabled ?? false
+})
+
+watch(hasVirtualTerminal, (enabled) => {
+  if (!enabled && activeTab.value !== 'chat') {
+    activeTab.value = 'chat'
+  }
+})
 
 const isLoading = ref(true)
 const historyMessages = computed(() => messages.value as unknown as ChatHistoryItem[])
@@ -42,6 +59,7 @@ const historyMessages = computed(() => messages.value as unknown as ChatHistoryI
 
         <!-- Top Surface Switcher Tabs -->
         <div
+          v-if="hasVirtualTerminal"
           :class="[
             'relative z-10 flex shrink-0 items-center justify-between',
             'border-b border-primary-500/10 dark:border-white/5',
@@ -97,7 +115,7 @@ const historyMessages = computed(() => messages.value as unknown as ChatHistoryI
         </div>
 
         <!-- Surface 1: Chat Transcript & Composer -->
-        <template v-if="activeTab === 'chat'">
+        <template v-if="activeTab === 'chat' || !hasVirtualTerminal">
           <div w="full" max-h="<md:[60%]" py="<sm:2" flex="~ col" rounded="lg" px="2 <md:0" relative h-full min-h-0 flex-1 overflow-hidden py-4>
             <ChatHistory
               v-if="isReady"

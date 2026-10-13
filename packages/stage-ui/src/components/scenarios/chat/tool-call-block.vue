@@ -5,6 +5,7 @@ import { computed } from 'vue'
 import { useBackgroundStore } from '../../../stores/background'
 import { useJournalPreviewStore } from '../../../stores/journal-preview'
 import { MarkdownRenderer } from '../../markdown'
+import { formatToolCallSummary } from './utils'
 
 const props = defineProps<{
   toolName: string
@@ -142,48 +143,61 @@ const formattedArgs = computed(() => {
     return props.args
   }
 })
+
+const toolSummary = computed(() => {
+  return formatToolCallSummary(props.toolName, parsedArgs.value || props.args)
+})
 </script>
 
 <template>
   <Collapsible
     :class="[
-      'bg-primary-100/40 dark:bg-primary-900/60 rounded-lg px-2 pb-2 pt-2',
-      'flex flex-col gap-2 items-start',
+      'bg-white/95 dark:bg-neutral-800/95 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60 shadow-xs px-3.5 py-2.5',
+      'flex flex-col gap-2 items-start w-full transition-all',
     ]"
   >
     <template #trigger="{ visible, setVisible }">
       <button
         :class="[
-          'w-full text-start',
+          'w-full text-start flex items-center justify-between gap-2 group cursor-pointer select-none',
         ]"
         @click="setVisible(!visible)"
       >
+        <div class="min-w-0 flex flex-1 items-center gap-2.5">
+          <div
+            v-if="state === 'executing'"
+            i-eos-icons:loading class="shrink-0 text-base text-primary-500"
+          />
+          <div
+            v-else-if="state === 'error'"
+            i-ph:warning-circle-duotone class="shrink-0 text-base text-red-500"
+          />
+          <div
+            v-else-if="state === 'done'"
+            i-ph:check-circle-duotone class="shrink-0 text-base text-emerald-500"
+          />
+          <div
+            v-else
+            i-solar:sledgehammer-bold-duotone class="shrink-0 text-base op-50"
+          />
+          <code class="truncate text-xs text-neutral-800 font-medium tracking-tight font-mono dark:text-neutral-200" :title="toolSummary">
+            {{ toolSummary }}
+          </code>
+          <span v-if="state === 'error' && result" class="ml-1 truncate text-xs text-red-500 op-80">
+            ({{ result }})
+          </span>
+        </div>
+
         <div
-          v-if="state === 'executing'"
-          i-eos-icons:loading class="mr-1 inline-block translate-y-0.5 op-50"
+          class="i-solar:alt-arrow-down-linear shrink-0 text-xs text-neutral-400 transition-transform duration-200 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300"
+          :class="[visible ? 'rotate-180' : '']"
         />
-        <div
-          v-else-if="state === 'error'"
-          i-ph:warning-circle-duotone class="mr-1 inline-block translate-y-0.5 text-red-500"
-        />
-        <div
-          v-else-if="state === 'done'"
-          i-ph:check-circle-duotone class="mr-1 inline-block translate-y-0.5 text-emerald-500"
-        />
-        <div
-          v-else
-          i-solar:sledgehammer-bold-duotone class="mr-1 inline-block translate-y-1 op-50"
-        />
-        <code>{{ toolName }}</code>
-        <span v-if="state === 'error' && result" class="ml-2 text-xs text-red-500 op-80">
-          ({{ result }})
-        </span>
       </button>
     </template>
     <div
       :class="[
-        'rounded-md p-2 w-full',
-        'bg-neutral-100/80 text-sm text-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-200',
+        'rounded-lg p-2.5 w-full mt-1',
+        'bg-neutral-100/70 text-sm text-neutral-800 dark:bg-neutral-900/70 dark:text-neutral-200',
       ]"
     >
       <template v-if="isTextJournalCreate">
@@ -291,8 +305,18 @@ const formattedArgs = computed(() => {
         </div>
       </template>
 
-      <div v-else class="whitespace-pre-wrap break-words text-[10px] font-mono op-80">
-        {{ formattedArgs }}
+      <div v-else class="flex flex-col gap-2">
+        <div class="whitespace-pre-wrap break-words text-[10px] font-mono op-80">
+          {{ formattedArgs }}
+        </div>
+        <div v-if="result && typeof result === 'string'" class="border-t border-neutral-200/50 pt-1.5 dark:border-neutral-700/50">
+          <div class="mb-1 text-[9px] text-neutral-500 font-semibold tracking-wider uppercase">
+            Output
+          </div>
+          <div class="max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded bg-black/5 p-1.5 text-[10px] text-neutral-700 font-mono dark:bg-black/30 dark:text-neutral-300">
+            {{ result }}
+          </div>
+        </div>
       </div>
     </div>
   </Collapsible>

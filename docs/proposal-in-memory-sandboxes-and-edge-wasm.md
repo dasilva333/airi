@@ -533,6 +533,11 @@ By integrating targeted WASM binaries into `apps/stage-edge`, the Discord bot ga
     * Full persistence in `widgetsRepo` (`local:widgets/registry`): preserves widget names, surface assignments, and drag positions `(x, y)` across page reloads and tab refreshes.
   * **Shared Component Infrastructure (Shipped)**:
     * Promoted `ChatWorkspaceTerminalPanel.vue`, `ChatWorkspaceWidgetsPanel.vue`, `FloatingWidgetsLayer.vue`, and `FloatingWidgetCard.vue` to `@proj-airi/stage-ui` ensuring 100% DRY code sharing across Desktop Electron (`stage-tamagotchi`), Web Browser (`stage-web`), and Mobile Capacitor (`stage-pocket`).
+* **Phase 8B: Export Interface, Scoping Architecture & Bundled Starter Presets [IN DESIGN — `docs/design-generative-widgets-export-and-scoping.md`]**
+  * **1-Click Export Interface**: Adds diskette icon button (`i-solar:diskette-bold`) in `ChatWorkspaceWidgetsPanel.vue` and `FloatingWidgetCard.vue` providing 1-click clipboard JSON copy and timestamped `.json` file downloads (excluding unconstrained `exportText`).
+  * **Widget Scoping (`global` vs `card`)**: Extends `PersistedWidget` with `scope: 'global' | 'card'` and `cardId?: string`. Global utilities (Arona strawberry pet, system telemetry) persist across card switches, while card-scoped micro-apps (Haven Cafe POS) hibernate cleanly when switching characters and bundle into `character.extensions.airi.widgets`.
+  * **Bundled Starter Presets**: Packages curated community/mockup widgets in `assets/widgets/presets/` (Haven Cafe POS, Arona Pet, System Telemetry) for zero-friction out-of-the-box utility.
+  * **Sensory Telemetry Bridge**: Bridges Live2D tactile raycasts and DSL `VarFloats` state into `sidecar.telemetry.tactile` without contaminating LLM prompt grounding.
 * **Phase 9: Cloudflare Edge Relay WASM Extensions & Tachie Compositor (`apps/stage-edge`)**
   * *Specification Document*: [`docs/proposal-edge-wasm-character-runtime.md`](./proposal-edge-wasm-character-runtime.md).
   * Serverless 2D Tachie sprite compositing in Rust WASM (`tiny-skia` / `image-rs`) with Cloudflare R2 asset storage and edge caching.

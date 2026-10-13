@@ -178,7 +178,9 @@ export function buildMessagesProjection(): SandboxVfsMessageItem[] {
       id: m.id || '',
       role: m.role || 'user',
       createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : undefined,
-      content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+      content: (typeof m.rawContent === 'string' && m.rawContent)
+        ? m.rawContent
+        : (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)),
     }))
   }
   catch (err) {

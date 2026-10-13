@@ -2561,6 +2561,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             'local:memory/text-journal/local',
             'local:memory/echo-chips/local',
             'local:airi-cards',
+            'local:widgets/registry',
             'local:localstorage/settings/live2d/available-motions',
             'local:localstorage/settings/speech/voice-profiles',
           ].includes(localKey)
@@ -2916,6 +2917,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             'local:memory/text-journal/local',
             'local:memory/echo-chips/local',
             'local:airi-cards',
+            'local:widgets/registry',
             'local:localstorage/settings/live2d/available-motions',
             'local:localstorage/settings/speech/voice-profiles',
           ].includes(item.key) || item.key.startsWith('local:chat/index/')

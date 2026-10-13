@@ -1586,6 +1586,16 @@ playbackManager.onEnd(({ item }) => {
   mouthOpenSize.value = 0
 })
 
+playbackManager.onInterrupt(({ item, reason }) => {
+  debug('[Stage] Playback interrupted:', { reason, itemText: item?.text })
+  nowSpeaking.value = false
+  mouthOpenSize.value = 0
+  try {
+    postSpeakingState({ mouthOpenSize: 0, nowSpeaking: false })
+  }
+  catch {}
+})
+
 playbackManager.onStart(({ item }) => {
   nowSpeaking.value = true
 
@@ -1748,6 +1758,13 @@ chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
   // Reset the entire host pipeline on each new assistant turn so later chat TTS cannot inherit
   // stale proactivity/chat intent state.
   speechPipeline.stopAll('new-message')
+  playbackManager.stopAll('new-message')
+  nowSpeaking.value = false
+  mouthOpenSize.value = 0
+  try {
+    postSpeakingState({ mouthOpenSize: 0, nowSpeaking: false })
+  }
+  catch {}
   discordStore.clearAudioTurn()
   turnPacing.cancel('new-message')
 

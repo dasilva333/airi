@@ -14,6 +14,8 @@ export interface PersistedWidget {
   isMounted: boolean
   mountedAt: number
   updatedAt: number
+  scope?: 'global' | 'card'
+  cardId?: string
 }
 
 export const WIDGETS_REGISTRY_KEY = 'local:widgets/registry'

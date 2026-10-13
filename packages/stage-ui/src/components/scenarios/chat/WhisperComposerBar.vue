@@ -49,7 +49,7 @@ const cardStore = useAiriCardStore()
 const chatSession = useChatSessionStore()
 const chatOrchestrator = useChatOrchestratorStore()
 const consciousnessStore = useConsciousnessStore()
-const { sending, isSpeaking, canStop } = storeToRefs(chatOrchestrator)
+const { sending, canStop } = storeToRefs(chatOrchestrator)
 const onboardingStore = useOnboardingStore()
 const { generateSuggestions } = useProducer()
 
@@ -235,11 +235,19 @@ async function onSubmit() {
   if (props.disabled)
     return
 
-  // While generating or speaking, the send button morphs into the Stop button — cancel the
-  // in-flight generation or active speech instead of swallowing the click.
-  if (canStop.value) {
+  const hasContent = Boolean(messageInput.value.trim() || attachments.value.length)
+
+  // While generating or speaking with empty input, the button acts as Stop — cancel the
+  // in-flight generation or active speech.
+  if (canStop.value && !hasContent) {
     await chatOrchestrator.stopCurrentGeneration(chatSession.activeSessionId)
     return
+  }
+
+  // If submitting a new message while a previous turn is generating or speaking,
+  // cancel the prior playback first, but DO NOT swallow the send.
+  if (canStop.value && hasContent) {
+    await chatOrchestrator.stopCurrentGeneration(chatSession.activeSessionId)
   }
 
   const text = messageInput.value.trim()
@@ -392,16 +400,18 @@ defineExpose({
           :disabled="disabled || (!messageInput.trim() && attachments.length === 0 && !canStop)"
           :class="[
             'flex items-center justify-center size-8.5 rounded-full transition-all cursor-pointer shrink-0',
-            canStop
+            canStop && !messageInput.trim() && attachments.length === 0
               ? 'bg-red-500 text-white shadow-md shadow-red-500/20 hover:bg-red-600'
               : messageInput.trim() || attachments.length > 0
                 ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30 hover:bg-primary-600'
-                : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 cursor-not-allowed',
+                : canStop
+                  ? 'bg-red-500 text-white shadow-md shadow-red-500/20 hover:bg-red-600'
+                  : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 cursor-not-allowed',
           ]"
-          :title="sending ? 'Stop Generating' : isSpeaking ? 'Stop Speaking' : 'Send'"
+          :title="canStop && !messageInput.trim() && attachments.length === 0 ? (sending ? 'Stop Generating' : 'Stop Speaking') : 'Send'"
           @click="onSubmit"
         >
-          <div :class="[canStop ? 'i-solar:stop-bold size-3.5' : 'i-solar:plain-bold size-4']" />
+          <div :class="[canStop && !messageInput.trim() && attachments.length === 0 ? 'i-solar:stop-bold size-3.5' : 'i-solar:plain-bold size-4']" />
         </button>
       </div>
     </div>

@@ -3,9 +3,10 @@ import type { MountedWidget, PersistedWidget } from '../../../libs/sandbox'
 
 import { useLocalStorage } from '@vueuse/core'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import { useSandbox } from '../../../composables/use-sandbox'
-import { buildWidgetIframeSrcdoc } from '../../../libs/sandbox'
+import { buildWidgetIframeSrcdoc, copyWidgetManifestToClipboard, downloadWidgetManifestFile } from '../../../libs/sandbox'
 import { tryGetMcpToolBridge } from '../../../stores/mcp-tool-bridge'
 
 const props = withDefaults(defineProps<{
@@ -116,6 +117,54 @@ function formatDate(timestamp?: number): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+async function handleExportWidget(event?: MouseEvent) {
+  if (!activeWidget.value)
+    return
+
+  const target = activeWidget.value
+  if (event?.shiftKey || event?.altKey) {
+    downloadWidgetManifestFile(target)
+    toast.success(`Downloaded "${target.title || 'Widget'}" manifest (.json)`)
+    return
+  }
+
+  const copied = await copyWidgetManifestToClipboard(target)
+  if (copied) {
+    toast.success(`Copied "${target.title || 'Widget'}" JSON to clipboard!`, {
+      action: {
+        label: 'Download .json',
+        onClick: () => downloadWidgetManifestFile(target),
+      },
+    })
+  }
+  else {
+    downloadWidgetManifestFile(target)
+    toast.info(`Downloaded "${target.title || 'Widget'}" manifest (.json)`)
+  }
+}
+
+async function handleExportCatalogWidget(widget: PersistedWidget, event?: MouseEvent) {
+  if (event?.shiftKey || event?.altKey) {
+    downloadWidgetManifestFile(widget)
+    toast.success(`Downloaded "${widget.title || 'Widget'}" manifest (.json)`)
+    return
+  }
+
+  const copied = await copyWidgetManifestToClipboard(widget)
+  if (copied) {
+    toast.success(`Copied "${widget.title || 'Widget'}" JSON to clipboard!`, {
+      action: {
+        label: 'Download .json',
+        onClick: () => downloadWidgetManifestFile(widget),
+      },
+    })
+  }
+  else {
+    downloadWidgetManifestFile(widget)
+    toast.info(`Downloaded "${widget.title || 'Widget'}" manifest (.json)`)
+  }
 }
 
 async function toggleActiveWidgetSurface() {
@@ -275,6 +324,19 @@ onUnmounted(() => {
           @click="refreshActiveWidget"
         >
           <span class="i-solar:refresh-linear text-sm" :class="{ 'animate-spin': isLoading }" />
+        </button>
+
+        <button
+          v-if="activeWidget"
+          title="Export widget as JSON (Shift+Click to download)"
+          type="button"
+          :class="[
+            'flex items-center justify-center rounded-lg p-1.5 text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
+            'hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 transition-colors cursor-pointer',
+          ]"
+          @click="handleExportWidget"
+        >
+          <span class="i-solar:diskette-bold text-sm text-primary-500/90" />
         </button>
 
         <button
@@ -549,6 +611,15 @@ onUnmounted(() => {
                   >
                     <span :class="selectedWidgetId === widget.id ? 'i-solar:close-circle-bold-duotone text-xs' : 'i-solar:eye-bold-duotone text-xs'" />
                     <span>{{ selectedWidgetId === widget.id ? 'Unmount' : 'View' }}</span>
+                  </button>
+
+                  <button
+                    title="Export widget as JSON (Shift+Click to download)"
+                    type="button"
+                    class="flex cursor-pointer items-center justify-center rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-neutral-200/50 hover:text-primary-600 dark:hover:bg-neutral-800/50 dark:hover:text-primary-400"
+                    @click.stop="handleExportCatalogWidget(widget, $event)"
+                  >
+                    <span class="i-solar:diskette-bold text-sm" />
                   </button>
 
                   <button

@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { widgetsRepo } from '../../database/repos/widgets.repo'
+import { useChatSessionStore } from '../../stores/chat/session-store'
 import { clearMcpToolBridge, setMcpToolBridge } from '../../stores/mcp-tool-bridge'
 import { useAiriCardStore } from '../../stores/modules/airi-card'
 import { useNan0Store } from '../../stores/modules/nan0'
@@ -202,6 +203,32 @@ describe('sandbox subsystem & in-memory posix execution', () => {
       const resTelemetry = await sandbox.exec('cat /workspace/.airi/telemetry.json | jq -r .activeProgram')
       expect(resTelemetry.exitCode).toBe(0)
       expect(resTelemetry.stdout.trim()).toBeDefined()
+    })
+
+    it('projects rawContent into messages.json to preserve ACTOR and cue tokens for widgets', async () => {
+      const sandbox = new SandboxManager()
+      await sandbox.init()
+
+      const chatSession = useChatSessionStore()
+      const sessionId = 'test-session-actors'
+      chatSession.activeSessionId = sessionId
+      chatSession.sessionMessages[sessionId] = [
+        {
+          id: 'm1',
+          role: 'assistant',
+          content: 'Hello Jin! I am brewing your coffee right now.',
+          rawContent: '<|ACTOR:makise_kurisu|>Hello Jin! <|ACT:emotion="happy"|>I am brewing your coffee right now.',
+          createdAt: new Date().toISOString(),
+        } as any,
+      ]
+
+      await sandbox.syncProjections()
+
+      const raw = await sandbox.readFile('/workspace/.airi/messages.json')
+      const msgs = JSON.parse(raw)
+      expect(msgs).toHaveLength(1)
+      expect(msgs[0].content).toContain('<|ACTOR:makise_kurisu|>')
+      expect(msgs[0].content).toContain('<|ACT:emotion="happy"|>')
     })
 
     it('projects rich nan0 cognition state into cognition.json when nan0 is enabled', async () => {

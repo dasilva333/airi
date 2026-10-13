@@ -3,9 +3,10 @@ import type { MountedWidget } from '../../../libs/sandbox'
 
 import { useDraggable } from '@vueuse/core'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import { useSandbox } from '../../../composables/use-sandbox'
-import { buildWidgetIframeSrcdoc } from '../../../libs/sandbox'
+import { buildWidgetIframeSrcdoc, copyWidgetManifestToClipboard, downloadWidgetManifestFile } from '../../../libs/sandbox'
 import { tryGetMcpToolBridge } from '../../../stores/mcp-tool-bridge'
 
 const props = withDefaults(defineProps<{
@@ -86,6 +87,28 @@ async function refreshActiveWidget() {
   }
   finally {
     isLoading.value = false
+  }
+}
+
+async function handleExportWidget(event?: MouseEvent) {
+  if (event?.shiftKey || event?.altKey) {
+    downloadWidgetManifestFile(props.widget)
+    toast.success(`Downloaded "${props.widget.title || 'Widget'}" manifest (.json)`)
+    return
+  }
+
+  const copied = await copyWidgetManifestToClipboard(props.widget)
+  if (copied) {
+    toast.success(`Copied "${props.widget.title || 'Widget'}" JSON to clipboard!`, {
+      action: {
+        label: 'Download .json',
+        onClick: () => downloadWidgetManifestFile(props.widget),
+      },
+    })
+  }
+  else {
+    downloadWidgetManifestFile(props.widget)
+    toast.info(`Downloaded "${props.widget.title || 'Widget'}" manifest (.json)`)
   }
 }
 
@@ -194,6 +217,15 @@ onUnmounted(() => {
           @click="refreshActiveWidget"
         >
           <span class="i-solar:refresh-linear text-xs" :class="{ 'animate-spin': isLoading }" />
+        </button>
+
+        <button
+          type="button"
+          title="Export widget as JSON (Shift+Click to download)"
+          class="flex cursor-pointer items-center justify-center rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-200/50 hover:text-primary-600 dark:hover:bg-neutral-800/50 dark:hover:text-primary-400"
+          @click="handleExportWidget"
+        >
+          <span class="i-solar:diskette-bold text-xs" />
         </button>
 
         <button
