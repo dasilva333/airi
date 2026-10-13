@@ -144,6 +144,7 @@ defineInvokeHandler(context, moondreamProcessEvent, async ({ imageUrl, prompt })
 
   try {
     image = await RawImage.fromURL(imageUrl)
+    console.info(`[Moondream Worker] Loaded image: ${image?.width}x${image?.height}, channels=${image?.channels}`)
     visionInputs = await processor(image)
 
     const imageTokens: number = numImageTokens ?? await (async () => {

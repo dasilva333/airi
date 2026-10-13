@@ -1,14 +1,17 @@
 <script setup lang="ts">
+import type { FavoriteModel } from './BrainModelFavoriteModal.vue'
+
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+
+import BrainModelFavoriteModal from './BrainModelFavoriteModal.vue'
 
 import { NativeAI } from '../../../libs/native-ai'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
-import { useProvidersStore } from '../../../stores/providers'
 
 const props = withDefaults(defineProps<Props>(), {
   title: 'Model & Provider',
@@ -42,12 +45,10 @@ interface Props {
 
 // Store bindings
 const consciousnessStore = useConsciousnessStore()
-const providersStore = useProvidersStore()
 const airiCardStore = useAiriCardStore()
 
 const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
 const { activeCard, activeCardId, cards } = storeToRefs(airiCardStore)
-const { configuredChatProviderOptions } = storeToRefs(providersStore)
 
 // Resolve effective selected provider and model
 const currentProvider = computed({
@@ -74,26 +75,17 @@ const currentModel = computed({
   },
 })
 
-const showAddForm = ref(false)
+const searchQuery = ref('')
+const isEditMode = ref(false)
 
-export interface FavoriteModel {
-  id: string
-  name: string
-  provider: string
-  model: string
-}
+const showModal = ref(false)
+const selectedFavoriteForEdit = ref<FavoriteModel | null>(null)
+
+export type { FavoriteModel }
 
 // Persistent Storage for Favorites
 const favorites = useLocalStorage<FavoriteModel[]>('airi:chat-model-favorites', [])
 const deletedKeys = useLocalStorage<string[]>('airi:chat-model-deleted-keys', [])
-
-// Form state for adding new favorite
-const newName = ref('')
-const newProvider = ref('')
-const newModel = ref('')
-const availableModels = ref<any[]>([])
-const isLoadingModels = ref(false)
-const isManualModel = ref(false)
 
 // Seeding default favorites reactively to perfectly handle asynchronous card store hydration
 watch(cards, (newCards) => {
@@ -143,64 +135,6 @@ watch(cards, (newCards) => {
     }
   }
 }, { immediate: true, deep: true })
-
-onMounted(() => {
-  // Pre-fill the form default provider with first configured provider
-  if (configuredChatProviderOptions.value.length > 0) {
-    newProvider.value = configuredChatProviderOptions.value[0].value
-  }
-})
-
-// Dynamically fetch and load models when provider changes in form
-watch(newProvider, async (provider) => {
-  if (!provider) {
-    availableModels.value = []
-    isManualModel.value = false
-    return
-  }
-
-  isLoadingModels.value = true
-  try {
-    await consciousnessStore.loadModelsForProvider(provider)
-    const rawModels = providersStore.getModelsForProvider(provider)
-    availableModels.value = [...rawModels].sort((a, b) => {
-      const nameA = (a.name || a.id.split('/').pop() || a.id).toLowerCase()
-      const nameB = (b.name || b.id.split('/').pop() || b.id).toLowerCase()
-      return nameA.localeCompare(nameB)
-    })
-    // Automatically switch to manual entry if no models are discovered
-    isManualModel.value = availableModels.value.length === 0
-  }
-  catch (err) {
-    console.error('[BrainModelPicker] Failed to load models for provider:', provider, err)
-    availableModels.value = []
-    isManualModel.value = true
-  }
-  finally {
-    isLoadingModels.value = false
-  }
-}, { immediate: true })
-
-function handleAddFavorite() {
-  if (!newModel.value.trim())
-    return
-
-  const modelId = newModel.value.trim()
-  const displayName = newName.value.trim() || modelId.split('/').pop() || modelId
-
-  favorites.value.push({
-    id: String(Date.now()),
-    name: displayName,
-    provider: newProvider.value,
-    model: modelId,
-  })
-
-  // Reset inputs & hide form
-  newName.value = ''
-  newModel.value = ''
-  isManualModel.value = false
-  showAddForm.value = false
-}
 
 function handleDeleteFavorite(fav: FavoriteModel) {
   favorites.value = favorites.value.filter(f => f.id !== fav.id)
@@ -281,6 +215,75 @@ const activeModelDisplay = computed(() => {
   const modelShort = currentModel.value?.split('/').pop() || currentModel.value || 'None'
   return `${currentProvider.value || 'None'} / ${modelShort}`
 })
+
+// Filtered favorites list based on search query
+const filteredFavorites = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  let list = favorites.value
+
+  if (q) {
+    list = list.filter(fav =>
+      fav.name.toLowerCase().includes(q)
+      || fav.provider.toLowerCase().includes(q)
+      || fav.model.toLowerCase().includes(q),
+    )
+  }
+
+  // Sort: current active model first, then alphabetically
+  return [...list].sort((a, b) => {
+    const isACurrent = a.provider === currentProvider.value && a.model === currentModel.value
+    const isBCurrent = b.provider === currentProvider.value && b.model === currentModel.value
+    if (isACurrent && !isBCurrent)
+      return -1
+    if (!isACurrent && isBCurrent)
+      return 1
+    return a.name.localeCompare(b.name)
+  })
+})
+
+function openAddModal() {
+  selectedFavoriteForEdit.value = null
+  showModal.value = true
+}
+
+function openEditModal(fav: FavoriteModel) {
+  selectedFavoriteForEdit.value = fav
+  showModal.value = true
+}
+
+function handleSaveFavoriteFromModal(payload: { id?: string, name: string, provider: string, model: string, options?: Record<string, unknown> }) {
+  if (payload.id) {
+    // Update existing favorite
+    const idx = favorites.value.findIndex(f => f.id === payload.id)
+    if (idx !== -1) {
+      favorites.value[idx] = {
+        ...favorites.value[idx],
+        name: payload.name,
+        provider: payload.provider,
+        model: payload.model,
+        options: payload.options,
+      }
+    }
+  }
+  else {
+    // Add new favorite
+    favorites.value.push({
+      id: String(Date.now()),
+      name: payload.name,
+      provider: payload.provider,
+      model: payload.model,
+      options: payload.options,
+    })
+  }
+}
+
+function handleEntryClick(fav: FavoriteModel) {
+  if (isEditMode.value) {
+    openEditModal(fav)
+    return
+  }
+  handleSelectFavorite(fav)
+}
 </script>
 
 <template>
@@ -336,205 +339,151 @@ const activeModelDisplay = computed(() => {
         :side-offset="8"
         :align="align"
         :collision-padding="12"
-        class="data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 z-[10010] max-h-[85dvh] max-w-[calc(100vw-24px)] w-80 flex flex-col overflow-y-auto border border-neutral-200/50 rounded-2xl bg-white/95 p-4 shadow-2xl backdrop-blur-2xl duration-200 scrollbar-thin dark:border-neutral-700/50 dark:bg-neutral-900/95"
+        class="data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 z-[10010] max-h-[min(540px,85vh)] max-w-[calc(100vw-24px)] w-88 flex flex-col border border-neutral-200/50 rounded-2xl bg-white/95 p-3.5 shadow-2xl backdrop-blur-2xl duration-200 dark:border-neutral-800/80 dark:bg-neutral-900/95"
       >
-        <!-- Header -->
-        <div class="mb-3 flex items-center justify-between border-b border-neutral-100 pb-2 dark:border-neutral-800">
-          <div class="flex items-center gap-1.5">
-            <div class="i-ph:brain-duotone text-base text-primary-500" />
-            <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase">{{ title }}</span>
-          </div>
-          <span class="rounded bg-primary-500/10 px-1.5 py-0.5 text-[9px] text-primary-500 font-bold font-mono uppercase dark:bg-primary-500/20">Model Picker</span>
-        </div>
-
-        <!-- Sleek, Compact Active Status Badge -->
-        <div class="mb-3.5 flex items-center justify-between gap-2 border border-neutral-200/30 rounded-xl bg-neutral-50/50 px-2.5 py-1.5 text-[10px] dark:border-neutral-800/60 dark:bg-neutral-800/20">
-          <div class="flex items-center gap-1.5">
-            <span class="size-1.5 animate-pulse rounded-full bg-emerald-500" />
-            <span class="text-neutral-400 font-bold tracking-tight uppercase">Selected</span>
-          </div>
-          <span class="max-w-48 truncate text-neutral-700 font-semibold font-mono dark:text-neutral-300" :title="activeModelDisplay">
-            {{ activeModelDisplay }}
-          </span>
-        </div>
-
-        <!-- Favorites List -->
-        <div class="mb-4">
-          <div class="mb-2 flex items-center justify-between text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-            <span>Favorites</span>
-            <span class="text-[9px] text-neutral-400/60 font-mono">{{ favorites.length }} saved</span>
-          </div>
-
-          <div v-if="favorites.length === 0" class="border border-neutral-200 rounded-xl border-dashed py-4 text-center text-xs text-neutral-400 dark:border-neutral-800">
-            No favorites saved. Add one below!
-          </div>
-
-          <div v-else class="max-h-40 overflow-y-auto scrollbar-thin space-y-1.5">
-            <div
-              v-for="fav in favorites"
-              :key="fav.id"
-              :class="[
-                'group flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer text-left',
-                fav.provider === currentProvider && fav.model === currentModel
-                  ? 'bg-primary-50/50 border-primary-200/50 dark:bg-primary-950/20 dark:border-primary-800/50'
-                  : 'bg-white/40 border-neutral-100 hover:bg-neutral-50 dark:bg-neutral-900/40 dark:border-neutral-800 dark:hover:bg-neutral-800/40',
-              ]"
-              @click="handleSelectFavorite(fav)"
+        <!-- Top Search Bar & Edit Button Row -->
+        <div class="mb-2.5 flex items-center gap-2">
+          <!-- Search Input -->
+          <div class="relative flex-1">
+            <div class="i-solar:magnifer-linear pointer-events-none absolute left-2.5 top-1/2 size-3.5 text-neutral-400 -translate-y-1/2" />
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search favorites..."
+              class="w-full border border-neutral-200/70 rounded-xl bg-neutral-100/70 py-1.5 pl-8 pr-3 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500/60 dark:bg-neutral-800/50 dark:text-neutral-200 focus:ring-1 focus:ring-primary-500/20 placeholder-neutral-400"
             >
-              <div class="flex flex-1 items-center gap-2 overflow-hidden">
-                <div
-                  :class="[
-                    'text-sm shrink-0',
-                    fav.provider === currentProvider && fav.model === currentModel
-                      ? 'text-primary-500 i-solar:star-bold'
-                      : 'text-neutral-300 group-hover:text-primary-400 i-solar:star-linear',
-                  ]"
-                />
-                <div class="flex flex-col overflow-hidden">
-                  <span class="truncate text-xs text-neutral-800 font-semibold dark:text-neutral-200">
+            <button
+              v-if="searchQuery"
+              type="button"
+              class="absolute right-2 top-1/2 size-4 flex cursor-pointer items-center justify-center rounded-full text-neutral-400 -translate-y-1/2 hover:text-neutral-600 dark:hover:text-neutral-200"
+              @click="searchQuery = ''"
+            >
+              <div class="i-solar:close-circle-bold size-3.5" />
+            </button>
+          </div>
+
+          <!-- Edit Mode Toggle Button (Pencil) -->
+          <button
+            type="button"
+            :class="[
+              'size-8 flex shrink-0 cursor-pointer items-center justify-center rounded-xl border transition-all',
+              isEditMode
+                ? 'border-primary-500/50 bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-400'
+                : 'border-neutral-200/70 bg-neutral-100/70 text-neutral-500 hover:text-neutral-800 dark:border-neutral-800 dark:bg-neutral-800/50 dark:text-neutral-400 dark:hover:text-neutral-200',
+            ]"
+            title="Edit favorites"
+            @click="isEditMode = !isEditMode"
+          >
+            <div class="i-solar:pen-linear size-4" />
+          </button>
+        </div>
+
+        <!-- Favorites Scrollable List -->
+        <div class="min-h-30 flex-1 overflow-y-auto pr-0.5 scrollbar-thin space-y-1">
+          <div v-if="filteredFavorites.length === 0" class="border border-neutral-200/60 rounded-xl border-dashed py-8 text-center text-xs text-neutral-400 dark:border-neutral-800">
+            {{ searchQuery ? 'No matching models found' : 'No favorites saved yet' }}
+          </div>
+
+          <div
+            v-for="fav in filteredFavorites"
+            :key="fav.id"
+            :class="[
+              'group relative flex items-center justify-between rounded-xl px-2.5 py-2 transition-all cursor-pointer text-left',
+              fav.provider === currentProvider && fav.model === currentModel
+                ? 'bg-neutral-100/90 dark:bg-neutral-800/80 shadow-xs'
+                : 'hover:bg-neutral-100/60 dark:hover:bg-neutral-800/40',
+            ]"
+            @click="handleEntryClick(fav)"
+          >
+            <!-- Left Icon / Indicator -->
+            <div class="flex flex-1 items-center gap-2.5 overflow-hidden">
+              <!-- If active: Emerald Status Dot, Otherwise Star Icon -->
+              <div v-if="fav.provider === currentProvider && fav.model === currentModel" class="size-4.5 flex shrink-0 items-center justify-center">
+                <span class="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+              </div>
+              <div
+                v-else
+                class="size-4.5 flex shrink-0 items-center justify-center text-neutral-400 transition-colors group-hover:text-primary-400"
+              >
+                <div class="i-solar:star-linear size-4" />
+              </div>
+
+              <!-- Title, Current Badge, Subtitle -->
+              <div class="flex flex-1 flex-col overflow-hidden">
+                <div class="flex items-center gap-1.5">
+                  <span
+                    :class="[
+                      'truncate text-xs font-semibold',
+                      fav.provider === currentProvider && fav.model === currentModel
+                        ? 'text-neutral-900 dark:text-white'
+                        : 'text-neutral-800 dark:text-neutral-200',
+                    ]"
+                  >
                     {{ fav.name }}
                   </span>
-                  <span class="truncate text-[9px] text-neutral-400 font-mono">
-                    {{ fav.provider }} / {{ fav.model }}
+
+                  <!-- Current Pill (Option B style) -->
+                  <span
+                    v-if="fav.provider === currentProvider && fav.model === currentModel"
+                    class="rounded bg-sky-500/15 px-1.5 py-0.2 text-[9px] text-sky-600 font-bold font-mono uppercase dark:bg-sky-400/20 dark:text-sky-300"
+                  >
+                    Current
                   </span>
                 </div>
-              </div>
 
-              <div class="flex shrink-0 items-center gap-1 pl-2">
-                <!-- Checkmark when active -->
-                <div
-                  v-if="fav.provider === currentProvider && fav.model === currentModel"
-                  class="i-solar:check-circle-bold text-sm text-primary-500"
-                />
-                <!-- Delete Button -->
+                <span class="truncate text-[10px] text-neutral-400 font-mono">
+                  {{ fav.model }} &bull; {{ fav.provider }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Right Selection Checkmark or Delete Button in Edit Mode -->
+            <div class="flex shrink-0 items-center gap-1 pl-2">
+              <template v-if="isEditMode">
                 <button
                   type="button"
-                  class="rounded p-1 text-neutral-400 opacity-0 transition-all hover:text-red-500 group-hover:opacity-100"
-                  title="Remove Favorite"
+                  class="cursor-pointer rounded-lg p-1 text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-500"
+                  title="Remove favorite"
                   @click.stop="handleDeleteFavorite(fav)"
                 >
-                  <div class="i-solar:trash-bin-trash-bold-duotone text-xs" />
+                  <div class="i-solar:trash-bin-trash-bold-duotone size-3.5" />
                 </button>
-              </div>
+              </template>
+              <template v-else-if="fav.provider === currentProvider && fav.model === currentModel">
+                <div class="shadow-xs size-4.5 flex items-center justify-center rounded-full bg-sky-500 text-white">
+                  <div class="i-solar:check-read-linear size-3 font-bold" />
+                </div>
+              </template>
             </div>
           </div>
         </div>
 
-        <!-- Add Favorite Form Trigger / Inline Collapse -->
-        <div class="border-t border-neutral-100 pt-3.5 dark:border-neutral-800">
-          <Transition
-            enter-active-class="transition-all duration-200 ease-out"
-            enter-from-class="opacity-0 -translate-y-1 scale-95"
-            enter-to-class="opacity-100 translate-y-0 scale-100"
-            leave-active-class="transition-all duration-150 ease-in"
-            leave-from-class="opacity-100 translate-y-0 scale-100"
-            leave-to-class="opacity-0 -translate-y-1 scale-95"
-            mode="out-in"
+        <!-- Footer Bar: Favorites count on left & "+ Add favorite" on right (Option B style) -->
+        <div class="mt-2.5 flex items-center justify-between border-t border-neutral-100 pt-2.5 dark:border-neutral-800/80">
+          <span class="text-[10px] text-neutral-400 font-medium">
+            {{ favorites.length }} favorites
+          </span>
+
+          <button
+            type="button"
+            class="flex cursor-pointer items-center gap-1 text-xs text-sky-500 font-semibold transition-colors dark:text-sky-400 hover:text-sky-600 dark:hover:text-sky-300"
+            @click="openAddModal"
           >
-            <!-- Toggle Button -->
-            <button
-              v-if="!showAddForm"
-              type="button"
-              class="w-full flex items-center justify-center gap-1.5 border border-neutral-200 rounded-xl border-dashed py-2 text-xs text-neutral-500 font-semibold transition-all active:scale-98 dark:border-neutral-800 hover:border-primary-300 hover:text-primary-500 dark:hover:border-primary-800"
-              @click="showAddForm = true"
-            >
-              <div class="i-solar:add-circle-linear text-sm" />
-              <span>Add New Favorite</span>
-            </button>
-
-            <!-- Form -->
-            <div v-else class="space-y-2.5">
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Add Favorite</span>
-                <button
-                  type="button"
-                  class="text-[10px] text-neutral-400 font-semibold hover:text-neutral-600 dark:hover:text-neutral-200"
-                  @click="showAddForm = false"
-                >
-                  Cancel
-                </button>
-              </div>
-
-              <!-- Custom Label Name -->
-              <input
-                v-model="newName"
-                type="text"
-                placeholder="Name (optional, defaults to model)"
-                class="w-full border border-neutral-200/60 rounded-lg bg-transparent px-2.5 py-1.5 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:text-neutral-200 placeholder:text-neutral-400/60 focus:ring-1 focus:ring-primary-500/20"
-              >
-
-              <!-- Provider & Model Selectors -->
-              <div class="flex gap-2">
-                <div class="flex-1">
-                  <select
-                    v-model="newProvider"
-                    class="w-full border border-neutral-200/60 rounded-lg bg-white px-2 py-1.5 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200 focus:ring-1 focus:ring-primary-500/20"
-                  >
-                    <option v-for="prov in configuredChatProviderOptions" :key="prov.value" :value="prov.value">
-                      {{ prov.label }}
-                    </option>
-                  </select>
-                </div>
-
-                <div class="flex flex-1 items-center gap-1">
-                  <!-- Manual Model Input -->
-                  <input
-                    v-if="isManualModel || (!isLoadingModels && availableModels.length === 0)"
-                    v-model="newModel"
-                    type="text"
-                    placeholder="Model ID (e.g. model-name)"
-                    class="w-full border border-neutral-200/60 rounded-lg bg-white px-2.5 py-1.5 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200 placeholder:text-neutral-400/60 focus:ring-1 focus:ring-primary-500/20"
-                  >
-
-                  <!-- Discovered Models Dropdown -->
-                  <select
-                    v-else
-                    v-model="newModel"
-                    class="w-full border border-neutral-200/60 rounded-lg bg-white px-2 py-1.5 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200 focus:ring-1 focus:ring-primary-500/20"
-                    :disabled="isLoadingModels"
-                  >
-                    <option value="" disabled selected>
-                      {{ isLoadingModels ? 'Loading...' : 'Select Model' }}
-                    </option>
-                    <option v-for="model in availableModels" :key="model.id" :value="model.id">
-                      {{ model.name || model.id.split('/').pop() || model.id }}
-                    </option>
-                  </select>
-
-                  <!-- Toggle between Dropdown and Manual Input -->
-                  <button
-                    v-if="availableModels.length > 0"
-                    type="button"
-                    class="shrink-0 border border-neutral-200/60 rounded-lg p-1.5 text-neutral-500 transition-colors dark:border-neutral-800 hover:bg-neutral-100 dark:text-neutral-400 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-                    :title="isManualModel ? 'Choose from discovered models' : 'Enter custom model ID'"
-                    @click="isManualModel = !isManualModel"
-                  >
-                    <div :class="isManualModel ? 'i-solar:list-bold-duotone' : 'i-solar:pen-bold-duotone'" class="size-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              <!-- Endpoint Model Fallback Hint -->
-              <p v-if="!isLoadingModels && availableModels.length === 0" class="text-[10px] text-amber-600/90 leading-tight dark:text-amber-400/90">
-                No models discovered from endpoint. Enter model ID manually.
-              </p>
-
-              <!-- Add Button -->
-              <button
-                type="button"
-                class="w-full flex items-center justify-center gap-1.5 rounded-xl bg-primary-500 px-3 py-2 text-xs text-white font-bold tracking-wider uppercase shadow-md shadow-primary-500/10 transition-all disabled:pointer-events-none active:scale-[0.98] disabled:scale-100 hover:scale-[1.02] hover:bg-primary-600 disabled:opacity-40"
-                :disabled="!newModel.trim()"
-                @click="handleAddFavorite"
-              >
-                <div class="i-solar:add-circle-bold-duotone text-sm" />
-                <span>Save Favorite</span>
-              </button>
-            </div>
-          </Transition>
+            <div class="i-solar:add-linear size-3.5" />
+            <span>Add favorite</span>
+          </button>
         </div>
       </PopoverContent>
     </PopoverPortal>
   </PopoverRoot>
+
+  <!-- Edit / Add Favorite Modal -->
+  <BrainModelFavoriteModal
+    :open="showModal"
+    :favorite="selectedFavoriteForEdit"
+    @close="showModal = false"
+    @save="handleSaveFavoriteFromModal"
+  />
 </template>
 
 <style scoped>
