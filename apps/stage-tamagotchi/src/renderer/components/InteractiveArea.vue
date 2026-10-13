@@ -1221,16 +1221,16 @@ defineExpose({
       <div class="z-10 flex select-none items-center justify-between">
         <div class="flex flex-wrap items-center gap-2">
           <span class="i-solar:cpu-bolt-bold-duotone animate-pulse text-amber-500" />
-          <span class="text-[10px] text-amber-800 font-bold tracking-widest uppercase hidden min-[456px]:inline dark:text-amber-300">Pre-Flight Grounding Active</span>
+          <span class="text-[10px] text-amber-800 font-bold tracking-widest uppercase hidden min-[672px]:inline dark:text-amber-300">Pre-Flight Grounding Active</span>
 
-          <!-- Quick Status Badges -->
-          <span v-if="activeCard?.extensions?.airi?.groundingEnabled" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Sensors Active</span>
-          <span v-if="activeCard?.extensions?.airi?.groundingMemoryEnabled && groundedMemories.length > 0" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Grounded Memories ({{ groundedMemories.length }})</span>
-          <span v-if="activeCard?.extensions?.airi?.groundingTopicsEnabled && activeCard?.extensions?.airi?.recentTopics?.length" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Recent Topics ({{ activeCard.extensions.airi.recentTopics.length }})</span>
+          <!-- Quick Status Badges (hidden on narrow windows; the toggle buttons on the right cover the same sections) -->
+          <span v-if="activeCard?.extensions?.airi?.groundingEnabled" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono hidden min-[480px]:inline dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Sensors Active</span>
+          <span v-if="activeCard?.extensions?.airi?.groundingMemoryEnabled && groundedMemories.length > 0" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono hidden min-[480px]:inline dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Grounded Memories ({{ groundedMemories.length }})</span>
+          <span v-if="activeCard?.extensions?.airi?.groundingTopicsEnabled && activeCard?.extensions?.airi?.recentTopics?.length" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono hidden min-[480px]:inline dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Recent Topics ({{ activeCard.extensions.airi.recentTopics.length }})</span>
           <!-- Phase 6: L9–L11 Δh salience indicator. Shows Salience Standby when armed; lights Salience Vibe Active on hot verdict. -->
           <span
             v-if="salienceEnabled"
-            class="border rounded px-1.5 py-0.2 text-[8px] font-bold font-mono transition-colors duration-200"
+            class="border rounded px-1.5 py-0.2 text-[8px] font-bold font-mono transition-colors duration-200 hidden min-[480px]:inline"
             :class="salienceHot && salienceHistory.length > 0
               ? 'border-amber-300 bg-amber-100/50 text-amber-800 dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400'
               : 'border-neutral-300/40 bg-neutral-100/30 text-neutral-400 dark:border-neutral-700/40 dark:bg-black/20 dark:text-neutral-500'"
@@ -1240,7 +1240,7 @@ defineExpose({
           >
             {{ salienceHot && salienceHistory.length > 0 ? 'Salience Vibe Active' : 'Salience Standby' }}
           </span>
-          <span v-if="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled && latestDirectorScratchpad" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Visual Scene Active</span>
+          <span v-if="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled && latestDirectorScratchpad" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono hidden min-[480px]:inline dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Visual Scene Active</span>
         </div>
         <div class="flex items-center gap-1.5">
           <button
