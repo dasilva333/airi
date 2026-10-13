@@ -168,11 +168,25 @@ The remaining unintegrated domains from the initial proposal are preserved in [`
    - Standalone spec & refinement checklist: [`proposal-ninja-swap-interceptor.md`](./proposal-ninja-swap-interceptor.md).
    - No `NinjaSwap` hits repo-wide; `ControlStripHost.vue` / `speech.ts` have no Jev/`useSystemOneStore` wiring (ACT cues exist without Jev).
    - Single-pass merged Jev evaluation (~110ms) reconciling authoring-time whitelists with live sentence strides to simultaneously inject avatar blendshapes (`<|ACT:...|>`) and speech inflection tags (`[whisper]`, `[sigh]`) with 100% voice-face emotional synchronization.
-3. **Domain G: Memory Token Compaction & Pre-Summary Filter — FUTURE IDEA (unspec'd)**:
-   - `packages/stage-ui/src/stores/chat/compaction.ts` is bucket-distill/STMM with zero `systemOne`/Jev linkage; existing salience (`stores/chat/salience.ts`) is RWKV-gated and disabled for release stability.
-   - Curative pre-filter stripping routine conversational banter from raw chat transcripts before dispatching to daily/lifetime summarizer LLMs (~70% token savings).
+3. **Domain G: Memory Token Compaction & Zero-Loss Context Garbage Collector — EXPANDING SPEC**:
+   - Primary References: `fast-jev-compaction` & `Winnow` (context garbage collection for coding agents / Claude Code).
+   - Problem: Autoregressive LLM summarization often rewrites paths, bash outputs, and verbatim quotes into lossy or hallucinated summaries.
+   - Target Implementation: Instead of rewriting text, Jev scores previous conversation turns, tool results, and bash outputs directly on retention value. Verbatim high-salience turns are preserved while routine banter or verbose terminal logs are pruned untouched (~70% token savings with 0% semantic loss).
 4. **Domain D: Toggle 4 (Recent Topics) Salience Rework**:
    - Discrete topic selection replacing the legacy 270-line stopword list.
+5. **Domain H: Low-Latency Generative UI Component Assembler (`json-render + Jev`) — CANDIDATE**:
+   - Primary Reference: Vercel Labs `json-render + Jev` experiment (reduced UI generation latency from 3.21s to 0.88s).
+   - Problem: Streaming full JSON or HTML specifications token-by-token for companion generative UI widgets (`mount_widget`, `stage_widgets`, polls, timers, mood meters) creates noticeable latency.
+   - Target Implementation: Define bounded component catalogs and property enums. Jev selects the layout and component IDs in ~100ms; deterministic TypeScript code assembles and mounts the generative widget instantly.
+6. **Domain I: System 1 Semantic Shell & Predicate Guard (`SemDecide / bash + jev`) — CANDIDATE**:
+   - Primary Reference: `SemDecide` (Unix command-line semantic filter, `grep | jq | jev`).
+   - Target Implementation: Lightweight companion scripting utility (`runSemanticPredicate(state, question)`). Allows desktop scripts, proactive background watchers, and shell interactions to execute fast boolean/categorical checks without calling expensive frontier LLMs.
+7. **Domain J: System 1 MCP Decision Tool Server (`typesafe-mcp` / `jev-mcp`) — CANDIDATE**:
+   - Primary Reference: `typesafe-mcp`, `jev-mcp`.
+   - Target Implementation: Expose AIRI's internal `laya-local` and OpenRouter Jev decision engine as an MCP tool (`system1_decide`) accessible to external agents (Claude Desktop, Claude Code, custom MCP clients) and internal companion tool loops to evaluate multi-choice rankings and probabilities without prompt-heavy chain-of-thought.
+8. **Domain K: Autonomous Loop Verification & "Task Complete" Referee (`Canny`) — CANDIDATE**:
+   - Primary Reference: `Canny` (agent task completion referee).
+   - Target Implementation: Impartial System-1 referee running at the conclusion of autonomous loops (e.g. ComfyUI image generation runs, director loops, tool scripts). Inspects execution logs and diffs to verify that success criteria were empirically met before allowing the companion to claim completion.
 
 ---
 

@@ -185,6 +185,14 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         defaultOnStrip: true,
         desktopOnly: true,
       },
+      {
+        id: 'workspace',
+        label: 'Workspace',
+        description: 'Toggles the Workspace overlay for managing widgets and the Virtual Terminal.',
+        icon: 'i-solar:code-square-bold-duotone',
+        type: 'action',
+        defaultOnStrip: true,
+      },
     ],
   },
   {

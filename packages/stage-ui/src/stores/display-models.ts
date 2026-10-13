@@ -49,6 +49,7 @@ export interface DisplayModelCloud {
   nsfw?: boolean
   groups?: string[]
   tags?: string[]
+  externalCatalogId?: string
   expressionCapabilities?: ModelCapabilityItem[]
   motionCapabilities?: ModelCapabilityItem[]
   vfxMappings?: Record<string, string[]>
@@ -83,6 +84,7 @@ export interface DisplayModelFile {
   nsfw?: boolean
   groups?: string[]
   tags?: string[]
+  externalCatalogId?: string
   expressionCapabilities?: ModelCapabilityItem[]
   motionCapabilities?: ModelCapabilityItem[]
   vfxMappings?: Record<string, string[]>
@@ -102,6 +104,7 @@ export interface DisplayModelURL {
   nsfw?: boolean
   groups?: string[]
   tags?: string[]
+  externalCatalogId?: string
   expressionCapabilities?: ModelCapabilityItem[]
   motionCapabilities?: ModelCapabilityItem[]
   vfxMappings?: Record<string, string[]>
@@ -229,6 +232,30 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         debug('[DisplayModels:HMR] Channel close during HMR dispose failed:', err)
       }
     })
+  }
+
+  /**
+   * Deep un-proxying helper to prevent DataCloneError on IndexedDB writes.
+   * Recursively un-proxies plain objects and arrays while strictly preserving
+   * native File, Blob, and ArrayBuffer instances.
+   */
+  function toPlainModel<T>(obj: T): T {
+    if (obj === null || obj === undefined)
+      return obj
+    if (typeof obj !== 'object')
+      return obj
+    if (obj instanceof Blob || obj instanceof File || obj instanceof ArrayBuffer)
+      return toRaw(obj) as any
+    if (Array.isArray(obj)) {
+      const rawArr = toRaw(obj)
+      return rawArr.map(item => toPlainModel(item)) as any
+    }
+    const rawObj = toRaw(obj) as any
+    const clean: any = {}
+    for (const key of Object.keys(rawObj)) {
+      clean[key] = toPlainModel(rawObj[key])
+    }
+    return clean
   }
 
   async function compressPreviewDataUrl(dataUrl?: string, maxDim = 768, quality = 0.85): Promise<string | undefined> {
@@ -1232,10 +1259,10 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     displayModels.value = [newDisplayModel, ...displayModels.value]
 
-    const cleanModel = {
+    const cleanModel = toPlainModel({
       ...toRaw(newDisplayModel),
       file: toRaw(file),
-    }
+    })
     await localforage.setItem<DisplayModelFile>(newDisplayModel.id, cleanModel)
       .catch(err => console.error(err))
     broadcastModelsSync(Date.now())
@@ -1257,16 +1284,16 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     displayModels.value = [newDisplayModel, ...displayModels.value]
 
     // Persist model file un-proxied so IndexedDB structured clone preserves native File prototype
-    const cleanModel = {
+    const cleanModel = toPlainModel({
       ...toRaw(newDisplayModel),
       file: toRaw(modelFile),
-    }
+    })
     await localforage.setItem<DisplayModelFile>(newDisplayModel.id, cleanModel)
       .catch(err => console.error(err))
 
     // Persist texture files keyed by model ID
     if (textureFiles.length > 0) {
-      const cleanTextures = textureFiles.map(t => ({
+      const cleanTextures = textureFiles.map(t => toPlainModel({
         ...toRaw(t),
         file: toRaw(t.file),
       }))
@@ -1312,11 +1339,10 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     // Persist if it's a file-based model
     if (id.startsWith('display-model-')) {
-      const rawModel = toRaw(displayModel)
-      const cleanModel = {
-        ...rawModel,
-        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
-      }
+      const cleanModel = toPlainModel({
+        ...toRaw(displayModel),
+        ...('file' in displayModel ? { file: toRaw((displayModel as any).file) } : {}),
+      })
       const targetFile = (cleanModel as any).file
       console.log('[DisplayModels:updateDisplayModelName] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
       await localforage.setItem(id, cleanModel)
@@ -1325,7 +1351,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
   }
 
-  async function updateDisplayModelMeta(id: string, updates: { nsfw?: boolean, groups?: string[] }) {
+  async function updateDisplayModelMeta(id: string, updates: { nsfw?: boolean, groups?: string[], tags?: string[], name?: string, externalCatalogId?: string, previewImage?: string }) {
     await until(displayModelsFromIndexedDBLoading).toBe(false)
     const displayModel = id.startsWith('display-model-')
       ? await localforage.getItem<DisplayModelFile>(id)
@@ -1337,8 +1363,20 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     if ('nsfw' in updates) {
       displayModel.nsfw = updates.nsfw
     }
-    if ('groups' in updates) {
-      displayModel.groups = updates.groups
+    if ('groups' in updates && updates.groups) {
+      displayModel.groups = Array.isArray(updates.groups) ? [...updates.groups].map(String) : []
+    }
+    if ('tags' in updates && updates.tags) {
+      displayModel.tags = Array.isArray(updates.tags) ? [...updates.tags].map(String) : []
+    }
+    if ('name' in updates && updates.name) {
+      displayModel.name = updates.name
+    }
+    if ('externalCatalogId' in updates && updates.externalCatalogId) {
+      displayModel.externalCatalogId = updates.externalCatalogId
+    }
+    if ('previewImage' in updates && updates.previewImage) {
+      displayModel.previewImage = updates.previewImage
     }
     displayModelCache.delete(id)
 
@@ -1349,8 +1387,20 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       if ('nsfw' in updates) {
         target.nsfw = updates.nsfw
       }
-      if ('groups' in updates) {
-        target.groups = updates.groups
+      if ('groups' in updates && updates.groups) {
+        target.groups = Array.isArray(updates.groups) ? [...updates.groups].map(String) : []
+      }
+      if ('tags' in updates && updates.tags) {
+        target.tags = Array.isArray(updates.tags) ? [...updates.tags].map(String) : []
+      }
+      if ('name' in updates && updates.name) {
+        target.name = updates.name
+      }
+      if ('externalCatalogId' in updates && updates.externalCatalogId) {
+        target.externalCatalogId = updates.externalCatalogId
+      }
+      if ('previewImage' in updates && updates.previewImage) {
+        target.previewImage = updates.previewImage
       }
       target._searchKey = `${target.name || ''} ${Array.isArray(target.tags) ? target.tags.join(' ') : ''} ${Array.isArray(target.groups) ? target.groups.join(' ') : ''}`.toLowerCase()
       triggerRef(displayModels)
@@ -1358,11 +1408,10 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     // Persist if it's a file-based model
     if (id.startsWith('display-model-')) {
-      const rawModel = toRaw(displayModel)
-      const cleanModel = {
-        ...rawModel,
-        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
-      }
+      const cleanModel = toPlainModel({
+        ...toRaw(displayModel),
+        ...('file' in displayModel ? { file: toRaw((displayModel as any).file) } : {}),
+      })
       const targetFile = (cleanModel as any).file
       console.log('[DisplayModels:updateDisplayModelMeta] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
       await localforage.setItem(id, cleanModel)
@@ -1380,25 +1429,25 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     if (!displayModel)
       return
 
-    displayModel.tags = tags
+    const cleanTags = Array.isArray(tags) ? [...tags].map(String) : []
+    displayModel.tags = cleanTags
     displayModelCache.delete(id)
 
     // Update reactive state
     const index = displayModels.value.findIndex(m => m.id === id)
     if (index !== -1) {
       const target = displayModels.value[index]
-      target.tags = tags
-      target._searchKey = `${target.name || ''} ${Array.isArray(tags) ? tags.join(' ') : ''} ${Array.isArray(target.groups) ? target.groups.join(' ') : ''}`.toLowerCase()
+      target.tags = cleanTags
+      target._searchKey = `${target.name || ''} ${cleanTags.join(' ')} ${Array.isArray(target.groups) ? target.groups.join(' ') : ''}`.toLowerCase()
       triggerRef(displayModels)
     }
 
     // Persist if it's a file-based model
     if (id.startsWith('display-model-')) {
-      const rawModel = toRaw(displayModel)
-      const cleanModel = {
-        ...rawModel,
-        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
-      }
+      const cleanModel = toPlainModel({
+        ...toRaw(displayModel),
+        ...('file' in displayModel ? { file: toRaw((displayModel as any).file) } : {}),
+      })
       const targetFile = (cleanModel as any).file
       console.log('[DisplayModels:updateDisplayModelTags] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
       await localforage.setItem(id, cleanModel)
@@ -1503,7 +1552,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         fileType: typeof targetFile,
         cleanModel,
       })
-      await localforage.setItem(id, cleanModel)
+      await localforage.setItem(id, toPlainModel(cleanModel))
       await syncMetadataCacheFromMemory()
       broadcastModelsSync(Date.now())
     }

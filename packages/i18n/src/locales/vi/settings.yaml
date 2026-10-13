@@ -784,7 +784,7 @@ pages:
         description: Alibaba Cloud Native - Best-in-class Chinese and coding models
       anthropic:
         description: Claude Specialist - Most helpful and harmless reasoning
-        title: Anthropic | Claude
+        title: Anthropic {'|'} Claude
         helpinfo:
           title: Trước khi bắt đầu
           description:
@@ -1627,6 +1627,9 @@ theme:
   title: Chủ Đề
   description: |
     Chuyển đổi chủ đề cơ bản của AIRI, Chế độ Sáng hoặc Chế độ Tối.
+  auto: Hệ thống
+  light: Sáng
+  dark: Tối
 title: Cài Đặt
 voices: Giọng Nói
 vrm:

@@ -1,5 +1,19 @@
 ## Recent Integrations
 
+- **PR #2920**: `feat(provider-inference): add OpenRouter transcription provider`
+  - **Status**: ✅ **Squatted**. Added openrouter-audio-transcription to provider registry and settings page.
+- **PR #2929**: `feat(i18n): add Thai`
+  - **Status**: ✅ **Squatted**. Integrated full Thai UI locales, onboarding keys, and 2-column appearance step grid option.
+- **PR #2930**: `chore(i18n): warn only when English lacks a message`
+  - **Status**: ✅ **Squatted**. Added fallback.ts helper suppressing missing-message noise for secondary locales.
+- **PR #2904**: `fix(i18n): show the pipe in the Anthropic provider title`
+  - **Status**: ✅ **Squatted**. Escaped pipe delimiter in settings.yaml across all 10 locales.
+- **PR #2911**: `fix(core-agent): preserve whitespace in streamed speech literals`
+  - **Status**: ✅ **Squatted**. Preserved whitespace chunks in chat.ts and proactivity.ts.
+- **PR #2916**: `fix(core-agent): exclude nested reasoning from streamed speech`
+  - **Status**: ✅ **Squatted**. Prevented stream cursor regression in response-categoriser.ts.
+- **PR #2905**: `fix(stage-ui-three): preserve orbit gestures across native text drags`
+  - **Status**: ✅ **Squatted**. Prevented default dragstart in OrbitControls.vue.
 - **PR #851**: `feat(stage-tamagotchi): add option for chat area send key`
   - **Status**: ✅ **Squatted**. Added UI to General Settings.
 - **PR #1302**: `feat: add OpenRouter as a speech (TTS) provider`
@@ -35,6 +49,10 @@
   - **Decision**: Do not prioritize right now.
 
 ## Explicitly Deferred / Pass (Avoid)
+
+- **PR #2903**: `feat(stage-tamagotchi): let the user choose which Home Assistant devices the model reaches`
+  - **User Feedback**: User declined ("2903 - no thanks"). Heavy Tamagotchi / controls-island coupling; smart home filtering passed for now.
+  - **Priority**: N/A (**PASS**)
 
 - **PR #1237**: `feat(stage-ui): add chat settings with stream idle timeout`
   - **User Feedback**: "dont' touch it with a 10ft poll im so divergent any attempts would just nuke our code"

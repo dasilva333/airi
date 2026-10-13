@@ -1,3 +1,5 @@
+import type { ScreenCaptureOptions } from '@proj-airi/stage-shared'
+
 import type { ScreenWatchingConfig } from './airi-card'
 
 import { isWithinSchedule } from '@proj-airi/stage-shared'
@@ -33,6 +35,26 @@ async function getStageMateSendCaption() {
     }
   }
   return cachedStageMateSendCaption
+}
+
+/**
+ * Maps the Screen Watching source setting to capture options. `auto_focused` follows the
+ * active window by title; an unset or placeholder source falls back to the first display.
+ */
+export function resolveScreenWatchingSource(
+  config: Pick<ScreenWatchingConfig, 'sourceType' | 'sourceId'> | undefined,
+  activeWindowTitle?: string,
+): Pick<ScreenCaptureOptions, 'type' | 'sourceId' | 'windowTitle'> {
+  if (config?.sourceType === 'applications' && config.sourceId?.startsWith('window:'))
+    return { type: 'window', sourceId: config.sourceId }
+
+  if (config?.sourceType === 'auto_focused' && activeWindowTitle)
+    return { type: 'window', windowTitle: activeWindowTitle }
+
+  if (config?.sourceType === 'displays' && config.sourceId?.startsWith('screen:') && config.sourceId !== 'screen:primary')
+    return { type: 'screen', sourceId: config.sourceId }
+
+  return {}
 }
 
 export interface VisualObservationItem {
@@ -453,9 +475,10 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
 
       let snapshot: any
       try {
-        snapshot = await visionStore.captureSnapshot(
-          useNative ? { native: true } : { downscalePercent: downscale },
-        )
+        snapshot = await visionStore.captureSnapshot({
+          ...(useNative ? { native: true } : { downscalePercent: downscale }),
+          ...resolveScreenWatchingSource(config, proactivityStore.activeWinStr),
+        })
       }
       catch (captureErr: any) {
         lastError.value = captureErr?.message || String(captureErr)

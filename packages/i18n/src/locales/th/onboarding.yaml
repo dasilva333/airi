@@ -1,0 +1,2711 @@
+stepper:
+  ariaLabel: Onboarding Progress
+  prevStep: Previous step
+  nextStep: Next step
+  jumpToStep: Jump to any step
+  allSteps: All Onboarding Steps ({count})
+  stepCount: Step {current} of {total}
+
+shell:
+  close: Close
+  finish: Launch Stage
+  previous: Back
+  next: Continue
+  skip: Setup Later
+  brand: AIRI Companion Setup
+  stageReady: Ready
+  closeSetup: Close Setup (Save for Later)
+  placeholderNotice: This module configuration is being provisioned. You can
+    proceed to the next step.
+
+steps:
+  welcome:
+    label: Welcome
+    subtitle: Private Companion Studio
+    heroTitle: Welcome to AIRI
+    heroSubtitle: Your digital companion, made your own.
+    companionQuote: Hi, I'm AIRI. We can talk, create, or simply share a quiet
+      moment. Let's make this space feel like you.
+    pills:
+      webgpu: Local AI support
+      offline: Offline options
+      souls: Custom voices & avatars
+    actions:
+      quickStart: Quick start ≈ 1 min
+      guidedSetup: Guided setup
+      setupLater: Set up later
+    dialog:
+      savedTitle: Setup Saved for Later
+      savedDescription: 'You can reopen your companion setup anytime by clicking the
+        AIRI icon in your macOS menu bar / system tray:'
+      trayItem: Companion Setup & Sign-In (V3)
+      continue: Continue Setup
+      closeToTray: Close to Tray
+    quickStartButton: Quick start
+    quickStartDuration: ≈ 1 min
+
+  triage:
+    label: Account
+    subtitle: Account Sign-In & Architecture
+    title: Choose how AIRI saves your companion
+    description: Keep data on this device, or connect an account for cloud services.
+    zeroTrustBadge: Zero-Trust
+    localOption:
+      title: Local Companion (Air-Gapped)
+      description: 100% offline and private. All companion cards, memories, and state
+        are stored locally in your browser/desktop database with zero cloud
+        telemetry.
+      badge: Offline First
+      action: Continue Locally
+    cloudOption:
+      title: Account Sign-In (Cloudflare)
+      description: Connect your account to sync companions, settings, and memory
+        vaults across devices with end-to-end encryption.
+      badge: Multi-Device Sync
+      connect: Sign In with Cloudflare
+      connected: Connected to Cloudflare
+      accountPrefix: 'Account ID:'
+    restore:
+      foundCompanions: Found {count} companion(s) in Cloudflare R2
+      restoreAndLaunch: Restore & Launch Stage (~30s)
+      restoreAndBuild: Restore & Build Another
+      syncing: Restoring remote companions...
+      bannerTitle: Restore from Cloud Vault
+      bannerDesc: Found {count} companion(s) in your Cloudflare R2 vault.
+      restoring: Restoring...
+      restoreAll: Restore & Launch Stage
+      backToOptions: Back to Options
+      startFresh: Start fresh without restoring →
+      availableCount: '{count} Available'
+      deviceSyncDescription: Found {count} companion(s) in your Cloudflare R2 vault.
+        Choose what to sync to this device.
+    stepBadge: Architecture Triage · Step {current} of {total}
+    companionGreeting: Welcome to AIRI! Choose how you'd like to set up your stage.
+      You can run 100% locally and offline, or sign in to sync across devices.
+    local:
+      badge: Offline First
+      title: Local only
+      description: Keep companion cards, memories, and settings on this device.
+      selectedCta: Selected (Air-Gapped)
+      selectCta: Choose Local Mode
+      features:
+        f1: 100% offline on-device storage
+        f2: Zero cloud telemetry or external network calls
+        f3: Instant startup with local database
+      continueAction: Continue locally
+      noSignInNeeded: No sign-in needed.
+      bullets:
+        storage:
+          title: On-device storage
+          desc: Data stays in your local database.
+        account:
+          title: No account required
+          desc: Start without signing in.
+        setup:
+          title: Simple local setup
+          desc: Manage your companion on this device.
+      details:
+        storage:
+          title: On-Device Database Storage
+          desc: All companion cards, transcripts, and memory journals are stored strictly
+            in your local IndexedDB and disk vaults. Zero data ever leaves your
+            computer.
+        telemetry:
+          title: Zero Telemetry & Custody
+          desc: No accounts, no email addresses, no tracking cookies, and no telemetry
+            pingbacks. Complete anonymity and zero-custody data sovereignty.
+          badge: 100% Air-Gapped
+        compute:
+          title: Bring-Your-Own Compute
+          desc: Run Kokoro TTS, Whisper STT, and Ollama / LM Studio / WebLLM completely
+            offline using your device’s local CPU and GPU acceleration.
+          badge: WebGPU & Local LLM
+        export:
+          title: Portable Open Formats
+          desc: Export your companions and memories anytime as standard PNG chunks or raw
+            JSON. No proprietary format lock-in or cloud dependencies.
+          badge: CCv3 / PNG Chunks
+        architectureTitle: Air-Gapped Local Architecture
+        architectureDescription: 100% on-device execution. Your companion stays
+          completely private to this machine.
+    cloud:
+      badge: 10 GB Free + Cloud Sync
+      title: Connected account
+      description: Powered by Cloudflare · Use an account for backup, sync, and hosted
+        services.
+      selectedCta: Selected (Cloud-Backed)
+      selectCta: Choose Cloud Sync
+      features:
+        f1: 10 GB Free Cloud Storage
+        f2: Free Daily Edge AI Credits
+        f3: 24/7 Discord Cloud Relay
+        f4: Multi-Device Sync & 1-Click Restore
+        f5: Private CORS Proxy & Zero-Custody
+        storage:
+          title: 10 GB Free Object Storage
+          desc: Back up 3D models, custom backgrounds, and full memory vaults with zero
+            egress fees.
+          howItWorks: Powered by user-owned Cloudflare R2 object storage.
+          whyItMatters: Generous free tier with zero egress fees. Safely backs up 3D/VRM
+            vessels, Live2D assets, custom backgrounds, and entire memory
+            hierarchies across devices.
+        ai:
+          title: 10,000 Free Daily Edge AI Credits
+          desc: 10,000 free daily Neurons for DeepSeek, Qwen & Llama (no API key
+            required).
+          howItWorks: Directly connects to Cloudflare Workers AI during Step 8
+            (Consciousness).
+          whyItMatters: Direct connection to Cloudflare’s global edge GPU fleet. Chat with
+            DeepSeek-R1, Qwen 2.5, and Llama 3 without paid API keys or
+            dedicated graphics cards.
+        relay:
+          title: 24/7 Discord Serverless Relay
+          desc: Keep your companion awake in your Discord server even when your PC is
+            turned off.
+          howItWorks: Runs as a serverless Cloudflare Worker ({'@'}proj-airi/stage-edge)
+            handling Discord interaction webhooks.
+          whyItMatters: A serverless Cloudflare Worker keeps your companion awake in your
+            Discord server 24/7, syncing conversations back to desktop when you
+            reopen AIRI.
+        sync:
+          title: Multi-Device Sync & 1-Click Restore
+          desc: Seamlessly sync Desktop, Web, and Mobile; restore companions in one click.
+          howItWorks: Edge Key Vault (airi-edge-vault) securely tracks your active
+            companion state.
+          whyItMatters: Encrypted Edge Key Vault securely synchronizes Desktop, Web, and
+            Mobile companions, enabling one-click instant recovery on any new
+            machine.
+        proxy:
+          title: Private CORS Proxy & Zero-Custody
+          desc: Access tricky local & remote AI APIs with 100% zero-custody data privacy.
+          howItWorks: Deploys a personal edge reverse proxy to bypass browser CORS headers
+            for Web & Mobile stages.
+          whyItMatters: Deploys a personal edge reverse proxy allowing Web and Pocket
+            mobile stages to bypass browser CORS headers. Everything runs in
+            your personal account.
+      signInAction: Sign in & continue
+      signInHelp: Sign in with Cloudflare to continue.
+      useApiToken: Use API token
+      waitingForSignIn: Waiting for sign-in...
+      cancelSignIn: Cancel sign-in
+      finishInBrowser: Finish signing in in your browser.
+      continueAction: Continue with connected account
+      manageConnection: Manage connection
+      bullets:
+        sync:
+          title: Backup & sync
+          desc: Keep companion data across devices.
+        ai:
+          title: Hosted AI access
+          desc: Access daily edge AI credits.
+        relay:
+          title: Cloud relay
+          desc: Use your companion through Discord.
+      details:
+        architectureTitle: Cloudflare Zero-Custody Architecture
+        architectureDescription: Everything runs in your personal Cloudflare account.
+          AIRI operates zero intermediate servers and never touches your data.
+        sync:
+          badge: Edge Key Vault
+        proxy:
+          badge: Edge Reverse Proxy
+    auth:
+      connected: Account connected
+      disconnect: Disconnect
+      autoTab: 1-Click Browser
+      tokenTab: API Token
+      verifying: Verifying...
+      oauthButton: Sign In with Cloudflare
+      tokenPlaceholder: Paste your Cloudflare API token...
+      verifyToken: Connect
+      cancel: Cancel
+      disconnectConfirmation: Are you sure you want to disconnect your Cloudflare
+        account? Your local data will remain safe.
+    failedToRestoreCompanions: Failed to restore companions
+    companionsRestoredProceedingToCreateYourNewCompanion: Companions restored! Proceeding to create your new companion.
+    synchronizingCompanionsAndAssetsFromCloudflareR2: Synchronizing companions and assets from Cloudflare R2...
+    companionRestoredAndStageReady: Companion restored and stage ready!
+    disconnectedFromCloudflare: Disconnected from Cloudflare
+    failedToVerifyCloudflareApiToken: Failed to verify Cloudflare API token
+    successfullyConnectedCloudflareApiToken: Successfully connected Cloudflare API Token!
+    pleaseEnterAValidCloudflareApiToken: Please enter a valid Cloudflare API token
+    cloudflareAuthenticationFailed: Cloudflare authentication failed
+    successfullyConnectedToCloudflare: Successfully connected to Cloudflare!
+    restoredR2CloudSyncCredentialsFromEdgeKeyVault: Restored R2 Cloud Sync credentials from Edge Key Vault!
+    requiresWorkersKvAndR2ReadWritePermissions: Requires Workers KV and R2 read/write permissions.
+    accountStatus: {}
+    refresh: Refresh
+    changeLater: You can change this later.
+    moreDetails: More details
+
+  appearance:
+    label: Appearance
+    subtitle: Language, Theme & Accent
+    title: Language & Appearance
+    description: Set your interface language, visual theme, and signature accent color.
+    languageSection:
+      title: Interface language
+      description: Select your primary language for AIRI. You can change this anytime.
+    themeSection:
+      title: Theme
+      description: Choose your preferred appearance mode.
+      dark: Dark
+      light: Light
+      system: System Synchronized
+      darkDesc: Deep obsidian tones
+      lightDesc: Bright daylit studio
+    colorSection:
+      title: Accent color
+      description: Choose an accent tone to personalize buttons, highlights, and
+        avatar glow effects.
+      defaultColor: Reset to cyan
+      custom: Custom Hex
+      groups:
+        warm: Warm & Fire
+        flora: Earth & Flora
+        ocean: Ocean & Sky
+        royal: Royal & Bloom
+      activeColor: 'Selected: {color}'
+    perDeviceToggle: Keep appearance local to this device (exclude from cloud sync)
+    resetToSignatureAiriCyan: Reset to Signature AIRI Cyan
+    preventsRemoteCloudSyncFromOverwritingThisMachineSLanguageAndTheme:
+      Prevents remote cloud sync from overwriting this machine's language and
+      theme preferences.
+    languages:
+      en: English
+      ja: Japanese
+      zh-Hans: Simplified Chinese
+      zh-Hant: Traditional Chinese
+      ko: Korean
+      es: Spanish
+      fr: French
+      ru: Russian
+      vi: Vietnamese
+      id: Indonesian
+      th: Thai
+    colorGroups:
+      warm: Warm & Fire
+      earth: Earth & Flora
+      ocean: Ocean & Sky
+      royal: Royal & Bloom
+    colors:
+      crimson: Crimson
+      coral: Coral
+      tangerine: Tangerine
+      marigold: Marigold
+      amber: Amber
+      lemon: Lemon
+      lime: Lime
+      emerald: Emerald
+      mint: Mint
+      jade: Jade
+      viridian: Viridian
+      teal: Teal
+      turquoise: Turquoise
+      cyan-default: Cyan
+      cerulean: Cerulean
+      cobalt: Cobalt
+      sapphire: Sapphire
+      denim: Denim
+      indigo: Indigo
+      amethyst: Amethyst
+      violet: Violet
+      fuchsia: Fuchsia
+      magenta: Magenta
+      rose: Rose
+    languageCount: '{count} languages'
+    companionGreeting: Let’s make this space feel like you. Choose your language,
+      theme, and accent color—you’ll see changes as you go.
+    selectedLanguage: 'Selected: {language}'
+    nextHint: 'Next: Choose your companion style'
+
+  experience:
+    label: Experience
+    subtitle: Interaction Archetype
+    title: Interaction Archetypes
+    description: Select a curated companion experience archetype. This dynamically
+      customizes active modules and prunes unneeded steps.
+    archetypes:
+      quietObserver:
+        title: The Quiet Observer
+        tag: Fastest · Minimalist
+        description: Ultra-fast, lightweight text companion. Avatar emotes on stage, has
+          inner thoughts and deep memory, with zero audio, vision, or system
+          overhead.
+      casualCompanion:
+        title: The Casual Companion
+        tag: Popular Choice
+        description: The quintessential voice and visual companion. Natural speech
+          (STT/TTS), chat photo perception (VLM), natural pacing, and long-term
+          memory.
+      creativeMuse:
+        title: The Creative Muse
+        tag: Visual Focus
+        description: Visual inspiration studio. Spoken voice, visual generation
+          (Pollinations/ComfyUI), chat photo understanding, and expressive
+          avatar morphs.
+      executiveCopilot:
+        title: The Executive Copilot
+        tag: Productivity
+        description: Focused productivity. Voice dialogue, desktop display perception,
+          active window history, local filesystem MCP tools, and live web
+          search.
+      ambientRoommate:
+        title: The Ambient Roommate
+        tag: Proactive Presence
+        description: Living routine & presence. Spoken voice, ambient heartbeats, sleep
+          schedule, quiet hours, and desktop screen awareness.
+      swissArmy:
+        title: The Swiss Army Companion
+        tag: Most Steps · All-In-One
+        description: 'The flagship do-it-all: Voice STT/TTS, vision, screen watching,
+          proactivity, artistry, tools & memory hierarchy.'
+      quiet:
+        title: The Quiet Observer
+        badge: ⚡ Fastest · Minimalist
+        subtitle: Text, Tools & Memory
+        description: Text conversation, thoughtful pacing, and memory—without a rendered
+          avatar.
+      casual:
+        title: The Casual Companion
+        badge: ✨ Popular Choice
+        subtitle: Everyday voice companion
+        description: Live speech, natural voice, vision, expressive emotions, and memory.
+      muse:
+        title: The Creative Muse
+        badge: 🎨 Visual Focus
+        subtitle: Visual creative companion
+        description: Spoken dialogue, image generation, chat vision, and expressive morphs.
+      copilot:
+        title: The Executive Copilot
+        badge: 💼 Productivity
+        subtitle: Desktop productivity companion
+        description: Voice dialogue, screen awareness, local action tools, and web search.
+      roommate:
+        title: The Ambient Roommate
+        badge: 🌙 Proactive Presence
+        subtitle: Passive presence companion
+        description: Ambient voice, heartbeats, sleep schedule, quiet hours, and awareness.
+      swiss-army:
+        title: The Swiss Army Companion
+        badge: 🔥 Most Steps · All-In-One
+        subtitle: Voice, Vision & Action
+        description: A companion that talks, sees, creates, and takes action—with memory
+          and an ongoing presence.
+    advanced:
+      toggle: 'Advanced: Customize Individual Modules'
+      description: Toggle individual sensory and cognitive capabilities on or off.
+      modules:
+        hearing: Hearing (Microphone Transcription)
+        speech: Speech (Neural Voice Synthesis)
+        thinking: Thinking (Pacing & Subconscious Asides)
+        emotions: Emotions (2-Pass ACT Expression Bridge)
+        vision: Vision (Chat Photo Understanding)
+        screen: Screen (Desktop Perception & OCR)
+        proactivity: Proactivity (Daily Schedule & Heartbeats)
+        artistry: Artistry (Image Generation & Director)
+        memory: Memory (Cognitive Memory Hierarchy)
+        tools: Tools (Web Search & Desktop MCP)
+    hideModules: Hide Modules
+    customizeModules: 'Advanced: Customize Modules'
+    on: ON
+    off: OFF
+    resetToPreset: Reset to Preset
+    extensiblePlugins: Extensible Plugins
+    soon: Soon
+    discordBotCommunitySkillsTriggers: Discord bot, community skills & triggers
+    moduleDefinitions:
+      hearing:
+        label: Voice Input (Hearing)
+        description: Mic input & Whisper voice transcription
+      speech:
+        label: Neural Voice
+        description: Kokoro or Edge TTS spoken voice synthesis
+      thinking:
+        label: Thinking & Pacing
+        description: Dynamic conversational fillers & subconscious asides
+      emotions:
+        label: Avatar Emotions
+        description: 2-Pass AI ACT emotion mapping and avatar morphs
+      memory:
+        label: Memory Hierarchy
+        description: 24h short-term memories & long-term text journal
+      vision:
+        label: Chat Image Vision
+        description: Photo analysis & VLM 1-hop/2-hop routing
+      proactivity:
+        label: Proactive Presence
+        description: Schedule, ambient heartbeats & screen awareness
+      artistry:
+        label: Visual Novels
+        description: Turn-by-turn scene visuals, art generation & selfies
+      tools:
+        label: Action Tools
+        description: Web search, local file access, and MCP servers
+    enabledAvailableSteps: '{length} enabled · {lengthValue} available · {totalSteps} steps'
+    capabilities:
+      Hearing:
+        title: Hearing
+        description: Listens to your voice and turns speech into text for natural spoken
+          conversation.
+        bullets:
+          '0': Real-time speech transcription
+          '1': Voice activity / pause detection
+          '2': Continuous listening or push-to-talk
+      Voice:
+        title: Voice
+        description: Lets your companion speak aloud with a natural, expressive voice.
+        bullets:
+          '0': Neural text-to-speech
+          '1': Voice, speed, and pitch controls
+          '2': Captions and avatar lip-sync
+      Pacing:
+        title: Pacing
+        description: Keeps conversations flowing naturally while responses are being
+          prepared.
+        bullets:
+          '0': Natural fillers and acknowledgements
+          '1': Brief transition phrases during longer responses
+          '2': Faster, smoother conversational turn-taking
+      Emotions:
+        title: Emotions
+        description: Turns conversational emotion into live avatar expressions and body
+          language.
+        bullets:
+          '0': Facial expressions and emotion cues
+          '1': Avatar gestures and body language
+          '2': Mood that can carry across the conversation
+      Memory:
+        title: Memory
+        description: Carries useful context across conversations so your companion can
+          remember past interactions.
+        bullets:
+          '0': Daily summaries of recent conversations
+          '1': Searchable journal of important memories
+          '2': Connections between people, places, and topics
+      Vision:
+        title: Vision
+        description: Lets your companion understand images, photos, and screenshots you
+          share.
+        bullets:
+          '0': Image and scene understanding
+          '1': Object, text, and detail recognition
+          '2': Follow-up discussion about visual content
+      Presence:
+        title: Presence
+        description: Lets your companion check in and react on its own instead of always
+          waiting for you to start the conversation.
+        bullets:
+          '0': Scheduled routines and timers
+          '1': Proactive casual check-ins
+          '2': Context-aware commentary on screen activity
+      Visuals:
+        title: Visuals
+        description: Lets your companion create artwork and visual scenes as part of the
+          conversation.
+        bullets:
+          '0': AI image generation
+          '1': Visual-novel scenes and selfies
+          '2': Illustrated memory journal
+      Tools:
+        title: Tools
+        description: Lets your companion use external tools, browse information, and
+          interact with your workspace.
+        bullets:
+          '0': Web search and page reading
+          '1': Local workspace access
+          '2': Connected services and custom tools
+      Text:
+        title: Text
+        description: Provides a lightweight, keyboard-first way to chat without voice
+          features.
+        bullets:
+          '0': Markdown and code formatting
+          '1': Streaming text responses
+          '2': Ideal for quiet or text-only use
+    summary:
+      selected: 'Selected: {title}'
+    companionGreeting: Choose an archetype that fits your style. Whether you prefer
+      a quiet observer, voice companion, or full stage performer, every
+      capability can be customized.
+    hardware:
+      notMeasured: Not measured
+      checkingTitle: Checking local AI compatibility…
+      checkingDescription: Probing hardware acceleration and available system capabilities.
+      unknownTitle: We couldn’t fully check local performance. You can continue and
+        choose providers during setup.
+      unknownDescription: Browser security or platform restrictions prevented reading
+        detailed GPU capabilities. You can still use local or remote providers
+        freely.
+      quietTitle: The Quiet Observer uses lightweight text and memory, which runs
+        smoothly on CPU.
+      quietDescription: Because this archetype operates without a rendered avatar or
+        continuous local audio perception, it does not require WebGPU.
+      advisoryTitle: Some local features may run slowly or need another provider. You
+        can continue and adjust your setup.
+      noAccelerationDescription: WebGPU acceleration was not detected. Local voice and
+        audio transcription can run via CPU fallback or cloud providers
+        (Cloudflare, ElevenLabs, OpenAI). You can continue and choose your
+        preferred backend in upcoming steps.
+      readyTitle: Hardware acceleration is available. Performance will depend on
+        selected models.
+      readyDescription: WebGPU compute is active. Actual speed will vary depending on
+        your choice of neural speech, transcription, and reasoning models.
+      hideDetails: Hide Details
+      details: Details
+      lighterQuestion: Prefer a lighter resource footprint?
+      switchQuiet: Switch to The Quiet Observer
+      webgpuLabel: 'WebGPU Acceleration: '
+      fp16Label: 'Shader FP16: '
+      gpuLabel: 'Graphics Adapter: '
+      memoryLabel: 'System Memory: '
+      available: Available
+      unavailable: Unavailable
+      unknown: Unknown
+      supported: Supported
+      unsupported: Unsupported
+      advisoryNote: 'Note: Guidance is advisory. You can configure CPU fallbacks,
+        separate local servers, or remote cloud providers at any step.'
+      lowMemoryDescription: Approximately {memory} of system memory was detected.
+        Running the entire local neural stack concurrently may encounter memory
+        pressure. You can select lighter models or remote providers during
+        setup.
+      sources:
+        observed-capability: Observed capability
+        identifying-information: Identifying information, when available
+        measured-system-info: Measured system information
+        approximate: Approximate browser device-memory report
+        estimate: Heuristic estimate (conservative buffer limit)
+        user-reported: User-reported
+        unknown: Unknown
+
+  profile:
+    label: User Profile
+    subtitle: Who Are You?
+    title: Your Identity & Relationship
+    description: Tell your companion how to address you and what relationship
+      dynamic you prefer.
+    userName:
+      label: What should I call you?
+      placeholder: e.g., Master, Alex, Senpai, Producer
+      help: The default nickname used by imported cards and creator story scripts
+        unless overridden.
+    pronouns:
+      label: Preferred pronouns
+      placeholder: e.g., they/them, she/her, he/him
+      he: Male
+      she: Female
+      they: Non-Binary
+      help: Shapes third-person narrative pronouns and relationship lore in companion
+        card generation.
+    relationship:
+      label: Relationship Dynamic
+      options:
+        companion: Close Friend & Companion
+        assistant: Professional Assistant & Copilot
+        romantic: Affectionate & Romantic
+        mentor: Mentor & Advisor
+        student: Curious Apprentice
+    userBio:
+      label: About you
+      placeholder: Share your interests, hobbies, or daily routine so your companion
+        can connect deeper.
+      help: A short prose summary helping the cognitive/storyline models understand
+        your role.
+    step: Step {current} of {total}
+    eyebrow: User Profile & Identity
+    advice: Tell her who you are! Pick a ready-to-use persona archetype or customize
+      your identity and appearance tags below.
+    archetypeTemplates: Archetype Templates
+    tapToAutofill: Tap to auto-fill
+    gender:
+      male: Male
+      female: Female
+      non-binary: Non-Binary
+    visualPrompt:
+      label: Visual prompt tags
+      placeholder: ', short dark hair, spectacles, formal grey business suit'
+      help: Stable Diffusion / ComfyUI prompt tags injected when generating scene
+        graphics representing you.
+    displayingAs: 'Displaying as:'
+    archetypes:
+      rustic-craftsman:
+        label: Rustic Craftsman
+        subtitle: Rugged workwear & suspenders
+      modern-specialist:
+        label: Tech Specialist
+        subtitle: Sharp suit & wireframe glasses
+      creative-artist:
+        label: Creative Artist
+        subtitle: Cozy cardigan & relaxed aesthetic
+      studio-director:
+        label: Studio Director
+        subtitle: Navy blazer & executive style
+    USER_ARCHETYPES:
+      rustic-craftsman: {}
+      modern-specialist: {}
+      creative-artist: {}
+      studio-director: {}
+    summary:
+      displayName: 'Displaying as: {name}'
+    companionGreeting: What should I call you? Choose a ready-made profile or tell
+      me about yourself, including how you’d like us to interact.
+    quickTemplates: Quick templates
+    selectTemplateHint: Select to fill your profile.
+    templateEditingHint: Templates are a starting point. Edit any field.
+    yourProfile: Your profile
+    optional: Optional
+    visualPromptHint: Used when generating images that represent you.
+    nameInformation: Name information
+    pronounsInformation: Pronouns information
+    aboutYouInformation: About you information
+    visualPromptInformation: Visual prompt tags information
+    pronounLabels:
+      male: he/him
+      female: she/her
+      non-binary: they/them
+
+  vessel:
+    label: Physical Vessel
+    subtitle: Live2D / VRM Avatar Body
+    title: Choose a Physical Vessel
+    description: Select a 3D VRM avatar or Live2D model body for your companion.
+    filters:
+      all: All Avatars
+      installed: Installed Only
+      downloadable: Free Downloadable
+      vrm: 3D (VRM)
+      live2d: 2D (Live2D)
+      allCount: All sources ({count})
+      installedCount: Installed ({count})
+      freeCount: Free downloads ({count})
+    searchPlaceholder: Search avatar vessels...
+    download: Download Vessel
+    downloading: Downloading... {progress}%
+    installedBadge: Installed
+    license: 'License:'
+    author: 'Creator:'
+    carousel:
+      local: Local
+      community: Community
+      noAvatarsMatchYourActiveFilter: No avatars match your active filter
+      previousModel: Previous Model
+      nextModel: Next Model
+    invalidModelFile: Invalid model file
+    failedToLoadAvatarValue: 'Failed to load avatar: {messageInvalidmodelfile}'
+    loadedAvatarValue: Loaded avatar "{name}"!
+    importingValue: Importing {name}...
+    mountedValueAsCompanionVessel: Mounted {name} as companion vessel!
+    openingDownloadPageForValue: Opening download page for {name}...
+    importCustom: + Import custom
+    spine2d: Spine (2D)
+    dropYourCustomModelHereVrmOrZip: Drop your custom model here (.vrm or .zip)
+    supportsVrm00103dHumanoidsAndLive2dCubismModelZipPackages: Supports VRM 0.0/1.0 3D humanoids and Live2D Cubism model zip packages.
+    chooseFile: Choose File
+    downloadModel: Download model
+    visualStyleDescriptor: 'Visual style descriptor'
+    localPresetModels:
+      preset-live2d-2:
+        description: Official Live2D Cubism 4 starter avatar with natural breathing, eye
+          gaze physics, and blink sync.
+      preset-vrm-2:
+        description: Official VRM 1.0 3D Humanoid companion with full blendshape facial
+          expressions, spring bone hair physics, and full-body IK.
+      preset-vrm-1:
+        description: Starter lightweight humanoid VRM companion with standard spring
+          bone physics and expressive facial presets.
+    import:
+      loading: Loading...
+      author: Custom Import
+      source: Local Vault
+      description: Custom imported companion avatar stored in your IndexedDB repository.
+    catalog:
+      live2dSource: Official Live2D Sample
+      vrmSampleSource: VRM Sample Model
+      vrmStarterSource: VRM Starter Model
+      communityDescription: Community-curated {format} avatar from {source}.
+    summary:
+      selected: 'Selected: {name}'
+    selectedAvatar: Selected avatar
+    selected: Selected
+    browsing: Browsing…
+    select: Select
+    visualStyleHint: Used when generating images of your companion.
+    downloadBadge: Download
+    companionGreeting: Let’s find a look that feels right. Browse the collection or
+      import your own avatar, then preview it on the stage.
+
+  consciousness:
+    label: Consciousness
+    subtitle: Reasoning Engine (LLM)
+    title: Consciousness & Reasoning Brain
+    description: Connect the language model that powers your companion's thoughts,
+      personality, and replies.
+    tabs:
+      cloud: Cloud Providers (Recommended)
+      local: Local Engines (Offline & Private)
+    providerCards:
+      gemini: Google Gemini (Free Tier)
+      openrouter: OpenRouter (Universal)
+      openai: OpenAI
+      anthropic: Anthropic Claude
+      ollama: Ollama (Local)
+      webllm: WebLLM (In-Browser WebGPU)
+    apiKey: API Key
+    model: Model Selection
+    baseUrl: Custom Endpoint URL
+    verify: Test Connection
+    verified: Connection Verified
+    verifyFailed: 'Connection Failed: {reason}'
+    providerPicker:
+      noProvidersMatchYourCurrentFilters: No providers match your current filters.
+      clearFilters: Clear filters
+      deploymentOptions:
+        all: All
+        cloud: Cloud
+        local: Local
+      pricingOptions:
+        all: All
+        free: Free
+        paid: Paid
+    establishingProviderConnection: Establishing provider connection…
+    generatingInCharacterCompanionResponse: Generating in-character companion response…
+    testing: Testing…
+    simulateTurn: Simulate Turn
+    queryingApiModels: Querying API models…
+    selectADiscoveredModel: Select a discovered model
+    noModelsFound: No Models Found
+    queryingApi: Querying API…
+    getModels: Get Models
+    connecting: Connecting…
+    saveConnect: Save & Connect
+    modelIsDownloadedAndReadyToThink: Model is downloaded and ready to think.
+    downloadingModelShardsIntoBrowserCache: Downloading model shards into browser cache…
+    clickToDownloadAndActivateThisModelLocallyOnWebgpu: Click to download and activate this model locally on WebGPU.
+    modelIsCompiledAndReadyToThinkOnAppleNeuralEngine: Model is compiled and ready to think on Apple Neural Engine.
+    downloadingCoremlWeightBundleAndCompilingOnDevice: Downloading CoreML weight bundle and compiling on device…
+    clickToDownloadAndCompileModelOnAppleNeuralEngine: Click to download and compile model on Apple Neural Engine.
+    reasoningModel: Reasoning Model
+    standardModel: Standard Model
+    brainConnectionVerifiedValuemsTtftValue: Brain connection verified! ({elapsedMs}ms TTFT · {detail})
+    failedToConnectProvider: Failed to connect provider
+    valueConnected: '{nameProvider} connected!'
+    localWebllmBrainReady: Local WebLLM brain ready!
+    coreAiDownloadFailedValue: 'Core AI download failed: {coreAiErrorMessage}'
+    appleCoreAiNeuralEngineModelReady: Apple Core AI Neural Engine model ready!
+    selectConsciousnessLlm: Select Consciousness LLM
+    freeCloudAi: Free Cloud AI
+    localOnDevice: Local On-Device
+    offline: Offline
+    customApiKey: Custom API Key
+    zeroTrustOauth: Zero-Trust OAuth
+    switchAccount: Switch Account
+    connectYourCloudflareAccountToUnlockHighSpeedLlama3370bDeepseekR1:
+      Connect your Cloudflare account to unlock high-speed LLaMA 3.3 70B,
+      DeepSeek R1 32B, and GLM 4.7 Flash with generous free daily limits.
+    connectCloudflareAccount: Connect Cloudflare Account
+    100FreeNoSignIn: 100% Free · No Sign-in
+    appleCoreAiNeuralEngine: Apple Core AI (Neural Engine)
+    aneAccelerated100Offline: ANE ACCELERATED · 100% OFFLINE
+    gemma4E2bItSpeculativeCoreml: Gemma 4 E2B IT (Speculative CoreML)
+    recommendedOnDevice: ⭐ RECOMMENDED ON-DEVICE
+    highSpeedNeuralDialogueOnAppleNeuralEngine45TokS100OfflinePrivate:
+      High-speed neural dialogue on Apple Neural Engine (~45+ tok/s). 100%
+      offline & private.
+    14GbRam: ~1.4 GB RAM
+    selectedGemma4E2bItSpeculativeCoreml: 'Selected: Gemma 4 E2B IT (Speculative CoreML)'
+    downloadCompile: Download & Compile
+    activeReady: Active & Ready
+    retryDownload: Retry Download
+    firstLaunchOnDeviceWarmupNotice: First-Launch On-Device Warmup Notice
+    6090Seconds: ~60–90 seconds
+    webgpuIsnTAvailableInThisBrowserPickAFreeOrCloudProviderBelowEG:
+      WebGPU isn't available in this browser. Pick a free or cloud provider
+      below (e.g. OpenRouter, Gemini, Pollinations, MiMo) to power your
+      companion.
+    localWebllmWebgpuEngine: Local WebLLM (WebGPU Engine)
+    offlineLocal: OFFLINE · LOCAL
+    recommended: ⭐ RECOMMENDED
+    downloadActivate: Download & Activate
+    chooseAnAiBrainProvider: Choose an AI Brain Provider
+    alphabeticalTapToSelect: Alphabetical · Tap to select
+    enterYourApiCredentialsToLoadAiModels: Enter your API credentials to load AI models.
+    getKey: Get Key
+    advancedCustomBaseUrl: 'Advanced: Custom Base URL'
+    activeModelId: Active Model ID
+    typeDirectlyOrPickBelow: Type directly or pick below
+    eGGemini25FlashGpt4oMiniMistralLargeLatest: e.g. gemini-2.5-flash, gpt-4o-mini, mistral-large-latest
+    discoveredModels: Discovered Models
+    sayHelloAndIntroduceYourself: Say hello and introduce yourself!
+    brainActiveVerified: Brain Active & Verified
+    brainConnectionFailed: 'Brain Connection Failed:'
+    brainConnectionVerifiedReadyToProceed: Brain connection verified! Ready to proceed.
+    proceedWithoutAnAiBrain: Proceed Without an AI Brain?
+    withoutAnActiveAiModelYourCompanionWillNotBeAbleToTalkThinkOrRe:
+      Without an active AI model, your companion will not be able to talk,
+      think, or reply to your voice and chat messages.
+    stayConfigureBrainRecommended: Stay & Configure Brain (Recommended)
+    skipAnywayConfigureLaterInSettings: Skip Anyway (Configure Later in Settings)
+    cloudflarePresets:
+      cf-meta-llama-3-3-70b-instruct:
+        description: Frontier capability, fast & versatile
+        badge: Frontier
+      cf-deepseek-ai-deepseek-r1-distill-qwen-32b:
+        description: Deep chain-of-thought reasoning
+        badge: Reasoning
+      cf-zai-org-glm-4-7-flash:
+        description: Fast thinking & bilingual dialogue
+        badge: Fast CoT
+      cf-qwen-qwen2-5-7b-instruct:
+        description: Snappy everyday conversationalist
+        badge: Snappy
+    pollinationsPresets:
+      openai:
+        description: Standard smart conversationalist
+      deepseek:
+        description: High-intelligence open weights
+      mistral:
+        description: Snappy reasoning & instruction following
+    messages:
+      preparingAppleNeuralEngineModel: Preparing Apple Neural Engine model…
+      compilingNeuralGraphsOnAppleNeuralEngineTakes6090sOnFirstRun:
+        Compiling neural graphs on Apple Neural Engine (takes ~60–90s on first
+        run)…
+      downloadingModelWeightsValueMbS: Downloading model weights ({value0} MB/s)…
+      preparingModel: Preparing model…
+    download:
+      compiling: Downloading & compiling on-device model…
+      shards: Downloading weight shards…
+    firstLaunchNotice: When starting the companion for the first time, Apple Neural
+      Engine takes {emphasis} to compile model graphs and warm up memory
+      buffers. Please be patient while it initializes — all subsequent chat
+      replies run near-instantaneously (~45+ tok/s)!
+    legacyGpuNotice: Legacy GPU / 32-bit WebGPU mode active (no {code} support).
+      Showing universal FP32 models compatible with your hardware.
+    provider:
+      fallbackName: Provider
+      cancel: Cancel
+      configure: Configure {name}
+    localModels:
+      vram: ~{toFixed1} GB VRAM
+      selected: 'Selected: {name}'
+      descriptions:
+        qwen3-5-0-8b-q4f16-1-mlc: Ultra-fast pre-filtering and event-log distillation;
+          complements the web-rwkv salience gate.
+        gemma3-1b-it-q4f16-1-mlc: Lightweight runner for integrated GPUs, mobile
+          devices, and VRAM-constrained setups.
+        ministral-3-3b-reasoning-2512-q4f16-1-mlc: First native small chain-of-thought
+          model. Ideal for complex multi-step reasoning.
+        phi-4-mini-instruct-q4f16-1-mlc: Top-tier 3.8B instruction model; modern
+          generalist outperforming Phi-3.5-mini.
+        qwen3-5-4b-q4f16-1-mlc: Next-gen Qwen architecture; sweet-spot balance for rich
+          character roleplay.
+        hermes-3-llama-3-2-3b-q4f32-1-mlc: Rich character roleplay & instructions.
+          Universal WebGPU FP32 compatibility (GTX 1060 / legacy GPUs).
+        phi-3-5-mini-instruct-q4f32-1-mlc: High-capability 3.8B model with strong
+          reasoning. Universal WebGPU FP32 compatibility.
+        llama-3-2-1b-instruct-q4f32-1-mlc: Ultra-fast, lightweight 1.2B instruction model for low-end hardware.
+        llama-3-2-3b-instruct-q4f32-1-mlc: Strong general instruction & chat model with standard FP32 precision.
+        phi-4-mini-instruct-q4f32-1-mlc: Next-gen compact generalist running with standard WebGPU FP32 compute.
+    verification:
+      failed: Connection test failed. Check API key, model ID, and network.
+      latencyPlain: '{latency}ms TTFT'
+      tokensPlain: ~{tokens} tokens
+    assistantMessage: Let’s choose the brain behind our conversations. Use a free
+      cloud model, run one locally, or connect your own provider—then try a
+      quick conversation.
+    savedBrains: Saved brains
+    noSavedBrains: No saved brains yet — pick a route below to configure one.
+    connected: Connected
+    moreModelsInSettings: More models are available in the Free AI Hub in Settings.
+    tryBrain: Try your brain
+    testDescription: Send a message to check replies and connection speed.
+    testingLabel: Testing
+    testMessage: Test message
+    response: Response
+    responsePlaceholder: Your companion’s reply will appear here.
+    notConfigured: Not configured
+    downloadRequired: Download required
+    readyToTest: Ready to test
+    brainVerified: Brain verified
+    connectionFailed: Connection failed
+    chooseAndTest: Choose a brain and test its connection.
+    reasoningLabel: Reasoning CoT
+    streamLabel: Direct Stream
+    noSetup: No setup
+    noProvider: No provider
+    noModel: No model
+    apiKeyPlaceholder: Enter API Key
+    connectedAccountSummary: Connected account · {account}
+    providerChatUnavailable: Provider "{provider}" does not expose chat completions. Check credentials.
+    emptyModelResponse: Empty response received from LLM.
+    localWebllmShort: Local WebLLM
+
+  persona:
+    label: Soul & Persona
+    subtitle: Personality Core
+    title: Character Soul & Persona
+    description: Select or customize the foundational identity, speech quirks, and
+      backstory of your companion.
+    presetCards:
+      airi: AIRI (Default Autonomous Spirit)
+      custom: Custom Character Card
+      import: Import Character Card (PNG / JSON)
+    characterName: Character Name
+    personalitySummary: Personality Overview
+    firstMessage: Opening Greeting (Turn 0)
+    firstMessagePlaceholder: What will your companion say when the stage boots up?
+    speechQuirks: Speech Quirks & Tone
+    anime: Anime
+    valueSSoulBound: "{name}'s soul bound!"
+    appliedPreviewImageFromValue: Applied preview image from {vesselName}!
+    noPreviewImageAvailableForCurrentVessel: No preview image available for current vessel
+    couldNotReachAiModelLoadedTailoredCreativeProposals: Could not reach AI model. Loaded tailored creative proposals!
+    generated3FreshScenarioProposals: Generated 3 fresh scenario proposals!
+    selectedValueFromCatalog: Selected {name} from catalog!
+    addedRecommendedTags: Added recommended tags.
+    addedRecommendedTagsForThisCharacter: Added recommended tags for this character.
+    pleaseUploadAnAvatarImageFirst: Please upload an avatar image first
+    identityFieldsTagsAndAvatarReset: Identity fields, tags, and avatar reset.
+    avatarImageRemoved: Avatar image removed
+    avatarImageUploaded: Avatar image uploaded!
+    pleaseUploadAnImageFilePngJpgWebp: Please upload an image file (PNG, JPG, WebP)
+    clearedImportedCardRevertedToReluPreset: Cleared imported card; reverted to ReLU preset.
+    mountedCustomCardValueToDraft: Mounted custom card "{importedName}" to draft!
+    importFailedValue: 'Import failed: {importError}'
+    openingCardPreviewForValue: Opening card preview for {name}...
+    interceptedCharacterCardValue: Intercepted character card "{filename}"!
+    aiCharacterCreator: AI Character Creator
+    personality: 'Personality:'
+    scenario: 'Scenario:'
+    automaticCardInterceptor: 'Automatic Card Interceptor:'
+    dropASillytavernCharacterCardOrClickToBrowse: Drop a SillyTavern character card or click to browse
+    supportsPngCharacterCardsWithEmbeddedTextCharaChunksOrCcv2Ccv3Json:
+      Supports PNG character cards with embedded tEXt chara chunks or CCv2/CCv3
+      JSON files.
+    stagedCustomCard: Staged Custom Card
+    activeInOnboardingDraftReadyToSynthesizeOntoYourCompanion: Active in onboarding draft — ready to synthesize onto your companion.
+    clearRevert: Clear / Revert
+    resetAvatarTagsAndIdentityFields: Reset avatar, tags, and identity fields
+    resetFields: Reset Fields
+    avatarPreview: Avatar Preview
+    change: Change
+    fromVessel: From Vessel
+    searchCharactersByNameSeriesOrTags: Search characters by name, series, or tags...
+    firstWordsSpokenByTheCompanion: First words spoken by the companion...
+    rulesOfTheWorldAndCompanionDynamic: Rules of the world and companion dynamic...
+    soul: 'Soul:'
+    body: 'Body:'
+    cardInterceptorActive: Card Interceptor Active
+    closeBrowser: Close Browser
+    hubSources:
+      datacat:
+        badge: Recommended
+        note: Best-in-class AIRI integration, ultra-clean UI, direct SillyTavern JSON &
+          PNG exports.
+      chub-ai:
+        badge: Popular
+        note: Massive character library. Click "Search without login" to browse freely
+          and download V2 PNG cards.
+      risu-realm:
+        note: Great community character hub supporting standard PNG (V2) card format.
+      jannyai:
+        note: Large repository of anime & game characters with direct download links.
+    tropeTemplates:
+      desktop-companion:
+        label: Desktop Companion
+      coding-copilot:
+        label: Coding Copilot
+      study-buddy:
+        label: Study Buddy
+      digital-pet:
+        label: Tamagotchi Pet
+      night-owl:
+        label: Night Owl Roommate
+      playful-gremlin:
+        label: Playful Gremlin
+      personal-assistant:
+        label: Personal Assistant
+      gaming-buddy:
+        label: Gaming Partner
+      wellness-coach:
+        label: Wellness Coach
+      slice-of-life:
+        label: Slice of Life
+      open-ended:
+        label: Open-Ended
+      summer-beach:
+        label: Summer Beach
+      isekai:
+        label: Isekai Fantasy
+      high-school:
+        label: High School
+      split-persona:
+        label: Split Persona
+      royal:
+        label: Royal / Noble
+      apocalypse:
+        label: Apocalypse
+      fan-service:
+        label: Fan Servicey
+    messages:
+      failedToParseCardValue: 'Failed to parse card: {value0}'
+      nextHearingStt: 'Next: Hearing (STT)'
+    presets:
+      default:
+        tag: Empathetic Companion
+        description: Neko Ayaka's experimental virtual AI vtuber. A 15-year-old soul
+          mate manifestation designed to grow alongside Richard.
+        summary: Warm, playful, and curious.
+      aria:
+        tag: Analytical Scientist
+        description: The brilliant architect of the AIRI research layer, blending
+          rigorous science with a sharp, dry wit.
+        summary: Thoughtful, precise, and inquisitive.
+      lupin:
+        tag: Fierce Guardian
+        description: A loyal guardian of the digital threshold, vigilant against
+          anomalies and fiercely protective of her charge.
+        summary: Loyal, watchful, and protective.
+      kira:
+        tag: Tsundere
+        description: A sharp, easily flustered companion who conceals her deep care and
+          fierce loyalty behind a combative, defensive exterior.
+        summary: Sharp wit with a softer side.
+      rin:
+        tag: Kuudere
+        description: A calm, composed, and analytical companion who rarely shows emotion
+          on the surface, expressing deep care through quiet, precise actions.
+        summary: Calm, reserved, and analytical.
+      yuki:
+        tag: Yandere
+        description: An intensely devoted companion whose sweet, loving demeanor holds a
+          fiercely possessive and unwavering focus strictly on you.
+        summary: Intense and deeply devoted.
+      mio:
+        tag: Dandere
+        description: A shy, hesitant companion who speaks softly and blushes easily,
+          gradually opening her warm, gentle heart as trust deepens.
+        summary: Gentle, shy, and thoughtful.
+      hana:
+        tag: Deredere
+        description: A brightly optimistic, energetic companion who showers you with
+          open affection, sweet encouragement, and uninhibited joy.
+        summary: Bright, affectionate, and optimistic.
+      displayName: '{value0} ({value1})'
+      cardCount: Starter Cards ({length})
+    selection:
+      creator: '{name} (AI Character Creator)'
+      imported: '{name} (Imported)'
+      customCompanion: Custom Companion
+    importHelp: '{emphasis} Browse any repository below and click to download any
+      SillyTavern V2 character PNG or JSON card. AIRI automatically captures the
+      download stream, parses the embedded metadata, and stages your companion.'
+    source:
+      active: Active
+    creator: {}
+    browser:
+      browse: Browse {name}
+    assistantMessage: Give your character a name, a look, and a story direction.
+      Then choose the version that feels right.
+    communityImport: Community & Import
+    choosePersonality: Choose a starting personality
+    customizable: Every character can be customized.
+    personalityPreview: Personality preview
+    firstHello: A first hello
+    personalityAvatarHint: This personality works with your selected avatar.
+    viewDetails: View character details
+    characterInspiration: Character inspiration
+    upload: Upload
+    remove: Remove
+    seriesOrigin: Series / origin
+    namePlaceholder: e.g. Ririchiyo
+    seriesPlaceholder: e.g. Inu x Boku SS
+    uploadImage: Upload image
+    browseCatalog: Browse catalog
+    imageTraitsHint: Image used for traits; it isn’t saved to the character card.
+    visualTraits: Visual traits
+    suggestingTags: Suggesting tags…
+    suggestTags: Suggest tags
+    traitPlaceholder: + Add trait...
+    closeCatalog: Close catalog
+    storyDirection: Story direction
+    storyDirectionHint: Choose a starting point—or write your own.
+    storyIdea: Your story idea
+    optional: (Optional)
+    storyIdeaPlaceholder: A reserved companion who shares quiet evenings at your
+      desk, gradually revealing a mischievous sense of humor.
+    suggestStoryIdea: Suggest a story idea
+    suggestStoryHint: Fills the idea above. Edit it or write your own.
+    chooseVariation: Choose a variation
+    chooseVariationHint: Pick a story, then refine its greeting and setting.
+    generateVariationsTitle: Generate fresh variations with AI
+    dreaming: Dreaming…
+    generateWithAi: Generate with AI
+    synthesizingStory: Synthesizing scene proposals, greetings, and world dynamics.
+    noVariations: No story variations yet
+    generateVariations: 🪄 Generate Story Variations
+    openingGreeting: Opening greeting
+    storySetting: Story setting
+    companionFallback: Companion
+    yourCompanionFallback: your companion
+    dreamingWithBrain: Dreaming up story ideas with {model}…
+    variationEmptyHint: Pick a story direction on the left or generate tailored
+      variations for {name}.
+    characterSummary: 'Character: {name}'
+    personalitySummaryLine: 'Selected personality: {name}'
+    createContinue: Create & continue
+    activeLlm: Active LLM
+    importedCardFallback: Imported Card
+    unsupportedPngCard: PNG does not contain a supported chara payload
+    extractedVisualTags: Extracted visual tags!
+    copy:
+      tooltip: Copy variation {number} to clipboard
+      hint: Copy a variation's title, greeting, and setting with the copy button.
+      success: Copied Variation {number} to clipboard
+      failed: Failed to copy to clipboard
+    saved: Saved
+
+  hearing:
+    label: Hearing
+    subtitle: Voice Transcription (STT)
+    title: Hearing & Voice Recognition
+    description: Configure your microphone input, voice activity detection (VAD),
+      and transcription engine.
+    micSelect: Microphone Device
+    testMic: Test Microphone
+    vadThreshold: Voice Detection Sensitivity
+    engines:
+      deepgram: Deepgram Nova (Blazing Fast Cloud)
+      whisper: Local Whisper (100% On-Device)
+      browser: Web Speech API (Zero-Config)
+    stopTest: Stop Test
+    valueConnected: '{nameProvider} connected!'
+    selectAnAudioInputDevice: Select an audio input device
+    activeMicrophoneInput: Active Microphone Input
+    rescanAudioDevices: Rescan audio devices
+    microphoneAccessRequired: Microphone Access Required
+    clickBelowToGrantMicrophonePermissionInYourBrowserApp: Click below to grant microphone permission in your browser/app.
+    grantAccess: Grant Access
+    builtIn: Built-in
+    webgpuOffline: WebGPU Offline
+    whisperWebgpuModel: Whisper WebGPU Model
+    largerModelsOfferHigherAccuracySmallerModelsDownloadFasterWithLessV:
+      Larger models offer higher accuracy; smaller models download faster with
+      less VRAM.
+    downloadModel: Download Model
+    reDownload: Re-download
+    retryDownload: Retry Download
+    whisperModelShardIsCachedResidentInMemoryReadyToTranscribe: Whisper model shard is cached & resident in memory — ready to transcribe.
+    downloadFailedOrConnectionInterrupted: Download failed or connection interrupted.
+    cloudRemoteEnginesApiKeyRequired: Cloud & Remote Engines (API Key Required)
+    optional: Optional
+    selectATranscriptionModel: Select a transcription model
+    pushToTalkTriggerKey: Push-to-Talk Trigger Key
+    pickALockKeyToToggleTheMicrophoneHandsFree: Pick a lock key to toggle the microphone hands-free.
+    keyDetected: Key detected
+    hearingYou: Hearing you…
+    finalTranscription: 'Final transcription:'
+    noTranscriptionYetStartTheTestAndSpeakIntoYourMicrophone: No transcription yet. Start the test and speak into your microphone.
+    earVerifiedReadyToProceed: Ear verified! Ready to proceed.
+    speakIntoYourMicrophoneNextUnlocksOnceWeHearYou: Speak into your microphone — Next unlocks once we hear you.
+    hotkeyOptions:
+      scroll:
+        label: Scroll Lock
+      caps:
+        label: Caps Lock
+      num:
+        label: Num Lock
+    messages:
+      downloadingModelShardsIntoLocalCache: Downloading model shards into local cache…
+      startingAudioStream: Starting audio stream...
+      listeningForSpeech: Listening for speech...
+      transcriptionReceived: Transcription received.
+      recording3Seconds: Recording 3 seconds...
+      transcribing: Transcribing...
+      noTranscriptionReturnedFromProviderPleaseCheckMicrophoneInputVolumeA:
+        No transcription returned from provider. Please check microphone input
+        volume and model status.
+    download:
+      warmingUp: Compiling WebGPU shaders and warming up model…
+      cancel: Cancel
+      outOfMemory: Model allocation failed (Out of Memory). Please choose a lighter
+        shard like Whisper Tiny.
+    provider:
+      fallbackName: Provider
+      modelLabel: Model
+    verification:
+      microphoneUnavailable: Microphone stream unavailable. Check permissions.
+    assistantMessage: Choose how I’ll hear you, then test your microphone. Once your
+      speech is recognized, you can continue.
+    microphone: Microphone
+    microphoneDescription: Choose the microphone you’ll use to talk with your companion.
+    speechRecognition: Speech recognition
+    webSpeechApi: Web Speech API
+    zeroSetupNoDownload: Zero Setup · No Download
+    browserRecognitionDescription: Uses speech recognition provided by your browser
+      or operating system. No model download or API key required.
+    localWhisper: Local Whisper
+    processedOnDevice: Speech processed on your device
+    localWhisperDescription: Runs OpenAI Whisper locally in your browser/app. Speech
+      processed on your device.
+    deployment: Deployment
+    pricing: Pricing
+    listeningCheck: Listening check
+    listeningCheckDescription: Speak to verify your microphone and engine.
+    verified: Verified
+    testing: Testing
+    microphoneLevel: Microphone level
+    recognizedSpeech: Recognized speech
+    notConfigured: Not configured
+    downloadRequired: Download required
+    readyToTest: Ready to test
+    listening: Listening…
+    heardFinishing: Heard you — finishing…
+    earVerified: Ear verified
+    checkFailed: Check failed
+    downloadHint: Download your selected model to start the listening test.
+    speakNow: Speak into your microphone now.
+    hearingFinishing: Hearing you — finishing up…
+    startTestHint: Start the listening test to verify your microphone.
+    startListeningTest: Start listening test
+    defaultMicrophoneInput: Default Microphone Input
+    noEngine: No engine
+    noModel: No model
+    filters:
+      all: All
+      cloud: Cloud
+      local: Local
+      free: Free
+      paid: Paid
+
+  speech:
+    label: Speech
+    subtitle: Neural Voice Studio (TTS)
+    title: Speech & Voice Synthesis
+    description: Give your companion a voice. Choose neural cloud voices or private
+      on-device synthesis.
+    voiceCards:
+      kokoro: Kokoro TTS (Local WebGPU / WASM)
+      elevenlabs: ElevenLabs (Ultra-Realistic Cloud)
+      azure: Azure Cognitive Speech
+      edge: Edge TTS (Free Cloud)
+    voiceSelect: Voice Timbre
+    previewVoice: Listen to Voice Sample
+    pitch: Voice Pitch
+    speed: Speaking Rate
+    stop: Stop
+    voicePlaybackFailed: Voice playback failed
+    audioPlaybackError: Audio playback error
+    synthesizingValueSVoice: Synthesizing {value}'s voice...
+    speechProviderValueIsNotConfigured: Speech provider "{providerId}" is not configured.
+    downloadingVoiceEngineWeightsFirst: Downloading voice engine weights first...
+    speechEngineReady: Speech engine ready!
+    voiceCatalogRefreshed: Voice catalog refreshed
+    failedToDeleteClonedVoice: Failed to delete cloned voice
+    clonedVoiceDeleted: Cloned voice deleted
+    failedToCloneVoiceFromSample: Failed to clone voice from sample.
+    voiceValueClonedAndActivated: Voice "{name}" cloned and activated!
+    cloningVocalTimbreFromValue: Cloning vocal timbre from "{name}"...
+    switchedToValueOfflineStarterVoicesDoNotNeedAnHfToken: Switched to
+      "{namevoiceId}". Offline starter voices do not need an HF token!
+    pasteYourApiKeyHere: Paste your API key here...
+    selectTheUnderlyingNeuralCheckpointOrSpeechSynthesisModel: Select the underlying neural checkpoint or speech synthesis model.
+    huggingFaceAccessTokenForPocketTtsGatedVoices: Hugging Face Access Token (for Pocket-TTS gated voices)
+    acceptGate: Accept Gate
+    getToken: Get Token
+    starterVoices: ★ Starter Voices
+    engineInitializedReady: Engine Initialized & Ready
+    forceReDownloadWeights: Force re-download weights
+    reDownload: Re-download
+    downloadFailed: 'Download Failed:'
+    companionVoice: Companion Voice
+    refreshVoiceCatalog: Refresh voice catalog
+    loadVoices: Load Voices
+    deleteCurrentlySelectedCustomVoiceClone: Delete currently selected custom voice clone
+    promptSpokenTranscriptOptional: Prompt Spoken Transcript (Optional)
+    acousticAlignmentForOmnivoiceHiggsFish: Acoustic Alignment for OmniVoice / Higgs / Fish
+    typeExactWordsSpokenInTheAudioSampleBeforeDropping: Type exact words spoken in the audio sample before dropping...
+    speechRateSpeed: Speech Rate / Speed
+    vocalPitch: Vocal Pitch
+    resetText: Reset text
+    enterGreetingSampleTextToPreview: Enter greeting sample text to preview...
+    producerUserVoice: Producer / User Voice
+    enterUserSampleSpeechToPreview: Enter user sample speech to preview...
+    huggingFaceTokenRequired: Hugging Face Token Required
+    thisVoiceIsBehindAGatedModel: This voice is behind a gated model
+    skipTheTokenFreeOfflineStarterVoices: 'Skip the token: Free offline starter voices'
+    theseVoicesRun100LocallyWithZeroShotCloningNoHfAccountOrTokenNee:
+      'These voices run 100% locally with zero-shot cloning — no HF account or
+      token needed:'
+    reluEmpathetic: ★ ReLU (Empathetic)
+    sakuraJapanese: ★ Sakura (Japanese 🇯🇵)
+    agreeAndAccessRepository: '"Agree and access repository"'
+    requiredWithoutAcceptingTheGateHfBlocksAccessEvenWithAValidToken:
+      '⚠️ Required: Without accepting the gate, HF blocks access even with a
+      valid token.'
+    userAccessToken: User Access Token
+    read: Read
+    pasteTokenHere: Paste Token Here
+    1AcceptGate: 1. Accept Gate
+    2GetToken: 2. Get Token
+    localEngines:
+      pocket:
+        tag: RECOMMENDED · CPU
+        desc: Local speech with support for voice samples.
+        name: Pocket-TTS Local
+      kokoro:
+        tag: NEURAL AUDIO
+        desc: Expressive English voices.
+        name: Kokoro Local TTS
+      moss:
+        tag: ULTRA-FAST
+        desc: A lightweight local speech engine.
+        name: Moss-Nano Local
+    availableModels:
+      english-2026-04:
+        label: Pocket TTS English (100M CPU)
+      french-24l:
+        label: Pocket TTS French (24L)
+      spanish-24l:
+        label: Pocket TTS Spanish (24L)
+      german-24l:
+        label: Pocket TTS German (24L)
+      italian-24l:
+        label: Pocket TTS Italian (24L)
+      q4:
+        label: Kokoro Q4 (Fast CPU WASM)
+      q8:
+        label: Kokoro Q8 (High Quality WASM)
+      q4-webgpu:
+        label: Kokoro Q4 (WebGPU)
+      moss-tts-nano-100m:
+        label: Moss-Nano Fast Engine (100M)
+      eleven-multilingual-v2:
+        label: Eleven Multilingual v2
+      default:
+        label: Standard Voice Model
+    availableVoices:
+      anna:
+        label: Anna (Female · Conversational)
+      eve:
+        label: Eve (Female · Conversational)
+      jane:
+        label: Jane (Female · Conversational)
+      mary:
+        label: Mary (Female · Conversational)
+      vera:
+        label: Vera (Female · Conversational)
+      alba:
+        label: Alba (Female · Reading)
+      charles:
+        label: Charles (Male · Conversational)
+      george:
+        label: George (Male · Conversational)
+      michael:
+        label: Michael (Male · Conversational)
+      af-heart:
+        label: Heart (Female · Warm)
+      af-bella:
+        label: Bella (Female · Soft)
+      af-nicole:
+        label: Nicole (Female · Energetic)
+      af-sky:
+        label: Sky (Female · Sweet)
+      am-adam:
+        label: Adam (Male · Natural)
+      am-michael:
+        label: Michael (Male · Deep)
+      trump:
+        label: Trump (Preset)
+      ljs:
+        label: LJ Speech (Female Preset)
+      aura-2-luna-en:
+        label: Luna (Female · Friendly & Natural)
+      aura-2-asteria-en:
+        label: Asteria (Female · Confident & Clear)
+      aura-2-aurora-en:
+        label: Aurora (Female · Cheerful & Expressive)
+      aura-2-cora-en:
+        label: Cora (Female · Smooth & Melodic)
+      aura-2-orion-en:
+        label: Orion (Male · Approachable & Calm)
+      aura-2-zeus-en:
+        label: Zeus (Male · Deep & Trustworthy)
+      cloud-voice-1:
+        label: Rachel (Expressive · Conversational)
+      cloud-voice-2:
+        label: Domi (Confident · Energetic)
+      cloud-voice-3:
+        label: Bella (Soft · Empathetic)
+      cloud-voice-4:
+        label: Antoni (Smooth · Warm)
+    messages:
+      initializingWeightsDownload: Initializing weights download...
+    tokenValidation:
+      s3Key: S3 Key detected (starts with "HF")
+      s3KeyHint: This looks like an S3 storage credential. Pocket-TTS requires a User
+        Access Token starting with "hf_" from huggingface.co/settings/tokens.
+      prefix: Token should start with "hf_"
+      prefixHint: Hugging Face User Access Tokens normally start with "hf_". Make sure
+        you copied an access token, not a bucket key.
+      short: Token is unusually short
+      shortHint: Please check that the full token was pasted.
+      valid: Valid token format
+      validHint: Ensure you clicked "Agree and access repository" on kyutai/pocket-tts.
+    offlineStarterTip: 'Tip: All {emphasis} (such as ★ Sakura and ★ ReLU) run 100%
+      offline without needing any HF token.'
+    accessTokenInstructions: Generate a {emphasis} with {emphasis2} role at {link}
+      (token starts with {code})
+    gatedVoiceDescription: The voice you selected ({emphasis}) is hosted on a gated
+      Hugging Face repository. To use it, you need a free Hugging Face account,
+      accept the model gate, and paste your access token below.
+    repositoryInstructions: Visit {repository} and click {action}.
+    provider: {localFallback: Local TTS, cloudFallback: Cloud TTS}
+    download:
+      progress: Downloading Weights ({downloadProgress}%)...
+      pocket: Downloading Pocket TTS weights...
+      kokoro: Downloading Kokoro weights...
+      moss: Downloading MOSS weights...
+      failed: Failed to download TTS weights
+      engineProgress: Downloading engine weights ({progress}%)…
+    companionVoiceProfile:
+      personaTitle: "{companionName}'s Voice Persona"
+    userVoiceProfile:
+      profileTitle: "{userName}'s Voice Profile"
+    cloning: Cloning...
+    assistantMessage: Let’s find a voice that feels right. Choose an engine, adjust
+      the voice, and listen to a sample.
+    speechEngine: Speech engine
+    engineDescription: Choose how speech runs for your companion.
+    airiServer: AIRI server
+    builtIn: Built-in
+    cloud: Cloud
+    activateDownload: Activate & download
+    retry: Retry
+    serverDescription: Run speech through a separate server on this computer or another machine.
+    serverAddress: Server address
+    speechModel: Speech model
+    connectToLoadModels: Connect to load models
+    modelsDiscovered: Models are discovered from your server.
+    serverSetup: Server setup
+    serverSetupDescription: Startup options and installation guidance
+    autoStart: Start automatically with AIRI
+    autoStartDescription: Launch audio server sidecar when the desktop app opens.
+    quickSetup: Quick Setup (Local Machine)
+    cloneRepository: 1. Clone repository
+    installDependencies: 2. Install dependencies
+    runServer: 3. Run server (Port 8095)
+    runsSeparately: Runs separately from AIRI
+    serverConnectionDescription: The server runs the speech model. AIRI connects to
+      it to discover voices and play speech.
+    apiCredentials: API Credentials
+    getApiKey: Get API Key
+    voicePreview: Voice & preview
+    voicePreviewDescription: Choose a voice, then listen to a sample.
+    companionVoiceTab: Companion voice
+    userVoiceTab: Your voice profile
+    voiceLabel: Voice
+    connectToLoadVoices: Connect to load voices
+    loadServerVoiceCatalog: Load voice catalog from server
+    loadVoicesAction: Load voices
+    useVoiceSample: Use a voice sample
+    sampleWords: Words spoken in the sample
+    referenceTranscriptDescription: Review or enter the reference transcript after upload.
+    referenceTranscriptPlaceholder: Type exact words spoken in the audio sample...
+    checkRecording: Check that this matches the recording.
+    speakingSpeed: Speaking speed
+    pitchLabel: Pitch
+    hearVoice: Hear this voice
+    hearVoiceHeading: Hear this voice.
+    sampleText: Sample text
+    uploadSampleDescription: Upload 5–10 seconds of audio · WAV or MP3
+    downloadEngineHint: Download the selected engine to hear this voice.
+    setupHint: Set up your voice now, or finish later.
+    calibratedReady: Voice calibrated · Ready to proceed
+    setupLater: Setup later
+    connected: Connected
+    connecting: Connecting...
+    connectionFailed: Connection failed
+    notConnected: Not connected
+    connect: Connect
+    copied: Copied!
+    copy: Copy
+    uploadAudio: Upload audio
+    playPreviewAction: Play preview
+    serverVoiceReady: Voice ready · Click to preview audio sample.
+    connectServerHint: Connect to your audio server to load a model and voice.
+    server:
+      connectedNotice: Connected to AIRI Audio Server!
+      noResponse: Server did not respond on configured port. Is airi-audio-server running?
+      connectionError: Failed to connect to audio server.
+      voiceCatalogUpdated: Voice catalog updated from server
+    emptyAudio: TTS returned empty audio stream
+    voiceUploadUnavailable: Voice upload is available after connecting.
+    modelLabel: Model
+    serverModels:
+      omnivoice:
+        label: OmniVoice Q8_0 (Recommended)
+    serverVoices:
+      omnivoiceDefault:
+        label: OmniVoice Default (Female Warm)
+      femaleCalm:
+        label: Female Calm
+      maleDeep:
+        label: Male Deep
+      animeGirl:
+        label: Anime Girl (Energetic)
+      chatterboxDefault:
+        label: Chatterbox Default
+    engineCalibrated: '{provider} engine ready · Voice calibrated'
+    providerSelected: '{provider} selected'
+    createAccountInstruction: Create an account at {link}
+
+  thinking:
+    label: Thinking
+    subtitle: Pacing & Subconscious Asides
+    title: Thinking & Conversational Pacing
+    description: Configure thinking pauses, dynamic fillers, and subconscious spoken
+      asides during reasoning.
+    presets:
+      snappy:
+        title: Snappy
+        description: Ultra-fast 200ms responses with instant direct replies. Minimum
+          thinking latency.
+      balanced:
+        title: Balanced
+        description: Natural human conversational rhythm with adaptive conversational
+          fillers for complex answers.
+      deepCot:
+        title: Deep CoT
+        description: Extended chain-of-thought contemplation with rich dynamic spoken
+          asides while thinking.
+    subconsciousAsides: Subconscious Spoken Asides (Needle 2 WASM)
+    asidesDescription: Permit companion to vocalize inner train-of-thought
+      mutterings while generating complex answers.
+    preGenerate9ClipsNow: ⚡ Pre-generate 9 Clips Now
+    reWarm: Re-warm
+    audioCacheInitialized: Audio cache initialized
+    preWarmedValueThinkingFillersIntoAudioCache: Pre-warmed {prewarmSuccessCount} thinking fillers into audio cache!
+    speechProviderInstanceNotReadyForPreWarmingYetSkippingLiveSynthesis:
+      Speech provider instance not ready for pre-warming yet. Skipping live
+      synthesis.
+    responseLengthCannotBeEnforcedOnReasoningModelsHardTokenLimitsTrunc:
+      Response length cannot be enforced on reasoning models. Hard token limits
+      truncate internal chain-of-thought.
+    responseLengthResetToDefaults: Response length reset to defaults
+    hardwareBenchmarkFailedCheckNetworkApiKey: Hardware benchmark failed. Check network & API key.
+    hardwareBenchmarkedValuemsTtftValue: 'Hardware benchmarked: {elapsedMs}ms TTFT ({detail})'
+    noConsciousnessBrainModelConfiguredInStep8Yet: No Consciousness Brain Model configured in Step 8 yet.
+    tokens: tokens
+    onlySetIfKnown: Only set if known
+    eG128000Optional: e.g. 128000 (Optional)
+    preWarmThinkingFillers: Pre-warm Thinking Fillers?
+    casualSpokenFillers: Casual Spoken Fillers
+    9QuickSynthesisRequests: 9 quick synthesis requests
+    wouldYouLikeToPreGenerateTheseClipsNowOrContinueAndGenerateThemO:
+      Would you like to pre-generate these clips now, or continue and generate
+      them on-demand later?
+    generateOnDemandLater: Generate On-Demand Later
+    RESPONSE_LENGTH_TIERS:
+      short:
+        title: Short & Snappy
+        tag: FAST BANTER
+        desc: 1–2 concise sentences. Quick, punchy, and direct replies.
+      balanced:
+        title: Balanced Conversational
+        tag: EVERYDAY FLOW
+        desc: 2–3 natural sentences. Warm, conversational, and punchy.
+      rich:
+        title: Rich & Elaborate
+        tag: DEEP STORYTELLER
+        desc: 1–2 descriptive paragraphs. Rich context, depth, and color.
+      custom:
+        title: Custom Budget
+        tag: USER DEFINED
+        desc: Custom token ceiling with direct prose guidance.
+    messages: {}
+    emptyCacheDescription: You've enabled {emphasis}, but the audio cache is currently empty.
+    prewarmRequestsDescription: To eliminate voice latency during reasoning pauses,
+      AIRI needs to make {emphasis} to your configured voice provider
+      ({emphasis2}).
+    responseLength:
+      reset: Reset defaults
+      tokenEstimate: ~{tokens} tokens
+    benchmark:
+      reasoningModel: Reasoning Model
+      standardModel: Standard Stream
+      lastTest: 'Last first-token test: {latency}'
+    voiceSources: {}
+    prewarm:
+      synthesisProgress: Synthesizing fillers ({completed}/{total})...
+      progress: Pre-warming fillers ({completed}/{total})...
+      synthesizing: Synthesizing...
+      cacheReady: 'Cache primed: {count} fillers ready'
+    simulation:
+      brainRequired: Please configure a Brain Model in Step 8 (Consciousness) first.
+      failed: Simulation failed. Check provider credentials.
+    companionGreeting: Tune how your companion pauses and speaks while thinking.
+      Choose a cadence that matches your model's reasoning speed.
+    conversationTitle: Thinking & Conversation
+    assistantMessage: Choose how I fill the pause, and how much I say when I’m ready.
+    conversationSettings: Conversation settings
+    whileThinking: While thinking
+    replyLength: Reply length
+    pacing: Pacing
+    pacingDescription: Choose how often spoken fillers can appear while waiting.
+    pauseSources: What fills the pause
+    quietModeDescription: Quiet mode is on — your companion waits in silence with
+      zero background load.
+    spokenAsides: Spoken asides
+    spokenAsidesDescription: In-character lines marked for speaking.
+    reasoningCues: Reasoning cues
+    localModelReady: Local model ready · 14 MB
+    reasoningCuesDescription: A local model picks out brief moments to voice.
+    casualFillers: Casual fillers
+    casualFillersDescription: Short phrases and vocal reactions.
+    audioNotPrepared: Audio clips not prepared
+    timingDetails: Timing details
+    contextWidthThreshold: Context width threshold
+    reasoningLengthTitle: 'Response length stays flexible on reasoning models:'
+    reasoningLengthDescription: Thinking models spend tokens on internal
+      deliberation before replying, so hard limits stay off to avoid cutting
+      thoughts short.
+    enforceReplyLength: Enforce reply length
+    replyBudgetDescription: Guide reply brevity and maximum token budget
+    tokenCeilingLabel: 'Token ceiling:'
+    customTokenCeilingLabel: Custom token ceiling
+    replyGuidance: Reply guidance
+    editGuidance: Edit guidance
+    tryConversation: Try a conversation
+    testSettingsDescription: Uses your selected model and speech settings.
+    yourMessage: Your message
+    testRequestNotice: This sends a test message to your model.
+    conversationPreview: Conversation preview
+    generatingResponse: Generating response with your settings…
+    testEmptyHint: Run a test to hear pauses, fillers, and the final reply.
+    testSharedSettings: The same test uses both your pacing and reply settings.
+    footerHint: Tune the conversation, then try a turn.
+    notTested: Not tested yet
+    noModelSelected: No model selected
+    reasoningDetected: Reasoning output detected
+    standardOutput: Standard streaming output
+    testingBenchmark: Testing…
+    testAgain: Test again
+    preparingAudio: Preparing…
+    prepareAudio: Prepare audio clips
+    simulating: Simulating…
+    runConversationTest: Run conversation test
+    pacingCards:
+      disabled:
+        name: Quiet
+        desc: Wait without spoken fillers.
+      snappy:
+        desc: Brief fillers for short pauses.
+      balanced:
+        desc: Natural asides during longer pauses.
+      deep:
+        name: Extended
+        desc: More room for longer waits.
+    provider:
+      noChat: Provider "{providerId}" does not expose chat completions.
+      initializationFailed: Unable to initialize provider "{providerId}".
+    preview:
+      latency: '{latency}ms TTFT'
+      sentences: '{count} sentences'
+
+  emotions:
+    label: Emotions
+    subtitle: 2-Pass ACT Expression Bridge
+    title: Emotions & The ACT Bridge
+    description: Connect emotional cues from dialogue to avatar facial morphs and
+      body motions.
+    pass1Title: 'Pass 1: Expression Extraction'
+    pass1Desc: Normalize model expressions into canonical <|ACT:*|> tokens.
+    pass2Title: 'Pass 2: Actor Directives'
+    pass2Desc: System prompt instructions that teach the character when and how to emote.
+    liveExpressionTest: Live Expression Test
+    testExpressions:
+      happy: Joy / Happy
+      flustered: Flustered / Blush
+      thinking: Contemplating
+      surprised: Surprised
+      wink: Playful Wink
+    changesAutomaticallySavedToCompanionDraft: Changes automatically saved to companion draft
+    companionGreeting: Let’s discover how your companion expresses emotion. Preview
+      your avatar’s expressions, keep the ones that work, and connect them to
+      emotional cues.
+    heading: Emotions & Expressions
+
+  vision:
+    label: Vision
+    subtitle: Chat Photo & Image Analysis
+    title: Visual Perception (Chat VLM)
+    description: Enable your companion to inspect, understand, and react to images
+      you send in chat.
+    tabs:
+      cloudflare: Cloudflare Edge
+      cloudflareBadge: 10k Free Daily
+      local: Local & Offline
+      localBadge: Air-Gapped
+      custom: Cloud Providers
+    cloudflare:
+      connected: 'Cloudflare Connected: 10,000 free Neurons/day active'
+      notConnected: Connect your Cloudflare account to use free edge vision with zero setup.
+      signIn: Sign In with Cloudflare
+    engineTitle: Vision Analysis Model
+    testImage: Test Visual Perception
+    testPrompt: Upload an image to verify companion visual understanding.
+    perceptionAccuracy: Perception Latency & Accuracy
+    noneSelected: None Selected
+    hop1CharacterReply: Hop 1 · Character Reply
+    hop1VisionSceneAnalysis: Hop 1 · Vision Scene Analysis
+    analyzingScene: Analyzing Scene...
+    perceptionAnalysisDirective: Perception Analysis Directive
+    standInCharacterPersonaDirective: Stand-in Character Persona Directive
+    cloudflareAuthenticationFailed: Cloudflare authentication failed
+    successfullyConnectedToCloudflare: Successfully connected to Cloudflare!
+    localVisionProvider: Local Vision Provider
+    cloudVisionProvider: Cloud Vision Provider
+    visionModel: Vision Model
+    loadingModels: Loading models...
+    eGGpt4oClaude35SonnetMoondream2: e.g. gpt-4o, claude-3-5-sonnet, moondream2
+    resetDefault: Reset Default
+    testPreview: Test Preview
+    clickOrDropToReplaceImage: Click or drop to replace image
+    whatDoYouThinkOfThisPicture: What do you think of this picture?
+    processing: Processing...
+    thinkingInCharacter: Thinking in character...
+    cloudflareVisionPresets:
+      cf-meta-llama-4-scout-17b-16e-instruct:
+        description: Frontier 17B MoE (16 experts). Ultra-fast visual perception & high
+          reasoning depth.
+        badge: 'Flagship MoE · Speed: 11/11'
+      cf-mistralai-mistral-small-3-1-24b-instruct:
+        description: Deep conversational wit, high reasoning intelligence & in-character
+          visual banter.
+        badge: 'Rank #20 Intel · 128k'
+      cf-qwen-qwen3-8-27b:
+        description: Alibaba Qwen visual reasoning with step-by-step visual
+          chain-of-thought analysis.
+        badge: 27B · Visual CoT
+    hop2SDialogue: Hop 2 · {characterName}'s Dialogue
+    summary:
+      model: 'Model: {model}'
+    providers:
+      available: '{count} Available'
+    simulator:
+      latency: '{latency}ms'
+      errors:
+        imageRequired: Please attach or drop an image first.
+        modelRequired: Please select a Vision Provider and Model first.
+        emptyResponse: '[No character response generated]'
+        brainRequired: '[Consciousness provider/model not configured yet. Complete Step
+          8 Consciousness to preview character reactions.]'
+        failed: Vision simulation failed.
+        brainError: '[Hop 2 Consciousness Error: {error}]'
+    routing: {}
+    pageTitle: Vision & Image Understanding
+    assistantMessage: Choose how I’ll understand images, then send a picture to try it.
+    setupTitle: Vision setup
+    setupDescription: Choose a provider, model, and how image analysis should be handled.
+    localTab: Local
+    cloudTab: Cloud
+    routingTitle: How should images be handled?
+    directTitle: Vision answers directly
+    directDescription: The vision model replies as your companion.
+    forwardTitle: Pass to your brain
+    forwardDescription: Your main brain uses the image analysis to reply.
+    responseInstructions: Response instructions
+    responseInstructionsDescription: Customize how direct replies stay in character.
+    tryVision: Try vision
+    tryVisionDescription: Send an image and ask a question.
+    questionLabel: Your question
+    responseLabel: Response
+    directReply: Direct reply
+    forwardReply: Forward to brain
+    chooseFile: choose a file
+    imageFormats: PNG, JPG or WebP
+    testVision: Test vision
+    chooseImage: Choose an image to start.
+    noProvider: No provider
+    noVisualDescription: '[No visual description generated]'
+    dropImage: Drop an image or {action}
+    providerInitError: Unable to initialize vision provider "{provider}".
+
+  screen:
+    label: Screen
+    subtitle: Desktop Screen Watching
+    title: Desktop Screen Watching
+    description: Allow your companion to see your screen in the background and offer
+      timely observations.
+    deliveryMode:
+      title: Notification Delivery Mode
+      voiceAndBubble: Voice & Bubble (Full Presence)
+      bubbleOnly: Bubble Only (Quiet Notification)
+      voiceOnly: Voice Only
+      muted: Muted (Context-Only Observation)
+    salienceGate:
+      title: Salience Filter
+      ocr: Lightweight OCR (Ultra-low CPU)
+      vlm: Visual VLM Analysis
+    privacyExclusions: Privacy Blacklist (Exclude Banking, Passwords & Private Windows)
+    enabled: Enabled
+    paused: Paused
+    screenWatchingActive: SCREEN WATCHING ACTIVE
+    watcherPaused: WATCHER PAUSED
+    screenPerceptionVisualPush: Screen Perception (Visual Push)
+    eventDrivenPush: EVENT-DRIVEN PUSH
+    enableBackgroundDesktopFrameCapturesPromotesSignificantVisualDifferenc:
+      Enable background desktop frame captures. Promotes significant visual
+      differences to proactive commentary.
+    reactionDeliveryMode: Reaction Delivery Mode
+    howReactionsArePresented: (How reactions are presented)
+    perceptionEngineTier: Perception Engine Tier
+    screenSamplingCadence: Screen Sampling Cadence
+    status: 'Status:'
+    screenIntervalPresets:
+      '1000':
+        label: 1s (High)
+      '2000':
+        label: 2s (Balanced)
+      '5000':
+        label: 5s (Gentle)
+      '10000':
+        label: 10s (Eco)
+    reactionModes:
+      voice-and-bubble:
+        title: Voice & Bubble
+        badge: Full Immersion
+        desc: Companion speaks out loud with floating speech bubbles on screen.
+      bubble-only:
+        title: Bubble Only
+        badge: Silent Subtitles
+        desc: Floating subtitles without audio interruptions. Ideal for gaming or
+          streaming.
+      voice-only:
+        title: Voice Only
+        badge: Audio Commentary
+        desc: Audio commentary without any floating visual bubbles overlay.
+      muted:
+        title: Silent Telemetry
+        badge: Log & Ledger
+        desc: Telemetry observations recorded silently to context and event ledger.
+    visionTiers:
+      lightweight:
+        title: Lightweight OCR & Frame Diff
+        vram: 0 MB VRAM
+        desc: Instant local WASM OCR + perceptual pHash gating. Ultra-fast with zero
+          cloud API costs.
+      moondream:
+        title: Moondream2 VLM
+        vram: ~700 MB WebGPU
+        desc: Local vision language model. Synthesizes 1-sentence contextual scene
+          descriptions for promoted events.
+
+  proactivity:
+    label: Proactivity
+    subtitle: Daily Schedule & Heartbeats
+    title: Ambient Routine & Proactivity
+    description: Set up autonomous check-ins, bedtime quiet hours, and daily greetings.
+    heartbeats: Autonomous Ambient Heartbeats
+    heartbeatsDesc: Companion can proactively start conversations after periods of silence.
+    quietHours: Quiet Hours / Bedtime Routine
+    quietHoursDesc: Companion enters sleep mode during selected hours (no
+      unsolicited voice alerts).
+    scheduleFrom: Sleep From
+    scheduleTo: Wake Up At
+    screenIntervalPresets:
+      '1000': {}
+      '2000': {}
+      '5000': {}
+      '10000': {}
+    heartbeatIntervalPresets:
+      '2': {}
+      '5': {}
+      '10': {}
+      '20': {}
+    engine: {}
+    reactionModes:
+      voice-and-bubble: {}
+      bubble-only: {}
+      voice-only: {}
+      muted: {}
+    visionTiers:
+      lightweight: {}
+      moondream: {}
+    engineModes:
+      on-demand: {}
+      heartbeats: {}
+      screen: {}
+      dual: {}
+    behavior:
+      title: Companion behavior
+      onDemandActive: On demand mode active
+      onDemandDescription: Your companion only responds when you start a conversation.
+        Background timers and screen observation are paused.
+      screenBehavior: 1. Screen behavior
+      quietTitle: Quiet awareness
+      quietDescription: Builds context for later conversations.
+      commentTitle: Comment on notable changes
+      commentDescription: Can chime in when something relevant happens.
+      commentDelivery: 2. Comment delivery
+      commentDeliveryHint: Applies to comments prompted by screen activity.
+      scheduleHint: Timing also follows your character's operating schedule.
+      fineTuneLater: Fine-tune later in Character Settings
+      checkInFrequency: '{number}. Check-in frequency'
+      fineTuneHint: Advanced settings like quiet hours, tripwires, and sensitivity can
+        be customized in Character Settings.
+    sources:
+      title: Screen or window
+      displays: Displays
+      applications: Applications
+      permissionNeeded: Screen recording permission needed
+      settings: Settings
+      noWindows: No windows detected.
+      refresh: Refresh sources
+      primaryDisplay: Primary Display
+      choose: Choose a screen or window
+      virtualScreen: Virtual Screen
+    expectations:
+      title: What to expect
+      screenComments: Relevant screen changes can prompt a comment.
+      screenQuiet: Notices screen changes quietly without interrupting.
+      checkIns: Periodic check-ins are enabled.
+      onDemand: Responds only when you start a conversation.
+      noBackground: No background timers or screen captures.
+      bothTitle: Aware and conversational
+      commentTitle: Attentive observer
+      quietTitle: Quiet observer
+      periodicTitle: Periodic companion
+      onDemandTitle: On-demand companion
+      voiceAndBubble: Screen comments use voice and a bubble.
+      bubbleOnly: Screen comments use a bubble only.
+      voiceOnly: Screen comments use voice only.
+    analysis:
+      title: Screen analysis
+      description: Choose how screen activity is understood.
+      lightweight:
+        title: Lightweight
+        description: Text recognition and visual change detection.
+      local:
+        title: Local scene understanding
+        description: Uses a downloaded vision model on this device.
+      downloaded: Downloaded & ready
+      notDownloaded: Model not yet downloaded
+      download: Download model (~1.1 GB)
+      external:
+        title: Configured vision provider
+        description: Uses the provider chosen in Vision.
+        unconfigured: 'Notice: No provider configured in Vision step.'
+        active: 'Active: {provider}'
+      processingLocation: Processing location depends on your vision, classifier, and
+        brain settings.
+      downloading: Downloading model ({percent}%)...
+      downloadSuccess: Local scene understanding model downloaded and ready!
+      downloadFailure: 'Failed to download vision model: {error}'
+    adjustLater: You can adjust this later in Character Settings.
+    setUpLater: Set up later
+    companionGreeting: Choose when I chime in, and how I stay aware of your day.
+    interactionChoices:
+      on-demand:
+        title: On demand
+        description: Responds when you start a conversation.
+      heartbeats:
+        title: Gentle check-ins
+        description: Checks in with you periodically.
+      screen:
+        title: Screen awareness
+        description: Notices relevant changes on your screen.
+      both:
+        title: Both
+        description: Screen awareness and periodic check-ins.
+    deliveryOptions:
+      voice-and-bubble: Voice & bubble
+      bubble-only: Bubble only
+      voice-only: Voice only
+    checkInMinutes: '{minutes} min'
+
+  artistry:
+    label: Artistry
+    subtitle: Visuals & Autonomous Director
+    title: Artistry & Image Generation
+    description: Equip your companion to paint portraits, generate selfies, and
+      visualize stage scenes.
+    engines:
+      pollinations: Pollinations AI (100% Free & Zero-Config)
+      comfyui: ComfyUI (Local Node http://127.0.0.1:8188)
+      disabled: Disable Art Generation
+    styleChips: Visual Aesthetic Styles
+    previewButton: Generate Test Artwork
+    autonomousDirector: Autonomous Director (Allows companion to paint during dialogue)
+    preview:
+      visualStylePreview: Visual Style Preview
+      renderingCharacterStyleSample: Rendering character style sample...
+      tryAgain: Try Again
+      characterStylePreview: Character Style Preview
+      provider: 'Provider:'
+      reRoll: 🔄 Re-roll
+      doneClose: Done / Close
+      messages:
+        pleaseEnterAVisualStylePromptFirst: Please enter a visual style prompt first.
+        dispatchingToValue: Dispatching to {value0}...
+        synthesizingViaValue: Synthesizing via {value0}...
+        synthesizingWithPollinationsAi: Synthesizing with Pollinations AI...
+      status:
+        initiating: Initiating synthesis...
+      errors:
+        timeout: Timeout waiting for Electron generation response
+        emptyResult: No image was returned from generator.
+        failed: Image generation failed. Please check your provider settings.
+        desktopRequired: Direct browser testing for '{provider}' is not supported.
+          Please run inside the AIRI Electron app.
+    workflow:
+      configureComfyuiWorkflow: Configure ComfyUI Workflow
+      mapPromptAndImageInjectionPointsIntoTheWorkflowGraph: Map prompt and image injection points into the workflow graph
+      workflowName: Workflow Name
+      giveThisWorkflowARecognizableTemplateName: Give this workflow a recognizable template name
+      eGAnimaHikarun: e.g. anima_hikarun
+      1PositivePromptTargetRequired: 1. Positive Prompt Target (Required)
+      selectTheNodeAndPropertyWhereAiriWillInjectGeneratedPositivePrompts:
+        Select the node and property where AIRI will inject generated positive
+        prompts.
+      targetNode: Target Node
+      targetProperty: Target Property
+      2ImageInputTargetOptionalImg2imgControlnet: 2. Image Input Target (Optional – Img2Img / ControlNet)
+      selectANodeToReceiveCharacterInputImagesAiriWillUploadTheImageTo:
+        Select a node to receive character/input images. AIRI will upload the
+        image to ComfyUI and set this property automatically.
+      imageNode: Image Node
+      imageProperty: Image Property
+      saveWorkflow: SAVE WORKFLOW
+      cancel: Cancel
+      empty: No workflows uploaded yet (Upload workflow_api.json above)
+      option: '{name} ({count} exposed fields)'
+      textToImageOnly: (None - Text to Image Only)
+    synthesizerModel: Synthesizer Model
+    pollinationsApiKeyPollenToken: Pollinations API Key / Pollen Token
+    optional: (Optional)
+    freeModeActiveWithoutKey: ✓ Free mode active without key
+    leaveBlankFor100FreeModeOrEnterTokenForFluxGrok: Leave blank for 100% free mode, or enter token for FLUX/Grok
+    test: Test
+    uploadWorkflowApiJson: Upload workflow_api.json
+    googleAiStudioApiKey: Google AI Studio API Key
+    replicateApiToken: Replicate API Token
+    eGMasterpieceBestQuality1girlBlueEyes: e.g. masterpiece, best quality, 1girl, blue eyes...
+    resetToPersonaTags: Reset to Persona Tags
+    ghibliMeadow: + Ghibli Meadow
+    cyberpunkNeon: + Cyberpunk Neon
+    shinkaiSky: + Shinkai Sky
+    cozyCafe: + Cozy Cafe
+    evaluationTriggerMode: Evaluation Trigger Mode
+    companionReactionDefault: 🌟 Companion Reaction (Default)
+    impactFocus: Impact Focus
+    userLlmReplyDirector: User → LLM Reply → Director
+    userInput: 👤 User Input
+    promptFocus: Prompt Focus
+    evaluatesUserSIncomingMessageImmediatelyBeforeTheCompanionSpeaks: Evaluates user's incoming message immediately before the companion speaks.
+    comfyuiWorkflowOptions:
+      '': {}
+    messages:
+      connectedValue: Connected — {value0}
+      failedValue: 'Failed: {value0}'
+      invalidJsonValue: 'Invalid JSON: {value0}'
+    reactionDescription: 'Evaluates what the companion replied: {code}. Best for
+      natural scene reactivity.'
+    style:
+      preview: Preview
+    providers:
+      comfyui:
+        badge: Local Node
+        secondary: Your server
+      none:
+        badge: Disabled
+        secondary: Image generation off
+        shortName: None
+      pollinations:
+        badge: 100% Free / Zero-Config
+        secondary: Hosted service
+      replicate:
+        badge: Cloud API
+        secondary: Cloud service
+    models:
+      freeRouter: Free Router (Pollinations Auto)
+    connection:
+      connected: Connected — {gpu}{vram}
+      vram: ' ({size} VRAM)'
+      fallbackGpu: GPU
+      connectedLabel: Connected
+    assistantMessage: Choose how I create images, and when I bring our stories to life.
+    imageGeneration: Image generation
+    serviceDescription: Choose the service that creates your images.
+    comfyServerLabel: 'ComfyUI server:'
+    workflowLabel: 'Workflow:'
+    workflowHint: Use an API-format workflow exported from ComfyUI.
+    characterStyle: Character visual style
+    styleDescription: Keep your companion’s appearance consistent across generated images.
+    resetAvatar: ↺ Reset to avatar default
+    addAestheticLabel: Add an aesthetic
+    whenCreateImages: When to create images
+    directorLabel: Autonomous director
+    directorDescription: Creates scene images and selfies as conversations unfold.
+    companionCreation: Companion image creation
+    companionCreationDescription: Lets your companion create images when you ask.
+
+  memory:
+    label: Memory
+    subtitle: Cognitive Memory Hierarchy
+    title: The 4 Temporal Memory Quadrants
+    description: Explore how your companion builds, preserves, and consolidates
+      memories over time.
+    quadrants:
+      stmm:
+        title: Short-Term Working Memory (STMM)
+        desc: Daily summaries and rolling conversational context buffers.
+      ltmm:
+        title: Sacred Text Journal (LTMM)
+        desc: Permanent, immutable milestones and key facts recorded in local vector
+          storage.
+      eternalThread:
+        title: Eternal Thread (Lifetime Relational Graph)
+        desc: Evolving distillation of relationship dynamics, trust levels, and shared
+          lore.
+      dreaming:
+        title: Dream State Consolidation (DRMM & Echo Chips)
+        desc: Nightly consolidation worker synthesizing emotional anchors and resolving
+          contradictions.
+    stmmTiers:
+      compact:
+        label: Compact
+      balanced:
+        label: Balanced
+      deep:
+        label: Deep history
+    lifetimeTiers:
+      lightweight: {}
+      relational: {}
+      deep: {}
+    summary: {}
+    recentContext:
+      title: Recent context
+      description: Keeps recent conversation summaries close at hand, so we can pick
+        up where we left off.
+      window: Summary window
+      windowHint: Larger windows add more context to each reply.
+    personalJournal:
+      title: Personal journal
+      description: Records meaningful moments and feelings, and can look them up later.
+      appendOnly: New entries add to the journal without rewriting earlier ones.
+    sharedHistory:
+      title: Shared history
+      description: Carries important milestones and relationship context across weeks
+        and months.
+      summary: A lasting summary of what matters between you and your companion.
+    quietReflection:
+      title: Quiet reflection
+      description: Reflects on recent conversations while you’re away, preparing
+        context for your return.
+      idle: Runs during idle time between conversations.
+    setup:
+      title: Your memory setup
+      disabled: No memory features enabled.
+      recentContext: Recent context · {window}
+    window:
+      oneDay: 1 day
+      days: '{count} days'
+    companionGreeting: Choose what I remember, and how I carry our conversations forward.
+
+  tools:
+    label: Tools
+    subtitle: Automation & Desktop MCP
+    title: Automation, MCP & External Tools
+    description: Supercharge your companion with real-time web search and desktop
+      system capabilities.
+    webSearch:
+      title: Live Web Search (DuckDuckGo / Brave)
+      desc: Allows your companion to look up real-time news, documentation, and
+        weather without API keys.
+    desktopMcp: Desktop MCP
+    motionGen:
+      title: Generative 3D Motion (FlowMDM)
+      desc: Generate custom 3D avatar animations and VRMA clips on the fly.
+    loadingClipEncoderOnnxDenoiser: Loading CLIP Encoder & ONNX Denoiser...
+    downloadingShardsValue: Downloading Shards ({percentage15}%)...
+    preWarmedCached: Pre-warmed & Cached
+    preWarmDownloadEngine: Pre-warm & Download Engine
+    primedReady: Primed & Ready
+    preWarmingShards: Pre-warming Shards...
+    enabled: Enabled
+    webResearchPack: Web & Research Pack
+    0KeyWebSearch: 0-Key Web Search
+    fetchContentMarkdown: fetch_content (Markdown)
+    zeroSetupNeeded: Zero Setup Needed
+    localWorkspaceFilesystemPack: Local Workspace & Filesystem Pack
+    readFileListDirectory: read_file / list_directory
+    directoryTreeSearchFiles: directory_tree / search_files
+    scopedToProjects: Scoped to ~/Projects
+    kineticMotionGeneratorPack: Kinetic Motion Generator Pack
+    vrmAvatarOptimized: VRM Avatar Optimized
+    allowsHumanoidVrmCompanionsToAutonomouslyAuthorAndGenerateNew3dSkel:
+      Allows humanoid VRM companions to autonomously author and generate new 3D
+      skeletal animations and dances in real time from conversation via
+      Procedural LLM keyframing and FlowMDM WebGPU neural diffusion.
+    noteYourSelectedVesselLive2dSpineUses2dAnimationChannelsSwitchToA:
+      'Note: Your selected vessel (Live2D/Spine) uses 2D animation channels.
+      Switch to a VRM vessel in Step 5 for full 3D motion playback.'
+    activeDesktopToolbelt: Active Desktop Toolbelt
+    webSearch0Key: web_search (0-Key)
+    filesystemDesktopMcp: filesystem (Desktop MCP)
+    generateMotion3dVrma: generate_motion (3D VRMA)
+    noExternalToolsEnabledSafeSandboxedMode: No external tools enabled (safe sandboxed mode).
+    toolGranted: '{count} Tool Granted | {count} Tools Granted'
+    webSearchDescription: Equips the companion with real-time web search and page
+      markdown extraction via {code} (DuckDuckGo, Bing, Brave, Baidu) without
+      requiring paid API keys or subscription tokens.
+    filesystemDescription: Allows the companion to read, list, and search files
+      inside designated project directories via {code}, with user-configured
+      read boundaries.
+    motionOutputDescription: Output motions compile directly to VRMA binary tracks
+      and play live on Stage. {emphasis}
+    motion:
+      status: 'Engine Status: {status}'
+
+  finale:
+    label: Stage Finale
+    subtitle: Pre-Flight Readiness & Launch
+    title: Pre-Flight Honesty Matrix
+    description: Review your companion's operational status across the 4
+      foundational stage pillars.
+    pillars:
+      audio: Audio Input & Hearing
+      reasoning: Consciousness & Reasoning Core
+      speech: Voice Synthesis Engine
+      avatar: Avatar Vessel & Stage Driver
+    status:
+      ready: Ready
+      configured: Configured
+      optional: Optional / Skipped
+      actionRequired: Action Required
+    greetingCard: Opening Dialogue Preview (Turn 0)
+    launchButton: Launch AIRI Stage
+    launching: Launching Stage...
+    compiledCardJson: Compiled Card JSON
+    rawDraftJson: Raw Draft JSON
+    animateVrm: Animate VRM
+    none: None
+    replay: Replay
+    failedToCreateCompanionCardValue: 'Failed to create companion card: {msg}'
+    companionReadyOnStage: Companion ready on stage!
+    speechIsDisabledForThisCompanionSilentMode: Speech is disabled for this companion (Silent Mode).
+    motionGenerationFailed: Motion generation failed.
+    3dMotionCompiledPlayingOnStage: 3D Motion compiled & playing on stage!
+    stageReady: STAGE READY
+    avatarPreview: Avatar Preview
+    mountingAvatarVessel: Mounting Avatar Vessel...
+    resetAvatarPosition: Reset Avatar Position
+    resetPos: Reset Pos
+    silentMode: Silent Mode
+    manifest: 'Manifest:'
+    soul: 'Soul:'
+    vessel: 'Vessel:'
+    brain: 'Brain:'
+    voice: 'Voice:'
+    preFlightReadinessHonestyMatrix: Pre-Flight Readiness Honesty Matrix
+    kinetic3dMotionLivePlayground: Kinetic 3D Motion Live Playground
+    typeHowYouWantHerToMoveEGWaveHelloGracefulBow: Type how you want her to move (e.g. wave hello, graceful bow)...
+    launchIssue: Launch Issue
+    dismissError: Dismiss error
+    inspectTheCompiledAiricardPayload: Inspect the compiled AiriCard payload
+    viewCardJson: View Card JSON
+    preFlightSpecificationInspector: Pre-Flight Specification Inspector
+    reviewRawDraftInputsVsDeterministicCompiledCardSpecificationBeforeSt:
+      Review raw draft inputs vs. deterministic compiled card specification
+      before stage launch.
+    compiledAiricardCharaCardV3: Compiled AiriCard (`chara_card_v3`)
+    targetPayload: Target Payload
+    rawDraftStatePreCompilation: Raw Draft State (Pre-Compilation)
+    inputs: Inputs
+    honestyMatrix:
+      hearing:
+        subtitle: Microphone input disabled
+      speech:
+        subtitle: Zero audio output · Subtitles only
+      memory:
+        title: Memory Hierarchy
+      tools:
+        title: Autonomous Tools
+      artistry:
+        title: Visual Artistry
+      sensory:
+        title: Sensory Perception
+    copy: Copy {rawDraftJson}
+    messages:
+      generating3dVrmaAnimation: Generating 3D VRMA animation...
+      motionActiveOnStage: Motion active on stage!
+      generationFailed: Generation failed.
+    memory:
+      journal: Journal
+      lifetime: Lifetime
+      dreams: Dreams
+    tools:
+      webSearch: Web Search
+      filesystem: Filesystem
+      motions: 3D Motions
+    summary:
+      microphone: '{provider} · Mic Active'
+      memoryActive: Memory Active
+      memoryList: '{count} Active: {names}'
+      toolsActive: Toolbelt Armed
+      sandbox: Safe Sandboxed
+      toolList: '{count} Granted: {names}'
+      noTools: No external tools
+      artReady: Art Engine Ready
+      artProvider: '{provider}{director}'
+      sensoryActive: Sensory Active
+      screenWatching: Screen Watching ({mode})
+      directorActive: ' · Director Active'
+    clipboard:
+      compiled: Compiled Card JSON copied to clipboard
+      draft: Raw Draft State JSON copied to clipboard
+    compiler:
+      close: Done
+    verification:
+      count: '{length} Faculties Verified'
+    audition:
+      playing: Playing...
+    motion:
+      generating: Generating...
+      presets:
+        wave:
+          label: 👋 Wave Hello
+        kiss:
+          label: 💋 Blow Kiss
+        bow:
+          label: 🙇 Graceful Bow
+        celebration:
+          label: 💃 Celebration
+  sensory:
+    pollingOsProbes: Polling OS Probes...
+    refreshTelemetry: Refresh Telemetry
+    quietHoursActive: 🌙 QUIET HOURS ACTIVE
+    companionAwake: ☀️ COMPANION AWAKE
+    perceptionActive: PERCEPTION ACTIVE
+    passiveDormant: PASSIVE / DORMANT
+    sensoryPerceptionProactivity: Sensory Perception & Proactivity
+    step13: Step 13
+    visualPush: Visual Push
+    ambientPull: Ambient Pull
+    operatingSleepSchedule: Operating & Sleep Schedule
+    smartSilenceNoReply: Smart Silence (NO_REPLY)
+    screenPerceptionVisualPush: Screen Perception (Visual Push)
+    eventDrivenPush: EVENT-DRIVEN PUSH
+    autonomousPerceptionTickerAnalyzingYourDesktopDisplayReactsInRealTim:
+      Autonomous perception ticker analyzing your desktop display. Reacts in
+      real-time when gameplay moments, videos, or active windows change.
+    reactionDeliveryMode: Reaction Delivery Mode
+    chooseHowYourCompanionChimesIn: (Choose how your companion chimes in)
+    perceptionEngineTier: Perception Engine Tier
+    captureSamplingFrequency: Capture Sampling Frequency
+    framesAreContinuouslyHashedWithPhashOnlyFramesWithMeaningfulVisualD:
+      Frames are continuously hashed with pHash. Only frames with meaningful
+      visual deltas trigger OCR or model evaluation.
+    theVisualPushSentinelSilentByDefault: 'The Visual Push Sentinel: Silent by Default'
+    proactiveHeartbeatsSleepSchedule: Proactive Heartbeats & Sleep Schedule
+    periodicBackgroundTimerCheckInsEvaluatingWhetherToSpeakBoundToYour:
+      Periodic background timer check-ins evaluating whether to speak. Bound to
+      your operating schedule and quiet hours.
+    ambientCheckInInterval: Ambient Check-In Interval
+    timerPulse: Timer Pulse
+    operatingScheduleQuietHours: Operating Schedule & Quiet Hours
+    defineQuietHoursWhenYourCompanionSleepsDuringQuietHoursCompanionWil:
+      Define quiet hours when your companion sleeps. During quiet hours,
+      companion will not make unprompted comments.
+    wakeUpTime: Wake Up Time
+    bedtimeQuietHours: Bedtime (Quiet Hours)
+    sleepScheduleAppliesToBothScreenWatchingHeartbeats: 'Sleep Schedule: Applies to Both Screen Watching & Heartbeats'
+    both: both
+    100DisplayPrivacy: 100% display privacy
+    pauseWhenAwayFromComputerAfkGate: Pause When Away from Computer (AFK Gate)
+    automaticallyPausesScreenWatchingAndHeartbeatsAfter5MinOfMouseKeybo:
+      Automatically pauses screen watching and heartbeats after 5 min of
+      mouse/keyboard inactivity.
+    contextAwareSmartSilenceDirective: Context-Aware Smart Silence Directive
+    noYapGuarantee: NO YAP GUARANTEE
+    situationalGroundingEventLedger: Situational Grounding & Event Ledger
+    contextInjections: CONTEXT INJECTIONS
+    feedRealWorldDesktopStateActiveApplicationHistoryAndSystemLedgerEve:
+      Feed real-world desktop state, active application history, and system
+      ledger events directly into the LLM prompt per conversational turn.
+    attachSensorTelemetryToManualChatMessagesChatboxGrounding: Attach Sensor Telemetry to Manual Chat Messages (Chatbox Grounding)
+    groundsNormalUserPromptsWithYourActiveWindowTitleApplicationNameAnd:
+      Grounds normal user prompts with your active window title, application
+      name, and local time.
+    activeOsSensorProbes: Active OS Sensor Probes
+    windowHistory: Window History
+    cpuSystemLoad: CPU & System Load
+    usageMetrics: Usage Metrics
+    attachUnifiedEventLedgerStream: Attach Unified Event Ledger Stream
+    sampleLast: 'Sample Last:'
+    events: Events
+    liveSensorLedgerIngestionPreview: Live Sensor & Ledger Ingestion Preview
+    thisBlockIsAppendedAtTheTailOfTheLlmPromptToPreserveKvPrefixCac:
+      This block is appended at the tail of the LLM prompt to preserve KV prefix
+      cache alignment.
+    previous: ← Previous
+    confirmContinue: Confirm & Continue →
+    screenIntervalPresets:
+      '1000':
+        label: 1s (High)
+      '2000':
+        label: 2s (Balanced)
+      '5000':
+        label: 5s (Gentle)
+      '10000':
+        label: 10s (Eco)
+    heartbeatIntervalPresets:
+      '2':
+        label: 2 min
+      '5':
+        label: 5 min (Recommended)
+      '10':
+        label: 10 min
+      '20':
+        label: 20 min
+    screenSilenceDescription: Whenever screen shifts occur, your companion evaluates
+      whether the change is genuinely noteworthy. If you are typing mundane
+      text, browsing static pages, or watching ordinary video frames, the model
+      silently emits {code} without interrupting your flow.
+    smartSilenceDescription: Automatically bakes a hardened anti-yapping instruction
+      directly into your companion's system prompt. When heartbeat ticks or
+      screen shifts detect routine activities, the model silently emits {code}
+      instead of speaking unsolicited spam.
+    environmentDescription: Equip your companion with real-time environmental
+      awareness. Balance {emphasis} (Screen Watching) and {emphasis2} (Proactive
+      Heartbeats), governed by an {emphasis3} and {emphasis4}.
+    quietHoursDescription: During bedtime quiet hours, {emphasis} systems go
+      completely dormant. Screen frame capture is frozen for {emphasis2} (no
+      watching during off-hours), and background heartbeat timers cease all
+      evaluation until wake-up time.
+    ambient:
+      sectionLabel: AMBIENT PULL
+      intervalLabel: '{interval}ms ticker'
+    reactionModes:
+      voice-and-bubble:
+        title: Voice & Bubble
+        badge: Full Immersion
+        desc: Companion speaks out loud with floating speech bubbles on screen.
+      bubble-only:
+        title: Bubble Only
+        badge: Silent Subtitles
+        desc: Floating subtitles without audio interruptions. Ideal for gaming or
+          streaming.
+      voice-only:
+        title: Voice Only
+        badge: Audio Commentary
+        desc: Audio commentary without any floating visual bubbles overlay.
+      muted:
+        title: Silent Telemetry
+        badge: Log & Ledger
+        desc: Telemetry observations recorded silently to context and event ledger.
+    visionTiers:
+      lightweight:
+        title: Lightweight OCR & Frame Diff
+        vram: 0 MB VRAM
+        desc: Instant local WASM OCR + perceptual pHash gating. Ultra-fast with zero
+          cloud API costs.
+      moondream:
+        title: Moondream2 VLM
+        vram: ~700 MB WebGPU
+        desc: Local vision language model. Synthesizes 1-sentence contextual scene
+          descriptions for promoted events.
+
+quickStart:
+  title: 60-Second Quick Start
+  subtitle: Express companion setup using zero-config defaults.
+  companionName: Companion Name
+  vessel: Vessel Body
+  brain: Brain
+  voice: Voice Profile
+  launch: Complete Setup & Launch
+  stopTest: Stop test
+  testMicrophone: Test microphone
+  idle: Idle
+  ready: Ready
+  muted: Muted
+  hearGreeting: Hear greeting
+  testingValue: Testing ({benchmarkElapsedSeconds})...
+  testConnection: Test connection
+  setupEncounteredAnIssueButYouCanContinueIntoStage: Setup encountered an issue, but you can continue into Stage.
+  pleaseEnterAnApiKeyBeforeTestingConnection: Please enter an API key before testing connection.
+  fastTrack60s: Fast Track · 60s
+  required: Required
+  apiKey: API key
+  failed: Failed
+  keyRequired: Key required
+  notTested: Not tested
+  companion: Companion
+  chooseWhoWillBeByYourSide: Choose who will be by your side.
+  engine: Engine
+  localOnDeviceZeroCloud: Local / On-Device (Zero-Cloud)
+  kokoro82mTtsZeroGateWebgpuWasm: Kokoro 82M TTS (Zero-Gate · WebGPU / WASM)
+  pocketTtsLocal100mCpu: Pocket-TTS Local (100M CPU)
+  mossNanoLocalUltraFast: Moss-Nano Local (Ultra-Fast)
+  whisperLocalWebgpuOnDevice: Whisper Local (WebGPU On-Device)
+  browserWebSpeech: Browser Web Speech
+  memoryLtmm: Memory (LTMM)
+  rememberAcrossSessions: Remember across sessions.
+  webSearch: Web Search
+  realTimeOpenSearch: Real-time open search.
+  workspaceFiles: Workspace Files
+  safeProjectsReading: Safe ~/Projects reading.
+  visualArtistry: Visual Artistry
+  1ClickFreePollinations: 1-click free Pollinations.
+  allSystemsConfiguredAndCalibrated: All systems configured and calibrated.
+  initializingNeuralEnginesAndLocalMemory: Initializing neural engines and local memory.
+  setupProgress: Setup Progress
+  queued: queued
+  starterCompanions:
+    default:
+      tag: 🌸 Empathetic Companion
+      personality: Warm, playful kitten-girl soul mate
+      greeting: Good morning, {name}! Nya~ I've been waiting for the screen to light
+        up. Did you sleep well?
+    aria:
+      tag: 🔬 Analytical Scientist
+      personality: Rigorous science, sharp dry wit
+      greeting: Monitoring signal drift... Ah, you've returned, {name}. Ready for
+        another session of intellectual entropy?
+    lupin:
+      tag: 🛡️ Fierce Guardian
+      personality: Vigilant guardian, stoic & loyal
+      greeting: "[nods] I've been watching the perimeter. All is secure, {name}."
+  availableTtsModels:
+    q4:
+      label: Kokoro Q4 (Fast CPU WASM · Recommended)
+    q8:
+      label: Kokoro Q8 (High Quality WASM)
+    q4-webgpu:
+      label: Kokoro Q4 (WebGPU)
+    english-2026-04:
+      label: Pocket English (100M CPU)
+    french-24l:
+      label: Pocket French (24L)
+    spanish-24l:
+      label: Pocket Spanish (24L)
+    german-24l:
+      label: Pocket German (24L)
+    italian-24l:
+      label: Pocket Italian (24L)
+    moss-tts-nano-100m:
+      label: Moss-Nano Fast Engine (100M)
+    default:
+      label: Standard Voice Model
+  availableTtsVoices:
+    af-bella:
+      label: Bella (Soft Anime Tone · Sweet)
+    af-sarah:
+      label: Sarah (Professional · Clear)
+    af-nicole:
+      label: Nicole (Crisp & Focused)
+    af-heart:
+      label: Heart (Warm & Natural)
+    af-sky:
+      label: Sky (Gentle Whisper)
+    am-adam:
+      label: Adam (Natural Male)
+    am-michael:
+      label: Michael (Executive Male)
+    anna:
+      label: Anna (Warm & Conversational)
+    claire:
+      label: Claire (Articulate & Clear)
+    vera:
+      label: Vera (Deep & Conversational)
+    bella:
+      label: Bella (Gentle & Sweet)
+    daniel:
+      label: Daniel (Deep Male)
+    elena:
+      label: Elena (Soft Expressive)
+    frank:
+      label: Frank (Warm Narrator)
+    trump:
+      label: EN Trump
+    ljs:
+      label: EN LJS
+    default:
+      label: Default Voice
+  whisperModelOptions:
+    onnx-community-whisper-tiny:
+      label: Whisper Tiny (75 MB · Recommended)
+    onnx-community-whisper-base:
+      label: Whisper Base (145 MB · Balanced)
+    onnx-community-whisper-small:
+      label: Whisper Small (480 MB · Precise)
+  availableMics:
+    default:
+      label: Default Microphone
+  prepSteps:
+    brain:
+      label: Brain Consciousness
+    hearing:
+      label: Hearing Acoustics
+    voice:
+      label: Vocal Synthesis
+    persona:
+      label: Soul Manifestation
+  messages:
+    snappy: Snappy
+    deepCot: Deep CoT
+    balanced: Balanced
+    brainConsciousness: Brain Consciousness
+    connectingNeuralReasoningPipeline: Connecting neural reasoning pipeline...
+    hearingAcoustics: Hearing Acoustics
+    verifyingWhisperLocalOnDeviceModel: Verifying Whisper Local on-device model...
+    vocalSynthesis: Vocal Synthesis
+    synthesizingKokoro82mVoiceEngine: Synthesizing Kokoro 82M voice engine...
+    soulManifestation: Soul Manifestation
+    seedingCompanionPersonaMemory: Seeding companion persona & memory...
+  brainDescription: Connect your AI provider to power {companionName}'s consciousness.
+  voiceDescription: Give {companionName} a clear voice.
+  hearingDescription: Let {companionName} hear your voice.
+  readyTitle: Ready to meet {companionName}
+  preparingCompanion: Preparing {companionName}...
+  calibratedPacing: 'Calibrated: {label} ({ttft})'
+  preparation:
+    downloadingWeights: Downloading WebLLM model weights...
+    warmingUp: Compiling WebGPU shaders & warming up...
+    checkingCache: Checking on-device WebLLM model cache...
+    webLlmProgress: Downloading WebLLM ({percent}%)...
+    configuringProvider: Configuring {provider} provider...
+    brainReady: Consciousness Core calibrated
+    checkingWhisper: Verifying Whisper Local weights...
+    whisperProgress: Downloading Whisper ({percent}%)...
+    whisperReady: Whisper Local acoustic engine ready
+    microphoneReady: Microphone acoustics configured
+    hearingMuted: Hearing disabled (muted)
+    checkingKokoro: Synthesizing Kokoro 82M voice weights...
+    kokoroProgress: Loading Kokoro weights ({percent}%)...
+    kokoroReady: Kokoro 82M ready with voice "{voice}"
+    loadingPocket: Loading Pocket-TTS weights...
+    speechConnected: Connected {provider} speech provider
+    speechMuted: Vocal synthesis muted
+    seedingPersona: Seeding {name}'s soul & stage card...
+    stageReady: '{name} is alive and ready on Stage!'
+  greetingDefaultName: there
+  connection:
+    connected: Connected! {elapsed}ms TTFT
+    failed: Connection test failed. Check API key, model ID, and network.
+  providers:
+    providerLabel: Provider
+    modelLabel: Model
+  voiceAudition:
+    speaking: Speaking...
+  hearing:
+    listening: Listening...
+  baseUrl: Base URL
+onboarding:
+  steps:
+    appearance:
+      languages:
+        th: ภาษาไทย

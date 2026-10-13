@@ -118,4 +118,17 @@ describe('@proj-airi/i18n locale integrity', () => {
       expect(missing, `Locale ${locale} is missing keys in onboarding.yaml: ${missing.slice(0, 5).join(', ')}`).toEqual([])
     }
   })
+
+  it('maintains 100% key parity for theme options (auto, light, dark) in settings.yaml across all supported languages', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const filePath = path.join(LOCALES_DIR, locale, 'settings.yaml')
+      expect(fs.existsSync(filePath), `Missing settings.yaml for locale: ${locale}`).toBe(true)
+
+      const doc = yaml.parse(fs.readFileSync(filePath, 'utf8')) || {}
+      expect(doc.theme, `Missing theme block in ${locale}/settings.yaml`).toBeDefined()
+      expect(doc.theme.auto, `Missing theme.auto in ${locale}/settings.yaml`).toBeTruthy()
+      expect(doc.theme.light, `Missing theme.light in ${locale}/settings.yaml`).toBeTruthy()
+      expect(doc.theme.dark, `Missing theme.dark in ${locale}/settings.yaml`).toBeTruthy()
+    }
+  })
 })

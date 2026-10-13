@@ -74,7 +74,7 @@ Concept-to-file-path index for rapid context retrieval. Use this to find where a
 | **Gemini Panel** | `apps/stage-tamagotchi/src/renderer/pages/notice/gemini.vue` (UI) | `packages/stage-ui/src/stores/modules/live-session.ts` (Bidi WebSocket) |
 | **System Tray** | `apps/stage-tamagotchi/src/main/tray/index.ts` |
 | **Caption Overlay** | `apps/stage-tamagotchi/src/renderer/pages/caption.vue` (UI) | `apps/stage-tamagotchi/src/main/windows/caption/` (Manager) |
-| **Widgets Host** | `apps/stage-tamagotchi/src/renderer/pages/widgets.vue` | `apps/stage-tamagotchi/src/main/windows/widgets/index.ts` (Manager) |
+| **Widgets Host & Generative Surfaces** | Standalone Desktop: `apps/stage-tamagotchi/src/renderer/pages/widgets.vue` (`apps/stage-tamagotchi/src/main/windows/widgets/index.ts`) \| Chat Inspector: `packages/stage-ui/src/components/scenarios/chat/ChatWorkspaceWidgetsPanel.vue` \| In-Page Floating (Web/Pocket): `packages/stage-ui/src/components/scenarios/widgets/FloatingWidgetsLayer.vue` \| Persistence: `widgetsRepo` (`local:widgets/registry`) |
 | **Stage-Mate (Unity Companion)** | `apps/stage-mate/` (Sidecar Runtime) \| `apps/stage-tamagotchi/src/main/services/airi/stage-mate/index.ts` (Service) \| Spec: [`docs/project-gunslinger-sidecar-mod.md`](./project-gunslinger-sidecar-mod.md) |
 | **Onboarding V3 (Canonical)** | `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/onboarding-v3.vue` (UI) \| `apps/stage-tamagotchi/src/renderer/pages/onboarding-v3.vue` (Page `/onboarding-v3`) \| `apps/stage-tamagotchi/src/main/windows/onboarding/index.ts` (Electron Window) \| Spec: [`docs/design-onboarding-v3.md`](./design-onboarding-v3.md). *(V2 under `v2/` is deprecated reference)* |
 
@@ -435,6 +435,7 @@ A game layer on top of the Actor Stage with deep Live2D integration. Implements 
 | **Tool call availability** | Discord messages flow through the same `performSend` pipeline as desktop inputs. Tools are NOT passed explicitly by the Discord store, but `chat.ts:297` falls through to `toolsResolver.value` (set to `builtinTools` at `index.vue:728`). All built-in tools (text journal, widgets, stickers, MCP, dating sim) are available from Discord. The only exception is VLM turns (image attachments) — tools are stripped for all sources, not just Discord. |
 | **Full spec** | [`feat-discord-revamp.md`](./feat-discord-revamp.md) |
 | **Architecture doc** | [`design-discord-bot-integration.md`](./design-discord-bot-integration.md) |
+| **Cloud Relay & Edge WASM** | [`design-cloud-relay.md`](./design-cloud-relay.md), [`proposal-edge-wasm-character-runtime.md`](./proposal-edge-wasm-character-runtime.md) |
 
 ---
 
@@ -463,6 +464,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | Channel Name | Publisher / Domain | Purpose |
 | :--- | :--- | :--- |
 | `airi-chat-input-bridge` | chat orchestrator | Ingestion pipeline — secondary windows post input to main window |
+| `airi:chat-composer-draft` (`CHAT_COMPOSER_DRAFT_CHANNEL`) | `stores/chat/composer-draft-bridge.ts` (stage window STT) | Appends voice transcriptions to the desktop chat composer when auto-send is off; composer acks, otherwise the sender appends to the `airi-chatbox-draft` localStorage draft. Raw `new BroadcastChannel` sender, VueUse receiver in `InteractiveArea.vue` |
 | `airi-chat-stream` (`CHAT_STREAM_CHANNEL_NAME`) | `stores/chat/session-store.ts` (constant) | Streaming LLM deltas + journal refresh events across windows |
 | `airi-chat-present` | `scenes/ControlStripHost.vue` | Chat presence/active-state relay |
 | `airi-caption-overlay` | caption window | Caption text relay to the overlay window |
@@ -491,6 +493,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | `dating-sim-sync` | `stores/dating-sim.ts` | **(raw `new BroadcastChannel`)** Dating-sim game-state sync across windows; a dedicated `live2d-dsl-bridge` channel relays DSL motion commands |
 | `airi:inference:web-llm` | `stage-ui/src/libs/inference/adapters/web-llm-channel.ts` | Single-owner WebLLM coordinator (leader election over BroadcastChannel, preventing multi-window VRAM duplication) |
 | `airi:nan0:state-sync` | `stage-ui/src/stores/modules/nan0.ts` | Single-owner Nan0 cognition state sync (Main Stage Window leader broadcasts emotional vectors, reflex badges, and executive decisions to secondary windows like Chatbox) |
+| `airi:sandbox:channel` | `stage-ui/src/libs/sandbox/manager.ts` | Single-owner POSIX sandbox & virtual terminal sync (Main Stage Window leader broadcasts agent command logs and proxies oversight RPCs from secondary windows) |
 
 ---
 
@@ -671,6 +674,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 - [[airi-dating-sim-engine]]
 - [[airi-desktop-chatbox]]
 - [[airi-desktop-lifecycle-power-throttling]]
+- [[airi-generative-widgets]]
 - [[airi-infra-library-references]]
 - [[airi-interaction-pipelines]]
 - [[airi-ipc-eventa]]

@@ -29,6 +29,7 @@ import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings/control-strip'
 import { useSyncEngineStore } from '@proj-airi/stage-ui/stores/sync-engine'
 import { useTheme } from '@proj-airi/ui'
+import { useTitle } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -626,6 +627,10 @@ watch(
     if (route.path.startsWith('/settings') || route.path === '/chat')
       return
 
+    // Secondary windows (chat, settings, widgets, etc.) should never have their title defaulted to Control Strip
+    if (!isMainWindow.value && (route.path === '/' || route.path === ''))
+      return
+
     const activeCharacterLabel = activeCard.value?.name?.trim() || 'AIRI'
     const titleTemplate = ROUTE_TITLES[route.path] || 'AIRI - Looking at {character}'
     const nextTitle = titleTemplate.replace('{character}', activeCharacterLabel)
@@ -653,12 +658,13 @@ watch(() => [isMainWindow.value, onboardingStore.needsOnboarding] as const, ([is
 // above mutate `document.title`); report it to the main process so the native OS
 // chrome stays in sync instead of relying on the static BrowserWindow constructor
 // `title`, which desyncs as soon as a route changes.
+const observedTitle = useTitle(undefined, { observe: true })
 const reportWindowTitle = useElectronEventaInvoke(electronWindowSetTitle)
 let lastReportedTitle: string | undefined
 watch(
-  () => document.title,
+  observedTitle,
   (title) => {
-    if (title === lastReportedTitle || !context.value)
+    if (!title || title === lastReportedTitle || !context.value)
       return
     lastReportedTitle = title
     void reportWindowTitle({ title })

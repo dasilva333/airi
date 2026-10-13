@@ -14,7 +14,7 @@ import type {
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
-import { isHttpServerConfig, parseQualifiedToolName } from '../../stores/mcp-tool-bridge'
+import { isHttpServerConfig, parseQualifiedToolName, registerLazyMcpToolBridgeFallback } from '../../stores/mcp-tool-bridge'
 import { useMcpWebConfigStore } from '../../stores/mcp-web-config'
 
 interface WebMcpSession {
@@ -336,6 +336,18 @@ export class WebMcpClient implements McpToolBridge {
   }
 }
 
-export function createWebMcpClient(): WebMcpClient {
-  return new WebMcpClient()
+let _sharedWebClient: WebMcpClient | undefined
+
+export function getWebMcpClient(): WebMcpClient {
+  if (!_sharedWebClient) {
+    _sharedWebClient = new WebMcpClient()
+  }
+  return _sharedWebClient
 }
+
+export function createWebMcpClient(): WebMcpClient {
+  return getWebMcpClient()
+}
+
+// Auto-register lazy fallback for browser web/pocket runtimes
+registerLazyMcpToolBridgeFallback(() => getWebMcpClient())

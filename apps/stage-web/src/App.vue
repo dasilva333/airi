@@ -19,7 +19,7 @@ import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
-import { mcpTools } from '@proj-airi/stage-ui/tools/mcp'
+import { webTools } from '@proj-airi/stage-ui/tools'
 import { useTheme } from '@proj-airi/ui'
 import { StageTransitionGroup } from '@proj-airi/ui-transitions'
 import { storeToRefs } from 'pinia'
@@ -57,7 +57,7 @@ const stageModelStore = useSettingsStageModel()
 // In web runtime, connect remote MCP servers via in-browser HTTP/SSE transport
 const webMcpClient = createWebMcpClient()
 setMcpToolBridge(webMcpClient)
-chatOrchestratorStore.setToolsResolver(mcpTools)
+chatOrchestratorStore.setToolsResolver(webTools)
 
 watch(() => cardStore.activeCard, (card) => {
   const allowed = card?.extensions?.airi?.generation?.known?.allowedTools
@@ -151,6 +151,9 @@ onMounted(async () => {
   debug('--- [AIRI DEBUG] Store bridge active: window.airi is ready ---')
 
   triggerDelayedGetAppPopup()
+
+  setMcpToolBridge(webMcpClient)
+  chatOrchestratorStore.setToolsResolver(webTools)
 
   void webMcpClient.applyAndRestart().catch((err) => {
     console.warn('[App:Web] MCP background connection error:', err)

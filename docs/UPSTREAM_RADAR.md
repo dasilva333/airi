@@ -20,6 +20,1770 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-10-12] Upstream Delta: `749d915f..0df39eb9` (16 commits, 1186 files, 33 PR update(s))
+
+### 🎯 Executive Highlights
+Upstream pushed 16 commits (749d915f ➔ 0df39eb9) and recorded 33 PR updates (14 new, 8 lifecycle transitions, 11 active discussions).
+
+- **Core Voice Pipeline & Character Wake Words Landed (#2726, #2712, #2732, #2729, #2928)**: Coordinated voice pipeline overhaul by @nekomeowww. Merged character-owned wake words powered by Sherpa-ONNX KWS (keyword spotting), dedicated wake-word owner assignment in Hearing settings, Push-to-Talk triggers with global shortcut support, and browser audio test suites. Followed immediately by new PR #2928 adding an always-on voice inlay, end-of-speech judge, and reliability improvements.
+- **Home Assistant Device Exposure & Security Guardrails (#2903)**: Merged after 199 comments. Provides granular device/entity filtering (exposure.ts, presentation.ts, entity-tile.vue), preventing LLM tools from discovering or issuing commands to unapproved smart home devices.
+- **Documentation Monorepo Extraction (#2924)**: Upstream moved the VitePress documentation site to an external standalone repo (moeru-ai/airi-docs), stripping 977 files and ~42,000 LOC of docs from the core monorepo.
+- **Inference & UI Workspace Experiments (#2920, #2926, #1427)**: New PR #2920 adds OpenRouter transcription support to provider-inference; PR #2926 introduces a fullscreen workspace experiment with dual window modes in stage-tamagotchi. Legacy Tamagotchi dashboard PR #1427 was officially closed.
+- **Internationalization & Localization DX (#2929, #2930, #2904, #2923, #2914)**: Added Thai language support (#2929), suppressed non-English locale missing key warning spam (#2930), merged Anthropic provider pipe escape (#2904, already squatted in our fork), and refreshed automated translations.
+
+#### 💬 Discussion & Community Buzz
+- **#2903: feat(stage-tamagotchi): let the user choose which Home Assistant devices the model reaches (+25 new comments, total 199)**: Intense discussions around IoT device filtering and user security consent, concluding in merge.
+- **#2904: fix(i18n): show the pipe in the Anthropic provider title (+26 new comments, total 57)**: Extended debate regarding vue-i18n choice delimiter parsing and table alignment in CI scripts before landing.
+- **#2920: feat(provider-inference): add OpenRouter transcription provider (26 comments)**: Fast-moving community discussion on expanding OpenRouter support to audio STT.
+- **#2918: ci(server): deploy a chosen branch to the dev environment (19 comments)**: Active devops collaboration around server deployment automation.
+- **#2729: feat(stage-ui): add Push to Talk on the voice pipeline (+8 new comments, total 19)**: Discussion on push-to-talk triggers, voice hold ergonomics, and shortcut recording.
+- **#2895: fix(auth): support confirmed account deletion with recent sign-in (+8 new comments, total 15)**: Review comments on session re-authentication prior to account purging.
+- **#2458: feat(stage): add character-owned Live2D controls (+3 new comments, total 68)**: Ongoing architectural review regarding Live2D parameter mappings.
+
+#### 🍒 Cherry-Pick Candidates (Worth Porting to dasilva333/airi)
+1. **PR #2920: feat(provider-inference): add OpenRouter transcription provider**: High value for packages/provider-inference. We heavily utilize OpenRouter for LLM dispatch; extending it to speech-to-text / transcription is an additive, clean port with zero architectural collision.
+2. **PR #2930: chore(i18n): warn only when English lacks a message**: Valuable developer-experience improvement in .github/scripts/check-locales.ts and i18n build steps to eliminate noisy warnings for non-English translation gaps.
+3. **PR #2929: feat(i18n): add Thai**: Clean additive localization package (packages/i18n/src/locales/th/).
+4. **Home Assistant Exposure & Presentation Logic from #2903**: The entity filtering models (packages/stage-ui/src/libs/home-assistant/exposure.ts, presentation.ts, and tools/home-assistant.ts) provide excellent security guardrails for smart homes. (Desktop UI components must be adapted to Control Strip rather than Tamagotchi pages).
+5. **PR #2911: fix(core-agent): preserve whitespace in streamed speech literals**: Already squatted in our fork on Oct 11 in packages/stage-ui/src/stores/chat.ts and proactivity.ts.
+6. **PR #2904: fix(i18n): show the pipe in the Anthropic provider title**: Already squatted in our fork on Oct 11 across all 10 locale files.
+
+#### ⚠️ Divergence / Collision Warnings
+- **controls-island modifications (#2726, #2729)**: Upstream continues modifying controls-island components (apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/). This fork permanently removed controls-island in favor of the decoupled ControlStrip and ControlStripHost. Reject all upstream controls-island patches.
+- **chat.ts collision (#2726)**: Upstream patched packages/stage-ui/src/stores/chat.ts to hardcode configure_wake_words directly into useChatStore. In our fork, chat.ts hosts the decoupled Eight Pillars memory pipeline and multi-actor staging (<|ACTOR|>). Never merge upstream's chat.ts directly; wake-word tools should be registered via our modular tool registry.
+- **Electron Desktop Shell & Global Shortcuts (#2729, #2903)**: Upstream added global shortcut services and voice inlays directly into apps/stage-tamagotchi/src/main/services/electron/global-shortcut.ts. In our fork, the desktop windowing model is strictly partitioned (windows/stage vs windows/main).
+- **Docs Monorepo Purge (#2924)**: Upstream deleted 977 files and 41,895 lines of documentation to spin off moeru-ai/airi-docs. Our fork maintains living documentation in docs/ (ADRs, memory lab, rosetta stone, radar). Never sync or port upstream docs deletions.
+- **Watched PRs Monitor Status**:
+  - **PR #2634 (Cortico persona daemon)**: Still Draft (1 comment). High Alert remains active. No maintainer buy-in recorded.
+  - **PR #2672 (Window-local character binding)**: Draft (48 comments). Monitor for shared CharacterCard component extractions.
+  - **PR #2541 (MCP tool plugins)**: Open (59 comments). Track author rebase against main.
+  - **PR #2290 (ASR over WebSocket)**: Open (59 comments). Track potential SSE transport rebase.
+  - **PR #2120 (Card editor overhaul)**: Open (41 comments). Track dirty-draft protection architecture.
+
+### 📋 Upstream Commits
+- `0df39eb9e1` chore(i18n): warn only when English lacks a message (#2930) [#2930](https://github.com/moeru-ai/airi/pull/2930) _(蓝莓🫐, 2026-10-12)_
+- `c23feeba91` feat(i18n): add Thai (#2929) [#2929](https://github.com/moeru-ai/airi/pull/2929) _(蓝莓🫐, 2026-10-12)_
+- `ca251577dc` fix(i18n): show the pipe in the Anthropic provider title (#2904) [#2904](https://github.com/moeru-ai/airi/pull/2904) _(凌莞~(=^▽^=), 2026-10-12)_
+- `8e0b5398b1` feat(stage-pages): split Hearing settings and choose wake word owners (#2732) [#2732](https://github.com/moeru-ai/airi/pull/2732) _(Neko, 2026-10-12)_
+- `c0528af817` chore(nix): update pnpmDeps hash (#2925) [#2925](https://github.com/moeru-ai/airi/pull/2925) _(Weathercold, 2026-10-12)_
+- `e9251fc356` chore(docs): move the documentation site to moeru-ai/airi-docs (#2924) [#2924](https://github.com/moeru-ai/airi/pull/2924) _(Neko, 2026-10-12)_
+- `27b41961e3` chore(i18n): update translations (#2923) [#2923](https://github.com/moeru-ai/airi/pull/2923) _(github-actions[bot], 2026-10-12)_
+- `70d0226ca8` chore(i18n): update translations (#2914) [#2914](https://github.com/moeru-ai/airi/pull/2914) _(github-actions[bot], 2026-10-12)_
+- `2507f32948` test(testing-audio): cover wake word detection (#2712) [#2712](https://github.com/moeru-ai/airi/pull/2712) _(Neko, 2026-10-12)_
+- `a4141f506c` chore(nix): update pnpmDeps hash (#2922) [#2922](https://github.com/moeru-ai/airi/pull/2922) _(Weathercold, 2026-10-11)_
+- `7341363cf9` chore(nix): update assets hash (#2921) [#2921](https://github.com/moeru-ai/airi/pull/2921) _(Weathercold, 2026-10-11)_
+- `ea5ceecc5f` feat(stage-ui): detect character wake words on the voice pipeline (#2726) [#2726](https://github.com/moeru-ai/airi/pull/2726) _(Neko, 2026-10-12)_
+- `4108c516c3` feat(stage-tamagotchi): let the user choose which Home Assistant devices the model reaches (#2903) [#2903](https://github.com/moeru-ai/airi/pull/2903) _(凌莞~(=^▽^=), 2026-10-12)_
+- `ae07426892` feat(stage-ui): add Push to Talk on the voice pipeline (#2729) [#2729](https://github.com/moeru-ai/airi/pull/2729) _(Neko, 2026-10-12)_
+- `42d1510734` chore(nix): update pnpmDeps hash (#2919) [#2919](https://github.com/moeru-ai/airi/pull/2919) _(Weathercold, 2026-10-11)_
+- `2122d4b984` chore(deps): bump pinia-plugin-synced to 0.1.5 (#2917) [#2917](https://github.com/moeru-ai/airi/pull/2917) _(凌莞~(=^▽^=), 2026-10-11)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 977 file(s) (+726/-41895)
+- `.agents/skills/agent-browser-electron/SKILL.md` *(+1/-1)*
+- `.github/CONTRIBUTING.md` *(+1/-11)*
+- `.github/scripts/check-locales.test.ts` *(+122/-1)*
+- `.github/scripts/check-locales.ts` *(+69/-2)*
+- `.github/workflows/ci.yml` *(+1/-1)*
+- `.github/workflows/deploy-cloudflare-workers-dev-server.yml` *(+0/-4)*
+- `.github/workflows/deploy-cloudflare-workers-preview-deploy.yml` *(+0/-4)*
+- `.github/workflows/deploy-cloudflare-workers.yml` *(+39/-4)*
+- `.github/workflows/sponsors-svg.yml` *(+3/-3)*
+- `README.md` *(+23/-25)*
+- `docs/.vitepress/assets/home-cover-2025-07-23.avif` *(+0/-0)*
+- `docs/.vitepress/assets/home-cover-2025-10-29-bg.avif` *(+0/-0)*
+- `docs/.vitepress/assets/home-cover-2025-10-29.avif` *(+0/-0)*
+- `docs/.vitepress/assets/home-cover-2025-12-24-bg.avif` *(+0/-0)*
+- `docs/.vitepress/assets/home-cover-2025-12-24.avif` *(+0/-0)*
+- `docs/.vitepress/assets/home-patterns-ghost.svg` *(+0/-6)*
+- `docs/.vitepress/assets/home-patterns-lollipop.svg` *(+0/-7)*
+- `docs/.vitepress/components/Banner.vue` *(+0/-37)*
+- `docs/.vitepress/components/BlogPosts.vue` *(+0/-287)*
+- `docs/.vitepress/components/Button.vue` *(+0/-106)*
+- `docs/.vitepress/components/CardLink.vue` *(+0/-36)*
+- `docs/.vitepress/components/Chip.vue` *(+0/-14)*
+- `docs/.vitepress/components/Chronicles.vue` *(+0/-3)*
+- `docs/.vitepress/components/Contributors.vue` *(+0/-57)*
+- `docs/.vitepress/components/DocCarbonAds.vue` *(+0/-82)*
+- `docs/.vitepress/components/DocCommunity.vue` *(+0/-49)*
+- `docs/.vitepress/components/DocFooter.vue` *(+0/-139)*
+- `docs/.vitepress/components/DocFooterLastUpdated.vue` *(+0/-33)*
+- `docs/.vitepress/components/DocOutline.vue` *(+0/-54)*
+- `docs/.vitepress/components/DocOutlineItem.vue` *(+0/-68)*
+- `docs/.vitepress/components/DocSidebar.vue` *(+0/-17)*
+- `docs/.vitepress/components/DocSidebarItem.vue` *(+0/-93)*
+- `docs/.vitepress/components/DocTopbar.vue` *(+0/-126)*
+- `docs/.vitepress/components/DropdownMenu.vue` *(+0/-75)*
+- `docs/.vitepress/components/Home.vue` *(+0/-223)*
+- `docs/.vitepress/components/HomeButton.vue` *(+0/-28)*
+- `docs/.vitepress/components/HomeButtonSet.vue` *(+0/-19)*
+- `docs/.vitepress/components/MotionToggle.vue` *(+0/-34)*
+- `docs/.vitepress/components/Navbar.vue` *(+0/-248)*
+- `docs/.vitepress/components/NavbarLanguage.vue` *(+0/-46)*
+- `docs/.vitepress/components/NavbarLanguageSubMenu.vue` *(+0/-69)*
+- `docs/.vitepress/components/ParallaxCover.vue` *(+0/-109)*
+- `docs/.vitepress/components/ParallaxCoverChristmas20251224.vue` *(+0/-93)*
+- `docs/.vitepress/components/ParallaxCoverHalloween20251029.vue` *(+0/-109)*
+- `docs/.vitepress/components/ReleaseDownloads.vue` *(+0/-147)*
+- `docs/.vitepress/components/ReleasesList.vue` *(+0/-177)*
+- `docs/.vitepress/components/SearchCommandBox.vue` *(+0/-233)*
+- `docs/.vitepress/components/SearchTrigger.vue` *(+0/-124)*
+- `docs/.vitepress/components/Snowfall.vue` *(+0/-156)*
+- `docs/.vitepress/components/Spinner.vue` *(+0/-10)*
+- `docs/.vitepress/components/ThemeToggle.vue` *(+0/-63)*
+- `docs/.vitepress/components/ThemedVideo.vue` *(+0/-107)*
+- `docs/.vitepress/composables/date.ts` *(+0/-17)*
+- `docs/.vitepress/composables/edit-link.ts` *(+0/-21)*
+- `docs/.vitepress/composables/outline.ts` *(+0/-268)*
+- `docs/.vitepress/composables/prev-next.ts` *(+0/-197)*
+- `docs/.vitepress/composables/sidebar.ts` *(+0/-300)*
+- `docs/.vitepress/composables/theme-color.ts` *(+0/-52)*
+- `docs/.vitepress/config.ts` *(+0/-1025)*
+- `docs/.vitepress/constants.ts` *(+0/-1)*
+- `docs/.vitepress/contributor-names.json` *(+0/-27)*
+- `docs/.vitepress/contributors.ts` *(+0/-52)*
+- `docs/.vitepress/custom/Docs.vue` *(+0/-246)*
+- `docs/.vitepress/custom/Layout.vue` *(+0/-85)*
+- `docs/.vitepress/custom/Showcase.vue` *(+0/-71)*
+- `docs/.vitepress/data/releases.data.ts` *(+0/-148)*
+- `docs/.vitepress/functions/all-documents.data.ts` *(+0/-45)*
+- `docs/.vitepress/functions/authors.data.ts` *(+0/-90)*
+- `docs/.vitepress/functions/blog.data.ts` *(+0/-139)*
+- `docs/.vitepress/functions/chronicles.data.ts` *(+0/-50)*
+- `docs/.vitepress/meta.ts` *(+0/-21)*
+- `docs/.vitepress/modules/openpanel.ts` *(+0/-23)*
+- `docs/.vitepress/plugins/vite-frontmatter-assets.ts` *(+0/-183)*
+- `docs/.vitepress/theme/config.ts` *(+0/-30)*
+- `docs/.vitepress/theme/custom-nixie.css` *(+0/-149)*
+- `docs/.vitepress/theme/index.ts` *(+0/-41)*
+- `docs/.vitepress/theme/style.css` *(+0/-184)*
+- `docs/.vitepress/theme/theme-details-animated-with-input.css` *(+0/-74)*
+- `docs/.vitepress/theme/theme-kbd.css` *(+0/-126)*
+- `docs/.vitepress/theme/theme-markdown.css` *(+0/-53)*
+- `docs/.vitepress/theme/theme-media.css` *(+0/-37)*
+- `docs/.vitepress/theme/theme-vitepress.css` *(+0/-185)*
+- `docs/.vitepress/utils/cache.ts` *(+0/-39)*
+- `docs/.vitepress/utils/flatten.ts` *(+0/-8)*
+- `docs/.vitepress/utils/utils.ts` *(+0/-16)*
+- `docs/README.fr.md` *(+23/-25)*
+- `docs/README.ja-JP.md` *(+23/-25)*
+- `docs/README.ko-KR.md` *(+23/-25)*
+- `docs/README.ru-RU.md` *(+23/-25)*
+- `docs/README.vi.md` *(+23/-25)*
+- `docs/README.zh-CN.md` *(+23/-25)*
+- `docs/ai/adr/2026-09-22-sherpaw-model-assets.md` *(+15/-1)*
+- `docs/ai/adr/2026-10-06-home-assistant-integration.md` *(+124/-2)*
+- `docs/ai/adr/2026-10-09-detect-wake-words-in-shared-audio.md` *(+55/-0)*
+- `docs/{content/public => }/assets/QR code button/section.cards.qrcode.dark.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/QR code button/section.cards.qrcode.dark.ja-JP.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/QR code button/section.cards.qrcode.dark.kr-KR.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/QR code button/section.cards.qrcode.dark.ru-RU.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/QR code button/section.cards.qrcode.dark.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/QR code button/section.cards.qrcode.light.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/QR code button/section.cards.qrcode.light.ja-JP.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/QR code button/section.cards.qrcode.light.kr-KR.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/QR code button/section.cards.qrcode.light.ru-RU.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/QR code button/section.cards.qrcode.light.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => assets}/banner-dark-1280x640.avif` *(+0/-0)*
+- `docs/{content/public => assets}/banner-light-1280x640.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.browser.dark.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.browser.dark.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.browser.light.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.browser.light.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.linux.dark.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.linux.dark.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.linux.light.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.linux.light.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.macos.dark.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.macos.dark.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.macos.light.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.macos.light.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.mobile.dark.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.mobile.dark.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.mobile.light.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.mobile.light.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.windows.dark.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.windows.dark.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.windows.light.en-US.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/download-buttons/download-buttons.windows.light.zh-Hans.avif` *(+0/-0)*
+- `docs/{content/public => }/assets/sponsors/kofi-supporters.json` *(+1/-1)*
+- `docs/{content/public => }/assets/sponsors/sponsors.json` *(+0/-0)*
+- `docs/{content/public => }/assets/sponsors/sponsors.svg` *(+0/-0)*
+- `docs/{content/public => assets}/wechat-qr.avif` *(+0/-0)*
+- `docs/content/en/about/privacy.md` *(+0/-80)*
+- `docs/content/en/about/terms.md` *(+0/-42)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/airi-build-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/airi-build-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/airi-logo-v2-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/airi-logo-v2.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/airi-logos-final.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/airi-logos-v1.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/airi-logos-v2.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/airi-logos-v3.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/airi-logos-v4.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/airi-logos-v5.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/animation-transitions.gif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/assets/customizable-theme-colors.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.05/index.md` *(+0/-110)*
+- `docs/content/en/blog/DevLog-2025.03.06/assets/animation-transitions.gif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.06/assets/live-stream-layout-update.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.06/index.md` *(+0/-98)*
+- `docs/content/en/blog/DevLog-2025.03.10/assets/customizable-theme-colors.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.10/assets/new-ui-v1-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.10/assets/new-ui-v1.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.10/assets/new-ui-v2.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.10/assets/new-ui-v3-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.10/assets/new-ui-v3.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.10/index.md` *(+0/-117)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/airi-demo.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/ashley-pitch-test.mp3` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/elevenlabs-api-key.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/elevenlabs.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/histoire-color-slider-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/histoire-color-slider.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/histoire-first-look.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/histoire-logo-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/histoire-logo.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/modules-i18n.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/new-ui-v4-speech-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/new-ui-v4-speech.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/settings-i18n.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/steins-gate-gelnana-from-elpsycongrooblog.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/assets/steins-gate-mayori.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.03.20/index.md` *(+0/-189)*
+- `docs/content/en/blog/DevLog-2025.04.06/assets/awesome-ai-vtuber-logo-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.06/assets/character-card-detail.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.06/assets/character-card.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.06/assets/memory-decay.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.06/assets/memory-retrieval.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.06/assets/more-theme-colors.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.06/assets/relu-sticker-wow.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.06/index.md` *(+0/-467)*
+- `docs/content/en/blog/DevLog-2025.04.14/assets/memory-controler.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.14/assets/memory-decay.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.14/assets/memory-driver.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.14/assets/memory-emotional-model.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.14/assets/memory-emotional-score.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.14/assets/memory-emotional-simulator.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.14/assets/memory-retrieval.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.14/assets/review-1.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.14/assets/review-2.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.14/index.md` *(+0/-235)*
+- `docs/content/en/blog/DevLog-2025.04.22/assets/cursor-open-settings.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.22/assets/develop-with-cursor.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.22/index.md` *(+0/-71)*
+- `docs/content/en/blog/DevLog-2025.04.28/assets/airi-mcp-arch.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.28/assets/airi-mcp-input-text.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.28/assets/airi-mcp-settings.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.04.28/index.md` *(+0/-187)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/character-card-menu-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/character-card-menu-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/character-card-settings-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/character-card-settings-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/character-card-showcase-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/character-card-showcase-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/demo-day-hangzhou-1.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/demo-day-hangzhou-2.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/demo-day-hangzhou-3.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/velin-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/velin-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/velin-playground-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/velin-playground-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/assets/webai-examples-demo.MP4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.05.16/index.md` *(+0/-318)*
+- `docs/content/en/blog/DevLog-2025.06.08/assets/250608-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.06.08/assets/250608-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.06.08/assets/airi-tamagotchi-focus.gif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.06.08/assets/screen.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.06.08/index.md` *(+0/-110)*
+- `docs/content/en/blog/DevLog-2025.07.18/assets/factorio-belt.gif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.07.18/assets/structure-after.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.07.18/assets/structure-before.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.07.18/index.md` *(+0/-85)*
+- `docs/content/en/blog/DevLog-2025.08.01/CharacterMatcher.vue` *(+0/-223)*
+- `docs/content/en/blog/DevLog-2025.08.01/CharacterShowcase.vue` *(+0/-40)*
+- `docs/content/en/blog/DevLog-2025.08.01/GraphemeClusterAssembler.vue` *(+0/-34)*
+- `docs/content/en/blog/DevLog-2025.08.01/GraphemeClusterInspector.vue` *(+0/-107)*
+- `docs/content/en/blog/DevLog-2025.08.01/RollingText.vue` *(+0/-60)*
+- `docs/content/en/blog/DevLog-2025.08.01/assets/animated-chat-bubble.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.01/assets/cover-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.01/assets/cover-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.01/index.md` *(+0/-152)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-clustr-dark.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-clustr-light.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-fade-on-hover.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-move.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-dark.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-light.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-mobile-dark.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-mobile-light.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-quick-editor-mobile-dark.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-quick-editor-mobile-light.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-resize.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-resource-island.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-settings-hearing.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-vrm-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-demo-vrm-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-docs-blogs-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-docs-blogs-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-docs-dark.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-docs-light.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-packages-i18n-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-packages-i18n-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-ui-level-meter-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-ui-level-meter-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-ui-time-series-chart-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-ui-time-series-chart-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/airi-vrm.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/cover-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/cover-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/assets/relu-sticker-thinks.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.05/index.md` *(+0/-594)*
+- `docs/content/en/blog/DevLog-2025.08.26/assets/airi-factorio-yolo-v0-playground-vnc.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.26/assets/factorio-ultralytics-hub-preview.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.08.26/components/nms-iou.vue` *(+0/-203)*
+- `docs/content/en/blog/DevLog-2025.08.26/index.md` *(+0/-198)*
+- `docs/content/en/blog/DevLog-2025.10.20/assets/airi.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.10.20/assets/control-island.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.10.20/assets/electron.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.10.20/assets/moeru.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.10.20/assets/project-airi.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.10.20/assets/rust-tts.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.10.20/assets/three-mmd.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.10.20/assets/velin.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2025.10.20/index.md` *(+0/-97)*
+- `docs/content/en/blog/DevLog-2026.01.01/assets/airi-notification-capability.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.01.01/assets/cover-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.01.01/assets/cover-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.01.01/assets/flow-chat-basic-memory.mp4` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.01.01/assets/helldiver-laughing.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.01.01/index.md` *(+0/-132)*
+- `docs/content/en/blog/DevLog-2026.02.16/assets/add-button-to-menu.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.02.16/assets/some-collected-data.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.02.16/index.md` *(+0/-86)*
+- `docs/content/en/blog/DevLog-2026.03.14/assets/ThreeScene-after.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.14/assets/ThreeScene-before.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.14/assets/cover-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.14/assets/cover-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.14/index.md` *(+0/-316)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/Live2D-android-renderer.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/Live2D-threejs.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/Live2D-webgl.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/Screenshot-AIRI-Live2D.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/Screenshot-AIRI-VRM.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/Unity-android-export.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/Unity-web-export.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/VRM-airi.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/VRM-android-renderer.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/VRM-webgl.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/cover-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/assets/cover-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DevLog-2026.03.23/index.md` *(+0/-263)*
+- `docs/content/en/blog/DreamLog-0x1/assets/airi-demo-first-day.mp4` *(+0/-0)*
+- `docs/content/en/blog/DreamLog-0x1/assets/airis-screenshot-1.avif` *(+0/-0)*
+- `docs/content/en/blog/DreamLog-0x1/assets/banner-dark-1280x640.avif` *(+0/-0)*
+- `docs/content/en/blog/DreamLog-0x1/assets/banner-light-1280x640.avif` *(+0/-0)*
+- `docs/content/en/blog/DreamLog-0x1/assets/building-a-virtual-machine-inside-image-1.avif` *(+0/-0)*
+- `docs/content/en/blog/DreamLog-0x1/assets/dreamlog1-dark.avif` *(+0/-0)*
+- `docs/content/en/blog/DreamLog-0x1/assets/dreamlog1-light.avif` *(+0/-0)*
+- `docs/content/en/blog/DreamLog-0x1/assets/emosys-logo.avif` *(+0/-0)*
+- `docs/content/en/blog/DreamLog-0x1/assets/live2d-inc-hiyori.avif` *(+0/-0)*
+- `docs/content/en/blog/DreamLog-0x1/assets/relu-sticker-wow.avif` *(+0/-0)*
+- `docs/content/en/blog/DreamLog-0x1/assets/steins-gate-sticker-1.avif` *(+0/-0)*
+- `docs/content/en/blog/DreamLog-0x1/index.md` *(+0/-513)*
+- `docs/content/en/blog/happy-halloween-2025/assets/halloween-airi.avif` *(+0/-0)*
+- `docs/content/en/blog/happy-halloween-2025/index.md` *(+0/-15)*
+- `docs/content/en/blog/index.md` *(+0/-12)*
+- `docs/content/en/blog/merry-christmas-2025/assets/merry-christmas-iru.avif` *(+0/-0)*
+- `docs/content/en/blog/merry-christmas-2025/assets/neuro-sama-happy-birthday-live.avif` *(+0/-0)*
+- `docs/content/en/blog/merry-christmas-2025/index.md` *(+0/-50)*
+- `docs/content/en/docs/chronicles/version-v0.0.1/index.md` *(+0/-505)*
+- `docs/content/en/docs/chronicles/version-v0.1.0/index.md` *(+0/-78)*
+- `docs/content/en/docs/contributing/design-guidelines/index.md` *(+0/-13)*
+- `docs/content/en/docs/contributing/design-guidelines/resources.md` *(+0/-21)*
+- `docs/content/en/docs/contributing/design-guidelines/tools.md` *(+0/-29)*
+- `docs/content/en/docs/contributing/desktop-developer-tools.md` *(+0/-142)*
+- `docs/content/en/docs/contributing/docs.md` *(+0/-27)*
+- `docs/content/en/docs/contributing/index.md` *(+0/-191)*
+- `docs/content/en/docs/contributing/tamagotchi.md` *(+0/-29)*
+- `docs/content/en/docs/contributing/webui.md` *(+0/-31)*
+- `docs/content/en/docs/integrations/discord.md` *(+0/-64)*
+- `docs/content/en/docs/integrations/factorio.md` *(+0/-30)*
+- `docs/content/en/docs/integrations/minecraft.md` *(+0/-71)*
+- `docs/content/en/docs/integrations/satori.md` *(+0/-34)*
+- `docs/content/en/docs/integrations/telegram.md` *(+0/-52)*
+- `docs/content/en/docs/integrations/x.md` *(+0/-26)*
+- `docs/content/en/docs/manual/config/audio.md` *(+0/-41)*
+- `docs/content/en/docs/manual/config/common.md` *(+0/-45)*
+- `docs/content/en/docs/manual/config/index.md` *(+0/-56)*
+- `docs/content/en/docs/manual/config/llm.md` *(+0/-46)*
+- `docs/content/en/docs/manual/config/providers/artistry/comfyui.md` *(+0/-42)*
+- `docs/content/en/docs/manual/config/providers/artistry/nanobanana.md` *(+0/-37)*
+- `docs/content/en/docs/manual/config/providers/artistry/replicate.md` *(+0/-38)*
+- `docs/content/en/docs/manual/config/providers/consciousness/302ai.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/consciousness/aihubmix.md` *(+0/-31)*
+- `docs/content/en/docs/manual/config/providers/consciousness/amazon-bedrock.md` *(+0/-32)*
+- `docs/content/en/docs/manual/config/providers/consciousness/anthropic.md` *(+0/-37)*
+- `docs/content/en/docs/manual/config/providers/consciousness/atlascloud.md` *(+0/-35)*
+- `docs/content/en/docs/manual/config/providers/consciousness/azure-ai-foundry.md` *(+0/-32)*
+- `docs/content/en/docs/manual/config/providers/consciousness/azure-openai.md` *(+0/-32)*
+- `docs/content/en/docs/manual/config/providers/consciousness/byteplus-coding-plan.md` *(+0/-32)*
+- `docs/content/en/docs/manual/config/providers/consciousness/byteplus.md` *(+0/-32)*
+- `docs/content/en/docs/manual/config/providers/consciousness/cerebras.md` *(+0/-31)*
+- `docs/content/en/docs/manual/config/providers/consciousness/cloudflare-workers-ai.md` *(+0/-35)*
+- `docs/content/en/docs/manual/config/providers/consciousness/comet-api.md` *(+0/-31)*
+- `docs/content/en/docs/manual/config/providers/consciousness/deepseek.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/consciousness/featherless.md` *(+0/-31)*
+- `docs/content/en/docs/manual/config/providers/consciousness/fireworks.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/consciousness/google-gemini.md` *(+0/-35)*
+- `docs/content/en/docs/manual/config/providers/consciousness/groq.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/consciousness/lm-studio.md` *(+0/-37)*
+- `docs/content/en/docs/manual/config/providers/consciousness/mimo.md` *(+0/-31)*
+- `docs/content/en/docs/manual/config/providers/consciousness/minimax-global.md` *(+0/-37)*
+- `docs/content/en/docs/manual/config/providers/consciousness/minimax.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/consciousness/mistral.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/consciousness/modelscope.md` *(+0/-31)*
+- `docs/content/en/docs/manual/config/providers/consciousness/moonshot.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/consciousness/n1n.md` *(+0/-32)*
+- `docs/content/en/docs/manual/config/providers/consciousness/novita.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/consciousness/nvidia.md` *(+0/-40)*
+- `docs/content/en/docs/manual/config/providers/consciousness/official.md` *(+0/-45)*
+- `docs/content/en/docs/manual/config/providers/consciousness/ollama.md` *(+0/-48)*
+- `docs/content/en/docs/manual/config/providers/consciousness/openai.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/consciousness/openpaths.md` *(+0/-35)*
+- `docs/content/en/docs/manual/config/providers/consciousness/openrouter.md` *(+0/-37)*
+- `docs/content/en/docs/manual/config/providers/consciousness/perplexity.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/consciousness/together.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/consciousness/volcengine-coding-plan.md` *(+0/-32)*
+- `docs/content/en/docs/manual/config/providers/consciousness/xai.md` *(+0/-35)*
+- `docs/content/en/docs/manual/config/providers/consciousness/zhipu.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/speech/alibaba-cloud-model-studio.md` *(+0/-38)*
+- `docs/content/en/docs/manual/config/providers/speech/azure-speech.md` *(+0/-38)*
+- `docs/content/en/docs/manual/config/providers/speech/browser-local.md` *(+0/-14)*
+- `docs/content/en/docs/manual/config/providers/speech/comet-api.md` *(+0/-37)*
+- `docs/content/en/docs/manual/config/providers/speech/deepgram.md` *(+0/-38)*
+- `docs/content/en/docs/manual/config/providers/speech/desktop-local.md` *(+0/-14)*
+- `docs/content/en/docs/manual/config/providers/speech/elevenlabs.md` *(+0/-39)*
+- `docs/content/en/docs/manual/config/providers/speech/google-gemini.md` *(+0/-38)*
+- `docs/content/en/docs/manual/config/providers/speech/index-tts.md` *(+0/-38)*
+- `docs/content/en/docs/manual/config/providers/speech/kokoro.md` *(+0/-34)*
+- `docs/content/en/docs/manual/config/providers/speech/mimo.md` *(+0/-43)*
+- `docs/content/en/docs/manual/config/providers/speech/minimax.md` *(+0/-14)*
+- `docs/content/en/docs/manual/config/providers/speech/official.md` *(+0/-39)*
+- `docs/content/en/docs/manual/config/providers/speech/openai.md` *(+0/-37)*
+- `docs/content/en/docs/manual/config/providers/speech/openrouter.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/speech/player2.md` *(+0/-37)*
+- `docs/content/en/docs/manual/config/providers/speech/volcengine.md` *(+0/-38)*
+- `docs/content/en/docs/manual/config/providers/transcription/aliyun.md` *(+0/-37)*
+- `docs/content/en/docs/manual/config/providers/transcription/browser-local.md` *(+0/-14)*
+- `docs/content/en/docs/manual/config/providers/transcription/comet-api.md` *(+0/-38)*
+- `docs/content/en/docs/manual/config/providers/transcription/desktop-local.md` *(+0/-14)*
+- `docs/content/en/docs/manual/config/providers/transcription/mimo.md` *(+0/-37)*
+- `docs/content/en/docs/manual/config/providers/transcription/official.md` *(+0/-34)*
+- `docs/content/en/docs/manual/config/providers/transcription/openai.md` *(+0/-36)*
+- `docs/content/en/docs/manual/config/providers/transcription/web-speech-api.md` *(+0/-34)*
+- `docs/content/en/docs/manual/config/vision.md` *(+0/-58)*
+- `docs/content/en/docs/manual/config/web-search.md` *(+0/-59)*
+- `docs/content/en/docs/manual/tamagotchi/character-card-template.md` *(+0/-66)*
+- `docs/content/en/docs/manual/tamagotchi/index.md` *(+0/-104)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-airi-card.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-chat-window.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-consciousness.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-controls-island-expanded.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-data-settings.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-beat-sync.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-context-flow.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-displays.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-plugin-host.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-relative-mouse.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-screen-capture.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-use-window-mouse.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-vision-capture.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-websocket-inspector.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-widgets-calling.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-hearing.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-main-web.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-main-window.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-models.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-modules.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-providers.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-settings-window.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-speech.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-system-color-scheme.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-system-developer.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-system-general.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-vision.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/manual-websocket-settings.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/assets/web-position-size.avif` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/image-16.png` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/image-7.png` *(+0/-0)*
+- `docs/content/en/docs/manual/tamagotchi/setup-and-use/index.md` *(+0/-651)*
+- `docs/content/en/docs/manual/web/index.md` *(+0/-57)*
+- `docs/content/en/docs/overview/about-ai-vtuber.md` *(+0/-7)*
+- `docs/content/en/docs/overview/about-neuro-sama.md` *(+0/-24)*
+- `docs/content/en/docs/overview/index.md` *(+0/-98)*
+- `docs/content/en/docs/overview/other-similar-projects.md` *(+0/-5)*
+- `docs/content/en/docs/overview/versions.md` *(+0/-33)*
+- `docs/content/en/index.md` *(+0/-5)*
+- `docs/content/en/references/research/gaming/minecraft.md` *(+0/-5)*
+- `docs/content/en/references/research/lipsync.md` *(+0/-28)*
+- `docs/content/en/references/research/live2d-recording-curve-fitting.md` *(+0/-177)*
+- `docs/content/en/references/research/mocap.md` *(+0/-11)*
+- `docs/content/en/references/research/text-to-motion.md` *(+0/-24)*
+- `docs/content/en/references/research/tts.md` *(+0/-3)*
+- `docs/content/ja/about/privacy.md` *(+0/-83)*
+- `docs/content/ja/about/terms.md` *(+0/-42)*
+- `docs/content/ja/blog/DevLog-2025.03.05/index.md` *(+0/-97)*
+- `docs/content/ja/blog/DevLog-2025.03.06/index.md` *(+0/-59)*
+- `docs/content/ja/blog/DevLog-2025.03.10/index.md` *(+0/-85)*
+- `docs/content/ja/blog/DevLog-2025.03.20/index.md` *(+0/-154)*
+- `docs/content/ja/blog/DevLog-2025.04.06/index.md` *(+0/-522)*
+- `docs/content/ja/blog/DevLog-2025.04.14/index.md` *(+0/-235)*
+- `docs/content/ja/blog/DevLog-2025.04.22/index.md` *(+0/-71)*
+- `docs/content/ja/blog/DevLog-2025.04.28/index.md` *(+0/-187)*
+- `docs/content/ja/blog/DevLog-2025.05.16/index.md` *(+0/-246)*
+- `docs/content/ja/blog/DevLog-2025.06.08/index.md` *(+0/-86)*
+- `docs/content/ja/blog/DevLog-2025.07.18/index.md` *(+0/-85)*
+- `docs/content/ja/blog/DevLog-2025.08.01/index.md` *(+0/-152)*
+- `docs/content/ja/blog/DevLog-2025.08.05/index.md` *(+0/-541)*
+- `docs/content/ja/blog/DevLog-2025.08.26/index.md` *(+0/-199)*
+- `docs/content/ja/blog/Devlog-2025.10.20/index.md` *(+0/-95)*
+- `docs/content/ja/blog/DreamLog-0x1/index.md` *(+0/-426)*
+- `docs/content/ja/blog/happy-halloween-2025/index.md` *(+0/-15)*
+- `docs/content/ja/blog/index.md` *(+0/-12)*
+- `docs/content/ja/blog/merry-christmas-2025/index.md` *(+0/-44)*
+- `docs/content/ja/docs/chronicles/version-v0.0.1/index.md` *(+0/-200)*
+- `docs/content/ja/docs/chronicles/version-v0.1.0/index.md` *(+0/-78)*
+- `docs/content/ja/docs/contributing/design-guidelines/index.md` *(+0/-13)*
+- `docs/content/ja/docs/contributing/design-guidelines/resources.md` *(+0/-21)*
+- `docs/content/ja/docs/contributing/design-guidelines/tools.md` *(+0/-29)*
+- `docs/content/ja/docs/contributing/docs.md` *(+0/-20)*
+- `docs/content/ja/docs/contributing/index.md` *(+0/-222)*
+- `docs/content/ja/docs/contributing/services/discord.md` *(+0/-34)*
+- `docs/content/ja/docs/contributing/services/minecraft.md` *(+0/-36)*
+- `docs/content/ja/docs/contributing/services/satori.md` *(+0/-34)*
+- `docs/content/ja/docs/contributing/services/telegram.md` *(+0/-44)*
+- `docs/content/ja/docs/contributing/tamagotchi.md` *(+0/-20)*
+- `docs/content/ja/docs/contributing/webui.md` *(+0/-20)*
+- `docs/content/ja/docs/manual/config/index.md` *(+0/-41)*
+- `docs/content/ja/docs/manual/tamagotchi/character-card-template.md` *(+0/-39)*
+- `docs/content/ja/docs/manual/tamagotchi/index.md` *(+0/-104)*
+- `docs/content/ja/docs/manual/web/index.md` *(+0/-10)*
+- `docs/content/ja/docs/overview/about-ai-vtuber.md` *(+0/-7)*
+- `docs/content/ja/docs/overview/about-neuro-sama.md` *(+0/-24)*
+- `docs/content/ja/docs/overview/index.md` *(+0/-91)*
+- `docs/content/ja/docs/overview/other-similar-projects.md` *(+0/-5)*
+- `docs/content/ja/docs/overview/versions.md` *(+0/-33)*
+- `docs/content/ja/index.md` *(+0/-5)*
+- `docs/content/ko/about/privacy.md` *(+0/-85)*
+- `docs/content/ko/about/terms.md` *(+0/-42)*
+- `docs/content/ko/blog/DevLog-2025.03.05/index.md` *(+0/-101)*
+- `docs/content/ko/blog/DevLog-2025.03.06/index.md` *(+0/-81)*
+- `docs/content/ko/blog/DevLog-2025.03.10/index.md` *(+0/-110)*
+- `docs/content/ko/blog/DevLog-2025.03.20/index.md` *(+0/-177)*
+- `docs/content/ko/blog/DevLog-2025.04.06/index.md` *(+0/-449)*
+- `docs/content/ko/blog/DevLog-2025.04.14/index.md` *(+0/-235)*
+- `docs/content/ko/blog/DevLog-2025.04.22/index.md` *(+0/-75)*
+- `docs/content/ko/blog/DevLog-2025.04.28/index.md` *(+0/-189)*
+- `docs/content/ko/blog/DevLog-2025.05.16/index.md` *(+0/-290)*
+- `docs/content/ko/blog/DevLog-2025.06.08/index.md` *(+0/-86)*
+- `docs/content/ko/blog/DevLog-2025.07.18/index.md` *(+0/-85)*
+- `docs/content/ko/blog/DevLog-2025.08.01/index.md` *(+0/-174)*
+- `docs/content/ko/blog/DevLog-2025.08.05/index.md` *(+0/-541)*
+- `docs/content/ko/blog/DevLog-2025.08.26/index.md` *(+0/-199)*
+- `docs/content/ko/blog/DevLog-2025.10.20/index.md` *(+0/-97)*
+- `docs/content/ko/blog/DevLog-2026.01.01/index.md` *(+0/-132)*
+- `docs/content/ko/blog/DevLog-2026.02.16/index.md` *(+0/-86)*
+- `docs/content/ko/blog/DevLog-2026.03.14/index.md` *(+0/-316)*
+- `docs/content/ko/blog/DevLog-2026.03.23/index.md` *(+0/-263)*
+- `docs/content/ko/blog/DreamLog-0x1/index.md` *(+0/-439)*
+- `docs/content/ko/blog/happy-halloween-2025/index.md` *(+0/-15)*
+- `docs/content/ko/blog/index.md` *(+0/-12)*
+- `docs/content/ko/blog/merry-christmas-2025/index.md` *(+0/-44)*
+- `docs/content/ko/docs/chronicles/version-v0.0.1/index.md` *(+0/-505)*
+- `docs/content/ko/docs/chronicles/version-v0.1.0/index.md` *(+0/-78)*
+- `docs/content/ko/docs/contributing/design-guidelines/index.md` *(+0/-13)*
+- `docs/content/ko/docs/contributing/design-guidelines/resources.md` *(+0/-21)*
+- `docs/content/ko/docs/contributing/design-guidelines/tools.md` *(+0/-29)*
+- `docs/content/ko/docs/contributing/desktop-developer-tools.md` *(+0/-142)*
+- `docs/content/ko/docs/contributing/docs.md` *(+0/-27)*
+- `docs/content/ko/docs/contributing/index.md` *(+0/-191)*
+- `docs/content/ko/docs/contributing/tamagotchi.md` *(+0/-29)*
+- `docs/content/ko/docs/contributing/webui.md` *(+0/-31)*
+- `docs/content/ko/docs/integrations/discord.md` *(+0/-64)*
+- `docs/content/ko/docs/integrations/factorio.md` *(+0/-30)*
+- `docs/content/ko/docs/integrations/minecraft.md` *(+0/-46)*
+- `docs/content/ko/docs/integrations/satori.md` *(+0/-34)*
+- `docs/content/ko/docs/integrations/telegram.md` *(+0/-52)*
+- `docs/content/ko/docs/integrations/x.md` *(+0/-26)*
+- `docs/content/ko/docs/manual/config/audio.md` *(+0/-41)*
+- `docs/content/ko/docs/manual/config/common.md` *(+0/-45)*
+- `docs/content/ko/docs/manual/config/index.md` *(+0/-56)*
+- `docs/content/ko/docs/manual/config/llm.md` *(+0/-46)*
+- `docs/content/ko/docs/manual/config/providers/artistry/comfyui.md` *(+0/-42)*
+- `docs/content/ko/docs/manual/config/providers/artistry/nanobanana.md` *(+0/-37)*
+- `docs/content/ko/docs/manual/config/providers/artistry/replicate.md` *(+0/-38)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/302ai.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/aihubmix.md` *(+0/-31)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/amazon-bedrock.md` *(+0/-32)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/anthropic.md` *(+0/-37)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/atlascloud.md` *(+0/-35)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/azure-ai-foundry.md` *(+0/-32)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/azure-openai.md` *(+0/-32)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/byteplus-coding-plan.md` *(+0/-32)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/byteplus.md` *(+0/-32)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/cerebras.md` *(+0/-31)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/cloudflare-workers-ai.md` *(+0/-35)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/comet-api.md` *(+0/-31)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/deepseek.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/featherless.md` *(+0/-31)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/fireworks.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/google-gemini.md` *(+0/-35)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/groq.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/lm-studio.md` *(+0/-37)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/mimo.md` *(+0/-31)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/minimax-global.md` *(+0/-37)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/minimax.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/mistral.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/modelscope.md` *(+0/-31)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/moonshot.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/n1n.md` *(+0/-32)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/novita.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/nvidia.md` *(+0/-40)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/official.md` *(+0/-45)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/ollama.md` *(+0/-48)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/openai.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/openpaths.md` *(+0/-35)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/openrouter.md` *(+0/-37)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/perplexity.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/together.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/volcengine-coding-plan.md` *(+0/-32)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/xai.md` *(+0/-35)*
+- `docs/content/ko/docs/manual/config/providers/consciousness/zhipu.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/speech/alibaba-cloud-model-studio.md` *(+0/-38)*
+- `docs/content/ko/docs/manual/config/providers/speech/azure-speech.md` *(+0/-38)*
+- `docs/content/ko/docs/manual/config/providers/speech/browser-local.md` *(+0/-14)*
+- `docs/content/ko/docs/manual/config/providers/speech/comet-api.md` *(+0/-37)*
+- `docs/content/ko/docs/manual/config/providers/speech/deepgram.md` *(+0/-38)*
+- `docs/content/ko/docs/manual/config/providers/speech/desktop-local.md` *(+0/-14)*
+- `docs/content/ko/docs/manual/config/providers/speech/elevenlabs.md` *(+0/-39)*
+- `docs/content/ko/docs/manual/config/providers/speech/google-gemini.md` *(+0/-38)*
+- `docs/content/ko/docs/manual/config/providers/speech/index-tts.md` *(+0/-38)*
+- `docs/content/ko/docs/manual/config/providers/speech/kokoro.md` *(+0/-34)*
+- `docs/content/ko/docs/manual/config/providers/speech/mimo.md` *(+0/-43)*
+- `docs/content/ko/docs/manual/config/providers/speech/minimax.md` *(+0/-14)*
+- `docs/content/ko/docs/manual/config/providers/speech/official.md` *(+0/-39)*
+- `docs/content/ko/docs/manual/config/providers/speech/openai.md` *(+0/-37)*
+- `docs/content/ko/docs/manual/config/providers/speech/openrouter.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/speech/player2.md` *(+0/-37)*
+- `docs/content/ko/docs/manual/config/providers/speech/volcengine.md` *(+0/-38)*
+- `docs/content/ko/docs/manual/config/providers/transcription/aliyun.md` *(+0/-37)*
+- `docs/content/ko/docs/manual/config/providers/transcription/browser-local.md` *(+0/-14)*
+- `docs/content/ko/docs/manual/config/providers/transcription/comet-api.md` *(+0/-38)*
+- `docs/content/ko/docs/manual/config/providers/transcription/desktop-local.md` *(+0/-14)*
+- `docs/content/ko/docs/manual/config/providers/transcription/mimo.md` *(+0/-37)*
+- `docs/content/ko/docs/manual/config/providers/transcription/official.md` *(+0/-34)*
+- `docs/content/ko/docs/manual/config/providers/transcription/openai.md` *(+0/-36)*
+- `docs/content/ko/docs/manual/config/providers/transcription/web-speech-api.md` *(+0/-34)*
+- `docs/content/ko/docs/manual/config/vision.md` *(+0/-58)*
+- `docs/content/ko/docs/manual/config/web-search.md` *(+0/-59)*
+- `docs/content/ko/docs/manual/tamagotchi/character-card-template.md` *(+0/-66)*
+- `docs/content/ko/docs/manual/tamagotchi/index.md` *(+0/-104)*
+- `docs/content/ko/docs/manual/tamagotchi/setup-and-use/index.md` *(+0/-651)*
+- `docs/content/ko/docs/manual/web/index.md` *(+0/-57)*
+- `docs/content/ko/docs/overview/about-ai-vtuber.md` *(+0/-7)*
+- `docs/content/ko/docs/overview/about-neuro-sama.md` *(+0/-24)*
+- `docs/content/ko/docs/overview/index.md` *(+0/-94)*
+- `docs/content/ko/docs/overview/other-similar-projects.md` *(+0/-5)*
+- `docs/content/ko/docs/overview/versions.md` *(+0/-33)*
+- `docs/content/ko/index.md` *(+0/-5)*
+- `docs/content/ko/references/research/gaming/minecraft.md` *(+0/-5)*
+- `docs/content/ko/references/research/lipsync.md` *(+0/-28)*
+- `docs/content/ko/references/research/live2d-recording-curve-fitting.md` *(+0/-177)*
+- `docs/content/ko/references/research/mocap.md` *(+0/-11)*
+- `docs/content/ko/references/research/text-to-motion.md` *(+0/-24)*
+- `docs/content/ko/references/research/tts.md` *(+0/-3)*
+- `docs/content/privacy.md` *(+0/-80)*
+- `docs/content/public/_redirects` *(+0/-16)*
+- `docs/content/public/app-dark.svg` *(+0/-42)*
+- `docs/content/public/app-light.svg` *(+0/-42)*
+- `docs/content/public/assets/screenshot-api-example.avif` *(+0/-0)*
+- `docs/content/public/assets/screenshot-chat.avif` *(+0/-0)*
+- `docs/content/public/assets/screenshot-system-tray.avif` *(+0/-0)*
+- `docs/content/public/assets/screenshot-ui.avif` *(+0/-0)*
+- `docs/content/public/assets/screenshot-window-mode.avif` *(+0/-0)*
+- `docs/content/public/assets/tutorial-basic-disable-fade-on-hover.mp4` *(+0/-0)*
+- `docs/content/public/assets/tutorial-basic-fade-on-hover.mp4` *(+0/-0)*
+- `docs/content/public/assets/tutorial-basic-move.mp4` *(+0/-0)*
+- `docs/content/public/assets/tutorial-basic-open-chat.mp4` *(+0/-0)*
+- `docs/content/public/assets/tutorial-basic-open-settings-poster.avif` *(+0/-0)*
+- `docs/content/public/assets/tutorial-basic-open-settings.mp4` *(+0/-0)*
+- `docs/content/public/assets/tutorial-basic-resize.mp4` *(+0/-0)*
+- `docs/content/public/assets/tutorial-basic-setup-providers.mp4` *(+0/-0)*
+- `docs/content/public/assets/tutorial-demo-browsing-crunchy-roll.mp4` *(+0/-0)*
+- `docs/content/public/assets/tutorial-demo-browsing-steam.mp4` *(+0/-0)*
+- `docs/content/public/assets/tutorial-settings-change-model-poster.avif` *(+0/-0)*
+- `docs/content/public/assets/tutorial-settings-change-model.mp4` *(+0/-0)*
+- `docs/content/public/assets/version-v0.0.1/screenshot-1.avif` *(+0/-0)*
+- `docs/content/public/assets/version-v0.0.1/screenshot-2.avif` *(+0/-0)*
+- `docs/content/public/assets/version-v0.0.1/screenshot-3.avif` *(+0/-0)*
+- `docs/content/public/banner-dark.avif` *(+0/-0)*
+- `docs/content/public/banner-light.avif` *(+0/-0)*
+- `docs/content/public/bekuto3d-dark.svg` *(+0/-26)*
+- `docs/content/public/bekuto3d-light.svg` *(+0/-26)*
+- `docs/content/public/favicon.svg` *(+0/-61)*
+- `docs/content/public/fonts/GeistMono[wght].ttf` *(+0/-0)*
+- `docs/content/public/fonts/Geist[wght].ttf` *(+0/-0)*
+- `docs/content/public/logo-dark.avif` *(+0/-0)*
+- `docs/content/public/logo-light.avif` *(+0/-0)*
+- `docs/content/public/maskable_icon_x192.avif` *(+0/-0)*
+- `docs/content/public/maskable_icon_x512.avif` *(+0/-0)*
+- `docs/content/public/new-bg-halloween.avif` *(+0/-0)*
+- `docs/content/public/new-bg.avif` *(+0/-0)*
+- `docs/content/public/open-graph.png` *(+0/-0)*
+- `docs/content/public/web-app-manifest-192x192.avif` *(+0/-0)*
+- `docs/content/public/web-app-manifest-512x512.avif` *(+0/-0)*
+- `docs/content/terms-of-use.md` *(+0/-39)*
+- `docs/content/zh-Hans/about/privacy.md` *(+0/-83)*
+- `docs/content/zh-Hans/about/terms.md` *(+0/-42)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/airi-build-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/airi-build-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/airi-logo-v2-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/airi-logo-v2.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/airi-logos-final.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/airi-logos-v1.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/airi-logos-v2.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/airi-logos-v3.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/airi-logos-v4.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/airi-logos-v5.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/animation-transitions.gif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/assets/customizable-theme-colors.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.05/index.md` *(+0/-97)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.06/assets/animation-transitions.gif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.06/assets/live-stream-layout-update.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.06/index.md` *(+0/-59)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.10/assets/customizable-theme-colors.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.10/assets/new-ui-v1-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.10/assets/new-ui-v1.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.10/assets/new-ui-v2.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.10/assets/new-ui-v3-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.10/assets/new-ui-v3.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.10/index.md` *(+0/-85)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/airi-demo.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/ashley-pitch-test.mp3` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/elevenlabs-api-key.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/elevenlabs.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/histoire-color-slider-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/histoire-color-slider.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/histoire-first-look.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/histoire-logo-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/histoire-logo.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/modules-i18n.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/new-ui-v4-speech-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/new-ui-v4-speech.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/settings-i18n.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/steins-gate-gelnana-from-elpsycongrooblog.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/assets/steins-gate-mayori.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.03.20/index.md` *(+0/-154)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.06/assets/awesome-ai-vtuber-logo-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.06/assets/character-card-detail.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.06/assets/character-card.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.06/assets/memory-decay.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.06/assets/memory-retrieval.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.06/assets/more-theme-colors.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.06/assets/relu-sticker-wow.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.06/index.md` *(+0/-522)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.14/assets/memory-controler.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.14/assets/memory-decay.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.14/assets/memory-driver.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.14/assets/memory-emotional-model.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.14/assets/memory-emotional-score.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.14/assets/memory-emotional-simulator.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.14/assets/memory-retrieval.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.14/assets/review-1.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.14/assets/review-2.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.14/index.md` *(+0/-235)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.22/assets/cursor-open-settings.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.22/assets/develop-with-cursor.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.22/index.md` *(+0/-71)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.28/assets/airi-mcp-arch.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.28/assets/airi-mcp-input-text.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.28/assets/airi-mcp-settings.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.04.28/index.md` *(+0/-187)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/character-card-menu-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/character-card-menu-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/character-card-settings-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/character-card-settings-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/character-card-showcase-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/character-card-showcase-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/demo-day-hangzhou-1.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/demo-day-hangzhou-2.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/demo-day-hangzhou-3.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/velin-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/velin-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/velin-playground-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/velin-playground-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/assets/webai-examples-demo.MP4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.05.16/index.md` *(+0/-246)*
+- `docs/content/zh-Hans/blog/DevLog-2025.06.08/assets/250608-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.06.08/assets/250608-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.06.08/assets/airi-tamagotchi-focus.gif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.06.08/assets/screen.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.06.08/index.md` *(+0/-110)*
+- `docs/content/zh-Hans/blog/DevLog-2025.07.18/assets/structure-after.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.07.18/assets/structure-before.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.07.18/index.md` *(+0/-85)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.01/index.md` *(+0/-152)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-clustr-dark.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-clustr-light.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-fade-on-hover.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-move.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-dark.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-light.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-mobile-dark.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-onboarding-mobile-light.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-quick-editor-mobile-dark.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-quick-editor-mobile-light.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-resize.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-resource-island.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-settings-hearing.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-vrm-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-demo-vrm-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-docs-blogs-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-docs-blogs-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-docs-dark.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-docs-light.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-packages-i18n-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-packages-i18n-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-ui-level-meter-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-ui-level-meter-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-ui-time-series-chart-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-ui-time-series-chart-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/airi-vrm.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/cover-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/cover-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/assets/relu-sticker-thinks.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.05/index.md` *(+0/-552)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.26/assets/airi-factorio-yolo-v0-playground-vnc.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.26/assets/factorio-ultralytics-hub-preview.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.26/components/nms-iou.vue` *(+0/-203)*
+- `docs/content/zh-Hans/blog/DevLog-2025.08.26/index.md` *(+0/-199)*
+- `docs/content/zh-Hans/blog/DevLog-2026.01.01/assets/airi-notification-capability.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2026.01.01/assets/cover-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2026.01.01/assets/cover-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2026.01.01/assets/flow-chat-basic-memory.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2026.01.01/assets/helldiver-laughing.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2026.01.01/index.md` *(+0/-128)*
+- `docs/content/zh-Hans/blog/DevLog-2026.02.16/assets/add-button-to-menu.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2026.02.16/assets/some-collected-data.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2026.02.16/index.md` *(+0/-86)*
+- `docs/content/zh-Hans/blog/DevLog-2026.03.29/assets/airi-pocket-android-godot-vrm-bg.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2026.03.29/assets/cover-dark.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2026.03.29/assets/cover-light.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/DevLog-2026.03.29/index.md` *(+0/-160)*
+- `docs/content/zh-Hans/blog/Devlog-2025.10.20/assets/airi.mp4` *(+0/-0)*
+- `docs/content/zh-Hans/blog/Devlog-2025.10.20/assets/control-island.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/Devlog-2025.10.20/assets/electron.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/Devlog-2025.10.20/assets/moeru.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/Devlog-2025.10.20/assets/project-airi.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/Devlog-2025.10.20/assets/rust-tts.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/Devlog-2025.10.20/assets/three-mmd.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/Devlog-2025.10.20/assets/velin.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/Devlog-2025.10.20/index.md` *(+0/-95)*
+- `docs/content/zh-Hans/blog/DreamLog-0x1/index.md` *(+0/-427)*
+- `docs/content/zh-Hans/blog/happy-halloween-2025/assets/halloween-airi.avif` *(+0/-0)*
+- `docs/content/zh-Hans/blog/happy-halloween-2025/index.md` *(+0/-15)*
+- `docs/content/zh-Hans/blog/index.md` *(+0/-12)*
+- `docs/content/zh-Hans/blog/merry-christmas-2025/index.md` *(+0/-44)*
+- `docs/content/zh-Hans/docs/chronicles/version-v0.0.1/index.md` *(+0/-508)*
+- `docs/content/zh-Hans/docs/chronicles/version-v0.1.0/index.md` *(+0/-76)*
+- `docs/content/zh-Hans/docs/contributing/design-guidelines/index.md` *(+0/-13)*
+- `docs/content/zh-Hans/docs/contributing/design-guidelines/resources.md` *(+0/-21)*
+- `docs/content/zh-Hans/docs/contributing/design-guidelines/tools.md` *(+0/-29)*
+- `docs/content/zh-Hans/docs/contributing/desktop-developer-tools.md` *(+0/-140)*
+- `docs/content/zh-Hans/docs/contributing/docs.md` *(+0/-29)*
+- `docs/content/zh-Hans/docs/contributing/index.md` *(+0/-201)*
+- `docs/content/zh-Hans/docs/contributing/tamagotchi.md` *(+0/-31)*
+- `docs/content/zh-Hans/docs/contributing/webui.md` *(+0/-33)*
+- `docs/content/zh-Hans/docs/integrations/discord.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/integrations/factorio.md` *(+0/-30)*
+- `docs/content/zh-Hans/docs/integrations/minecraft.md` *(+0/-71)*
+- `docs/content/zh-Hans/docs/integrations/satori.md` *(+0/-34)*
+- `docs/content/zh-Hans/docs/integrations/telegram.md` *(+0/-44)*
+- `docs/content/zh-Hans/docs/integrations/x.md` *(+0/-32)*
+- `docs/content/zh-Hans/docs/manual/config/audio.md` *(+0/-41)*
+- `docs/content/zh-Hans/docs/manual/config/common.md` *(+0/-44)*
+- `docs/content/zh-Hans/docs/manual/config/index.md` *(+0/-60)*
+- `docs/content/zh-Hans/docs/manual/config/llm.md` *(+0/-46)*
+- `docs/content/zh-Hans/docs/manual/config/providers/artistry/comfyui.md` *(+0/-39)*
+- `docs/content/zh-Hans/docs/manual/config/providers/artistry/nanobanana.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/artistry/replicate.md` *(+0/-37)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/302ai.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/aihubmix.md` *(+0/-31)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/amazon-bedrock.md` *(+0/-32)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/anthropic.md` *(+0/-37)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/atlascloud.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/azure-ai-foundry.md` *(+0/-32)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/azure-openai.md` *(+0/-32)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/byteplus-coding-plan.md` *(+0/-31)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/byteplus.md` *(+0/-32)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/cerebras.md` *(+0/-31)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/cloudflare-workers-ai.md` *(+0/-34)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/comet-api.md` *(+0/-31)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/deepseek.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/featherless.md` *(+0/-31)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/fireworks.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/google-gemini.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/groq.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/lm-studio.md` *(+0/-31)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/mimo.md` *(+0/-31)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/minimax-global.md` *(+0/-37)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/minimax.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/mistral.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/modelscope.md` *(+0/-31)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/moonshot.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/n1n.md` *(+0/-32)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/novita.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/nvidia.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/official.md` *(+0/-37)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/ollama.md` *(+0/-48)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/openai.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/openpaths.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/openrouter.md` *(+0/-37)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/perplexity.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/together.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/volcengine-coding-plan.md` *(+0/-31)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/xai.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/manual/config/providers/consciousness/zhipu.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/alibaba-cloud-model-studio.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/azure-speech.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/browser-local.md` *(+0/-33)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/comet-api.md` *(+0/-34)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/deepgram.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/desktop-local.md` *(+0/-33)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/elevenlabs.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/google-gemini.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/index-tts.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/kokoro.md` *(+0/-33)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/mimo.md` *(+0/-34)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/minimax.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/official.md` *(+0/-33)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/openai.md` *(+0/-37)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/openrouter.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/player2.md` *(+0/-34)*
+- `docs/content/zh-Hans/docs/manual/config/providers/speech/volcengine.md` *(+0/-35)*
+- `docs/content/zh-Hans/docs/manual/config/providers/transcription/aliyun.md` *(+0/-37)*
+- `docs/content/zh-Hans/docs/manual/config/providers/transcription/browser-local.md` *(+0/-33)*
+- `docs/content/zh-Hans/docs/manual/config/providers/transcription/comet-api.md` *(+0/-34)*
+- `docs/content/zh-Hans/docs/manual/config/providers/transcription/desktop-local.md` *(+0/-33)*
+- `docs/content/zh-Hans/docs/manual/config/providers/transcription/mimo.md` *(+0/-34)*
+- `docs/content/zh-Hans/docs/manual/config/providers/transcription/official.md` *(+0/-33)*
+- `docs/content/zh-Hans/docs/manual/config/providers/transcription/openai.md` *(+0/-36)*
+- `docs/content/zh-Hans/docs/manual/config/providers/transcription/web-speech-api.md` *(+0/-34)*
+- `docs/content/zh-Hans/docs/manual/config/vision.md` *(+0/-56)*
+- `docs/content/zh-Hans/docs/manual/config/web-search.md` *(+0/-59)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/character-card-template.md` *(+0/-39)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/index.md` *(+0/-104)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-airi-card.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-chat-window.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-consciousness.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-controls-island-expanded.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-data-settings.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-beat-sync.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-context-flow.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-displays.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-plugin-host.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-relative-mouse.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-screen-capture.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-use-window-mouse.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-vision-capture.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-websocket-inspector.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-devtools-widgets-calling.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-hearing.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-main-web.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-main-window.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-models.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-modules.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-providers.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-settings-window.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-speech.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-system-color-scheme.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-system-developer.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-system-general.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-vision.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/manual-websocket-settings.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/assets/web-position-size.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-10.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-11.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-12.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-14.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-15.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-16.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-17.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-2.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-3.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-4.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-6.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-7.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-8.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/image-9.avif` *(+0/-0)*
+- `docs/content/zh-Hans/docs/manual/tamagotchi/setup-and-use/index.md` *(+0/-699)*
+- `docs/content/zh-Hans/docs/manual/web/index.md` *(+0/-61)*
+- `docs/content/zh-Hans/docs/overview/about-ai-vtuber.md` *(+0/-7)*
+- `docs/content/zh-Hans/docs/overview/about-neuro-sama.md` *(+0/-24)*
+- `docs/content/zh-Hans/docs/overview/index.md` *(+0/-121)*
+- `docs/content/zh-Hans/docs/overview/other-similar-projects.md` *(+0/-4)*
+- `docs/content/zh-Hans/docs/overview/versions.md` *(+0/-33)*
+- `docs/content/zh-Hans/index.md` *(+0/-5)*
+- `docs/content/zh-Hans/references/research/gaming/minecraft.md` *(+0/-5)*
+- `docs/content/zh-Hans/references/research/lipsync.md` *(+0/-28)*
+- `docs/content/zh-Hans/references/research/mocap.md` *(+0/-1)*
+- `docs/content/zh-Hans/references/research/text-to-motion.md` *(+0/-24)*
+- `docs/content/zh-Hans/references/research/tts.md` *(+0/-3)*
+- `docs/netlify.toml` *(+0/-8)*
+- `docs/package.json` *(+0/-67)*
+- `docs/scripts/avif.ts` *(+0/-41)*
+- `docs/scripts/update-contributors.ts` *(+0/-34)*
+- `docs/scripts/utils.ts` *(+0/-28)*
+- `docs/tsconfig.json` *(+0/-42)*
+- `docs/uno.config.ts` *(+0/-315)*
+- `docs/vite-env.d.ts` *(+0/-6)*
+- `docs/wechat.md` *(+1/-1)*
+- `packages/scenarios-stage-tamagotchi-browser/README.md` *(+8/-6)*
+- `packages/stage-ui/README.md` *(+49/-3)*
+- `packages/testing-audio/README.md` *(+66/-0)*
+- `packages/vite-plugin-sherpaw/README.md` *(+10/-6)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 86 file(s) (+4620/-285)
+- `.dockerignore` *(+1/-0)*
+- `apps/ui-server-auth/src/modules/i18n.ts` *(+2/-2)*
+- `"docs/content/public/assets/Sponsor's avatar/\343\203\237\343\202\253.avif" => "docs/assets/sponsors/avatars/\343\203\237\343\202\253.avif"` *(+0/-0)*
+- `"docs/content/en/blog/DreamLog-0x1/assets/world.execute(me); (Mili)\357\274\217DAZBEE COVER.avif"` *(+0/-0)*
+- `nix/assets-hash.txt` *(+1/-1)*
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/provider-inference/src/providers/local/sherpaw-transcription/models.ts` *(+15/-8)*
+- `packages/scenarios-stage-tamagotchi-electron/src/scenarios/demo-controls-settings-chat-websocket/sections/settings.ts` *(+1/-1)*
+- `packages/stage-shared/src/global-shortcut/accelerators.test.ts` *(+26/-0)*
+- `packages/stage-shared/src/global-shortcut/accelerators.ts` *(+47/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-composer.vue` *(+1/-1)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-drafts.browser.test.ts` *(+20/-1)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-drafts.vue` *(+12/-3)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-input-button.browser.test.ts` *(+29/-2)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-input-button.vue` *(+29/-6)*
+- `packages/stage-ui/src/components/scenarios/dialogs/audio-input/hearing-config-dialog.vue` *(+27/-23)*
+- `packages/stage-ui/src/components/scenarios/dialogs/audio-input/hearing-config.browser.test.ts` *(+51/-20)*
+- `packages/stage-ui/src/components/scenarios/dialogs/audio-input/hearing-config.vue` *(+84/-103)*
+- `packages/stage-ui/src/components/scenarios/dialogs/audio-input/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/components/scenarios/dialogs/audio-input/wake-word-status.vue` *(+48/-0)*
+- `packages/stage-ui/src/components/scenarios/home-assistant/entity-tile.vue` *(+67/-0)*
+- `packages/stage-ui/src/components/scenarios/home-assistant/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/components/scenarios/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/composables/push-to-talk-trigger.ts` *(+38/-0)*
+- `packages/stage-ui/src/composables/use-data-maintenance.browser.test.ts` *(+8/-0)*
+- `packages/stage-ui/src/composables/use-data-maintenance.ts` *(+3/-0)*
+- `packages/stage-ui/src/composables/voice-hold.browser.test.ts` *(+86/-0)*
+- `packages/stage-ui/src/composables/voice-hold.test.ts` *(+148/-0)*
+- `packages/stage-ui/src/composables/voice-hold.ts` *(+164/-0)*
+- `packages/stage-ui/src/composables/voice-input-mode.ts` *(+61/-0)*
+- `packages/stage-ui/src/libs/home-assistant/client.test.ts` *(+65/-11)*
+- `packages/stage-ui/src/libs/home-assistant/client.ts` *(+87/-16)*
+- `packages/stage-ui/src/libs/home-assistant/exposure.test.ts` *(+144/-0)*
+- `packages/stage-ui/src/libs/home-assistant/exposure.ts` *(+115/-0)*
+- `packages/stage-ui/src/libs/home-assistant/presentation.test.ts` *(+202/-0)*
+- `packages/stage-ui/src/libs/home-assistant/presentation.ts` *(+270/-0)*
+- `packages/stage-ui/src/libs/home-assistant/services.ts` *(+96/-0)*
+- `packages/stage-ui/src/libs/providers/providers/sherpaw/model-assets.ts` *(+12/-1)*
+- `packages/stage-ui/src/libs/voice/kws-model-info.ts` *(+14/-0)*
+- `packages/stage-ui/src/libs/voice/kws-model.ts` *(+82/-0)*
+- `packages/stage-ui/src/libs/voice/kws-vocabulary.json` *(+265/-0)*
+- `packages/stage-ui/src/libs/voice/voice-activity-plugin.test.ts` *(+41/-0)*
+- `packages/stage-ui/src/libs/voice/wake-word-detector.test.ts` *(+259/-0)*
+- `packages/stage-ui/src/libs/voice/wake-word-detector.ts` *(+314/-0)*
+- `packages/stage-ui/src/libs/voice/wake-words.ts` *(+12/-1)*
+- `packages/stage-ui/src/services/speech/bus.ts` *(+3/-0)*
+- `packages/stage-ui/src/stores/modules/hearing.ts` *(+35/-0)*
+- `packages/stage-ui/src/stores/modules/home-assistant.browser.test.ts` *(+52/-0)*
+- `packages/stage-ui/src/stores/modules/home-assistant.ts` *(+97/-1)*
+- `packages/stage-ui/src/stores/settings/audio-device.browser.test.ts` *(+24/-1)*
+- `packages/stage-ui/src/stores/settings/audio-device.ts` *(+6/-2)*
+- `packages/stage-ui/src/stores/voice.ts` *(+15/-5)*
+- `packages/stage-ui/src/stores/wake-word-detection.ts` *(+76/-0)*
+- `packages/stage-ui/src/tools/home-assistant.test.ts` *(+496/-9)*
+- `packages/stage-ui/src/tools/home-assistant.ts` *(+133/-19)*
+- `packages/stage-ui/src/tools/wake-words.test.ts` *(+64/-0)*
+- `packages/stage-ui/src/tools/wake-words.ts` *(+58/-0)*
+- `packages/stage-ui/stories/modules/i18n.ts` *(+2/-2)*
+- `packages/testing-audio/cases/apple-speech/case.audio.electron.test.ts` *(+1/-1)*
+- `packages/testing-audio/cases/long-leading-silence/case.audio.test.ts` *(+1/-1)*
+- `packages/testing-audio/cases/shared/configurations/index.ts` *(+2/-0)*
+- `packages/testing-audio/cases/shared/configurations/wake-word.ts` *(+93/-0)*
+- `packages/testing-audio/cases/shared/interactions/chat-sessions.ts` *(+44/-0)*
+- `packages/testing-audio/cases/shared/interactions/hearing-playground.ts` *(+1/-1)*
+- `packages/testing-audio/cases/shared/interactions/index.ts` *(+1/-0)*
+- `packages/testing-audio/cases/wake-word-routing/case.audio.test.ts` *(+30/-0)*
+- `packages/testing-audio/cases/wake-word-routing/input.test.wav` *(+0/-0)*
+- `packages/testing-audio/cases/wake-word-second-pronunciation/case.audio.test.ts` *(+31/-0)*
+- `packages/testing-audio/cases/wake-word-second-pronunciation/input.test.wav` *(+0/-0)*
+- `packages/testing-audio/cases/wake-word/case.audio.test.ts` *(+25/-0)*
+- `packages/testing-audio/cases/wake-word/input.test.wav` *(+0/-0)*
+- `packages/testing-audio/scripts/generate-wake-word-fixtures.ts` *(+116/-0)*
+- `packages/testing-audio/src/describe.ts` *(+9/-3)*
+- `packages/testing-audio/src/expect-extend.test.ts` *(+3/-0)*
+- `packages/testing-audio/src/index.ts` *(+2/-0)*
+- `packages/testing-audio/src/runtimes/prepare-electron.ts` *(+3/-5)*
+- `packages/testing-audio/src/runtimes/prepare-web.ts` *(+2/-4)*
+- `packages/testing-audio/src/setup/browser-probe.ts` *(+60/-3)*
+- `packages/testing-audio/src/setup/session.ts` *(+16/-0)*
+- `packages/testing-audio/src/setup/wake-word-model.ts` *(+74/-0)*
+- `packages/testing-audio/src/types.ts` *(+30/-1)*
+- `packages/testing-audio/src/types/browser.d.ts` *(+6/-0)*
+- `packages/vite-plugin-sherpaw/src/index.test.ts` *(+45/-1)*
+- `packages/vite-plugin-sherpaw/src/index.ts` *(+4/-4)*
+- `pnpm-workspace.yaml` *(+8/-20)*
+- `sponsorkit.config.js` *(+1/-1)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 9 file(s) (+41/-37)
+- `apps/stage-pocket/src/modules/i18n.ts` *(+2/-2)*
+- `apps/stage-pocket/src/pages/index.vue` *(+4/-14)*
+- `apps/stage-pocket/vite.config.ts` *(+8/-1)*
+- `apps/stage-web/Dockerfile` *(+1/-2)*
+- `apps/stage-web/netlify.toml` *(+1/-1)*
+- `apps/stage-web/src/main.ts` *(+8/-0)*
+- `apps/stage-web/src/modules/i18n.ts` *(+2/-2)*
+- `apps/stage-web/src/pages/index.vue` *(+12/-14)*
+- `apps/stage-web/vite.config.ts` *(+3/-1)*
+
+#### Deprecated Surfaces (Control Island) (`⚪ ignore / rejected in fork (decoupled into Control Strip)`) — 5 file(s) (+219/-95)
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/components/stage-islands/controls-island/controls-island-hearing-config.vue` *(+0/-4)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-hearing-config.vue` *(+0/-62)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-microphone.browser.test.ts` *(+141/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-overflow.browser.test.ts` *(+1/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/index.vue` *(+77/-28)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 26 file(s) (+1879/-134)
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/modules/i18n.ts` *(+2/-2)*
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/pages/index.vue` *(+4/-12)*
+- `apps/stage-tamagotchi/electron.vite.config.ts` *(+6/-2)*
+- `apps/stage-tamagotchi/src/main/index.ts` *(+1/-1)*
+- `apps/stage-tamagotchi/src/main/services/airi/home-assistant/index.ts` *(+6/-0)*
+- `apps/stage-tamagotchi/src/main/services/electron/global-shortcut.test.ts` *(+43/-1)*
+- `apps/stage-tamagotchi/src/main/services/electron/global-shortcut.ts` *(+23/-1)*
+- `apps/stage-tamagotchi/src/main/windows/main/index.ts` *(+3/-0)*
+- `apps/stage-tamagotchi/src/main/windows/main/rpc/index.electron.ts` *(+4/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` *(+1/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/inlay/voice-inlay.vue` *(+2/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/settings/push-to-talk-shortcut.browser.test.ts` *(+118/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/settings/push-to-talk-shortcut.vue` *(+138/-0)*
+- `apps/stage-tamagotchi/src/renderer/composables/use-push-to-talk-shortcut.browser.test.ts` *(+151/-0)*
+- `apps/stage-tamagotchi/src/renderer/composables/use-push-to-talk-shortcut.ts` *(+108/-0)*
+- `apps/stage-tamagotchi/src/renderer/main.ts` *(+3/-0)*
+- `apps/stage-tamagotchi/src/renderer/modules/i18n.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/renderer/pages/index.vue` *(+15/-12)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/modules/home-assistant.browser.test.ts` *(+356/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/modules/home-assistant.vue` *(+623/-60)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/system/window-shortcuts.vue` *(+6/-19)*
+- `apps/stage-tamagotchi/src/renderer/stores/tools/home-assistant.browser.test.ts` *(+144/-0)*
+- `apps/stage-tamagotchi/src/renderer/stores/tools/home-assistant.ts` *(+74/-18)*
+- `apps/stage-tamagotchi/src/renderer/utils/shortcut-recording.ts` *(+28/-0)*
+- `apps/stage-tamagotchi/src/shared/eventa/home-assistant.ts` *(+10/-1)*
+- `apps/stage-tamagotchi/vitest.config.ts` *(+8/-1)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 6 file(s) (+101/-625)
+- `package.json` *(+2/-5)*
+- `packages/stage-ui/package.json` *(+2/-0)*
+- `packages/testing-audio/package.json` *(+2/-0)*
+- `packages/testing-audio/tsconfig.json` *(+1/-0)*
+- `pnpm-lock.yaml` *(+62/-620)*
+- `scripts/build-airi-docs.sh` *(+32/-0)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 60 file(s) (+3544/-721)
+- `packages/i18n/glossary/build-tbx.test.ts` *(+3/-2)*
+- `packages/i18n/src/fallback.ts` *(+20/-0)*
+- `packages/i18n/src/index.ts` *(+4/-0)*
+- `packages/i18n/src/locales/en/docs/index.ts` *(+0/-7)*
+- `packages/i18n/src/locales/en/docs/theme.yaml` *(+0/-51)*
+- `packages/i18n/src/locales/en/docs/versions.yaml` *(+0/-22)*
+- `packages/i18n/src/locales/en/index.ts` *(+0/-2)*
+- `packages/i18n/src/locales/en/settings.yaml` *(+218/-1)*
+- `packages/i18n/src/locales/en/stage.yaml` *(+3/-0)*
+- `packages/i18n/src/locales/en/tamagotchi/settings.yaml` *(+7/-0)*
+- `packages/i18n/src/locales/en/tamagotchi/stage.yaml` *(+2/-0)*
+- `packages/i18n/src/locales/es/docs/index.ts` *(+0/-5)*
+- `packages/i18n/src/locales/es/docs/theme.yaml` *(+0/-48)*
+- `packages/i18n/src/locales/es/docs/versions.yaml` *(+0/-22)*
+- `packages/i18n/src/locales/es/index.ts` *(+0/-2)*
+- `packages/i18n/src/locales/es/stage.yaml` *(+0/-1)*
+- `packages/i18n/src/locales/fr/docs/index.ts` *(+0/-5)*
+- `packages/i18n/src/locales/fr/docs/theme.yaml` *(+0/-47)*
+- `packages/i18n/src/locales/fr/docs/versions.yaml` *(+0/-21)*
+- `packages/i18n/src/locales/fr/index.ts` *(+0/-2)*
+- `packages/i18n/src/locales/index.ts` *(+2/-0)*
+- `packages/i18n/src/locales/ja/docs/index.ts` *(+0/-7)*
+- `packages/i18n/src/locales/ja/docs/theme.yaml` *(+0/-50)*
+- `packages/i18n/src/locales/ja/docs/versions.yaml` *(+0/-22)*
+- `packages/i18n/src/locales/ja/index.ts` *(+0/-2)*
+- `packages/i18n/src/locales/ko/docs/index.ts` *(+0/-7)*
+- `packages/i18n/src/locales/ko/docs/theme.yaml` *(+0/-50)*
+- `packages/i18n/src/locales/ko/docs/versions.yaml` *(+0/-22)*
+- `packages/i18n/src/locales/ko/index.ts` *(+0/-2)*
+- `packages/i18n/src/locales/ru/docs/index.ts` *(+0/-5)*
+- `packages/i18n/src/locales/ru/docs/theme.yaml` *(+0/-50)*
+- `packages/i18n/src/locales/ru/docs/versions.yaml` *(+0/-22)*
+- `packages/i18n/src/locales/ru/index.ts` *(+0/-2)*
+- `packages/i18n/src/locales/ru/stage.yaml` *(+0/-1)*
+- `packages/i18n/src/locales/th/base.yaml` *(+60/-0)*
+- `packages/i18n/src/locales/th/index.ts` *(+11/-0)*
+- `packages/i18n/src/locales/th/server/auth.yaml` *(+201/-0)*
+- `packages/i18n/src/locales/th/settings.yaml` *(+2240/-0)*
+- `packages/i18n/src/locales/th/stage.yaml` *(+232/-0)*
+- `packages/i18n/src/locales/th/tamagotchi/electron/index.ts` *(+5/-0)*
+- `packages/i18n/src/locales/th/tamagotchi/electron/tray.yaml` *(+25/-0)*
+- `packages/i18n/src/locales/th/tamagotchi/index.ts` *(+9/-0)*
+- `packages/i18n/src/locales/th/tamagotchi/settings.yaml` *(+137/-0)*
+- `packages/i18n/src/locales/th/tamagotchi/stage.yaml` *(+135/-0)*
+- `packages/i18n/src/locales/vi/docs/index.ts` *(+0/-5)*
+- `packages/i18n/src/locales/vi/docs/theme.yaml` *(+0/-50)*
+- `packages/i18n/src/locales/vi/docs/versions.yaml` *(+0/-22)*
+- `packages/i18n/src/locales/vi/index.ts` *(+0/-2)*
+- `packages/i18n/src/locales/zh-Hans/docs/index.ts` *(+0/-7)*
+- `packages/i18n/src/locales/zh-Hans/docs/theme.yaml` *(+0/-48)*
+- `packages/i18n/src/locales/zh-Hans/docs/versions.yaml` *(+0/-22)*
+- `packages/i18n/src/locales/zh-Hans/index.ts` *(+0/-2)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+218/-3)*
+- `packages/i18n/src/locales/zh-Hans/stage.yaml` *(+3/-0)*
+- `packages/i18n/src/locales/zh-Hans/tamagotchi/settings.yaml` *(+7/-0)*
+- `packages/i18n/src/locales/zh-Hans/tamagotchi/stage.yaml` *(+2/-0)*
+- `packages/i18n/src/locales/zh-Hant/docs/index.ts` *(+0/-7)*
+- `packages/i18n/src/locales/zh-Hant/docs/theme.yaml` *(+0/-49)*
+- `packages/i18n/src/locales/zh-Hant/docs/versions.yaml` *(+0/-22)*
+- `packages/i18n/src/locales/zh-Hant/index.ts` *(+0/-2)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 2 file(s) (+2/-2)
+- `packages/stage-layouts/src/components/Layouts/MobileInteractiveArea.vue` *(+1/-1)*
+- `packages/stage-layouts/src/components/Widgets/ChatArea.vue` *(+1/-1)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 13 file(s) (+863/-220)
+- `packages/stage-pages/README.md` *(+9/-0)*
+- `packages/stage-pages/src/pages/settings/airi-card/components/wake-word-conflict-alert.browser.test.ts` *(+54/-0)*
+- `packages/stage-pages/src/pages/settings/airi-card/components/wake-word-conflict-alert.vue` *(+31/-0)*
+- `packages/stage-pages/src/pages/settings/airi-card/index.vue` *(+46/-39)*
+- `packages/stage-pages/src/pages/settings/data/components/downloaded-models-section.browser.test.ts` *(+9/-0)*
+- `packages/stage-pages/src/pages/settings/data/components/downloaded-models-section.vue` *(+3/-1)*
+- `packages/stage-pages/src/pages/settings/modules/components/wake-word-conflicts.vue` *(+74/-0)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/index.browser.test.ts` *(+108/-0)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/index.vue` *(+157/-0)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/transcriber.browser.test.ts` *(+55/-0)*
+- `packages/stage-pages/src/pages/settings/modules/{hearing.vue => hearing/transcriber.vue}` *(+81/-180)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/wake-words.browser.test.ts` *(+105/-0)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/wake-words.vue` *(+131/-0)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 2 file(s) (+8/-3)
+- `packages/stage-ui/src/stores/chat.contract.test.ts` *(+3/-2)*
+- `packages/stage-ui/src/stores/chat.ts` *(+5/-1)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (14)
+- [#2930](https://github.com/moeru-ai/airi/pull/2930) `chore(i18n): warn only when English lacks a message` by **@chiba233** *(4 comments)*
+- [#2931](https://github.com/moeru-ai/airi/pull/2931) `feat(api): store the tool call count on the request log` by **@luoling8192** *(4 comments)*
+- [#2929](https://github.com/moeru-ai/airi/pull/2929) `feat(i18n): add Thai` by **@chiba233** *(6 comments)*
+- [#2928](https://github.com/moeru-ai/airi/pull/2928) `feat(stage-ui,stage-tamagotchi): reliable wake words, end-of-speech judge, and an always-on voice inlay` by **@nekomeowww** *(9 comments)*
+- [#2918](https://github.com/moeru-ai/airi/pull/2918) `ci(server): deploy a chosen branch to the dev environment` by **@luoling8192** *(19 comments)*
+- [#2926](https://github.com/moeru-ai/airi/pull/2926) `feat(stage-tamagotchi): add a fullscreen workspace experiment with two window modes` by **@chiba233** *(10 comments)*
+- [#2920](https://github.com/moeru-ai/airi/pull/2920) `feat(provider-inference): add OpenRouter transcription provider` by **@nayounsang** *(26 comments)*
+- [#2925](https://github.com/moeru-ai/airi/pull/2925) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(2 comments)*
+- [#2924](https://github.com/moeru-ai/airi/pull/2924) `chore(docs): move the documentation site to moeru-ai/airi-docs` by **@nekomeowww** *(2 comments)*
+- [#2923](https://github.com/moeru-ai/airi/pull/2923) `chore(i18n): update translations` by **@github-actions** *(2 comments)*
+- [#2922](https://github.com/moeru-ai/airi/pull/2922) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(2 comments)*
+- [#2921](https://github.com/moeru-ai/airi/pull/2921) `chore(nix): update assets hash` by **@Weathercold** *(2 comments)*
+- [#2919](https://github.com/moeru-ai/airi/pull/2919) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(2 comments)*
+- [#2917](https://github.com/moeru-ai/airi/pull/2917) `chore(deps): bump pinia-plugin-synced to 0.1.5` by **@clansty** *(2 comments)*
+
+#### 🔄 PR Status & Lifecycle Changes (8)
+- [#2904](https://github.com/moeru-ai/airi/pull/2904) `fix(i18n): show the pipe in the Anthropic provider title` — `OPEN` ➔ `MERGED`
+- [#2732](https://github.com/moeru-ai/airi/pull/2732) `feat(stage-pages): split Hearing settings and choose wake word owners` — `OPEN` ➔ `MERGED`, `Draft` ➔ `Ready`
+- [#2914](https://github.com/moeru-ai/airi/pull/2914) `chore(i18n): update translations` — `OPEN` ➔ `MERGED`
+- [#1427](https://github.com/moeru-ai/airi/pull/1427) `feat(stage-tamagotchi): dashboard ui` — `OPEN` ➔ `CLOSED`
+- [#2712](https://github.com/moeru-ai/airi/pull/2712) `test(testing-audio): cover wake word detection` — `OPEN` ➔ `MERGED`
+- [#2726](https://github.com/moeru-ai/airi/pull/2726) `feat(stage-ui): detect character wake words on the voice pipeline` — `OPEN` ➔ `MERGED`, `Draft` ➔ `Ready`
+- [#2903](https://github.com/moeru-ai/airi/pull/2903) `feat(stage-tamagotchi): let the user choose which Home Assistant devices the model reaches` — `OPEN` ➔ `MERGED`
+- [#2729](https://github.com/moeru-ai/airi/pull/2729) `feat(stage-ui): add Push to Talk on the voice pipeline` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (11)
+- [#2904](https://github.com/moeru-ai/airi/pull/2904) `fix(i18n): show the pipe in the Anthropic provider title` — *+26 comments (31 ➔ 57 total)*
+- [#2895](https://github.com/moeru-ai/airi/pull/2895) `fix(auth): support confirmed account deletion with recent sign-in` — *+8 comments (7 ➔ 15 total)*
+- [#2732](https://github.com/moeru-ai/airi/pull/2732) `feat(stage-pages): split Hearing settings and choose wake word owners` — *+5 comments (0 ➔ 5 total)*
+- [#2567](https://github.com/moeru-ai/airi/pull/2567) `feat(provider-inference): add AnonRouter chat provider` — *+4 comments (5 ➔ 9 total)*
+- [#2458](https://github.com/moeru-ai/airi/pull/2458) `feat(stage): add character-owned Live2D controls` — *+3 comments (65 ➔ 68 total)*
+- [#1427](https://github.com/moeru-ai/airi/pull/1427) `feat(stage-tamagotchi): dashboard ui` — *+1 comments (13 ➔ 14 total)*
+- [#2712](https://github.com/moeru-ai/airi/pull/2712) `test(testing-audio): cover wake word detection` — *+6 comments (6 ➔ 12 total)*
+- [#2911](https://github.com/moeru-ai/airi/pull/2911) `fix(core-agent): preserve whitespace in streamed speech literals` — *+1 comments (4 ➔ 5 total)*
+- [#2726](https://github.com/moeru-ai/airi/pull/2726) `feat(stage-ui): detect character wake words on the voice pipeline` — *+4 comments (0 ➔ 4 total)*
+- [#2903](https://github.com/moeru-ai/airi/pull/2903) `feat(stage-tamagotchi): let the user choose which Home Assistant devices the model reaches` — *+25 comments (174 ➔ 199 total)*
+- [#2729](https://github.com/moeru-ai/airi/pull/2729) `feat(stage-ui): add Push to Talk on the voice pipeline` — *+8 comments (11 ➔ 19 total)*
+
+### 👁️ Watched PRs Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [OPEN] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+
+---
+## [2026-10-11] Upstream Delta: `2efaa888..749d915f` (8 commits, 84 files, 19 PR update(s))
+
+### 🎯 Executive Highlights
+Upstream pushed 8 commits (2efaa888 ➔ 749d915f) and recorded 19 PR updates (11 new, 3 merged, 5 active discussions).
+
+- **Commercial Cloud Capacitor Store Landed (#2813, #2910, #2912)**: Upstream merged a massive 7,000+ line commercial cloud subscription & billing layer (Capacitor for Flux via RevenueCat/Stripe) spanning Drizzle schemas, billing webhooks, account deletion tests, and capacitor.vue. Strictly rejected under our offline-first BYOS architecture.
+- **Home Assistant Smart Home Security Guardrails (#2900)**: Bounded Home Assistant requests to strict safe endpoints (GET /api/states, POST /api/services/{domain}/{service}) to prevent arbitrary Jinja execution (POST /api/template) or state injection, and enforced token invalidation on address change.
+- **Config Persistence Root Isolation (#2913)**: Fixed throttled config writes in Electron (persistence.ts) where deferred saves wrote to wrong roots when userData paths shifted.
+- **Streamed Speech & Reasoning Sanitization (#2916, #2911)**: Two PRs targeting streamed response handling: PR #2916 prevents nested reasoning tags from regressing the stream cursor and leaking into speech; PR #2911 fixes whitespace literal dropping caused by .trim() checks on speech chunks.
+
+#### 💬 Discussion & Community Buzz
+- **#2903: feat(stage-tamagotchi): let the user choose which Home Assistant devices the model reaches (+159 new comments, 174 total)**: Massive explosion of discussion regarding entity/device scoping and user consent for Home Assistant actions.
+- **#2904: fix(i18n): show the pipe in the Anthropic provider title (31 comments)**: Rapid debate and fix on vue-i18n choice separator parsing (Anthropic | Claude -> Anthropic {'|'} Claude) and CI locale table formatting.
+- **#2910: fix(api,auth,stage-ui): close the Capacitor follow-ups of #2813 (37 comments)**: High volume of post-merge adjustments for the new Flux Capacitor subscription service.
+- **#2913: fix(stage-tamagotchi): keep a deferred config write in its own root (26 comments)**: Deep review of Electron configuration race conditions.
+- **#2729: feat(stage-ui): add Push to Talk on the voice pipeline (+7 new comments, 11 total)**: Ongoing design discussions around voice input controls.
+
+#### 🍒 Squatted / Forward-Ported Upstream PRs (Applied to dasilva333/airi)
+1. **PR #2916: `fix(core-agent): exclude nested reasoning from streamed speech`** — 🟢 **SQUATTED**
+   - *Applied to*: `packages/stage-ui/src/composables/response-categoriser.ts` (line 764: `currentPos = Math.max(currentPos, segmentEnd)`).
+   - *Test added*: `packages/stage-ui/src/composables/response-categoriser.test.ts` (nested reasoning stream exclusion tests).
+   - *Impact*: Eliminates stream cursor regression when reasoning tags are nested, preventing hidden thoughts from leaking into speech.
+2. **PR #2911: `fix(core-agent): preserve whitespace in streamed speech literals`** — 🟢 **SQUATTED**
+   - *Applied to*: `packages/stage-ui/src/stores/chat.ts` (line 957) and `packages/stage-ui/src/stores/proactivity.ts` (line 807).
+   - *Impact*: Swapped `if (speechOnly.trim())` to `if (speechOnly)`, preserving standalone whitespace chunks and paragraph breaks across stream deltas.
+3. **PR #2905: `fix(stage-ui-three): preserve orbit gestures across native text drags`** — 🟢 **SQUATTED**
+   - *Applied to*: `packages/stage-ui-three/src/components/Controls/OrbitControls.vue`.
+   - *Impact*: Added canvas `dragstart` event listener that calls `event.preventDefault()` to preserve pointer capture and 3D camera rotation during active text selections.
+4. **PR #2904: `fix(i18n): show the pipe in the Anthropic provider title`** — 🟢 **SQUATTED**
+   - *Applied to*: All 10 locale files in `packages/i18n/src/locales/*/settings.yaml` (en, es, fr, id, ja, ko, ru, vi, zh-Hans, zh-Hant).
+   - *Impact*: Escaped literal pipe syntax as `title: Anthropic {'|'} Claude`, preventing `vue-i18n` from misinterpreting it as a plural choice delimiter.
+
+#### ⚠️ Divergence / Collision Warnings
+- **apps/stage-tamagotchi/src/main/libs/electron/persistence.ts (PR #2913)**: Upstream refactored createConfig path memoization and changed key hashing to include the resolved path. In dasilva333/airi, we have custom queuedSave, saveSequence, process.pid, and flush() logic. Do NOT directly apply upstream commit 749d915f28; cherry-pick the path memoization pattern manually if desired.
+- **server/apps/api and packages/stage-pages/src/pages/settings/capacitor.vue (#2813, #2910, #2912)**: Upstream introduced 7,000+ lines for hosted cloud subscription management (Capacitor). Zero collision risk, but permanent auto-reject for our local-first offline architecture.
+- **packages/core-agent vs packages/stage-ui**: Upstream writes agent logic in packages/core-agent, whereas dasilva333/airi maintains it in packages/stage-ui/src/stores/chat.ts and composables/response-categoriser.ts. Direct git patches to core-agent will not apply without porting to stage-ui.
+
+### 📋 Upstream Commits
+- `749d915f28` fix(stage-tamagotchi): keep a deferred config write in its own root (#2913) [#2913](https://github.com/moeru-ai/airi/pull/2913) _(凌莞~(=^▽^=), 2026-10-11)_
+- `0e64578ab1` fix(api,auth,stage-ui): close the Capacitor follow-ups of #2813 (#2910) [#2813](https://github.com/moeru-ai/airi/pull/2813) _(RainbowBird, 2026-10-11)_
+- `ec682e2413` fix(stage-tamagotchi): bound what a Home Assistant request may do (#2900) [#2900](https://github.com/moeru-ai/airi/pull/2900) _(凌莞~(=^▽^=), 2026-10-11)_
+- `48d05fa7a3` test(stage-ui): add the Capacitor fields to the speech sync Flux mock (#2912) [#2912](https://github.com/moeru-ai/airi/pull/2912) _(Neko, 2026-10-11)_
+- `e4da8e2a8b` chore(nix): update pnpmDeps hash (#2909) [#2909](https://github.com/moeru-ai/airi/pull/2909) _(Weathercold, 2026-10-10)_
+- `f677923036` feat(api,stage-ui): add the Capacitor, a subscription store of Flux (#2813) [#2813](https://github.com/moeru-ai/airi/pull/2813) _(Lulu, 2026-10-11)_
+- `8d2a1f71af` chore(nix): update pnpmDeps hash (#2906) [#2906](https://github.com/moeru-ai/airi/pull/2906) _(Weathercold, 2026-10-10)_
+- `5ec81372f5` chore(stage-tamagotchi-kirie): update Kirie to 0.10.0 (#2901) [#2901](https://github.com/moeru-ai/airi/pull/2901) _(LemonNeko, 2026-10-10)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 3 file(s) (+26/-11)
+- `.github/workflows/deploy-cloudflare-workers-dev-server.yml` *(+1/-0)*
+- `.github/workflows/deploy-cloudflare-workers.yml` *(+1/-0)*
+- `docs/ai/adr/2026-10-06-home-assistant-integration.md` *(+24/-11)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 13 file(s) (+381/-116)
+- `apps/stage-tamagotchi-kirie/MIGRATION.md` *(+6/-6)*
+- `apps/stage-tamagotchi-kirie/README.md` *(+9/-8)*
+- `apps/stage-tamagotchi-kirie/StageTamagotchiKirie.csproj` *(+3/-2)*
+- `apps/stage-tamagotchi-kirie/docs/host-architecture.md` *(+1/-1)*
+- `apps/stage-tamagotchi-kirie/kirie.config.ts` *(+2/-0)*
+- `apps/stage-tamagotchi-kirie/package.json` *(+4/-4)*
+- `apps/stage-tamagotchi/src/main/libs/electron/persistence.test.ts` *(+82/-26)*
+- `apps/stage-tamagotchi/src/main/libs/electron/persistence.ts` *(+40/-12)*
+- `apps/stage-tamagotchi/src/main/services/airi/home-assistant/index.ts` *(+12/-14)*
+- `apps/stage-tamagotchi/src/main/services/airi/home-assistant/request.test.ts` *(+108/-22)*
+- `apps/stage-tamagotchi/src/main/services/airi/home-assistant/request.ts` *(+78/-16)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/modules/home-assistant.vue` *(+24/-5)*
+- `apps/stage-tamagotchi/src/shared/eventa/home-assistant.ts` *(+12/-0)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 10 file(s) (+679/-9)
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/stage-shared/src/env-vars.ts` *(+14/-0)*
+- `packages/stage-ui/src/composables/use-subscription.browser.test.ts` *(+230/-0)*
+- `packages/stage-ui/src/composables/use-subscription.test.ts` *(+90/-0)*
+- `packages/stage-ui/src/composables/use-subscription.ts` *(+301/-0)*
+- `packages/stage-ui/src/stores/auth.test.ts` *(+13/-0)*
+- `packages/stage-ui/src/stores/auth.ts` *(+17/-2)*
+- `packages/stage-ui/src/stores/modules/speech.browser.test.ts` *(+5/-0)*
+- `pnpm-workspace.yaml` *(+7/-6)*
+- `vite-env.d.ts` *(+1/-0)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 3 file(s) (+74/-4)
+- `packages/i18n/glossary/terms.yaml` *(+10/-0)*
+- `packages/i18n/src/locales/en/settings.yaml` *(+32/-2)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+32/-2)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 1 file(s) (+26/-1)
+- `packages/stage-layouts/src/components/Layouts/HeaderAvatar.vue` *(+26/-1)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 2 file(s) (+385/-0)
+- `packages/stage-pages/src/pages/settings/account/account-settings-page.vue` *(+22/-0)*
+- `packages/stage-pages/src/pages/settings/capacitor.vue` *(+363/-0)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 2 file(s) (+38/-26)
+- `packages/stage-ui/package.json` *(+1/-0)*
+- `pnpm-lock.yaml` *(+37/-26)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 50 file(s) (+6742/-88)
+- `server/apps/api/README.md` *(+41/-0)*
+- `server/apps/api/drizzle/0032_capacitor.sql` *(+9/-0)*
+- `server/apps/api/drizzle/meta/0032_snapshot.json` *(+4083/-0)*
+- `server/apps/api/drizzle/meta/_journal.json` *(+7/-0)*
+- `server/apps/api/src/app.test.ts` *(+2/-0)*
+- `server/apps/api/src/app.ts` *(+42/-3)*
+- `server/apps/api/src/libs/env.ts` *(+10/-0)*
+- `server/apps/api/src/routes/flux/index.ts` *(+16/-1)*
+- `server/apps/api/src/routes/flux/route.test.ts` *(+40/-5)*
+- `server/apps/api/src/routes/internal-auth.test.ts` *(+43/-2)*
+- `server/apps/api/src/routes/internal-auth.ts` *(+20/-0)*
+- `server/apps/api/src/routes/openai/v1/route.test.ts` *(+5/-5)*
+- `server/apps/api/src/routes/revenuecat/index.ts` *(+46/-0)*
+- `server/apps/api/src/routes/revenuecat/operations/webhook.ts` *(+131/-0)*
+- `server/apps/api/src/routes/revenuecat/route.test.ts` *(+284/-0)*
+- `server/apps/api/src/routes/stripe/checkout.test.ts` *(+1/-1)*
+- `server/apps/api/src/routes/stripe/payment-release.test.ts` *(+1/-1)*
+- `server/apps/api/src/schemas/flux-transaction.ts` *(+2/-0)*
+- `server/apps/api/src/schemas/flux.ts` *(+14/-1)*
+- `server/apps/api/src/services/adapters/config-kv/definitions.ts` *(+17/-1)*
+- `server/apps/api/src/services/adapters/config-kv/index.test.ts` *(+10/-0)*
+- `server/apps/api/src/services/adapters/revenuecat-subscriber.test.ts` *(+221/-0)*
+- `server/apps/api/src/services/adapters/revenuecat-subscriber.ts` *(+206/-0)*
+- `server/apps/api/src/services/adapters/revenuecat-subscriptions.test.ts` *(+109/-0)*
+- `server/apps/api/src/services/adapters/revenuecat-subscriptions.ts` *(+56/-0)*
+- `server/apps/api/src/services/domain/billing/billing-service.ts` *(+164/-19)*
+- `server/apps/api/src/services/domain/billing/flux-posting.ts` *(+137/-3)*
+- `server/apps/api/src/services/domain/billing/speech-billing.ts` *(+2/-2)*
+- `server/apps/api/src/services/domain/billing/tests/billing-service.test.ts` *(+1/-1)*
+- `server/apps/api/src/services/domain/billing/tests/capacitor.test.ts` *(+404/-0)*
+- `server/apps/api/src/services/domain/billing/tests/flux-usage-concurrency.test.ts` *(+1/-1)*
+- `server/apps/api/src/services/domain/billing/tests/flux-usage-migration.test.ts` *(+5/-3)*
+- `server/apps/api/src/services/domain/billing/tests/flux-usage.test.ts` *(+1/-1)*
+- `server/apps/api/src/services/domain/billing/tests/llm-billing.test.ts` *(+1/-1)*
+- `server/apps/api/src/services/domain/billing/wallet-initialization.ts` *(+22/-0)*
+- `server/apps/api/src/services/domain/flux-cache.ts` *(+7/-2)*
+- `server/apps/api/src/services/domain/flux-transaction.ts` *(+5/-3)*
+- `server/apps/api/src/services/domain/flux.test.ts` *(+59/-5)*
+- `server/apps/api/src/services/domain/flux.ts` *(+36/-21)*
+- `server/apps/api/src/services/domain/payment/tests/payment.test.ts` *(+1/-1)*
+- `server/apps/api/src/utils/error.ts` *(+8/-0)*
+- `server/apps/auth/src/auth.ts` *(+13/-1)*
+- `server/apps/auth/src/email.ts` *(+2/-2)*
+- `server/apps/auth/src/resource-api.ts` *(+28/-0)*
+- `server/apps/auth/src/tests/account-deletion.test.ts` *(+131/-0)*
+- `server/apps/auth/src/tests/auth.test.ts` *(+4/-1)*
+- `server/apps/auth/src/tests/resource-api.test.ts` *(+32/-0)*
+- `server/apps/auth/src/tests/social-authorization.test.ts` *(+1/-0)*
+- `server/docs/ai/adr/2026-10-04-flux-usage.md` *(+2/-1)*
+- `server/docs/ai/adr/2026-10-04-subscription-credits.md` *(+259/-0)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (11)
+- [#2904](https://github.com/moeru-ai/airi/pull/2904) `fix(i18n): show the pipe in the Anthropic provider title` by **@clansty** *(31 comments)*
+- [#2913](https://github.com/moeru-ai/airi/pull/2913) `fix(stage-tamagotchi): keep a deferred config write in its own root` by **@clansty** *(26 comments)*
+- [#2910](https://github.com/moeru-ai/airi/pull/2910) `fix(api,auth,stage-ui): close the Capacitor follow-ups of #2813` by **@luoling8192** *(37 comments)*
+- [#2916](https://github.com/moeru-ai/airi/pull/2916) `fix(core-agent): exclude nested reasoning from streamed speech` by **@xili-ytl** *(1 comments)*
+- [#2914](https://github.com/moeru-ai/airi/pull/2914) `chore(i18n): update translations` by **@github-actions** *(3 comments)*
+- [#2912](https://github.com/moeru-ai/airi/pull/2912) `test(stage-ui): add the Capacitor fields to the speech sync Flux mock` by **@nekomeowww** *(2 comments)*
+- [#2911](https://github.com/moeru-ai/airi/pull/2911) `fix(core-agent): preserve whitespace in streamed speech literals` by **@Gujiassh** *(4 comments)*
+- [#2909](https://github.com/moeru-ai/airi/pull/2909) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(2 comments)*
+- [#2908](https://github.com/moeru-ai/airi/pull/2908) `fix(stage-ui): stop a no-op state apply from firing a subscriber` by **@clansty** *(6 comments)*
+- [#2905](https://github.com/moeru-ai/airi/pull/2905) `fix(stage-ui-three): preserve orbit gestures across native text drags` by **@FlowerWater1019** *(5 comments)*
+- [#2906](https://github.com/moeru-ai/airi/pull/2906) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(2 comments)*
+
+#### 🔄 PR Status & Lifecycle Changes (3)
+- [#2900](https://github.com/moeru-ai/airi/pull/2900) `fix(stage-tamagotchi): bound what a Home Assistant request may do` — `OPEN` ➔ `MERGED`
+- [#2813](https://github.com/moeru-ai/airi/pull/2813) `feat(api,stage-ui): add the Capacitor, a subscription store of Flux` — `OPEN` ➔ `MERGED`
+- [#2901](https://github.com/moeru-ai/airi/pull/2901) `chore(stage-tamagotchi-kirie): update Kirie to 0.10.0` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (5)
+- [#2903](https://github.com/moeru-ai/airi/pull/2903) `feat(stage-tamagotchi): let the user choose which Home Assistant devices the model reaches` — *+159 comments (15 ➔ 174 total)*
+- [#2902](https://github.com/moeru-ai/airi/pull/2902) `feat(core-agent): add a generation-level tool policy` — *+1 comments (4 ➔ 5 total)*
+- [#2900](https://github.com/moeru-ai/airi/pull/2900) `fix(stage-tamagotchi): bound what a Home Assistant request may do` — *+9 comments (7 ➔ 16 total)*
+- [#2729](https://github.com/moeru-ai/airi/pull/2729) `feat(stage-ui): add Push to Talk on the voice pipeline` — *+7 comments (4 ➔ 11 total)*
+- [#2813](https://github.com/moeru-ai/airi/pull/2813) `feat(api,stage-ui): add the Capacitor, a subscription store of Flux` — *+23 comments (18 ➔ 41 total)*
+
+### 👁️ Watched PRs Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [OPEN] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+
+---
+## [2026-10-10] Upstream Delta: `a94e2055..2efaa888` (13 commits, 116 files, 27 PR update(s))
+
+### 🛠️ Porting & Regression Protection Ledger (dasilva333/airi)
+* **Ported & Committed**:
+  - **PR #2894 & PR #2891**: Live2D texture and WebGL context memory leak teardown. Applied in `Model.vue`, `live2d-preview.ts`, and `ControlStripHost.vue`. Factored into `destroyLive2dModel` helper (`packages/stage-ui-live2d/src/utils/destroy.ts`) with contract test in `packages/stage-ui/src/features/motions/live2d/model-destruction.test.ts`. (Commits: `2c12d4855a`, `8c507b3cb5`).
+  - **PR #2896**: Workbox WebAssembly lazy on-demand caching (`globIgnores: ['**/*.wasm']`, `CacheFirst`). Configured in `apps/stage-web/vite.config.ts`. Verified via contract test in `packages/stage-shared/src/pwa-wasm-cache.test.ts`. (Commits: `4963dd788a`, `ca43dc97a7`).
+  - **PR #2843**: 3-Way System Theme option (`auto` | `light` | `dark`). Upgraded `useTheme` in `packages/ui/src/composables/use-theme.ts` with `switchToNextTheme()`, `isDark` getter/setter backward-compatibility, and `LocalStorageShim`. Integrated into General Settings dropdown and Control Strip theme-mode toggle. Added 100% key parity across all 10 canonical locales in `packages/i18n`. Verified with unit tests in `packages/stage-ui/src/composables/use-theme.test.ts`, `packages/stage-ui/src/composables/use-control-strip-action.test.ts`, and `packages/i18n/src/locales.test.ts`. (Commits: `85cf69e79a`, `4cd48ca13c`, `6adcd865f9`, `c96b6f81aa`, `d52d39f12e`).
+* **Explicitly Rejected**:
+  - **PR #2902**: Generation-level tool policy (`StreamOptions.toolsEnabled`). Rejected per architectural decision: disabling tools during heartbeats kills the assistant layer; tool access should remain character-scoped rather than suppressed on background loops.
+  - **PR #2813**: Capacitor Flux token subscriptions and commercial billing. Rejected per offline-first architecture.
+  - **PR #2893, PR #2889, PR #2895**: Cloud server auth, account deletion, and email verification. Rejected per offline-first architecture.
+* **Test Catalog Integrity**:
+  - Updated `docs/project-testing-parity.md` to catalog all new test suites (`use-theme.test.ts`, `use-control-strip-action.test.ts`, `model-destruction.test.ts`, `pwa-wasm-cache.test.ts`, and pre-existing suites).
+  - Executed `scripts/audit-test-catalog.mjs` verifying **100% catalog integrity** (197 active suites, 0 missing, 0 uncataloged).
+
+### 🎯 Executive Highlights
+* **Upstream Focus & Key Merges**: Upstream merged 13 commits (`a94e2055`..`2efaa888`), touching 68 files (+3,745/-427) across 27 PR updates (14 new PRs, 8 lifecycle transitions, 5 discussion updates):
+  1. **Live2D WebGL Context & Memory Leak Teardown (PR #2894 / Commit `a7299acdf0` & PR #2891 / Commit `e2f012ce63` by @nekomeowww)**: Critical rendering lifecycle fix. Replaces naive unmount cleanup with explicit texture destruction (`destroy({ texture: true, baseTexture: true })`), unregisters from `Ticker.shared`, and uses `useEventListener` on interaction listeners to ensure unmounted stages fully release WebGL contexts and GPU memory.
+  2. **WASM Lazy Caching & Stage DuckDB De-escalation (PR #2896 / Commit `49904d9160` & PR #2897 / Commit `bd10296e46` by @nekomeowww)**: Avoids precaching 80%+ of the PWA bundle in `apps/stage-web` by switching WASM binaries to runtime `CacheFirst` on-demand caching. Concurrently comments out eager DuckDB startup on `Stage.vue` mount, saving 320–390 MB of memory on mobile Safari.
+  3. **Multi-Host Sherpaw Model Asset Management & OPFS Caching (PR #2696 / Commit `17ece72d4c` by @nekomeowww)**: Comprehensive 47-file merge (+1,979/-247 lines). Establishes cross-host model asset management across Electron local storage and browser OPFS (`model-assets-opfs.ts`), adding a "Downloaded Models" section to Data Settings (`downloaded-models-section.vue`).
+  4. **Chat Asset References Extraction (PR #2878 / Commit `333805f5de` by @nekomeowww)**: Decoupled raw base64 images and audio recordings from session JSON into a dedicated `chat-assets.repo.ts`, referencing assets via URIs (`use-chat-asset-urls.ts`) to keep conversation databases lean.
+  5. **Per-Session Character Pinning for Chat Turns (PR #2725 / Commit `4a24300b5e` by @nekomeowww)**: Pins multi-step LLM turns and model configurations to the session character rather than the window currently selected card, preventing concurrent or queued turns from drifting characters.
+  6. **System Theme Support (PR #2843 / Commit `130ead311b` by @chiba233)**: Added system color theme option (`system`, `light`, `dark`) in `use-theme.ts` (bundled with deprecated `controls-island` updates).
+  7. **Notable PR Lifecycle & New Submissions**: PR #2748 (skills, automations, background tasks by @chiba233) and PR #2813 (Capacitor Flux subscription store by @lulu0119) transitioned from Draft to Ready. PR #2903 & #2900 (by @clansty) introduce device-level Home Assistant filtering and bounded actions; PR #2902 (by @FlowerWater1019) introduces a generation-level tool policy (`StreamOptions.toolsEnabled`).
+* **Discussion & Community Buzz**:
+  - 💬 **#2813: `feat(api,stage-ui): add the Capacitor, a subscription store of Flux` (+16 comments, 18 total)**: High discussion velocity surrounding commercial Flux token subscriptions and billing integration.
+  - 💬 **#2903: `feat(stage-tamagotchi): let the user choose which Home Assistant devices the model reaches` (15 comments)**: Rapid interest and feedback on granular device-level entity filtering and security policies for Home Assistant tools.
+  - 💬 **#2893: `fix(auth): route unverified accounts before password entry` (9 comments)**: Discussion regarding authentication routing flows and unverified email handling.
+  - 💬 **#2900: `fix(stage-tamagotchi): bound what a Home Assistant request may do` (7 comments)**: Security discussion on bounding Home Assistant tool action scopes.
+  - 💬 **#2895: `fix(auth): support account deletion without email confirmation` (7 comments)**: Deliberation on account deletion flows without active email confirmation.
+  - 💬 **#2748: `feat: add skills, automations, long-term memory, and background tasks` (+2 comments, 7 total)**: Notable transition to Ready status with continued discussion around upstream memory/automation engine.
+  - 💬 **#2729: `feat(stage-ui): add Push to Talk on the voice pipeline` (+4 comments, 4 total)**: Review and approval momentum moving PTT to Ready.
+  - 💬 **#2712: `test(testing-audio): cover wake word detection` (+2 comments, 6 total)**: Wake word test coverage discussions.
+  - 👁️ **Watched PRs Radar**:
+    - **#2634: `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI brain`** [Draft] (1 comment): Dormant. Still awaiting core maintainer triage on daemon friction.
+    - **#2672: `refactor(stage-ui): bind conversations to window-local characters`** [Draft] (48 comments): In Draft.
+    - **#2541: `Telltworose/feat/drop in plugins` (MCP-first architecture)** [OPEN] (59 comments): Awaiting author rebase and maintainer discussion.
+    - **#2290: `feat(server): stream official ASR over WebSocket`** [OPEN] (59 comments): Changes requested; awaiting rebase.
+    - **#2120: `refactor(stage-pages): rebuild AIRI Card editor`** [OPEN] (41 comments): Changes requested; awaiting route/modal decoupling.
+* **Cherry-Pick Candidates**:
+  - 💎 **PR #2894 / Commit `a7299acdf0` & PR #2891 / Commit `e2f012ce63`: `fix(stage-ui-live2d): release unmounted Live2D stage and WebGL contexts` by @nekomeowww**: Essential graphics stability fix! Cleans up WebGL textures (`destroy({ texture: true, baseTexture: true })`), unregisters from `Ticker.shared`, and uses `useEventListener` on stage interaction listeners. Completely stops WebGL memory leaks on Live2D model switches and stage unmounts. Highly recommended for immediate cherry-pick into `packages/stage-ui-live2d`.
+  - 💎 **PR #2896 / Commit `49904d9160`: `fix(stage-web): cache WebAssembly files on first use instead of precaching them` by @nekomeowww**: Clean PWA / Workbox optimization in `apps/stage-web/vite.config.ts`. Removes bulky WASM binaries from the eager precache manifest and switches to runtime `CacheFirst` on-demand caching with LRU expiration, massively accelerating initial web app install.
+  - 💎 **PR #2902 (PR in review): `feat(core-agent): add a generation-level tool policy` by @FlowerWater1019**: Clean addition of `StreamOptions.toolsEnabled: boolean`. Disables tools explicitly for proactive greetings, system heartbeats, or pure conversational turns without altering global model tool configurations. Cleanly portable to `packages/core-agent`.
+  - 🔍 **PR #2843 / Commit `130ead311b` (Selective extract): `feat(ui): add system theme option` by @chiba233**: The `packages/ui/src/composables/use-theme.ts` portion adds clean OS-level system theme following (`system` | `light` | `dark`). Can be selectively extracted without pulling the changes to deprecated `controls-island`.
+  - ⚪ **Auto-Reject / Do Not Port**:
+    - **PR #2893, PR #2889, PR #2895 (Commits `c5abedfdd4`, `f497c4cf5e`)**: Cloud server auth, account deletion, and email verification in `server/apps/auth`. Rejected per offline-first architecture.
+    - **PR #2813**: Subscription store for Flux tokens and commercial billing. Rejected.
+    - **PR #2843 (`controls-island` components)**: Touches deprecated `controls-island/index.vue`. Rejected per fork decoupling into Control Strip.
+    - **PR #2748**: Upstream external automations/long-term memory. Rejected; this fork has native in-process Eight Pillars of Memory (STMM, Sacred LTMM, Dreaming Worker, Echo chips, Lifetime distillation).
+* **Divergence / Collision Warnings**:
+  - ⚠️ **`packages/stage-ui/src/stores/chat.ts` & `session-store.ts` (Commit `4a24300b5e` / PR #2725 & Commit `333805f5de` / PR #2878)**: Upstream performed major rewrites of `chat.ts` (+312/-104 lines across both commits) to pin session characters and extract asset repositories. In `dasilva333/airi`, `chat.ts` is 2,300+ lines containing fork-exclusive `<|ACTOR|>` multi-actor routing, memory grounding pipelines, and autonomous artistry. Do NOT merge upstream `chat.ts` or `session-store.ts` directly.
+  - ⚠️ **`packages/core-agent/src/runtime/llm-service.ts` & `chat-orchestrator-runtime.ts` (Commit `4a24300b5e` / PR #2725)**: Upstream introduced `resolveStep` and `prepareConversation` lifecycle hooks in `llm-service.ts`. If cherry-picking turn pinning or media projection, adapt manually to our prompt builder and tool dispatch pipeline.
+  - ⚠️ **`apps/stage-tamagotchi/src/main/services/electron/` (Commit `17ece72d4c` / PR #2696)**: Upstream added Sherpaw model asset storage services into Electron main process. Must align with our Injeca dependency injection container rather than upstream direct service instantiation if adopted.
+
+### 📋 Upstream Commits
+- `2efaa88878` chore(nix): update assets hash (#2898) [#2898](https://github.com/moeru-ai/airi/pull/2898) _(Weathercold, 2026-10-10)_
+- `bd10296e46` fix(stage-ui): stop starting DuckDB when the stage mounts (#2897) [#2897](https://github.com/moeru-ai/airi/pull/2897) _(Neko, 2026-10-10)_
+- `49904d9160` fix(stage-web): cache WebAssembly files on first use instead of precaching them (#2896) [#2896](https://github.com/moeru-ai/airi/pull/2896) _(Neko, 2026-10-10)_
+- `a7299acdf0` fix(stage-ui,stage-ui-live2d): release the unmounted Live2D stage and its WebGL contexts (#2894) [#2894](https://github.com/moeru-ai/airi/pull/2894) _(Neko, 2026-10-10)_
+- `4a24300b5e` feat(stage-ui): pin chat turns and model steps to the session character (#2725) [#2725](https://github.com/moeru-ai/airi/pull/2725) _(Neko, 2026-10-10)_
+- `130ead311b` feat(ui,stage-layouts,stage-tamagotchi): add a system theme option (#2843) [#2843](https://github.com/moeru-ai/airi/pull/2843) _(蓝莓🫐, 2026-10-10)_
+- `c5abedfdd4` fix(auth): route unverified accounts before password entry (#2893) [#2893](https://github.com/moeru-ai/airi/pull/2893) _(Hatsune Miku, 2026-10-10)_
+- `778f767fc8` chore(i18n): update translations (#2880) [#2880](https://github.com/moeru-ai/airi/pull/2880) _(github-actions[bot], 2026-10-10)_
+- `17ece72d4c` feat(inference): manage Sherpaw model assets across hosts (#2696) [#2696](https://github.com/moeru-ai/airi/pull/2696) _(Neko, 2026-10-10)_
+- `333805f5de` feat(stage-ui): store chat images and recordings as asset references (#2878) [#2878](https://github.com/moeru-ai/airi/pull/2878) _(Neko, 2026-10-10)_
+- `e2f012ce63` fix(stage-ui-live2d): destroy the Live2D model when the stage unmounts (#2891) [#2891](https://github.com/moeru-ai/airi/pull/2891) _(Neko, 2026-10-10)_
+- `1f90db1b6c` fix(stage-layouts): guide chat provider setup in the web and mobile composers (#2890) [#2890](https://github.com/moeru-ai/airi/pull/2890) _(RainbowBird, 2026-10-09)_
+- `f497c4cf5e` fix(auth): show results after registration and deletion emails (#2889) [#2889](https://github.com/moeru-ai/airi/pull/2889) _(Hatsune Miku, 2026-10-09)_
+
+### 🔬 Subsystem Breakdown
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 2 file(s) (+19/-0)
+- `apps/stage-pocket/README.md` *(+4/-0)*
+- `apps/stage-web/vite.config.ts` *(+15/-0)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 17 file(s) (+539/-73)
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/components/InteractiveArea.vue` *(+1/-1)*
+- `apps/stage-tamagotchi/README.md` *(+7/-0)*
+- `apps/stage-tamagotchi/electron.vite.config.ts` *(+8/-3)*
+- `apps/stage-tamagotchi/src/main/index.ts` *(+6/-1)*
+- `apps/stage-tamagotchi/src/main/services/electron/bundled-sherpaw-assets.ts` *(+40/-0)*
+- `apps/stage-tamagotchi/src/main/services/electron/model-asset-storage.test.ts` *(+108/-0)*
+- `apps/stage-tamagotchi/src/main/services/electron/model-asset-storage.ts` *(+127/-0)*
+- `apps/stage-tamagotchi/src/main/services/electron/sherpaw-model-assets.test.ts` *(+1/-1)*
+- `apps/stage-tamagotchi/src/main/services/electron/sherpaw-model-assets.ts` *(+71/-23)*
+- `apps/stage-tamagotchi/src/renderer/App.vue` *(+31/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.browser.test.ts` *(+28/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` *(+6/-20)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/resource-status-island/index.vue` *(+39/-21)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/resource-status-island/model-asset-progress.vue` *(+49/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/data/index.vue` *(+2/-0)*
+- `apps/stage-tamagotchi/src/shared/eventa/model-assets.ts` *(+10/-0)*
+- `apps/stage-tamagotchi/vite-env.d.ts` *(+5/-1)*
+
+#### Deprecated Surfaces (Control Island) (`⚪ ignore / rejected in fork (decoupled into Control Strip)`) — 3 file(s) (+62/-14)
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/components/stage-islands/controls-island/index.vue` *(+23/-7)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-overflow.browser.test.ts` *(+17/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/index.vue` *(+22/-7)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 4 file(s) (+6/-0)
+- `apps/ui-server-auth/package.json` *(+1/-0)*
+- `packages/stage-shared/package.json` *(+1/-0)*
+- `packages/stage-ui/package.json` *(+1/-0)*
+- `pnpm-lock.yaml` *(+3/-0)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 48 file(s) (+2135/-209)
+- `apps/ui-server-auth/src/modules/email-password.test.ts` *(+23/-0)*
+- `apps/ui-server-auth/src/modules/email-password.ts` *(+13/-21)*
+- `apps/ui-server-auth/src/pages/sign-in.vue` *(+12/-0)*
+- `apps/ui-server-auth/src/pages/verify-email.vue` *(+1/-1)*
+- `nix/assets-hash.txt` *(+1/-1)*
+- `packages/plugin-protocol/src/types/events.ts` *(+53/-0)*
+- `packages/server-runtime/src/index.ts` *(+4/-0)*
+- `packages/server-runtime/src/setupApp.liveness.test.ts` *(+37/-0)*
+- `packages/server-sdk/src/client.ts` *(+29/-0)*
+- `packages/server-sdk/src/index.ts` *(+1/-1)*
+- `packages/server-sdk/test/client.test.ts` *(+53/-0)*
+- `packages/server-shared/src/types/websocket/events.ts` *(+13/-0)*
+- `packages/stage-shared/src/model-assets/index.test.ts` *(+184/-0)*
+- `packages/stage-shared/src/model-assets/index.ts` *(+244/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/provider-setup-callout.vue` *(+31/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/user-item.vue` *(+15/-9)*
+- `packages/stage-ui/src/components/scenarios/chat/composables/use-chat-images.ts` *(+2/-2)*
+- `packages/stage-ui/src/components/scenarios/chat/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/composables/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/composables/use-chat-asset-urls.ts` *(+52/-0)*
+- `packages/stage-ui/src/composables/use-data-maintenance.browser.test.ts` *(+17/-0)*
+- `packages/stage-ui/src/composables/use-data-maintenance.ts` *(+2/-0)*
+- `packages/stage-ui/src/composables/use-model-asset-status.ts` *(+16/-0)*
+- `packages/stage-ui/src/database/repos/__mocks__/chat-assets.repo.ts` *(+47/-0)*
+- `packages/stage-ui/src/database/repos/chat-assets.repo.ts` *(+94/-0)*
+- `packages/stage-ui/src/database/repos/chat-sessions.repo.test.ts` *(+1/-0)*
+- `packages/stage-ui/src/database/repos/chat-sessions.repo.ts` *(+45/-1)*
+- `packages/stage-ui/src/libs/chat-assets.browser.test.ts` *(+91/-0)*
+- `packages/stage-ui/src/libs/chat-assets.ts` *(+188/-0)*
+- `packages/stage-ui/src/libs/inference/cache-utils.browser.test.ts` *(+0/-27)*
+- `packages/stage-ui/src/libs/inference/cache-utils.ts` *(+0/-128)*
+- `packages/stage-ui/src/libs/inference/format-bytes.ts` *(+12/-0)*
+- `packages/stage-ui/src/libs/inference/index.ts` *(+61/-12)*
+- `packages/stage-ui/src/libs/inference/model-assets-opfs.browser.test.ts` *(+94/-0)*
+- `packages/stage-ui/src/libs/inference/model-assets-opfs.ts` *(+193/-0)*
+- `packages/stage-ui/src/libs/inference/transformers-cache.ts` *(+80/-0)*
+- `packages/stage-ui/src/libs/product-signals/events/controls-island/events/action.ts` *(+1/-0)*
+- `packages/stage-ui/src/libs/providers/providers/sherpaw/hearing-settings.vue` *(+3/-0)*
+- `packages/stage-ui/src/libs/providers/providers/sherpaw/index.ts` *(+2/-2)*
+- `packages/stage-ui/src/libs/providers/providers/sherpaw/model-asset-controls.vue` *(+135/-0)*
+- `packages/stage-ui/src/libs/providers/providers/sherpaw/model-assets.ts` *(+104/-0)*
+- `packages/stage-ui/src/stores/ai/chat-llm/llm.test.ts` *(+30/-0)*
+- `packages/stage-ui/src/stores/ai/chat-llm/llm.ts` *(+12/-1)*
+- `packages/stage-ui/src/stores/mods/api/channel-server.ts` *(+1/-0)*
+- `packages/stage-ui/src/stores/mods/api/context-bridge.contract.browser.test.ts` *(+87/-0)*
+- `packages/stage-ui/src/stores/mods/api/context-bridge.ts` *(+33/-0)*
+- `packages/vite-plugin-sherpaw/src/index.test.ts` *(+8/-1)*
+- `packages/vite-plugin-sherpaw/src/index.ts` *(+8/-2)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 5 file(s) (+78/-24)
+- `docs/ai/adr/2026-09-22-sherpaw-model-assets.md` *(+36/-21)*
+- `packages/server-sdk/README.md` *(+17/-0)*
+- `packages/stage-shared/README.md` *(+4/-0)*
+- `packages/stage-ui/README.md` *(+19/-3)*
+- `packages/vite-plugin-sherpaw/README.md` *(+2/-0)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 6 file(s) (+134/-8)
+- `packages/core-agent/README.md` *(+4/-0)*
+- `packages/core-agent/src/runtime/chat-orchestrator-runtime.test.ts` *(+18/-0)*
+- `packages/core-agent/src/runtime/chat-orchestrator-runtime.ts` *(+25/-7)*
+- `packages/core-agent/src/runtime/llm-service.ts` *(+7/-0)*
+- `packages/core-agent/src/runtime/responses.test.ts` *(+65/-0)*
+- `packages/core-agent/src/types/llm.ts` *(+15/-1)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 7 file(s) (+74/-10)
+- `packages/i18n/src/locales/en/settings.yaml` *(+22/-1)*
+- `packages/i18n/src/locales/en/stage.yaml` *(+8/-1)*
+- `packages/i18n/src/locales/en/tamagotchi/stage.yaml` *(+6/-0)*
+- `packages/i18n/src/locales/ko/settings.yaml` *(+0/-1)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+24/-6)*
+- `packages/i18n/src/locales/zh-Hans/stage.yaml` *(+8/-1)*
+- `packages/i18n/src/locales/zh-Hans/tamagotchi/stage.yaml` *(+6/-0)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 4 file(s) (+63/-17)
+- `packages/stage-layouts/src/components/Layouts/MobileInteractiveArea.vue` *(+10/-2)*
+- `packages/stage-layouts/src/components/Layouts/mobile-settings-drawer.vue` *(+22/-7)*
+- `packages/stage-layouts/src/components/Widgets/ChatActionButtons.vue` *(+17/-6)*
+- `packages/stage-layouts/src/components/Widgets/ChatArea.vue` *(+14/-2)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 5 file(s) (+241/-5)
+- `packages/stage-pages/src/components/settings-general-fields.vue` *(+8/-3)*
+- `packages/stage-pages/src/pages/settings/data/components/downloaded-models-section.browser.test.ts` *(+72/-0)*
+- `packages/stage-pages/src/pages/settings/data/components/downloaded-models-section.vue` *(+135/-0)*
+- `packages/stage-pages/src/pages/settings/data/index.vue` *(+2/-0)*
+- `packages/ui/src/composables/use-theme.ts` *(+24/-2)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 3 file(s) (+47/-17)
+- `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue` *(+25/-2)*
+- `packages/stage-ui-live2d/src/utils/live2d-preview.ts` *(+5/-0)*
+- `packages/stage-ui/src/components/scenes/Stage.vue` *(+17/-15)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 6 file(s) (+399/-71)
+- `packages/stage-ui/src/stores/chat-stickers.browser.test.ts` *(+18/-0)*
+- `packages/stage-ui/src/stores/chat.contract.test.ts` *(+150/-10)*
+- `packages/stage-ui/src/stores/chat.ts` *(+138/-52)*
+- `packages/stage-ui/src/stores/chat/session-store-lifecycle.browser.test.ts` *(+24/-0)*
+- `packages/stage-ui/src/stores/chat/session-store.browser.test.ts` *(+20/-0)*
+- `packages/stage-ui/src/stores/chat/session-store.ts` *(+49/-9)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 6 file(s) (+334/-10)
+- `server/apps/auth/src/auth.ts` *(+16/-2)*
+- `server/apps/auth/src/routes.ts` *(+20/-8)*
+- `server/apps/auth/src/tests/auth.test.ts` *(+92/-0)*
+- `server/apps/auth/src/tests/routes-check-email.test.ts` *(+76/-0)*
+- `server/docs/ai/adr/2026-10-09-account-deletion-email-result.md` *(+94/-0)*
+- `server/docs/ai/adr/2026-10-10-email-verification-discovery.md` *(+36/-0)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (14)
+- [#2903](https://github.com/moeru-ai/airi/pull/2903) `feat(stage-tamagotchi): let the user choose which Home Assistant devices the model reaches` by **@clansty** *(15 comments)*
+- [#2901](https://github.com/moeru-ai/airi/pull/2901) `chore(stage-tamagotchi-kirie): update Kirie to 0.10.0` by **@LemonNekoGH** *(2 comments)*
+- [#2902](https://github.com/moeru-ai/airi/pull/2902) `feat(core-agent): add a generation-level tool policy` by **@FlowerWater1019** *(4 comments)*
+- [#2898](https://github.com/moeru-ai/airi/pull/2898) `chore(nix): update assets hash` by **@Weathercold** *(2 comments)*
+- [#2900](https://github.com/moeru-ai/airi/pull/2900) `fix(stage-tamagotchi): bound what a Home Assistant request may do` by **@clansty** *(7 comments)*
+- [#2897](https://github.com/moeru-ai/airi/pull/2897) `fix(stage-ui): stop starting DuckDB when the stage mounts` by **@nekomeowww** *(4 comments)*
+- [#2896](https://github.com/moeru-ai/airi/pull/2896) `fix(stage-web): cache WebAssembly files on first use instead of precaching them` by **@nekomeowww** *(2 comments)*
+- [#2895](https://github.com/moeru-ai/airi/pull/2895) `fix(auth): support account deletion without email confirmation` by **@Neko-233** *(7 comments)*
+- [#2894](https://github.com/moeru-ai/airi/pull/2894) `fix(stage-ui,stage-ui-live2d): release the unmounted Live2D stage and its WebGL contexts` by **@nekomeowww** *(2 comments)*
+- [#2893](https://github.com/moeru-ai/airi/pull/2893) `fix(auth): route unverified accounts before password entry` by **@Neko-233** *(9 comments)*
+- [#2892](https://github.com/moeru-ai/airi/pull/2892) `feat(companion): add reusable VRM motions and desktop interactions` by **@le-firehawk** *(1 comments)*
+- [#2891](https://github.com/moeru-ai/airi/pull/2891) `fix(stage-ui-live2d): destroy the Live2D model when the stage unmounts` by **@nekomeowww** *(2 comments)*
+- [#2890](https://github.com/moeru-ai/airi/pull/2890) `fix(stage-layouts): guide chat provider setup in the web and mobile composers` by **@luoling8192** *(2 comments)*
+- [#2889](https://github.com/moeru-ai/airi/pull/2889) `fix(auth): show results after registration and deletion emails` by **@Neko-233** *(2 comments)*
+
+#### 🔄 PR Status & Lifecycle Changes (8)
+- [#2748](https://github.com/moeru-ai/airi/pull/2748) `feat: add skills, automations, long-term memory, and background tasks` — `Draft` ➔ `Ready`
+- [#2813](https://github.com/moeru-ai/airi/pull/2813) `feat(api,stage-ui): add the Capacitor, a subscription store of Flux` — `Draft` ➔ `Ready`
+- [#2729](https://github.com/moeru-ai/airi/pull/2729) `feat(stage-ui): add Push to Talk on the voice pipeline` — `Draft` ➔ `Ready`
+- [#2725](https://github.com/moeru-ai/airi/pull/2725) `feat(stage-ui): pin chat turns and model steps to the session character` — `OPEN` ➔ `MERGED`, `Draft` ➔ `Ready`
+- [#2843](https://github.com/moeru-ai/airi/pull/2843) `feat(ui,stage-layouts,stage-tamagotchi): add a system theme option` — `OPEN` ➔ `MERGED`
+- [#2880](https://github.com/moeru-ai/airi/pull/2880) `chore(i18n): update translations` — `OPEN` ➔ `MERGED`
+- [#2696](https://github.com/moeru-ai/airi/pull/2696) `feat(inference): manage Sherpaw model assets across hosts` — `OPEN` ➔ `MERGED`
+- [#2878](https://github.com/moeru-ai/airi/pull/2878) `feat(stage-ui): store chat images and recordings as asset references` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (5)
+- [#2748](https://github.com/moeru-ai/airi/pull/2748) `feat: add skills, automations, long-term memory, and background tasks` — *+2 comments (5 ➔ 7 total)*
+- [#2813](https://github.com/moeru-ai/airi/pull/2813) `feat(api,stage-ui): add the Capacitor, a subscription store of Flux` — *+16 comments (2 ➔ 18 total)*
+- [#2729](https://github.com/moeru-ai/airi/pull/2729) `feat(stage-ui): add Push to Talk on the voice pipeline` — *+4 comments (0 ➔ 4 total)*
+- [#2712](https://github.com/moeru-ai/airi/pull/2712) `test(testing-audio): cover wake word detection` — *+2 comments (4 ➔ 6 total)*
+- [#2725](https://github.com/moeru-ai/airi/pull/2725) `feat(stage-ui): pin chat turns and model steps to the session character` — *+1 comments (1 ➔ 2 total)*
+
+### 👁️ Watched PRs Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [OPEN] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+
+---
 ## [2026-10-09] Upstream Delta: `142e7596..a94e2055` (19 commits, 118 files, 54 PR update(s))
 
 ### 🎯 Executive Highlights

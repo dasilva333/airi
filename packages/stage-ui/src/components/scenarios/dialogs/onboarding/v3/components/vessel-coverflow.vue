@@ -3,21 +3,7 @@ import type { CSSProperties } from 'vue'
 
 import { useElementSize } from '@vueuse/core'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-
-export interface UnifiedVesselItem {
-  id: string
-  name: string
-  format: 'live2d' | 'vrm' | 'spine' | 'mmd'
-  formatLabel?: string
-  previewUrl: string
-  isInstalled: boolean
-  author?: string
-  sourceSiteName?: string
-  sourceSiteUrl?: string
-  downloadUrl?: string
-  description?: string
-  prompt: string
-}
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
   models: UnifiedVesselItem[]
@@ -28,6 +14,26 @@ const emits = defineEmits<{
   (e: 'update:modelValue', id: string): void
   (e: 'select', model: UnifiedVesselItem): void
 }>()
+
+const { t } = useI18n()
+
+export interface UnifiedVesselItem {
+  descriptionKey?: string
+  id: string
+  name: string
+  format: 'live2d' | 'vrm' | 'spine' | 'mmd'
+  formatLabel?: string
+  previewUrl: string
+  isInstalled: boolean
+  authorKey?: string
+  author?: string
+  sourceSiteNameKey?: string
+  sourceSiteName?: string
+  sourceSiteUrl?: string
+  downloadUrl?: string
+  description?: string
+  prompt: string
+}
 
 const containerRef = ref<HTMLElement | null>(null)
 const { width: containerWidth } = useElementSize(containerRef)
@@ -289,7 +295,7 @@ onBeforeUnmount(() => {
     >
       <div class="i-solar:ghost-bold-duotone text-4xl opacity-40" />
       <div class="text-xs font-semibold">
-        No avatars match your active filter
+        {{ t('onboarding.steps.vessel.carousel.noAvatarsMatchYourActiveFilter') }}
       </div>
     </div>
 
@@ -300,7 +306,7 @@ onBeforeUnmount(() => {
         v-if="models.length > 1"
         type="button"
         class="absolute left-2 top-1/2 z-35 flex cursor-pointer items-center justify-center border border-neutral-200/80 rounded-full bg-white/90 p-2 shadow-md backdrop-blur-md transition-all -translate-y-1/2 active:scale-95 hover:scale-110 dark:border-neutral-700/80 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-700"
-        aria-label="Previous Model"
+        :aria-label="t('onboarding.steps.vessel.carousel.previousModel')"
         @click.stop="prev"
       >
         <div class="i-solar:alt-arrow-left-bold text-sm text-neutral-700 dark:text-neutral-200" />
@@ -311,7 +317,7 @@ onBeforeUnmount(() => {
         v-if="models.length > 1"
         type="button"
         class="absolute right-2 top-1/2 z-35 flex cursor-pointer items-center justify-center border border-neutral-200/80 rounded-full bg-white/90 p-2 shadow-md backdrop-blur-md transition-all -translate-y-1/2 active:scale-95 hover:scale-110 dark:border-neutral-700/80 dark:bg-neutral-800/90 hover:bg-white dark:hover:bg-neutral-700"
-        aria-label="Next Model"
+        :aria-label="t('onboarding.steps.vessel.carousel.nextModel')"
         @click.stop="next"
       >
         <div class="i-solar:alt-arrow-right-bold text-sm text-neutral-700 dark:text-neutral-200" />
@@ -382,7 +388,7 @@ onBeforeUnmount(() => {
               : 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
           ]"
         >
-          {{ centerModel.isInstalled ? 'Local' : 'Community' }}
+          {{ centerModel.isInstalled ? t('onboarding.steps.vessel.carousel.local') : t('onboarding.steps.vessel.carousel.community') }}
         </span>
 
         <span

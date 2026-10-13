@@ -10,6 +10,9 @@ withDefaults(defineProps<{
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let animationFrameId: number | null = null
+let isRunning = false
+let resizeObserver: ResizeObserver | null = null
+let handleResize: (() => void) | null = null
 const { isDark } = useTheme()
 
 interface Particle {
@@ -55,6 +58,8 @@ onMounted(() => {
   if (!ctx)
     return
 
+  isRunning = true
+
   function getDims() {
     const parent = canvas?.parentElement
     const w = (parent && parent.clientWidth > 0) ? parent.clientWidth : window.innerWidth
@@ -66,7 +71,7 @@ onMounted(() => {
   canvas.width = width
   canvas.height = height
 
-  const handleResize = () => {
+  handleResize = () => {
     if (!canvas)
       return
     const dims = getDims()
@@ -74,6 +79,13 @@ onMounted(() => {
     height = canvas.height = dims.h
   }
   window.addEventListener('resize', handleResize)
+
+  if (canvas.parentElement && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => {
+      handleResize?.()
+    })
+    resizeObserver.observe(canvas.parentElement)
+  }
 
   const lightColors = ['#f43f5e', '#fb7185', '#ec4899', '#38bdf8', '#818cf8', '#f59e0b', '#10b981']
   const darkColors = ['#f472b6', '#38bdf8', '#fb7185', '#2dd4bf', '#a78bfa', '#fbbf24']
@@ -109,13 +121,8 @@ onMounted(() => {
 
   let tick = 0
   const render = () => {
-    const dims = getDims()
-    if (canvas.width !== dims.w || canvas.height !== dims.h) {
-      canvas.width = dims.w
-      canvas.height = dims.h
-      width = dims.w
-      height = dims.h
-    }
+    if (!isRunning)
+      return
 
     ctx.clearRect(0, 0, width, height)
     tick++
@@ -134,17 +141,28 @@ onMounted(() => {
       drawHeart(ctx, p.x, p.y, p.size, p.filled, p.color, p.opacity)
     }
 
-    animationFrameId = requestAnimationFrame(render)
+    if (isRunning) {
+      animationFrameId = requestAnimationFrame(render)
+    }
   }
 
   render()
+})
 
-  onUnmounted(() => {
+onUnmounted(() => {
+  isRunning = false
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = null
+  }
+  if (handleResize) {
     window.removeEventListener('resize', handleResize)
-    if (animationFrameId !== null) {
-      cancelAnimationFrame(animationFrameId)
-    }
-  })
+    handleResize = null
+  }
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
 })
 </script>
 

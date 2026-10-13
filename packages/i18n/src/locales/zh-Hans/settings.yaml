@@ -789,7 +789,7 @@ pages:
         description: 适度的免费额度，无需 API 密钥，优秀的角色扮演模型
       anthropic:
         description: Claude Specialist - Most helpful and harmless reasoning
-        title: Anthropic | Claude
+        title: Anthropic {'|'} Claude
         helpinfo:
           title: 开始之前
           description:
@@ -1545,6 +1545,9 @@ theme:
   title: 主题
   description: |
     切换 AIRI 的基础主题，亮色模式或暗色模式。
+  auto: 跟随系统
+  light: 浅色
+  dark: 深色
 title: 设置
 voices: 声线
 vrm:

@@ -1,67 +1,90 @@
-# 🚀 AIRI v0.9.37-stable.20261008 — Release Notes
+# 🚀 AIRI v0.9.38-stable.20261012 — Release Notes
 
-This release introduces two major breakthroughs in AI companion design: the **Emotion Calibration Studio & Rehearsal Room**—giving creators an interactive 3-step environment (`Meet` ➔ `Name` ➔ `Verify`) to calibrate avatar expressions with live face framing, diagnostic probes, and System-1 emotion classification—and the **RWKV Persona Foundry**, which unlocks **Zero-Prompt Recurrent State Cartridges** (`.state.bin`) to bake companion lore and speaking style directly into the model's recurrent hidden state without consuming a single prompt token.
+This release marks a massive leap forward in companion capabilities and visual polish: introducing **In-Memory Virtual Terminals & Generative UI Micro-Apps**—giving companions an air-gapped workstation to run tools, execute terminal commands, and generate live interactive mini-apps directly in chat and on the desktop—alongside the **TypeSafe Jev System-1 Decision Engine**, an exhaustive **Step-by-Step Redesign of Onboarding V3**, **OpenRouter Audio Transcription**, **Reviewable Voice Dictation**, **System Theme Auto-Syncing**, **Live2D VRAM Memory Leak Elimination**, and **Thai (ไทย) Language Support**.
 
-Alongside visual calibration and state conditioning, companions now feature **Streaming Autonomous Cues** synchronized with spoken audio, custom **Reaction Sticker Uploads** with dual in-chat and on-stage viewport slapping (including a new Lupin sticker pack), on-device vector search powered by **EmbeddingGemma 2 (Q4)** with Matryoshka representation learning, native support for **Remote Streamable HTTP MCP Servers**, the **Opper Model Provider**, and a **Tray-Only Menu Bar Mode** for distraction-free presence.
+Companions can now autonomously write and render interactive visual widgets with two-way state reactivity, dictate speech straight to your chat composer for review before sending, make ultra-fast subconscious decisions via the Jev System-1 coprocessor, and guide you through an expressive, mascot-sticker-accented first-run setup.
 
 ---
 
-## ✨ Product Updates
+## ✨ Key Highlights
 
-### 🎭 Emotion Calibration Studio & Rehearsal Room
-* **Standalone Emotion Calibration Studio**: Introduced a dedicated calibration environment (`/settings/emotions/studio`) designed for fine-tuning facial expressions and body morphs with instant visual feedback.
-* **Guided 3-Step Calibration Pipeline**: Experience a stepped workflow (`Meet` ➔ `Name` ➔ `Verify`) featuring live avatar face framing, custom expression overrides, and a comprehensive verification table with reactive personality enhancements.
-* **Multi-Phase Rehearsal Room**: Rehearsal room featuring live inline stage previews, curated allowlist baking, and a dedicated System-1 classification toggle with real-time model provider badges.
-* **Dedicated Idling Behaviors**: Decomposed the Acting tab to add an independent Idling management panel for configuring idle animations, breathing cycles, and ambient stage presence.
+### 🖥️ Virtual Terminal & Generative UI Micro-Apps
+* **Autonomous In-Memory Virtual Terminal**: Companions now have access to a secure, in-memory virtual workstation capable of executing terminal commands, managing virtual filesystems, and chaining tools locally without requiring Docker or heavy VM infrastructure.
+* **Dynamic Generative UI Micro-Apps**: Companions can now write, compile (via in-browser Sucrase), and render interactive Vue and HTML/JS mini-applications directly inside chat message bubbles or as floating desktop sidecar overlays.
+* **2-Way Reactive Widget State**: Generative widgets maintain bi-directional state synchronization with your companion's memory and chat session, enabling interactive calculators, real-time monitors, data visualizations, and gameboards.
+* **Persistent Breakout Overlays**: Generative UI widgets can be detached into standalone desktop breakout windows with saved window coordinates and automatic rehydration across app restarts.
+* **Micro-App Library & Manifest Import**: Browse bundled generative micro-apps, export widget packages, and import third-party manifests with built-in CloudSync multi-device merge safety.
+* **Native MCP CLI Toolchain**: Users and companions can discover, inspect, and execute Model Context Protocol (MCP) tools directly within the Virtual Terminal.
+* **Cross-Surface Terminal Access**: Monitor companion commands and outputs in real time via a restyled terminal drawer on Desktop and Web, and a dedicated Workspace overlay sheet on mobile (Pocket).
 
-### ⚡ RWKV Persona Foundry & Recurrent State Cartridges
-* **Interactive 4-Step Persona Foundry Wizard**: Created a dedicated distillation studio (`/settings/airi-card/foundry`) to distill character cards into portable recurrent state cartridges (`.state.bin`), featuring a 4-tier depth matrix (Quick, Standard, Deep, Comprehensive) and an in-situ taste-test preview with cached primed states.
-* **Zero-Prompt Recurrent State Conditioning**: Pre-bakes character lore, mannerisms, and instructions directly into the neural network's recurrent hidden state tensor—completely bypassing prompt token length limits, context window bloating, and KV-cache warm-up latency.
-* **State Cartridge V2 ZIP Export**: Distilled `.state.bin` cartridges are seamlessly packaged into single-card ZIP bundles alongside avatar assets for instant zero-prompt sharing.
-* **RWKV-7 "Goose" G1 Multi-Model Support**: Upgraded the local WebGPU inference engine to support the newest RWKV-7 G1 architectures with linear-time memory efficiency.
-* **Offline Prefab Quantization Pipeline**: Restored the CBOR `.prefab` quantization compiler with direct Hugging Face prefab downloads for instant local execution with minimal VRAM overhead.
+### ⚡ TypeSafe Jev System-1 Decision Engine
+* **Subconscious Decision Coprocessor**: Integrated TypeSafe Jev System-1 for non-autoregressive, ultra-fast discrete decision routing (~100–150ms), allowing companions to evaluate choices, scores, and categorical classifications in the background without burning primary LLM generation cycles.
+* **OpenCode-Go Coprocessor Provider**: Native support for the OpenCode-Go coprocessor backend (`jev-1.13` and `jev-1.13-free`) with live telemetry tracking decision counts, latency, and token efficiency.
+* **Semantic Shell & Decision Bridge**: The Virtual Terminal now consults Jev System-1 before executing commands, evaluating intent and classifying safety constraints.
+* **Multi-Provider System-1 Parity**: Full support across four distinct backends: OpenRouter Decisions (`/api/alpha/decisions`), OpenCode-Go, Direct TypeSafe AI, and local on-device Laya (WebGPU/WASM ModernBERT).
+* **System-1 Telemetry Dashboard**: The System-1 settings card now features live round-trip latency metrics and interactive decision playgrounds.
 
-### 🎬 Autonomous Acting Cues & Audio Synchronization
-* **Live Streaming Autonomous Cues**: Expressions and gestures are now parsed and triggered in real-time as dialogue streams from the LLM, eliminating awkward pauses before your companion reacts.
-* **Audio-Synced Hold and Release**: Facial expressions and motion cues now hold naturally across spoken audio slices and release in cadence with TTS speech output instead of vanishing prematurely.
-* **Prompt Token Reverse-Extractor**: Dialogue text automatically infers dynamic emotional intensity and maps expressive nuances to avatar blendshapes without requiring explicit cue tags in system prompts.
-* **Unified Avatar Capabilities**: Consolidated fragmented avatar schemas into unified `expressionCapabilities` and `motionCapabilities` structures across Live2D, VRM, MMD, and Spine.
+### 🧙 Onboarding V3: Step-by-Step Experience Polish & Hardware Intelligence
+* **Welcome Step**: Refreshed welcome screen with modern typography, subtle canvas background styling, and a seamless toggle between express Quick Start (60s) and Guided Setup.
+* **Triage Step**: Overhauled account architecture selection featuring direct-action cards for Local Air-Gapped vs. Cloud Sync modes, alongside a dedicated non-blocking Cloud Restore screen.
+* **Appearance Step**: Complete appearance redesign featuring an 8-locale selector (including new Thai support), dynamic System / Dark / Light theme options, and an interactive 24-color chromatic accent palette.
+* **Experience Step**: Balanced the 6 companion archetype presets (*Casual Companion*, *Creative Muse*, *Quiet Observer*, *Executive Copilot*, *Ambient Roommate*, *Swiss Army*) and organized the module grid into a clean 5×2 layout with live hardware compatibility telemetry.
+* **User Profile Step**: Streamlined two-column profile layout featuring companion callsign inputs, user persona preferences, and animated chibi AIRI mascot guidance bubbles.
+* **Physical Vessel Step**: Upgraded the unified 3D vessel coverflow carousel with responsive aspect-ratio framing, interactive settle callbacks, and model format badges (VRM, Live2D, MMD, Spine).
+* **Consciousness Step**: Overhauled LLM consciousness step featuring local WebLLM WebGPU model cards, 77+ cloud provider discovery, custom Base URL entry for generic OpenAI endpoints, and a restored native provider picker grid.
+* **Persona Step**: Redesigned character card selection with rich starter character cards, story variation selectors with quick copy glyphs, and seamless import for CCv2/CCv3 and SillyTavern character cards.
+* **Hearing Step**: Polished speech-to-text configuration with live microphone input metering, interactive VAD sensitivity slider, local Whisper model selection, and OpenRouter cloud transcription support.
+* **Speech Step**: Completely revamped neural speech interface with a clean 50/50 split layout between voice model selection (Kokoro, Pocket-TTS, ElevenLabs) and real-time pitch, rate, and speech preview controls.
+* **Thinking Step**: Revamped conversational pacing hub featuring Snappy, Balanced, and Deep CoT thinking presets with pre-cached filler audio previews and subconscious aside toggles.
+* **Emotions Step**: Enhanced 2-pass ACT Expression Bridge step mapping facial expressions and blendshapes to `<|ACT:*|>` tokens with real-time morph test preview.
+* **Vision Step**: Upgraded chat VLM and photo perception step with two-hop camera testing and visual recognition sample cards.
+* **Proactivity Step**: Overhauled ambient proactive behavior hub with schedule cards, quiet hours configuration, ambient heartbeat sliders, and desktop perception toggles.
+* **Artistry Step**: Refined autonomous image generation and director step with ComfyUI workflow template selection and exposed field mappings.
+* **Memory Step**: Overhauled memory hierarchy hub configuring Short-Term Memory (STMM), append-only Sacred Journal (LTMM), and lifetime artifact provisioning.
+* **Tools & Automation Step**: Updated tool hub configuring MCP integration, built-in system tools, and Virtual Terminal execution permissions.
+* **Stage Finale Step**: Upgraded final calibration review featuring the readiness honesty matrix, atomic companion card synthesis, and stage launch transition.
+* **Sensory & Screen Steps**: Polished desktop screen perception, active-window history tracking, and environmental sensor telemetry.
 
-### 🖼️ Emotion Stickers & Dual Viewport Reactions
-* **Custom Reaction Sticker Uploads**: You can now upload custom sticker collections directly to any character card via the Card Editor's Acting > Stickers sub-tab.
-* **12 Bundled Chibi AIRI & Lupin Stickers**: Ships with both the classic chibi AIRI reaction suite and a brand-new set of animated Lupin reaction stickers.
-* **Dual Viewport Reaction Slappers**: Emotion stickers dynamically render inline within chat response bubbles and slap onto the active 3D/2D Stage canvas for heightened visual personality.
-* **Prefix-Cache Aligned Directives**: Sticker trigger prompts are structured deterministically in prompt templates to prevent evicting KV caches during active conversations.
+### 🎙️ Audio Pipeline & Speech Polish
+* **OpenRouter Audio Transcription**: Added native support for OpenRouter speech-to-text (STT), giving users access to top-tier cloud audio transcription models alongside local Whisper.
+* **Reviewable Speech Dictation**: When "Auto-send" is disabled, transcribed voice input is placed directly into the chat composer, allowing you to review and edit recognized text before sending.
+* **Exhaustive Local Whisper Catalog**: The Hearing settings faculty picker now lists all supported local Whisper model variants (tiny, base, small, and medium).
+* **Cross-Platform Speech Interruption**: Hitting the stop button on Web and Mobile now instantly interrupts ongoing TTS playback and flushes pending speech queues, matching desktop behavior.
+* **Whitespace Literal Preservation**: Prevented speech streaming audio processors from stripping necessary whitespace literals across stream chunk boundaries.
+* **Reasoning Speech Suppression**: Ensured deep internal reasoning and thinking traces are never accidentally vocalized by the TTS speech engine.
 
-### 🌐 Extensible Tooling: Remote Streamable HTTP MCP Servers
-* **Remote Streamable HTTP Transport**: Expanded the Model Context Protocol (MCP) beyond local stdio processes, enabling AIRI to connect directly to external MCP servers over streamable HTTP/HTTPS.
-* **Secure Remote Header Authentication**: Configure custom authorization headers (`Authorization: Bearer <token>`) per remote server to securely connect to private cloud-hosted or intranet MCP tool suites.
-* **Streamable Remote Badges**: The Settings MCP management dashboard now visually identifies remote HTTP endpoints and monitors live connection health.
+### 💃 3D Avatar Rendering & Memory Reliability
+* **Live2D VRAM & Listener Leak Plugged**: Switching or unmounting Live2D models now completely unloads textures from WebGL memory and cleans up stage listeners, eliminating gradual memory bloat during extended sessions.
+* **Remote HTTP Avatar Catalog**: Import and download avatars from remote HTTP URLs with built-in proxy-safe persistence and automatic caching.
+* **Decoupled Starter Companions**: Decoupled starter companion activation from hardcoded legacy IDs, preventing companion profile overwrites and state collisions.
+* **Orbit Gesture Stability**: Camera orbit controls now maintain smooth 3D rotation gestures across native text selection drags.
 
-### 💃 3D Avatar Rendering, Performance & Lighting Polish
-* **Configurable VRM Frame Rate Limiter**: Added dedicated FPS clamping options (30 / 60 / uncapped) to drastically reduce GPU power draw and battery consumption during background operation.
-* **Zero-Thrashing Gaze & Head Tracking**: Replaced synchronous DOM layout queries with reactive element boundary listeners, eliminating animation micro-stutter during gaze tracking.
-* **Restored Lighting Orbit Controls**: Brought back orbital lighting manipulation for VRM and MMD avatars, complete with warm studio lighting defaults.
-* **Graceful Stage Cleanup**: Animation frame loops and canvas drag event listeners now cancel immediately upon unmounting, preventing memory leaks and background CPU cycles.
-
-### 🧠 Cognition, Semantic Search & Desktop Shell Polish
-* **EmbeddingGemma 2 (Q4) Semantic Vector Search**: Migrated the local on-device memory search worker to `EmbeddingGemma 2` (Q4 ONNX) with 256-dimensional Matryoshka representation learning (MRL) and asymmetric task prefixing (`query:` vs `title: ... | text: ...`), delivering substantially higher recall for companion memories.
-* **Opper Model Provider**: Added native support for the Opper provider platform, complete with structured outputs, function calling, and distributed tracing.
-* **Provider-Level Token Usage Dashboard**: The Usage Stats settings card now tracks and visualizes prompt, completion, and reasoning token consumption segmented by provider.
-* **Tray-Only Menu Bar Mode**: Added a setting to hide AIRI's application icon from the macOS Dock and Windows taskbar, allowing your companion to run entirely as a sleek menu-bar / system tray accessory.
-* **Settings Reset & Storage Resilience**: Resolved an issue in `useLocalStorageManualReset` where resetting deeply-nested settings failed to restore default values due to reactive proxy sharing.
-* **Prompt Token Bloat Protection**: Prevented heavy base64 image data payloads from leaking into text journal tool responses, keeping prompt contexts lean.
-* **Tilde Syntax Code Fences**: Upgraded the Markdown parser to render and syntax-highlight code blocks wrapped in `~~~` fences alongside standard triple backticks.
+### 🌗 System Theme & Internationalization
+* **System Theme Auto-Syncing**: AIRI now includes a true "System" theme option across General Settings and the floating Control Strip, automatically matching your operating system's light or dark mode.
+* **Thai (ไทย) Language Support**: Added comprehensive Thai localization across the application and Onboarding appearance selection.
+* **Full Simplified Chinese Companion Setup**: Onboarding V3 is now 100% translated into Simplified Chinese.
+* **Anthropic Title Formatting**: Fixed delimiter parsing to cleanly display pipe separators in Anthropic provider titles across all languages.
+* **Blazing Fast Web Stage Startup**: Web Stage now caches WebAssembly binaries on first use instead of pre-caching everything on initial page load, dramatically speeding up initial load times.
 
 ---
 
 ## 🌐 Community & Upstream Radar
-* **Chibi Emotion Stickers**: Ported and adapted the chibi reaction sticker suite from upstream PR [#2714](https://github.com/moeru-ai/airi/pull/2714) by **@reverieach**, extending it with custom user uploads and dual in-chat/on-stage viewport slapping.
-* **Remote MCP over Streamable HTTP**: Inspired by upstream PR [#2821](https://github.com/moeru-ai/airi/pull/2821) by **@clansty**, bringing remote HTTP/HTTPS streaming transports and header security to AIRI's MCP tool bridge.
-* **Opper Model Provider**: Integrated the Opper platform provider from upstream PR [#2842](https://github.com/moeru-ai/airi/pull/2842) by **@johan-opper**.
-* **VRM Frame Rate Limiting & Layout Performance**: Adopted frame rate bounding and head-pose layout thrashing mitigations from upstream PRs [#2609](https://github.com/moeru-ai/airi/pull/2609) and [#2608](https://github.com/moeru-ai/airi/pull/2608) by **@Penluna**.
-* **Tray-Only Dock Presence & Animation Checkbars**: Sourced the tray-only app icon setting from upstream PR [#2700](https://github.com/moeru-ai/airi/pull/2700) and accessible toggle checkbars from [#2740](https://github.com/moeru-ai/airi/pull/2740) by **@Penluna**.
-* **Reactive Storage Reset Fix**: Sourced the recursive reactive proxy reset solution in `useLocalStorageManualReset` from upstream PR [#2872](https://github.com/moeru-ai/airi/pull/2872) by **@Penluna**.
-* **TTS Grapheme Cluster Preservation**: Integrated speech audio chunking fixes from upstream PR [#2369](https://github.com/moeru-ai/airi/pull/2369) by **@nekomeowww** to ensure multi-code-unit symbols and emojis are pronounced faithfully without audio clipping.
-* **Journal Data Isolation & Tilde Highlighting**: Incorporated journal tool image data isolation from upstream PR [#2788](https://github.com/moeru-ai/airi/pull/2788) by **@nekomeowww** and tilde code block rendering from upstream PR [#2797](https://github.com/moeru-ai/airi/pull/2797) by **@starvingarc**.
-* **Desktop Process Resiliency**: Integrated module-level single-instance guards and file closure safety checks from upstream PRs [#2824](https://github.com/moeru-ai/airi/pull/2824) and [#2826](https://github.com/moeru-ai/airi/pull/2826) by **@bitxwolf**.
+
+### 🤝 Community Collaborators & Fork Pull Requests
+* **Nan0 Architecture Collaboration**: Heartfelt shoutout to **@Kayoken54** for continuous architectural design discussions, feedback, and testing support guiding the evolution of the Nan0 cognition engine on Discord.
+* **PR [#20](https://github.com/dasilva333/airi/pull/20): feat(i18n): localize Companion Setup into Simplified Chinese** — Huge thanks to **@ki1lthewor1d** for fully translating the Onboarding V3 companion wizard into Simplified Chinese.
+* **PR [#23](https://github.com/dasilva333/airi/pull/23): feat(stage-tamagotchi,stage-ui): put transcribed text into chat input when auto-send is off** — Special thanks to **@meckbaig** for enhancing voice accessibility by piping voice transcription directly into the message composer for review.
+* **PR [#25](https://github.com/dasilva333/airi/pull/25): fix(stage-pages,stage-ui): list every local Whisper model in the hearing faculty picker** — Special thanks to **@meckbaig** for expanding the Hearing settings picker to expose all available local Whisper models.
+
+### 🌊 Upstream Pull Requests (Forward-Ported from moeru-ai/airi)
+* **PR [#2920](https://github.com/moeru-ai/airi/pull/2920): feat(provider-inference): add OpenRouter transcription provider** — Sourced and adapted from upstream by **@Weathercold**.
+* **PR [#2929](https://github.com/moeru-ai/airi/pull/2929): feat(i18n): add Thai** — Sourced and adapted from upstream by **@蓝莓🫐**.
+* **PR [#2930](https://github.com/moeru-ai/airi/pull/2930): chore(i18n): warn only when English lacks a message** — Sourced from upstream by **@蓝莓🫐**.
+* **PR [#2843](https://github.com/moeru-ai/airi/pull/2843): feat(stage-pages,stage-ui,i18n): support system theme option in general settings and control strip** — Sourced from upstream by **@Penluna**.
+* **PR [#2894](https://github.com/moeru-ai/airi/pull/2894) & [#2891](https://github.com/moeru-ai/airi/pull/2891): fix(stage-ui-live2d,stage-ui): release unmounted Live2D models, textures, and stage listeners** — Sourced from upstream by **@starvingarc**.
+* **PR [#2896](https://github.com/moeru-ai/airi/pull/2896): fix(stage-web): cache WebAssembly files on first use instead of precaching them** — Sourced from upstream by **@starvingarc**.
+* **PR [#2821](https://github.com/moeru-ai/airi/pull/2821): feat(stage-web,stage-pages): add remote MCP support and connection test bench** — Sourced from upstream by **@clansty**.
+* **PR [#2916](https://github.com/moeru-ai/airi/pull/2916): fix: exclude nested reasoning from streamed speech in response-categoriser** — Sourced from upstream by **@starvingarc** & **@nekomeowww**.
+* **PR [#2911](https://github.com/moeru-ai/airi/pull/2911): fix(core-agent): preserve whitespace literals in streamed speech** — Sourced from upstream by **@starvingarc**.
+* **PR [#2905](https://github.com/moeru-ai/airi/pull/2905): fix: preserve 3D orbit gestures across native text drags in OrbitControls** — Sourced from upstream by **@Penluna**.
+* **PR [#2904](https://github.com/moeru-ai/airi/pull/2904): fix(i18n): show the pipe in the Anthropic provider title** — Sourced from upstream by **@凌莞~(=^▽^=)**.

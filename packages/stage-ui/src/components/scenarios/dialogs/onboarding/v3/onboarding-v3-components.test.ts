@@ -84,6 +84,8 @@ describe('onboarding V3 Component Integrity & Regression Protection', () => {
       'Teleport',
       'KeepAlive',
       'Suspense',
+      'i18n-t',
+      'I18nT',
     ])
 
     const violations: { file: string, unresolved: string[] }[] = []

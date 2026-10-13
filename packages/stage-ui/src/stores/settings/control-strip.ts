@@ -38,6 +38,7 @@ export const DEFAULT_BUTTONS: ControlStripButton[] = [
   { id: 'gemini-grounding', enabled: false, label: 'Google Search Grounding', icon: 'i-solar:global-linear' },
   { id: 'actor-selfies', enabled: false, label: 'Selfies', icon: 'i-solar:camera-bold-duotone' },
   { id: 'actor-macaron', enabled: false, label: 'Macaron Floatie', icon: 'i-solar:donut-bold-duotone' },
+  { id: 'workspace', enabled: true, label: 'Workspace', icon: 'i-solar:code-square-bold-duotone' },
 ]
 
 export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
@@ -48,6 +49,7 @@ export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
   { id: 'actor-avatars', enabled: true, label: 'Avatars', icon: 'i-solar:user-bold-duotone' },
   { id: 'stage-atmosphere', enabled: true, label: 'Stage Theme', icon: 'i-solar:magic-stick-3-bold-duotone' },
   { id: 'actor-wardrobe', enabled: true, label: 'Wardrobe (Outfits)', icon: 'i-solar:t-shirt-outline' },
+  { id: 'workspace', enabled: true, label: 'Workspace', icon: 'i-solar:code-square-bold-duotone' },
 ]
 
 export function getDefaultControlStripButtons(): ControlStripButton[] {
@@ -84,6 +86,7 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
   const stageMateEnabled = useLocalStorageManualReset<boolean>('settings/stage-mate-enabled', false)
   const chatOpen = useLocalStorageManualReset<boolean>('settings/chat-open', false)
   const captionOpen = useLocalStorageManualReset<boolean>('settings/caption-open', false)
+  const workspaceOpen = useLocalStorageManualReset<boolean>('settings/control-strip/workspace-open', false)
   const backgroundTint = useLocalStorageManualReset<string>('settings/control-strip/background-tint', '#171717')
   const collapsed = useLocalStorageManualReset<boolean>('settings/control-strip/collapsed', false)
   const dockedEdge = useLocalStorageManualReset<'left' | 'right' | 'top' | 'bottom'>('settings/control-strip/docked-edge', 'right')
@@ -210,6 +213,7 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
     stageMateEnabled.reset()
     chatOpen.reset()
     captionOpen.reset()
+    workspaceOpen.reset()
     resetButtons()
     backgroundTint.reset()
     collapsed.reset()
@@ -226,6 +230,7 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
     stageMateEnabled,
     chatOpen,
     captionOpen,
+    workspaceOpen,
     buttons,
     backgroundTint,
     collapsed,

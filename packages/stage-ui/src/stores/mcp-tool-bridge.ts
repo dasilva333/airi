@@ -231,12 +231,32 @@ export function clearMcpToolBridge() {
   }
 }
 
+let _lazyBridgeFallback: (() => McpToolBridge | undefined) | undefined
+
+/**
+ * Registers a lazy fallback factory for the MCP tool bridge (e.g. WebMcpClient in browser environments).
+ */
+export function registerLazyMcpToolBridgeFallback(fn: () => McpToolBridge | undefined): void {
+  _lazyBridgeFallback = fn
+}
+
 /**
  * Safely tries to retrieve the MCP tool bridge without throwing an error.
  * Returns undefined if the bridge is not initialized.
  */
 export function tryGetMcpToolBridge(): McpToolBridge | undefined {
-  return bridge || (typeof window !== 'undefined' ? (window as any).__AIRI_MCP_BRIDGE__ : undefined)
+  if (bridge)
+    return bridge
+  if (typeof window !== 'undefined' && (window as any).__AIRI_MCP_BRIDGE__)
+    return (window as any).__AIRI_MCP_BRIDGE__
+  if (_lazyBridgeFallback) {
+    const fallback = _lazyBridgeFallback()
+    if (fallback) {
+      setMcpToolBridge(fallback)
+      return fallback
+    }
+  }
+  return undefined
 }
 
 /**

@@ -760,8 +760,8 @@ export function createStreamingCategorizer(
           filtered += text.slice(beforeStart, beforeEnd)
         }
 
-        // Skip the segment content (don't add to filtered)
-        currentPos = segmentEnd
+        // Nested segments must not move the cursor behind an outer segment (PR #2916).
+        currentPos = Math.max(currentPos, segmentEnd)
       }
 
       // Add remaining text after last segment

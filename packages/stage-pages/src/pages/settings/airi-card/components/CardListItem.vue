@@ -313,7 +313,7 @@ function handleSelfieClick() {
       </button>
 
       <button
-        v-if="id !== 'default'"
+        v-if="id !== 'relu'"
         :class="['rounded-lg p-1.5 transition-colors hover:bg-neutral-200 dark:hover:bg-neutral-700/50']"
         @click.stop="emit('delete')"
       >

@@ -4,7 +4,7 @@ import { toast } from 'vue-sonner'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
-import { getStarterCharacter, STARTER_CHARACTERS } from '../../../../../../constants/prompts/character-defaults'
+import { getStarterCharacter } from '../../../../../../constants/prompts/character-defaults'
 import { getKokoroAdapter } from '../../../../../../libs/inference/adapters/kokoro'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useProvidersStore } from '../../../../../../stores/providers'
@@ -134,19 +134,11 @@ const resolvedPersona = computed(() => {
     }
   }
 
-  const cardId = persona.cardId || 'default'
-  if (STARTER_CHARACTERS[cardId]) {
-    const p = getStarterCharacter(cardId)
-    return {
-      name: p.name,
-      greeting: (p.greetings[0] || '').replace(USER_TOKEN_REGEX, userName),
-    }
-  }
-
-  const d = STARTER_CHARACTERS.default
+  const cardId = persona.cardId || 'relu'
+  const p = getStarterCharacter(cardId)
   return {
-    name: d.name,
-    greeting: (d.greetings[0] || '').replace(USER_TOKEN_REGEX, userName),
+    name: p.name,
+    greeting: (p.greetings[0] || '').replace(USER_TOKEN_REGEX, userName),
   }
 })
 

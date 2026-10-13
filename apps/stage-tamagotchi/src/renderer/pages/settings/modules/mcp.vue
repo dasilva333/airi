@@ -3,22 +3,22 @@ import type {
   ElectronMcpConfigFile,
   ElectronMcpRuntimeStatus,
   ElectronMcpServerConfig,
+  ElectronMcpTestResult,
   ElectronMcpToolDescriptor,
 } from '../../../../shared/eventa'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
-import { Button } from '@proj-airi/ui'
+import { Button, Callout, FieldInput } from '@proj-airi/ui'
 import { useDebounceFn } from '@vueuse/core'
 import { computed, onMounted, ref, watch } from 'vue'
-
-import McpConnectionTestPanel from './components/McpConnectionTestPanel.vue'
 
 import {
   electronMcpApplyAndRestart,
   electronMcpGetConfig,
   electronMcpGetRuntimeStatus,
   electronMcpOpenConfigFile,
+  electronMcpTestServer,
   electronMcpUpdateConfig,
   electronSelectDirectories,
 } from '../../../../shared/eventa'
@@ -31,10 +31,10 @@ const getRuntimeStatus = useElectronEventaInvoke(electronMcpGetRuntimeStatus)
 const getConfig = useElectronEventaInvoke(electronMcpGetConfig)
 const updateConfig = useElectronEventaInvoke(electronMcpUpdateConfig)
 const selectDirectories = useElectronEventaInvoke(electronSelectDirectories)
+const invokeTestServer = useElectronEventaInvoke(electronMcpTestServer)
 
 // UI State
-const currentTab = ref<'manage' | 'discover' | 'test'>('manage')
-const preselectedTestServer = ref('')
+const currentTab = ref<'manage' | 'discover'>('manage')
 const isBusy = ref(false)
 const status = ref<ElectronMcpRuntimeStatus>()
 const tools = ref<ElectronMcpToolDescriptor[]>([])
@@ -42,10 +42,14 @@ const config = ref<ElectronMcpConfigFile>()
 const lastActionMessage = ref('')
 const errorMessage = ref('')
 
-function handleTestServerFromCard(serverName: string) {
-  preselectedTestServer.value = serverName
-  currentTab.value = 'test'
-}
+// Add MCP modal state (remote streamable-HTTP only)
+const showAddModal = ref(false)
+const addName = ref('')
+const addUrl = ref('')
+const isAddTesting = ref(false)
+const isAddSaving = ref(false)
+const addTestResult = ref<ElectronMcpTestResult>()
+const addFormError = ref('')
 
 // Manage Tab State
 const expandedServers = ref<Set<string>>(new Set())
@@ -139,11 +143,11 @@ async function handleAddDirectory(serverName: string) {
     if (!selected || !selected.length)
       return
 
-    const currentConfig = config.value?.mcpServers[serverName]
+    const currentConfig = getPlainServers()[serverName]
     if (!currentConfig || !('command' in currentConfig))
       return
 
-    const existingArgs = currentConfig.args || ['-y', '@modelcontextprotocol/server-filesystem']
+    const existingArgs = [...(currentConfig.args || ['-y', '@modelcontextprotocol/server-filesystem'])]
     const newArgs = [...existingArgs]
     for (const p of selected) {
       if (!newArgs.includes(p))
@@ -152,10 +156,10 @@ async function handleAddDirectory(serverName: string) {
 
     await updateConfig({
       mcpServers: {
-        ...config.value?.mcpServers,
+        ...getPlainServers(),
         [serverName]: {
           ...currentConfig,
-          args: newArgs,
+          args: [...newArgs],
         },
       },
     })
@@ -174,15 +178,15 @@ async function handleRemoveDirectory(serverName: string, pathToRemove: string) {
   isBusy.value = true
   errorMessage.value = ''
   try {
-    const currentConfig = config.value?.mcpServers[serverName]
+    const currentConfig = getPlainServers()[serverName]
     if (!currentConfig || !('command' in currentConfig) || !currentConfig.args)
       return
 
-    const newArgs = currentConfig.args.filter(a => a !== pathToRemove)
+    const newArgs = [...currentConfig.args].filter(a => a !== pathToRemove)
 
     await updateConfig({
       mcpServers: {
-        ...config.value?.mcpServers,
+        ...getPlainServers(),
         [serverName]: {
           ...currentConfig,
           args: newArgs,
@@ -204,7 +208,7 @@ async function handleAddPresetDirectory(serverName: string, presetSuffix: string
   isBusy.value = true
   errorMessage.value = ''
   try {
-    const currentConfig = config.value?.mcpServers[serverName]
+    const currentConfig = getPlainServers()[serverName]
     if (!currentConfig || !('command' in currentConfig))
       return
 
@@ -212,7 +216,7 @@ async function handleAddPresetDirectory(serverName: string, presetSuffix: string
     const home = typeof process !== 'undefined' && process.env?.HOME ? process.env.HOME : '/Users'
     const fullPath = `${home}/${presetSuffix}`
 
-    const existingArgs = currentConfig.args || ['-y', '@modelcontextprotocol/server-filesystem']
+    const existingArgs = [...(currentConfig.args || ['-y', '@modelcontextprotocol/server-filesystem'])]
     if (existingArgs.includes(fullPath)) {
       lastActionMessage.value = `Path "${fullPath}" is already added.`
       return
@@ -222,7 +226,7 @@ async function handleAddPresetDirectory(serverName: string, presetSuffix: string
 
     await updateConfig({
       mcpServers: {
-        ...config.value?.mcpServers,
+        ...getPlainServers(),
         [serverName]: {
           ...currentConfig,
           args: newArgs,
@@ -247,11 +251,11 @@ async function handleDeleteServer(serverName: string) {
     if (!config.value?.mcpServers)
       return
 
-    const nextMcpServers = { ...config.value.mcpServers }
+    const nextMcpServers = getPlainServers()
     delete nextMcpServers[serverName]
 
     await updateConfig({
-      mcpServers: nextMcpServers,
+      mcpServers: { ...nextMcpServers },
     })
     await handleApplyAndRestart()
     lastActionMessage.value = `Deleted server "${serverName}"`
@@ -385,6 +389,123 @@ async function handleApplyAndRestart() {
   }
   finally {
     isBusy.value = false
+  }
+}
+
+function getPlainServers(): Record<string, ElectronMcpServerConfig> {
+  // NOTICE: config is Vue reactive — Electron IPC uses structured clone which
+  // throws "An object could not be cloned" on reactive proxies. Round-trip
+  // through JSON to send plain objects only.
+  return JSON.parse(JSON.stringify(config.value?.mcpServers ?? {}))
+}
+
+function slugifyServerName(raw: string): string {
+  return raw.trim().toLowerCase().replace(/\s+/g, '-')
+}
+
+function validateAddForm(): string {
+  const key = slugifyServerName(addName.value)
+  if (!key) {
+    return 'Please provide a label for this server.'
+  }
+  if (!/^[a-z0-9][a-z0-9-_]*$/.test(key)) {
+    return 'Use lowercase letters, numbers, dashes, or underscores, starting with a letter or number.'
+  }
+  if (config.value?.mcpServers?.[key]) {
+    return `A server named "${key}" already exists.`
+  }
+  const trimmedUrl = addUrl.value.trim()
+  if (!trimmedUrl) {
+    return 'Please provide the remote endpoint URL.'
+  }
+  let parsed: URL
+  try {
+    parsed = new URL(trimmedUrl)
+  }
+  catch {
+    return 'Please provide an absolute HTTP or HTTPS URL.'
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return 'Only http:// and https:// endpoints are supported.'
+  }
+  return ''
+}
+
+function openAddModal() {
+  addFormError.value = ''
+  addTestResult.value = undefined
+  showAddModal.value = true
+}
+
+function closeAddModal() {
+  if (isAddTesting.value || isAddSaving.value)
+    return
+  showAddModal.value = false
+}
+
+async function handleAddTestConnection() {
+  addFormError.value = ''
+  addTestResult.value = undefined
+  const validationError = validateAddForm()
+  if (validationError) {
+    addFormError.value = validationError
+    return
+  }
+
+  isAddTesting.value = true
+  try {
+    const res = await invokeTestServer({
+      name: slugifyServerName(addName.value),
+      config: { url: addUrl.value.trim(), enabled: true },
+    })
+    addTestResult.value = res
+  }
+  catch (error) {
+    addTestResult.value = {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      durationMs: 0,
+    }
+  }
+  finally {
+    isAddTesting.value = false
+  }
+}
+
+async function handleAddSave() {
+  addFormError.value = ''
+  const validationError = validateAddForm()
+  if (validationError) {
+    addFormError.value = validationError
+    return
+  }
+
+  const key = slugifyServerName(addName.value)
+  const trimmedUrl = addUrl.value.trim()
+  isAddSaving.value = true
+  errorMessage.value = ''
+  try {
+    await updateConfig({
+      mcpServers: {
+        ...getPlainServers(),
+        [key]: {
+          url: trimmedUrl,
+          enabled: true,
+        },
+      },
+    })
+    await handleApplyAndRestart()
+    lastActionMessage.value = `Added remote MCP server "${key}"`
+    showAddModal.value = false
+    addName.value = ''
+    addUrl.value = ''
+    addTestResult.value = undefined
+  }
+  catch (error) {
+    addFormError.value = error instanceof Error ? error.message : String(error)
+  }
+  finally {
+    isAddSaving.value = false
   }
 }
 
@@ -671,20 +792,20 @@ async function handleInstall(server: RegistryServer) {
 
     await updateConfig({
       mcpServers: {
-        ...config.value?.mcpServers,
-        [slug]: serverConfig,
+        ...getPlainServers(),
+        [slug]: JSON.parse(JSON.stringify(serverConfig)),
       },
     })
 
     const result = await handleApplyAndRestart()
     currentTab.value = 'manage'
-    if (result?.started?.includes(slug)) {
+    if (result?.started?.some((s: { name: string }) => s.name === slug)) {
       lastActionMessage.value = `Successfully installed and started ${server.name}`
     }
-    else if (result?.failed?.includes(slug)) {
+    else if (result?.failed?.some((s: { name: string }) => s.name === slug)) {
       errorMessage.value = `Server "${server.name}" was added to mcp.json but failed to start. Check server logs in the runtime panel.`
     }
-    else if (result?.skipped?.includes(slug)) {
+    else if (result?.skipped?.some((s: { name: string }) => s.name === slug)) {
       lastActionMessage.value = `Server "${server.name}" was added to mcp.json (startup was skipped because it is disabled or already running).`
     }
     else {
@@ -733,7 +854,7 @@ onMounted(async () => {
       <!-- Tab Switcher -->
       <div :class="['flex items-center gap-1 p-1 rounded-lg w-fit', 'bg-neutral-200/50 dark:bg-neutral-800/50']">
         <button
-          v-for="tab in (['manage', 'discover', 'test'] as const)"
+          v-for="tab in (['manage', 'discover'] as const)"
           :key="tab"
           :class="[
             'px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200',
@@ -743,7 +864,7 @@ onMounted(async () => {
           ]"
           @click="currentTab = tab"
         >
-          {{ tab === 'manage' ? 'Manage' : tab === 'discover' ? 'Discover' : 'Test Connection' }}
+          {{ tab === 'manage' ? 'Manage' : 'Discover' }}
         </button>
       </div>
     </div>
@@ -793,6 +914,12 @@ onMounted(async () => {
           </div>
 
           <div class="flex items-center gap-2">
+            <Button size="sm" :disabled="isBusy" @click="openAddModal">
+              <template #icon>
+                <div i-ph:plus-bold />
+              </template>
+              Add MCP
+            </Button>
             <Button variant="secondary" size="sm" :disabled="isBusy" @click="handleOpenConfigFile">
               <template #icon>
                 <div i-ph:file-json-bold />
@@ -1005,16 +1132,6 @@ onMounted(async () => {
                     <Button
                       size="sm"
                       variant="secondary"
-                      @click="handleTestServerFromCard(server.name)"
-                    >
-                      <template #icon>
-                        <div i-solar:plug-circle-bold-duotone />
-                      </template>
-                      Test Connection
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
                       class="text-red-500 dark:text-red-400 hover:text-red-600"
                       :disabled="isBusy"
                       @click="handleDeleteServer(server.name)"
@@ -1180,13 +1297,123 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Test Connection Tab -->
-    <div v-if="currentTab === 'test'" v-motion-fade class="flex flex-col gap-6">
-      <McpConnectionTestPanel
-        :config="config"
-        :initial-server="preselectedTestServer"
-      />
-    </div>
+    <!-- Add MCP Modal -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="showAddModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          @click.self="closeAddModal"
+        >
+          <div
+            :class="[
+              'relative mx-4 max-w-md w-full flex flex-col gap-4 rounded-2xl p-6',
+              'bg-white shadow-2xl dark:bg-neutral-900',
+              'border border-neutral-200/70 dark:border-neutral-700/50',
+            ]"
+          >
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex flex-col gap-1">
+                <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
+                  Add Remote MCP Server
+                </h3>
+                <p class="text-xs text-neutral-500 leading-relaxed">
+                  Connect a remote server over streamable HTTP.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="rounded-full bg-black/5 p-1.5 text-neutral-500 transition-colors dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20"
+                @click="closeAddModal"
+              >
+                <div i-ph:x-bold class="text-sm" />
+              </button>
+            </div>
+
+            <div
+              class="flex items-start gap-2 border border-amber-500/20 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700 leading-relaxed dark:text-amber-300"
+            >
+              <div i-ph:warning-bold class="mt-0.5 shrink-0 text-sm" />
+              <div>
+                To add stdio-based MCP servers, edit <code class="font-bold font-mono">mcp.json</code> directly via Edit JSON.
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-3">
+              <FieldInput
+                v-model="addName"
+                label="Label"
+                placeholder="e.g. my-remote-tools"
+                description="Lowercase name used as the server key in mcp.json"
+                :disabled="isAddTesting || isAddSaving"
+              />
+              <FieldInput
+                v-model="addUrl"
+                label="Remote URL endpoint"
+                placeholder="https://example.com/mcp"
+                description="Absolute http(s) endpoint supporting streamable HTTP"
+                :disabled="isAddTesting || isAddSaving"
+              />
+            </div>
+
+            <div v-if="addFormError" class="border border-red-500/20 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+              {{ addFormError }}
+            </div>
+
+            <div v-if="addTestResult">
+              <Callout
+                :theme="addTestResult.ok ? 'lime' : 'orange'"
+                :label="addTestResult.ok
+                  ? `Connection Successful (${addTestResult.durationMs}ms) — ${addTestResult.tools?.length || 0} tools`
+                  : `Connection Failed (${addTestResult.durationMs}ms)`"
+              >
+                <div v-if="!addTestResult.ok && addTestResult.error" class="whitespace-pre-wrap break-all text-xs leading-relaxed font-mono opacity-90">
+                  {{ addTestResult.error }}
+                </div>
+                <div v-if="!addTestResult.ok" class="pt-1 text-[11px] text-neutral-500">
+                  Test runs in the Electron main process, so it won't appear in the renderer Network tab. Check main logs for the full stack.
+                </div>
+                <div v-if="addTestResult.ok && addTestResult.tools?.length" class="flex flex-wrap gap-1.5 pt-1 text-xs">
+                  <span
+                    v-for="toolName in addTestResult.tools"
+                    :key="toolName"
+                    class="flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-0.5 text-emerald-800 font-mono dark:bg-emerald-400/20 dark:text-emerald-200"
+                  >
+                    {{ toolName }}
+                  </span>
+                </div>
+              </Callout>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-black/5 pt-4 dark:border-white/5">
+              <Button
+                variant="secondary"
+                size="sm"
+                :disabled="isAddTesting || isAddSaving"
+                :loading="isAddTesting"
+                @click="handleAddTestConnection"
+              >
+                <template #icon>
+                  <div i-solar:plug-circle-bold-duotone />
+                </template>
+                Test Connection
+              </Button>
+              <Button
+                size="sm"
+                :disabled="isAddTesting || isAddSaving || !addName.trim() || !addUrl.trim()"
+                :loading="isAddSaving"
+                @click="handleAddSave"
+              >
+                <template #icon>
+                  <div i-ph:plus-bold />
+                </template>
+                Add Server
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 

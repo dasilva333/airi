@@ -11,7 +11,7 @@ import { consumeLoadStream, layaDecideEvent, layaLoadEvent, layaUnloadEvent, sig
 import { MODEL_VRAM_ESTIMATES } from '../coordinator'
 import { GPU_PRIORITY } from '../gpu-executor'
 import { createGpuWorkerHost } from '../gpu-worker-host'
-import { InferenceAbortError, throwIfAborted } from '../protocol'
+import { InferenceAbortError, InferenceTimeoutError, throwIfAborted } from '../protocol'
 
 export type LayaPrecision = 'int8' | 'fp16'
 
@@ -114,6 +114,15 @@ export function createLayaAdapter(workerUrl?: string | URL): LayaAdapter {
     }).catch((error) => {
       if ((error as Error)?.name === 'AbortError')
         throw error
+      const msg = errorMessageFrom(error) ?? ''
+      const isTimeout = msg.includes('timed out') || msg.includes('TimeoutError') || (error as Error)?.name === 'TimeoutError'
+      if (isTimeout) {
+        const timeoutError = new InferenceTimeoutError(
+          `Laya model load timed out after ${TIMEOUTS.LAYA_LOAD}ms. Model compilation or download took too long.`,
+        )
+        host.handleWorkerError(timeoutError)
+        throw timeoutError
+      }
       host.handleWorkerError(error instanceof Error ? error : new Error(String(error)))
       throw error
     })
@@ -167,8 +176,16 @@ export function createLayaAdapter(workerUrl?: string | URL): LayaAdapter {
     }).catch((error) => {
       if ((error as Error)?.name === 'AbortError')
         throw error
-      if (errorMessageFrom(error)?.includes('timed out') || (error as Error)?.name === 'TimeoutError')
-        host.handleWorkerError(error instanceof Error ? error : new Error(String(error)))
+      const msg = errorMessageFrom(error) ?? ''
+      const isTimeout = msg.includes('timed out') || msg.includes('TimeoutError') || (error as Error)?.name === 'TimeoutError'
+      if (isTimeout) {
+        const timeoutError = new InferenceTimeoutError(
+          `Laya inference timed out after ${TIMEOUTS.LAYA_DECIDE}ms. The model worker may be overloaded or unresponsive.`,
+        )
+        host.handleWorkerError(timeoutError)
+        throw timeoutError
+      }
+      host.handleWorkerError(error instanceof Error ? error : new Error(String(error)))
       throw error
     })
   }

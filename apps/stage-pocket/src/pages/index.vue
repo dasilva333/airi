@@ -5,12 +5,13 @@ import type { ChatProvider } from '@xsai-ext/providers/utils'
 import InteractiveArea from '@proj-airi/stage-layouts/components/Layouts/InteractiveArea.vue'
 import MobileHeader from '@proj-airi/stage-layouts/components/Layouts/MobileHeader.vue'
 import MobileWhisperSheet from '@proj-airi/stage-layouts/components/Layouts/MobileWhisperSheet.vue'
+import MobileWorkspaceSheet from '@proj-airi/stage-layouts/components/Layouts/MobileWorkspaceSheet.vue'
 import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 
 import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds/index'
 import { useBackgroundThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
 import { useBackgroundStore } from '@proj-airi/stage-layouts/stores/background'
-import { ControlStrip } from '@proj-airi/stage-ui/components'
+import { ControlStrip, FloatingWidgetsLayer } from '@proj-airi/stage-ui/components'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
 import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-recorder'
 import { createVoiceInputBinding } from '@proj-airi/stage-ui/libs/audio'
@@ -47,7 +48,7 @@ const positioningStore = usePositioningStore()
 const settingsStore = useSettings()
 const controlStripStore = useSettingsControlStrip()
 const { stageModelSelected, stageModelRenderer } = storeToRefs(settingsStore)
-const { dockedEdge } = storeToRefs(controlStripStore)
+const { dockedEdge, workspaceOpen } = storeToRefs(controlStripStore)
 
 const computedScale = computed(() => {
   const key = stageModelSelected.value || 'global'
@@ -287,7 +288,10 @@ onUnmounted(() => {
             dockedEdge === 'left' ? 'right-6' : 'left-6',
           ]"
         />
+        <!-- In-Page Floating Generative Widgets Layer -->
+        <FloatingWidgetsLayer />
         <MobileWhisperSheet v-if="isPortraitMobile" @settings-open="handleSettingsOpen" />
+        <MobileWorkspaceSheet v-if="workspaceOpen" @close="workspaceOpen = false" />
       </div>
     </div>
   </BackgroundProvider>

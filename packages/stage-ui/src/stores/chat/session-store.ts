@@ -83,7 +83,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   }
 
   function getCurrentCharacterId() {
-    return activeCardId.value || 'default'
+    return activeCardId.value || 'relu'
   }
 
   function enqueuePersist(task: () => Promise<void>) {
@@ -168,7 +168,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
           { type: 'user', userId: userId.value },
         ]
 
-        if (cachedRecord.meta.characterId && cachedRecord.meta.characterId !== 'default') {
+        if (cachedRecord.meta.characterId) {
           members.push({
             type: 'character',
             characterId: cachedRecord.meta.characterId,
@@ -312,7 +312,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
         if (!record || !record.meta)
           continue
 
-        const charId = record.meta.characterId || 'default'
+        const charId = record.meta.characterId || 'relu'
         if (!index.value.characters[charId]) {
           index.value.characters[charId] = {
             activeSessionId: sessionId,
@@ -1196,7 +1196,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   }, { debounce: 300 })
 
   watch(
-    () => lifetimeMemory.artifacts.get(activeCardId.value || 'default')?.updatedAt ?? 0,
+    () => lifetimeMemory.artifacts.get(activeCardId.value || 'relu')?.updatedAt ?? 0,
     () => {
       if (!ready.value || !isMainWindow)
         return

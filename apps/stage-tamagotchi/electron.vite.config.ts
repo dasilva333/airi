@@ -307,6 +307,11 @@ export default defineConfig({
               export const promises = { readFile: async () => '', writeFile: async () => {} };
               export const join = (...args) => args.filter(Boolean).join('/');
               export const resolve = (...args) => args.filter(Boolean).join('/');
+              export const constants = {};
+              export const gunzipSync = (data) => data;
+              export const gzipSync = (data) => data;
+              export const inflateSync = (data) => data;
+              export const deflateSync = (data) => data;
               export const dirname = (p) => (p ? p.split('/').slice(0, -1).join('/') : '');
               export const basename = (p) => (p ? p.split('/').pop() : '');
               export const extname = (p) => (p && p.includes('.') ? '.' + p.split('.').pop() : '');

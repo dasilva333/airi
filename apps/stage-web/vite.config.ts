@@ -239,6 +239,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      'node:crypto': resolve(join(import.meta.dirname, 'src', 'shims', 'node-crypto.ts')),
+      'crypto': resolve(join(import.meta.dirname, 'src', 'shims', 'node-crypto.ts')),
       '@proj-airi/server-sdk': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-sdk', 'src')),
       // Headless DSL runtime ships TS source only (no build step); alias to source for dev HMR.
       '@proj-airi/live2d-runtime': resolve(join(import.meta.dirname, '..', '..', 'packages', 'live2d-runtime', 'src')),
@@ -332,6 +334,47 @@ export default defineConfig({
 
     cloudflareOAuthBridgePlugin(),
 
+    {
+      name: 'force-node-crypto-shim',
+      enforce: 'pre',
+      resolveId(id: string) {
+        if (id === 'node:crypto' || id === 'crypto') {
+          return resolve(join(import.meta.dirname, 'src', 'shims', 'node-crypto.ts'))
+        }
+        if (id.startsWith('node:') || ['process', 'module', 'path', 'fs', 'zlib'].includes(id)) {
+          return '\0virtual:node-shim'
+        }
+        return null
+      },
+      load(id: string) {
+        if (id === '\0virtual:node-shim') {
+          return `
+            export default {};
+            export const env = {};
+            export const cwd = () => '/';
+            export const readFileSync = () => '';
+            export const writeFileSync = () => {};
+            export const existsSync = () => false;
+            export const statSync = () => ({ isDirectory: () => false, isFile: () => false });
+            export const promises = { readFile: async () => '', writeFile: async () => {} };
+            export const join = (...args) => args.filter(Boolean).join('/');
+            export const resolve = (...args) => args.filter(Boolean).join('/');
+            export const constants = {};
+            export const gunzipSync = (data) => data;
+            export const gzipSync = (data) => data;
+            export const inflateSync = (data) => data;
+            export const deflateSync = (data) => data;
+            export const dirname = (p) => (p ? p.split('/').slice(0, -1).join('/') : '');
+            export const basename = (p) => (p ? p.split('/').pop() : '');
+            export const extname = (p) => (p && p.includes('.') ? '.' + p.split('.').pop() : '');
+            export const createRequire = () => () => ({});
+            export const builtinModules = [];
+          `
+        }
+        return null
+      },
+    },
+
     // https://github.com/antfu/unocss
     // see uno.config.ts for config
     Unocss(),
@@ -372,6 +415,20 @@ export default defineConfig({
           },
           workbox: {
             maximumFileSizeToCacheInBytes: 64 * 1024 * 1024,
+            // The WebAssembly files are over 80% of the build. Precaching them downloads
+            // them all at install, so they are cached on first use instead.
+            globIgnores: ['**/*.wasm'],
+            runtimeCaching: [
+              {
+                urlPattern: ({ url }) => url.pathname.endsWith('.wasm'),
+                // The file names carry a content hash, so a cached file never goes stale.
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'wasm',
+                  expiration: { maxEntries: 8 },
+                },
+              },
+            ],
             navigateFallbackDenylist: [
               /^\/docs\//,
               /^\/ui\//,

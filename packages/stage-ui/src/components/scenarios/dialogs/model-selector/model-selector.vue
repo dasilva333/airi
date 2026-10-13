@@ -11,7 +11,7 @@ import { Button } from '@proj-airi/ui'
 import { refDebounced, useFileDialog, useIntersectionObserver, useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger, PopoverAnchor, PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, toRaw, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 
@@ -44,8 +44,44 @@ const syncStore = useSyncEngineStore()
 const { displayModelsFromIndexedDBLoading, displayModels, remoteModelsCatalog, remoteCatalogLoading } = storeToRefs(displayModelStore)
 
 // Cloud Tab Source Selector (local peek state - does not alter global activeProvider)
-const selectedSourceProvider = ref<string>(syncStore.activeProvider || 's3')
-const isCustomSourceSelected = ref(false)
+const selectedSourceProvider = useLocalStorage<string>('airi:settings:model-cloud-provider', syncStore.activeProvider || 's3')
+const isCustomSourceSelected = ref(true)
+
+// External Catalog HTTP State
+const externalCatalogUrl = useLocalStorage('airi:settings:external-catalog-url', 'http://localhost:8085')
+const tempCatalogUrl = ref(externalCatalogUrl.value)
+const externalServerOnline = ref(true)
+const externalLoading = ref(false)
+const externalModels = ref<any[]>([])
+const externalTotal = ref(0)
+const externalPages = ref(0)
+const externalCurrentPage = ref(1)
+const externalError = ref<string | null>(null)
+const externalStats = ref<{
+  total_models: number
+  by_type: Record<string, number>
+  total_bytes: number
+  models_with_thumbnails?: number
+} | null>(null)
+
+const externalCatalogUrlDisplay = computed(() => {
+  try {
+    const u = new URL(externalCatalogUrl.value)
+    return u.host || externalCatalogUrl.value
+  }
+  catch {
+    return externalCatalogUrl.value.replace(/^https?:\/\//, '')
+  }
+})
+
+function formatBytes(bytes: number) {
+  if (!bytes || bytes === 0)
+    return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${(bytes / k ** i).toFixed(1)} ${sizes[i]}`
+}
 
 watch(() => syncStore.activeProvider, (newVal) => {
   if (!isCustomSourceSelected.value && newVal) {
@@ -180,15 +216,144 @@ watch(() => props.initialTab, (newTab) => {
     currentTab.value = 'library'
 }, { immediate: true })
 
+async function fetchExternalStats() {
+  const baseUrl = externalCatalogUrl.value.replace(/\/+$/, '')
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/models/stats`)
+    if (res.ok) {
+      externalStats.value = await res.json()
+      externalServerOnline.value = true
+      externalError.value = null
+    }
+    else {
+      externalServerOnline.value = false
+    }
+  }
+  catch (e: any) {
+    externalServerOnline.value = false
+    externalError.value = e.message || 'Cannot reach external catalog server'
+  }
+}
+
+async function fetchExternalCatalog(page = 1, append = false) {
+  externalLoading.value = true
+  externalError.value = null
+  const baseUrl = externalCatalogUrl.value.replace(/\/+$/, '')
+  try {
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    params.set('limit', '60')
+    if (debouncedSearchQuery.value.trim()) {
+      params.set('q', debouncedSearchQuery.value.trim())
+    }
+    if (formatFilter.value !== 'all') {
+      params.set('type', formatFilter.value)
+    }
+    if (nsfwFilter.value !== 'sfw') {
+      params.set('nsfw', nsfwFilter.value)
+    }
+
+    const res = await fetch(`${baseUrl}/api/v1/models?${params.toString()}`)
+    if (!res.ok) {
+      throw new Error(`Catalog server returned HTTP ${res.status}`)
+    }
+    const data = await res.json()
+    externalServerOnline.value = true
+    externalTotal.value = data.total
+    externalPages.value = data.pages
+    externalCurrentPage.value = data.page
+
+    const mapped = (data.items || []).map((item: any) => {
+      let format = DisplayModelFormat.Live2dZip
+      if (item.model_type === 'vrm')
+        format = DisplayModelFormat.VRM
+      else if (item.model_type === 'spine')
+        format = DisplayModelFormat.SpineZip
+      else if (item.model_type === 'mmd')
+        format = DisplayModelFormat.PMXZip
+
+      return {
+        id: item.id,
+        name: item.title,
+        model_type: item.model_type,
+        format,
+        type: 'cloud',
+        file_size: item.file_size,
+        hasPreview: item.has_thumbnail,
+        previewImage: item.thumbnail_url ? `${baseUrl}${item.thumbnail_url}` : undefined,
+        downloadUrl: `${baseUrl}${item.download_url}`,
+        containerFilename: item.container_filename || `${item.id}.${item.format || 'zip'}`,
+        tags: item.tags || [],
+        creator: item.creator,
+        source: item.source,
+        nsfw: item.nsfw,
+        importedAt: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
+      }
+    })
+
+    if (append) {
+      externalModels.value = [...externalModels.value, ...mapped]
+    }
+    else {
+      externalModels.value = mapped
+    }
+  }
+  catch (err: any) {
+    console.error('[ModelSelector] External catalog fetch failed:', err)
+    externalServerOnline.value = false
+    externalError.value = err.message || 'Failed to fetch catalog'
+    if (!append) {
+      externalModels.value = []
+    }
+  }
+  finally {
+    externalLoading.value = false
+  }
+}
+
+function saveCatalogUrl() {
+  let val = tempCatalogUrl.value.trim()
+  if (!val.startsWith('http://') && !val.startsWith('https://')) {
+    val = `http://${val}`
+  }
+  externalCatalogUrl.value = val
+  tempCatalogUrl.value = val
+  toast.success(`Catalog URL saved: ${val}`)
+  void fetchExternalStats()
+  void fetchExternalCatalog(1)
+}
+
 watch(currentTab, (newTab) => {
-  if (newTab === 'cloud' && remoteModelsCatalog.value.length === 0) {
-    void displayModelStore.fetchRemoteDisplayModelsCatalog(selectedSourceProvider.value)
+  if (newTab === 'cloud') {
+    if (selectedSourceProvider.value === 'external-catalog') {
+      if (externalModels.value.length === 0) {
+        void fetchExternalCatalog(1)
+        void fetchExternalStats()
+      }
+    }
+    else if (remoteModelsCatalog.value.length === 0) {
+      void displayModelStore.fetchRemoteDisplayModelsCatalog(selectedSourceProvider.value)
+    }
+  }
+})
+
+watch([debouncedSearchQuery, formatFilter, nsfwFilter], () => {
+  if (currentTab.value === 'cloud' && selectedSourceProvider.value === 'external-catalog') {
+    externalCurrentPage.value = 1
+    void fetchExternalCatalog(1)
   }
 })
 
 onMounted(() => {
   const hasLoadedModels = displayModelStore.displayModels.length > 0
   void displayModelStore.loadDisplayModelsFromIndexedDB(hasLoadedModels)
+
+  if (currentTab.value === 'cloud') {
+    if (selectedSourceProvider.value === 'external-catalog') {
+      void fetchExternalCatalog(1)
+      void fetchExternalStats()
+    }
+  }
 
   if (!carouselViewSeen.value) {
     setTimeout(() => {
@@ -201,6 +366,10 @@ onMounted(() => {
 
 // Filtering Logic
 const filteredModels = computed(() => {
+  if (currentTab.value === 'cloud' && selectedSourceProvider.value === 'external-catalog') {
+    return externalModels.value
+  }
+
   let result = currentTab.value === 'cloud'
     ? remoteModelsCatalog.value.filter((rm: any) => !downloadedModelIdsSet.value.has(rm.id))
     : [...displayModels.value]
@@ -284,10 +453,20 @@ watch([searchQuery, formatFilter, nsfwFilter, selectedGroups, selectedTags, sort
 })
 
 const paginatedModels = computed(() => {
+  if (currentTab.value === 'cloud' && selectedSourceProvider.value === 'external-catalog') {
+    return externalModels.value
+  }
   return filteredModels.value.slice(0, visibleCount.value)
 })
 
 function loadMore() {
+  if (currentTab.value === 'cloud' && selectedSourceProvider.value === 'external-catalog') {
+    if (externalCurrentPage.value < externalPages.value && !externalLoading.value) {
+      externalCurrentPage.value++
+      void fetchExternalCatalog(externalCurrentPage.value, true)
+    }
+    return
+  }
   if (visibleCount.value < filteredModels.value.length) {
     visibleCount.value += PAGE_SIZE
   }
@@ -300,9 +479,13 @@ useIntersectionObserver(loadMoreSentinelRef, ([entry]) => {
 })
 
 const activeModelsForFilters = computed(() => {
-  return currentTab.value === 'cloud'
-    ? remoteModelsCatalog.value.filter((rm: any) => !displayModels.value.some(lm => lm.id === rm.id))
-    : displayModels.value
+  if (currentTab.value === 'cloud') {
+    if (selectedSourceProvider.value === 'external-catalog') {
+      return externalModels.value
+    }
+    return remoteModelsCatalog.value.filter((rm: any) => !displayModels.value.some(lm => lm.id === rm.id))
+  }
+  return displayModels.value
 })
 
 const allExistingGroups = computed(() => {
@@ -376,6 +559,16 @@ const localFormatCounts = computed(() => {
 })
 
 const cloudFormatCounts = computed(() => {
+  if (selectedSourceProvider.value === 'external-catalog' && externalStats.value) {
+    const s = externalStats.value
+    return {
+      all: s.total_models,
+      live2d: s.by_type.live2d || 0,
+      vrm: s.by_type.vrm || 0,
+      spine: s.by_type.spine || 0,
+      mmd: s.by_type.mmd || 0,
+    }
+  }
   const models = remoteModelsCatalog.value
   return {
     all: models.length,
@@ -591,10 +784,15 @@ function getPreviewSrc(model: any) {
 }
 
 function isDownloaded(modelId: string) {
-  return downloadedModelIdsSet.value.has(modelId)
+  if (downloadedModelIdsSet.value.has(modelId))
+    return true
+  return displayModels.value.some((m: any) => m.externalCatalogId === modelId || m.id === modelId)
 }
 
 function isAvailableOnCloud(modelId: string) {
+  if (selectedSourceProvider.value === 'external-catalog') {
+    return externalModels.value.some(m => m.id === modelId)
+  }
   return cloudModelIdsSet.value.has(modelId)
 }
 
@@ -655,22 +853,111 @@ const downloadingModelId = ref<string | null>(null)
 async function downloadAndPickModel(model: any) {
   downloadingModelId.value = model.id
   try {
-    const res = await syncStore.downloadSpecificModel(model.id, selectedSourceProvider.value)
-    if (res.success) {
-      toast.success(`Model ${model.name} downloaded successfully!`)
-      const localModel = displayModelStore.displayModels.find(m => m.id === model.id)
-      if (localModel) {
-        handlePick(localModel)
+    if (selectedSourceProvider.value === 'external-catalog') {
+      const catalogUrl = externalCatalogUrl.value.replace(/\/+$/, '')
+      const downloadEndpoint = model.downloadUrl || `${catalogUrl}/api/v1/models/${encodeURIComponent(model.id)}/download`
+      const toastId = toast.loading(`Downloading ${model.name || model.id}...`)
+
+      const res = await fetch(downloadEndpoint)
+      if (!res.ok) {
+        throw new Error(`Catalog server returned HTTP ${res.status}: ${res.statusText}`)
       }
-      else {
-        await displayModelStore.loadDisplayModelsFromIndexedDB()
-        const reloadedModel = displayModelStore.displayModels.find(m => m.id === model.id)
-        if (reloadedModel)
-          handlePick(reloadedModel)
+
+      const blob = await res.blob()
+      let targetFormat = model.format as DisplayModelFormat
+      if (model.model_type === 'live2d')
+        targetFormat = DisplayModelFormat.Live2dZip
+      else if (model.model_type === 'vrm')
+        targetFormat = DisplayModelFormat.VRM
+      else if (model.model_type === 'spine')
+        targetFormat = DisplayModelFormat.SpineZip
+      else if (model.model_type === 'mmd')
+        targetFormat = DisplayModelFormat.PMXZip
+
+      const filename = model.containerFilename || `${model.name || model.id}.zip`
+      const fileObj = new File([blob], filename, { type: blob.type || 'application/octet-stream' })
+
+      if (targetFormat === DisplayModelFormat.VRM) {
+        await displayModelStore.addDisplayModel(targetFormat, fileObj)
       }
+      else if (targetFormat === DisplayModelFormat.SpineZip) {
+        await displayModelStore.addDisplayModel(targetFormat, fileObj)
+      }
+      else if (targetFormat === DisplayModelFormat.Live2dZip) {
+        await displayModelStore.addDisplayModel(targetFormat, fileObj)
+      }
+      else if (targetFormat === DisplayModelFormat.PMXZip || model.model_type === 'mmd') {
+        const extracted = await extractMmdFromZip(fileObj)
+        if (extracted) {
+          const mmdFmt = extracted.modelFile.name.toLowerCase().endsWith('.pmd')
+            ? DisplayModelFormat.PMD
+            : DisplayModelFormat.PMXZip
+          await displayModelStore.addDisplayModelWithTextures(mmdFmt, extracted.modelFile, extracted.textureFiles)
+        }
+        else {
+          await displayModelStore.addDisplayModel(DisplayModelFormat.PMXZip, fileObj)
+        }
+      }
+      else if (model.model_type === 'vrma') {
+        await customVrmAnimationsStore.addCustomAnimation(fileObj)
+        toast.success(`Custom VRMA animation "${model.name}" imported!`, { id: toastId })
+        return
+      }
+
+      const newlyAdded = displayModelStore.displayModels[0]
+      if (newlyAdded) {
+        let previewDataUrl: string | undefined
+        if (!newlyAdded.previewImage && model.previewImage) {
+          try {
+            const pRes = await fetch(model.previewImage)
+            if (pRes.ok) {
+              const pBlob = await pRes.blob()
+              previewDataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader()
+                reader.onloadend = () => resolve(reader.result as string)
+                reader.readAsDataURL(pBlob)
+              })
+            }
+          }
+          catch (err) {
+            console.warn('[ModelSelector] Could not fetch catalog preview thumbnail:', err)
+          }
+        }
+
+        const cleanTags = Array.isArray(model.tags)
+          ? [...toRaw(model.tags)].map((t: any) => String(t))
+          : []
+
+        await displayModelStore.updateDisplayModelMeta(newlyAdded.id, {
+          name: model.name || newlyAdded.name,
+          tags: cleanTags,
+          nsfw: Boolean(model.nsfw),
+          externalCatalogId: String(model.id),
+          previewImage: previewDataUrl || newlyAdded.previewImage,
+        })
+        handlePick(newlyAdded)
+      }
+
+      toast.success(`Model "${model.name || filename}" downloaded successfully!`, { id: toastId })
     }
     else {
-      toast.error(`Failed to download model: ${res.error}`)
+      const res = await syncStore.downloadSpecificModel(model.id, selectedSourceProvider.value)
+      if (res.success) {
+        toast.success(`Model ${model.name} downloaded successfully!`)
+        const localModel = displayModelStore.displayModels.find(m => m.id === model.id)
+        if (localModel) {
+          handlePick(localModel)
+        }
+        else {
+          await displayModelStore.loadDisplayModelsFromIndexedDB()
+          const reloadedModel = displayModelStore.displayModels.find(m => m.id === model.id)
+          if (reloadedModel)
+            handlePick(reloadedModel)
+        }
+      }
+      else {
+        toast.error(`Failed to download model: ${res.error}`)
+      }
     }
   }
   catch (e: any) {
@@ -688,13 +975,25 @@ async function handleSourceProviderChange() {
   failedPreviews.value = {}
   remoteModelsCatalog.value = []
 
-  const res = await displayModelStore.fetchRemoteDisplayModelsCatalog(selectedSourceProvider.value)
-  if (res && !res.success) {
-    toast.error(`Failed to load catalog from ${selectedSourceProvider.value === 's3' ? 'S3' : 'Local FS'}: ${res.error || 'Unknown error'}`)
+  if (selectedSourceProvider.value === 'external-catalog') {
+    await fetchExternalCatalog(1)
+    await fetchExternalStats()
+  }
+  else {
+    const res = await displayModelStore.fetchRemoteDisplayModelsCatalog(selectedSourceProvider.value)
+    if (res && !res.success) {
+      toast.error(`Failed to load catalog from ${selectedSourceProvider.value === 's3' ? 'S3' : 'Local FS'}: ${res.error || 'Unknown error'}`)
+    }
   }
 }
 
 async function handleRefreshCloudCatalog() {
+  if (selectedSourceProvider.value === 'external-catalog') {
+    await fetchExternalCatalog(1)
+    await fetchExternalStats()
+    return
+  }
+
   remotePreviews.value = {}
   loadingPreviews.value = {}
   failedPreviews.value = {}
@@ -1848,11 +2147,11 @@ async function runAutoLinkCatalog(targetModels?: any[], remoteManifest?: any) {
         <button
           v-if="currentTab === 'cloud'"
           class="h-[32px] flex items-center justify-center gap-1.5 border border-transparent rounded-lg bg-neutral-100 px-3 py-1 text-xs text-neutral-600 font-semibold outline-none transition-all dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
-          :disabled="remoteCatalogLoading"
+          :disabled="remoteCatalogLoading || externalLoading"
           title="Refresh Cloud Catalog"
           @click="handleRefreshCloudCatalog"
         >
-          <div :class="['i-solar:refresh-bold text-xs', remoteCatalogLoading ? 'animate-spin' : '']" />
+          <div :class="['i-solar:refresh-bold text-xs', (remoteCatalogLoading || externalLoading) ? 'animate-spin' : '']" />
           <span>Refresh</span>
         </button>
 
@@ -1861,7 +2160,7 @@ async function runAutoLinkCatalog(targetModels?: any[], remoteManifest?: any) {
           v-if="currentTab === 'cloud'"
           v-model="selectedSourceProvider"
           class="h-[32px] cursor-pointer border border-transparent rounded-lg bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600 font-semibold outline-none transition-all dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
-          :disabled="remoteCatalogLoading"
+          :disabled="remoteCatalogLoading || externalLoading"
           title="Cloud Source Adapter"
           @change="handleSourceProviderChange"
         >
@@ -1871,14 +2170,101 @@ async function runAutoLinkCatalog(targetModels?: any[], remoteManifest?: any) {
           <option value="local-fs">
             Local FS
           </option>
+          <option value="external-catalog">
+            External Catalog (HTTP)
+          </option>
         </select>
+
+        <!-- External Catalog Server Config Popover Trigger -->
+        <PopoverRoot v-if="currentTab === 'cloud' && selectedSourceProvider === 'external-catalog'">
+          <PopoverTrigger as-child>
+            <button
+              class="h-[32px] flex items-center justify-center gap-1.5 border border-transparent rounded-lg bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600 font-semibold outline-none transition-all dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              title="Configure External Catalog Server"
+            >
+              <div class="i-solar:settings-bold-duotone text-xs" />
+              <span class="max-w-24 truncate">{{ externalCatalogUrlDisplay }}</span>
+              <span
+                class="h-2 w-2 rounded-full"
+                :class="[externalServerOnline ? 'bg-green-500' : 'bg-red-500']"
+              />
+            </button>
+          </PopoverTrigger>
+          <PopoverPortal>
+            <PopoverContent
+              side="bottom"
+              align="end"
+              :side-offset="6"
+              class="z-[10015] w-80 flex flex-col gap-3 border border-neutral-200 rounded-xl bg-white/95 p-3.5 text-xs shadow-xl backdrop-blur-xl dark:border-neutral-800 dark:bg-neutral-900/95"
+            >
+              <div class="flex items-center justify-between text-neutral-800 font-bold dark:text-neutral-100">
+                <div class="flex items-center gap-1.5">
+                  <div class="i-solar:server-bold-duotone text-base text-primary-500" />
+                  <span>External Catalog Server</span>
+                </div>
+                <span
+                  class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                  :class="[externalServerOnline ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500']"
+                >
+                  {{ externalServerOnline ? 'Connected' : 'Offline' }}
+                </span>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[11px] text-neutral-500 font-medium">Server Base URL</label>
+                <div class="flex gap-1.5">
+                  <input
+                    v-model="tempCatalogUrl"
+                    type="text"
+                    placeholder="http://localhost:8085"
+                    class="flex-1 border border-neutral-200 rounded-lg bg-neutral-50 px-2.5 py-1.5 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-800 dark:text-neutral-100"
+                    @keydown.enter="saveCatalogUrl"
+                  >
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    color="primary"
+                    @click="saveCatalogUrl"
+                  >
+                    Save
+                  </Button>
+                </div>
+              </div>
+              <div v-if="externalStats" class="flex flex-col gap-1 rounded-lg bg-neutral-50 p-2 text-[11px] text-neutral-500 dark:bg-neutral-800/50 dark:text-neutral-400">
+                <div class="flex justify-between">
+                  <span>Available Models:</span>
+                  <span class="text-neutral-700 font-bold dark:text-neutral-200">{{ externalStats.total_models.toLocaleString() }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Library Size:</span>
+                  <span class="text-neutral-700 font-bold dark:text-neutral-200">{{ formatBytes(externalStats.total_bytes) }}</span>
+                </div>
+                <div v-if="externalStats.models_with_thumbnails !== undefined" class="flex justify-between">
+                  <span>With Thumbnails:</span>
+                  <span class="text-neutral-700 font-bold dark:text-neutral-200">{{ externalStats.models_with_thumbnails.toLocaleString() }}</span>
+                </div>
+              </div>
+              <div v-else-if="externalError" class="rounded-lg bg-red-500/10 p-2 text-[11px] text-red-500">
+                {{ externalError }}
+              </div>
+            </PopoverContent>
+          </PopoverPortal>
+        </PopoverRoot>
       </div>
 
       <div v-if="currentTab === 'library' && displayModelsFromIndexedDBLoading" class="py-6 text-center text-sm text-neutral-400">
         Loading library models...
       </div>
-      <div v-else-if="currentTab === 'cloud' && remoteCatalogLoading" class="py-6 text-center text-sm text-neutral-400">
-        Loading cloud catalog...
+      <div v-else-if="currentTab === 'cloud' && ((selectedSourceProvider === 'external-catalog' && externalLoading) || (selectedSourceProvider !== 'external-catalog' && remoteCatalogLoading))" class="py-6 text-center text-sm text-neutral-400">
+        {{ selectedSourceProvider === 'external-catalog' ? 'Searching external catalog...' : 'Loading cloud catalog...' }}
+      </div>
+      <div v-else-if="currentTab === 'cloud' && selectedSourceProvider === 'external-catalog' && !externalServerOnline" class="py-8 text-center">
+        <div class="i-solar:server-square-bold-duotone mx-auto mb-2 text-3xl text-red-400" />
+        <p class="text-sm text-neutral-700 font-semibold dark:text-neutral-200">
+          Cannot connect to External Catalog Server
+        </p>
+        <p class="mt-1 text-xs text-neutral-400">
+          Make sure the catalog server is running at <span class="text-primary-500 font-mono">{{ externalCatalogUrl }}</span>
+        </p>
       </div>
 
       <!-- Carousel Lineup View -->
@@ -2086,15 +2472,25 @@ async function runAutoLinkCatalog(targetModels?: any[], remoteManifest?: any) {
 
           <!-- Infinite Scroll Sentinel & Load More Trigger -->
           <div
-            v-if="visibleCount < filteredModels.length"
+            v-if="(currentTab === 'cloud' && selectedSourceProvider === 'external-catalog') ? (externalModels.length < externalTotal) : (visibleCount < filteredModels.length)"
             ref="loadMoreSentinelRef"
             class="col-span-full my-4 text-center"
           >
             <button
               class="border border-neutral-300 rounded-lg bg-neutral-100 px-4 py-2 text-xs text-neutral-700 font-semibold transition-all dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-200 dark:hover:bg-neutral-700"
+              :disabled="externalLoading"
               @click="loadMore"
             >
-              Load More ({{ paginatedModels.length }} of {{ filteredModels.length }})
+              <span v-if="externalLoading" class="flex items-center justify-center gap-1.5">
+                <div class="i-solar:refresh-bold animate-spin text-xs" />
+                Loading more...
+              </span>
+              <span v-else-if="currentTab === 'cloud' && selectedSourceProvider === 'external-catalog'">
+                Load More ({{ externalModels.length }} of {{ externalTotal }})
+              </span>
+              <span v-else>
+                Load More ({{ paginatedModels.length }} of {{ filteredModels.length }})
+              </span>
             </button>
           </div>
         </div>

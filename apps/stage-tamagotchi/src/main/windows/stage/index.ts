@@ -8,8 +8,6 @@ import type { ServerChannel } from '../../services/airi/channel-server'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import clickDragPlugin from 'electron-click-drag-plugin'
-
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { app, BrowserWindow as ElectronBrowserWindow, ipcMain, screen } from 'electron'
@@ -19,6 +17,7 @@ import { isLinux } from 'std-env'
 import icon from '../../../../resources/icon.png?asset'
 
 import { electronStartDraggingWindow } from '../../../shared/eventa'
+import { startDraggingWindow } from '../../libs/electron/drag'
 import { baseUrl, load, withHashRoute } from '../../libs/electron/location'
 import { ensureWindowInVisibleBounds } from '../shared/display'
 import { setupBaseWindowElectronInvokes, transparentWindowConfig } from '../shared/window'
@@ -250,7 +249,7 @@ export function setupActorStageWindowManager(params: {
           const sender = handlerOptions?.raw?.ipcMainEvent?.sender
           const win = sender ? (ElectronBrowserWindow.fromWebContents(sender) ?? window) : window
           const windowId = win.getNativeWindowHandle()
-          clickDragPlugin.startDrag(windowId)
+          startDraggingWindow(windowId)
         }
         catch (error) {
           console.error(error)

@@ -234,6 +234,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      'node:crypto': resolve(join(import.meta.dirname, '..', 'stage-tamagotchi', 'src', 'renderer', 'shims', 'node-crypto.ts')),
+      'crypto': resolve(join(import.meta.dirname, '..', 'stage-tamagotchi', 'src', 'renderer', 'shims', 'node-crypto.ts')),
       '@proj-airi/server-sdk': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-sdk', 'src')),
       '@proj-airi/i18n': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),
       '@proj-airi/stage-ui': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src')),
@@ -352,7 +354,28 @@ export default defineConfig({
       },
       load(id) {
         if (id === '\0virtual:node-shim') {
-          return 'export default {}; export const env = {}; export const cwd = () => "/";'
+          return `
+            export default {};
+            export const env = {};
+            export const cwd = () => '/';
+            export const readFileSync = () => '';
+            export const writeFileSync = () => {};
+            export const existsSync = () => false;
+            export const statSync = () => ({ isDirectory: () => false, isFile: () => false });
+            export const promises = { readFile: async () => '', writeFile: async () => {} };
+            export const join = (...args) => args.filter(Boolean).join('/');
+            export const resolve = (...args) => args.filter(Boolean).join('/');
+            export const constants = {};
+            export const gunzipSync = (data) => data;
+            export const gzipSync = (data) => data;
+            export const inflateSync = (data) => data;
+            export const deflateSync = (data) => data;
+            export const dirname = (p) => (p ? p.split('/').slice(0, -1).join('/') : '');
+            export const basename = (p) => (p ? p.split('/').pop() : '');
+            export const extname = (p) => (p && p.includes('.') ? '.' + p.split('.').pop() : '');
+            export const createRequire = () => () => ({});
+            export const builtinModules = [];
+          `
         }
         return null
       },

@@ -11,8 +11,6 @@ import { dirname, join, resolve } from 'node:path'
 import { env } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import clickDragPlugin from 'electron-click-drag-plugin'
-
 import { is } from '@electron-toolkit/utils'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
@@ -26,6 +24,7 @@ import { array, number, object, optional, string } from 'valibot'
 import icon from '../../../../resources/icon.png?asset'
 
 import { electronStartDraggingWindow } from '../../../shared/eventa'
+import { startDraggingWindow } from '../../libs/electron/drag'
 import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
 import { createConfig } from '../../libs/electron/persistence'
 import { setupDashboardWindowElectronInvokes } from './rpc/index.electron'
@@ -174,7 +173,7 @@ export async function setupDashboardWindow(params: {
         const sender = handlerOptions?.raw?.ipcMainEvent?.sender
         const win = sender ? (BrowserWindow.fromWebContents(sender) ?? window) : window
         const windowId = win.getNativeWindowHandle()
-        clickDragPlugin.startDrag(windowId)
+        startDraggingWindow(windowId)
       }
       catch (error) {
         console.error(error)

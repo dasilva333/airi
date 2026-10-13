@@ -54,7 +54,7 @@ The five groups below organize navigation. Historical “Phase” labels do not 
 
 ## 3. Domain skill catalog
 
-The catalog contains 70 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
+The catalog contains 72 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
 
 ### 🟢 Phase 1: Core Plumbing & Infrastructure
 
@@ -429,6 +429,11 @@ The catalog contains 70 discoverable skills. Desktop chatbox and interaction pip
 - **Key Paths**: `.agents/skills/airi-ui-design-conventions/SKILL.md`, `packages/ui/`, `uno.config.ts`, `packages/stage-ui/src/stores/settings/theme.ts`, `packages/stage-ui/src/components/widgets/SettingsThemeHeaderWidget.vue`, `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/steps/step-appearance.vue`.
 - **Content**: Component hierarchy across `@proj-airi/ui` primitives (`BasicButton`, `Button`, `GhostButton`, `IconButton`, `OverlayButton`, `FieldInput`, `Input`, `FieldCheckbox`, `Select`, `BottomDrawer`), UnoCSS multi-line class array binding conventions, Chromatic `--chromatic-hue` dynamic theming vs. static neutral surfaces, the 4 canonical theme-switching surfaces (Onboarding V3 24-color spectrum, Settings General dark-mode toggle, Settings Header widget, Control Strip `'theme-mode'` action), shape/radii/spacing standards (8px, 12px, 32px drawers, -10°/10° parallelogram skew), motion timings (200ms/250ms/500ms, `AnimatedContent`), and the component discrepancy audit.
 
+#### 5.17 `airi-generative-widgets`
+- **Target Domain**: Generative UI widgets, in-memory sandbox micro-apps, `mount_widget` lifecycle, `widgetsRepo` persistence, `buildWidgetIframeSrcdoc` isolation, reactive sidecar state sync, standalone breakout desktop windows, and floating web/pocket overlays.
+- **Key Paths**: `.agents/skills/airi-generative-widgets/SKILL.md`, `packages/stage-ui/src/libs/sandbox/manager.ts`, `packages/stage-ui/src/libs/sandbox/srcdoc.ts`, `packages/stage-ui/src/database/repos/widgets.repo.ts`, `apps/stage-tamagotchi/src/renderer/components/chat/ChatWorkspaceWidgetsPanel.vue`, `apps/stage-tamagotchi/src/renderer/pages/widgets.vue`, `apps/stage-tamagotchi/src/renderer/widgets/generative/components/Generative.vue`, `docs/proposal-in-memory-sandboxes-and-edge-wasm.md`.
+- **Content**: Micro-app authoring contract (`mount({ container, sidecar, onUpdate })`), CLI lifecycle (`mount_widget`, `unmount_widget`, `list_widgets`), surface routing (`--surface panel|widget`), breakout popout mechanics, IndexedDB auto-rehydration (`local:widgets/registry`), and bidirectional MCP tool bridge forwarding (`mcp-call` over `postMessage`). Pitfall: contrast with `airi-artistry-comfyui-widgets` (image-generation stage widgets vs. sandbox micro-apps).
+
 ---
 
 ## 4. Inventory and routing review
@@ -439,8 +444,8 @@ The catalog contains 70 discoverable skills. Desktop chatbox and interaction pip
 | Character, stage, motion and sensing | 15 |
 | Modules, cognition and memory | 23 |
 | Operational SOPs and research | 8 |
-| UI surfaces and adjacent services | 16 |
-| **Total** | **71** |
+| UI surfaces and adjacent services | 17 |
+| **Total** | **72** |
 
 The counts follow the catalog groups above, not a separate historical rollout table.
 
@@ -454,5 +459,6 @@ Use these examples when reviewing overlapping descriptions. They are expected ow
 | Director steals a Layer actor's model | airi-director-orchestration | Base/Layer ownership |
 | VoiceProfile bracket rules remove all speech | airi-audio-pipeline | Transformation and empty synthesis |
 | Add a desktop workspace route | airi-desktop-chatbox | Workspace reference only |
+| Mount a generated news or weather component into the sidepanel | airi-generative-widgets | In-memory sandbox widget lifecycle; ComfyUI uses artistry-comfyui-widgets |
 | Resume a lifetime job from its dialog | airi-memory-ui-pages | Controls; provisioning skill for job engine |
 | Persona refresh deletes environmental context | airi-prompt-builder-engine | Context classification and pruning |

@@ -10,6 +10,9 @@ withDefaults(defineProps<{
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let animationFrameId: number | null = null
+let isRunning = false
+let resizeObserver: ResizeObserver | null = null
+let handleResize: (() => void) | null = null
 const { isDark } = useTheme()
 
 interface StarParticle {
@@ -65,6 +68,8 @@ onMounted(() => {
   if (!ctx)
     return
 
+  isRunning = true
+
   function getDims() {
     const parent = canvas?.parentElement
     const w = (parent && parent.clientWidth > 0) ? parent.clientWidth : window.innerWidth
@@ -76,7 +81,7 @@ onMounted(() => {
   canvas.width = width
   canvas.height = height
 
-  const handleResize = () => {
+  handleResize = () => {
     if (!canvas)
       return
     const dims = getDims()
@@ -84,6 +89,13 @@ onMounted(() => {
     height = canvas.height = dims.h
   }
   window.addEventListener('resize', handleResize)
+
+  if (canvas.parentElement && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => {
+      handleResize?.()
+    })
+    resizeObserver.observe(canvas.parentElement)
+  }
 
   const lightColors = ['#f59e0b', '#fbbf24', '#fde047', '#38bdf8', '#818cf8', '#ec4899', '#34d399']
   const darkColors = ['#fde047', '#facc15', '#38bdf8', '#c084fc', '#67e8f9', '#ffffff', '#fb7185']
@@ -120,13 +132,8 @@ onMounted(() => {
 
   let tick = 0
   const render = () => {
-    const dims = getDims()
-    if (canvas.width !== dims.w || canvas.height !== dims.h) {
-      canvas.width = dims.w
-      canvas.height = dims.h
-      width = dims.w
-      height = dims.h
-    }
+    if (!isRunning)
+      return
 
     ctx.clearRect(0, 0, width, height)
     tick++
@@ -150,17 +157,28 @@ onMounted(() => {
       drawStar(ctx, s.x, s.y, currentSize, s.angle, s.color, currentOpacity, s.isSparkle)
     }
 
-    animationFrameId = requestAnimationFrame(render)
+    if (isRunning) {
+      animationFrameId = requestAnimationFrame(render)
+    }
   }
 
   render()
+})
 
-  onUnmounted(() => {
+onUnmounted(() => {
+  isRunning = false
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = null
+  }
+  if (handleResize) {
     window.removeEventListener('resize', handleResize)
-    if (animationFrameId !== null) {
-      cancelAnimationFrame(animationFrameId)
-    }
-  })
+    handleResize = null
+  }
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
 })
 </script>
 

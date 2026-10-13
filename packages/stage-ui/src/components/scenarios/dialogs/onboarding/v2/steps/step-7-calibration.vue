@@ -93,7 +93,7 @@ const resolvedPersona = computed(() => {
     }
   }
 
-  const d = STARTER_CHARACTERS.default
+  const d = getStarterCharacter(persona.cardId || 'relu')
   return {
     name: d.name,
     description: d.description,

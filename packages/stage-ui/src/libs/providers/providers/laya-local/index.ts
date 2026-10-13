@@ -35,8 +35,10 @@ export const providerLayaLocal = defineProvider<LayaLocalConfig>({
       systemOne: async (state: string | object, questions: Record<string, any>, model?: string): Promise<System1Response> => {
         const targetModel = model || config?.model || 'tozp/laya-onnx'
         const precision = targetModel.includes('fp16') ? 'fp16' : 'int8'
+        // NOTICE: WebGPU is strictly supported on FP16 weights. INT8 is CPU WASM only.
+        const useWebGpu = precision === 'fp16' && Boolean(config?.enableWebGpu)
         const res = await runLayaSystemOne(state, questions, precision, {
-          useWebGpu: Boolean(config?.enableWebGpu),
+          useWebGpu,
         })
         return {
           answers: res.answers,

@@ -7,7 +7,7 @@ import { useRoute } from 'vue-router'
 
 import WeatherSkeleton from '../widgets/weather/components/Skeleton.vue'
 
-import { widgetsClearEvent, widgetsFetch, widgetsRemove, widgetsRemoveEvent, widgetsRenderEvent, widgetsUpdateEvent } from '../../shared/eventa'
+import { electronOpenMainDevtools, widgetsClearEvent, widgetsFetch, widgetsRemove, widgetsRemoveEvent, widgetsRenderEvent, widgetsUpdateEvent } from '../../shared/eventa'
 
 type SizePreset = 's' | 'm' | 'l' | { cols?: number, rows?: number }
 
@@ -62,6 +62,7 @@ const loading = ref(false)
 const context = useElectronEventaContext()
 const removeWidgetInvoke = useElectronEventaInvoke(widgetsRemove)
 const fetchWidget = useElectronEventaInvoke(widgetsFetch)
+const openDevTools = useElectronEventaInvoke(electronOpenMainDevtools)
 
 let ttlTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -101,7 +102,31 @@ function applySnapshot(snapshot: WidgetSnapshot) {
 async function requestSnapshot(id: string) {
   loading.value = true
   try {
-    const snapshot = await fetchWidget({ id })
+    let snapshot = await fetchWidget({ id })
+    if (!snapshot) {
+      try {
+        const { widgetsRepo } = await import('@proj-airi/stage-ui/libs/sandbox')
+        const persisted = await widgetsRepo.getWidget(id)
+        if (persisted) {
+          snapshot = {
+            id: persisted.id,
+            componentName: 'generative',
+            componentProps: {
+              id: persisted.id,
+              title: persisted.title,
+              path: persisted.path,
+              code: persisted.code,
+            },
+            size: 'm',
+            ttlMs: 0,
+          }
+        }
+      }
+      catch (fallbackErr) {
+        console.warn('[Widgets] Fallback to widgetsRepo failed:', fallbackErr)
+      }
+    }
+
     if (widgetId.value !== id)
       return
     if (snapshot)
@@ -118,6 +143,13 @@ async function requestSnapshot(id: string) {
   }
 }
 
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'i')) {
+    e.preventDefault()
+    void openDevTools?.()
+  }
+}
+
 watch(widgetId, (id) => {
   clearTtl()
   widget.value = null
@@ -128,6 +160,8 @@ watch(widgetId, (id) => {
 }, { immediate: true })
 
 onMounted(() => {
+  window.addEventListener('keydown', onKeyDown)
+
   try {
     context.value.on(widgetsRenderEvent, (evt) => {
       const body = evt?.body
@@ -190,6 +224,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeyDown)
   clearTtl()
 })
 
@@ -202,6 +237,7 @@ const Registry: Record<string, any> = {
   artistry: defineAsyncComponent(() => import('../widgets/artistry').then(m => m.Artistry)),
   comfy: defineAsyncComponent(() => import('../widgets/artistry').then(m => m.Artistry)),
   sticker: defineAsyncComponent(() => import('../widgets/sticker').then(m => m.Sticker)),
+  generative: defineAsyncComponent(() => import('../widgets/generative').then(m => m.GenerativeWidget)),
 }
 
 const GenericWidget = defineComponent({

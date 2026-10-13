@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 
 import { useChatOrchestratorStore } from '../stores/chat'
+import { appendDraftText } from '../stores/chat/composer-draft-bridge'
 import { useChatSessionStore } from '../stores/chat/session-store'
 import { useShortTermMemoryStore } from '../stores/memory-short-term'
 import { useAiriCardStore } from '../stores/modules/airi-card'
@@ -39,7 +40,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   const { activeCardId } = storeToRefs(airiCardStore)
   const { messages, activeSessionId } = storeToRefs(chatSession)
   const { ingest, stopCurrentGeneration } = chatOrchestrator
-  const { sending } = storeToRefs(chatOrchestrator)
+  const { sending, isSpeaking, canStop } = storeToRefs(chatOrchestrator)
   const { stream, enabled } = storeToRefs(settingsAudioDevice)
 
   // Transcription/Hearing
@@ -227,6 +228,9 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
       if (!activeSessionId.value) {
         await chatSession.ensureActiveSessionForCharacter()
       }
+      if (canStop.value && activeSessionId.value) {
+        await stopCurrentGeneration(activeSessionId.value)
+      }
       const providerConfig = providersStore.getProviderConfig(activeProvider.value)
       await ingest(textToSend, {
         chatProvider: await providersStore.getProviderInstance(activeProvider.value) as ChatProvider,
@@ -303,6 +307,13 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
             clearPendingAutoSend()
             if (alreadyDispatched)
               return
+            // With auto-send off the transcript stays in the input for the user to edit and send.
+            // Providers without sentence deltas only deliver the final text here.
+            if (!autoSendEnabled.value) {
+              if (!messageInput.value.includes(text.trim()))
+                messageInput.value = appendDraftText(messageInput.value, text)
+              return
+            }
             void (async () => {
               try {
                 const provider = await providersStore.getProviderInstance(activeProvider.value)
@@ -311,7 +322,6 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
                 await ingest(text, {
                   chatProvider: provider as ChatProvider,
                   model: activeModel.value,
-                  skipAssistant: !autoSendEnabled.value,
                   tools: options.tools,
                 })
                 if (messageInput.value.trim() === text.trim()) {
@@ -404,6 +414,8 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     isListening,
     trashConfirmOpen,
     sending,
+    isSpeaking,
+    canStop,
 
     handleFilePaste,
     handleFileSelect,

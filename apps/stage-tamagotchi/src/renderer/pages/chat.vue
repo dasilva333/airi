@@ -3,10 +3,13 @@ import type { LatestTurnUsage } from '@proj-airi/stage-ui/stores/modules/live-se
 import type { PacingMetrics } from '@proj-airi/stage-ui/types'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
+import { ChatOptionsPopover } from '@proj-airi/stage-layouts'
 import { resolveAtmosphereComponent } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
 import { ChatBrainPopover, ChatMemoryPopover, ChatSessionModal } from '@proj-airi/stage-ui/components'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
+import { useSandbox } from '@proj-airi/stage-ui/composables/use-sandbox'
+import { DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
@@ -22,8 +25,10 @@ import { computed, defineAsyncComponent, markRaw, nextTick, onMounted, onUnmount
 import LogoDark from '../../../../../packages/stage-layouts/src/assets/logo-dark.svg'
 import ChatNan0CognitionPanel from '../components/chat/ChatNan0CognitionPanel.vue'
 import ChatWorkspaceCoordinator from '../components/chat/ChatWorkspaceCoordinator.vue'
+import ChatWorkspaceTerminalPanel from '../components/chat/ChatWorkspaceTerminalPanel.vue'
+import ChatWorkspaceWidgetsPanel from '../components/chat/ChatWorkspaceWidgetsPanel.vue'
 
-import { electronApplySizePreset, electronOpenSettings, electronStageToggleVisibility } from '../../shared/eventa'
+import { electronApplySizePreset, electronOpenSettings, electronStageToggleVisibility, electronWindowSetTitle } from '../../shared/eventa'
 
 // Code-split workspace sub-surfaces to eliminate heavy initial bundle evaluation
 const chat_arcade = defineAsyncComponent(() => import('../components/chat/chat_arcade.vue'))
@@ -144,6 +149,17 @@ const mediaDisplayCount = ref(12)
 const rightPanelMemoriesCollapsed = useLocalStorage('airi:chat:rp-memories-collapsed', false)
 const rightPanelCurrentSceneCollapsed = useLocalStorage('airi:chat:rp-current-scene-collapsed', false)
 const rightPanelMediaCollapsed = useLocalStorage('airi:chat:rp-media-collapsed', false)
+const rightPanelTerminalCollapsed = useLocalStorage('airi:chat:rp-terminal-collapsed', false)
+const rightPanelWidgetsCollapsed = useLocalStorage('airi:chat:rp-widgets-collapsed', false)
+const { mountedWidgets } = useSandbox()
+const activeWidgetsCount = computed(() => mountedWidgets.value.length)
+
+watch(() => mountedWidgets.value.length, (newCount, oldCount) => {
+  if (newCount > (oldCount ?? 0)) {
+    rightPanelWidgetsCollapsed.value = false
+  }
+})
+
 const rightPanelNan0Collapsed = useLocalStorage('airi:chat:rp-nan0-collapsed', false)
 const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
 const rightPanelStageCollapsed = useLocalStorage('airi:chat:rp-stage-collapsed', true)
@@ -431,18 +447,23 @@ watch(activeCardId, () => {
 const chatOrchestrator = useChatOrchestratorStore()
 const { isUserTyping } = storeToRefs(chatOrchestrator)
 
+const reportWindowTitle = useElectronEventaInvoke(electronWindowSetTitle)
+
 watch(
   () => [activeSurface.value, isUserTyping.value] as const,
   ([surface, typing]) => {
+    let nextTitle = 'AIRI - Chat Window'
     if (surface === 'messages') {
-      document.title = typing
+      nextTitle = typing
         ? 'AIRI - Chat Window - User Typing...'
         : 'AIRI - Chat Window'
     }
     else {
       const label = SURFACE_LABELS[surface] || 'Chat View'
-      document.title = `AIRI - Chat Window - ${label}`
+      nextTitle = `AIRI - Chat Window - ${label}`
     }
+    document.title = nextTitle
+    void reportWindowTitle({ title: nextTitle })
   },
   { immediate: true },
 )
@@ -627,6 +648,36 @@ function handleToggleHeartbeats() {
   } as any)
 }
 
+const isAgentScreenshotAllowed = computed(() =>
+  Boolean(activeCard.value?.extensions?.airi?.generation?.known?.allowedTools?.includes('take_screenshot')),
+)
+
+function handleToggleAgentScreenshot() {
+  if (!activeCardId.value || !activeCard.value)
+    return
+  const generation = activeCard.value.extensions?.airi?.generation
+  // An unset allowlist means the default journal tools, same as the card editor's Tools tab.
+  const current = generation?.known?.allowedTools ?? ['text_journal', 'image_journal']
+  const allowedTools = isAgentScreenshotAllowed.value
+    ? current.filter(t => t !== 'take_screenshot')
+    : [...current, 'take_screenshot']
+  airiCardStore.updateCard(activeCardId.value, {
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...activeCard.value.extensions?.airi,
+        generation: {
+          ...generation,
+          known: {
+            ...generation?.known,
+            allowedTools,
+          },
+        },
+      },
+    },
+  } as any)
+}
+
 function handleToggleScreenWatching() {
   if (!activeCardId.value || !activeCard.value)
     return
@@ -651,6 +702,46 @@ function handleToggleScreenWatching() {
           enableVlm: false,
           ...activeCard.value.extensions?.airi?.screenWatching,
           enabled: !current,
+        },
+      },
+    },
+  } as any)
+}
+
+const isSandboxActive = computed(() => {
+  const allowed = activeCard.value?.extensions?.airi?.generation?.known?.allowedTools
+  if (allowed && allowed.includes('bash'))
+    return true
+  return activeCard.value?.extensions?.airi?.sandbox?.enabled ?? false
+})
+
+function handleToggleSandbox() {
+  if (!activeCardId.value || !activeCard.value)
+    return
+  const currentTools = activeCard.value.extensions?.airi?.generation?.known?.allowedTools
+    ?? ['text_journal', 'image_journal']
+  const currentlyActive = currentTools.includes('bash') || (activeCard.value.extensions?.airi?.sandbox?.enabled ?? false)
+  const nextActive = !currentlyActive
+  const nextTools = nextActive
+    ? (currentTools.includes('bash') ? currentTools : [...currentTools, 'bash'])
+    : currentTools.filter(t => t !== 'bash')
+
+  airiCardStore.updateCard(activeCardId.value, {
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...activeCard.value.extensions?.airi,
+        sandbox: {
+          ...activeCard.value.extensions?.airi?.sandbox,
+          enabled: nextActive,
+          widgetInstruction: activeCard.value.extensions?.airi?.sandbox?.widgetInstruction ?? DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
+        },
+        generation: {
+          ...activeCard.value.extensions?.airi?.generation,
+          known: {
+            ...activeCard.value.extensions?.airi?.generation?.known,
+            allowedTools: nextTools,
+          },
         },
       },
     },
@@ -1405,384 +1496,12 @@ function selectSurface(surface: typeof activeSurface.value) {
           <!-- Brain LLM Icon Button (opens downwards) -->
           <ChatBrainPopover side="bottom" />
 
-          <!-- Settings Ellipsis Menu (Send Mode + Grounding Modes) -->
-          <PopoverRoot v-model:open="isSettingsOpen">
-            <PopoverTrigger as-child>
-              <button
-                class="flex cursor-pointer items-center justify-center rounded-xl p-1.5 text-neutral-500 transition-all duration-200 ease-in-out hover:bg-neutral-200 dark:text-neutral-400 hover:text-neutral-700 hover:dark:bg-neutral-800 dark:hover:text-neutral-200"
-                title="Options"
-              >
-                <div class="i-solar:menu-dots-bold text-base" />
-              </button>
-            </PopoverTrigger>
-            <PopoverPortal>
-              <PopoverContent
-                class="animate-in fade-in slide-in-from-top-1 z-[10000] w-64 flex flex-col gap-1 border border-neutral-200/60 rounded-2xl bg-white/95 p-1.5 shadow-2xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
-                side="bottom"
-                align="end"
-                :side-offset="8"
-              >
-                <!-- Toggle: Heartbeats -->
-                <div
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleHeartbeats"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.heartbeats?.enabled
-                        ? 'text-primary-500 i-solar:heart-pulse-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:heart-pulse-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Heartbeats</span>
-                      <span class="text-[9px] text-neutral-400">Activates character periodically</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.heartbeats?.enabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.heartbeats?.enabled ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Toggle: Screen Watching -->
-                <div
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleScreenWatching"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.screenWatching?.enabled
-                        ? 'text-primary-500 i-solar:eye-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:eye-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Screen Watching</span>
-                      <span class="text-[9px] text-neutral-400">Visual event-driven commentary</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.screenWatching?.enabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.screenWatching?.enabled ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Toggle: Dreams -->
-                <div
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleDreamState"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="isDreamStateEnabled
-                        ? 'text-indigo-500 i-solar:sleeping-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:sleeping-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Dreams</span>
-                      <span class="text-[9px] text-neutral-400">Offline memory consolidation</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="isDreamStateEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="isDreamStateEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Toggle: Visual Novel (replaces Image Director) -->
-                <div
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleImageDirector"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.artistry?.autonomousEnabled
-                        ? 'text-primary-500 i-solar:gallery-wide-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:gallery-wide-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Visual Novel</span>
-                      <span class="text-[9px] text-neutral-400">Generates a new image for every turn</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.artistry?.autonomousEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.artistry?.autonomousEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Section: Image Spawn Mode -->
-                <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-                  Image Spawn Mode
-                </div>
-                <div class="mx-2 mb-1.5 flex gap-0.5 rounded-lg bg-neutral-100 p-0.5 dark:bg-neutral-900">
-                  <button
-                    v-for="mode in (['bg', 'widget', 'inline'] as const)"
-                    :key="mode"
-                    :class="[
-                      'flex-1 py-1 text-[10px] font-bold rounded-md transition-all text-center whitespace-nowrap',
-                      activeCard?.extensions?.airi?.artistry?.spawnMode === mode
-                        ? 'bg-white dark:bg-neutral-800 text-primary-600 dark:text-primary-400 shadow-sm'
-                        : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-                    ]"
-                    @click="handleSetSpawnMode(mode)"
-                  >
-                    {{ mode === 'bg' ? 'Background' : mode === 'widget' ? 'Widget' : 'Inline' }}
-                  </button>
-                </div>
-
-                <!-- Section: Chat Layout -->
-                <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-                  Chat Layout
-                </div>
-                <div class="mx-2 mb-1.5 flex border border-neutral-200/20 rounded-lg bg-neutral-100 p-0.5 divide-x divide-neutral-200/50 dark:border-neutral-800/30 dark:bg-neutral-900 dark:divide-neutral-800/80">
-                  <button
-                    v-for="preset in (['mini', 'medium', 'large', 'full'] as const)"
-                    :key="preset"
-                    class="flex-1 cursor-pointer rounded-md py-1 text-center text-[10px] text-neutral-600 font-bold transition-all active:scale-95 hover:bg-white/45 dark:text-neutral-400 hover:text-sky-500 dark:hover:bg-neutral-800/40 dark:hover:text-sky-400"
-                    @click="handleApplyChatPreset(preset)"
-                  >
-                    {{ preset === 'medium' ? 'Med.' : preset.charAt(0).toUpperCase() + preset.slice(1) }}
-                  </button>
-                </div>
-
-                <!-- Section: Context Injections -->
-                <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-                  Context Injections
-                </div>
-
-                <!-- Toggle: System Sensors -->
-                <div
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleGrounding"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.groundingEnabled
-                        ? 'text-amber-500 i-solar:cpu-bolt-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:cpu-bold-duotone'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">System Sensors</span>
-                      <span class="text-[9px] text-neutral-400">Inject real-time OS telemetry</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.groundingEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.groundingEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Toggle: Universe Memory (RAG) -->
-                <div
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleGroundingMemory"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.groundingMemoryEnabled
-                        ? 'text-amber-500 i-solar:database-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:database-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Universe Memory (RAG)</span>
-                      <span class="text-[9px] text-neutral-400">Semantic long-term memory lookup</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.groundingMemoryEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.groundingMemoryEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Toggle: Visual Scene State -->
-                <div
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleGroundingDirectorScratchpad"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled
-                        ? 'text-amber-500 i-solar:gallery-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:gallery-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Visual Scene State</span>
-                      <span class="text-[9px] text-neutral-400">Attach Director's latest scratchpad</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Toggle: Salience Gating (RWKV 0.1B) -->
-                <!-- Salience Gating: Hidden for release stability -->
-                <div
-                  v-if="false"
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleSalienceGate"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.salienceGateEnabled
-                        ? 'text-amber-500 i-solar:pulse-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:pulse-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Salience Gating (RWKV)</span>
-                      <span class="text-[9px] text-neutral-400">Flag high-intensity turns for grounding</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.salienceGateEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.salienceGateEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Section Divider for Intrusions -->
-                <div class="mx-2 my-1 border-t border-neutral-200/20 dark:border-neutral-800/40" />
-
-                <!-- Toggle: Dream Intrusion -->
-                <div
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  :class="[!isDreamStateEnabled ? 'opacity-50 pointer-events-none' : '']"
-                  @click="handleToggleDreamIntrusion"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.dreamState?.injectDreamContext && isDreamStateEnabled
-                        ? 'text-indigo-500 i-solar:sleeping-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:sleeping-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Dream Intrusion</span>
-                      <span class="text-[9px] text-neutral-400">
-                        Inject offline consolidated dreams
-                        <span v-if="!isDreamStateEnabled" class="text-red-500 font-semibold dark:text-red-400"> (Requires Dreams)</span>
-                      </span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.dreamState?.injectDreamContext && isDreamStateEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.dreamState?.injectDreamContext && isDreamStateEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Toggle: Journal Intrusion -->
-                <div
-                  v-if="hasTextJournal"
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleJournalIntrusion"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.textJournal?.injectJournalContext
-                        ? 'text-cyan-500 i-solar:notebook-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:notebook-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Journal Intrusion</span>
-                      <span class="text-[9px] text-neutral-400">Reference latest journal entry</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.textJournal?.injectJournalContext ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.textJournal?.injectJournalContext ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Toggle: Artistry Intrusion -->
-                <div
-                  v-if="hasImageJournal"
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleArtistryIntrusion"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.artistry?.injectArtistryContext
-                        ? 'text-pink-500 i-solar:gallery-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:gallery-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Artistry Intrusion</span>
-                      <span class="text-[9px] text-neutral-400">Reference latest image creations</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.artistry?.injectArtistryContext ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.artistry?.injectArtistryContext ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-              </PopoverContent>
-            </PopoverPortal>
-          </PopoverRoot>
+          <!-- Settings Options Menu (Hierarchical Drill-Down Popover) -->
+          <ChatOptionsPopover
+            trigger-variant="dots"
+            :show-chat-layout="true"
+            :on-apply-chat-preset="handleApplyChatPreset"
+          />
 
           <!-- Right Context Panel Toggle (md+) -->
           <button
@@ -2199,6 +1918,55 @@ function selectSurface(surface: typeof activeSurface.value) {
                     View More
                     <span class="i-solar:alt-arrow-down-bold text-[8px]" />
                   </button>
+                </div>
+              </div>
+
+              <!-- Generative Widgets Section -->
+              <div v-if="isSandboxActive" class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <span
+                    :class="['flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase transition-colors',
+                             rightPanelWidgetsCollapsed
+                               ? 'bg-neutral-100/50 text-neutral-400 dark:bg-neutral-800/50'
+                               : 'bg-primary-50/50 text-primary-500 dark:bg-primary-950/30 dark:text-primary-400']"
+                    @click="rightPanelWidgetsCollapsed = !rightPanelWidgetsCollapsed"
+                  >
+                    <span class="i-solar:widget-5-bold-duotone text-xs" />
+                    Generative Widgets
+                    <span v-if="activeWidgetsCount > 0" class="rounded-full bg-primary-500/20 px-1.5 py-0.2 text-[9px] text-primary-400 font-bold font-mono">
+                      {{ activeWidgetsCount }}
+                    </span>
+                    <span :class="rightPanelWidgetsCollapsed ? 'i-solar:eye-closed-linear' : 'i-solar:eye-linear'" class="text-xs" />
+                  </span>
+                  <span class="text-[9px] text-neutral-400 font-mono uppercase">
+                    Sidepanel UI
+                  </span>
+                </div>
+                <div v-if="!rightPanelWidgetsCollapsed">
+                  <ChatWorkspaceWidgetsPanel />
+                </div>
+              </div>
+
+              <!-- Workspace / Terminal Section -->
+              <div v-if="isSandboxActive" class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <span
+                    :class="['flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase transition-colors',
+                             rightPanelTerminalCollapsed
+                               ? 'bg-neutral-100/50 text-neutral-400 dark:bg-neutral-800/50'
+                               : 'bg-primary-50/50 text-primary-500 dark:bg-primary-950/30 dark:text-primary-400']"
+                    @click="rightPanelTerminalCollapsed = !rightPanelTerminalCollapsed"
+                  >
+                    <span class="i-solar:terminal-bold-duotone text-xs" />
+                    Virtual Terminal
+                    <span :class="rightPanelTerminalCollapsed ? 'i-solar:eye-closed-linear' : 'i-solar:eye-linear'" class="text-xs" />
+                  </span>
+                  <span class="text-[9px] text-neutral-400 font-mono uppercase">
+                    /workspace
+                  </span>
+                </div>
+                <div v-if="!rightPanelTerminalCollapsed">
+                  <ChatWorkspaceTerminalPanel />
                 </div>
               </div>
             </div>

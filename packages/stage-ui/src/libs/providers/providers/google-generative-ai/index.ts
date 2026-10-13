@@ -64,14 +64,31 @@ const googleFetch: typeof fetch = async (input, init) => {
       if (line.startsWith('data: ') && line !== 'data: [DONE]') {
         try {
           const data = JSON.parse(line.slice(6))
-          const toolCalls = data.choices?.[0]?.delta?.tool_calls
-          if (toolCalls) {
-            for (let i = 0; i < toolCalls.length; i++) {
-              if (toolCalls[i].index === undefined)
-                toolCalls[i].index = i
-              if (toolCalls[i].type === undefined)
-                toolCalls[i].type = 'function'
+          let modified = false
+
+          if (data.choices?.[0]) {
+            if (!data.choices[0].delta) {
+              data.choices[0].delta = {}
+              modified = true
             }
+
+            const toolCalls = data.choices[0].delta.tool_calls
+            if (toolCalls) {
+              for (let i = 0; i < toolCalls.length; i++) {
+                if (toolCalls[i].index === undefined) {
+                  toolCalls[i].index = i
+                  modified = true
+                }
+                if (toolCalls[i].type === undefined) {
+                  toolCalls[i].type = 'function'
+                  modified = true
+                }
+              }
+              modified = true
+            }
+          }
+
+          if (modified) {
             return `data: ${JSON.stringify(data)}`
           }
         }

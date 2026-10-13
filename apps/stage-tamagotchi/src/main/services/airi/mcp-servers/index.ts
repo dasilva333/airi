@@ -117,7 +117,38 @@ const mcpTestStderrMaxChars = 16_000
 
 function stringifyError(error: unknown) {
   if (error instanceof Error) {
-    return error.message
+    // NOTICE: undici fetch failures surface as `TypeError: fetch failed` with the
+    // real reason (e.g. ENOTFOUND, ECONNREFUSED, TLS) nested in `cause`. Walk the
+    // chain so the settings UI shows actionable detail instead of a bare message.
+    const parts: string[] = [error.message || String(error)]
+    const seen = new Set<unknown>([error])
+    let cause = (error as { cause?: unknown }).cause
+    while (cause && !seen.has(cause)) {
+      seen.add(cause)
+      if (cause instanceof Error) {
+        if (cause.message && !parts.includes(cause.message))
+          parts.push(cause.message)
+        cause = (cause as { cause?: unknown }).cause
+      }
+      else if (typeof cause === 'string') {
+        if (!parts.includes(cause))
+          parts.push(cause)
+        break
+      }
+      else {
+        try {
+          parts.push(JSON.stringify(cause))
+        }
+        catch {
+          parts.push(String(cause))
+        }
+        break
+      }
+    }
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string' && !parts.join(' ').includes(code))
+      parts.push(`(code: ${code})`)
+    return parts.join('\nCaused by: ')
   }
 
   return String(error)
@@ -523,6 +554,12 @@ export function createMcpStdioManager(): McpStdioManager {
     }
     catch (error) {
       const message = stringifyError(error)
+      // NOTICE: test runs in the Electron main process, so it never appears in
+      // the renderer Network tab. Log the full error (with stack) to main logs.
+      log.withFields({
+        serverName: payload.name,
+        target: isHttpServerConfig(payload.config) ? payload.config.url : payload.config.command,
+      }).withError(error).error('mcp test connection failed')
       // Keep only the tail so a noisy failed server cannot flood the settings UI.
       const stderr = stderrChunks.join('').trim().slice(-mcpTestStderrMaxChars)
       return {

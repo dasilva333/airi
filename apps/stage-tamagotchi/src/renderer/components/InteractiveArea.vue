@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ChatComposerDraftMessage } from '@proj-airi/stage-ui/stores/chat/composer-draft-bridge'
 import type { ChatSendMode, ChatSuggestMode } from '@proj-airi/stage-ui/stores/settings'
 import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 
@@ -18,6 +19,7 @@ import {
 import { useProducer } from '@proj-airi/stage-ui/composables'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
+import { appendDraftText, CHAT_COMPOSER_DRAFT_CHANNEL, CHAT_COMPOSER_DRAFT_STORAGE_KEY } from '@proj-airi/stage-ui/stores/chat/composer-draft-bridge'
 import { useChatMaintenanceStore } from '@proj-airi/stage-ui/stores/chat/maintenance'
 import { useChatSalienceStore } from '@proj-airi/stage-ui/stores/chat/salience'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
@@ -34,7 +36,7 @@ import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
 import { BasicTextarea, Button } from '@proj-airi/ui'
-import { useLocalStorage, watchDebounced } from '@vueuse/core'
+import { useBroadcastChannel, useLocalStorage, watchDebounced } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, PopoverAnchor, PopoverContent, PopoverPortal, PopoverRoot } from 'reka-ui'
 import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
@@ -867,6 +869,17 @@ watch(messageInput, (newVal) => {
   }
 })
 
+// Voice transcriptions arrive here from the stage window when auto-send is off.
+const { data: composerDraftMessage, post: postComposerDraftMessage } = useBroadcastChannel<ChatComposerDraftMessage, ChatComposerDraftMessage>({ name: CHAT_COMPOSER_DRAFT_CHANNEL })
+
+watch(composerDraftMessage, (message) => {
+  if (message?.type !== 'append')
+    return
+  messageInput.value = appendDraftText(messageInput.value, message.text)
+  localStorage.setItem(CHAT_COMPOSER_DRAFT_STORAGE_KEY, messageInput.value)
+  postComposerDraftMessage({ type: 'ack', id: message.id })
+})
+
 // --- Semantic Search Modal State & Handlers ---
 const isSearchModalOpen = ref(false)
 const modalSearchTerm = ref('')
@@ -1208,7 +1221,7 @@ defineExpose({
       <div class="z-10 flex select-none items-center justify-between">
         <div class="flex flex-wrap items-center gap-2">
           <span class="i-solar:cpu-bolt-bold-duotone animate-pulse text-amber-500" />
-          <span class="text-[10px] text-amber-800 font-bold tracking-widest uppercase dark:text-amber-300">Pre-Flight Grounding Active</span>
+          <span class="text-[10px] text-amber-800 font-bold tracking-widest uppercase hidden min-[456px]:inline dark:text-amber-300">Pre-Flight Grounding Active</span>
 
           <!-- Quick Status Badges -->
           <span v-if="activeCard?.extensions?.airi?.groundingEnabled" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Sensors Active</span>

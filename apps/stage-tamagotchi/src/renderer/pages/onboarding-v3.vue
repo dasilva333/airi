@@ -3,15 +3,17 @@ import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { OnboardingV3 } from '@proj-airi/stage-ui/components'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { useTheme } from '@proj-airi/ui'
-import { computed, onMounted } from 'vue'
+import { computed, watchEffect } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { electronOnboardingClose, electronOpenChat, electronStageToggleVisibility } from '../../shared/eventa'
 
+const { t } = useI18n()
 const { isDark } = useTheme()
 const onboardingStore = useOnboardingStore()
 
-onMounted(() => {
-  document.title = 'AIRI - Companion Wizard'
+watchEffect(() => {
+  document.title = t('onboarding.shell.brand')
 })
 
 const bgClass = computed(() => isDark.value ? 'bg-[#0a0a12]' : 'bg-slate-50')

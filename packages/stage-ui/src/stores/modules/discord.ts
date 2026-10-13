@@ -1211,7 +1211,7 @@ export const useDiscordStore = defineStore('discord', () => {
       }
       else if (payload.commandName === 'timelines') {
         const renderTimelinesWidget = async (interactionId: string, page: number) => {
-          const characterId = airiCard.activeCardId || 'default'
+          const characterId = airiCard.activeCardId || 'relu'
           const characterName = airiCard.activeCard?.name || 'Active Character'
           const characterIndex = chatSession.index?.characters?.[characterId]
           const sessions = characterIndex?.sessions || {}
@@ -1302,7 +1302,7 @@ export const useDiscordStore = defineStore('discord', () => {
           })
         }
 
-        const characterId = airiCard.activeCardId || 'default'
+        const characterId = airiCard.activeCardId || 'relu'
         const characterName = airiCard.activeCard?.name || 'Active Character'
         const targetId = payload.options.id?.toString().trim()
 
@@ -1334,7 +1334,7 @@ export const useDiscordStore = defineStore('discord', () => {
       else if (payload.commandName === 'button:timelines') {
         const action = payload.options.action
         const targetId = payload.options.id
-        const characterId = airiCard.activeCardId || 'default'
+        const characterId = airiCard.activeCardId || 'relu'
 
         const characterIndex = chatSession.index?.characters?.[characterId]
         const sessions = characterIndex?.sessions || {}

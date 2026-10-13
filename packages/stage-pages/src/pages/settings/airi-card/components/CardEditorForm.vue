@@ -21,6 +21,7 @@ import {
   DEFAULT_HEARTBEATS_PROMPT,
   DEFAULT_JOURNAL_INTRUSION_PROMPT,
   DEFAULT_POST_HISTORY_INSTRUCTIONS,
+  DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
   DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION,
 } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
@@ -221,7 +222,7 @@ const triggerOverrides = ref<Record<string, { enabled: boolean }>>({})
 // Cognition - Memory State (Universe RAG++)
 const universeRagGroundingEnabled = ref<boolean>(true)
 const precisionRerankerEnabled = ref<boolean>(true)
-const selectedRerankerProvider = ref<'laya-local' | 'typesafe-ai' | 'openrouter-ai'>('laya-local')
+const selectedRerankerProvider = ref<'laya-local' | 'typesafe-ai' | 'openrouter-ai' | 'opencode-go'>('laya-local')
 const system2EscalationEnabled = ref<boolean>(true)
 const deepMemoryReasoningModel = ref<string>('inherit')
 const evidenceLimit = ref<number>(4)
@@ -255,6 +256,8 @@ const generationReasoningFallback = ref<boolean>(true)
 const compactionStrategy = ref<string>('none')
 const compactionMinKeepTurns = ref<number | undefined>(15)
 const generationAllowedTools = ref<string[] | undefined>(undefined)
+const generationMaxToolSteps = ref<number | undefined>(undefined)
+const generationPreserveToolHistory = ref<boolean>(false)
 const selectedActingModelExpressionPrompt = ref<string>('')
 const selectedActingSpeechExpressionPrompt = ref<string>('')
 const selectedActingSpeechMannerismPrompt = ref<string>('')
@@ -287,6 +290,7 @@ const pacingExperimentalOrganicPivots = ref<boolean>(false)
 
 // Placeholder state variables for Tools tab
 const selectedTextJournalInstruction = ref<string>('')
+const selectedSandboxInstruction = ref<string>('')
 const selectedInjectDreamContext = ref<boolean>(false)
 const selectedInjectJournalContext = ref<boolean>(false)
 const selectedInjectArtistryContext = ref<boolean>(false)
@@ -452,7 +456,7 @@ const DEFAULT_SENTINEL_QUESTIONS: SentinelQuestionItem[] = [
 ]
 
 const screenWatchingGatingMode = ref<'trigger_tags' | 'system1_sentinel'>('trigger_tags')
-const screenWatchingSentinelProvider = ref<'laya-local' | 'typesafe-ai' | 'openrouter-ai'>('laya-local')
+const screenWatchingSentinelProvider = ref<'laya-local' | 'typesafe-ai' | 'openrouter-ai' | 'opencode-go'>('laya-local')
 const screenWatchingSentinelQuestions = ref<SentinelQuestionItem[]>(JSON.parse(JSON.stringify(DEFAULT_SENTINEL_QUESTIONS)))
 const screenWatchingSentinelPolicy = ref<'any' | 'all'>('any')
 const screenWatchingSentinelThreshold = ref<number>(0.75)
@@ -1013,6 +1017,8 @@ async function saveCard(card: Card): Promise<boolean> {
     contextWidth: normalizeOptionalNumber(generationContextWidth.value),
     reasoningFallback: generationReasoningFallback.value,
     allowedTools: toRaw(generationAllowedTools.value),
+    maxToolSteps: normalizeOptionalNumber(generationMaxToolSteps.value),
+    preserveToolHistory: generationPreserveToolHistory.value,
   }
   let generationAdvanced: Record<string, any> | undefined
 
@@ -1272,6 +1278,10 @@ async function saveCard(card: Card): Promise<boolean> {
     journalIntrusionPrompt: selectedJournalIntrusionPrompt.value,
   }
 
+  cardWithModules.extensions.airi.sandbox = {
+    widgetInstruction: selectedSandboxInstruction.value,
+  }
+
   console.log('[CardCreationDialog] 📊 DUMPING SAVED CHARACTER PROFILE GRAPH:', {
     isEditMode: isEditMode.value,
     cardId: props.cardId,
@@ -1384,6 +1394,8 @@ function initializeCard(): Card {
     generationContextWidth.value = normalizeOptionalNumber(airiExt?.generation?.known?.contextWidth)
     generationReasoningFallback.value = airiExt?.generation?.known?.reasoningFallback ?? true
     generationAllowedTools.value = airiExt?.generation?.known?.allowedTools
+    generationMaxToolSteps.value = normalizeOptionalNumber(airiExt?.generation?.known?.maxToolSteps)
+    generationPreserveToolHistory.value = airiExt?.generation?.known?.preserveToolHistory ?? false
     generationAdvancedJson.value = airiExt?.generation?.advanced ? JSON.stringify(airiExt.generation.advanced, null, 2) : '{\n  \n}'
     selectedActingModelExpressionPrompt.value = airiExt?.acting?.modelExpressionPrompt ?? DEFAULT_ACTING_MODEL_PROMPT
     selectedActingSpeechExpressionPrompt.value = airiExt?.acting?.speechExpressionPrompt ?? DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT
@@ -1509,6 +1521,7 @@ function initializeCard(): Card {
     selectedInjectArtistryContext.value = airiExt?.artistry?.injectArtistryContext ?? false
     selectedArtistryIntrusionPrompt.value = airiExt?.artistry?.artistryIntrusionPrompt ?? DEFAULT_ARTISTRY_INTRUSION_PROMPT
     selectedTextJournalInstruction.value = airiExt?.textJournal?.widgetInstruction ?? DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION
+    selectedSandboxInstruction.value = airiExt?.sandbox?.widgetInstruction ?? DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION
 
     loadActingSpeechCapabilities(selectedSpeechProvider.value || speechProvider.value)
 
@@ -1546,12 +1559,14 @@ function initializeCard(): Card {
 
 const card = ref<Card>(initializeCard())
 
-// Reinitialize when cardId changes
-watch(() => props.cardId, async () => {
-  if (cardsLoading.value) {
-    await until(cardsLoading).toBe(false)
+// Reinitialize when cardId changes or when cards finish loading
+watch([() => props.cardId, cardsLoading], async ([newCardId, loading]) => {
+  if (loading) {
+    return
   }
-  card.value = initializeCard()
+  if (isEditMode.value && newCardId) {
+    card.value = initializeCard()
+  }
 })
 
 function makeComputed<T extends keyof Card>(
@@ -2117,8 +2132,11 @@ function handleGeneratorSave(newValue: string) {
       <CardCreationTabTools
         v-else-if="activeTab === 'tools'"
         v-model:selected-allowed-tools="generationAllowedTools"
+        v-model:selected-max-tool-steps="generationMaxToolSteps"
+        v-model:selected-preserve-tool-history="generationPreserveToolHistory"
         v-model:selected-image-journal-instruction="selectedArtistryWidgetInstruction"
         v-model:selected-text-journal-instruction="selectedTextJournalInstruction"
+        v-model:selected-sandbox-instruction="selectedSandboxInstruction"
         v-model:selected-inject-dream-context="selectedInjectDreamContext"
         v-model:selected-inject-journal-context="selectedInjectJournalContext"
         v-model:selected-inject-artistry-context="selectedInjectArtistryContext"

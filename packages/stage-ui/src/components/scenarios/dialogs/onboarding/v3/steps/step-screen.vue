@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button } from '@proj-airi/ui'
-import { onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useOnboardingV3Draft } from '../stores/useOnboardingV3Draft'
@@ -19,7 +19,7 @@ const screenWatcherEnabled = ref<boolean>(draft.state.screenWatcherEnabled !== f
 const screenWatcherMode = ref<'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'>(
   draft.state.screenWatcherMode || 'voice-and-bubble',
 )
-const screenWatcherTier = ref<'lightweight' | 'moondream'>(
+const screenWatcherTier = ref<'lightweight' | 'moondream' | 'external'>(
   draft.state.screenWatcherTier || 'lightweight',
 )
 const screenWatcherInterval = ref<number>(
@@ -27,65 +27,65 @@ const screenWatcherInterval = ref<number>(
 )
 
 // --- Reaction Delivery Modes Catalog ---
-const reactionModes = [
+const reactionModes = computed(() => [
   {
     id: 'voice-and-bubble' as const,
-    title: 'Voice & Bubble',
-    badge: 'Full Immersion',
+    title: t('onboarding.steps.screen.reactionModes.voice-and-bubble.title'),
+    badge: t('onboarding.steps.screen.reactionModes.voice-and-bubble.badge'),
     badgeColor: 'bg-primary-500/10 text-primary-500 border-primary-500/20',
-    desc: 'Companion speaks out loud with floating speech bubbles on screen.',
+    desc: t('onboarding.steps.screen.reactionModes.voice-and-bubble.desc'),
     icon: 'i-solar:chat-round-line-bold',
   },
   {
     id: 'bubble-only' as const,
-    title: 'Bubble Only',
-    badge: 'Silent Subtitles',
+    title: t('onboarding.steps.screen.reactionModes.bubble-only.title'),
+    badge: t('onboarding.steps.screen.reactionModes.bubble-only.badge'),
     badgeColor: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-    desc: 'Floating subtitles without audio interruptions. Ideal for gaming or streaming.',
+    desc: t('onboarding.steps.screen.reactionModes.bubble-only.desc'),
     icon: 'i-solar:chat-square-bold-duotone',
   },
   {
     id: 'voice-only' as const,
-    title: 'Voice Only',
-    badge: 'Audio Commentary',
+    title: t('onboarding.steps.screen.reactionModes.voice-only.title'),
+    badge: t('onboarding.steps.screen.reactionModes.voice-only.badge'),
     badgeColor: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
-    desc: 'Audio commentary without any floating visual bubbles overlay.',
+    desc: t('onboarding.steps.screen.reactionModes.voice-only.desc'),
     icon: 'i-solar:soundwave-bold-duotone',
   },
   {
     id: 'muted' as const,
-    title: 'Silent Telemetry',
-    badge: 'Log & Ledger',
+    title: t('onboarding.steps.screen.reactionModes.muted.title'),
+    badge: t('onboarding.steps.screen.reactionModes.muted.badge'),
     badgeColor: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-    desc: 'Telemetry observations recorded silently to context and event ledger.',
+    desc: t('onboarding.steps.screen.reactionModes.muted.desc'),
     icon: 'i-solar:eye-bold-duotone',
   },
-]
+])
 
 // --- Vision Analysis Tiers ---
-const visionTiers = [
+const visionTiers = computed(() => [
   {
     id: 'lightweight' as const,
-    title: 'Lightweight OCR & Frame Diff',
-    vram: '0 MB VRAM',
-    desc: 'Instant local WASM OCR + perceptual pHash gating. Ultra-fast with zero cloud API costs.',
+    title: t('onboarding.steps.screen.visionTiers.lightweight.title'),
+    vram: t('onboarding.steps.screen.visionTiers.lightweight.vram'),
+    desc: t('onboarding.steps.screen.visionTiers.lightweight.desc'),
     icon: 'i-solar:shield-check-bold-duotone',
   },
   {
     id: 'moondream' as const,
-    title: 'Moondream2 VLM',
-    vram: '~700 MB WebGPU',
-    desc: 'Local vision language model. Synthesizes 1-sentence contextual scene descriptions for promoted events.',
+    title: t('onboarding.steps.screen.visionTiers.moondream.title'),
+    vram: t('onboarding.steps.screen.visionTiers.moondream.vram'),
+    desc: t('onboarding.steps.screen.visionTiers.moondream.desc'),
     icon: 'i-solar:magic-stick-3-bold-duotone',
   },
-]
+])
 
 // --- Interval Presets ---
 const screenIntervalPresets = [
-  { label: '1s (High)', value: 1000 },
-  { label: '2s (Balanced)', value: 2000 },
-  { label: '5s (Gentle)', value: 5000 },
-  { label: '10s (Eco)', value: 10000 },
+  { label: '1s (High)', labelKey: 'onboarding.steps.screen.screenIntervalPresets.1000.label', value: 1000 },
+  { label: '2s (Balanced)', labelKey: 'onboarding.steps.screen.screenIntervalPresets.2000.label', value: 2000 },
+  { label: '5s (Gentle)', labelKey: 'onboarding.steps.screen.screenIntervalPresets.5000.label', value: 5000 },
+  { label: '10s (Eco)', labelKey: 'onboarding.steps.screen.screenIntervalPresets.10000.label', value: 10000 },
 ]
 
 function syncDraft() {
@@ -136,7 +136,7 @@ onBeforeUnmount(() => {
           ]"
         >
           <span :class="['w-1.5 h-1.5 rounded-full', screenWatcherEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400']" />
-          <span>{{ screenWatcherEnabled ? 'SCREEN WATCHING ACTIVE' : 'WATCHER PAUSED' }}</span>
+          <span>{{ screenWatcherEnabled ? t('onboarding.steps.screen.screenWatchingActive') : t('onboarding.steps.screen.watcherPaused') }}</span>
         </span>
       </div>
     </div>
@@ -151,14 +151,14 @@ onBeforeUnmount(() => {
           <div>
             <div :class="['flex items-center gap-2']">
               <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
-                Screen Perception (Visual Push)
+                {{ t('onboarding.steps.screen.screenPerceptionVisualPush') }}
               </h3>
               <span :class="['text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20']">
-                EVENT-DRIVEN PUSH
+                {{ t('onboarding.steps.screen.eventDrivenPush') }}
               </span>
             </div>
             <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed']">
-              Enable background desktop frame captures. Promotes significant visual differences to proactive commentary.
+              {{ t('onboarding.steps.screen.enableBackgroundDesktopFrameCapturesPromotesSignificantVisualDifferenc') }}
             </p>
           </div>
         </div>
@@ -186,8 +186,8 @@ onBeforeUnmount(() => {
         <!-- Reaction Delivery Modes -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5']">
-            <span>Reaction Delivery Mode</span>
-            <span :class="['text-[10px] font-normal text-neutral-400']">(How reactions are presented)</span>
+            <span>{{ t('onboarding.steps.screen.reactionDeliveryMode') }}</span>
+            <span :class="['text-[10px] font-normal text-neutral-400']">{{ t('onboarding.steps.screen.howReactionsArePresented') }}</span>
           </label>
           <div :class="['grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5']">
             <button
@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
         <!-- Vision Analysis Tiers -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-            Perception Engine Tier
+            {{ t('onboarding.steps.screen.perceptionEngineTier') }}
           </label>
           <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-2.5']">
             <button
@@ -259,7 +259,7 @@ onBeforeUnmount(() => {
         <!-- Capture Cadence Presets -->
         <div :class="['flex flex-col gap-2']">
           <label :class="['text-xs font-semibold text-neutral-800 dark:text-neutral-200']">
-            Screen Sampling Cadence
+            {{ t('onboarding.steps.screen.screenSamplingCadence') }}
           </label>
           <div :class="['grid grid-cols-2 sm:grid-cols-4 gap-2']">
             <button
@@ -274,7 +274,7 @@ onBeforeUnmount(() => {
               ]"
               @click="screenWatcherInterval = preset.value; syncDraft()"
             >
-              {{ preset.label }}
+              {{ 'labelKey' in preset && preset.labelKey ? t(preset.labelKey) : preset.label }}
             </button>
           </div>
         </div>
@@ -293,7 +293,7 @@ onBeforeUnmount(() => {
       </button>
 
       <div :class="['text-[11px] text-neutral-400 font-medium']">
-        Status: <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ screenWatcherEnabled ? 'Enabled' : 'Paused' }}</span>
+        {{ t('onboarding.steps.screen.status') }} <span :class="['text-neutral-700 dark:text-neutral-200 font-semibold']">{{ screenWatcherEnabled ? t('onboarding.steps.screen.enabled') : t('onboarding.steps.screen.paused') }}</span>
         <span v-if="screenWatcherEnabled" :class="['text-sky-500 ml-1 font-bold']">({{ screenWatcherTier }})</span>
       </div>
 

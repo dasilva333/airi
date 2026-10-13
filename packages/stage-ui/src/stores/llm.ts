@@ -8,6 +8,7 @@ import { streamText } from '@xsai/stream-text'
 import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 
+import { withToolResultImageSupport } from '../libs/providers/tool-result-images'
 import { sanitizeTools } from '../libs/providers/tool-schema'
 import { useAiriCardStore } from './modules/airi-card'
 import { useSettingsChat } from './settings/chat'
@@ -34,6 +35,7 @@ export interface StreamOptions {
   max_tokens?: number
   contextWidth?: number
   vision?: boolean
+  maxSteps?: number
   requestOverrides?: Record<string, unknown>
 }
 
@@ -251,11 +253,11 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
   const allowedTools = activeCard?.extensions?.airi?.generation?.known?.allowedTools
 
   // Default to allowing text_journal and image_journal only if allowedTools is not specifically set.
-  // Advanced tools (generate_motion, mcp, web_search, filesystem) are strictly opt-in.
+  // Advanced tools (generate_motion, mcp, web_search, filesystem, bash, take_screenshot) are strictly opt-in.
   if (!allowedTools) {
     return tools.filter((t: any) => {
       const name = t.function?.name || t.name || ''
-      return !name.includes('generate_motion') && !name.includes('mcp')
+      return !name.includes('generate_motion') && !name.includes('mcp') && !name.includes('bash') && name !== 'take_screenshot'
     })
   }
 
@@ -267,6 +269,9 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
     if (name.includes('image_journal')) {
       return allowedTools.includes('image_journal')
     }
+    if (name.includes('bash')) {
+      return allowedTools.includes('bash') || allowedTools.includes('mcp_bash')
+    }
     if (name.includes('mcp_') || name.startsWith('mcp')) {
       return allowedTools.includes('mcp')
         || allowedTools.includes('web_search')
@@ -276,6 +281,9 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
     }
     if (name.includes('generate_motion')) {
       return allowedTools.includes('generate_motion')
+    }
+    if (name === 'take_screenshot') {
+      return allowedTools.includes('take_screenshot')
     }
     // Allow other custom/unmapped tools by default
     return true
@@ -355,7 +363,8 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         streamOptions: {
           includeUsage: true,
         },
-        maxSteps: 10,
+        maxSteps: options?.maxSteps ?? 20,
+        fetch: withToolResultImageSupport(chatConfig.fetch),
         messages: sanitized,
         headers: {
           ...(chatConfig.headers as Record<string, string> | undefined),
@@ -446,7 +455,8 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
   return await generateText({
     ...chatConfig,
     ...requestOverrides,
-    maxSteps: 10,
+    maxSteps: options?.maxSteps ?? 20,
+    fetch: withToolResultImageSupport(chatConfig.fetch),
     messages: sanitized,
     headers: {
       ...(chatConfig.headers as Record<string, string> | undefined),

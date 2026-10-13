@@ -1,7 +1,7 @@
 {
   "name": "@proj-airi/root",
   "type": "module",
-  "version": "0.9.37-stable.20261008",
+  "version": "0.9.38-stable.20261012",
   "private": true,
   "packageManager": "pnpm@10.32.1",
   "description": "LLM powered virtual character",
@@ -70,7 +70,7 @@
     "build:pocket:ios": "pnpm -F @proj-airi/stage-pocket run build:ios",
     "build:pocket:ipa": "pnpm -F @proj-airi/stage-pocket run build:ipa",
     "to-avif": "tsx docs/scripts/avif.ts",
-    "typecheck": "pnpm -rF=\"./packages/*\" -F=\"./apps/*\" -F=\"./docs\" --parallel typecheck",
+    "typecheck": "pnpm -rF=\"./packages/*\" -F=\"./apps/*\" -F=\"./docs\" --workspace-concurrency=4 typecheck",
     "up": "taze -w -r -I && pnpm prune && pnpm dedupe",
     "nolyfill": "pnpm dlx nolyfill",
     "open:ios": "pnpm -rF @proj-airi/stage-pocket run open:ios",

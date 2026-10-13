@@ -32,7 +32,7 @@ const characterSessions = computed(() => {
     indexedList.unshift({
       sessionId: currentId,
       userId: 'local',
-      characterId: cardId || 'default',
+      characterId: cardId || 'relu',
       title: meta?.title || 'Main Timeline',
       messageCount: messages.value.length || meta?.messageCount || 0,
       createdAt: meta?.createdAt || Date.now(),
@@ -46,7 +46,7 @@ const characterSessions = computed(() => {
     return [{
       sessionId: currentId || 'default-session',
       userId: 'local',
-      characterId: cardId || 'default',
+      characterId: cardId || 'relu',
       title: 'Main Timeline',
       messageCount: messages.value.length || 0,
       createdAt: Date.now(),

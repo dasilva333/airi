@@ -937,4 +937,42 @@ Following external peer review, we evaluated the refined 80-choice observable sc
 
 **Conclusion**: The 80-choice V2 schema provides observable communicative definitions and nuanced distractor attractors while maintaining **100.0% accuracy** and a fast **~430–450 ms response time**. Full trace recorded at `reports/nan0-cleanroom/nan0-v1-vs-v2-shootout-trace.json`.
 
+---
+
+## 8. Expanded Subsystem Integration Roadmap (Community Discoveries)
+
+Following architectural surveys of high-utility open-source Jev implementations, five additional application domains are established for exploration and promotion into AIRI:
+
+### 8.1 Domain G: Zero-Loss Context Garbage Collector (`Winnow` / `fast-jev-compaction`)
+- **Reference**: `fast-jev-compaction`, `Winnow`
+- **Core Mechanism**:
+  - Autoregressive summarization over long chat transcripts, bash outputs, and tool results often introduces lossy compression and hallucinations.
+  - Instead of rewriting history, Jev acts as an in-place garbage collector: it evaluates previous conversation turns and command outputs, assigning retention scores to individual segments.
+  - Low-salience banter and routine command logs are pruned, while high-salience instructions, error traces, and exact user quotes are preserved verbatim with 0% semantic loss.
+
+### 8.2 Domain H: Generative UI Component Selector (`json-render + Jev`)
+- **Reference**: Vercel Labs `json-render + Jev` (reduced UI generation latency from 3.21s to 0.88s)
+- **Core Mechanism**:
+  - Generating dynamic companion widgets (`mount_widget`, `stage_widgets`, polls, timers, mood meters) via token-by-token LLM streaming creates perceptible multi-second delays.
+  - Using predefined UI component schemas and property enums, Jev evaluates the companion state in ~100ms and directly selects component IDs and layouts, allowing client-side TypeScript code to mount the widget instantly.
+
+### 8.3 Domain I: System 1 Semantic Shell & Predicate Guard (`SemDecide / bash + jev`)
+- **Reference**: `SemDecide` (`grep | jq | jev`)
+- **Core Mechanism**:
+  - Companion proactivity and desktop automation often require verifying semantic preconditions (e.g. "Did the user switch to a gaming application?", "Did the build log contain a fatal compiler failure?").
+  - An internal scripting predicate `runSemanticPredicate(state, question)` provides shell scripts and background monitors with fast binary/choice gating without triggering expensive frontier model calls.
+
+### 8.4 Domain J: System 1 Model Context Protocol (MCP) Server (`typesafe-mcp` / `jev-mcp`)
+- **Reference**: `typesafe-mcp`, `jev-mcp`
+- **Core Mechanism**:
+  - Exposes AIRI's internal `laya-local` and OpenRouter Jev decision engines as an MCP tool (`system1_decide`).
+  - Allows internal companion tool loops and external agent clients to delegate discrete evaluations (e.g. multi-candidate scoring, risk assessment, intent classification) directly as structured sub-tools without verbose prompt overhead.
+
+### 8.5 Domain K: Autonomous Loop Verification & "Task Complete" Referee (`Canny`)
+- **Reference**: `Canny` (agent task completion referee)
+- **Core Mechanism**:
+  - In autonomous agentic loops (e.g. Autonomous Artistry image generation, Director loops, complex tool workflows), models can prematurely declare completion despite underlying errors.
+  - A dedicated System-1 referee evaluates tool diffs, exit codes, and output artifacts against explicit success criteria before marking a task as done.
+
+
 

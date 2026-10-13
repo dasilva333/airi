@@ -70,6 +70,7 @@ import { createMicToggleService } from './services/airi/shortcuts/mic-toggle'
 import { createStageMateService } from './services/airi/stage-mate'
 import { setupAutoUpdater } from './services/electron/auto-updater'
 import { createVisionService } from './services/electron/vision'
+import { createSandboxService } from './services/sandbox'
 import { createSensorsService } from './services/sensors'
 import { cleanupMicToggleShortcut } from './services/shortcuts/mic-toggle'
 import { setupTray } from './tray'
@@ -474,6 +475,7 @@ app.whenReady().then(async () => {
       createVisionService({ context })
       const stageMateService = createStageMateService({ appConfig: deps.appConfig })
       const sensorsServicePromise = createSensorsService({ context })
+      createSandboxService({ context })
       setupDiscordService()
       const defaultBypassUrls = DEFAULT_CORS_BYPASS_URLS
 

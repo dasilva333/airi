@@ -46,13 +46,21 @@ const model = computed({
     if (activeProvider.value === providerId) {
       systemOneStore.activeModel = val
     }
+    if (!val.includes('fp16')) {
+      providers.value[providerId].enableWebGpu = false
+    }
     checkCache()
   },
 })
 
-// WebGPU Acceleration Toggle (defaults to false / CPU WASM)
+// Whether the currently selected model supports WebGPU acceleration
+const isWebGpuSupportedForModel = computed(() => model.value.includes('fp16'))
+
+// WebGPU Acceleration Toggle (restricted to FP16; INT8 is CPU WASM only)
 const enableWebGpu = computed({
   get(): boolean {
+    if (!isWebGpuSupportedForModel.value)
+      return false
     return Boolean(
       providers.value[providerId]?.enableWebGpu
       ?? providerConfig.value?.enableWebGpu
@@ -63,7 +71,7 @@ const enableWebGpu = computed({
     if (!providers.value[providerId]) {
       providers.value[providerId] = {}
     }
-    providers.value[providerId].enableWebGpu = val
+    providers.value[providerId].enableWebGpu = isWebGpuSupportedForModel.value ? val : false
   },
 })
 
@@ -229,6 +237,9 @@ async function handleRunDiagnostic() {
     if (typeof err === 'number') {
       diagnosticError.value = `WASM/ONNX runtime internal exception (pointer code ${err}). WebAssembly session failed to initialize. Check DevTools console for detailed WebAssembly logs.`
     }
+    else if (err?.name === 'TimeoutError' || (err?.message && (err.message.includes('TimeoutError') || err.message.includes('timed out')))) {
+      diagnosticError.value = `Inference timed out. ${enableWebGpu.value ? 'WebGPU execution timed out. Try switching to CPU WASM mode or using FP16 weights.' : 'CPU WASM execution timed out. The model may need more time or a faster thread pool.'}`
+    }
     else {
       diagnosticError.value = err?.message || String(err) || 'Execution error during diagnostic test.'
     }
@@ -314,12 +325,17 @@ watch(model, () => {
         <div class="border-t border-neutral-100 pt-3 dark:border-neutral-800/60">
           <FieldCheckbox
             v-model="enableWebGpu"
+            :disabled="!isWebGpuSupportedForModel"
             label="Experimental WebGPU Acceleration"
-            description="Attempt to execute ONNX operators on WebGPU first, falling back to CPU WASM. Default: Off (CPU WASM)."
+            :description="isWebGpuSupportedForModel
+              ? 'Attempt to execute ONNX operators on WebGPU first, falling back to CPU WASM. Default: Off (CPU WASM).'
+              : 'WebGPU is unsupported on INT8 quantized weights. Switch to FP16 to enable WebGPU acceleration.'"
           />
           <p class="mt-1.5 text-[11px] text-neutral-400 dark:text-neutral-500">
             <span class="text-primary-600 font-semibold dark:text-primary-400">Tip:</span>
-            WebGPU delivers the best speedup (~5x faster) when paired with the FP16 model. The INT8 model is optimized for CPU execution.
+            {{ isWebGpuSupportedForModel
+              ? 'WebGPU delivers the best speedup (~5x faster) when paired with the FP16 model.'
+              : 'The INT8 model is strictly optimized for CPU WASM SIMD execution. WebGPU operators for INT8 quantized tensors are not supported and will time out.' }}
           </p>
         </div>
 

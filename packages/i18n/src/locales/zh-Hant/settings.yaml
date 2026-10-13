@@ -755,7 +755,7 @@ pages:
         description: Alibaba Cloud Native - Best-in-class Chinese and coding models
       anthropic:
         description: Claude Specialist - Most helpful and harmless reasoning
-        title: Anthropic | Claude
+        title: Anthropic {'|'} Claude
         helpinfo:
           title: 開始之前
           description:
@@ -1538,6 +1538,9 @@ theme:
   title: 主題
   description: |
     切換 AIRI 的基礎主題，亮色模式或暗色模式。
+  auto: 跟隨系統
+  light: 淺色
+  dark: 深色
 title: 設定
 voices: 聲線
 vrm:

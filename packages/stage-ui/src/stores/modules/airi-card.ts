@@ -24,6 +24,9 @@ import {
   DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
   DEFAULT_HEARTBEATS_PROMPT,
   DEFAULT_POST_HISTORY_INSTRUCTIONS,
+  DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION,
+  DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
+  DEFAULT_STARTER_CARD_ID,
   DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION,
   STARTER_CHARACTERS,
 } from '../../constants/prompts/character-defaults'
@@ -37,6 +40,7 @@ import { DisplayModelFormat, useDisplayModelsStore } from '../display-models'
 import { useShortTermMemoryStore } from '../memory-short-term'
 import { useSettingsStageModel } from '../settings/stage-model'
 import { useStickersStore } from '../stickers'
+import { useSyncEngineStore } from '../sync-engine'
 import { useArtistryStore } from './artistry'
 import { useConsciousnessStore } from './consciousness'
 import { useSpeechStore } from './speech'
@@ -87,6 +91,11 @@ export interface ShortTermMemoryConfig {
   tokenBudgetPerDay: number
 }
 
+export interface AiriSandboxConfig {
+  enabled?: boolean
+  widgetInstruction?: string
+}
+
 export type { CharacterCueAllowlist } from '../../types/card.schema'
 
 export interface ActingConfig {
@@ -127,6 +136,8 @@ export interface CharacterGenerationConfig {
     contextWidth?: number
     reasoningFallback?: boolean
     allowedTools?: string[]
+    maxToolSteps?: number
+    preserveToolHistory?: boolean
   }
   advanced?: Record<string, any>
   compaction?: {
@@ -166,7 +177,7 @@ export interface ScreenWatchingConfig {
   pauseWhenAfk?: boolean
   afkThresholdMinutes?: number
   gatingMode?: 'trigger_tags' | 'system1_sentinel'
-  sentinelProvider?: 'laya-local' | 'typesafe-ai' | 'openrouter-ai'
+  sentinelProvider?: 'laya-local' | 'typesafe-ai' | 'openrouter-ai' | 'opencode-go'
   sentinelModel?: string
   sentinelQuestions?: SentinelQuestionConfig[]
   sentinelPolicy?: 'any' | 'all'
@@ -236,6 +247,8 @@ export interface AiriExtension {
     injectJournalContext?: boolean
     journalIntrusionPrompt?: string
   }
+
+  sandbox?: AiriSandboxConfig
 
   artistry?: {
     provider?: string
@@ -362,7 +375,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   // can sync it as a first-class key without the localStorage dump/restore bridge.
   const cards = ref<Map<string, AiriCard>>(new Map())
   const cardsLoading = ref(true)
-  const activeCardId = useLocalStorageManualReset<string>('airi-card-active-id', 'default')
+  const activeCardId = useLocalStorageManualReset<string>('airi-card-active-id', DEFAULT_STARTER_CARD_ID)
 
   // Store-driven modal intents to eliminate route-query race conditions
   const pendingEditCardId = ref<string | null>(null)
@@ -578,6 +591,19 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     const nextCards = new Map(cards.value)
     nextCards.set(newCardId, compactCard(card))
     await persistCards(nextCards)
+
+    // Ensure locally added or forged cards are immediately registered as synced if selective sync is enabled
+    try {
+      const syncEngineStore = useSyncEngineStore()
+      if (syncEngineStore.selectiveSyncEnabled) {
+        const displayModelId = modules?.displayModelId || ext?.modules?.displayModelId
+        syncEngineStore.addCardToSelectiveSync(newCardId, displayModelId)
+      }
+    }
+    catch (err) {
+      debug('[AiriCard] Failed to register newly added card to selective sync:', err)
+    }
+
     return newCardId
   }
 
@@ -793,12 +819,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     } as any)
   }
 
-  const getCard = (id: string) => {
+  function getCard(id: string) {
     return cards.value.get(id)
   }
 
   const getCardDisplayModelId = (id: string) => {
-    const card = cards.value.get(id)
+    const card = getCard(id)
     if (!card)
       return undefined
     return resolveAiriExtension(card).modules?.displayModelId
@@ -1356,7 +1382,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       if (!nextCards.has(starter.id)) {
         nextCards.set(starter.id, compactCard({
           name: starter.name,
-          creator: starter.id === 'default' ? undefined : 'AIRI',
+          creator: 'AIRI',
           version: '1.0.0',
           description: starter.description,
           personality: starter.personality,
@@ -1406,7 +1432,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     }
 
     if (!activeCardId.value)
-      activeCardId.value = 'default'
+      activeCardId.value = DEFAULT_STARTER_CARD_ID
   }
 
   async function seedDefaults(selectedId: string) {
@@ -1417,7 +1443,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       await activateCard(selectedId, true)
     }
     else {
-      await activateCard('default', true)
+      await activateCard(DEFAULT_STARTER_CARD_ID, true)
     }
   }
 
@@ -1627,6 +1653,15 @@ export function buildSystemPrompt(card: AiriCard | undefined) {
     }
   }
 
+  const sandbox = card.extensions?.airi?.sandbox
+  const isSandboxAllowed = Boolean(generation?.known?.allowedTools?.includes('bash'))
+  if (isSandboxAllowed) {
+    const sandboxInstruction = sandbox?.widgetInstruction || DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION
+    if (sandboxInstruction && sandboxInstruction.trim() !== '') {
+      components.push(sandboxInstruction)
+    }
+  }
+
   if (isDatingSimActive && story) {
     if (premise) {
       components.push(`The user wants to customize or tweak the premise of this encounter, please adjust to the text below: ${premise}`)
@@ -1640,4 +1675,9 @@ export function buildSystemPrompt(card: AiriCard | undefined) {
   }
 
   return components.join('\n')
+}
+
+export {
+  DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION,
+  DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
 }

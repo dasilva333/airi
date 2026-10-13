@@ -112,7 +112,7 @@ export const useCompactionStore = defineStore('chat-compaction', () => {
     try {
       // 1. Create a background archive session containing all current messages
       const archiveTitle = `Archive: ${card.name} - ${new Date().toLocaleDateString()}`
-      await chatSession.createSession(activeCardId.value || 'default', {
+      await chatSession.createSession(activeCardId.value || 'relu', {
         setActive: false,
         messages: JSON.parse(JSON.stringify(originalMessages)),
         title: archiveTitle,
@@ -196,7 +196,7 @@ export const useCompactionStore = defineStore('chat-compaction', () => {
 
             // Use memory store method to synthesize
             const block = await shortTermMemory.summarizeBucket(
-              activeCardId.value || 'default',
+              activeCardId.value || 'relu',
               card,
               provider,
               modelId,

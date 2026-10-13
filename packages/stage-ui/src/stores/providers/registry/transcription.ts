@@ -229,6 +229,80 @@ export const transcriptionMetadata = {
       },
     },
   }),
+  'openrouter-audio-transcription': buildOpenAICompatibleProvider({
+    id: 'openrouter-audio-transcription',
+    name: 'OpenRouter',
+    nameKey: 'settings.pages.providers.provider.openrouter.title',
+    descriptionKey: 'settings.pages.providers.provider.openrouter.description',
+    icon: 'i-lobe-icons:openrouter',
+    description: 'Unified Audio Gateway - Access partner STT models through OpenRouter',
+    category: 'transcription',
+    tasks: ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'],
+    defaultBaseUrl: 'https://openrouter.ai/api/v1/',
+    creator: createOpenAI,
+    additionalHeaders: {
+      'HTTP-Referer': 'https://airi.moeru.ai',
+      'X-Title': 'Project AIRI',
+    },
+    capabilities: {
+      listModels: async (config: Record<string, unknown>) => {
+        const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+        let baseUrl = typeof config.baseUrl === 'string' ? config.baseUrl.trim() : 'https://openrouter.ai/api/v1/'
+
+        if (!baseUrl.endsWith('/'))
+          baseUrl += '/'
+
+        if (!apiKey)
+          return []
+
+        try {
+          const response = await globalThis.fetch(new URL('models?output_modalities=transcription', baseUrl), {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'HTTP-Referer': 'https://airi.moeru.ai',
+              'X-Title': 'Project AIRI',
+            },
+          })
+          if (!response.ok)
+            return []
+
+          const data = await response.json() as {
+            data?: Array<{ id: string, name?: string, description?: string, context_length?: number }>
+          }
+          return (data.data ?? []).map(model => ({
+            id: model.id,
+            name: model.name || model.id,
+            provider: 'openrouter-audio-transcription',
+            description: model.description || '',
+            contextLength: model.context_length || 0,
+            deprecated: false,
+          })) satisfies ModelInfo[]
+        }
+        catch (e) {
+          logWarn('Failed to list OpenRouter transcription models:', e)
+          return []
+        }
+      },
+    },
+    validators: {
+      validateProviderConfig: (config) => {
+        const errors = [
+          !config.apiKey && new Error('API Key is required'),
+          !config.baseUrl && new Error('Base URL is required. Default to https://openrouter.ai/api/v1/.'),
+        ].filter(Boolean)
+
+        const res = validateProviderBaseUrl(config.baseUrl)
+        if (res)
+          return res
+
+        return {
+          errors,
+          reason: errors.filter((e): e is Error => e instanceof Error).map(e => e.message).join(', '),
+          valid: !!config.apiKey && !!config.baseUrl,
+        }
+      },
+    },
+  }),
   'aliyun-nls-transcription': {
     id: 'aliyun-nls-transcription',
     category: 'transcription',

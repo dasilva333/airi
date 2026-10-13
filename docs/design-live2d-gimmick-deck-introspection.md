@@ -297,6 +297,77 @@ Tap Box 'TapDREFTouchBoxHip':   {"Intimacy": {"Min": 14350}, "Command": "start_m
 
 ---
 
+### 6. Tactile Raycasts, DSL VarFloats Introspection & Event Log Bridge
+**Target Mechanics**: `model.hitTest(globalX, globalY)` collisions, `dslVM.dispatch(hitArea)`, and native `VarFloats` state mutators (`vi_IntimacyVI`, `TouchCount`, `var`).
+
+In native Live2D setups, pointer clicks on canvas coordinates intersect Cubism mesh bounding boxes (`HitAreaHead`, `TapBody`, `TapDREFTouchBoxHip`, `Face`, `Bust`). Historically, AIRI triggered simple expression/motion animations on `hitTest` and dropped the event.
+
+However, inspecting the Live2D DSL Virtual Machine (`packages/live2d-runtime/src/dsl/`) reveals a deeper architectural opportunity:
+
+#### Resolving the Open Question: Do Models Maintain Their Own Internal State Counters?
+**Yes.** Wild Tier 1 and Tier 2 creator packages frequently implement self-contained state machines directly inside their manifests:
+1. **Author-Scripted Counters**:
+   In packages like Raiden Shogun (`live2d_3626567931`) or Azur Lane (`live2d_2883004043`), `Tap` entries declare `VarFloats` Type 2 mutations with arithmetic opcodes:
+   ```json
+   { "Name": "vi_IntimacyVI", "Type": 2, "Code": "add 1" }
+   { "Name": "TouchCount", "Type": 2, "Code": "add 1" }
+   { "Name": "var", "Type": 2, "Code": "assign rand(1, 5)" }
+   ```
+2. **Atomic VM Execution**:
+   When `Model.vue` calls `dslVM?.dispatch(hitArea)`, the `ReactiveVarStore` evaluates Type 1 guards and applies all Type 2 mutations atomically via `this.variables.set(name, current + delta)`.
+3. **The Introspective Heap Listener**:
+   Rather than inventing an isolated external counter that desyncs from the model, AIRI implements an **Introspective Heap Diff**:
+   - Snapshot `dslVM.vars.snapshot()` before `dslVM.dispatch(hitArea)`.
+   - Execute `dispatch(hitArea)`.
+   - Capture variable deltas (`mutatedVars = diff(before, after)`).
+   - If the author authored native counters (`vi_IntimacyVI: +1`), AIRI surfaces and tracks the model's authentic creator state.
+   - If the model manifest lacks author-scripted counters, AIRI falls back to tracking the hit area raycast itself (`hitCount[hitArea]++`).
+
+#### Bridging to the Event Log as a Dedicated Interaction Channel
+Tactile interactions are published into the system's ledger (`useEventLogStore`) as a first-class interaction event stream (analogous to chat sessions and messages):
+```ts
+appendEvent({
+  category: 'stage',
+  type: 'stage:live2d:tactile_hit',
+  source: 'live2d',
+  textSummary: `Live2D tactile hit: ${hitArea}${mutatedVarsSummary ? ` [${mutatedVarsSummary}]` : ''}`,
+  payload: {
+    hitArea,
+    coords: { x: globalX, y: globalY },
+    mutatedVars,
+    nativeCounter: mutatedVars?.vi_IntimacyVI ?? mutatedVars?.TouchCount,
+    timestamp: Date.now(),
+  },
+  inspectable: true,
+})
+```
+
+#### ⚠️ Strict Decoupling: Zero Prompt-Builder Conflation
+> [!IMPORTANT]
+> **Tactile Interaction State MUST NOT be Injected into System Prompt Grounding.**
+> Conflating pointer raycasts and headpat counters directly with LLM prompt context leads to:
+> 1. **Prompt Token Bloat**: High-frequency mouse movements and rapid taps flood the prompt buffer.
+> 2. **Conversational Disruption**: The LLM hallucinating unwanted verbal responses ("Why did you just touch my head 4 times?") during unrelated task execution.
+>
+> Therefore, this interaction state channel is strictly decoupled from prompt synthesis. It acts as an **event bus and sensory telemetry stream** consumed by Generative UI widgets, devtools, and the Event Ledger, keeping LLM conversational pacing clean and predictable.
+
+#### Real-Time Telemetry Projection for Generative Widgets
+Tactile telemetry is mirrored into `/workspace/.airi/telemetry.json` and the reactive iframe `sidecar`:
+```ts
+sidecar.telemetry.tactile = {
+  lastHitArea: 'HitAreaHead',
+  tapCount: 42,
+  timestamp: 1791775200000,
+  nativeVars: {
+    vi_IntimacyVI: 15,
+    var: 1,
+  },
+}
+```
+Mounted micro-apps (e.g. Arona Strawberry Pet, Tsundere Defensiveness Index, Haven Cafe POS) subscribe via `onUpdate(({ telemetry }) => ...)` to play animations, sound effects, or increment squish counters in real time.
+
+---
+
 ## 🏗️ Architecture & Component Integration
 
 ```mermaid

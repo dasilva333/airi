@@ -48,6 +48,7 @@
     ],
     "allowJs": true,
     "strict": true,
+    "noUnusedLocals": false,
     "skipLibCheck": true
   },
   "include": [
@@ -60,5 +61,12 @@
     "src/shared/**/*.d.ts",
     "src/shared/**/*.tsx",
     "src/shared/**/*.vue"
-  ]
+  ],
+  "vueCompilerOptions": {
+    "plugins": [
+      "@vue-macros/volar/define-models",
+      "@vue-macros/volar/define-slots"
+    ],
+    "skipTemplateCodegen": false
+  }
 }

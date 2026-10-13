@@ -9,6 +9,7 @@ import JournalMomentModal from './JournalMomentModal.vue'
 
 import { useChatOrchestratorStore } from '../../../stores/chat'
 import { useChatSessionStore } from '../../../stores/chat/session-store'
+import { useJournalPreviewStore } from '../../../stores/journal-preview'
 import { useTextJournalStore } from '../../../stores/memory-text-journal'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
@@ -31,6 +32,7 @@ const emit = defineEmits<{
 
 const chatSession = useChatSessionStore()
 const chatOrchestrator = useChatOrchestratorStore()
+const { openImagePreview } = useJournalPreviewStore()
 const showJournalModal = ref(false)
 
 const isEditing = ref(false)
@@ -373,7 +375,11 @@ async function handleCommitEdit() {
 
           <div v-if="images.length > 0" class="my-2 flex flex-wrap gap-2">
             <div v-for="(url, idx) in images" :key="idx" class="relative max-w-sm overflow-hidden border border-neutral-200 rounded-lg dark:border-neutral-700">
-              <img :src="url" class="max-h-64 object-contain">
+              <img
+                :src="url"
+                class="max-h-64 cursor-zoom-in object-contain"
+                @click="openImagePreview({ title: 'Image', url })"
+              >
             </div>
           </div>
 

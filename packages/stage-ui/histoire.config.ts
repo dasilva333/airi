@@ -3,6 +3,58 @@ import Info from 'unplugin-info/vite'
 import { HstVue } from '@histoire/plugin-vue'
 import { defineConfig } from 'histoire'
 
+function nodeShimPlugin() {
+  return {
+    name: 'histoire-node-shim',
+    enforce: 'pre' as const,
+    resolveId(id: string) {
+      if (id.startsWith('node:') || ['process', 'module', 'path', 'fs', 'zlib', 'crypto'].includes(id)) {
+        return '\0virtual:node-shim'
+      }
+      return null
+    },
+    load(id: string) {
+      if (id === '\0virtual:node-shim') {
+        return `
+          export default {};
+          export const env = {};
+          export const cwd = () => '/';
+          export const readFileSync = () => '';
+          export const writeFileSync = () => {};
+          export const existsSync = () => false;
+          export const statSync = () => ({ isDirectory: () => false, isFile: () => false });
+          export const promises = { readFile: async () => '', writeFile: async () => {} };
+          export const join = (...args) => args.filter(Boolean).join('/');
+          export const resolve = (...args) => args.filter(Boolean).join('/');
+          export const constants = {};
+          export const gunzipSync = (data) => data;
+          export const gzipSync = (data) => data;
+          export const inflateSync = (data) => data;
+          export const deflateSync = (data) => data;
+          export const dirname = (p) => (p ? p.split('/').slice(0, -1).join('/') : '');
+          export const basename = (p) => (p ? p.split('/').pop() : '');
+          export const extname = (p) => (p && p.includes('.') ? '.' + p.split('.').pop() : '');
+          export const createRequire = () => () => ({});
+          export const builtinModules = [];
+          export const webcrypto = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+          export const randomBytes = (size) => {
+            const buf = new Uint8Array(size);
+            if (typeof globalThis !== 'undefined' && globalThis.crypto) {
+              globalThis.crypto.getRandomValues(buf);
+            }
+            return buf;
+          };
+          export const createHash = () => ({
+            update() { return this; },
+            digest() { return ''; }
+          });
+        `
+      }
+      return null
+    },
+  }
+}
+
 export default defineConfig({
   routerMode: 'hash',
   theme: {
@@ -77,6 +129,7 @@ export default defineConfig({
       target: 'esnext',
     },
     plugins: [
+      nodeShimPlugin(),
       Info(),
     ],
   },

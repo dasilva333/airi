@@ -12,6 +12,7 @@ import { isMacOS } from 'std-env'
 import { electronWindowSetTitle } from '../../../shared/eventa'
 import { createI18nService } from '../../services/airi/i18n'
 import { createAppService, createProcessSpawnerService, createScreenService, createWindowService } from '../../services/electron'
+import { createSandboxService } from '../../services/sandbox'
 import { createSensorsService } from '../../services/sensors'
 
 export function toggleWindowShow(window?: BrowserWindow | null): void {
@@ -141,6 +142,7 @@ export async function setupBaseWindowElectronInvokes(params: {
   createProcessSpawnerService({ context: params.context, window: params.window })
   await createI18nService({ context: params.context, window: params.window, i18n: params.i18n })
   createSensorsService({ context: params.context })
+  createSandboxService({ context: params.context })
 
   // Renderer reports its canonical document.title; keep the native window chrome
   // in sync as in-page routes change. The initial BrowserWindow `title` option is

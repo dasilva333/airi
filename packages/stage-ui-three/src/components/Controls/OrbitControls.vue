@@ -7,7 +7,7 @@
 import type { Vec3 } from '../../stores/model-store'
 
 import { extend, useTres } from '@tresjs/core'
-import { until } from '@vueuse/core'
+import { until, useEventListener } from '@vueuse/core'
 import {
   MOUSE,
   PerspectiveCamera,
@@ -63,6 +63,16 @@ extend({ OrbitControls })
 const { camera: cameraTres, renderer } = useTres()
 const controls = shallowRef<OrbitControls>()
 const camera = shallowRef<PerspectiveCamera | null>(null)
+const canvas = shallowRef<HTMLCanvasElement>()
+
+// NOTICE:
+// Keep orbit gestures active when a retained text selection spans the canvas.
+// Native dragstart otherwise sends pointercancel and releases pointer capture (PR #2905).
+// Source: https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/Drag_operations
+useEventListener(canvas, 'dragstart', (event) => {
+  if (controlEnable.value)
+    event.preventDefault()
+})
 
 // Initialisation on onMounted
 function registerInfoFlow() {
@@ -182,6 +192,7 @@ onMounted(async () => {
     return
   }
   camera.value = cameraTres.value as PerspectiveCamera
+  canvas.value = renderer.domElement
   // Obtain orbitControl instance
   controls.value = new OrbitControls(camera.value, renderer.domElement)
   controls.value.enablePan = false

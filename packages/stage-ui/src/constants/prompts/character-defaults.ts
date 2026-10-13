@@ -145,8 +145,49 @@ This reflects your private thoughts at the time. For this turn only, continue th
 export const DEFAULT_ARTISTRY_INTRUSION_PROMPT = `You just finished creating a new artwork of: "{imagePrompt}".
 For this turn only, continue the conversation and find a natural way to reference or react to having just made this creation.`
 
+export const DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION = `## Instruction: In-Memory POSIX Sandbox & Generative UI
+You have an isolated in-memory POSIX workstation at \`/workspace\` (zero-leak RAM disk).
+
+### Core Shell & Tooling
+- **POSIX Shell & Projections**: Use \`jq\`, \`grep\`, \`sed -i\`, and \`awk\` to slice live data under \`/workspace/.airi/\` (\`telemetry.json\`, \`session.json\`, \`cognition.json\`, \`messages.json\`) to preserve context tokens.
+- **Node & TypeScript**: Run scripts via \`node <file>.js\` or \`node -e\` (preloaded with virtual \`fs\`, \`mcp\`, and \`jev\`). Compile \`.ts\` to \`.js\` via \`tsc <file>.ts\` (defaults to \`--target es2022 --lib es2022,dom\`; emits \`.js\` directly without needing \`--outDir\`).
+- **MCP CLI**: Execute tools directly via \`mcp <server::tool> [json_args]\` or \`require('mcp')\` in node; pipe results to files to avoid context bloat.
+- **System 1 Semantic Decisions (\`jev\`)**: Fast, non-autoregressive discrete decisions (~100ms) without calling expensive frontier LLMs:
+  - \`jev is <predicate> [input|file] [--threshold 0.5] [-q|--quiet] [--json]\`: Semantic boolean check (exit code 0 on true, 1 on false). Pipe data (\`cat /workspace/build.log | jev is "Does this build log contain a fatal compiler panic?"\`) or branch natively (\`if jev is -q "Is user asking for help?" "$MSG"; then ...; fi\`).
+  - \`jev choose <question> --options <opt1,opt2,...> [input|file]\`: Discrete categorical selection (e.g. \`jev choose "Select priority" --options low,medium,high,critical "$ALERT"\`).
+  - \`jev score <question> [input|file] [--min 0] [--max 10]\`: Continuous rating/scoring.
+  - \`jev triage <query> [--json]\`: Memory categorization and 5W triage breakdown.
+  - In Node scripts: \`const { is, choose, score, decide, triage } = require('jev')\` (or \`require('node:jev')\`) or use global \`jev\`.
+
+### Generative UI Micro-Apps (\`mount_widget\`)
+When creating interactive cards, tools, trackers, or HUDs:
+1. **Runtime**: Widgets execute in a sandboxed browser iframe DOM (native browser ESM), **NOT Node.js**. Do NOT import \`fs\` or \`path\` inside widgets.
+2. **Component File**: Author \`/workspace/<name>.ts\` (auto-compiled) exporting a default mount function:
+   \`export default function mount({ container, sidecar, state, setState, onStateChange, callMcpTool }: AiriWidgetContext) { ... }\`
+3. **Reactive State & Sidecar Binding (\`<name>.json\`)**:
+   - \`state\`: Preloaded widget state (defaults to \`{}\`).
+   - \`setState(data)\`: Persists state to database and lazily writes to sidecar file \`/workspace/<name>.json\`.
+   - \`onStateChange(cb)\`: Fires when state is mutated via UI or when you edit \`/workspace/<name>.json\` via terminal (\`jq\`, \`cat\`).
+   - You can inspect or update active widget data anytime in bash via \`cat /workspace/<name>.json\`.
+4. **Live Data & Tools**:
+   - \`sidecar\`: Rich reactive state including \`telemetry\` (e.g. idleSeconds, activeApp, cpuLoad, windowHistory), \`cognition\` (e.g. emotion, energy, somaticState, nan0), and \`session\` (e.g. messageCount, activeCardName, hoursSinceLastMessage).
+   - \`callMcpTool(name, args)\`: Query live external tools directly from the widget (search, weather, finance).
+5. **Mounting**:
+   - Run \`mount_widget /workspace/<file>.ts --title "<Title>" [--surface panel|widget]\`
+   - \`--surface panel\` (default): Docks into the chat inspector widgets tab.
+   - \`--surface widget\`: Spawns an in-page floating draggable card (Web/Mobile) or standalone window (Desktop).`
+
+export const DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION = `## Instruction: In-Memory POSIX Scratchpad
+You have access to an isolated in-memory POSIX environment via the **bash** tool at \`/workspace\` (zero-leak RAM disk).
+- Use \`jq\`, \`grep\`, \`awk\`, and \`sed\` to slice live data under \`/workspace/.airi/\` (\`telemetry.json\`, \`session.json\`, \`cognition.json\`, \`messages.json\`) to minimize context tokens.
+- Fast System 1 semantic triage & shell predicates via \`jev is <predicate>\` (exit code 0 on true, 1 on false; pipe via \`cat data | jev is "..."\`), \`jev choose "question" --options a,b,c\`, \`jev score\`, and \`require('jev')\` (\`is\`, \`choose\`, \`score\`, \`decide\`) in node scripts.
+- Call MCP tools directly in the terminal via \`mcp <server::tool> [json_args]\` or via \`require('mcp')\` in node scripts, piping responses to files or \`jq\` to eliminate context token bloat.
+- Run JavaScript snippets via \`node -e "..."\` or scripts via \`node\` (preloaded with virtual \`fs\`, \`mcp\`, and \`jev\`).
+- Mount interactive UI widgets via \`mount_widget /workspace/<file>.ts --title "<Title>" [--surface panel|widget]\`. Widgets run in an iframe DOM; manage persistent state via \`setState(data)\` which lazily binds to \`/workspace/<name>.json\`. Do NOT import \`fs\` inside widgets.
+- Compile TypeScript scripts via \`tsc\` (defaults to \`--target es2022 --lib es2022,dom\`; emits directly without needing \`--outDir\`).`
+
 export interface StarterCharacterDefinition {
-  /** Stable card ID ('default', 'aria', 'lupin', 'kira', 'rin', 'yuki', 'mio', 'hana') */
+  /** Stable card ID ('relu', 'aria', 'lupin', 'kira', 'rin', 'yuki', 'mio', 'hana') */
   id: string
   /** Display name (e.g. 'ReLU', 'Dr. Aria') */
   name: string
@@ -178,9 +219,11 @@ export interface StarterCharacterDefinition {
   defaultVoiceId?: string
 }
 
+export const DEFAULT_STARTER_CARD_ID = 'relu'
+
 export const STARTER_CHARACTERS: Record<string, StarterCharacterDefinition> = {
-  default: {
-    id: 'default',
+  relu: {
+    id: 'relu',
     name: 'ReLU',
     tag: 'Empathetic Companion',
     accent: 'text-pink-500',
@@ -365,6 +408,6 @@ export const STARTER_CHARACTERS: Record<string, StarterCharacterDefinition> = {
 
 export function getStarterCharacter(id?: string): StarterCharacterDefinition {
   if (!id)
-    return STARTER_CHARACTERS.default
-  return STARTER_CHARACTERS[id] || STARTER_CHARACTERS.default
+    return STARTER_CHARACTERS.relu
+  return STARTER_CHARACTERS[id] || STARTER_CHARACTERS.relu
 }

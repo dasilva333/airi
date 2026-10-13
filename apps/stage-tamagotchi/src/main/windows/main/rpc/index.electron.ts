@@ -8,8 +8,6 @@ import type { OnboardingWindowManager } from '../../onboarding'
 import type { SettingsWindowManager } from '../../settings'
 import type { WidgetsWindowManager } from '../../widgets'
 
-import clickDragPlugin from 'electron-click-drag-plugin'
-
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { BrowserWindow, ipcMain } from 'electron'
@@ -24,6 +22,7 @@ import {
   electronStartDraggingWindow,
   noticeWindowEventa,
 } from '../../../../shared/eventa'
+import { startDraggingWindow } from '../../../libs/electron/drag'
 import { createMcpServersService } from '../../../services/airi/mcp-servers'
 import { createOnboardingService } from '../../../services/airi/onboarding'
 import { createWidgetsService } from '../../../services/airi/widgets'
@@ -110,7 +109,7 @@ export async function setupMainWindowElectronInvokes(params: {
         const sender = handlerOptions?.raw?.ipcMainEvent?.sender
         const win = sender ? (BrowserWindow.fromWebContents(sender) ?? params.window) : params.window
         const windowId = win.getNativeWindowHandle()
-        clickDragPlugin.startDrag(windowId)
+        startDraggingWindow(windowId)
       }
       catch (error) {
         console.error(error)

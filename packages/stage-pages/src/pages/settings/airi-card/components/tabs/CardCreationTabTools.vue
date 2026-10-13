@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION,
+  DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
+} from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { ensureMcpServersForAllowedTools, tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { FieldInput } from '@proj-airi/ui'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -98,6 +102,23 @@ const hasMotionGenerator = computed({
   },
 })
 
+// Opt-in only: On-demand screenshots (disabled by default)
+const hasScreenshot = computed({
+  get() {
+    return generationAllowedTools.value !== undefined && generationAllowedTools.value.includes('take_screenshot')
+  },
+  set(checked) {
+    const current = generationAllowedTools.value ?? ['text_journal', 'image_journal']
+    if (checked) {
+      if (!current.includes('take_screenshot'))
+        generationAllowedTools.value = [...current, 'take_screenshot']
+    }
+    else {
+      generationAllowedTools.value = current.filter(t => t !== 'take_screenshot')
+    }
+  },
+})
+
 // Opt-in only: Custom Developer MCP (disabled by default)
 const hasCustomMcp = computed({
   get() {
@@ -111,6 +132,25 @@ const hasCustomMcp = computed({
     }
     else {
       generationAllowedTools.value = current.filter(t => t !== 'mcp')
+    }
+  },
+})
+
+// Opt-in only: In-Memory POSIX Sandbox & Workstation (disabled by default)
+const hasSandbox = computed({
+  get() {
+    return generationAllowedTools.value !== undefined && (
+      generationAllowedTools.value.includes('bash') || generationAllowedTools.value.includes('mcp_bash')
+    )
+  },
+  set(checked) {
+    const current = generationAllowedTools.value ?? ['text_journal', 'image_journal']
+    if (checked) {
+      if (!current.includes('bash'))
+        generationAllowedTools.value = [...current, 'bash']
+    }
+    else {
+      generationAllowedTools.value = current.filter(t => t !== 'bash' && t !== 'mcp_bash')
     }
   },
 })
@@ -168,6 +208,15 @@ watch(hasCustomMcp, (enabled) => {
 // Widget instructions text
 const selectedImageJournalInstruction = defineModel<string>('selectedImageJournalInstruction', { required: false, default: '' })
 const selectedTextJournalInstruction = defineModel<string>('selectedTextJournalInstruction', { required: false, default: '' })
+const selectedSandboxInstruction = defineModel<string>('selectedSandboxInstruction', { required: false, default: '' })
+const selectedMaxToolSteps = defineModel<number | undefined>('selectedMaxToolSteps', { required: false, default: undefined })
+const selectedPreserveToolHistory = defineModel<boolean>('selectedPreserveToolHistory', { required: false, default: false })
+
+function loadSandboxTemplate(templateType: 'workstation' | 'scratchpad') {
+  selectedSandboxInstruction.value = templateType === 'workstation'
+    ? DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION
+    : DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION
+}
 
 // Introspective Context Injection Toggles
 const selectedInjectDreamContext = defineModel<boolean>('selectedInjectDreamContext', { required: false, default: false })
@@ -281,14 +330,329 @@ const textJournalConflictWarning = computed(() => {
   <div class="tab-content ml-auto mr-auto w-95% pb-8 space-y-8">
     <div>
       <h2 class="text-xl text-neutral-800 font-bold dark:text-neutral-100">
-        Progressive Capability Packs
+        Tools & Plugins
       </h2>
       <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-        Select and fine-tune modular capabilities for your character. Each pack bundles runtime tools, system guidance, and memory intrusion channels.
+        Choose which tools your companion can use, from web search and creative tools to files and connected services.
       </p>
     </div>
 
-    <!-- 1. Web & Research Capability Pack -->
+    <!-- Files & Workspace Section -->
+    <div class="space-y-4">
+      <div class="flex items-center gap-2">
+        <h3 class="text-xs text-neutral-400 font-semibold tracking-wider uppercase dark:text-neutral-500">
+          Files & Workspace
+        </h3>
+      </div>
+
+      <!-- 1. Virtual Terminal -->
+      <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-start gap-3">
+            <div class="size-10 flex shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400">
+              <div class="i-solar:code-square-bold-duotone text-2xl" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
+                  Virtual Terminal
+                </h4>
+                <span class="whitespace-nowrap rounded-full bg-violet-100 px-2 py-0.5 text-[10px] text-violet-700 font-bold uppercase dark:bg-violet-900/40 dark:text-violet-300">
+                  Built-in
+                </span>
+              </div>
+              <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+                Give your companion a workspace inside AIRI to create files, run code, analyze data, and build interactive widgets. Available on desktop and mobile.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            :class="[
+              'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+              hasSandbox ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+            ]"
+            @click="hasSandbox = !hasSandbox"
+          >
+            <span
+              aria-hidden="true"
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                hasSandbox ? 'translate-x-5' : 'translate-x-0',
+              ]"
+            />
+          </button>
+        </div>
+
+        <div v-if="hasSandbox" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-4 dark:border-neutral-800">
+          <div class="rounded-xl bg-violet-50/50 p-3 text-xs text-violet-700 leading-relaxed dark:bg-violet-950/20 dark:text-violet-300">
+            Files and commands stay inside AIRI’s virtual workspace. This tool does not grant access to folders on your device.
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+              <div class="i-solar:terminal-bold text-violet-500" />
+              Run commands
+            </span>
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+              <div class="i-solar:code-file-bold text-violet-500" />
+              Run code
+            </span>
+            <span class="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+              <div class="i-solar:widget-bold text-violet-500" />
+              Create widgets
+            </span>
+          </div>
+
+          <!-- Collapsed Advanced settings section -->
+          <details class="group border border-neutral-200 rounded-xl bg-neutral-50/60 transition-all dark:border-neutral-800 dark:bg-neutral-800/30">
+            <summary class="flex cursor-pointer select-none items-center justify-between p-3.5 text-xs text-neutral-700 font-semibold dark:text-neutral-300">
+              <span class="flex items-center gap-1.5">
+                <div class="i-solar:settings-minimalistic-bold-duotone text-sm text-violet-500" />
+                Advanced settings
+              </span>
+              <div class="i-solar:alt-arrow-down-bold text-xs text-neutral-400 transition-transform duration-200 group-open:rotate-180" />
+            </summary>
+            <div class="p-3.5 pt-0 space-y-4">
+              <div class="rounded-lg bg-white/70 p-3 text-xs text-neutral-600 leading-relaxed dark:bg-neutral-900/60 dark:text-neutral-400">
+                💡 <strong>POSIX Workstation:</strong> Commands execute inside an ephemeral RAM disk at <code class="rounded bg-neutral-100 px-1 py-0.5 font-mono dark:bg-neutral-800">/workspace</code> with no access to host directories. State projections and mounted widgets reside under <code class="rounded bg-neutral-100 px-1 py-0.5 font-mono dark:bg-neutral-800">/workspace/.airi/</code>.
+              </div>
+
+              <!-- Tool Execution Controls: Max Turns & History Retention -->
+              <div class="grid grid-cols-1 gap-4 border border-neutral-200/80 rounded-xl bg-white/60 p-4 md:grid-cols-2 dark:border-neutral-800/80 dark:bg-neutral-900/40">
+                <div class="flex flex-col gap-1.5">
+                  <label class="flex items-center gap-1.5 text-xs text-neutral-700 font-bold dark:text-neutral-300">
+                    <div class="i-solar:refresh-circle-bold-duotone text-sm text-violet-500" />
+                    Max Tool Turns (Per Message)
+                  </label>
+                  <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Maximum sequential tool execution round-trips allowed in a single turn. Default is 20.
+                  </p>
+                  <FieldInput
+                    :model-value="selectedMaxToolSteps ? String(selectedMaxToolSteps) : ''"
+                    placeholder="20 (Default)"
+                    type="number"
+                    class="mt-1 w-full"
+                    @update:model-value="(val) => { selectedMaxToolSteps = val ? Number(val) : undefined }"
+                  />
+                </div>
+
+                <div class="flex flex-col justify-between gap-1.5">
+                  <div>
+                    <div class="flex items-center justify-between">
+                      <label class="flex items-center gap-1.5 text-xs text-neutral-700 font-bold dark:text-neutral-300">
+                        <div class="i-solar:history-bold-duotone text-sm text-violet-500" />
+                        Preserve Tool History in Chat
+                      </label>
+                      <button
+                        type="button"
+                        :class="[
+                          'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                          selectedPreserveToolHistory ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+                        ]"
+                        @click="selectedPreserveToolHistory = !selectedPreserveToolHistory"
+                      >
+                        <span
+                          aria-hidden="true"
+                          :class="[
+                            'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                            selectedPreserveToolHistory ? 'translate-x-4' : 'translate-x-0',
+                          ]"
+                        />
+                      </button>
+                    </div>
+                    <p class="mt-1 text-[11px] text-neutral-500 leading-relaxed dark:text-neutral-400">
+                      Includes intermediate tool calls and terminal execution outputs in conversation history. Recommended for coding and debugging so "continue" retains full terminal context.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Companion instructions -->
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-neutral-700 font-bold dark:text-neutral-300">Companion instructions</label>
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="rounded-lg bg-neutral-200/80 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-300 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                    @click="loadSandboxTemplate('workstation')"
+                  >
+                    Widget template
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg bg-neutral-200/80 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-300 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                    @click="loadSandboxTemplate('scratchpad')"
+                  >
+                    Workspace template
+                  </button>
+                </div>
+              </div>
+
+              <FieldInput
+                v-model="selectedSandboxInstruction"
+                label=""
+                placeholder="Enter custom companion instructions..."
+                :single-line="false"
+                :rows="6"
+              />
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <!-- 2. Computer Files -->
+      <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-start gap-3">
+            <div class="size-10 flex shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
+              <div class="i-solar:folder-with-files-bold-duotone text-2xl" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
+                  Computer Files
+                </h4>
+                <span class="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-700 font-bold uppercase dark:bg-amber-900/40 dark:text-amber-300">
+                  Desktop only
+                </span>
+              </div>
+              <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+                Let your companion browse, read, and search files in folders you choose on your computer. Requires the AIRI desktop app.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            :class="[
+              'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+              hasFilesystem ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+            ]"
+            @click="hasFilesystem = !hasFilesystem"
+          >
+            <span
+              aria-hidden="true"
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                hasFilesystem ? 'translate-x-5' : 'translate-x-0',
+              ]"
+            />
+          </button>
+        </div>
+
+        <div v-if="hasFilesystem" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-3 dark:border-neutral-800">
+          <div class="flex flex-wrap gap-2">
+            <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+              <div class="i-solar:file-check-bold text-amber-500" />
+              read_file / list_directory
+            </span>
+            <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+              <div class="i-solar:folder-security-bold text-amber-500" />
+              directory_tree / search_files
+            </span>
+          </div>
+          <p class="text-[11px] text-neutral-400 dark:text-neutral-500">
+            Folder boundaries can be managed and expanded inside <strong>Settings &rarr; MCP Server & Tools &rarr; filesystem</strong>.
+          </p>
+        </div>
+      </section>
+
+      <!-- 3. Connected Plugins -->
+      <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-start gap-3">
+            <div class="size-10 flex shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+              <div class="i-solar:server-square-bold-duotone text-2xl" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
+                  Connected Plugins
+                </h4>
+                <span class="whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] text-indigo-700 font-bold uppercase dark:bg-indigo-900/40 dark:text-indigo-300">
+                  Custom
+                </span>
+              </div>
+              <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+                Let your companion use additional tools and services you’ve connected to AIRI.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            :class="[
+              'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+              hasCustomMcp ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+            ]"
+            @click="hasCustomMcp = !hasCustomMcp"
+          >
+            <span
+              aria-hidden="true"
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                hasCustomMcp ? 'translate-x-5' : 'translate-x-0',
+              ]"
+            />
+          </button>
+        </div>
+
+        <div v-if="hasCustomMcp" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-3 dark:border-neutral-800">
+          <div class="flex flex-wrap gap-2">
+            <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+              <div class="i-solar:widget-add-bold text-indigo-500" />
+              mcp_list_tools (All Connected Servers)
+            </span>
+            <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+              <div class="i-solar:tuning-square-2-bold text-indigo-500" />
+              mcp_call_tool (&lt;server&gt;::&lt;tool&gt;)
+            </span>
+            <span class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-[11px] text-indigo-700 font-medium dark:bg-indigo-950/30 dark:text-indigo-300">
+              <div class="i-solar:shield-check-bold text-indigo-500" />
+              Full MCP Permission Granted
+            </span>
+          </div>
+
+          <!-- Discovered Connected Servers -->
+          <div v-if="connectedServers.length > 0" class="rounded-xl bg-neutral-50 p-3 dark:bg-neutral-800/50">
+            <div class="mb-2 flex items-center justify-between">
+              <span class="text-[11px] text-neutral-500 font-semibold tracking-wider uppercase dark:text-neutral-400">
+                Active MCP Servers Detected ({{ connectedServers.length }})
+              </span>
+              <button
+                type="button"
+                class="text-[11px] text-primary-600 dark:text-primary-400 hover:text-primary-700"
+                @click="loadConnectedServers"
+              >
+                Refresh
+              </button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <div
+                v-for="server in connectedServers"
+                :key="server.name"
+                class="inline-flex items-center gap-1.5 border border-neutral-200 rounded-lg bg-white px-2.5 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-800"
+              >
+                <div
+                  class="size-2 rounded-full"
+                  :class="server.status === 'running' ? 'bg-emerald-500' : 'bg-neutral-400'"
+                />
+                <span class="text-neutral-800 font-medium dark:text-neutral-200">{{ server.name }}</span>
+                <span class="text-[10px] text-neutral-400 font-mono dark:text-neutral-500">({{ server.toolCount }} tools)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600 leading-relaxed dark:bg-neutral-800/50 dark:text-neutral-300">
+            ⚙️ <strong>Configuration:</strong> Manage these connections in <code class="rounded bg-neutral-100 px-1 py-0.5 font-mono dark:bg-neutral-800">mcp.json</code> or <strong>Settings &rarr; MCP Servers & Tools</strong>. When this tool is enabled, this character card allows unrestricted tool discovery and execution across all running servers.
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Web & Research -->
     <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
       <div class="flex items-start justify-between gap-4">
         <div class="flex items-start gap-3">
@@ -296,11 +660,11 @@ const textJournalConflictWarning = computed(() => {
             <div class="i-solar:global-bold-duotone text-2xl" />
           </div>
           <div class="flex flex-col gap-1">
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
-                Web & Research Pack
+                Web & Research
               </h3>
-              <span class="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] text-sky-700 font-bold uppercase dark:bg-sky-900/40 dark:text-sky-300">
+              <span class="whitespace-nowrap rounded-full bg-sky-100 px-2 py-0.5 text-[10px] text-sky-700 font-bold uppercase dark:bg-sky-900/40 dark:text-sky-300">
                 0-Key Web Search
               </span>
             </div>
@@ -349,24 +713,24 @@ const textJournalConflictWarning = computed(() => {
       </div>
     </section>
 
-    <!-- 2. Local Workspace & Filesystem Pack -->
+    <!-- Screen Snapshots -->
     <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
       <div class="flex items-start justify-between gap-4">
         <div class="flex items-start gap-3">
-          <div class="size-10 flex shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
-            <div class="i-solar:folder-with-files-bold-duotone text-2xl" />
+          <div class="size-10 flex shrink-0 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:bg-teal-500/20 dark:text-teal-400">
+            <div class="i-solar:camera-bold-duotone text-2xl" />
           </div>
           <div class="flex flex-col gap-1">
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
-                Local Workspace & Filesystem Pack
+                Screen Snapshots
               </h3>
-              <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-700 font-bold uppercase dark:bg-amber-900/40 dark:text-amber-300">
-                Desktop MCP
+              <span class="whitespace-nowrap rounded-full bg-teal-100 px-2 py-0.5 text-[10px] text-teal-700 font-bold uppercase dark:bg-teal-900/40 dark:text-teal-300">
+                Desktop only
               </span>
             </div>
             <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
-              Allows the character to read, list, and search files in designated directories (e.g. Projects, Downloads, Desktop) via <code class="rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-800">@modelcontextprotocol/server-filesystem</code>.
+              Lets the character take a screenshot of your screen or a specific window when it needs to see something (<code class="rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-800">take_screenshot</code>). Requires the AIRI desktop app.
             </p>
           </div>
         </div>
@@ -375,38 +739,38 @@ const textJournalConflictWarning = computed(() => {
           type="button"
           :class="[
             'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-            hasFilesystem ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+            hasScreenshot ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
           ]"
-          @click="hasFilesystem = !hasFilesystem"
+          @click="hasScreenshot = !hasScreenshot"
         >
           <span
             aria-hidden="true"
             :class="[
               'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-              hasFilesystem ? 'translate-x-5' : 'translate-x-0',
+              hasScreenshot ? 'translate-x-5' : 'translate-x-0',
             ]"
           />
         </button>
       </div>
 
-      <div v-if="hasFilesystem" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-3 dark:border-neutral-800">
+      <div v-if="hasScreenshot" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-3 dark:border-neutral-800">
         <div class="flex flex-wrap gap-2">
           <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
-            <div class="i-solar:file-check-bold text-amber-500" />
-            read_file / list_directory
+            <div class="i-solar:monitor-bold text-teal-500" />
+            Screen or any window by title
           </span>
           <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
-            <div class="i-solar:folder-security-bold text-amber-500" />
-            directory_tree / search_files
+            <div class="i-solar:eye-bold text-teal-500" />
+            Uses your Vision settings
           </span>
         </div>
         <p class="text-[11px] text-neutral-400 dark:text-neutral-500">
-          Folder boundaries can be managed and expanded inside <strong>Settings &rarr; MCP Server & Tools &rarr; filesystem</strong>.
+          The image goes to the chat model directly or is described by the Vision model first, depending on <strong>Settings &rarr; Modules &rarr; Vision</strong>. The default source and resolution follow the Screen Watching settings.
         </p>
       </div>
     </section>
 
-    <!-- 3. Visual Artistry & Studio Pack -->
+    <!-- Image Studio -->
     <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
       <div class="flex items-start justify-between gap-4">
         <div class="flex items-start gap-3">
@@ -414,11 +778,11 @@ const textJournalConflictWarning = computed(() => {
             <div class="i-solar:palette-bold-duotone text-2xl" />
           </div>
           <div class="flex flex-col gap-1">
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
-                Visual Artistry & Studio Pack
+                Image Studio
               </h3>
-              <span class="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] text-purple-700 font-bold uppercase dark:bg-purple-900/40 dark:text-purple-300">
+              <span class="whitespace-nowrap rounded-full bg-purple-100 px-2 py-0.5 text-[10px] text-purple-700 font-bold uppercase dark:bg-purple-900/40 dark:text-purple-300">
                 Image Journal
               </span>
             </div>
@@ -452,14 +816,14 @@ const textJournalConflictWarning = computed(() => {
           <div class="flex gap-2">
             <button
               type="button"
-              class="dark:hover:bg-neutral-750 rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300"
+              class="rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
               @click="loadTemplate('image', 'tool')"
             >
               Tool Call Template
             </button>
             <button
               type="button"
-              class="dark:hover:bg-neutral-750 rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300"
+              class="rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
               @click="loadTemplate('image', 'token')"
             >
               Token Template
@@ -519,7 +883,7 @@ const textJournalConflictWarning = computed(() => {
       </div>
     </section>
 
-    <!-- 4. Sacred Memory & Recall Pack -->
+    <!-- Memory & Journal -->
     <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
       <div class="flex items-start justify-between gap-4">
         <div class="flex items-start gap-3">
@@ -527,11 +891,11 @@ const textJournalConflictWarning = computed(() => {
             <div class="i-solar:book-bookmark-bold-duotone text-2xl" />
           </div>
           <div class="flex flex-col gap-1">
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
-                Sacred Memory & Recall Pack
+                Memory & Journal
               </h3>
-              <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-700 font-bold uppercase dark:bg-emerald-900/40 dark:text-emerald-300">
+              <span class="whitespace-nowrap rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-700 font-bold uppercase dark:bg-emerald-900/40 dark:text-emerald-300">
                 LTMM & STMM
               </span>
             </div>
@@ -565,14 +929,14 @@ const textJournalConflictWarning = computed(() => {
           <div class="flex gap-2">
             <button
               type="button"
-              class="dark:hover:bg-neutral-750 rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300"
+              class="rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
               @click="loadTemplate('text', 'tool')"
             >
               Tool Call Template
             </button>
             <button
               type="button"
-              class="dark:hover:bg-neutral-750 rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300"
+              class="rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
               @click="loadTemplate('text', 'token')"
             >
               Token Template
@@ -674,7 +1038,7 @@ const textJournalConflictWarning = computed(() => {
       </div>
     </section>
 
-    <!-- 5. Kinetic Motion Generator Pack -->
+    <!-- Motion Creation -->
     <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
       <div class="flex items-start justify-between gap-4">
         <div class="flex items-start gap-3">
@@ -682,11 +1046,11 @@ const textJournalConflictWarning = computed(() => {
             <div class="i-solar:running-2-bold-duotone text-2xl" />
           </div>
           <div class="flex flex-col gap-1">
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
-                Kinetic Motion Generator Pack
+                Motion Creation
               </h3>
-              <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] text-rose-700 font-bold uppercase dark:bg-rose-900/40 dark:text-rose-300">
+              <span class="whitespace-nowrap rounded-full bg-rose-100 px-2 py-0.5 text-[10px] text-rose-700 font-bold uppercase dark:bg-rose-900/40 dark:text-rose-300">
                 VRMA Generation
               </span>
             </div>
@@ -717,98 +1081,6 @@ const textJournalConflictWarning = computed(() => {
       <div v-if="hasMotionGenerator" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-2 dark:border-neutral-800">
         <div class="rounded-xl bg-rose-50/50 p-3 text-xs text-rose-700 dark:bg-rose-950/20 dark:text-rose-300">
           🏃‍♂️ Supports VRM humanoid avatars via Procedural LLM keyframing and FlowMDM Local WebGPU neural diffusion.
-        </div>
-      </div>
-    </section>
-
-    <!-- 6. Custom Developer MCP Pack -->
-    <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
-      <div class="flex items-start justify-between gap-4">
-        <div class="flex items-start gap-3">
-          <div class="size-10 flex shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
-            <div class="i-solar:server-square-bold-duotone text-2xl" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <div class="flex items-center gap-2">
-              <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
-                Custom Developer MCP Pack
-              </h3>
-              <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] text-indigo-700 font-bold uppercase dark:bg-indigo-900/40 dark:text-indigo-300">
-                Developer MCP
-              </span>
-            </div>
-            <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
-              Unlocks all third-party Model Context Protocol (MCP) servers and tools configured in <code class="rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-800">mcp.json</code> (e.g. custom harnesses, databases, Spotify, local APIs).
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          :class="[
-            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-            hasCustomMcp ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
-          ]"
-          @click="hasCustomMcp = !hasCustomMcp"
-        >
-          <span
-            aria-hidden="true"
-            :class="[
-              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-              hasCustomMcp ? 'translate-x-5' : 'translate-x-0',
-            ]"
-          />
-        </button>
-      </div>
-
-      <div v-if="hasCustomMcp" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-3 dark:border-neutral-800">
-        <div class="flex flex-wrap gap-2">
-          <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
-            <div class="i-solar:widget-add-bold text-indigo-500" />
-            mcp_list_tools (All Connected Servers)
-          </span>
-          <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
-            <div class="i-solar:tuning-square-2-bold text-indigo-500" />
-            mcp_call_tool (&lt;server&gt;::&lt;tool&gt;)
-          </span>
-          <span class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-[11px] text-indigo-700 font-medium dark:bg-indigo-950/30 dark:text-indigo-300">
-            <div class="i-solar:shield-check-bold text-indigo-500" />
-            Full MCP Permission Granted
-          </span>
-        </div>
-
-        <!-- Discovered Connected Servers -->
-        <div v-if="connectedServers.length > 0" class="rounded-xl bg-neutral-50 p-3 dark:bg-neutral-800/50">
-          <div class="mb-2 flex items-center justify-between">
-            <span class="text-[11px] text-neutral-500 font-semibold tracking-wider uppercase dark:text-neutral-400">
-              Active MCP Servers Detected ({{ connectedServers.length }})
-            </span>
-            <button
-              type="button"
-              class="text-[11px] text-primary-600 dark:text-primary-400 hover:text-primary-700"
-              @click="loadConnectedServers"
-            >
-              Refresh
-            </button>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <div
-              v-for="server in connectedServers"
-              :key="server.name"
-              class="inline-flex items-center gap-1.5 border border-neutral-200 rounded-lg bg-white px-2.5 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-800"
-            >
-              <div
-                class="size-2 rounded-full"
-                :class="server.status === 'running' ? 'bg-emerald-500' : 'bg-neutral-400'"
-              />
-              <span class="text-neutral-800 font-medium dark:text-neutral-200">{{ server.name }}</span>
-              <span class="text-[10px] text-neutral-400 font-mono dark:text-neutral-500">({{ server.toolCount }} tools)</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-300">
-          ⚙️ <strong>Configuration:</strong> Add and configure third-party MCP servers in <strong>Settings &rarr; MCP Servers & Tools</strong>. When this pack is enabled, this character card allows unrestricted tool discovery and execution across all running servers.
         </div>
       </div>
     </section>

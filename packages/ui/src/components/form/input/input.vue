@@ -16,6 +16,7 @@ const props = withDefaults(defineProps<{
   variant?: InputVariant // Button style variant
   size?: InputSize // Button size variant
   theme?: InputTheme // Button theme
+  modelModifiers?: Record<string, boolean>
 }>(), {
   variant: 'primary',
   size: 'md',

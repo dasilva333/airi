@@ -1,5 +1,6 @@
 import messages from '@proj-airi/i18n/locales'
 
+import { createFallbackOptions } from '@proj-airi/i18n'
 import { createI18n } from 'vue-i18n'
 
 const languageRemap: Record<string, string> = {
@@ -44,6 +45,6 @@ function getLocale() {
 export const i18n = createI18n({
   legacy: false,
   locale: getLocale(),
-  fallbackLocale: 'en',
   messages,
+  ...createFallbackOptions(console.warn),
 })

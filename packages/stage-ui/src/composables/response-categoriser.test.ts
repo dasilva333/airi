@@ -99,6 +99,30 @@ describe('createStreamingCategorizer', () => {
     expect(result.reasoning).toContain('inner')
   })
 
+  // PR #2916: Ensure nested segments do not move the streaming cursor backwards
+  it.each([
+    {
+      chunking: 'one chunk',
+      chunks: ['Start <think>outer <analysis>inner</analysis> hidden</think> end'],
+    },
+    {
+      chunking: 'separate chunks',
+      chunks: ['Start ', '<think>outer <analysis>inner</analysis> hidden</think>', ' end'],
+    },
+  ])('excludes nested reasoning from streamed speech in $chunking (PR #2916)', ({ chunks }) => {
+    const categorizer = createStreamingCategorizer()
+    let position = 0
+    let speech = ''
+
+    for (const chunk of chunks) {
+      categorizer.consume(chunk)
+      speech += categorizer.filterToSpeech(chunk, position)
+      position += chunk.length
+    }
+
+    expect(speech).toBe('Start  end')
+  })
+
   it('should correctly identify speech positions with isSpeechAt', () => {
     const categorizer = createStreamingCategorizer()
     const text = 'Hello <reasoning>thinking</reasoning> world!'

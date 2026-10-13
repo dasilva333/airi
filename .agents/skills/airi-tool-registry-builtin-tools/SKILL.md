@@ -37,6 +37,7 @@ Everything the model can *do* flows through two registries that are, today, fed 
 | Motion (`generate_motion`) | `generate-motion.ts` | always (filtered at gateway by default — see §3) | `generate_motion` |
 | Image journal (`image_journal`) | `image-journal.ts` | only if `artistry.configured` (per index.ts comment, replaces deprecated `widgets`/`stage_widgets` tools) | `image_journal` |
 | Stickers | `stickers.ts` | only if a stickers library has content | pass-through |
+| Screenshot (`take_screenshot`) | `screenshot.ts` | only if the active card's `allowedTools` includes `take_screenshot` (card editor Tools tab "Screen Snapshots", onboarding Tools step, or the chat window "…" menu toggle); checked at registration too because Gemini Live bypasses the gateway filter; follows the Vision strategy: direct returns the image as the tool result (re-attached after the tool message by `libs/providers/tool-result-images.ts`, since OpenAI-compatible APIs reject images in tool messages), forward returns the Vision model's description. Targets: Screen Watching source by default, a window by title (`window`), or a display by number/name/`primary` (`display`, listed via `visionListDisplays`) | `take_screenshot` |
 | MCP meta-tools (`mcp_list_tools`, `mcp_call_tool`) | `mcp.ts` | only if the MCP bridge exists and ≥1 server is connected; qualified names are `server::tool` | `mcp` |
 
 **Not wired** (exported but not pushed into the factory): `datingSimTools()` (`dating-sim.ts`) and `widgetsTools()` (`widgets.ts`, deprecated after image-journal adoption). If a card expects `update_dating_sim_variables`, its tool was never registered — wire it in index.ts first.
@@ -55,7 +56,7 @@ Syntax parsing is isolated in `packages/stage-ui/src/stores/chat/tool-bridge.ts`
 
 Card gating happens in two stages: at the **LLM dispatch gateway** (`llmStore.filterToolsByAllowedTools` in `packages/stage-ui/src/stores/llm.ts`) and at the **MCP executor** (`filterToolsForCard` in `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/mcp.ts`), both reading `activeCard.extensions.airi.generation.known.allowedTools`:
 
-- **Default (no allowlist)**: Only baseline memory and artistry tools (`['text_journal', 'image_journal']`) are enabled. Advanced/heavy tools (`generate_motion`, `mcp`, `web_search`, `filesystem`) are **strictly opt-in by default** to avoid polluting smaller local models' context windows with tool specifications.
+- **Default (no allowlist)**: Only baseline memory and artistry tools (`['text_journal', 'image_journal']`) are enabled. Advanced/heavy tools (`generate_motion`, `mcp`, `web_search`, `filesystem`, `take_screenshot`) are **strictly opt-in by default** to avoid polluting smaller local models' context windows with tool specifications.
 - **5 Progressive Capability Packs** in Card Creator (`CardCreationTabTools.vue`):
   1. 🌐 **Web & Research Pack** (`web_search` / `mcp_web_search`): Exposes `open-websearch` multi-engine search & markdown reader.
   2. 📁 **Local Workspace Pack** (`filesystem` / `mcp_filesystem`): Exposes `@modelcontextprotocol/server-filesystem` folder reading/search.
@@ -63,7 +64,7 @@ Card gating happens in two stages: at the **LLM dispatch gateway** (`llmStore.fi
   4. 🧠 **Sacred Memory Pack** (`text_journal`): Append-only LTMM journal & STMM daily continuity blocks.
   5. 💃 **Kinetic Motion Generator Pack** (`generate_motion`): Text-to-VRMA motion diffusion and procedural keyframing.
 - **Allowlist present**:
-  - `text_journal`, `image_journal`, `generate_motion` are gated by their direct name.
+  - `text_journal`, `image_journal`, `generate_motion`, `take_screenshot` are gated by their direct name.
   - MCP meta-tools (`mcp_list_tools`, `mcp_call_tool`) pass if `mcp`, `web_search`, or `filesystem` is present.
   - Inside `builtin/mcp.ts`, `filterToolsForCard` dynamically filters the discovered tools list and blocks invocations to unpermitted servers (e.g. only web search tools are returned if only `web_search` is checked).
 

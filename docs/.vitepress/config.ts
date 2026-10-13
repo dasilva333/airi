@@ -606,7 +606,7 @@ export default defineConfig({
       yaml(),
       fallbackMediaPlugin(),
       frontmatterAssets(),
-    ],
+    ] as any[],
     css: {
       postcss: {
         plugins: [

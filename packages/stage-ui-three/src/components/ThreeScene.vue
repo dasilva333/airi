@@ -660,7 +660,7 @@ function handlePointerUp(event: PointerEvent) {
           @loaded="onVRMModelLoaded"
           @binary-loaded="(v: ArrayBuffer) => emit('binaryLoaded', v)"
           @finished="emit('finished')"
-          @play-status="(v: { duration: number, url: string }) => emit('playStatus', v)"
+          @play-status="(v: any) => emit('playStatus', v)"
         />
         <TresAxesHelper v-if="props.showAxes" :size="1" />
       </TresCanvas>

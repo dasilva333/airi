@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { tryGetMcpToolBridge } from '../stores/mcp-tool-bridge'
 import { useAiriCardStore } from '../stores/modules/airi-card'
+import { executeBashCommand } from '../stores/modules/tools/bash'
 
 function filterToolsForCard(rawTools: McpToolDescriptor[]): McpToolDescriptor[] {
   const cardStore = useAiriCardStore()
@@ -38,12 +39,35 @@ const tools = [
       console.log('[mcp_list_tools] 🔍 Discovery initiated...')
       try {
         const bridge = tryGetMcpToolBridge()
-        if (!bridge) {
-          throw new Error('MCP tool bridge is not available in this runtime.')
+        let rawTools: McpToolDescriptor[] = []
+        if (bridge) {
+          try {
+            rawTools = await bridge.listTools()
+          }
+          catch (bridgeErr) {
+            console.warn('[mcp_list_tools] ⚠️ Bridge listTools error:', bridgeErr)
+          }
         }
 
-        const rawTools = await bridge.listTools()
         const tools = filterToolsForCard(rawTools)
+
+        const cardStore = useAiriCardStore()
+        const allowedTools = cardStore.activeCard?.extensions?.airi?.generation?.known?.allowedTools
+        if (allowedTools?.includes('bash') || allowedTools?.includes('mcp_bash')) {
+          tools.push({
+            serverName: 'sandbox',
+            name: 'sandbox::bash',
+            toolName: 'bash',
+            description: 'Execute bash commands in the in-memory POSIX workstation (/workspace).',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                command: { type: 'string', description: 'The bash command to execute' },
+              },
+              required: ['command'],
+            },
+          })
+        }
 
         const names = tools.map(t => t.name)
         const servers = [...new Set(tools.map(t => t.serverName))]
@@ -73,17 +97,48 @@ const tools = [
     execute: async ({ name, parameters }) => {
       console.log(`[mcp_call_tool] 🚀 Calling tool "${name}"...`, { parameters })
 
+      // FORGIVENESS: If the model calls bash/mcp_bash through mcp_call_tool, execute directly in sandbox
+      if (name === 'bash' || name === 'mcp_bash' || name === 'sandbox::bash') {
+        const cmd = parameters.find((p: any) => p.name === 'command')?.value
+          || (parameters as any).command
+          || ''
+        const stdout = await executeBashCommand({ command: String(cmd) })
+        return {
+          content: [{ type: 'text', text: stdout }],
+          isError: false,
+        }
+      }
+
       // FORGIVENESS: If the model gets confused and tries to "call" the listing tool, redirect it.
       if (name === 'mcp_list_tools') {
         console.log('[mcp_call_tool] 💡 FORGIVENESS: Redirecting list request to discovery bridge...')
         try {
           const bridge = tryGetMcpToolBridge()
-          if (!bridge) {
-            throw new Error('MCP tool bridge is not available in this runtime.')
+          let rawTools: McpToolDescriptor[] = []
+          if (bridge) {
+            try {
+              rawTools = await bridge.listTools()
+            }
+            catch {}
           }
-
-          const rawTools = await bridge.listTools()
           const tools = filterToolsForCard(rawTools)
+          const cardStore = useAiriCardStore()
+          const allowedTools = cardStore.activeCard?.extensions?.airi?.generation?.known?.allowedTools
+          if (allowedTools?.includes('bash') || allowedTools?.includes('mcp_bash')) {
+            tools.push({
+              serverName: 'sandbox',
+              name: 'sandbox::bash',
+              toolName: 'bash',
+              description: 'Execute bash commands in the in-memory POSIX workstation (/workspace).',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  command: { type: 'string', description: 'The bash command to execute' },
+                },
+                required: ['command'],
+              },
+            })
+          }
           return {
             tools,
             names: tools.map(t => t.name),

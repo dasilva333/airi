@@ -87,8 +87,10 @@ export interface OnboardingV3DraftState {
   artistryImageJournalToolEnabled?: boolean
   screenWatcherEnabled?: boolean
   screenWatcherMode?: 'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'
-  screenWatcherTier?: 'lightweight' | 'moondream'
+  screenWatcherTier?: 'lightweight' | 'moondream' | 'external'
   screenWatcherInterval?: number
+  screenWatcherSourceType?: 'displays' | 'applications'
+  screenWatcherSourceId?: string
   heartbeatsEnabled?: boolean
   heartbeatsInterval?: number
   operatingScheduleEnabled?: boolean
@@ -115,6 +117,7 @@ export interface OnboardingV3DraftState {
   mcpWebSearchEnabled?: boolean
   mcpFilesystemEnabled?: boolean
   toolMotionGeneratorEnabled?: boolean
+  toolScreenshotEnabled?: boolean
   emotionsCurated?: boolean
   expressionMappings?: Record<string, string>
   actingModelExpressionPrompt?: string
@@ -277,9 +280,10 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     mcpWebSearchEnabled: false,
     mcpFilesystemEnabled: false,
     toolMotionGeneratorEnabled: false,
+    toolScreenshotEnabled: false,
     artistryImageJournalToolEnabled: false,
-    personaCardId: 'default',
-    personaSource: 'preset',
+    personaCardId: 'relu',
+    personaSource: 'creator',
     sttProvider: 'whisper-local',
     sttModel: 'onnx-community/whisper-tiny',
     sttTriggerKey: 'Caps',
@@ -312,8 +316,8 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     }
   }
   if (!state.value.personaCardId) {
-    state.value.personaCardId = 'default'
-    state.value.personaSource = 'preset'
+    state.value.personaCardId = 'relu'
+    state.value.personaSource = 'creator'
   }
   if (!state.value.sttProvider) {
     state.value.sttProvider = 'whisper-local'
@@ -567,7 +571,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
   function setSensory(sensory: {
     screenWatcherEnabled?: boolean
     screenWatcherMode?: 'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'
-    screenWatcherTier?: 'lightweight' | 'moondream'
+    screenWatcherTier?: 'lightweight' | 'moondream' | 'external'
     screenWatcherInterval?: number
     heartbeatsEnabled?: boolean
     heartbeatsInterval?: number
@@ -650,8 +654,10 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
   function setScreen(screen: {
     screenWatcherEnabled?: boolean
     screenWatcherMode?: 'voice-and-bubble' | 'bubble-only' | 'voice-only' | 'muted'
-    screenWatcherTier?: 'lightweight' | 'moondream'
+    screenWatcherTier?: 'lightweight' | 'moondream' | 'external'
     screenWatcherInterval?: number
+    screenWatcherSourceType?: 'displays' | 'applications'
+    screenWatcherSourceId?: string
   }) {
     if (screen.screenWatcherEnabled !== undefined)
       state.value.screenWatcherEnabled = screen.screenWatcherEnabled
@@ -661,6 +667,10 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.screenWatcherTier = screen.screenWatcherTier
     if (screen.screenWatcherInterval !== undefined)
       state.value.screenWatcherInterval = screen.screenWatcherInterval
+    if (screen.screenWatcherSourceType !== undefined)
+      state.value.screenWatcherSourceType = screen.screenWatcherSourceType
+    if (screen.screenWatcherSourceId !== undefined)
+      state.value.screenWatcherSourceId = screen.screenWatcherSourceId
   }
 
   function setProactivity(proactivity: {
@@ -744,6 +754,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     mcpWebSearchEnabled?: boolean
     mcpFilesystemEnabled?: boolean
     toolMotionGeneratorEnabled?: boolean
+    toolScreenshotEnabled?: boolean
   }) {
     if (tools.mcpWebSearchEnabled !== undefined)
       state.value.mcpWebSearchEnabled = tools.mcpWebSearchEnabled
@@ -751,6 +762,8 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.mcpFilesystemEnabled = tools.mcpFilesystemEnabled
     if (tools.toolMotionGeneratorEnabled !== undefined)
       state.value.toolMotionGeneratorEnabled = tools.toolMotionGeneratorEnabled
+    if (tools.toolScreenshotEnabled !== undefined)
+      state.value.toolScreenshotEnabled = tools.toolScreenshotEnabled
   }
 
   function setEmotions(emotions: {

@@ -2,17 +2,21 @@ import type { Tool } from '@xsai/shared-chat'
 
 import { debug } from '@proj-airi/stage-shared'
 import { tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useStickersStore } from '@proj-airi/stage-ui/stores/stickers'
 
+import { bashTools } from './bash'
 import { generateMotionTools } from './generate-motion'
 import { imageJournalTools } from './image-journal'
 import { mcpTools } from './mcp'
+import { screenshotTools } from './screenshot'
 import { stickersTools } from './stickers'
 import { textJournalTools } from './text-journal'
 
 export async function builtinTools(): Promise<Tool[]> {
   const artistry = useArtistryStore()
+  const airiCard = useAiriCardStore()
   const stickers = useStickersStore()
 
   const mcpBridge = tryGetMcpToolBridge()
@@ -36,6 +40,7 @@ export async function builtinTools(): Promise<Tool[]> {
   // Always register in list (filtered out by llmStore if not allowed)
   toolPromises.push(textJournalTools())
   toolPromises.push(generateMotionTools())
+  toolPromises.push(bashTools())
 
   // Artistry suite
   if (artistry.configured) {
@@ -47,6 +52,13 @@ export async function builtinTools(): Promise<Tool[]> {
   if (stickers.currentLibrary.length > 0) {
     debug(`[builtinTools] ✨ Stickers library found (${stickers.currentLibrary.length}), enabling stickers tool.`)
     toolPromises.push(Promise.resolve(stickersTools()))
+  }
+
+  // On-demand screenshots. Opt-in via the card's allowedTools; checked here as well as in
+  // llm.ts because Gemini Live reads this registry without the gateway filter.
+  if (airiCard.activeCard?.extensions?.airi?.generation?.known?.allowedTools?.includes('take_screenshot')) {
+    debug('[builtinTools] 📸 Agent screenshots allowed, enabling take_screenshot tool.')
+    toolPromises.push(screenshotTools())
   }
 
   // MCP Servers

@@ -40,7 +40,7 @@ const nativeAddonFilePatterns = {
     '!**/node_modules/uiohook-napi/prebuilds/!(linux-${arch}){,/**}',
     '!**/node_modules/uiohook-napi/prebuilds/linux-arm64{,/**}',
     // Linux does not use electron-click-drag-plugin.
-    '!**/node_modules/electron-click-drag-plugin/build/Release/{darwin-arm64,darwin-x64,linux-x64,win32-x64}{,/**}',
+    '!**/node_modules/electron-click-drag-plugin{,/**}',
     '!**/node_modules/koffi/build/koffi/!(linux_${arch}){,/**}',
   ],
   win32: [
@@ -186,6 +186,8 @@ export default {
     // Node-only image backend and has no packaged main-process consumer.
     '!**/node_modules/sharp{,/**}',
     '!**/node_modules/@img{,/**}',
+    '!**/node_modules/node-liblzma{,/**}',
+    '!**/node_modules/@mongodb-js{,/**}',
     // uiohook-napi loads the selected prebuild. Its bundled libuiohook C source is
     // only used to build that binary and does not participate in runtime loading.
     '!**/node_modules/uiohook-napi/libuiohook{,/**}',
@@ -290,7 +292,7 @@ export default {
   appImage: {
     artifactName: 'airi-dasilva333-${version}-linux-${arch}.${ext}',
   },
-  npmRebuild: true,
+  npmRebuild: false,
   publish: {
     provider: 'github',
     owner: 'dasilva333',

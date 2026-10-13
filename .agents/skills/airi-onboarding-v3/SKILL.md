@@ -100,7 +100,7 @@ Directory: `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/`
 | 13 | `proactivity` | `step-proactivity.vue` | Schedule, ambient heartbeats, quiet hours, and desktop display perception. |
 | 14 | `artistry` | `step-artistry.vue` | Visual generation (Pollinations AI free tier or ComfyUI Bring-Your-Own-Workflow). |
 | 15 | `memory` | `step-memory.vue` | 4 Temporal Memory Quadrants (STMM daily summaries, Sacred Journal LTMM, Lifetime Thread, Echo Chips). |
-| 16 | `tools` | `step-tools.vue` | External tools (0-Key Web Search, Desktop Filesystem MCP, 3D Motion Generator). |
+| 16 | `tools` | `step-tools.vue` | External tools (0-Key Web Search, Desktop Filesystem MCP, Screen Snapshots `take_screenshot`, 3D Motion Generator). |
 | 17 | `finale` | `step-finale.vue` | Pre-Flight Honesty Matrix & seamless Turn 0 greeting launch into Stage. |
 
 ---

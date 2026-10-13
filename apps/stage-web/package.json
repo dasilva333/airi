@@ -10,8 +10,8 @@
   },
   "license": "MIT",
   "scripts": {
-    "build": "vite build",
-    "build:pages": "BASE_URL=/airi/web-stage/ vite build",
+    "build": "NODE_OPTIONS=\"--max-old-space-size=12288\" vite build",
+    "build:pages": "NODE_OPTIONS=\"--max-old-space-size=12288\" BASE_URL=/airi/web-stage/ vite build",
     "dev": "vite --host",
     "lint": "eslint .",
     "preview": "vite preview",

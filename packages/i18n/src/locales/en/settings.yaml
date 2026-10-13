@@ -951,7 +951,7 @@ pages:
             description: AWS region where Bedrock is enabled (e.g. us-east-1, us-west-2)
       anthropic:
         description: Claude Specialist - Most helpful and harmless reasoning
-        title: Anthropic | Claude
+        title: Anthropic {'|'} Claude
         helpinfo:
           title: Before you start
           description:
@@ -1587,6 +1587,9 @@ theme:
   title: Theme
   description: |
     Switch the base theme of AIRI, Light mode or Dark mode.
+  auto: System
+  light: Light
+  dark: Dark
 title: Settings
 voices: Voice
 vrm:

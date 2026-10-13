@@ -804,7 +804,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
           const speechOnly = categorizer.filterToSpeech(literal, streamPosition)
           streamPosition += literal.length
 
-          if (speechOnly.trim()) {
+          // Preserve whitespace literals across stream delta boundaries (PR #2911)
+          if (speechOnly) {
             buildingMessage.content += speechOnly
             await chatOrchestrator.emitTokenLiteralHooks(speechOnly, streamingContext)
 

@@ -1586,6 +1586,16 @@ playbackManager.onEnd(({ item }) => {
   mouthOpenSize.value = 0
 })
 
+playbackManager.onInterrupt(({ item, reason }) => {
+  debug('[Stage] Playback interrupted:', { reason, itemText: item?.text })
+  nowSpeaking.value = false
+  mouthOpenSize.value = 0
+  try {
+    postSpeakingState({ mouthOpenSize: 0, nowSpeaking: false })
+  }
+  catch {}
+})
+
 playbackManager.onStart(({ item }) => {
   nowSpeaking.value = true
 
@@ -1748,6 +1758,13 @@ chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
   // Reset the entire host pipeline on each new assistant turn so later chat TTS cannot inherit
   // stale proactivity/chat intent state.
   speechPipeline.stopAll('new-message')
+  playbackManager.stopAll('new-message')
+  nowSpeaking.value = false
+  mouthOpenSize.value = 0
+  try {
+    postSpeakingState({ mouthOpenSize: 0, nowSpeaking: false })
+  }
+  catch {}
   discordStore.clearAudioTurn()
   turnPacing.cancel('new-message')
 
@@ -1943,13 +1960,11 @@ function resumeAudioContextOnInteraction() {
   })
 }
 
-// Add event listeners for user interaction
+// The listeners close over this setup scope, so a listener that outlives the
+// host keeps the whole unmounted host alive. `useEventListener` removes them on unmount.
+useEventListener(['click', 'touchstart', 'keydown'], resumeAudioContextOnInteraction, { once: true, passive: true })
 if (typeof window !== 'undefined') {
-  const events = ['click', 'touchstart', 'keydown']
-  events.forEach((event) => {
-    window.addEventListener(event, resumeAudioContextOnInteraction, { once: true, passive: true })
-  })
-  window.addEventListener(resizeStateEventName, handleResizeStateChange as EventListener)
+  useEventListener(window, resizeStateEventName, handleResizeStateChange as EventListener)
 }
 
 onMounted(() => {

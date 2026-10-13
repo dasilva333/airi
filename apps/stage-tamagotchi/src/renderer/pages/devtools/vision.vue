@@ -90,7 +90,13 @@ async function captureAndProcess() {
     const width = Math.round(1280 * (captureDownscalePercent.value / 100))
     const height = Math.round(720 * (captureDownscalePercent.value / 100))
 
-    const result = await visionStore.captureSnapshot({ width, height })
+    const sourceId = selectedSourceId.value || undefined
+    const result = await visionStore.captureSnapshot({
+      width,
+      height,
+      sourceId,
+      type: sourceId?.startsWith('window:') ? 'window' : 'screen',
+    })
     if (!result?.dataUrl) {
       orchestrator.lastError = result?.error === 'permission_denied' ? 'Screen capture permission denied.' : 'Capture returned no frame.'
       return
@@ -167,7 +173,7 @@ void refetchSources()
           :key="source.id"
           type="button"
           class="flex flex-col gap-1 border rounded-md border-solid p-2 text-left text-xs transition-colors"
-          :class="selectedSourceId === source.id ? 'border-[var(--ui-accent)]' : 'border-[var(--ui-border)]'"
+          :class="selectedSourceId === source.id ? 'border-primary-500 bg-primary-500/10' : 'border-neutral-200 dark:border-neutral-700'"
           @click="selectedSourceId = source.id"
         >
           <img

@@ -8,7 +8,7 @@ import type { ServerChannel } from '../../services/airi/channel-server'
 import { join, resolve } from 'node:path'
 
 import { createContext } from '@moeru/eventa/adapters/electron/main'
-import { BrowserWindow as ElectronBrowserWindow, ipcMain, screen, shell } from 'electron'
+import { BrowserWindow as ElectronBrowserWindow, ipcMain, Menu, screen, shell } from 'electron'
 import { isMacOS } from 'std-env'
 import { number, object, optional } from 'valibot'
 
@@ -81,6 +81,53 @@ function createWidgetsWindow(options?: Electron.BrowserWindowConstructorOptions 
   if (isMacOS)
     window.setWindowButtonVisibility(false)
 
+  // DevTools toggle shortcut & input handling (F12, Ctrl+Shift+I, Cmd+Alt+I)
+  window.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown')
+      return
+
+    const isF12 = input.key === 'F12'
+    const isDevToolsShortcut = ((input.control || input.meta) && input.shift && input.key.toLowerCase() === 'i')
+      || (input.alt && input.meta && input.key.toLowerCase() === 'i')
+
+    if (isF12 || isDevToolsShortcut) {
+      event.preventDefault()
+      if (window.webContents.isDevToolsOpened()) {
+        window.webContents.closeDevTools()
+      }
+      else {
+        window.webContents.openDevTools({ mode: 'detach' })
+      }
+    }
+  })
+
+  // Right-click context menu with Inspect Element & Toggle Developer Tools
+  window.webContents.on('context-menu', (_event, params) => {
+    const menu = Menu.buildFromTemplate([
+      {
+        label: 'Inspect Element',
+        click: () => {
+          window.webContents.inspectElement(params.x, params.y)
+          if (!window.webContents.isDevToolsOpened()) {
+            window.webContents.openDevTools({ mode: 'detach' })
+          }
+        },
+      },
+      {
+        label: 'Toggle Developer Tools',
+        click: () => {
+          if (window.webContents.isDevToolsOpened()) {
+            window.webContents.closeDevTools()
+          }
+          else {
+            window.webContents.openDevTools({ mode: 'detach' })
+          }
+        },
+      },
+    ])
+    menu.popup()
+  })
+
   window.on('ready-to-show', () => window.show())
   window.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -131,7 +178,7 @@ export function setupWidgetsWindowManager(params: {
     ipcMain.setMaxListeners(0)
 
     const window = createWidgetsWindow()
-    const { context } = createContext(ipcMain, window)
+    const { context } = createContext(ipcMain, window, { onlySameWindow: true })
     eventaContext = context
 
     const saved = getConfig().bounds
@@ -165,15 +212,16 @@ export function setupWidgetsWindowManager(params: {
       }
     })
 
-    const initialRoute = pendingRoute ?? defaultRoute
-    await loadWithRoute(window, initialRoute)
-
     await setupWidgetsWindowInvokes({
       widgetWindow: window,
       widgetsManager: widgetsManager!,
       i18n: params.i18n,
       serverChannel: params.serverChannel,
+      context,
     })
+
+    const initialRoute = pendingRoute ?? defaultRoute
+    await loadWithRoute(window, initialRoute)
 
     pendingRoute = undefined
 

@@ -298,6 +298,17 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
 
   function setReflex(reflex: Nan0ReflexInfo | null, shouldBroadcast = true) {
     lastReflex.value = reflex
+    if (typeof globalThis.localStorage !== 'undefined' && activeCardId.value) {
+      try {
+        if (reflex) {
+          globalThis.localStorage.setItem(`nan0/last-reflex/${activeCardId.value}`, JSON.stringify(reflex))
+        }
+        else {
+          globalThis.localStorage.removeItem(`nan0/last-reflex/${activeCardId.value}`)
+        }
+      }
+      catch {}
+    }
     if (shouldBroadcast)
       broadcastCurrentState()
   }
@@ -385,7 +396,7 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
   }
 
   function hydrateFromStorage(cardId?: string) {
-    const targetCardId = cardId || activeCardId.value || 'default'
+    const targetCardId = cardId || activeCardId.value || 'relu'
     activeCardId.value = targetCardId
     const key = `nan0/kernel-state/${targetCardId}`
     if (typeof globalThis.localStorage !== 'undefined') {
@@ -413,6 +424,14 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
             }
           }
         }
+
+        const reflexRaw = globalThis.localStorage.getItem(`nan0/last-reflex/${targetCardId}`)
+        if (reflexRaw) {
+          try {
+            lastReflex.value = JSON.parse(reflexRaw)
+          }
+          catch {}
+        }
       }
       catch (e) {
         console.warn('[Nan0Store] Failed to hydrate from storage:', e)
@@ -428,7 +447,7 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
       return kernel.value as any
     }
 
-    const targetCardId = cardId || activeCardId.value || 'default'
+    const targetCardId = cardId || activeCardId.value || 'relu'
     if (kernel.value && (activeCardId.value === targetCardId || !cardId) && kernel.value.isBooted) {
       return kernel.value
     }
@@ -691,7 +710,7 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
       // turns ride the write throttle (30s / 5 buffered saves).
       if (finalDecision === 'SPEAK' && allowed) {
         try {
-          const targetCardId = (observation.metadata?.cardId as string | undefined) || activeCardId.value || 'default'
+          const targetCardId = (observation.metadata?.cardId as string | undefined) || activeCardId.value || 'relu'
           await throttledStores.get(targetCardId)?.flush()
         }
         catch (err) {
@@ -721,7 +740,7 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
     const res = await kernel.value.recordAssistantTurn(input)
     // Assistant turns are spoken output — always durable, bypassing the throttle.
     try {
-      const targetCardId = activeCardId.value || 'default'
+      const targetCardId = activeCardId.value || 'relu'
       await throttledStores.get(targetCardId)?.flush()
     }
     catch (err) {
