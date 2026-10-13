@@ -253,11 +253,11 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
   const allowedTools = activeCard?.extensions?.airi?.generation?.known?.allowedTools
 
   // Default to allowing text_journal and image_journal only if allowedTools is not specifically set.
-  // Advanced tools (generate_motion, mcp, web_search, filesystem, bash) are strictly opt-in.
+  // Advanced tools (generate_motion, mcp, web_search, filesystem, bash, take_screenshot) are strictly opt-in.
   if (!allowedTools) {
     return tools.filter((t: any) => {
       const name = t.function?.name || t.name || ''
-      return !name.includes('generate_motion') && !name.includes('mcp') && !name.includes('bash')
+      return !name.includes('generate_motion') && !name.includes('mcp') && !name.includes('bash') && name !== 'take_screenshot'
     })
   }
 
@@ -281,6 +281,9 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
     }
     if (name.includes('generate_motion')) {
       return allowedTools.includes('generate_motion')
+    }
+    if (name === 'take_screenshot') {
+      return allowedTools.includes('take_screenshot')
     }
     // Allow other custom/unmapped tools by default
     return true

@@ -54,9 +54,10 @@ export async function builtinTools(): Promise<Tool[]> {
     toolPromises.push(Promise.resolve(stickersTools()))
   }
 
-  // On-demand screenshots
-  if (airiCard.activeCard?.extensions?.airi?.agentScreenshot?.enabled) {
-    debug('[builtinTools] 📸 Agent screenshots enabled, enabling take_screenshot tool.')
+  // On-demand screenshots. Opt-in via the card's allowedTools; checked here as well as in
+  // llm.ts because Gemini Live reads this registry without the gateway filter.
+  if (airiCard.activeCard?.extensions?.airi?.generation?.known?.allowedTools?.includes('take_screenshot')) {
+    debug('[builtinTools] 📸 Agent screenshots allowed, enabling take_screenshot tool.')
     toolPromises.push(screenshotTools())
   }
 

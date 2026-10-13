@@ -102,6 +102,23 @@ const hasMotionGenerator = computed({
   },
 })
 
+// Opt-in only: On-demand screenshots (disabled by default)
+const hasScreenshot = computed({
+  get() {
+    return generationAllowedTools.value !== undefined && generationAllowedTools.value.includes('take_screenshot')
+  },
+  set(checked) {
+    const current = generationAllowedTools.value ?? ['text_journal', 'image_journal']
+    if (checked) {
+      if (!current.includes('take_screenshot'))
+        generationAllowedTools.value = [...current, 'take_screenshot']
+    }
+    else {
+      generationAllowedTools.value = current.filter(t => t !== 'take_screenshot')
+    }
+  },
+})
+
 // Opt-in only: Custom Developer MCP (disabled by default)
 const hasCustomMcp = computed({
   get() {
@@ -693,6 +710,63 @@ const textJournalConflictWarning = computed(() => {
         <div class="rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-300">
           💡 <strong>Tip:</strong> In your Character Persona or System Prompt, instruct the character to cite sources when searching the web for real-time news or technical queries.
         </div>
+      </div>
+    </section>
+
+    <!-- Screen Snapshots -->
+    <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="size-10 flex shrink-0 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:bg-teal-500/20 dark:text-teal-400">
+            <div class="i-solar:camera-bold-duotone text-2xl" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
+                Screen Snapshots
+              </h3>
+              <span class="whitespace-nowrap rounded-full bg-teal-100 px-2 py-0.5 text-[10px] text-teal-700 font-bold uppercase dark:bg-teal-900/40 dark:text-teal-300">
+                Desktop only
+              </span>
+            </div>
+            <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+              Lets the character take a screenshot of your screen or a specific window when it needs to see something (<code class="rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-800">take_screenshot</code>). Requires the AIRI desktop app.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          :class="[
+            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+            hasScreenshot ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+          ]"
+          @click="hasScreenshot = !hasScreenshot"
+        >
+          <span
+            aria-hidden="true"
+            :class="[
+              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+              hasScreenshot ? 'translate-x-5' : 'translate-x-0',
+            ]"
+          />
+        </button>
+      </div>
+
+      <div v-if="hasScreenshot" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-3 dark:border-neutral-800">
+        <div class="flex flex-wrap gap-2">
+          <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+            <div class="i-solar:monitor-bold text-teal-500" />
+            Screen or any window by title
+          </span>
+          <span class="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-600 font-medium dark:bg-neutral-800 dark:text-neutral-300">
+            <div class="i-solar:eye-bold text-teal-500" />
+            Uses your Vision settings
+          </span>
+        </div>
+        <p class="text-[11px] text-neutral-400 dark:text-neutral-500">
+          The image goes to the chat model directly or is described by the Vision model first, depending on <strong>Settings &rarr; Modules &rarr; Vision</strong>. The default source and resolution follow the Screen Watching settings.
+        </p>
       </div>
     </section>
 
