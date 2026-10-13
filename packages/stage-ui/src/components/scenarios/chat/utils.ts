@@ -187,5 +187,11 @@ export function formatToolCallSummary(toolName: string, argsInput: string | Reco
     return `🧩 Mounted ${title}`
   }
 
+  // 6. Screenshot
+  if (toolName === 'take_screenshot') {
+    const windowTitle = parsed?.window?.trim()
+    return windowTitle ? `📸 Took a screenshot of ${windowTitle}` : '📸 Took a screenshot'
+  }
+
   return toolName
 }

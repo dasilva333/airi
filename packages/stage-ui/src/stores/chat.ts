@@ -1055,7 +1055,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                     toolCallQueue.enqueue({
                       type: 'tool-call-result',
                       id: toolCall.id,
-                      result: (typeof result === 'string' ? result : JSON.stringify(result)) as any,
+                      // NOTICE: multimodal results (e.g. take_screenshot's text + image parts) stay as arrays,
+                      // matching the native tool path, so the image is rendered and re-attached rather than stringified.
+                      result: (typeof result === 'string' || Array.isArray(result) ? result : JSON.stringify(result)) as any,
                     })
                   }
                   catch (err) {
@@ -1277,7 +1279,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                   const resContent = matchedRes
                     ? (typeof (matchedRes as any).result === 'string'
                         ? cleanMessageContent((matchedRes as any).result)
-                        : JSON.stringify((matchedRes as any).result))
+                        : Array.isArray((matchedRes as any).result)
+                          ? (matchedRes as any).result
+                          : JSON.stringify((matchedRes as any).result))
                     : 'Success'
 
                   newMessages.push({

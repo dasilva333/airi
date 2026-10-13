@@ -129,6 +129,14 @@ describe('formatToolCallSummary', () => {
       }))).toBe('🧩 Mounted Haven Dialogue 🌸')
     })
 
+    it('formats take_screenshot with and without a window title', () => {
+      expect(formatToolCallSummary('take_screenshot', JSON.stringify({
+        window: 'Edge',
+        focus: 'the chat',
+      }))).toBe('📸 Took a screenshot of Edge')
+      expect(formatToolCallSummary('take_screenshot', '{}')).toBe('📸 Took a screenshot')
+    })
+
     it('falls back to raw tool name for unknown tools', () => {
       expect(formatToolCallSummary('custom_unknown_tool', '{}')).toBe('custom_unknown_tool')
     })
