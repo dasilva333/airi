@@ -58,6 +58,12 @@ function handleToggleFilesystem() {
   })
 }
 
+function handleToggleScreenshot() {
+  draftStore.setTools({
+    toolScreenshotEnabled: !draftStore.state.toolScreenshotEnabled,
+  })
+}
+
 function handleToggleMotionGenerator() {
   const nextState = !draftStore.state.toolMotionGeneratorEnabled
   draftStore.setTools({ toolMotionGeneratorEnabled: nextState })
@@ -91,6 +97,8 @@ const activeToolCount = computed(() => {
   if (draftStore.state.mcpFilesystemEnabled)
     count++
   if (draftStore.state.toolMotionGeneratorEnabled)
+    count++
+  if (draftStore.state.toolScreenshotEnabled)
     count++
   return count
 })
@@ -242,7 +250,67 @@ const activeToolCount = computed(() => {
         </div>
       </div>
 
-      <!-- 3. Kinetic Motion Generator Pack -->
+      <!-- 3. Screen Snapshots Pack -->
+      <div
+        :class="[
+          'rounded-2xl border transition-all p-4.5 flex flex-col gap-3',
+          draftStore.state.toolScreenshotEnabled
+            ? 'border-teal-500/40 bg-white/70 dark:bg-teal-950/10 shadow-sm'
+            : 'border-neutral-200/70 bg-white/40 dark:border-neutral-800/70 dark:bg-neutral-900/30 opacity-75',
+        ]"
+      >
+        <div :class="['flex items-start justify-between gap-4']">
+          <div :class="['flex items-start gap-3 min-w-0']">
+            <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-teal-500/15 text-teal-500']">
+              <div :class="['i-solar:camera-bold-duotone text-xl']" />
+            </div>
+            <div :class="['flex flex-col min-w-0']">
+              <div :class="['flex items-center gap-2 flex-wrap']">
+                <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white']">
+                  {{ t('onboarding.steps.tools.screenSnapshotsPack') }}
+                </h3>
+                <span :class="['text-[10px] font-semibold px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-600 dark:text-teal-300 font-mono']">
+                  {{ t('onboarding.steps.tools.desktopOnly') }}
+                </span>
+              </div>
+              <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed']">
+                <i18n-t scope="global" keypath="onboarding.steps.tools.screenshotDescription" tag="span">
+                  <template #code>
+                    <code :class="['text-teal-500 font-mono text-[11px]']">take_screenshot</code>
+                  </template>
+                </i18n-t>
+              </p>
+            </div>
+          </div>
+
+          <!-- Switch Toggle -->
+          <label :class="['relative inline-flex items-center cursor-pointer shrink-0 mt-1']">
+            <input
+              type="checkbox"
+              :checked="draftStore.state.toolScreenshotEnabled"
+              :class="['sr-only peer']"
+              @change="handleToggleScreenshot"
+            >
+            <div :class="['w-11 h-6 bg-neutral-200 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-empty after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600']" />
+          </label>
+        </div>
+
+        <div
+          v-if="draftStore.state.toolScreenshotEnabled"
+          :class="['flex flex-wrap gap-2 pt-1 border-t border-teal-500/20']"
+        >
+          <span :class="['inline-flex items-center gap-1 rounded-md bg-teal-500/10 px-2 py-0.5 text-[11px] text-teal-700 dark:text-teal-300 font-medium']">
+            <div :class="['i-solar:monitor-bold text-teal-500']" />
+            {{ t('onboarding.steps.tools.screenOrAnyWindow') }}
+          </span>
+          <span :class="['inline-flex items-center gap-1 rounded-md bg-teal-500/10 px-2 py-0.5 text-[11px] text-teal-700 dark:text-teal-300 font-medium']">
+            <div :class="['i-solar:eye-bold text-teal-500']" />
+            {{ t('onboarding.steps.tools.usesVisionSettings') }}
+          </span>
+        </div>
+      </div>
+
+      <!-- 4. Kinetic Motion Generator Pack -->
       <div
         :class="[
           'rounded-2xl border transition-all p-4.5 flex flex-col gap-3',
@@ -393,6 +461,13 @@ const activeToolCount = computed(() => {
         >
           <div :class="['i-solar:running-2-bold text-rose-500']" />
           {{ t('onboarding.steps.tools.generateMotion3dVrma') }}
+        </span>
+        <span
+          v-if="draftStore.state.toolScreenshotEnabled"
+          :class="['px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20 flex items-center gap-1.5']"
+        >
+          <div :class="['i-solar:camera-bold text-teal-500']" />
+          {{ t('onboarding.steps.tools.takeScreenshotDesktop') }}
         </span>
         <span
           v-if="activeToolCount === 0"

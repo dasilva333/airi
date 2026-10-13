@@ -2275,6 +2275,14 @@ steps:
       and play live on Stage. {emphasis}
     motion:
       status: 'Engine Status: {status}'
+    screenSnapshotsPack: Gói chụp màn hình
+    desktopOnly: Chỉ trên máy tính
+    screenshotDescription: Cho phép bạn đồng hành chụp màn hình hoặc một cửa sổ cụ
+      thể bằng {code} khi cần xem bạn đang nhìn gì. Hình ảnh được gửi thẳng đến
+      mô hình chat hoặc được mô hình Vision của bạn mô tả trước.
+    screenOrAnyWindow: Màn hình hoặc bất kỳ cửa sổ nào
+    usesVisionSettings: Dùng cài đặt Vision
+    takeScreenshotDesktop: take_screenshot (Máy tính)
   finale:
     label: Sẵn sàng
     subtitle: Kiểm tra cuối cùng & Lên sân khấu
@@ -2356,6 +2364,7 @@ steps:
       webSearch: Web Search
       filesystem: Filesystem
       motions: 3D Motions
+      screenshots: Ảnh chụp màn hình
     summary:
       microphone: '{provider} · Mic Active'
       memoryActive: Memory Active

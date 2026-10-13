@@ -2268,6 +2268,15 @@ steps:
       and play live on Stage. {emphasis}
     motion:
       status: 'Engine Status: {status}'
+    screenSnapshotsPack: Screen Snapshots Pack
+    desktopOnly: Desktop Only
+    screenshotDescription: Lets the companion capture your screen or a specific
+      window with {code} whenever it needs to see what you are looking at. The
+      image goes to the chat model directly or is described by your Vision model
+      first.
+    screenOrAnyWindow: Screen or any window
+    usesVisionSettings: Uses Vision settings
+    takeScreenshotDesktop: take_screenshot (Desktop)
 
   finale:
     label: Stage Finale
@@ -2350,6 +2359,7 @@ steps:
       webSearch: Web Search
       filesystem: Filesystem
       motions: 3D Motions
+      screenshots: Screenshots
     summary:
       microphone: '{provider} · Mic Active'
       memoryActive: Memory Active

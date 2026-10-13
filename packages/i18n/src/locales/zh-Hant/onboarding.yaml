@@ -2191,6 +2191,12 @@ steps:
       and play live on Stage. {emphasis}
     motion:
       status: 'Engine Status: {status}'
+    screenSnapshotsPack: 螢幕截圖包
+    desktopOnly: 僅限桌面版
+    screenshotDescription: 當夥伴需要看到你正在看的內容時，可以透過 {code} 擷取整個螢幕或指定視窗。圖像會直接傳送給聊天模型，或先由你的視覺模型進行描述。
+    screenOrAnyWindow: 螢幕或任意視窗
+    usesVisionSettings: 使用視覺設定
+    takeScreenshotDesktop: take_screenshot（桌面版）
   finale:
     label: 啟航就緒
     subtitle: 最終檢查與舞台發射
@@ -2271,6 +2277,7 @@ steps:
       webSearch: Web Search
       filesystem: Filesystem
       motions: 3D Motions
+      screenshots: 螢幕截圖
     summary:
       microphone: '{provider} · Mic Active'
       memoryActive: Memory Active

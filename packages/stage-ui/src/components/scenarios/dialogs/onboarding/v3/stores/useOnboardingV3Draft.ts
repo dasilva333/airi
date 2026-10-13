@@ -117,6 +117,7 @@ export interface OnboardingV3DraftState {
   mcpWebSearchEnabled?: boolean
   mcpFilesystemEnabled?: boolean
   toolMotionGeneratorEnabled?: boolean
+  toolScreenshotEnabled?: boolean
   emotionsCurated?: boolean
   expressionMappings?: Record<string, string>
   actingModelExpressionPrompt?: string
@@ -279,6 +280,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     mcpWebSearchEnabled: false,
     mcpFilesystemEnabled: false,
     toolMotionGeneratorEnabled: false,
+    toolScreenshotEnabled: false,
     artistryImageJournalToolEnabled: false,
     personaCardId: 'default',
     personaSource: 'creator',
@@ -752,6 +754,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     mcpWebSearchEnabled?: boolean
     mcpFilesystemEnabled?: boolean
     toolMotionGeneratorEnabled?: boolean
+    toolScreenshotEnabled?: boolean
   }) {
     if (tools.mcpWebSearchEnabled !== undefined)
       state.value.mcpWebSearchEnabled = tools.mcpWebSearchEnabled
@@ -759,6 +762,8 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
       state.value.mcpFilesystemEnabled = tools.mcpFilesystemEnabled
     if (tools.toolMotionGeneratorEnabled !== undefined)
       state.value.toolMotionGeneratorEnabled = tools.toolMotionGeneratorEnabled
+    if (tools.toolScreenshotEnabled !== undefined)
+      state.value.toolScreenshotEnabled = tools.toolScreenshotEnabled
   }
 
   function setEmotions(emotions: {

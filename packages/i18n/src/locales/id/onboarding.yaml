@@ -2265,6 +2265,15 @@ steps:
       and play live on Stage. {emphasis}
     motion:
       status: 'Engine Status: {status}'
+    screenSnapshotsPack: Paket Tangkapan Layar
+    desktopOnly: Khusus Desktop
+    screenshotDescription: Memungkinkan pendamping mengambil tangkapan layar atau
+      jendela tertentu dengan {code} saat perlu melihat apa yang sedang kamu
+      lihat. Gambar dikirim langsung ke model chat atau dideskripsikan terlebih
+      dahulu oleh model Vision kamu.
+    screenOrAnyWindow: Layar atau jendela apa pun
+    usesVisionSettings: Memakai pengaturan Vision
+    takeScreenshotDesktop: take_screenshot (Desktop)
   finale:
     label: Stage Finale
     subtitle: Pre-Flight Readiness & Launch
@@ -2346,6 +2355,7 @@ steps:
       webSearch: Web Search
       filesystem: Filesystem
       motions: 3D Motions
+      screenshots: Tangkapan Layar
     summary:
       microphone: '{provider} · Mic Active'
       memoryActive: Memory Active

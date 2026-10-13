@@ -394,6 +394,8 @@ const activeToolsList = computed(() => {
     list.push(t('onboarding.steps.finale.tools.filesystem'))
   if (draft.state.toolMotionGeneratorEnabled)
     list.push(t('onboarding.steps.finale.tools.motions'))
+  if (draft.state.toolScreenshotEnabled)
+    list.push(t('onboarding.steps.finale.tools.screenshots'))
   return list
 })
 

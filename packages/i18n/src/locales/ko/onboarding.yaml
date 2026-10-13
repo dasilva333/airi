@@ -2203,6 +2203,13 @@ steps:
       and play live on Stage. {emphasis}
     motion:
       status: 'Engine Status: {status}'
+    screenSnapshotsPack: 스크린샷 팩
+    desktopOnly: 데스크톱 전용
+    screenshotDescription: 컴패니언이 당신이 보고 있는 것을 확인해야 할 때 {code}로 화면이나 특정 창을 캡처할 수 있게
+      합니다. 이미지는 채팅 모델로 바로 전송되거나 비전 모델이 먼저 설명합니다.
+    screenOrAnyWindow: 화면 또는 모든 창
+    usesVisionSettings: 비전 설정 사용
+    takeScreenshotDesktop: take_screenshot (데스크톱)
   finale:
     label: 준비 완료
     subtitle: 최종 확인 및 무대 시작
@@ -2283,6 +2290,7 @@ steps:
       webSearch: Web Search
       filesystem: Filesystem
       motions: 3D Motions
+      screenshots: 스크린샷
     summary:
       microphone: '{provider} · Mic Active'
       memoryActive: Memory Active

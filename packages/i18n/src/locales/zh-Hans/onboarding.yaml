@@ -2045,6 +2045,12 @@ steps:
     motionOutputDescription: 生成的动作会直接编译为 VRMA 动画轨道，并在舞台上实时播放。 {emphasis}
     motion:
       status: 引擎状态： {status}
+    screenSnapshotsPack: 屏幕截图包
+    desktopOnly: 仅限桌面端
+    screenshotDescription: 当伙伴需要看到你正在看的内容时，可以通过 {code} 截取整个屏幕或指定窗口。图像会直接发送给聊天模型，或先由你的视觉模型进行描述。
+    screenOrAnyWindow: 屏幕或任意窗口
+    usesVisionSettings: 使用视觉设置
+    takeScreenshotDesktop: take_screenshot（桌面端）
   finale:
     label: 启航就绪
     subtitle: 最终检查与舞台发射
@@ -2123,6 +2129,7 @@ steps:
       webSearch: 网页搜索
       filesystem: 文件系统
       motions: 3D 动作
+      screenshots: 屏幕截图
     summary:
       microphone: '{provider} · 麦克风已启用'
       memoryActive: 记忆已启用

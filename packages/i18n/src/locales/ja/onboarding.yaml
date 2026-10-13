@@ -2197,6 +2197,13 @@ steps:
       and play live on Stage. {emphasis}
     motion:
       status: 'Engine Status: {status}'
+    screenSnapshotsPack: スクリーンショットパック
+    desktopOnly: デスクトップ専用
+    screenshotDescription: あなたが見ているものを確認する必要があるとき、コンパニオンが {code}
+      で画面または特定のウィンドウをキャプチャできるようにします。画像はチャットモデルに直接送られるか、先にビジョンモデルが説明します。
+    screenOrAnyWindow: 画面または任意のウィンドウ
+    usesVisionSettings: ビジョン設定を使用
+    takeScreenshotDesktop: take_screenshot（デスクトップ）
   finale:
     label: 準備完了
     subtitle: 最終チェックと出航
@@ -2277,6 +2284,7 @@ steps:
       webSearch: Web Search
       filesystem: Filesystem
       motions: 3D Motions
+      screenshots: スクリーンショット
     summary:
       microphone: '{provider} · Mic Active'
       memoryActive: Memory Active

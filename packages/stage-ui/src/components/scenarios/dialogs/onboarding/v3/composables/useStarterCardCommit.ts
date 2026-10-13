@@ -283,6 +283,9 @@ export function resolvePromptDirectives(draft: OnboardingV3DraftState, card: any
     if (draft.toolMotionGeneratorEnabled) {
       toolsSet.add('generate_motion')
     }
+    if (draft.toolScreenshotEnabled) {
+      toolsSet.add('take_screenshot')
+    }
   }
 
   airi.generation.known.allowedTools = Array.from(toolsSet)

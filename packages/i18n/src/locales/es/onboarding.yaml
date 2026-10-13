@@ -2283,6 +2283,15 @@ steps:
       and play live on Stage. {emphasis}
     motion:
       status: 'Engine Status: {status}'
+    screenSnapshotsPack: Paquete de capturas de pantalla
+    desktopOnly: Solo escritorio
+    screenshotDescription: Permite que tu acompañante capture tu pantalla o una
+      ventana concreta con {code} cuando necesite ver lo que estás mirando. La
+      imagen se envía directamente al modelo de chat o tu modelo de visión la
+      describe primero.
+    screenOrAnyWindow: Pantalla o cualquier ventana
+    usesVisionSettings: Usa la configuración de visión
+    takeScreenshotDesktop: take_screenshot (Escritorio)
   finale:
     label: Despegue
     subtitle: Revisión final y lanzamiento
@@ -2364,6 +2373,7 @@ steps:
       webSearch: Web Search
       filesystem: Filesystem
       motions: 3D Motions
+      screenshots: Capturas de pantalla
     summary:
       microphone: '{provider} · Mic Active'
       memoryActive: Memory Active
