@@ -1,7 +1,7 @@
 import type { ScreenCaptureOptions } from '@proj-airi/stage-shared'
 
 import { defineInvokeHandler } from '@moeru/eventa'
-import { visionCaptureScreen, visionCheckPermission, visionGetPrimaryDisplaySize, visionListWindows, visionRequestPermission } from '@proj-airi/stage-shared'
+import { visionCaptureScreen, visionCheckPermission, visionGetPrimaryDisplaySize, visionListDisplays, visionListWindows, visionRequestPermission } from '@proj-airi/stage-shared'
 import { desktopCapturer, screen } from 'electron'
 
 import * as ScreenCapture from '@proj-airi/electron-screen-capture/main'
@@ -106,6 +106,40 @@ export function createVisionService(params: { context: any }) {
     }
     catch (err) {
       console.error('[Vision Service] Failed to list windows:', err)
+      return []
+    }
+  })
+
+  defineInvokeHandler(params.context, visionListDisplays, async () => {
+    try {
+      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } })
+      const displays = screen.getAllDisplays()
+      const primaryId = screen.getPrimaryDisplay().id
+
+      // NOTICE: desktopCapturer names screens generically ("Screen 1" / "Entire screen"), so pair each
+      // source with its Electron display via `display_id` to get the monitor label, size and primary flag.
+      // `display_id` can be empty on some Linux setups; those sources keep the capturer name.
+      const entries = sources.map((source) => {
+        const display = displays.find(d => String(d.id) === source.display_id)
+        return { source, display }
+      })
+      entries.sort((a, b) => {
+        if (!a.display || !b.display)
+          return a.display ? -1 : b.display ? 1 : 0
+        return a.display.bounds.x - b.display.bounds.x || a.display.bounds.y - b.display.bounds.y
+      })
+
+      return entries.map(({ source, display }, i) => ({
+        id: source.id,
+        index: i + 1,
+        name: display?.label || source.name,
+        primary: display?.id === primaryId,
+        width: display ? Math.round(display.size.width * display.scaleFactor) : undefined,
+        height: display ? Math.round(display.size.height * display.scaleFactor) : undefined,
+      }))
+    }
+    catch (err) {
+      console.error('[Vision Service] Failed to list displays:', err)
       return []
     }
   })

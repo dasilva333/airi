@@ -1,7 +1,7 @@
-import type { PrimaryDisplaySize, ScreenCaptureOptions, VisionWindowSource } from '@proj-airi/stage-shared'
+import type { PrimaryDisplaySize, ScreenCaptureOptions, VisionDisplaySource, VisionWindowSource } from '@proj-airi/stage-shared'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { isWithinSchedule, visionCaptureScreen, visionCheckPermission, visionGetPrimaryDisplaySize, visionListWindows, visionRequestPermission } from '@proj-airi/stage-shared'
+import { isWithinSchedule, visionCaptureScreen, visionCheckPermission, visionGetPrimaryDisplaySize, visionListDisplays, visionListWindows, visionRequestPermission } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
@@ -52,6 +52,7 @@ export const useVisionStore = defineStore('vision', () => {
   const requestPermissionInvoke = useElectronEventaInvoke(visionRequestPermission)
   const getPrimaryDisplaySizeInvoke = useElectronEventaInvoke(visionGetPrimaryDisplaySize)
   const listWindowsInvoke = useElectronEventaInvoke(visionListWindows)
+  const listDisplaysInvoke = useElectronEventaInvoke(visionListDisplays)
 
   // Cached primary display size so capture-resolution UI and the screen watcher
   // can reason about native resolution without an IPC round-trip per tick.
@@ -261,6 +262,16 @@ export const useVisionStore = defineStore('vision', () => {
     }
   }
 
+  async function listDisplays(): Promise<VisionDisplaySource[]> {
+    try {
+      return await listDisplaysInvoke() ?? []
+    }
+    catch (err) {
+      console.error('[Vision Store] listDisplays error:', err)
+      return []
+    }
+  }
+
   function toggleWitness() {
     console.log('[Vision Store] toggleWitness() called. Current:', isWitnessEnabled.value)
     isWitnessEnabled.value = !isWitnessEnabled.value
@@ -357,6 +368,7 @@ export const useVisionStore = defineStore('vision', () => {
     heartbeat,
     captureSnapshot,
     listWindows,
+    listDisplays,
     checkPermissions,
     openPermissionSettings,
     getPrimaryDisplaySize,

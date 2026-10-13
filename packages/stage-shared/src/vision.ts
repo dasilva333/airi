@@ -23,6 +23,18 @@ export interface VisionWindowSource {
   name: string
 }
 
+export interface VisionDisplaySource {
+  /** desktopCapturer source id (`screen:...`), usable as `ScreenCaptureOptions.sourceId`. */
+  id: string
+  /** 1-based position, ordered left to right, then top to bottom. */
+  index: number
+  name: string
+  primary: boolean
+  /** Physical pixel size; absent when the source cannot be matched to an Electron display. */
+  width?: number
+  height?: number
+}
+
 export interface PrimaryDisplaySize {
   width: number
   height: number
@@ -32,6 +44,8 @@ export interface PrimaryDisplaySize {
 export const visionCaptureScreen = defineInvokeEventa<ScreenCaptureResult | null, ScreenCaptureOptions | undefined>('eventa:invoke:electron:vision:capture-screen')
 
 export const visionListWindows = defineInvokeEventa<VisionWindowSource[], never>('eventa:invoke:electron:vision:list-windows')
+
+export const visionListDisplays = defineInvokeEventa<VisionDisplaySource[], never>('eventa:invoke:electron:vision:list-displays')
 
 export const visionGetPrimaryDisplaySize = defineInvokeEventa<PrimaryDisplaySize | null, never>('eventa:invoke:electron:vision:get-primary-display-size')
 

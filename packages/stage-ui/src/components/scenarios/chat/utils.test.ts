@@ -134,6 +134,7 @@ describe('formatToolCallSummary', () => {
         window: 'Edge',
         focus: 'the chat',
       }))).toBe('📸 Took a screenshot of Edge')
+      expect(formatToolCallSummary('take_screenshot', JSON.stringify({ display: '2' }))).toBe('📸 Took a screenshot of display 2')
       expect(formatToolCallSummary('take_screenshot', '{}')).toBe('📸 Took a screenshot')
     })
 
