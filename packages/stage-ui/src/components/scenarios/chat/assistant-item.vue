@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { toast } from 'vue-sonner'
 
+import CharacterAvatar from '../../misc/CharacterAvatar.vue'
 import ChatSticker from './components/sticker.vue'
 import JournalMomentModal from './JournalMomentModal.vue'
 import ChatResponsePart from './response-part.vue'
@@ -44,6 +45,7 @@ const showJournalModal = ref(false)
 const chatSession = useChatSessionStore()
 const chatOrchestrator = useChatOrchestratorStore()
 const cardStore = useAiriCardStore()
+const { activeCardId } = storeToRefs(cardStore)
 const systemOneStore = useSystemOneStore()
 
 const cadenceConfig = computed(() => cardStore.activeCard?.extensions?.airi?.acting?.cadence)
@@ -525,6 +527,33 @@ const boxStyle = computed(() => {
   }
 })
 
+// Compact chat-bubble treatment for cadence-split groups only. Single
+// messages keep the existing card rendering untouched.
+const isCadenceStack = computed(() => hasCadenceBubbles.value && !isEditing.value)
+
+const outerBoxClasses = computed(() => {
+  if (isCadenceStack.value) {
+    // Transparent wrapper: the bubbles themselves carry the fill so the
+    // stack floats on the background with no outer card or glow.
+    return [
+      'min-w-0 w-full',
+      'bg-transparent',
+    ]
+  }
+  return [
+    'rounded-xl',
+    'shadow-sm shadow-neutral-200/50 dark:shadow-none',
+    boxClasses.value,
+    hasReasoning.value ? 'min-w-0 w-full' : 'min-w-20 w-fit',
+  ]
+})
+
+const outerBoxStyle = computed(() => {
+  if (isCadenceStack.value)
+    return {}
+  return boxStyle.value
+})
+
 const resolvedSlices = computed(() => {
   const rs: ChatSlices[] = []
 
@@ -722,14 +751,19 @@ const hasActorSlices = computed(() => actorAwareSlices.value.some(s => s.type ==
           <!-- We rely on layout styling for this -->
           <div
             :ref="setMeasuredElement"
-            flex="~ col" shadow="sm neutral-200/50 dark:none"
-            h="unset <sm:fit" relative rounded-xl
+            flex="~ col"
+            h="unset <sm:fit" relative
             class="max-w-full"
-            :class="[boxClasses, hasReasoning ? 'min-w-0 w-full' : 'min-w-20 w-fit']"
-            :style="boxStyle"
+            :class="outerBoxClasses"
+            :style="outerBoxStyle"
           >
+            <!-- Cadence header row: avatar + name -->
+            <div v-if="isCadenceStack" :class="['flex items-center gap-2', 'px-1 pb-2']">
+              <CharacterAvatar :card-id="activeCardId || ''" :name="label" :display-model-id="cardStore.getCardDisplayModelId(activeCardId || '')" size-class="h-8 w-8" />
+              <span :class="['text-sm font-medium', 'text-neutral-700 dark:text-neutral-200']">{{ label }}</span>
+            </div>
             <!-- Render Label -->
-            <div>
+            <div v-else>
               <span text-sm text="black/60 dark:white/65" font-normal class="inline <sm:hidden">{{ label }}</span>
             </div>
 
@@ -744,19 +778,32 @@ const hasActorSlices = computed(() => actorAwareSlices.value.some(s => s.type ==
             <div v-if="message.content === 'NO_REPLY' || message.rawContent === 'NO_REPLY'" class="py-1 text-sm text-neutral-500/70 italic dark:text-neutral-400/70">
               The character chose not to respond in this turn
             </div>
-            <div v-else-if="isMaskedByCadence" class="flex items-center gap-2 py-1.5 text-neutral-400">
+            <div
+              v-else-if="isMaskedByCadence"
+              :class="[
+                'w-fit flex items-center gap-2',
+                'rounded-2xl px-4 py-2.5',
+                'bg-neutral-900/5 dark:bg-white/10',
+                'text-sm text-neutral-400',
+              ]"
+            >
               <span class="i-eos-icons:three-dots-loading text-base" />
               <span class="text-xs italic">typing...</span>
             </div>
             <div
               v-else-if="hasCadenceBubbles && !isEditing"
-              class="mt-1 flex flex-col gap-2"
+              :class="['mt-1 flex flex-col items-start gap-2']"
             >
               <div
                 v-for="(bubble, bIdx) in cadenceBubbles"
                 :key="bIdx"
-                class="break-words border border-black/5 rounded-xl bg-black/3 px-3 py-2 shadow-sm transition-all dark:border-white/10 dark:bg-white/5"
-                :class="mood ? 'text-neutral-800 dark:text-neutral-200' : (cardDefaultColor && !hasActorSlices ? '' : 'text-primary-700 dark:primary-100')"
+                :class="[
+                  'w-fit max-w-[85%] break-words',
+                  'rounded-2xl px-4 py-2.5',
+                  'bg-neutral-900/5 dark:bg-white/10',
+                  'shadow-sm transition-all',
+                  mood ? 'text-neutral-800 dark:text-neutral-200' : (cardDefaultColor && !hasActorSlices ? '' : 'text-primary-700 dark:primary-100'),
+                ]"
                 :style="!hasActorSlices && cardDefaultColor ? { color: cardDefaultColor } : undefined"
               >
                 <MarkdownRenderer

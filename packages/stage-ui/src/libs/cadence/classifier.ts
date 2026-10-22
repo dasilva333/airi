@@ -124,11 +124,14 @@ export async function evaluateCadenceSplits(
 
   const { clean, records } = parseNonEmptyLines(rawText)
 
-  // If there's only 1 chunk or maxBubbles is 1, return the original text directly
+  // Single-bubble fast path: the bubble spans every non-empty line so the
+  // slice invariant (bubbles[i] === rawText.slice(range)) holds here too.
   if (records.length <= 1 || maxBubbles <= 1) {
+    const start = records[0].start
+    const end = records[records.length - 1].end
     return {
-      bubbles: [clean],
-      bubbleRanges: records.length === 1 ? [{ start: records[0].start, end: records[0].end }] : [],
+      bubbles: [rawText.slice(start, end)],
+      bubbleRanges: [{ start, end }],
       evaluations: [],
       pausesMs: [],
       beatsMs: [],
@@ -175,9 +178,11 @@ export async function evaluateCadenceSplits(
   }
   catch (err) {
     console.error('[Cadence] System 1 boundary evaluation failed:', err)
+    const start = records[0].start
+    const end = records[records.length - 1].end
     return {
-      bubbles: [clean],
-      bubbleRanges: [],
+      bubbles: [rawText.slice(start, end)],
+      bubbleRanges: [{ start, end }],
       evaluations: [],
       pausesMs: [],
       beatsMs: [],
@@ -208,7 +213,13 @@ export async function evaluateCadenceSplits(
     let rhythmProbabilities: Record<CadenceRhythmCategory, number> | undefined
     let beatMs: number | undefined
 
-    if (dynamicPacing) {
+    if (!dynamicPacing) {
+      // Fixed-pacing fallback: no Jev rhythm signal, so every boundary uses
+      // the configured conversational beat. This keeps beatsMs/textDelaysMs
+      // populated with one value per split transition for delivery code.
+      beatMs = conversationalBeatMs
+    }
+    else {
       const choiceAnswer = response.answers?.[`c_${i}`]
       rhythmCategory = (choiceAnswer?.choice as CadenceRhythmCategory) || 'conversational_beat'
       const probs = choiceAnswer?.probabilities as Record<CadenceRhythmCategory, number> | undefined

@@ -500,6 +500,40 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     void persistSession(sessionId)
   }
 
+  async function renameSession(sessionId: string, title: string): Promise<boolean> {
+    const val = title.trim()
+    if (!val)
+      return false
+    // NOTICE: The timeline popover lists sessions from the character index,
+    // which includes unopened timelines with no sessionMetas entry. Resolve
+    // the meta through the index fallback so a rename always has a base.
+    const existing = sessionMetas.value[sessionId] ?? getSessionMeta(sessionId)
+    if (!existing)
+      return false
+    if (existing.title === val)
+      return true
+    const updated: ChatSessionMeta = { ...existing, title: val, updatedAt: Date.now() }
+    sessionMetas.value[sessionId] = updated
+    const characterIndex = index.value?.characters[updated.characterId]
+    if (characterIndex?.sessions[sessionId])
+      characterIndex.sessions[sessionId] = updated
+    if (sessionMessages.value[sessionId]) {
+      // Loaded timeline: persistSession writes the record and the index.
+      await persistSession(sessionId)
+    }
+    else {
+      // Unopened timeline: persistSession would no-op on the missing
+      // sessionMetas entry, and must not run with no loaded messages (it
+      // would snapshot an empty record). Patch the stored record in place
+      // when one exists, then flush the renamed index entry.
+      const stored = await chatSessionsRepo.getSession(sessionId)
+      if (stored)
+        await enqueuePersist(() => chatSessionsRepo.saveSession(sessionId, { meta: updated, messages: stored.messages }))
+      await persistIndex()
+    }
+    return true
+  }
+
   async function setSessionMessages(sessionId: string, next: ChatHistoryItem[]) {
     const prev = sessionMessages.value[sessionId] ?? []
 
@@ -1676,6 +1710,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     getSessionGenerationValue,
 
     deleteSession,
+    renameSession,
     deleteMessage,
     deleteMessagesFromHere,
     forkSession,

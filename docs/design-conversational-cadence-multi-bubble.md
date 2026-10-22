@@ -365,7 +365,7 @@ The precise internal placement remains an implementation choice after tracing th
 
 **Text-only or muted turns:** Reveal the first bubble after classification. Use `textDelayMs = clamp(beatMs + fullNextBubbleChars * msPerChar)` to time each reveal, where `fullNextBubbleChars` is the complete next bubble length (not just its first line). Do not wait for audio events in text-only mode.
 
-**Timing contract:** `beatMs` (conversational pause from Jev rhythm softmax) and `textDelayMs` (beat + full-bubble typing estimate) are separate typed values. `pausesMs` is retained only as the legacy text-only `textDelayMs` alias; voiced delivery must never consume the combined value. Classifier evaluations expose both `expectedBeatMs`/`beatMs` and `calculatedDelayMs`/`textDelayMs`, and split results expose parallel `beatsMs` and `textDelaysMs` arrays.
+**Timing contract:** `beatMs` (conversational pause from Jev rhythm softmax) and `textDelayMs` (beat + full-bubble typing estimate) are separate typed values. `pausesMs` is retained only as the legacy text-only `textDelayMs` alias; voiced delivery must never consume the combined value. Classifier evaluations expose both `expectedBeatMs`/`beatMs` and `calculatedDelayMs`/`textDelayMs`, and split results expose parallel `beatsMs` and `textDelaysMs` arrays. When `dynamicPacing` is disabled, every boundary uses `conversationalBeatMs` as a fixed beat so `beatsMs`/`textDelaysMs` still carry one value per split transition.
 
 ### 8.6 Decision 3: Stop Preserves What Exists
 

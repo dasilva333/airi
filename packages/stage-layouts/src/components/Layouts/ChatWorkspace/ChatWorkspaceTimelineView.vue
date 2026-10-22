@@ -90,21 +90,13 @@ function handleStartRename(session: any, e: Event) {
   })
 }
 
-function handleCommitRename(session: any) {
+async function handleCommitRename(session: any) {
   if (editingSessionId.value !== session.sessionId) {
     return
   }
   const val = renameInput.value.trim()
   if (val && val !== session.title) {
-    const meta = chatSessionStore.sessionMetas[session.sessionId]
-    if (meta) {
-      meta.title = val
-      chatSessionStore.persistSessionMessages(session.sessionId)
-    }
-    const charIndex = chatSessionStore.getCharacterIndex(props.characterId)
-    if (charIndex?.sessions[session.sessionId]) {
-      charIndex.sessions[session.sessionId].title = val
-    }
+    await chatSessionStore.renameSession(session.sessionId, val)
   }
   editingSessionId.value = null
 }

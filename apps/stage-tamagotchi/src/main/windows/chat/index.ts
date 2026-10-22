@@ -10,7 +10,7 @@ import { join, resolve } from 'node:path'
 
 import { BrowserWindow, shell } from 'electron'
 import { throttle } from 'es-toolkit'
-import { isMacOS, isWindows } from 'std-env'
+import { isLinux, isMacOS, isWindows } from 'std-env'
 
 import icon from '../../../../resources/icon.png?asset'
 
@@ -72,8 +72,12 @@ export function setupChatWindowReusableFunc(params: {
       show: false,
       backgroundColor: '#121212',
       icon,
-      frame: false,
-      titleBarStyle: 'hidden',
+      // NOTICE: The chat renderer provides replacement window controls for
+      // macOS (traffic lights) and Windows (titleBarOverlay) only. On Linux
+      // there are no custom controls, so keep the native frame there rather
+      // than shipping a frameless window with no close/minimize/maximize.
+      frame: isLinux,
+      titleBarStyle: isLinux ? undefined : 'hidden',
       trafficLightPosition: isMacOS ? { x: 14, y: 13 } : undefined,
       titleBarOverlay: isWindows
         ? {

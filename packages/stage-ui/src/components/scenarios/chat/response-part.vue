@@ -582,7 +582,7 @@ watch(isExpanded, (expanded) => {
 <template>
   <div
     v-if="hasReasoning"
-    class="dark:border-neutral-750/80 dark:bg-neutral-850/40 max-w-full w-full overflow-hidden border border-neutral-200/80 rounded-xl bg-neutral-100/40 backdrop-blur-sm transition-all duration-200"
+    class="dark:border-neutral-750/80 max-w-full w-full overflow-hidden border border-neutral-200/80 rounded-xl bg-neutral-100/40 backdrop-blur-sm transition-all duration-200 dark:bg-white/10"
     :class="[props.variant === 'mobile' ? 'text-xs' : 'text-sm']"
   >
     <div
@@ -606,7 +606,7 @@ watch(isExpanded, (expanded) => {
           :class="[
             'relative min-w-0 flex-1 overflow-hidden [touch-action:pan-y]',
             lensActive ? 'h-auto min-h-6 py-0.5' : 'h-4',
-            'text-[11px] text-neutral-600 leading-4 font-mono italic dark:text-neutral-350',
+            'text-[11px] text-amber-600 leading-4 font-mono italic tabular-nums dark:text-amber-400',
           ]"
           :style="lensActive ? undefined : snippetMaskStyle"
           :title="lensActive ? undefined : (cleanFullReasoning || displayedSnippet)"

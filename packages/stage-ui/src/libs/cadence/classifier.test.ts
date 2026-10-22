@@ -208,6 +208,76 @@ describe('evaluateCadenceSplits', () => {
     expect(result.beatsMs[0]).not.toBe(result.pausesMs[0])
   })
 
+  it('satisfies the slice invariant on the maxBubbles:1 fast path', async () => {
+    const mockExecute = vi.fn()
+    const text = 'Opener\n- bananas\n- pears'
+
+    const result = await evaluateCadenceSplits(text, {
+      maxBubbles: 1,
+      systemOneExecute: mockExecute,
+    })
+
+    expect(mockExecute).not.toHaveBeenCalled()
+    expect(result.bubbles).toHaveLength(1)
+    expect(result.bubbleRanges).toHaveLength(1)
+    expect(result.bubbles[0]).toBe(text.slice(result.bubbleRanges[0].start, result.bubbleRanges[0].end))
+    expect(result.bubbles[0]).toBe(text)
+  })
+
+  it('satisfies the slice invariant for padded single-line input', async () => {
+    const mockExecute = vi.fn()
+    const text = '  hello  '
+
+    const result = await evaluateCadenceSplits(text, {
+      systemOneExecute: mockExecute,
+    })
+
+    expect(mockExecute).not.toHaveBeenCalled()
+    expect(result.bubbles).toHaveLength(1)
+    expect(result.bubbleRanges).toHaveLength(1)
+    expect(result.bubbles[0]).toBe(text.slice(result.bubbleRanges[0].start, result.bubbleRanges[0].end))
+  })
+
+  it('satisfies the slice invariant on classifier failure', async () => {
+    const mockExecute = vi.fn().mockRejectedValue(new Error('Network error'))
+    const text = 'First line\nSecond line'
+
+    const result = await evaluateCadenceSplits(text, {
+      systemOneExecute: mockExecute,
+    })
+
+    expect(result.bubbles).toHaveLength(1)
+    expect(result.bubbleRanges).toHaveLength(1)
+    expect(result.bubbles[0]).toBe(text.slice(result.bubbleRanges[0].start, result.bubbleRanges[0].end))
+    expect(result.bubbles[0]).toBe(text)
+  })
+
+  it('populates beats and text delays per split when dynamicPacing is false', async () => {
+    const mockExecute = vi.fn().mockResolvedValue({
+      answers: {
+        b_0: { type: 'noul', noul: 0.9 },
+        b_1: { type: 'noul', noul: 0.1 },
+      },
+    })
+
+    const text = 'Opener\nLine two\nLine three'
+    const result = await evaluateCadenceSplits(text, {
+      dynamicPacing: false,
+      typingCadenceMsPerChar: 10,
+      systemOneExecute: mockExecute,
+    })
+
+    expect(result.bubbles).toHaveLength(2)
+    expect(result.beatsMs).toHaveLength(1)
+    expect(result.textDelaysMs).toHaveLength(1)
+    expect(result.pausesMs).toEqual(result.textDelaysMs)
+    // Fixed pacing falls back to the conversational beat (default 900ms).
+    expect(result.beatsMs[0]).toBe(900)
+    expect(result.evaluations[0].beatMs).toBe(900)
+    const expectedTyping = Math.round(result.bubbles[1].length * 10)
+    expect(result.textDelaysMs[0]).toBe(Math.max(350, Math.min(3500, 900 + expectedTyping)))
+  })
+
   it('returns single original message safely if System 1 throws', async () => {
     const mockExecute = vi.fn().mockRejectedValue(new Error('Network error'))
     const text = 'First line\nSecond line'
