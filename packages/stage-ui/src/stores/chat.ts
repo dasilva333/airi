@@ -23,6 +23,7 @@ import { parseSticker } from '../composables/queues'
 import { categorizeResponse, createStreamingCategorizer } from '../composables/response-categoriser'
 import { evaluateCadenceSplits } from '../libs/cadence'
 import { appendActorAwareTextSlice, captureActorToken, createActorSliceState } from '../utils/chat-actor-slices'
+import { useCadenceDeliveryStore } from './cadence-delivery'
 import { useCompactionStore } from './chat/compaction'
 import { createDatetimeContext, createEternalRecordContext, createExpressionsContext, createScenesContext } from './chat/context-providers'
 import { useChatContextStore } from './chat/context-store'
@@ -2082,6 +2083,8 @@ Format your output as a raw thought log.`
           streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
         }
         await hooks.emitStreamEndHooks(streamingMessageContext)
+        if (buildingMessage.id)
+          useCadenceDeliveryStore().resolvePlan(buildingMessage.id, null)
         return
       }
       // ----------------------
@@ -2111,6 +2114,7 @@ Format your output as a raw thought log.`
         // Evaluate multi-bubble conversational cadence splits if enabled on the card
         const cadenceConfig = activeCard.value?.extensions?.airi?.acting?.cadence
         const systemOneStore = useSystemOneStore()
+        const cadenceDeliveryStore = useCadenceDeliveryStore()
         if (
           cadenceConfig?.multiBubbleEnabled
           && systemOneStore.configured
@@ -2129,17 +2133,38 @@ Format your output as a raw thought log.`
               maxDelayCeilingMs: cadenceConfig.maxDelayCeilingMs,
               systemOneExecute: (state, questions) => systemOneStore.execute(state, questions),
             })
-            if (splitRes.bubbles.length > 1) {
+            if (isStaleGeneration()) {
+              cadenceDeliveryStore.abortTurn(buildingMessage.id)
+            }
+            else if (splitRes.bubbles.length > 1 && !buildingMessage.slices.some(s => s.type === 'tool-call')) {
               buildingMessage.cadenceBubbles = splitRes.bubbles
               buildingMessage.cadenceBubbleRanges = splitRes.bubbleRanges
               buildingMessage.cadenceBeatsMs = splitRes.beatsMs
               buildingMessage.cadenceTextDelaysMs = splitRes.textDelaysMs
               buildingMessage.cadencePausesMs = splitRes.pausesMs
+              // Resolve before persistence so the first paint can stagger.
+              cadenceDeliveryStore.resolvePlan(buildingMessage.id, {
+                bubbles: splitRes.bubbles,
+                ranges: splitRes.bubbleRanges,
+                beatsMs: splitRes.beatsMs,
+                textDelaysMs: splitRes.textDelaysMs,
+                contentLength: buildingMessage.content.length,
+              })
+            }
+            else {
+              // Single bubble, tool-call turn, or maxBubbles ceiling:
+              // release the playback gate to normal continuous speech.
+              cadenceDeliveryStore.resolvePlan(buildingMessage.id, null)
             }
           }
           catch (cadenceErr) {
             console.warn('[Chat:Cadence] Failed to evaluate cadence splits:', cadenceErr)
+            cadenceDeliveryStore.resolvePlan(buildingMessage.id, null)
           }
+        }
+        else if (buildingMessage.id) {
+          // Armed turns that cannot split still need gate release.
+          useCadenceDeliveryStore().resolvePlan(buildingMessage.id, null)
         }
 
         const currentMessages = chatSession.getSessionMessages(sessionId)

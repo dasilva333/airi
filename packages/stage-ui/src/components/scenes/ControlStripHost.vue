@@ -34,6 +34,7 @@ import { llmInferenceEndToken } from '../../constants'
 import { EMOTION_EmotionMotionName_value, EmotionThinkMotionName } from '../../constants/emotions'
 import { getSpeechBusContext, speechSegmentPlaybackEvent } from '../../services/speech/bus'
 import { useAudioContext, useSpeakingStore } from '../../stores/audio'
+import { useCadenceDeliveryStore } from '../../stores/cadence-delivery'
 import { useChatOrchestratorStore } from '../../stores/chat'
 import { useChatSessionStore } from '../../stores/chat/session-store'
 import { DisplayModelFormat, useDisplayModelsStore } from '../../stores/display-models'
@@ -43,6 +44,7 @@ import { useAutonomousArtistryStore } from '../../stores/modules/artistry-autono
 import { useConsciousnessStore } from '../../stores/modules/consciousness'
 import { useDiscordStore } from '../../stores/modules/discord'
 import { useSpeechStore } from '../../stores/modules/speech'
+import { useSystemOneStore } from '../../stores/modules/system-one'
 import { useProvidersStore } from '../../stores/providers'
 import { useSettings } from '../../stores/settings'
 import { useSettingsControlStrip } from '../../stores/settings/control-strip'
@@ -210,6 +212,8 @@ watch(outputVolume, (volume) => {
 const { activeProvider: activeChatProvider } = storeToRefs(consciousnessStore)
 const activeCardId = computed(() => activeCard.value?.name ?? 'default')
 const speechRuntimeStore = useSpeechRuntimeStore()
+const cadenceDeliveryStore = useCadenceDeliveryStore()
+const systemOneStore = useSystemOneStore()
 const discordStore = useDiscordStore()
 const artistryAutonomousStore = useAutonomousArtistryStore()
 const displayModelsStore = useDisplayModelsStore()
@@ -753,6 +757,13 @@ async function streamAudioToDiscordVoice(audioBuffer: AudioBuffer) {
 let scheduledPlaybackEndTime = 0
 
 async function playFunction(item: Parameters<Parameters<typeof createPlaybackManager<AudioBuffer>>[0]['play']>[0], signal: AbortSignal): Promise<void> {
+  // Conversational Cadence: hold answer playback behind bubble reveals.
+  // Intents without an armed cadence turn pass through untouched, preserving
+  // eager streaming for normal turns and pacing fillers.
+  const cadenceGate = await cadenceDeliveryStore.gatePlaybackItem(item.intentId, item.segmentId, signal)
+  if (cadenceGate === 'aborted' || signal.aborted)
+    return
+
   if (!audioContext)
     return
 
@@ -1578,21 +1589,40 @@ speechPipeline.on('onTtsResult', (result) => {
   }
 })
 
-speechPipeline.on('onIntentEnd', () => {
+speechPipeline.on('onSegment', (segment) => {
+  try {
+    cadenceDeliveryStore.recordSegment(segment.intentId, {
+      segmentId: segment.segmentId,
+      sourceStart: segment.sourceStart,
+      sourceEnd: segment.sourceEnd,
+      special: segment.special ?? null,
+    })
+  }
+  catch (err) {
+    debug('[Stage:Cadence] Failed to record speech segment:', err)
+  }
+})
+
+speechPipeline.on('onIntentEnd', (intentId) => {
   isSpeechIntentActive.value = false
   cardStore.isModelSyncPrevented = false
   void discordStore.flushAudioTurn()
   rawAudioBuffers.clear()
   scheduledPlaybackEndTime = 0
+  if (typeof intentId === 'string')
+    cadenceDeliveryStore.notifyIntentEnd(intentId)
 })
 
-speechPipeline.on('onIntentCancel', () => {
+speechPipeline.on('onIntentCancel', (payload) => {
   isSpeechIntentActive.value = false
   cardStore.isModelSyncPrevented = false
   discordStore.clearAudioTurn()
   rawAudioBuffers.clear()
   scheduledPlaybackEndTime = 0
   resetHeldAutonomousCues()
+  const intentId = typeof payload === 'string' ? payload : (payload as any)?.intentId
+  if (typeof intentId === 'string')
+    cadenceDeliveryStore.notifyIntentCancel(intentId)
 })
 
 // NOTICE: the speech runtime host must follow the Stage lifecycle. If a previous Stage instance
@@ -1847,7 +1877,32 @@ chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
   }
 
   currentChatIntentReceivedLiteral.value = false
-  ensureSpeechIntent()
+  const cadenceIntent = ensureSpeechIntent()
+
+  // Conversational Cadence: arm delivery for this turn when the card opts
+  // in and System-1 is available. chat.ts resolves the plan (or releases)
+  // once streaming finishes; unarmed turns are never gated.
+  try {
+    const cadenceCardConfig = activeCard.value?.extensions?.airi?.acting?.cadence
+    const cadenceMessageId = context?.assistantMessageId
+    if (
+      cadenceMessageId
+      && cadenceIntent
+      && cadenceCardConfig?.multiBubbleEnabled
+      && systemOneStore.configured
+    ) {
+      cadenceDeliveryStore.armTurn({
+        messageId: cadenceMessageId,
+        sessionId: chatSessionStore.activeSessionId ?? '',
+        intentId: cadenceIntent.intentId,
+        streamId: cadenceIntent.streamId,
+        mode: isPlaybackSuppressed.value ? 'text' : 'voiced',
+      })
+    }
+  }
+  catch (err) {
+    debug('[Stage:Cadence] Failed to arm cadence delivery:', err)
+  }
 }))
 
 chatHookCleanups.push(onBeforeSend(async (message, context) => {
@@ -1943,6 +1998,8 @@ chatHookCleanups.push(onGenerationStopped(async () => {
   resetHeldAutonomousCues()
   turnPacing.cancel('generation-stopped')
   debug('[Stage] onGenerationStopped -> cancelling speech intent, pipeline, and playback')
+  if (currentChatIntent)
+    cadenceDeliveryStore.abortByIntent(currentChatIntent.intentId)
   currentChatIntent?.cancel('generation-stopped')
   currentChatIntent = null
   speechPipeline.stopAll('generation-stopped')

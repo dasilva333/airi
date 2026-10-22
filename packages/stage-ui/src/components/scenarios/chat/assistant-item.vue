@@ -12,6 +12,7 @@ import ChatResponsePart from './response-part.vue'
 import ChatToolCallBlock from './tool-call-block.vue'
 import ChatToolCallGroup from './tool-call-group.vue'
 
+import { useCadenceDeliveryStore } from '../../../stores/cadence-delivery'
 import { useChatOrchestratorStore } from '../../../stores/chat'
 import { useChatSessionStore } from '../../../stores/chat/session-store'
 import { useTextJournalStore } from '../../../stores/memory-text-journal'
@@ -62,6 +63,18 @@ const cadenceBubbles = computed(() => {
 })
 const hasCadenceBubbles = computed(() => {
   return cadenceBubbles.value.length > 1
+})
+
+const cadenceDeliveryStore = useCadenceDeliveryStore()
+// Active staged reveal count for this message; null renders statically.
+const cadenceRevealed = computed(() => cadenceDeliveryStore.revealedFor(props.message.id))
+const cadenceDeliveryActive = computed(() => {
+  return cadenceRevealed.value != null && cadenceRevealed.value < cadenceBubbles.value.length
+})
+const cadenceVisibleBubbles = computed(() => {
+  if (cadenceRevealed.value == null)
+    return cadenceBubbles.value
+  return cadenceBubbles.value.slice(0, cadenceRevealed.value)
 })
 
 const formattedTime = computed(() => {
@@ -795,7 +808,7 @@ const hasActorSlices = computed(() => actorAwareSlices.value.some(s => s.type ==
               :class="['mt-1 flex flex-col items-start gap-2']"
             >
               <div
-                v-for="(bubble, bIdx) in cadenceBubbles"
+                v-for="(bubble, bIdx) in cadenceVisibleBubbles"
                 :key="bIdx"
                 :class="[
                   'w-fit max-w-[85%] break-words',
@@ -811,6 +824,18 @@ const hasActorSlices = computed(() => actorAwareSlices.value.some(s => s.type ==
                   :active-text="isLatestAssistantMessage ? activeSpokenText : undefined"
                   :active-color="isLatestAssistantMessage ? activeSpokenColor : undefined"
                 />
+              </div>
+              <div
+                v-if="cadenceDeliveryActive"
+                :class="[
+                  'w-fit flex items-center gap-2',
+                  'rounded-2xl px-4 py-2.5',
+                  'bg-neutral-900/5 dark:bg-white/10',
+                  'text-sm text-neutral-400',
+                ]"
+              >
+                <span class="i-eos-icons:three-dots-loading text-base" />
+                <span class="text-xs italic">typing...</span>
               </div>
             </div>
             <div

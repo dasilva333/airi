@@ -21,6 +21,14 @@ export interface TtsInputChunk {
   text: string
   words: number
   reason: 'boost' | 'limit' | 'hard' | 'flush' | 'special'
+  /**
+   * [start, end) JS-string offsets of the trimmed span in the literal-only
+   * input stream. Sentinels (flush/special markers) contribute nothing, so
+   * these index the same text the chat layer persists. Special chunks report
+   * a point (start === end) at the boundary where the marker was consumed.
+   */
+  start: number
+  end: number
 }
 
 export interface TtsInputChunkOptions {
@@ -46,6 +54,9 @@ export interface TtsChunkItem {
   chunk: string
   special: string | null
   reason: 'boost' | 'limit' | 'hard' | 'flush' | 'special'
+  /** Source offsets, mirroring {@link TtsInputChunk.start/end}. */
+  start: number
+  end: number
 }
 
 export async function* chunkTtsInput(
@@ -76,11 +87,38 @@ export async function* chunkTtsInput(
   let chunk = ''
   let chunkWordsCount = 0
 
+  // Source-offset tracking (literal-only stream coordinates, UTF-16 units).
+  // Every consumed non-sentinel grapheme advances consumedAdj by its raw
+  // length (CRLF counts 2); sentinels contribute nothing so offsets index
+  // the same text the chat layer persists. rawChunk/rawBuffer mirror the
+  // pending normalized text grapheme-for-grapheme in raw form.
+  let consumedAdj = 0
+  let rawChunk = ''
+  let rawBuffer = ''
+  let spanStartAdj = 0
+
+  const beginSpanIfEmpty = (appendedRawLen: number) => {
+    if (rawChunk === '' && rawBuffer === '')
+      spanStartAdj = consumedAdj - appendedRawLen
+  }
+
+  const spanOf = (rawSpan: string) => {
+    const leading = (/^\s*/.exec(rawSpan)?.[0] ?? '').length
+    const trailing = (/\s*$/.exec(rawSpan)?.[0] ?? '').length
+    return { start: spanStartAdj + leading, end: spanStartAdj + rawSpan.length - trailing }
+  }
+
   let previousValue: string | undefined
   let current = await iterator.next()
 
   while (!current.done) {
     let value = current.value
+
+    // Raw contribution of this grapheme to the literal stream. The '…'
+    // rewrite below consumes two extra dots; accounted for in that branch.
+    const rawValue = current.value
+    let iterRawText = (rawValue === TTS_FLUSH_INSTRUCTION || rawValue === TTS_SPECIAL_TOKEN) ? '' : rawValue
+    consumedAdj += iterRawText.length
 
     // CRLF is one grapheme cluster. Use LF so Windows line endings match
     // the hard punctuation set and end the chunk.
@@ -99,21 +137,28 @@ export async function* chunkTtsInput(
         const precedingText = (chunk + buffer).trim()
         if (precedingText.length > 0) {
           const words = [...segmenter.segment(precedingText)].filter(w => w.isWordLike)
+          const { start, end } = spanOf(rawChunk + rawBuffer)
           yield {
             text: precedingText,
             words: words.length,
             reason: 'limit',
+            start,
+            end,
           }
           yieldCount++
         }
         chunk = ''
         chunkWordsCount = 0
         buffer = ''
+        rawChunk = ''
+        rawBuffer = ''
 
         yield {
           text: '',
           words: 0,
           reason: 'special',
+          start: consumedAdj,
+          end: consumedAdj,
         }
         yieldCount++
 
@@ -128,7 +173,9 @@ export async function* chunkTtsInput(
           if (previousValue !== undefined && /\d/.test(previousValue)) {
             next = await iterator.next()
             if (!next.done && next.value && /\d/.test(next.value)) {
+              beginSpanIfEmpty(iterRawText.length)
               buffer += value
+              rawBuffer += iterRawText
               current = next
               next = undefined
               continue
@@ -140,6 +187,9 @@ export async function* chunkTtsInput(
               afterNext = await iterator.next()
               if (!afterNext.done && afterNext.value && afterNext.value === '.') {
                 value = '…'
+                // The rewrite consumes two extra dots beyond the current grapheme.
+                iterRawText = '...'
+                consumedAdj += 2
                 next = undefined
                 afterNext = undefined
               }
@@ -161,33 +211,46 @@ export async function* chunkTtsInput(
         // read it twice, as 方向、？ and then 移动？.
         const text = chunk.trim()
         if (regexpSound.test(text)) {
+          const { start, end } = spanOf(rawChunk)
           yield {
             text,
             words: chunkWordsCount,
             reason: 'limit',
+            start,
+            end,
           }
           yieldCount++
         }
+        // The buffer survives this yield, so its span continues right after it.
+        spanStartAdj += rawChunk.length
         chunk = ''
+        rawChunk = ''
         chunkWordsCount = 0
       }
 
+      beginSpanIfEmpty(iterRawText.length)
       chunk += buffer + value
+      rawChunk += rawBuffer + iterRawText
       chunkWordsCount += words.length
       buffer = ''
+      rawBuffer = ''
 
       const shouldBoost = soft && yieldCount < boost && chunkWordsCount >= minimumWords
       if (flush || hard || chunkWordsCount > maximumWords || shouldBoost) {
         const text = chunk.trim()
         if (regexpSound.test(text)) {
+          const { start, end } = spanOf(rawChunk)
           yield {
             text,
             words: chunkWordsCount,
             reason: flush ? 'flush' : hard ? 'hard' : chunkWordsCount > maximumWords ? 'limit' : 'boost',
+            start,
+            end,
           }
           yieldCount++
         }
         chunk = ''
+        rawChunk = ''
         chunkWordsCount = 0
       }
 
@@ -209,7 +272,9 @@ export async function* chunkTtsInput(
       continue
     }
 
+    beginSpanIfEmpty(iterRawText.length)
     buffer += value
+    rawBuffer += iterRawText
     previousValue = value
     next = await iterator.next()
     current = next
@@ -217,10 +282,13 @@ export async function* chunkTtsInput(
 
   if (regexpSound.test(chunk + buffer)) {
     const text = (chunk + buffer).trim()
+    const { start, end } = spanOf(rawChunk + rawBuffer)
     yield {
       text,
       words: chunkWordsCount + [...segmenter.segment(buffer)].filter(w => w.isWordLike).length,
       reason: 'flush',
+      start,
+      end,
     }
   }
 }
@@ -267,10 +335,10 @@ export async function chunkEmitter(
       if (chunk.reason === 'special') {
         const specialToken = pendingSpecials.shift()
         // console.debug("special yield:", specialToken)
-        await handler({ chunk: cleanedText, special: specialToken ?? null, reason: chunk.reason })
+        await handler({ chunk: cleanedText, special: specialToken ?? null, reason: chunk.reason, start: chunk.start, end: chunk.end })
       }
       else {
-        await handler({ chunk: cleanedText, special: null, reason: chunk.reason })
+        await handler({ chunk: cleanedText, special: null, reason: chunk.reason, start: chunk.start, end: chunk.end })
       }
     }
   }
@@ -363,6 +431,8 @@ export function createTtsSegmentStream(
           special: chunk.special,
           reason: chunk.reason,
           actorId: currentActorId,
+          sourceStart: chunk.start,
+          sourceEnd: chunk.end,
           createdAt: Date.now(),
         })
       })

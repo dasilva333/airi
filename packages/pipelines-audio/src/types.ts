@@ -28,6 +28,14 @@ export interface TextSegment {
   reason: 'boost' | 'limit' | 'hard' | 'flush' | 'special'
   actorId?: string
   subSentences?: string[]
+  /**
+   * [sourceStart, sourceEnd) JS-string offsets of the trimmed span in the
+   * literal-only input stream (sentinels excluded). Set by the default
+   * segmenter; custom segmenters may omit them (delivery then treats the
+   * segment as unmappable). Specials report a point (start === end).
+   */
+  sourceStart?: number
+  sourceEnd?: number
   createdAt: number
 }
 
@@ -39,6 +47,8 @@ export interface TtsRequest {
   special: string | null
   actorId?: string
   subSentences?: string[]
+  sourceStart?: number
+  sourceEnd?: number
   priority: number
   createdAt: number
 }

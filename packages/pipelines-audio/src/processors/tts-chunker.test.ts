@@ -16,18 +16,24 @@ describe('tts-chunker', () => {
       text: 'Hello',
       words: 1,
       reason: 'limit',
+      start: 0,
+      end: 5,
     })
-    // The special token is yielded as its own empty chunk
+    // The special token is yielded as its own empty chunk (point offset)
     expect(chunks[1]).toEqual({
       text: '',
       words: 0,
       reason: 'special',
+      start: 6,
+      end: 6,
     })
-    // The rest of the text is yielded
+    // The rest of the text is yielded (sentinel excluded from coordinates)
     expect(chunks[2]).toEqual({
       text: 'how are you?',
       words: 3,
       reason: 'hard',
+      start: 7,
+      end: 19,
     })
   })
 
@@ -43,11 +49,15 @@ describe('tts-chunker', () => {
       text: '',
       words: 0,
       reason: 'special',
+      start: 0,
+      end: 0,
     })
     expect(chunks[1]).toEqual({
       text: 'Hi',
       words: 1,
       reason: 'flush',
+      start: 0,
+      end: 2,
     })
   })
 
@@ -63,11 +73,81 @@ describe('tts-chunker', () => {
       text: '',
       words: 0,
       reason: 'special',
+      start: 0,
+      end: 0,
     })
     expect(chunks[1]).toEqual({
       text: '',
       words: 0,
       reason: 'special',
+      start: 0,
+      end: 0,
+    })
+  })
+
+  describe('source offsets', () => {
+    async function collect(input: string, options?: Parameters<typeof chunkTtsInput>[1]) {
+      const chunks = []
+      for await (const chunk of chunkTtsInput(input, options))
+        chunks.push(chunk)
+      return chunks
+    }
+
+    const literalOf = (input: string) => input.replaceAll(TTS_SPECIAL_TOKEN, '')
+
+    it('reports spans that slice back to the chunk text', async () => {
+      const inputs = [
+        'Hello world, this is a simple test of the offset system in place.',
+        'First line\nSecond line\nThird line here with friends.',
+        'Hey dont forget to bring the grocery list tonight\n\nmake sure to bring\n-bananas\n-pears\n\nlove ya see you soon',
+        'Well, to be honest with you, I did not think this would work. But look at us now!',
+      ]
+      for (const input of inputs) {
+        const literal = literalOf(input)
+        const chunks = await collect(input)
+        expect(chunks.length).toBeGreaterThan(0)
+        let cursor = -1
+        for (const chunk of chunks) {
+          if (chunk.reason === 'special')
+            continue
+          expect(chunk.start).toBeLessThanOrEqual(chunk.end)
+          // Offsets slice exactly back to the yielded text.
+          expect(literal.slice(chunk.start, chunk.end)).toBe(chunk.text)
+          // Ordered and non-overlapping across the stream.
+          expect(chunk.start).toBeGreaterThanOrEqual(cursor)
+          cursor = chunk.end
+        }
+      }
+    })
+
+    it('counts CRLF as two units so later offsets stay aligned', async () => {
+      const chunks = await collect('abc\r\ndef')
+      expect(chunks.map(c => [c.text, c.start, c.end])).toEqual([
+        ['abc', 0, 3],
+        ['def', 5, 8],
+      ])
+    })
+
+    it('tracks offsets across the emergency word-limit split', async () => {
+      const clauses = Array.from({ length: 8 }, (_, i) => `this is clause number ${i + 1}`)
+      const input = clauses.join(', ')
+      const chunks = await collect(input, { boost: 1, minimumWords: 4, maximumWords: 15 })
+      expect(chunks.length).toBeGreaterThanOrEqual(2)
+      for (const chunk of chunks) {
+        if (chunk.reason === 'special')
+          continue
+        expect(input.slice(chunk.start, chunk.end)).toBe(chunk.text)
+      }
+    })
+
+    it('keeps emoji grapheme offsets in UTF-16 units', async () => {
+      const input = '👍🏽 great! Let us celebrate this fine result together.'
+      const chunks = await collect(input)
+      for (const chunk of chunks) {
+        if (chunk.reason === 'special' || !chunk.text)
+          continue
+        expect(input.slice(chunk.start, chunk.end)).toBe(chunk.text)
+      }
     })
   })
 

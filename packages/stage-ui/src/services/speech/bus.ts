@@ -39,6 +39,16 @@ export interface SpeechSegmentPlaybackPayload {
   text: string
 }
 
+export interface SpeechCadenceProgressPayload {
+  originId: string
+  messageId: string
+  sessionId: string
+  /** Bubbles revealed so far (count). Equals total when delivery finished. */
+  revealed: number
+  total: number
+  status: 'active' | 'done' | 'released' | 'aborted'
+}
+
 export const speechIntentStartEvent = defineEventa<SpeechIntentStartPayload>('eventa:audio:speech:intent:start')
 export const speechIntentLiteralEvent = defineEventa<SpeechIntentTokenPayload>('eventa:audio:speech:intent:literal')
 export const speechIntentSpecialEvent = defineEventa<SpeechIntentTokenPayload>('eventa:audio:speech:intent:special')
@@ -46,6 +56,7 @@ export const speechIntentFlushEvent = defineEventa<SpeechIntentTokenPayload>('ev
 export const speechIntentEndEvent = defineEventa<SpeechIntentEndPayload>('eventa:audio:speech:intent:end')
 export const speechIntentCancelEvent = defineEventa<SpeechIntentCancelPayload>('eventa:audio:speech:intent:cancel')
 export const speechSegmentPlaybackEvent = defineEventa<SpeechSegmentPlaybackPayload>('eventa:audio:speech:segment:playback-start')
+export const speechCadenceProgressEvent = defineEventa<SpeechCadenceProgressPayload>('eventa:audio:speech:cadence:progress')
 
 const BUS_CHANNEL_NAME = 'proj-airi:pipelines:outputs:speech'
 

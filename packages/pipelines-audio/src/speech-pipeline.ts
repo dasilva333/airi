@@ -188,14 +188,14 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
         context.emit(speechPipelineEventMap.onSegment, value)
 
         // Defensive split: if a segment has BOTH text and special, split them into two virtual segments
-        const segmentsToProcess: { text: string, special: string | null, subSentences?: string[] }[] = []
+        const segmentsToProcess: { text: string, special: string | null, subSentences?: string[], sourceStart?: number, sourceEnd?: number }[] = []
         if (value.text && value.special) {
           console.warn('[Speech Pipeline] Received mixed text+special segment, splitting defensively.', value)
-          segmentsToProcess.push({ text: value.text, special: null, subSentences: value.subSentences })
-          segmentsToProcess.push({ text: '', special: value.special })
+          segmentsToProcess.push({ text: value.text, special: null, subSentences: value.subSentences, sourceStart: value.sourceStart, sourceEnd: value.sourceEnd })
+          segmentsToProcess.push({ text: '', special: value.special, sourceStart: value.sourceStart, sourceEnd: value.sourceEnd })
         }
         else {
-          segmentsToProcess.push({ text: value.text, special: value.special, subSentences: value.subSentences })
+          segmentsToProcess.push({ text: value.text, special: value.special, subSentences: value.subSentences, sourceStart: value.sourceStart, sourceEnd: value.sourceEnd })
         }
 
         for (const seg of segmentsToProcess) {
@@ -261,6 +261,8 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
             special: seg.special,
             actorId: value.actorId,
             subSentences: seg.subSentences,
+            sourceStart: seg.sourceStart,
+            sourceEnd: seg.sourceEnd,
             priority: intent.priority,
             createdAt: Date.now(),
           }

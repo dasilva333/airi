@@ -392,14 +392,14 @@ Every saved bubble is visible immediately on refresh, reopening a timeline, or l
 
 ### 8.8 Current Code Baseline and Implementation Checks
 
-Reviewed GitHub main at [97972c6abf1d5a4e288290efdda8fcbc0c4aa7d9](https://github.com/dasilva333/airi/commit/97972c6abf1d5a4e288290efdda8fcbc0c4aa7d9), October 22, 2026. Implementation status: classifier source-range slicing plus typed `bubbleRanges`/`beatsMs`/`textDelaysMs` (`pausesMs` legacy alias) is implemented and covered by 9 classifier tests; chat persistence stores the typed fields. Playback hold, readiness timeout, and post-classification cancellation checks remain pending delivery work (see below).
+Reviewed GitHub main at [97972c6abf1d5a4e288290efdda8fcbc0c4aa7d9](https://github.com/dasilva333/airi/commit/97972c6abf1d5a4e288290efdda8fcbc0c4aa7d9), October 22, 2026. Implementation status: the full delivery loop is implemented — chunker source offsets (`TextSegment.sourceStart/End`, 17 chunker tests), segment→bubble mapping by containment cursor (7 mapping tests), `cadence-delivery` store driving voiced/text clocks, readiness-timeout and mapping-failure fail-safes (5 store tests), ControlStripHost playback gate with post-classification cancellation recheck in chat.ts, and staged reveals in `assistant-item.vue` mirrored cross-window via progress broadcast.
 
 - classifier.ts bundles split and rhythm queries, slices bubbles from original offsets (bubbleRanges), and computes text-only delays from complete bubbles while exposing separate beatsMs/textDelaysMs (pausesMs retained as legacy text-delay alias).
-- chat.ts persists typed cadence metadata (`cadenceBubbles`, `cadenceBubbleRanges`, `cadenceBeatsMs`, `cadenceTextDelaysMs`, legacy `cadencePausesMs`); still pending: recheck generation/cancellation identity after classification and before persistence/delivery.
-- assistant-item.vue currently renders all saved bubbles together. Live delivery needs shared progress separate from static history.
-- ControlStripHost.vue eagerly forwards answer speech into playback. Preserve synthesis forwarding while adding the playback hold and duplicate-fallback protection.
-- tts-chunker.ts recognizes newlines. lead-coordinator.ts can merge segments if explicitly enabled; cadence must override it.
-- Advance from actual final playback-piece completion rather than generic intent-end events.
+- chat.ts persists typed cadence metadata, rechecks generation after classification (abort on stale), resolves the delivery plan before persistence (or releases the gate), and bypasses staggering for tool-call turns (grouping persists, audio stays continuous).
+- assistant-item.vue renders staged reveals from delivery progress during active delivery and the full static stack otherwise (history, refresh, done/aborted turns).
+- ControlStripHost.vue gates every playback item (audio and specials) behind bubble reveals in `playFunction`, preserving synthesis forwarding; fallback literals flow through the same gate so no second synthesis pass or parallel speech occurs.
+- tts-chunker.ts records literal-stream source offsets per segment (CRLF counts 2, sentinels excluded); lead-coordinator.ts remains disabled in the reviewed configuration, so the batching override is satisfied by default.
+- Bubble completion derives from strict sequential playback: an arriving next-bubble item proves prior bubbles ended; the final bubble completes on intent end (which fires after the last playback piece).
 
 Additional source map (repository-relative):
 
@@ -427,6 +427,7 @@ Additional source map (repository-relative):
 9. Refresh and history mounting show every saved bubble immediately with no replay.
 10. Classifier failure, first-bubble audio-readiness timeout, or a one-bubble result releases held normal output once as text, without heuristic splitting, second synthesis pass, or duplicate fallback speech.
 11. Verify actor changes, stripped narrative/silent chunks, repeated lines, multi-piece audio, and secondary-window input for correct mapping and single-owner delivery.
+12. Tool-call turns keep bubble grouping but release to continuous audio (no stagger); bubbles with no audio advance on text-only timing while voiced bubbles follow playback plus beat.
 
 ---
 
