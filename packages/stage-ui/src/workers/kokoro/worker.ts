@@ -22,6 +22,13 @@ import {
 } from '../../libs/inference/contract'
 
 env.backends.onnx.logLevel = 'error'
+// NOTICE: transformers 4.x's stock wasmPaths default is the broken object
+// form (backend init dies with "Failed to construct 'URL': Invalid URL" —
+// verified live on VAD/whisper). Overwrite unconditionally with the string
+// form, matching the search/blip workers.
+if (env.backends.onnx.wasm) {
+  env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.2/dist/'
+}
 
 const { context } = createContext()
 

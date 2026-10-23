@@ -41,6 +41,13 @@ import {
 env.allowLocalModels = false
 env.useBrowserCache = true
 env.backends.onnx.logLevel = 'error'
+// NOTICE: transformers 4.x's stock wasmPaths default is the broken object
+// form (backend init dies with "Failed to construct 'URL': Invalid URL" —
+// verified live). Overwrite unconditionally with the string form, matching
+// the search/blip workers.
+if (env.backends.onnx.wasm) {
+  env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.2/dist/'
+}
 
 const { context } = createContext()
 
@@ -139,34 +146,38 @@ class AutomaticSpeechRecognitionPipeline {
       progress_callback,
     })
 
-    // NOTICE: fp16 encoder may fail on some devices/browsers. Fall back to fp32
-    // if the initial load fails. Decoder fp16 is known broken (see Issue #989).
+    // NOTICE: progressive dtype fallback. fp16 encoder may fail on some
+    // devices/browsers — fall back to fp32. Decoder fp16 is known broken
+    // (see Issue #989), so it is never attempted.
+    // The q4 decoder can additionally fail session creation when ORT's
+    // SimplifiedLayerNorm fusion trips over its baked-in quantization casts
+    // ("InsertedPrecisionFreeCast_...Constant does not exist"); the fp32
+    // decoder has no quantized casts to misfuse, so it is the last resort.
     // https://github.com/huggingface/transformers.js/issues/989
     this.model ??= (async () => {
-      try {
-        return await WhisperForConditionalGeneration.from_pretrained(this.model_id!, {
-          dtype: {
-            encoder_model: 'fp16',
-            decoder_model_merged: 'q4',
-          },
-          device: actualDevice,
-          progress_callback,
-        })
+      const attempts = [
+        { encoder_model: 'fp16', decoder_model_merged: 'q4' },
+        { encoder_model: 'fp32', decoder_model_merged: 'q4' },
+        { encoder_model: 'fp32', decoder_model_merged: 'fp32' },
+      ] as const
+      let lastError: unknown = null
+      for (const dtype of attempts) {
+        try {
+          return await WhisperForConditionalGeneration.from_pretrained(this.model_id!, {
+            dtype: { ...dtype },
+            device: actualDevice,
+            progress_callback,
+          })
+        }
+        catch (error) {
+          lastError = error
+          console.warn(
+            `[Whisper Worker] dtype ${dtype.encoder_model}/${dtype.decoder_model_merged} failed, trying next:`,
+            errorMessageFrom(error) ?? 'unknown error',
+          )
+        }
       }
-      catch (error) {
-        console.warn(
-          '[Whisper Worker] fp16 encoder failed, falling back to fp32:',
-          errorMessageFrom(error) ?? 'unknown error',
-        )
-        return await WhisperForConditionalGeneration.from_pretrained(this.model_id!, {
-          dtype: {
-            encoder_model: 'fp32',
-            decoder_model_merged: 'q4',
-          },
-          device: actualDevice,
-          progress_callback,
-        })
-      }
+      throw lastError
     })()
 
     return Promise.all([this.tokenizer, this.processor, this.model])

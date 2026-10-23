@@ -43,6 +43,11 @@ export interface WhisperLocalProviderConfig {
    * @default 'en'
    */
   language?: string
+  /**
+   * Compute device override. When omitted the adapter goes WebGPU-first
+   * with automatic WASM promotion after repeated device loss.
+   */
+  device?: 'webgpu' | 'wasm'
 }
 
 /**
@@ -90,8 +95,8 @@ export function createWhisperLocalTranscriptionProvider(config: WhisperLocalProv
         // Forward the request's abort signal so cancelling/abandoning the fetch
         // actually stops the worker's load (~800 MB download) and inference, rather
         // than letting them run to their own timeout.
-        if (adapter.state !== 'ready' || adapter.manifest?.model !== repo)
-          await adapter.load(undefined, { signal: init?.signal ?? undefined, model: repo })
+        if (adapter.state !== 'ready' || adapter.manifest?.model !== repo || (config.device && adapter.manifest?.device !== config.device))
+          await adapter.load(undefined, { signal: init?.signal ?? undefined, model: repo, device: config.device })
 
         const text = await adapter.transcribe({ audioFloat32, language }, { signal: init?.signal ?? undefined })
 

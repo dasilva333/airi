@@ -8,7 +8,7 @@ import { toast } from 'vue-sonner'
 
 import ProducerChoiceBubble from './ProducerChoiceBubble.vue'
 import ProducerGuidanceModal from './ProducerGuidanceModal.vue'
-import VoiceInputHoverCard from './VoiceInputHoverCard.vue'
+import VoiceInputHover from './VoiceInputHover.vue'
 
 import { useAutoSuggestions } from '../../../composables/use-auto-suggestions'
 import { useChatComposer } from '../../../composables/use-chat-composer'
@@ -514,14 +514,8 @@ defineExpose({
 
       <!-- Right Actions Cluster (Voice Mic + Send) -->
       <div class="flex shrink-0 items-center gap-1">
-        <!-- [🎤] Voice / STT Mic Button (+ opt-in hover card mock) -->
-        <div
-          v-if="showVoice"
-          :class="[
-            'relative shrink-0',
-            voiceHoverCard ? 'group/mic' : '',
-          ]"
-        >
+        <!-- [🎤] Voice / STT Mic Button (+ opt-in hover card) -->
+        <VoiceInputHover v-if="showVoice && voiceHoverCard">
           <button
             type="button"
             :class="[
@@ -535,20 +529,21 @@ defineExpose({
           >
             <div :class="[(isListening || isRecording) ? 'i-solar:microphone-3-bold size-4' : 'i-solar:microphone-linear size-4']" />
           </button>
-          <!-- NOTICE: `pb-2` is a hover bridge — padding counts as group hover, so moving from the mic into the card never crosses a dead gap. -->
-          <div
-            v-if="voiceHoverCard"
-            :class="[
-              'absolute bottom-full right-0 z-50 pb-2',
-              'invisible translate-y-1 opacity-0 pointer-events-none',
-              'transition-all duration-150 ease-out',
-              'group-hover/mic:visible group-hover/mic:translate-y-0 group-hover/mic:opacity-100 group-hover/mic:pointer-events-auto',
-              'group-focus-within/mic:visible group-focus-within/mic:translate-y-0 group-focus-within/mic:opacity-100 group-focus-within/mic:pointer-events-auto',
-            ]"
-          >
-            <VoiceInputHoverCard />
-          </div>
-        </div>
+        </VoiceInputHover>
+        <button
+          v-else-if="showVoice"
+          type="button"
+          :class="[
+            'flex items-center justify-center size-8.5 rounded-full transition-all cursor-pointer shrink-0',
+            (isListening || isRecording)
+              ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30 animate-pulse'
+              : 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300',
+          ]"
+          :title="isRecording ? 'Stop Recording' : isListening ? 'Stop Listening' : 'Voice Input'"
+          @click="handleVoiceClick"
+        >
+          <div :class="[(isListening || isRecording) ? 'i-solar:microphone-3-bold size-4' : 'i-solar:microphone-linear size-4']" />
+        </button>
 
         <!-- [✈] Send Button -->
         <button

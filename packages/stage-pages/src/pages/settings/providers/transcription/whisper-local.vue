@@ -64,7 +64,7 @@ const isModelResident = ref(false)
 async function checkModelStatus() {
   try {
     const adapter = await getWhisperAdapter()
-    if (adapter.state === 'ready' && adapter.manifest?.model === model.value) {
+    if (adapter.state === 'ready' && adapter.manifest?.model === model.value && adapter.manifest?.device === device.value) {
       isModelResident.value = true
     }
     else {
@@ -113,7 +113,7 @@ async function downloadModel(modelId: string, force = false) {
       else if (typeof p.percent === 'number' && p.percent >= 0) {
         loadingProgress.value = Math.min(99, Math.max(loadingProgress.value, Math.round(p.percent)))
       }
-    }, { model: modelId, force })
+    }, { model: modelId, force, device: device.value })
 
     isDownloading.value = false
     isModelResident.value = true
@@ -123,7 +123,9 @@ async function downloadModel(modelId: string, force = false) {
   catch (err) {
     isDownloading.value = false
     toast.error(`Failed to load model: ${err instanceof Error ? err.message : String(err)}`)
-    console.error('[Whisper Local Settings] Model download error:', err)
+    // NOTICE: toast shows the message only — always mirror the full error
+    // (message + stack) to the console so backend failures stay diagnosable.
+    console.error('[Whisper Local Settings] Model download error:', err instanceof Error ? err.stack ?? err.message : String(err))
   }
 }
 
@@ -133,6 +135,23 @@ const language = computed({
     if (!providers.value[providerId])
       providers.value[providerId] = {}
     providers.value[providerId].language = value
+  },
+})
+
+const DEFAULT_DEVICE = 'webgpu'
+const deviceOptions = [
+  { label: 'WebGPU (fastest)', value: 'webgpu' },
+  { label: 'WASM / CPU (compatible)', value: 'wasm' },
+]
+
+const device = computed({
+  get: () => (providers.value[providerId]?.device as 'webgpu' | 'wasm' | undefined) || DEFAULT_DEVICE,
+  set: (value: string) => {
+    if (!providers.value[providerId])
+      providers.value[providerId] = {}
+    providers.value[providerId].device = value as 'webgpu' | 'wasm'
+    // The loaded shard is device-specific; force a fresh load on next action.
+    isModelResident.value = false
   },
 })
 
@@ -156,7 +175,7 @@ const languageOptions = [
 ]
 
 function handleResetSettings() {
-  providers.value[providerId] = { model: defaultModel, language: DEFAULT_LANGUAGE }
+  providers.value[providerId] = { model: defaultModel, language: DEFAULT_LANGUAGE, device: DEFAULT_DEVICE }
   hearingStore.activeTranscriptionModel = defaultModel
   void checkModelStatus()
 }
@@ -263,6 +282,15 @@ onMounted(async () => {
             label="Recognition Language"
             description="Language hint passed to Whisper for transcription."
             :options="languageOptions"
+            layout="vertical"
+          />
+
+          <!-- Compute Device -->
+          <FieldSelect
+            v-model="device"
+            label="Compute Device"
+            description="WebGPU is fastest; WASM runs on CPU and works everywhere."
+            :options="deviceOptions"
             layout="vertical"
           />
 

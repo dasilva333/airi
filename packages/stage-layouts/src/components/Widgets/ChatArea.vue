@@ -5,6 +5,7 @@ import {
   ProducerGuidanceModal,
   ProviderSetupNudge,
   StageBackgroundDialogPicker,
+  VoiceInputHover,
 } from '@proj-airi/stage-ui/components'
 import { useChatComposer, useProducer } from '@proj-airi/stage-ui/composables'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
@@ -272,18 +273,20 @@ function handleScreenshotClick() {
             <div class="i-solar:magic-stick-3-bold-duotone text-xl" />
           </button>
 
-          <!-- Voice / STT Mic Button -->
-          <button
-            type="button"
-            :class="[
-              'p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 active:scale-95 transition-all cursor-pointer flex items-center justify-center',
-              isAudioInputEnabled ? 'text-rose-500 hover:text-rose-600 animate-pulse' : '',
-            ]"
-            :title="isAudioInputEnabled ? 'Stop Listening' : 'Voice Input'"
-            @click="handleVoiceClick"
-          >
-            <div :class="[isAudioInputEnabled ? 'i-solar:microphone-3-bold text-xl' : 'i-solar:microphone-linear text-xl']" />
-          </button>
+          <!-- Voice / STT Mic Button (+ hover card) -->
+          <VoiceInputHover>
+            <button
+              type="button"
+              :class="[
+                'p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 active:scale-95 transition-all cursor-pointer flex items-center justify-center',
+                isAudioInputEnabled ? 'text-rose-500 hover:text-rose-600 animate-pulse' : '',
+              ]"
+              :title="isAudioInputEnabled ? 'Stop Listening' : 'Voice Input'"
+              @click="handleVoiceClick"
+            >
+              <div :class="[isAudioInputEnabled ? 'i-solar:microphone-3-bold text-xl' : 'i-solar:microphone-linear text-xl']" />
+            </button>
+          </VoiceInputHover>
 
           <!-- Subtle Divider -->
           <div class="h-4 w-px bg-neutral-300/60 dark:bg-neutral-700/60" />

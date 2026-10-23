@@ -60,7 +60,7 @@ export interface WhisperAdapter {
    */
   load: (
     onProgress?: (p: ProgressPayload) => void,
-    options?: { signal?: AbortSignal, model?: string, force?: boolean },
+    options?: { signal?: AbortSignal, model?: string, force?: boolean, device?: 'webgpu' | 'wasm' | 'cpu' },
   ) => Promise<void>
 
   /**
@@ -147,20 +147,23 @@ export function createWhisperAdapter(workerUrl?: string | URL): WhisperAdapter {
 
   async function load(
     onProgress?: (p: ProgressPayload) => void,
-    options?: { signal?: AbortSignal, model?: string, force?: boolean },
+    options?: { signal?: AbortSignal, model?: string, force?: boolean, device?: 'webgpu' | 'wasm' | 'cpu' },
   ): Promise<void> {
     const isModelSwitch = !!(lastManifest?.model && options?.model && lastManifest.model !== options.model)
     const isForced = !!options?.force
 
-    // When switching models or forced reload, invalidate previous manifest so
-    // we reset the worker and ensure 100% of old VRAM is released by the GPU.
-    if (isModelSwitch || isForced) {
+    // When switching models/devices or forced reload, invalidate previous
+    // manifest so we reset the worker and ensure 100% of old VRAM is
+    // released by the GPU.
+    const isDeviceSwitch = !!(lastManifest?.device && options?.device && lastManifest.device !== options.device)
+    if (isModelSwitch || isForced || isDeviceSwitch) {
       lastManifest = null
     }
 
     // NOTICE: Proactive WASM promotion after repeated device-loss events.
-    // Whisper always requests 'webgpu' from the caller today.
-    const requestedDevice = host.promoteDevice('webgpu')
+    // An explicit device (e.g. the whisper settings page toggle) bypasses
+    // promotion — the user's choice wins.
+    const requestedDevice = options?.device ?? host.promoteDevice('webgpu')
     throwIfAborted(options?.signal)
     return host.runExclusive(async () => {
       throwIfAborted(options?.signal)
