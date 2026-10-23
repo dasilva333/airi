@@ -509,6 +509,13 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       input: options.input,
     }
 
+    // Assign the assistant message id up front so early hooks
+    // (before-compose) and their cross-window replays can correlate this
+    // turn end to end. Previously this was assigned after buildingMessage
+    // creation, leaving replayed before-compose contexts without an id.
+    const pendingAssistantMessageId = nanoid()
+    streamingMessageContext.assistantMessageId = pendingAssistantMessageId
+
     // Task 2: Emit before-message-composed hook IMMEDIATELY so Stage.vue can flush the speech pipeline,
     // cancel stale audio intents, reset lip sync, and clear captions before VLM inference begins.
     await hooks.emitBeforeMessageComposedHooks(sendingMessage, streamingMessageContext)
@@ -638,7 +645,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       slices: [],
       tool_results: [],
       createdAt: Date.now(),
-      id: nanoid(),
+      id: pendingAssistantMessageId,
       categorization: { speech: '', reasoning: '' },
     })
 
@@ -2084,7 +2091,7 @@ Format your output as a raw thought log.`
         }
         await hooks.emitStreamEndHooks(streamingMessageContext)
         if (buildingMessage.id)
-          useCadenceDeliveryStore().resolvePlan(buildingMessage.id, null)
+          useCadenceDeliveryStore().resolvePlan(buildingMessage.id, null, sessionId)
         return
       }
       // ----------------------
@@ -2149,22 +2156,23 @@ Format your output as a raw thought log.`
                 beatsMs: splitRes.beatsMs,
                 textDelaysMs: splitRes.textDelaysMs,
                 contentLength: buildingMessage.content.length,
-              })
+                total: splitRes.bubbles.length,
+              }, sessionId)
             }
             else {
               // Single bubble, tool-call turn, or maxBubbles ceiling:
               // release the playback gate to normal continuous speech.
-              cadenceDeliveryStore.resolvePlan(buildingMessage.id, null)
+              cadenceDeliveryStore.resolvePlan(buildingMessage.id, null, sessionId)
             }
           }
           catch (cadenceErr) {
             console.warn('[Chat:Cadence] Failed to evaluate cadence splits:', cadenceErr)
-            cadenceDeliveryStore.resolvePlan(buildingMessage.id, null)
+            cadenceDeliveryStore.resolvePlan(buildingMessage.id, null, sessionId)
           }
         }
         else if (buildingMessage.id) {
           // Armed turns that cannot split still need gate release.
-          useCadenceDeliveryStore().resolvePlan(buildingMessage.id, null)
+          useCadenceDeliveryStore().resolvePlan(buildingMessage.id, null, sessionId)
         }
 
         const currentMessages = chatSession.getSessionMessages(sessionId)

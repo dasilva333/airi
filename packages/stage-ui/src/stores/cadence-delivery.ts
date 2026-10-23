@@ -1,12 +1,13 @@
 import type { CadenceBubbleRange } from '../libs/cadence/classifier'
 import type { CadenceSegmentRecord } from '../libs/cadence/mapping'
+import type { SpeechCadencePlanPayload } from '../services/speech/bus'
 
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { reactive } from 'vue'
 
 import { assignSegmentsToBubbles } from '../libs/cadence/mapping'
-import { getSpeechBusContext, speechCadenceProgressEvent } from '../services/speech/bus'
+import { getSpeechBusContext, speechCadencePlanEvent, speechCadenceProgressEvent } from '../services/speech/bus'
 
 export interface CadenceDeliveryPlanInput {
   bubbles: string[]
@@ -14,6 +15,8 @@ export interface CadenceDeliveryPlanInput {
   beatsMs: number[]
   textDelaysMs: number[]
   contentLength: number
+  /** Bubble count; mirrors bubbles.length locally, carried explicitly over the bus. */
+  total: number
 }
 
 export type CadenceDeliveryStatus = 'active' | 'done' | 'released' | 'aborted'
@@ -53,6 +56,10 @@ const PLAN_WAIT_CEILING_MS = 30000
 
 const originId = `cadence-${nanoid()}`
 let busSubscribed = false
+// TEMP-DELIVERY-DIAG: bound per-(intent,bubble) gate logging.
+const loggedGateHolds = new Set<string>()
+const loggedFirstSegment = new Set<string>()
+const loggedGatePass = new Set<string>()
 
 function stripPieceSuffix(segmentId: string, knownBases: Set<string>): string {
   if (knownBases.has(segmentId))
@@ -84,6 +91,14 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
         if (!payload || payload.originId === originId)
           return
         applyMirrorProgress(payload)
+      })
+      getSpeechBusContext().on(speechCadencePlanEvent, (evt: any) => {
+        const payload = evt?.body as SpeechCadencePlanPayload | undefined
+        if (!payload || payload.originId === originId)
+          return
+        // TEMP-DELIVERY-DIAG
+        console.info('[Cadence] plan event received', { messageId: payload.messageId, bubbles: payload.plan?.total ?? 0 })
+        ingestPlan(payload.messageId, payload.plan ? { ...payload.plan, bubbles: [] } : null)
       })
     }
     catch {
@@ -162,6 +177,8 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
     const entry = entries.get(messageId)
     if (!entry || entry.status !== 'active')
       return
+    // TEMP-DELIVERY-DIAG
+    console.info('[Cadence] finish', { messageId, status, revealed: entry.revealed, total: entry.total })
     clearTimers(entry)
     entry.status = status
     entry.revealed = entry.total
@@ -180,6 +197,8 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
     }
     arms.set(arm.intentId, { ...arm, segments: [] })
     armByMessage.set(arm.messageId, arm.intentId)
+    // TEMP-DELIVERY-DIAG
+    console.info('[Cadence] arm', { messageId: arm.messageId, intentId: arm.intentId, mode: arm.mode })
   }
 
   function findArmByMessage(messageId: string): CadenceArm | undefined {
@@ -201,6 +220,11 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
 
   function recordSegment(intentId: string, seg: CadenceSegmentRecord) {
     ensureBusSubscription()
+    // TEMP-DELIVERY-DIAG
+    if (!loggedFirstSegment.has(intentId)) {
+      loggedFirstSegment.add(intentId)
+      console.info('[Cadence] first segment', { intentId, start: seg.sourceStart, end: seg.sourceEnd, special: seg.special, armed: arms.has(intentId) })
+    }
     const arm = arms.get(intentId)
     if (arm) {
       arm.segments.push(seg)
@@ -243,6 +267,8 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
     if (next <= entry.revealed)
       return
     entry.revealed = next
+    // TEMP-DELIVERY-DIAG
+    console.info('[Cadence] reveal', { messageId: entry.messageId, revealed: entry.revealed, total: entry.total })
     broadcast(entry)
     const pending = entry.waiters.filter(w => w.bubble < entry.revealed)
     entry.waiters = entry.waiters.filter(w => w.bubble >= entry.revealed)
@@ -281,17 +307,80 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
     }, beat))
   }
 
-  function resolvePlan(messageId: string | undefined, plan: CadenceDeliveryPlanInput | null) {
+  function resolvePlan(messageId: string | undefined, plan: CadenceDeliveryPlanInput | null, sessionId?: string) {
     ensureBusSubscription()
     if (!messageId)
       return
     const arm = findArmByMessage(messageId)
-    if (!arm)
+    ingestPlan(messageId, plan)
+    // Cross-window handoff: the planning window broadcasts so the executing
+    // window (which owns the audio pipeline) can drive delivery. The local
+    // call above already handled the single-window case.
+    try {
+      getSpeechBusContext().emit(speechCadencePlanEvent, {
+        originId,
+        messageId,
+        sessionId: sessionId ?? arm?.sessionId ?? '',
+        plan: plan
+          ? {
+              ranges: plan.ranges,
+              beatsMs: plan.beatsMs,
+              textDelaysMs: plan.textDelaysMs,
+              contentLength: plan.contentLength,
+              total: plan.bubbles.length,
+            }
+          : null,
+      })
+    }
+    catch {
+      // Local-only delivery when the bus is unavailable.
+    }
+  }
+
+  function ingestPlan(messageId: string, plan: CadenceDeliveryPlanInput | null) {
+    const arm = findArmByMessage(messageId)
+    if (!arm) {
+      if (plan && plan.total > 1) {
+        // Planning or mirror window without a local arm: hold a shell entry
+        // so the transcript shows typing dots until progress events arrive.
+        // TEMP-DELIVERY-DIAG
+        console.info('[Cadence] resolve: no local arm, mirror shell', { messageId, total: plan.total })
+        const shell: CadenceDeliveryEntry = {
+          messageId,
+          sessionId: '',
+          intentId: '',
+          mode: 'text',
+          total: plan.total,
+          revealed: 0,
+          status: 'active',
+          beatsMs: [],
+          textDelaysMs: [],
+          bubbleAudioCount: [],
+          bubbleOfSegment: new Map(),
+          cursor: 0,
+          ranges: [],
+          contentLength: plan.contentLength,
+          timers: [],
+          waiters: [],
+        }
+        entries.set(messageId, shell)
+        // If no window ever drives delivery, fall back to the static stack.
+        shell.timers.push(setTimeout(() => {
+          const current = entries.get(messageId)
+          if (current && current.status === 'active' && current.revealed === 0 && current.intentId === '') {
+            // TEMP-DELIVERY-DIAG
+            console.info('[Cadence] mirror expired with no progress, static fallback', { messageId })
+            clearTimers(current)
+            entries.delete(messageId)
+          }
+        }, 20000))
+      }
       return
+    }
     arms.delete(arm.intentId)
     armByMessage.delete(messageId)
 
-    if (!plan || plan.bubbles.length <= 1) {
+    if (!plan || plan.total <= 1) {
       // Single bubble, failure, or bypass: normal continuous playback.
       wakePlanWaiters(arm.intentId, 'released')
       return
@@ -302,7 +391,7 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
       sessionId: arm.sessionId,
       intentId: arm.intentId,
       mode: arm.mode,
-      total: plan.bubbles.length,
+      total: plan.total,
       revealed: 0,
       status: 'active',
       beatsMs: plan.beatsMs,
@@ -317,6 +406,8 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
     }
 
     const assignment = assignSegmentsToBubbles(arm.segments, plan.ranges, plan.contentLength)
+    // TEMP-DELIVERY-DIAG
+    console.info('[Cadence] resolve', { messageId, bubbles: plan.bubbles.length, segments: arm.segments.length, failed: assignment.failed, failure: assignment.failureReason })
     if (assignment.failed) {
       // Fail safe: reveal everything, let audio play continuously.
       entry.revealed = entry.total
@@ -334,6 +425,8 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
       if (textSegmentIds.has(segmentId))
         entry.bubbleAudioCount[bubble] = (entry.bubbleAudioCount[bubble] ?? 0) + 1
     }
+    // TEMP-DELIVERY-DIAG
+    console.info('[Cadence] delivery start', { messageId, mode: entry.mode, audioCounts: entry.bubbleAudioCount })
 
     entries.set(messageId, entry)
     wakePlanWaiters(arm.intentId, 'released')
@@ -389,6 +482,11 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
   async function gatePlaybackItem(intentId: string, playbackSegmentId: string, signal: AbortSignal): Promise<'released' | 'aborted'> {
     const entry = [...entries.values()].find(e => e.intentId === intentId)
     if (!entry) {
+      // TEMP-DELIVERY-DIAG
+      if (!loggedGatePass.has(intentId)) {
+        loggedGatePass.add(intentId)
+        console.info('[Cadence] gate pass-through (no plan yet)', { intentId, armed: arms.has(intentId) })
+      }
       // Plan not resolved yet: hold until resolution, abort, or ceiling.
       if (!arms.has(intentId))
         return 'released'
@@ -411,6 +509,13 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
     onItemAtGate(entry, bubble)
     if (bubble < entry.revealed)
       return 'released'
+
+    // TEMP-DELIVERY-DIAG
+    const holdKey = `${entry.intentId}:${bubble}`
+    if (!loggedGateHolds.has(holdKey)) {
+      loggedGateHolds.add(holdKey)
+      console.info('[Cadence] gate hold', { messageId: entry.messageId, bubble, revealed: entry.revealed })
+    }
 
     return new Promise((resolve) => {
       const onAbort = () => {

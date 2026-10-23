@@ -15,6 +15,7 @@ function armVoiced(store: ReturnType<typeof useCadenceDeliveryStore>, messageId 
     beatsMs: [500],
     textDelaysMs: [1000],
     contentLength: 7,
+    total: 2,
   })
 }
 
@@ -57,6 +58,7 @@ describe('useCadenceDeliveryStore', () => {
       beatsMs: [500],
       textDelaysMs: [1000],
       contentLength: 7,
+      total: 2,
     })
 
     expect(store.revealedFor('m1')).toBe(1)
@@ -76,6 +78,7 @@ describe('useCadenceDeliveryStore', () => {
       beatsMs: [500],
       textDelaysMs: [1000],
       contentLength: 7,
+      total: 2,
     })
 
     expect(store.revealedFor('m1')).toBeNull()

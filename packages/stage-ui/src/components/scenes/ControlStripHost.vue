@@ -1882,9 +1882,16 @@ chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
   // Conversational Cadence: arm delivery for this turn when the card opts
   // in and System-1 is available. chat.ts resolves the plan (or releases)
   // once streaming finishes; unarmed turns are never gated.
+  // TEMP-DELIVERY-DIAG: eligibility breakdown (remove after diagnosis).
   try {
     const cadenceCardConfig = activeCard.value?.extensions?.airi?.acting?.cadence
     const cadenceMessageId = context?.assistantMessageId
+    console.info('[Cadence] before-compose', {
+      messageId: cadenceMessageId,
+      hasIntent: !!cadenceIntent,
+      cardFlag: !!cadenceCardConfig?.multiBubbleEnabled,
+      sys1: systemOneStore.configured,
+    })
     if (
       cadenceMessageId
       && cadenceIntent
@@ -1898,6 +1905,10 @@ chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
         streamId: cadenceIntent.streamId,
         mode: isPlaybackSuppressed.value ? 'text' : 'voiced',
       })
+    }
+    else {
+      // TEMP-DELIVERY-DIAG
+      console.info('[Cadence] arm skipped', { messageId: cadenceMessageId })
     }
   }
   catch (err) {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useSystemOneStore } from '@proj-airi/stage-ui/stores/modules/system-one'
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
@@ -95,6 +96,34 @@ function handleToggleVisualNovel() {
         artistry: {
           ...activeCard.value.extensions?.airi?.artistry,
           autonomousEnabled: !current,
+        },
+      },
+    },
+  } as any)
+}
+
+const systemOneStore = useSystemOneStore()
+const isSystemOneConfigured = computed(() => systemOneStore.configured)
+
+const isMultiBubbleEnabled = computed(() => {
+  return activeCard.value?.extensions?.airi?.acting?.cadence?.multiBubbleEnabled ?? false
+})
+
+function handleToggleMultiBubble() {
+  if (!activeCardId.value || !activeCard.value || !isSystemOneConfigured.value)
+    return
+  const current = isMultiBubbleEnabled.value
+  airiCardStore.updateCard(activeCardId.value, {
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...activeCard.value.extensions?.airi,
+        acting: {
+          ...activeCard.value.extensions?.airi?.acting,
+          cadence: {
+            ...activeCard.value.extensions?.airi?.acting?.cadence,
+            multiBubbleEnabled: !current,
+          },
         },
       },
     },
@@ -340,6 +369,35 @@ function handleToggleCognitivePipeline() {
       >
         <span
           :class="isAutoSuggestionsEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+          class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+        />
+      </div>
+    </div>
+
+    <!-- Toggle: Multi-bubble delivery -->
+    <div
+      class="w-full flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 transition hover:bg-neutral-100 dark:hover:bg-neutral-800/60"
+      :class="{ 'opacity-60': !isSystemOneConfigured }"
+      @click="handleToggleMultiBubble"
+    >
+      <div class="flex items-center gap-2.5">
+        <div
+          class="size-4.5"
+          :class="isMultiBubbleEnabled && isSystemOneConfigured
+            ? 'text-primary-500 i-solar:chat-round-dots-bold-duotone'
+            : 'text-neutral-400 dark:text-neutral-500 i-solar:chat-round-dots-linear'"
+        />
+        <div class="flex flex-col">
+          <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Multi-bubble delivery</span>
+          <span class="text-[9px] text-neutral-400">{{ isSystemOneConfigured ? 'Delivers replies in smaller bubbles with natural pauses' : 'Set up System-1 to enable' }}</span>
+        </div>
+      </div>
+      <div
+        :class="isMultiBubbleEnabled && isSystemOneConfigured ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+        class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+      >
+        <span
+          :class="isMultiBubbleEnabled && isSystemOneConfigured ? 'translate-x-3.5' : 'translate-x-0.5'"
           class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
         />
       </div>

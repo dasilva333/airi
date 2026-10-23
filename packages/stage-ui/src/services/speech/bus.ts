@@ -58,6 +58,21 @@ export const speechIntentCancelEvent = defineEventa<SpeechIntentCancelPayload>('
 export const speechSegmentPlaybackEvent = defineEventa<SpeechSegmentPlaybackPayload>('eventa:audio:speech:segment:playback-start')
 export const speechCadenceProgressEvent = defineEventa<SpeechCadenceProgressPayload>('eventa:audio:speech:cadence:progress')
 
+export interface SpeechCadencePlanPayload {
+  originId: string
+  messageId: string
+  sessionId: string
+  plan: {
+    ranges: { start: number, end: number }[]
+    beatsMs: number[]
+    textDelaysMs: number[]
+    contentLength: number
+    total: number
+  } | null
+}
+
+export const speechCadencePlanEvent = defineEventa<SpeechCadencePlanPayload>('eventa:audio:speech:cadence:plan')
+
 const BUS_CHANNEL_NAME = 'proj-airi:pipelines:outputs:speech'
 
 let context: ReturnType<typeof createBroadcastChannelContext>['context'] | undefined
