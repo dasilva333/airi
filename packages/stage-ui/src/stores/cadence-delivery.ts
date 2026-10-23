@@ -88,6 +88,8 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
     try {
       getSpeechBusContext().on(speechCadenceProgressEvent, (evt: any) => {
         const payload = evt?.body
+        // TEMP-DELIVERY-DIAG
+        console.info('[Cadence] progress received', { messageId: payload?.messageId, revealed: payload?.revealed, status: payload?.status, self: payload?.originId === originId })
         if (!payload || payload.originId === originId)
           return
         applyMirrorProgress(payload)
@@ -107,7 +109,13 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
   }
 
   function broadcast(entry: CadenceDeliveryEntry) {
+    // TEMP-DELIVERY-DIAG
+    console.info('[Cadence] progress send', { messageId: entry.messageId, revealed: entry.revealed, total: entry.total, status: entry.status })
     try {
+      // NOTICE: send a plain snapshot, never the reactive entry itself.
+      // Entries carry waiter resolve functions and timer handles, which are
+      // not structured-cloneable — posting them throws DataCloneError and
+      // the progress update silently never leaves this window.
       getSpeechBusContext().emit(speechCadenceProgressEvent, {
         originId,
         messageId: entry.messageId,
@@ -117,8 +125,9 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
         status: entry.status,
       })
     }
-    catch {
-      // Local-only delivery when the bus is unavailable.
+    catch (err) {
+      // TEMP-DELIVERY-DIAG
+      console.info('[Cadence] progress broadcast failed, local-only delivery', { messageId: entry.messageId, err })
     }
   }
 
@@ -242,10 +251,10 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
     }
   }
 
-  function bubbleForPlaybackSegment(entry: CadenceDeliveryEntry, playbackSegmentId: string): number {
+  function bubbleForPlaybackSegment(entry: CadenceDeliveryEntry, playbackSegmentId: string): number | undefined {
     const bases = new Set(entry.bubbleOfSegment.keys())
     const base = stripPieceSuffix(playbackSegmentId, bases)
-    return entry.bubbleOfSegment.get(base) ?? entry.total - 1
+    return entry.bubbleOfSegment.get(base)
   }
 
   function scheduleTextTimer(entry: CadenceDeliveryEntry, fromBubble: number) {
@@ -288,12 +297,9 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
       return
     if (bubble < entry.revealed)
       return
-    if (bubble > entry.revealed) {
-      // Defensive catch-up: sequential playback guarantees predecessors ended.
-      reveal(entry, bubble)
-      if (entry.status !== 'active')
-        return
-    }
+    // An item arriving ahead of the revealed frontier proves all prior
+    // bubbles finished (strictly sequential playback). Do NOT reveal here:
+    // the beat below paces the transition and reveals the arriving bubble.
     if (bubble === 0) {
       reveal(entry, 1)
       return
@@ -501,6 +507,18 @@ export const useCadenceDeliveryStore = defineStore('cadence-delivery', () => {
       return 'released'
 
     const bubble = bubbleForPlaybackSegment(entry, playbackSegmentId)
+    if (bubble === undefined) {
+      // Unmapped audio (e.g. pacing fillers, which schedule straight to the
+      // playback manager and never pass segmentation): let it play without
+      // touching the reveal state.
+      // TEMP-DELIVERY-DIAG
+      const passKey = `${entry.intentId}:${playbackSegmentId}`
+      if (!loggedGatePass.has(passKey)) {
+        loggedGatePass.add(passKey)
+        console.info('[Cadence] gate pass-through (unmapped segment)', { messageId: entry.messageId, playbackSegmentId })
+      }
+      return 'released'
+    }
     if (bubble < entry.revealed)
       return 'released'
     if (signal.aborted)

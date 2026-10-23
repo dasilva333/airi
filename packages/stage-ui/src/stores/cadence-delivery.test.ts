@@ -85,6 +85,18 @@ describe('useCadenceDeliveryStore', () => {
     await expect(store.gatePlaybackItem('i1', 'a', signal)).resolves.toBe('released')
   })
 
+  it('lets unmapped audio (e.g. pacing fillers) through without revealing', async () => {
+    const store = useCadenceDeliveryStore()
+    const signal = new AbortController().signal
+    armVoiced(store)
+
+    await expect(store.gatePlaybackItem('i1', 'segment-filler-m1', signal)).resolves.toBe('released')
+    expect(store.revealedFor('m1')).toBe(0)
+
+    await expect(store.gatePlaybackItem('i1', 'a', signal)).resolves.toBe('released')
+    expect(store.revealedFor('m1')).toBe(1)
+  })
+
   it('releases the gate for single-bubble plans', async () => {
     const store = useCadenceDeliveryStore()
     const signal = new AbortController().signal
