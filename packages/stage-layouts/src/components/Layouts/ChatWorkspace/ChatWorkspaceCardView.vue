@@ -2,7 +2,10 @@
 import { CharacterAvatar } from '@proj-airi/stage-ui/components'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
-import { computed, ref } from 'vue'
+import { useSyncEngineStore } from '@proj-airi/stage-ui/stores/sync-engine'
+import { useLocalStorage } from '@vueuse/core'
+import { storeToRefs } from 'pinia'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps<{
   activeCardId: string
@@ -17,9 +20,50 @@ const emit = defineEmits<{
 
 const airiCardStore = useAiriCardStore()
 const chatSessionStore = useChatSessionStore()
+const syncEngineStore = useSyncEngineStore()
+const { selectiveSyncEnabled } = storeToRefs(syncEngineStore)
+
+// Canonical character favorites from control-strip shared storage
+const charFavIds = useLocalStorage<string[]>(
+  'settings/control-strip/character-favorites-global',
+  [],
+)
 
 const searchQuery = ref('')
-const activeFilter = ref<'all' | 'favorites'>('all')
+
+type CardFilter = 'all' | 'synced' | 'favorites'
+const activeFilter = ref<CardFilter>(selectiveSyncEnabled.value ? 'synced' : 'all')
+
+watch(selectiveSyncEnabled, (enabled) => {
+  if (enabled && activeFilter.value === 'all') {
+    activeFilter.value = 'synced'
+  }
+  else if (!enabled && activeFilter.value === 'synced') {
+    activeFilter.value = 'all'
+  }
+})
+
+function getCardSyncStatus(cardId: string): 'synced' | 'cloud-only' | 'partial' {
+  const displayModelId = airiCardStore.getCardDisplayModelId(cardId)
+  return syncEngineStore.getCardSyncStatus(cardId, displayModelId)
+}
+
+function isCharFav(id: string): boolean {
+  return charFavIds.value.includes(id)
+}
+
+function toggleCharFav(id: string, e?: Event) {
+  e?.stopPropagation()
+  const favs = [...charFavIds.value]
+  const idx = favs.indexOf(id)
+  if (idx !== -1) {
+    favs.splice(idx, 1)
+  }
+  else {
+    favs.push(id)
+  }
+  charFavIds.value = favs
+}
 
 const allCards = computed(() => {
   return Array.from(airiCardStore.cards.entries()).map(([id, card]) => ({
@@ -35,18 +79,24 @@ const totalCardCount = computed(() => {
 const filteredCards = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   return allCards.value.filter((card) => {
-    // 1. Text filter
+    // 1. Text filter (name, nickname, id)
     if (query) {
       const name = (card.name || '').toLowerCase()
-      if (!name.includes(query)) {
+      const nickname = (card.nickname || '').toLowerCase()
+      const id = (card.id || '').toLowerCase()
+      if (!name.includes(query) && !nickname.includes(query) && !id.includes(query)) {
         return false
       }
     }
 
-    // 2. Favorites filter
+    // 2. Tab Filter
     if (activeFilter.value === 'favorites') {
-      const isFav = Boolean((card as any).favorite || (card as any).extensions?.airi?.favorite)
-      if (!isFav) {
+      if (!isCharFav(card.id)) {
+        return false
+      }
+    }
+    else if (activeFilter.value === 'synced') {
+      if (getCardSyncStatus(card.id) !== 'synced') {
         return false
       }
     }
@@ -98,15 +148,16 @@ function handleSelectCard(cardId: string) {
       </button>
     </div>
 
-    <!-- Filter Pills Row -->
+    <!-- Filter Pills Row: All | Synced | Favorite -->
     <div class="flex items-center justify-between px-0.5">
       <div class="flex items-center gap-1.5">
+        <!-- All -->
         <button
           type="button"
           :class="[
             'px-2.5 py-0.5 rounded-lg text-xs font-semibold transition cursor-pointer',
             activeFilter === 'all'
-              ? 'bg-primary-500 text-white shadow-sm'
+              ? 'bg-primary-500 text-white shadow-sm font-bold'
               : 'bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800',
           ]"
           @click="activeFilter = 'all'"
@@ -114,23 +165,40 @@ function handleSelectCard(cardId: string) {
           All
         </button>
 
+        <!-- Synced (Only visible when selective sync is enabled) -->
+        <button
+          v-if="selectiveSyncEnabled"
+          type="button"
+          :class="[
+            'flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-semibold transition cursor-pointer',
+            activeFilter === 'synced'
+              ? 'bg-emerald-500 text-white shadow-sm font-bold'
+              : 'bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800',
+          ]"
+          @click="activeFilter = 'synced'"
+        >
+          <div class="i-solar:bolt-bold text-[11px]" />
+          <span>Synced</span>
+        </button>
+
+        <!-- Favorite -->
         <button
           type="button"
           :class="[
             'flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-semibold transition cursor-pointer',
             activeFilter === 'favorites'
-              ? 'bg-primary-500 text-white shadow-sm'
+              ? 'bg-amber-500 text-white shadow-sm font-bold'
               : 'bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800',
           ]"
           @click="activeFilter = 'favorites'"
         >
-          <div class="i-solar:star-bold size-3" />
-          <span>Favorites</span>
+          <div class="i-solar:star-bold text-[11px]" />
+          <span>Favorite</span>
         </button>
       </div>
 
       <span class="text-xs text-neutral-400 font-medium">
-        {{ totalCardCount }} cards
+        {{ filteredCards.length !== totalCardCount ? `${filteredCards.length}/${totalCardCount}` : totalCardCount }} cards
       </span>
     </div>
 
@@ -158,32 +226,68 @@ function handleSelectCard(cardId: string) {
           />
 
           <div class="min-w-0 flex flex-1 flex-col">
-            <span
-              :class="[
-                'truncate text-xs',
-                activeCardId === card.id ? 'font-bold' : 'font-medium',
-              ]"
-            >
-              {{ card.name }}
-            </span>
+            <!-- Title Row: {card.nickname || card.name} ({card.name}) -->
+            <div class="min-w-0 flex items-baseline gap-1.5 overflow-hidden">
+              <span
+                :class="[
+                  'truncate text-xs',
+                  card.nickname && card.name && card.nickname.trim() !== card.name.trim() ? 'max-w-[65%] shrink-0' : '',
+                  activeCardId === card.id ? 'font-bold' : 'font-medium',
+                ]"
+              >
+                {{ card.nickname || card.name }}
+              </span>
+              <span
+                v-if="card.nickname && card.name && card.nickname.trim() !== card.name.trim()"
+                class="min-w-0 truncate text-[10px] text-neutral-400 font-normal italic dark:text-neutral-500"
+              >
+                ({{ card.name }})
+              </span>
+            </div>
+
+            <!-- Subtitle: timelines count -->
             <span class="truncate text-[10px] text-neutral-400 dark:text-neutral-500">
               {{ activeCardId === card.id ? 'Current card · ' : '' }}{{ getTimelineCount(card.id) }} {{ getTimelineCount(card.id) === 1 ? 'timeline' : 'timelines' }}
             </span>
           </div>
         </div>
 
-        <!-- Right: Active Checkmark Badge -->
-        <div
-          v-if="activeCardId === card.id"
-          class="size-5 flex shrink-0 items-center justify-center rounded-full bg-primary-500 text-white shadow-sm"
-        >
-          <div class="i-solar:check-read-bold size-3" />
+        <!-- Right End Cap: Active Checkmark & Favorite Star -->
+        <div class="flex shrink-0 items-center gap-1.5">
+          <!-- Active Checkmark Badge -->
+          <div
+            v-if="activeCardId === card.id"
+            class="size-5 flex shrink-0 items-center justify-center rounded-full bg-primary-500 text-white shadow-sm"
+          >
+            <div class="i-solar:check-read-bold size-3" />
+          </div>
+
+          <!-- Favorite Star Toggle -->
+          <button
+            type="button"
+            class="size-6 flex shrink-0 cursor-pointer items-center justify-center rounded-lg transition-all"
+            :class="[
+              isCharFav(card.id)
+                ? 'text-amber-400 hover:bg-amber-400/10'
+                : 'text-neutral-400 opacity-0 group-hover:opacity-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 hover:text-neutral-600 dark:hover:text-neutral-200',
+            ]"
+            :title="isCharFav(card.id) ? 'Remove favorite' : 'Add favorite'"
+            @click="toggleCharFav(card.id, $event)"
+          >
+            <span :class="isCharFav(card.id) ? 'i-solar:star-bold text-sm' : 'i-solar:star-linear text-sm'" />
+          </button>
         </div>
       </div>
 
       <!-- Empty Filter State -->
       <div v-if="filteredCards.length === 0" class="py-6 text-center text-xs text-neutral-400">
-        No character cards found.
+        {{
+          activeFilter === 'favorites'
+            ? 'No favorite characters found.'
+            : activeFilter === 'synced'
+              ? 'No synced characters found.'
+              : 'No character cards found.'
+        }}
       </div>
     </div>
 
