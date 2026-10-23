@@ -55,6 +55,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
   const autoSendEnabled = useLocalStorageManualReset<boolean>('settings/hearing/auto-send-enabled', true)
   const autoSendDelay = useLocalStorageManualReset<number>('settings/hearing/auto-send-delay', 2000) // Default 2 seconds
   const hearingDetectionMode = useLocalStorageManualReset<'vad' | 'manual'>('settings/hearing/detection-mode', 'vad')
+  const voiceInputMode = useLocalStorageManualReset<'dictation' | 'voice-message'>('settings/hearing/voice-input-mode', 'dictation')
   const vadThreshold = useLocalStorageManualReset<number>('settings/hearing/vad-threshold', 0.6)
   const isTranscribing = ref(false)
   const speechProviderSettings = useLocalStorageManualReset<Record<string, { deviceId: string, sampleRate: number }>>('settings/hearing/speech-provider-settings', {
@@ -126,6 +127,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
     autoSendEnabled.reset()
     autoSendDelay.reset()
     hearingDetectionMode.reset()
+    voiceInputMode.reset()
     vadThreshold.reset()
   }
 
@@ -283,6 +285,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
     autoSendEnabled,
     autoSendDelay,
     hearingDetectionMode,
+    voiceInputMode,
     vadThreshold,
     isTranscribing,
 

@@ -13,6 +13,7 @@ import { useConsciousnessStore } from '../stores/modules/consciousness'
 import { useHearingSpeechInputPipeline, useHearingStore } from '../stores/modules/hearing'
 import { useProvidersStore } from '../stores/providers'
 import { useSettingsAudioDevice } from '../stores/settings'
+import { useAudioRecorder } from './audio/audio-recorder'
 
 export interface ChatComposerOptions {
   tools?: any[]
@@ -21,9 +22,30 @@ export interface ChatComposerOptions {
   onSendError?: (error: unknown) => void
 }
 
+export interface ChatComposerAttachment {
+  type: 'image' | 'audio'
+  data: string
+  mimeType: string
+  url: string
+  /** Raw recording; runtime-only, never persisted. Present on voice-message clips. */
+  blob?: Blob
+  /** Representative mock waveform bars (0–1), seeded at record time. */
+  peaks?: number[]
+}
+
+function peaksForAudio(size: number, count = 28) {
+  let seed = (size || 1) >>> 0
+  const peaks: number[] = []
+  for (let i = 0; i < count; i++) {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    peaks.push(0.18 + ((seed % 1000) / 1000) * 0.82)
+  }
+  return peaks
+}
+
 export function useChatComposer(options: ChatComposerOptions = {}) {
   const messageInput = ref('')
-  const attachments = ref<{ type: 'image', data: string, mimeType: string, url: string }[]>([])
+  const attachments = ref<ChatComposerAttachment[]>([])
   const isComposing = ref(false)
   const isImagineMode = ref(false)
   const trashConfirmOpen = ref(false)
@@ -46,9 +68,9 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   // Transcription/Hearing
   const hearingStore = useHearingStore()
   const hearingPipeline = useHearingSpeechInputPipeline()
-  const { transcribeForMediaStream, stopStreamingTranscription } = hearingPipeline
+  const { transcribeForMediaStream, transcribeForRecording, stopStreamingTranscription } = hearingPipeline
   const { supportsStreamInput } = storeToRefs(hearingPipeline)
-  const { configured: hearingConfigured, autoSendEnabled, autoSendDelay } = storeToRefs(hearingStore)
+  const { configured: hearingConfigured, autoSendEnabled, autoSendDelay, voiceInputMode } = storeToRefs(hearingStore)
 
   const isListening = ref(false)
   const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
@@ -200,13 +222,45 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
       return
     }
 
-    const textToSend = messageInput.value
+    let textToSend = messageInput.value
     const attachmentsToSend = attachments.value.map(att => ({ ...att }))
+    const imageAttachmentsToSend = attachmentsToSend
+      .filter(att => att.type === 'image')
+      .map(att => ({ type: 'image' as const, data: att.data, mimeType: att.mimeType, url: att.url }))
+    const audioAttachmentsToSend = attachmentsToSend.filter(att => att.type === 'audio')
 
     messageInput.value = ''
     attachments.value = []
 
     options.onSendStart?.()
+
+    // Voice-message clips transcribe into text at send time — the send
+    // pipeline only understands image attachments, so audio never reaches it.
+    if (audioAttachmentsToSend.length) {
+      try {
+        const transcripts: string[] = []
+        for (const clip of audioAttachmentsToSend) {
+          if (!clip.blob)
+            continue
+          const text = await transcribeForRecording(clip.blob)
+          if (text && text.trim())
+            transcripts.push(text.trim())
+        }
+        const combined = [textToSend.trim(), ...transcripts].filter(Boolean).join('\n')
+        if (!combined) {
+          messageInput.value = textToSend
+          attachments.value = attachmentsToSend
+          return
+        }
+        textToSend = combined
+      }
+      catch (error) {
+        messageInput.value = textToSend
+        attachments.value = attachmentsToSend
+        options.onSendError?.(error)
+        return
+      }
+    }
 
     if (isImagineMode.value) {
       const artistryStore = useAutonomousArtistryStore()
@@ -236,7 +290,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
         chatProvider: await providersStore.getProviderInstance(activeProvider.value) as ChatProvider,
         model: activeModel.value,
         providerConfig,
-        attachments: attachmentsToSend,
+        attachments: imageAttachmentsToSend,
         tools: options.tools,
       }, activeSessionId.value)
       attachmentsToSend.forEach(att => URL.revokeObjectURL(att.url))
@@ -376,6 +430,87 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     }
   }
 
+  // Voice-message recording loop (tap-to-talk path — the page-level VAD loop
+  // owns recording while open-mic `enabled` is on, so this instance only
+  // records when the user explicitly taps).
+  const isRecording = ref(false)
+  const voiceRecorder = useAudioRecorder(stream)
+
+  function addAudioAttachment(recording: Blob) {
+    const url = URL.createObjectURL(recording)
+    attachments.value.push({
+      type: 'audio',
+      data: '',
+      mimeType: recording.type || 'audio/webm',
+      url,
+      blob: recording,
+      peaks: peaksForAudio(recording.size),
+    })
+  }
+
+  const stopVoiceHook = voiceRecorder.onStopRecord(async (recording) => {
+    isRecording.value = false
+    if (voiceInputMode.value !== 'voice-message' || !recording)
+      return
+    // Send ON = transcribe now and send as the message. Providers have no
+    // audio-input path yet, so the transcript is what the brain receives;
+    // the playable clip is what the user keeps (attached below when manual).
+    if (autoSendEnabled.value) {
+      try {
+        const text = await transcribeForRecording(recording)
+        if (text && text.trim()) {
+          messageInput.value = text.trim()
+          await handleSend()
+        }
+      }
+      catch (err) {
+        console.error('[ChatComposer] Voice message auto-send error:', err)
+        options.onSendError?.(err)
+      }
+    }
+    else {
+      addAudioAttachment(recording)
+    }
+  })
+
+  async function startVoiceRecording() {
+    if (isRecording.value)
+      return
+    if (!stream.value) {
+      await settingsAudioDevice.askPermission()
+      if (!stream.value && enabled.value) {
+        settingsAudioDevice.startStream()
+      }
+    }
+    if (!stream.value)
+      return
+    try {
+      await voiceRecorder.startRecord()
+      isRecording.value = true
+    }
+    catch {
+      isRecording.value = false
+    }
+  }
+
+  async function stopVoiceRecording() {
+    if (!isRecording.value)
+      return
+    try {
+      await voiceRecorder.stopRecord()
+    }
+    finally {
+      isRecording.value = false
+    }
+  }
+
+  async function toggleVoiceRecording() {
+    if (isRecording.value)
+      await stopVoiceRecording()
+    else
+      await startVoiceRecording()
+  }
+
   watch(enabled, async (val) => {
     if (val && stream.value) {
       await startListening()
@@ -404,14 +539,23 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     if (autoSendTimeout) {
       clearTimeout(autoSendTimeout)
     }
+    try {
+      stopVoiceHook?.()
+    }
+    catch {}
   })
+
+  const audioAttachments = computed(() => attachments.value.filter(att => att.type === 'audio'))
 
   return {
     messageInput,
     attachments,
+    audioAttachments,
     isComposing,
     isImagineMode,
     isListening,
+    isRecording,
+    voiceInputMode,
     trashConfirmOpen,
     sending,
     isSpeaking,
@@ -427,5 +571,8 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     stopGeneration,
     startListening,
     stopListening,
+    startVoiceRecording,
+    stopVoiceRecording,
+    toggleVoiceRecording,
   }
 }

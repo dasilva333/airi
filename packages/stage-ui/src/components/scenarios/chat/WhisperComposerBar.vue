@@ -2,12 +2,13 @@
 import { BasicContentEditable } from '@proj-airi/ui'
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { ref, useTemplateRef } from 'vue'
+import { onUnmounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 
 import ProducerChoiceBubble from './ProducerChoiceBubble.vue'
 import ProducerGuidanceModal from './ProducerGuidanceModal.vue'
+import VoiceInputHoverCard from './VoiceInputHoverCard.vue'
 
 import { useAutoSuggestions } from '../../../composables/use-auto-suggestions'
 import { useChatComposer } from '../../../composables/use-chat-composer'
@@ -26,11 +27,17 @@ const props = withDefaults(defineProps<{
   showMagicWand?: boolean
   showVoice?: boolean
   variant?: 'compact' | 'expanded' | 'sheet' | 'dock'
+  /**
+   * Opt-in mock of the voice-input hover card (cloned from upstream).
+   * Visual only — no hearing store wiring yet. Enable per surface.
+   */
+  voiceHoverCard?: boolean
 }>(), {
   showAttachments: true,
   showMagicWand: true,
   showVoice: true,
   variant: 'compact',
+  voiceHoverCard: false,
 })
 
 const emit = defineEmits<{
@@ -112,14 +119,18 @@ function openHFTokenPage() {
 const {
   messageInput,
   attachments,
+  audioAttachments,
   isComposing,
   isListening,
+  isRecording,
+  voiceInputMode,
   handleFilePaste,
   handleFileSelect,
   removeAttachment,
   handleSend,
   startListening,
   stopListening,
+  toggleVoiceRecording,
 } = useChatComposer({
   tools: props.tools,
   onSendStart: () => {
@@ -238,6 +249,11 @@ function handleChooseOption(choice: { title: string, message: string }, isPlayba
 }
 
 async function handleVoiceClick() {
+  if (voiceInputMode.value === 'voice-message') {
+    await toggleVoiceRecording()
+    emit('voiceToggle', isRecording.value)
+    return
+  }
   if (isListening.value) {
     await stopListening()
     emit('voiceToggle', false)
@@ -247,6 +263,62 @@ async function handleVoiceClick() {
     emit('voiceToggle', true)
   }
 }
+
+// Voice-message clip preview playback (runtime-only Audio elements keyed by clip URL)
+const clipPlayers = new Map<string, HTMLAudioElement>()
+const playingClipUrls = ref<string[]>([])
+
+function playerForClip(url: string) {
+  let player = clipPlayers.get(url)
+  if (!player) {
+    player = new Audio(url)
+    player.onended = () => {
+      playingClipUrls.value = playingClipUrls.value.filter(u => u !== url)
+    }
+    clipPlayers.set(url, player)
+  }
+  return player
+}
+
+function isClipPlaying(url: string) {
+  return playingClipUrls.value.includes(url)
+}
+
+function pauseClip(url: string) {
+  clipPlayers.get(url)?.pause()
+  playingClipUrls.value = playingClipUrls.value.filter(u => u !== url)
+}
+
+async function toggleClipPlayback(url: string) {
+  if (isClipPlaying(url)) {
+    pauseClip(url)
+    return
+  }
+  for (const other of [...playingClipUrls.value])
+    pauseClip(other)
+  try {
+    await playerForClip(url).play()
+    if (!playingClipUrls.value.includes(url))
+      playingClipUrls.value.push(url)
+  }
+  catch {
+    // Autoplay policy or missing data — stay paused.
+  }
+}
+
+function handleRemoveClip(url: string) {
+  pauseClip(url)
+  clipPlayers.delete(url)
+  const index = attachments.value.findIndex(att => att.url === url)
+  if (index >= 0)
+    removeAttachment(index)
+}
+
+onUnmounted(() => {
+  for (const url of [...playingClipUrls.value])
+    pauseClip(url)
+  clipPlayers.clear()
+})
 
 async function onSubmit() {
   if (props.disabled)
@@ -308,6 +380,50 @@ defineExpose({
           @click="removeAttachment(index)"
         >
           <div class="i-solar:close-circle-bold size-3.5" />
+        </button>
+      </div>
+    </div>
+
+    <!-- Voice-message Clips (play left, mock waveform middle, clear right) -->
+    <div
+      v-if="showAttachments && audioAttachments.length > 0"
+      class="flex flex-col gap-1.5 px-1 pb-1"
+    >
+      <div
+        v-for="clip in audioAttachments"
+        :key="clip.url"
+        :class="[
+          'flex items-center gap-2 rounded-2xl px-2 py-1.5',
+          'border border-neutral-200/80 dark:border-neutral-700/80',
+          'bg-neutral-100 dark:bg-neutral-800',
+        ]"
+      >
+        <button
+          type="button"
+          :title="isClipPlaying(clip.url) ? 'Pause voice message' : 'Play voice message'"
+          :class="[
+            'size-8 flex shrink-0 cursor-pointer items-center justify-center rounded-full transition',
+            'bg-primary-500 text-white shadow-md shadow-primary-500/30 hover:bg-primary-600',
+          ]"
+          @click="toggleClipPlayback(clip.url)"
+        >
+          <div :class="[isClipPlaying(clip.url) ? 'i-solar:pause-bold size-4' : 'i-solar:play-bold size-4']" />
+        </button>
+        <div class="h-6 min-w-0 flex flex-1 items-center gap-[2px] text-neutral-400 dark:text-neutral-500" aria-hidden="true">
+          <span
+            v-for="(peak, peakIndex) in (clip.peaks ?? [])"
+            :key="peakIndex"
+            class="w-[2px] shrink-0 rounded-full bg-current"
+            :style="{ height: `${Math.round(peak * 100)}%` }"
+          />
+        </div>
+        <button
+          type="button"
+          title="Remove voice message"
+          class="size-6 flex shrink-0 cursor-pointer items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-200/80 hover:text-neutral-700 dark:hover:bg-neutral-700 dark:hover:text-neutral-200"
+          @click="handleRemoveClip(clip.url)"
+        >
+          <div class="i-solar:close-circle-bold size-4" />
         </button>
       </div>
     </div>
@@ -398,21 +514,41 @@ defineExpose({
 
       <!-- Right Actions Cluster (Voice Mic + Send) -->
       <div class="flex shrink-0 items-center gap-1">
-        <!-- [🎤] Voice / STT Mic Button -->
-        <button
+        <!-- [🎤] Voice / STT Mic Button (+ opt-in hover card mock) -->
+        <div
           v-if="showVoice"
-          type="button"
           :class="[
-            'flex items-center justify-center size-8.5 rounded-full transition-all cursor-pointer shrink-0',
-            isListening
-              ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30 animate-pulse'
-              : 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300',
+            'relative shrink-0',
+            voiceHoverCard ? 'group/mic' : '',
           ]"
-          :title="isListening ? 'Stop Listening' : 'Voice Input'"
-          @click="handleVoiceClick"
         >
-          <div :class="[isListening ? 'i-solar:microphone-3-bold size-4' : 'i-solar:microphone-linear size-4']" />
-        </button>
+          <button
+            type="button"
+            :class="[
+              'flex items-center justify-center size-8.5 rounded-full transition-all cursor-pointer shrink-0',
+              (isListening || isRecording)
+                ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30 animate-pulse'
+                : 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300',
+            ]"
+            :title="isRecording ? 'Stop Recording' : isListening ? 'Stop Listening' : 'Voice Input'"
+            @click="handleVoiceClick"
+          >
+            <div :class="[(isListening || isRecording) ? 'i-solar:microphone-3-bold size-4' : 'i-solar:microphone-linear size-4']" />
+          </button>
+          <!-- NOTICE: `pb-2` is a hover bridge — padding counts as group hover, so moving from the mic into the card never crosses a dead gap. -->
+          <div
+            v-if="voiceHoverCard"
+            :class="[
+              'absolute bottom-full right-0 z-50 pb-2',
+              'invisible translate-y-1 opacity-0 pointer-events-none',
+              'transition-all duration-150 ease-out',
+              'group-hover/mic:visible group-hover/mic:translate-y-0 group-hover/mic:opacity-100 group-hover/mic:pointer-events-auto',
+              'group-focus-within/mic:visible group-focus-within/mic:translate-y-0 group-focus-within/mic:opacity-100 group-focus-within/mic:pointer-events-auto',
+            ]"
+          >
+            <VoiceInputHoverCard />
+          </div>
+        </div>
 
         <!-- [✈] Send Button -->
         <button

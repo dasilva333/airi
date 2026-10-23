@@ -408,6 +408,7 @@ defineExpose({
         <WhisperComposerBar
           ref="composerRef"
           :tools="props.tools"
+          voice-hover-card
           @voice-toggle="handleVoiceToggle"
         />
       </div>
