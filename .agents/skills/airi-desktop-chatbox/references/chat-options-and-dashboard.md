@@ -56,10 +56,13 @@ type ChatOptionsView = 'root' | 'capabilities' | 'tools' | 'injections' | 'memor
     - Each pattern component renders a mini canvas with `preview` and `transparent-bg` props for throttled background rendering.
     - Active selection shows a top-right checkmark badge (`i-solar:check-read-bold`) and primary ring border.
 
-- **WALLPAPER Section**:
-  - Section header: `WALLPAPER` on left, `⊘ None` button on right (`handleClearBackground`, sets background to `'none'`).
-  - **2×3 Wallpaper Thumbnail Grid**: Renders first 6 backgrounds (`quickWallpapers`) resolved for the active card via `availableBackgrounds` from `useBackgroundStore`. Active background displays checkmark badge.
-  - **Browse All Scenes Button**: Full-width button `"Browse all scenes"` emitting `browseScenes`, which opens `StageBackgroundDialogPicker`.
+- **BACKGROUND Section**:
+  - Section header: `BACKGROUND`.
+  - **3-Mode Segmented Control**: `Wallpaper` · `Solid` · `Theme`.
+    - **Wallpaper**: 2×3 thumbnail grid for active card backgrounds with `"Browse all scenes"` dialog trigger.
+    - **Solid**: 6-color custom palette (3 dark / 3 light swatches) with live hex code display, Reset Colors, and native color picker.
+    - **Theme**: Follows light or dark theme dynamically (Light: `#FAF9F6` warm paper, Dark: `#18181B` neutral zinc charcoal).
+  - Helper copy: *"Follows your light or dark theme. Atmosphere effects stay independent."*
 
 - **Store & Crossfade Pipeline**:
   - Stores:

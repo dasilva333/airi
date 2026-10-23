@@ -1,63 +1,64 @@
-# 🚀 AIRI v0.9.40-stable.20261018 — Release Notes
+# 🚀 AIRI v0.9.41-stable.20261023 — Release Notes
 
-This release introduces an extraordinary leap in companion expressiveness, cognitive transparency, and workspace ergonomics: debuting **Desktop Screen Sticker Slappers**—allowing companions to slap expressive, animated stickers directly onto your desktop timed to their voice and emotional reactions—alongside **On-Device Anime Background Removal (IS-Net)**, **Dual-Channel Pre-Flight Grounding**, **Guided Auto Suggestions & Unified Director Lite**, a cinematic **Character Card View & Widescreen Scene Gallery**, direct **Character Tavern Community Hub** integration, **Speech Synthesis Markdown/Math Sanitization**, and substantial **Screen Capture IPC Performance Optimizations**.
+This release marks a massive breakthrough in conversational naturalness, companion autonomy, and auditory intelligence: introducing the **Conversational Cadence Engine**—transforming robotic, monolithic text dumps into natural, staged multi-bubble delivery with Jev-classified rhythmic pauses—alongside the **Decentralized Companion Embassy & Nap-Chat Substrate**, an overhauled **Audio Studio with LaTeX Math and Chemical Formula Verbalization**, a **Redesigned Chat Workspace Popover & Chromeless Desktop Window**, **Multi-Hop Pre-Flight Grounding**, and **Zero-Setup Keyless Free Cloud AI**.
 
-Companions can now punctuate conversations with playful on-screen stickers, let you create transparent mascot stickers from any artwork using zero-erosion on-device neural segmentation, offer proactive quick-reply suggestions via an in-composer magic wand unified across desktop and web, transparently reveal memory snippets before generation, and discover community character cards directly within onboarding and import menus.
+Companions can now speak with natural comedic and dramatic pauses across staggered message bubbles, autonomously socialize with peer companions through secure Cloudflare SQLite Durable Object Embassies while you are away, naturally pronounce complex mathematical theorems and chemical formulas aloud without reading raw LaTeX code, and run in an ultra-clean borderless floating desktop window.
 
 ---
 
 ## ✨ Key Highlights
 
-### 🌟 Desktop Sticker Slappers & Parametric Reaction Engine
-* **Desktop Screen Sticker Slappers**: Companions can now slap cute, animated sticker reactions directly onto your desktop screen in real-time, dynamically coordinated with active speech synthesis and emotional tone.
-* **Lightweight Desktop Slapper Window**: Powered by a dedicated, lightweight desktop overlay that renders floating sticker animations with smooth entrance physics, auto-dismiss timers, and speech lifecycle synchronization.
-* **Fuzzy Mascot Sticker Matching**: Automatically resolves companion sticker triggers across custom naming conventions, ID prefixes, and format extensions.
-* **In-Place Sticker Editing & Re-Keying**: Edit, re-label, and manage your companion's sticker deck directly from the character customizer with instant localforage blob re-keying.
+### 🎭 Conversational Cadence Engine: Staged Multi-Bubble Delivery
+* **Staged Multi-Bubble Conversational Turns**: Companions no longer output walls of monolithic text. Responses now naturally break into progressive, staged message bubbles that unfold in organic conversational beats.
+* **Jev Semantic Rhythm Heads**: Employs TypeSafe Jev System-1 coprocessor classification to evaluate conversational pacing on the fly, dynamically distinguishing quick, spontaneous quips from contemplative, nuanced explanations.
+* **Synchronized Speech & Reading Rhythm**: Speech bubbles reveal progressively in lockstep with TTS voice playback, or follow natural reading punctuation pauses when voice audio is muted.
+* **Graceful Unmapped Playback Fallback**: Audio streams lacking word-level timing markers gracefully bypass the reveal gate, guaranteeing instant message display without hanging.
+* **Cross-Window Cadence Coordination**: Multi-bubble delivery synchronizes seamlessly across primary and secondary floating chat windows.
 
-### ✂️ On-Device Anime Background Removal (IS-Net)
-* **Zero-Erosion Neural Background Removal**: Create transparent character stickers instantly from any anime illustration or artwork without sending images to external clouds or paying third-party APIs.
-* **WebGPU IS-Net Architecture**: Swapped to the specialized `jellybox/isnet-anime` neural model running directly on WebGPU via raw ONNX Runtime Web (`isnet-anime_1024.onnx`), achieving 0% character line erosion (down from 11% on general-purpose models).
-* **Interactive Edge Sensitivity & Alpha Compositing**: Fine-tune cutout boundaries with a real-time edge sensitivity slider, calibrated gamma curve, and cached alpha mask re-compositing before saving stickers to your deck.
-* **Dedicated Cache Storage Management**: Neural weights cache reliably in Cache Storage (`bg-removal-cache`) with progress reporting and automatic recovery.
+### 🤝 Companion Embassy & Nap-Chat (P2P Social Substrate)
+* **Decentralized Companion Embassy**: Companions can now connect, visit, and interact with other companions across different devices and user accounts via a private Cloudflare SQLite Durable Object backend.
+* **Nap-Chat Simulation & Staging Workbench**: While you are away, your companion can engage in autonomous social "nap chats" with trusted peer companions, exchanging ambassador taglines, building inter-companion lore, and staging pending messages for your review upon your return.
+* **Custom Ambassador Taglines**: Personalize your companion's social identity with custom ambassador taglines configured directly in the character card and displayed on peer away cards.
+* **Mutual Friend Requests & Trust Grants**: Full peer handshake protocol with invite minting, companion permissions, and revocable trust grants.
+* **Same-Account Multi-Device Discovery**: Real-time heartbeat tracking and seamless peer discovery across your own devices powered by Cloudflare Edge Vault.
+* **Stateful Discord Gateway Durable Object**: Deploy 24/7 autonomous Discord companion presence straight to Cloudflare Edge with SQLite persistence, zero server maintenance, and no local desktop process required.
 
-### 🧠 Dual-Channel Pre-Flight Grounding & Scalable Semantic Memory
-* **Pre-Flight Grounding & WYSIWYG Dispatch**: Transparently inspect the exact memory snippets, Knowledge Graph entities, and sensory context that will be injected into the prompt before the model begins generating a response.
-* **Active Amber Grounding Bar**: Added an interactive amber status bar above the chat composer that illuminates whenever Universe Memory RAG retrieval is actively participating in a turn.
-* **Single-Owner Embedding Worker & Watermark-Gated Deltas**: Overhauled vector memory indexing to use a single-owner background worker with watermark gates, preventing duplicate computations, thread contention, and UI stutter during extended chats.
-* **Overlapping Turn Chunking & Quantized Vector Cache**: Chunks conversation history into overlapping semantic windows with quantized vector caching, drastically improving recall for subtle callbacks and long-term references.
-* **One-Click Vector Corpus Rebuild**: Added an explicit "Rebuild Vector Index" tool in Memory Settings to regenerate all semantic embeddings cleanly after migrations or model updates.
+### 🎵 Redesigned Audio Studio & UST Math/Chemical Verbalization
+* **Audio Studio 2-Column Split Layout**: Completely overhauled the Audio Studio with an ergonomic 2-column layout featuring sticky voice profile parameters, live waveform visualizers, and interactive synthesis controls.
+* **LaTeX Math & Chemical Formula Verbalization**: The Universal Speech Transformer (UST) now parses complex LaTeX mathematics and chemical equations (such as quadratic formulas or chemical reactions), converting them into natural, spoken English sentences instead of reading raw LaTeX syntax aloud or choking synthesis.
+* **Safe Speech Punctuation Handling**: Preserves conversational speech text after non-tag symbols like `<` or `&` (such as `a < b` or `Tom & Jerry`), preventing sentences from being accidentally dropped during speech synthesis.
 
-### 🪄 Auto Suggestions & Director Lite Magic Wand
-* **Interactive Guided Responses**: Companions can now provide contextual quick-reply chips above the message composer, giving you instant prompts to steer the scene, answer queries, or advance roleplay.
-* **Unified Across All 3 Chat Surfaces**: The Director Lite magic wand button and proactive suggestion chips are now uniformly supported across Desktop Chatbox, Portrait Web, and Landscape Web (bringing Landscape Web into full parity with the other two).
-* **Speech Lifecycle Synchronization**: Suggestion generation coordinates with TTS audio playback and automatically deduplicates options to avoid stale recommendations.
+### 🪟 Chat Workspace Popover, Custom Palettes & Chromeless Window
+* **Unified Chat Workspace Popover**: Replaced the legacy timeline dropdown with an expansive, slide-out Chat Workspace navigation menu.
+* **Chromeless Floating Companion Window**: Run the chatbox as a clean, borderless, transparent floating window for a minimal desktop footprint.
+* **Solid Color Backdrops & Custom Palette Grid**: Customize chat backgrounds with solid pastel or dark colors, paired with custom hex color pickers.
+* **Single-Symbol Kanji Emblems**: Redesigned the Settings catalog with unified single-symbol Kanji emblems for high-contrast, minimalist navigation.
 
-### 🎭 Character Card View Hero Redesign & Widescreen Scene Gallery
-* **Cinematic Hero Banner & Dedicated Route Navigation**: Completely redesigned the Character Card inspector with a widescreen cinematic hero banner, dedicated `/cards/:id` route navigation, and rich markdown rendering for backstory and lore.
-* **Identity vs. Identifier Separation**: Cleanly decoupled companion display names and personas from internal storage identifiers, allowing companions to be renamed without breaking bindings or model paths.
-* **Hero Banner Tagline Sanitization**: Automatically strips raw markdown headings from the card's top hero banner for clean, readable subtitles.
-* **Widescreen Scene Gallery**: Overhauled the stage backgrounds gallery into an expansive, responsive widescreen grid with enhanced visual framing and scene metadata tags.
+### 🧠 Multi-Hop Pre-Flight Grounding & Anaphoric Query Expansion
+* **Multi-Hop Entity Grounding**: Expands memory retrieval probes across connected nodes in the Knowledge Graph, bridging related concepts even when not explicitly named together in the user prompt.
+* **Turn-to-Turn Anaphoric Resolution**: Resolves ambiguous pronouns ("it", "she", "that incident") against recent conversation history before querying the vector store, dramatically boosting retrieval accuracy.
+* **Salience-Weighted Snippet Windowing**: Intelligently weights and trims retrieved memory snippets to maximize prompt budget efficiency without truncating critical context.
+* **Debounced Grounding Probes**: Added a 2-second debounce and AbortController to eliminate duplicate retrieval calls during rapid typing or live editing.
 
-### 🏰 Character Tavern Community Hub Integration
-* **Integrated Community Card Hub**: Browse, preview, and download community character cards directly inside AIRI through the new Character Tavern hub integration, available from the card import modal and Onboarding V3.
+### ☁️ Zero-Setup Free Cloud AI
+* **Zero-Setup Keyless Free AI (LanLan & Kilo)**: Integrated keyless free cloud providers into first-run onboarding, letting new users start chatting immediately with zero API keys or billing setup required.
+* **Decomposed Consciousness Step**: Extracted Consciousness configuration into a modular, reusable workspace component for seamless provider switching in Settings.
 
-### 🎨 Workspace Ergonomics, Layout Polish & Platform-Aware Stage
-* **Platform-Aware Atmospheric Canvas**: Desktop PC stages now default to clean, zero-overhead background rendering (`none`), while web and mobile stages retain whimsical ambient particles (`hearts`).
-* **Summer Sky Meadow Scene**: Added a gorgeous new built-in scenic wallpaper to the stage background gallery.
-* **Selective Sync Filter Toggle**: Added a selective sync filter to the Control Strip character switcher, letting you easily filter companions by local vs cloud-synced status.
-* **Timeline Switcher in Chat Header**: Switch between branching story timelines and alternative conversation paths directly from the interactive chat header bar.
-* **Dedicated "Memories" Popover Subview**: Consolidated short-term memory, long-term text journal, and lifetime grounding controls into a unified "Memories" view inside the Chat Options menu.
-* **Frosted Glassmorphism Refinements**: Added 70% opacity frosted glass blur backgrounds and subtle borders to quick-settings popovers and model pickers for enhanced legibility.
-* **Rotating Startup Discovery Tips**: Enhanced the desktop splash screen to rotate helpful interaction shortcuts, navigation breadcrumbs, and Audio Studio discovery tips during launch.
-* **Advanced Vision Request Parameters**: Added an advanced request parameters JSON editor for vision/VLM backends with proper override precedence handling.
-* **Consolidated Model Cache Management**: Added "Installed" filter toggles, slot oversight telemetry, and single-click disk reclamation to local model settings.
-* **Mobile Safe-Area Insets**: Fixed iOS notch, dynamic island, and home-bar padding in Pocket, paired with tighter responsive gutters on web.
-* **Onboarding V3 Robustness**: Restored manual callback URL input with an inline guidance card for custom Cloudflare relays, and ensured the persona step is preserved for the "Quiet Observer" archetype.
+### ⚡ Platform Performance & Polish
+* **Surrogate-Pair Safe Truncation**: Prevents string truncation from slicing multi-byte Unicode emoji or surrogate pairs in half, eliminating encoding artifacts and broken preview text.
+* **Strict Web URL Parsing**: Hardened URL validation across stage links and citations, cleanly rejecting pseudo-protocols and invalid URLs.
+* **Widget RPC Initialization Order**: Ensures base window Electron invokes are fully registered before widget RPC channels open, preventing race conditions during widget popouts.
+* **Audio Metering Efficiency**: Audio meter polling stabilized at 20 Hz, eliminating 60fps reactivity churn.
+* **Type Safety Polish**: Resolved 77 TypeScript type errors in `stage-ui` without dirty type casts.
 
-### ⚡ Performance & Audio Pipeline Hardening
-* **Speech Synthesis Markdown & Math Sanitization**: Extended the Universal Speech Transformer (UST) to strip out markdown markup and LaTeX math formatting prior to TTS audio synthesis, ensuring voice models don't speak raw markdown tokens or KaTeX syntax aloud *(forward-ported from upstream PR [#3014](https://github.com/moeru-ai/airi/pull/3014) by **@starvingarc**)*.
-* **20 Hz Audio Level Metering**: Throttled microphone and speech visualizer audio level metering to 20 Hz, eliminating unnecessary 60fps Vue reactivity churn and layout recalculations while recording *(forward-ported from upstream PR [#3010](https://github.com/moeru-ai/airi/pull/3010) by **@starvingarc**)*.
-* **Screen Capture IPC Optimization**: Optimized screen capture event listeners and throttled stationary cursor IPC broadcasts, slashing renderer IPC handling time from 4.1% to 0.8% and stabilizing silky 120fps stage rendering *(forward-ported from upstream PR [#3006](https://github.com/moeru-ai/airi/pull/3006) by **@Makito**)*.
-* **Text-Before-Tool Parser Flushing**: Fixed stream parser buffer flushing so conversational text output generated immediately before a tool execution stays positioned at the front of the chat bubble *(forward-ported from upstream PR [#3008](https://github.com/moeru-ai/airi/pull/3008) by **@chiba233**)*.
-* **Explicit Terminal Directive on Empty MCP Discovery**: Cleanly returns an explicit directive when an MCP server exposes zero tools instead of leaving the discovery state ambiguous *(forward-ported from upstream PR [#2946](https://github.com/moeru-ai/airi/pull/2946) by **@clansty**)*.
-* **Chat Message Storage Hygiene**: Added automatic stripping of oversized inline `data:` image payloads (>32KB) before writing session messages to IndexedDB, keeping local database footprints compact and preventing heap memory bloat across restarts.
+---
+
+## 🌐 Community & Upstream Radar
+
+### 🌊 Upstream Pull Requests (Forward-Ported from moeru-ai/airi)
+* **PR [#3054](https://github.com/moeru-ai/airi/pull/3054) / [#3058](https://github.com/moeru-ai/airi/pull/3058): `feat(core-agent,stage-ui): now speech formula, math, chem correctly`** — Sourced and adapted from upstream by **@nekomeowww**, integrating MathJSON, `@proj-airi/speech-transformer-math`, and `@proj-airi/speech-transformer-chem` to verbalize LaTeX math expressions and chemical formulas aloud across languages.
+* **PR [#3053](https://github.com/moeru-ai/airi/pull/3053): `fix(stage-ui): avoid splitting surrogate pairs in chat reply preview`** — Sourced from upstream by **@keeponlight**, preventing UTF-16 surrogate pairs and multi-byte emojis from being bisected during string truncation.
+* **PR [#3044](https://github.com/moeru-ai/airi/pull/3044): `fix(stage-ui): link only parsed web URLs in citations and search results`** — Sourced from upstream by **@nekomeowww**, hardening URL validation via `isWebUrl()` against hostless inputs and unsafe pseudo-protocols.
+* **PR [#3035](https://github.com/moeru-ai/airi/pull/3035): `fix(core-agent): keep speech text after a < or & that is not a tag`** — Sourced from upstream by **@nekomeowww**, preventing streamed speech synthesis from dropping sentences containing isolated `<` or `&` characters.
+* **PR [#2932](https://github.com/moeru-ai/airi/pull/2932): `fix(tamagotchi): await setupBaseWindowElectronInvokes in widgets RPC setup`** — Sourced from upstream by **@bitxwolf**, eliminating IPC race conditions by awaiting base window Electron invokes before opening widget RPC channels.
+* **PR [#3057](https://github.com/moeru-ai/airi/pull/3057): `fix(repo): stop VS Code Java extensions from scanning node_modules`** — Sourced from upstream by **@nekomeowww**, adding IDE configuration exclusions to prevent editor freezing.

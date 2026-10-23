@@ -4,6 +4,7 @@ import type { StageAtmosphere } from '@proj-airi/stage-ui/stores'
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { SettingsThemeHeaderWidget } from '@proj-airi/stage-ui/components'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores'
+import { useTheme } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
@@ -14,6 +15,7 @@ const emit = defineEmits<{
 }>()
 
 const isElectron = isStageTamagotchi()
+const { isDark } = useTheme()
 
 const backgroundStore = useBackgroundStore()
 const {
@@ -331,8 +333,13 @@ function handleResetSolidColors() {
           ]"
           @click="handleSelectMode('none')"
         >
-          <div class="i-solar:forbidden-circle-linear size-4" />
-          <span>None</span>
+          <div
+            :class="[
+              isDark ? 'i-solar:moon-bold-duotone' : 'i-solar:sun-2-bold-duotone',
+              'size-4',
+            ]"
+          />
+          <span>Theme</span>
         </button>
       </div>
 
@@ -491,10 +498,10 @@ function handleResetSolidColors() {
         </div>
       </div>
 
-      <!-- SUBVIEW 3: NONE -->
+      <!-- SUBVIEW 3: THEME -->
       <div v-else-if="currentMode === 'none'" class="px-2 py-4 text-center">
         <span class="text-xs text-neutral-400 font-medium leading-relaxed dark:text-neutral-500">
-          None removes the background; atmosphere effects stay independent.
+          Follows your light or dark theme. Atmosphere effects stay independent.
         </span>
       </div>
     </div>

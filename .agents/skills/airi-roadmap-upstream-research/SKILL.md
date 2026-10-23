@@ -65,6 +65,10 @@ This fork (`dasilva333/airi`) has undergone deep, structural architectural shift
    - This fork is strictly client/local-first: avatars, Live2D assets, VRMs, and display models are stored directly in local client storage (`localforage` / IndexedDB) or backed up via Bring Your Own Storage (BYOS: S3/R2/Google Drive backup), with zero server accounts, zero remote auth requirements, and zero centralized model sync.
    - Upstream actively develops hosted central S3 upload sessions, cloud model syncing, transfer queues, and subscription gates (`server/apps/api/src/routes/display-models`, `display-model-sync.ts`, `transfer-queue.ts`, `display-models.repo.ts`, PRs #2869, #2970, #2972, #2973).
    - **Filter Rule**: All upstream PRs, commits, and fixes touching hosted cloud display model sync or cloud model downloading/deduplication (e.g. PR #2869, PR #2973) are permanent auto-rejects for cherry-picking. Never recommend upstream cloud display model syncing changes as cherry-pick candidates.
+11. **Local-First Desktop Distribution vs. Hosted Auto-Updater Infrastructure**:
+   - This fork operates as a local-first desktop application with explicit, user-directed release packaging and offline distribution. It does not run background auto-updater daemons, remote feed polling, or auto-restart installer hooks.
+   - Upstream actively develops Electron `autoUpdater` integrations, Flatpak/Nix packaging-specific updater disable flags, update download/check mutexes, and `quitAndInstall` window lifecycle hooks (`auto-updater.ts`, `hide-on-close.ts`, PRs #3081, #3082, #3083, #3084).
+   - **Filter Rule**: All upstream PRs, commits, and fixes touching Electron auto-updater services, background update feeds, and installer window closure workarounds (e.g. PR #3081, #3082, #3083, #3084) are permanent auto-rejects for cherry-picking. Never recommend upstream auto-updater changes as cherry-pick candidates.
 
 ## Upstream Radar Watchlist (High-Interest Monitored PRs)
 

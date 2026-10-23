@@ -21,7 +21,8 @@
 | [#3020](https://github.com/moeru-ai/airi/pull/3020) / [#3033](https://github.com/moeru-ai/airi/pull/3033) | `feat(stage-tamagotchi): add native glass chat backgrounds` | `@luoling8192` | `Merged` | 🟢 **Visual Immersion** (Regional backdrop blur) | Native glass backdrops on macOS via `@proj-airi/electron-native-backdrop` (`backdrop.mm`) and Space change fix. **Directive**: Design spec drafted in [`docs/design-native-glass-and-generative-tool-cards.md`](./design-native-glass-and-generative-tool-cards.md); adapt to Control Strip while keeping Actor Stage 100% transparent. |
 | [#3021](https://github.com/moeru-ai/airi/pull/3021) / [#3040](https://github.com/moeru-ai/airi/pull/3040) / [#3051](https://github.com/moeru-ai/airi/pull/3051) | `feat(stage-ui,agents): make cards for tool calls without a widget` | `@chiba233` | `Merged` | 🟢 **Generative UI & Tool Transparency** | Generative OpenUI cards, real-time intent summaries, and dynamic Tabler icon selection. **Directive**: Design spec in [`docs/design-native-glass-and-generative-tool-cards.md`](./design-native-glass-and-generative-tool-cards.md); adapt strictly as presentation seam. |
 | [#3044](https://github.com/moeru-ai/airi/pull/3044) | `fix(stage-ui): link only parsed web URLs in citations and search results` | `@nekomeowww` | `Merged` | 🟢 **Security & Sanitization** | Hardens web URL parsing against pseudo-protocols (`javascript:`, `data:`, `file:`) and hostless inputs. **Directive**: **Ported & Tested in Fork (#3044)** via `isWebUrl()` and modernized `isUrl()` in `@proj-airi/stage-shared`. |
-| [#3053](https://github.com/moeru-ai/airi/pull/3053) | `fix(stage-ui): avoid splitting surrogate pairs in chat reply preview` | `@keeponlight` | `Open` | 🟢 **Text Encoding & Reliability** | Prevents bisecting UTF-16 surrogate pairs (emojis/astral-plane code points) during string truncation. **Directive**: **Ported & Tested in Fork (#3053)** via universal `safeTruncate()` in `@proj-airi/stage-shared` and applied to chat tool summaries. |
+| [#3049](https://github.com/moeru-ai/airi/pull/3049) | `fix(stage-shared): parse Electron punctuation accelerators` | `@Codada` | `Merged` | 🟢 **Desktop Hotkeys & Piggyback** | Upstream custom global shortcut parser in `packages/stage-shared/src/global-shortcut/accelerators.ts`. Maps punctuation tokens (`CmdOrCtrl+,`, `Slash`, etc.). **Directive**: Tracked for fork adoption in [`docs/proposal-global-shortcuts.md`](./proposal-global-shortcuts.md) to extend fork's mic-only shortcuts to a system-wide configurable global shortcut manager for Control Strip, chat toggle, and voice mute. |
+| [#3053](https://github.com/moeru-ai/airi/pull/3053) | `fix(stage-ui): avoid splitting surrogate pairs in chat reply preview` | `@keeponlight` | `Merged` | 🟢 **Text Encoding & Reliability** | Prevents bisecting UTF-16 surrogate pairs (emojis/astral-plane code points) during string truncation. **Directive**: **Ported & Tested in Fork (#3053)** via universal `safeTruncate()` in `@proj-airi/stage-shared` and applied to chat tool summaries. |
 | [#3057](https://github.com/moeru-ai/airi/pull/3057) | `fix(repo): stop VS Code Java extensions from scanning node_modules` | `@nekomeowww` | `Merged` | 🟢 **Developer Tooling** | **Ported in Fork (#3057)** via commit `23ab0d011` in `.vscode/settings.json`. |
 | [#2932](https://github.com/moeru-ai/airi/pull/2932) | `fix(tamagotchi): await setupBaseWindowElectronInvokes in widgets RPC setup` | `@bitxwolf` | `Open` (25 comments) | 🟢 **Desktop Stability** | **Ported & Typechecked in Fork (#2932)** via commit `9e12e1f35` in `apps/stage-tamagotchi/src/main/windows/widgets/rpc/index.electron.ts`. |
 | [#3054](https://github.com/moeru-ai/airi/pull/3054) / [#3058](https://github.com/moeru-ai/airi/pull/3058) | `feat(core-agent,stage-ui): now speech formula, math, chem correctly` | `@nekomeowww` | `Merged` | 🟢 **Acoustic Intelligence** | **Planned for Fork UST** in [`docs/blueprint-tts-universal-speech-transformer.md`](./blueprint-tts-universal-speech-transformer.md) as optional toggles (Currency default ON; Math/Chem default OFF). |
@@ -31,6 +32,264 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-10-23] Upstream Delta: `6794f2e2..3b0672e3` (18 commits, 131 files, 21 update(s))
+
+### 🎯 Executive Highlights
+#### Upstream Trajectory & Key Highlights
+- **Upstream v0.12.0 Release (Commits `3b0672e36`, `c7c9c9179`)**: Upstream officially tagged and released `v0.12.0` (following `v0.12.0-beta.6`), bumping versions across 59 package manifests.
+- **Window IPC Isolation & Invocation Deduplication (#3087, #3083, Commits `73b76e85a`, `9faf6fbff`)**: Major architecture hardening by @nekomeowww. Solved duplicate IPC execution across multi-window setups by introducing `createWindowContext(window)` with `{ onlySameWindow: true }` in `@moeru/eventa`. Concurrently patched `setupAutoUpdater` so concurrent check and download requests share inflight promises instead of spawning overlapping tasks or unpacking corrupt downloads on macOS. This officially superseded and closed community PR #2667.
+- **Update Installer Window Close Fix on macOS (#3082, Commit `cae402918`)**: Fixed a critical macOS desktop bug where clicking "Restart to install" failed because the main window's `hide-on-close` handler intercepted and cancelled the close event before `before-quit` was emitted. Introduced `hideOnClose(window)` listening to `autoUpdater.on('before-quit-for-update', allowClose)`.
+- **Reproducible Build Enforcement (#3086, Commit `2fb4c0219`)**: Added `check-reproducible-build` automated test and deterministic bundling transforms in `electron.vite.config.ts`, guaranteeing byte-identical builds across builds of the same commit.
+- **Renderer and Preload Path Resolution Unification (#3079, Commit `c4e691ab1`)**: Centralized Electron renderer and preload path calculations across 23 window and service entrypoints into `apps/stage-tamagotchi/src/main/libs/electron/location.ts`.
+- **Main-Process App Version Source of Truth (#3085, Commit `51548c80d`)**: Introduced `electronAppGetVersion` IPC so About and update dialogs display runtime `app.getVersion()` rather than build-time bundle constants.
+- **Packaging-Specific Updater Toggles (#3081, #3084, Commits `a3e06e4d3`, `55507a9b2`)**: Automatically disables the built-in auto-updater when running inside Flatpak or Nix packages.
+- **Pure JS Dependency Inlining (#3080, Commit `f315895d9`)**: Bundled pure JS dependencies directly into the main Electron bundle (`electron.vite.config.ts`).
+- **Legacy Stage Model Migration (#3078, Commit `663376e74`)**: Added a one-time migration in `useAiriCardStore` moving pre-PR #2458 `settings/stage/model` localStorage keys into the active card's default avatar model reference.
+- **Punctuation Accelerator Parsing (#3049, Commit `d67487067`)**: Merged PR #3049 by @Codada in `packages/stage-shared` supporting single-character punctuation (e.g. `,`, `.`, `/`) in global shortcut strings.
+- **Surrogate Pair Truncation Fix Merged (#3053, Commit `a2caa888a`)**: Merged PR #3053 by @keeponlight preventing UTF-16 surrogate pair splitting in chat reply previews (already previously ported in our fork via `safeTruncate()`).
+
+#### 💬 Discussion & Community Buzz
+- **#3000: `feat(memory-eval): add identity-continuity evaluation package`** by @RUI-debug769 (**120 comments total**): High-velocity discussion on mathematical persona continuity metrics (Wasserstein-1 distance, GMM BIC bimodality, and fixed-point convergence).
+- **#2541: `Telltworose/feat/drop in plugins`** by @telltworose (**59 comments total**): Tracking author rebase and cleanup following user @dasilva333's architectural intervention.
+- **#2290: `feat(server): stream official ASR over WebSocket`** by @luoling8192 (**59 comments total**): Audio streaming transport.
+- **#2672: `refactor(stage-ui): bind conversations to window-local characters`** by @luoling8192 (**48 comments total**): Window-local character scoping.
+- **#2552: `add bilingual subtitles`** by @phx3334 (**36 comments total**): Overlay subtitle rendering.
+- **#2936: `fix(tamagotchi): guard payload.url access in artistryTestComfyUIConnection`** by @bitxwolf (**+2 new comments, 19 total**): Defensive null check on ComfyUI endpoint URL during connection test.
+- **#2667: `fix(stage-tamagotchi): isolate Eventa IPC contexts by window`** by @sumimakito (**+1 new comment, 7 total ➔ CLOSED**): Closed as superseded by Neko's merged PR #3087 (`createWindowContext`).
+- **#2916: `fix(core-agent): exclude nested reasoning from streamed speech`** by @xili-ytl (**+1 new comment, 2 total**): Streaming speech reasoning tag exclusion.
+
+#### 🍒 Actionable Candidates & Fork Strategic Triage
+- **`fix(stage-shared): parse Electron punctuation accelerators (#3049, Commit d67487067)`**: **🟢 Actionable Architectural Piggyback**. Upstream inverted `ELECTRON_KEY_OVERRIDES` into `ELECTRON_PUNCTUATION_ALIASES` to normalize punctuation keys (`,`, `.`, `/`, `[`, `]`, etc.) in `packages/stage-shared/src/global-shortcut/accelerators.ts`. While our fork previously limited global shortcuts to push-to-talk mic toggles (`mic-toggle.ts`), we are piggybacking on upstream's accelerator normalization engine to build a configurable, system-wide desktop shortcut manager for Control Strip toggles, Chat Drawer invocation, Boss Key emergency muting, and settings. Architecture specification authored in [`docs/proposal-global-shortcuts.md`](./proposal-global-shortcuts.md).
+
+#### ⚪ Already Solved & Tested in Fork
+- **`fix(stage-ui): avoid splitting surrogate pairs in chat reply preview (#3053, Commit a2caa888a)`**: **Already Ported & Tested in Fork**. Our fork already unified surrogate-pair safe string truncation across chat reply bubbles and tool-call intent summaries via `safeTruncate()` in `@proj-airi/stage-shared`. Upstream merged this in commit `a2caa888a`.
+
+#### ⚠️ Divergence & Collision Warnings
+- **Auto-Updater Infrastructure (#3081, #3082, #3083, #3084, Commits `cae402918`, `9faf6fbff`)**: **AUTO-REJECT / PERMANENT DIVERGENCE**. This fork is strictly client/local-first with user-directed distribution and zero automated background update daemons. Upstream's macOS `hide-on-close` update trap (#3082), Flatpak/Nix updater flags (#3081, #3084), and updater download promise locks (#3083) are permanently rejected and added to core architectural divergences in `airi-roadmap-upstream-research/SKILL.md`.
+- **Multi-Window Eventa IPC Leakage Kludge (#3087, #3083, Commits `73b76e85a`, `9faf6fbff`)**: **AUTO-REJECT**. Upstream's duplicate IPC invocations stem from embedding legacy `controls-island` inside a variable Actor Stage window and shotgun-registering duplicate invoke handlers across windows without window scoping. In our fork, desktop surfaces are cleanly decoupled into an authoritative, always-on Control Strip host (`ControlStrip.vue`) and Actor Stage (`RendererStage.vue`), with RPC handlers injected strictly per window via `injeca`.
+- **Main Process App Version IPC (#3085, Commit `51548c80d`)**: **REJECT**. Upstream added `electronAppGetVersion` IPC because their CI packagers override metadata separately from frontend builds. In our fork, `buildInfo.version` and `app.getVersion()` are built from source and identical; an extra async IPC hop is redundant overhead.
+- **Pure JS Dependency Inlining (#3080, Commit `f315895d9`)**: **REJECT**. Inlining pure JS into `out/main/index.js` while moving 60+ runtime packages to `devDependencies` breaks native bindings and dynamic require handling for heavy desktop services (`discord.js`, `koffi`, companion daemons).
+- **Stage-Tamagotchi Window Setup & Location Paths (`c4e691ab1`, `73b76e85a`)**: Upstream heavily touched `apps/stage-tamagotchi/src/main/index.ts` and window definitions. Our fork's architecture is radically decoupled: `controls-island` was deleted, replaced with `RendererStage.vue` (Actor Stage) and `ControlStrip.vue` / `ControlStripHost.vue`. Window lifecycle logic must be selectively adapted, not bulk-merged.
+- **Legacy Stage Model Migration (`663376e74`, #3078)**: Touches `packages/stage-ui/src/stores/modules/airi-card.ts` for single-card localStorage migration (`settings/stage/model`). In our fork, `airi-card.ts` is heavily customized for multi-actor cards, `<|ACTOR|>` handoffs, and ghost migrations.
+- **Kirie Desktop Shell Updates (`#3077`, #3076)**: Upstream continues building out Kirie (.NET/WPF) shell, which still couples to legacy `controls-island`. Irrelevant for this fork.
+
+### 📋 Upstream Commits
+- `3b0672e36` release: v0.12.0  _(Neko Ayaka, 2026-10-23)_
+- `13240c2ff` chore(nix): update pnpmDeps hash (#3090) [#3090](https://github.com/moeru-ai/airi/pull/3090) _(Weathercold, 2026-10-23)_
+- `e6f05656b` chore(i18n): update translations (#3071) [#3071](https://github.com/moeru-ai/airi/pull/3071) _(github-actions[bot], 2026-10-23)_
+- `b17a0cd36` chore(stage-tamagotchi): upgrade auv to 0.0.38 (#3089) [#3089](https://github.com/moeru-ai/airi/pull/3089) _(Neko, 2026-10-23)_
+- `cc8a1736b` fix(ci): use setup-android v4 for the removed tools package (#3088) [#3088](https://github.com/moeru-ai/airi/pull/3088) _(Neko, 2026-10-23)_
+- `c7c9c9179` release: v0.12.0-beta.6  _(Neko Ayaka, 2026-10-23)_
+- `2fb4c0219` fix(stage-tamagotchi): make two builds of one commit give the same output (#3086) [#3086](https://github.com/moeru-ai/airi/pull/3086) _(Neko, 2026-10-23)_
+- `51548c80d` fix(stage-tamagotchi): show the app version from the main process (#3085) [#3085](https://github.com/moeru-ai/airi/pull/3085) _(Neko, 2026-10-23)_
+- `73b76e85a` fix(stage-tamagotchi): run window IPC once per request (#3087) [#3087](https://github.com/moeru-ai/airi/pull/3087) _(Neko, 2026-10-23)_
+- `55507a9b2` fix(stage-tamagotchi): disable the updater in Nix packages (#3084) [#3084](https://github.com/moeru-ai/airi/pull/3084) _(Neko, 2026-10-23)_
+- `a3e06e4d3` fix(stage-tamagotchi): disable the updater in Flatpak (#3081) [#3081](https://github.com/moeru-ai/airi/pull/3081) _(Neko, 2026-10-23)_
+- `f315895d9` feat(stage-tamagotchi): bundle pure JS dependencies into the main bundle (#3080) [#3080](https://github.com/moeru-ai/airi/pull/3080) _(Neko, 2026-10-23)_
+- `c4e691ab1` refactor(stage-tamagotchi): resolve renderer and preload paths in one place (#3079) [#3079](https://github.com/moeru-ai/airi/pull/3079) _(Neko, 2026-10-23)_
+- `cae402918` fix(stage-tamagotchi): let the main window close for an update install (#3082) [#3082](https://github.com/moeru-ai/airi/pull/3082) _(Neko, 2026-10-23)_
+- `9faf6fbff` fix(stage-tamagotchi): run updater IPC once per request (#3083) [#3083](https://github.com/moeru-ai/airi/pull/3083) _(Neko, 2026-10-23)_
+- `663376e74` fix(stage-ui): move the legacy global Stage model into the active card (#3078) [#3078](https://github.com/moeru-ai/airi/pull/3078) _(Neko, 2026-10-23)_
+- `d67487067` fix(stage-shared): parse Electron punctuation accelerators (#3049) [#3049](https://github.com/moeru-ai/airi/pull/3049) _(Codada, 2026-10-22)_
+- `a2caa888a` fix(stage-ui): avoid splitting surrogate pairs in chat reply preview (#3053) [#3053](https://github.com/moeru-ai/airi/pull/3053) _(keeponlight, 2026-10-22)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 1 file(s) (+1/-1)
+- `.github/workflows/release-pocket-android.yml` *(+1/-1)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 2 file(s) (+4/-4)
+- `apps/stage-pocket/android/app-version.properties` *(+2/-2)*
+- `apps/stage-pocket/ios/App/App.xcodeproj/project.pbxproj` *(+2/-2)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 53 file(s) (+1144/-358)
+- `apps/stage-tamagotchi-kirie/package.json` *(+1/-1)*
+- `apps/stage-tamagotchi/README.md` *(+10/-0)*
+- `apps/stage-tamagotchi/electron.vite.config.ts` *(+34/-15)*
+- `apps/stage-tamagotchi/package.json` *(+81/-80)*
+- `apps/stage-tamagotchi/scripts/check-reproducible-build.test.ts` *(+68/-0)*
+- `apps/stage-tamagotchi/scripts/check-reproducible-build.ts` *(+128/-0)*
+- `apps/stage-tamagotchi/src/main/index.ts` *(+7/-7)*
+- `apps/stage-tamagotchi/src/main/libs/electron/location.test.ts` *(+52/-8)*
+- `apps/stage-tamagotchi/src/main/libs/electron/location.ts` *(+22/-1)*
+- `apps/stage-tamagotchi/src/main/libs/electron/testing/window-ipc.ts` *(+44/-0)*
+- `apps/stage-tamagotchi/src/main/libs/electron/window-context.test.ts` *(+146/-0)*
+- `apps/stage-tamagotchi/src/main/libs/electron/window-context.ts` *(+23/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/computer-use/runtime.test.ts` *(+5/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/computer-use/runtime.ts` *(+29/-53)*
+- `apps/stage-tamagotchi/src/main/services/electron/app.test.ts` *(+67/-6)*
+- `apps/stage-tamagotchi/src/main/services/electron/app.ts` *(+15/-3)*
+- `apps/stage-tamagotchi/src/main/services/electron/auto-updater.test.ts` *(+82/-4)*
+- `apps/stage-tamagotchi/src/main/services/electron/auto-updater.ts` *(+63/-15)*
+- `apps/stage-tamagotchi/src/main/services/electron/bundled-sherpaw-assets.ts` *(+5/-2)*
+- `apps/stage-tamagotchi/src/main/services/electron/sherpaw-model-assets.test.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/main/windows/about/index.ts` *(+3/-5)*
+- `apps/stage-tamagotchi/src/main/windows/about/rpc/index.electron.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/main/windows/beat-sync/index.ts` *(+3/-6)*
+- `apps/stage-tamagotchi/src/main/windows/caption/index.ts` *(+6/-6)*
+- `apps/stage-tamagotchi/src/main/windows/chat/floating.ts` *(+6/-8)*
+- `apps/stage-tamagotchi/src/main/windows/chat/index.ts` *(+5/-7)*
+- `apps/stage-tamagotchi/src/main/windows/dashboard/index.ts` *(+5/-8)*
+- `apps/stage-tamagotchi/src/main/windows/dashboard/rpc/index.electron.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/main/windows/desktop-overlay/index.ts` *(+3/-4)*
+- `apps/stage-tamagotchi/src/main/windows/desktop-overlay/rpc/index.electron.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/main/windows/devtools/index.ts` *(+3/-6)*
+- `apps/stage-tamagotchi/src/main/windows/editor/index.ts` *(+3/-6)*
+- `apps/stage-tamagotchi/src/main/windows/editor/rpc/index.electron.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/main/windows/inlay/index.ts` *(+3/-5)*
+- `apps/stage-tamagotchi/src/main/windows/inlay/rpc/index.electron.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/main/windows/main/hide-on-close.test.ts` *(+78/-0)*
+- `apps/stage-tamagotchi/src/main/windows/main/hide-on-close.ts` *(+37/-0)*
+- `apps/stage-tamagotchi/src/main/windows/main/index.ts` *(+8/-22)*
+- `apps/stage-tamagotchi/src/main/windows/main/rpc/index.electron.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/main/windows/notice/index.ts` *(+3/-7)*
+- `apps/stage-tamagotchi/src/main/windows/onboarding/index.ts` *(+5/-7)*
+- `apps/stage-tamagotchi/src/main/windows/settings/index.ts` *(+11/-7)*
+- `apps/stage-tamagotchi/src/main/windows/settings/rpc/index.electron.ts` *(+7/-2)*
+- `apps/stage-tamagotchi/src/main/windows/shared/referenced-window.ts` *(+3/-2)*
+- `apps/stage-tamagotchi/src/main/windows/shared/window.test.ts` *(+1/-0)*
+- `apps/stage-tamagotchi/src/main/windows/shared/window.ts` *(+2/-1)*
+- `apps/stage-tamagotchi/src/main/windows/spotlight/index.ts` *(+6/-9)*
+- `apps/stage-tamagotchi/src/main/windows/widgets/index.ts` *(+6/-8)*
+- `apps/stage-tamagotchi/src/main/windows/widgets/lifecycle.test.ts` *(+2/-1)*
+- `apps/stage-tamagotchi/src/main/windows/widgets/rpc/index.electron.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/main/windows/workspace/index.ts` *(+11/-9)*
+- `apps/stage-tamagotchi/src/renderer/pages/about.vue` *(+19/-11)*
+- `apps/stage-tamagotchi/src/shared/eventa/index.ts` *(+7/-0)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 49 file(s) (+300/-300)
+- `engines/stage-tamagotchi-godot/package.json` *(+1/-1)*
+- `integrations/twitter-services/package.json` *(+1/-1)*
+- `integrations/vscode/airi-plugin-vscode/package.json` *(+1/-1)*
+- `integrations/vscode/vscode-airi/package.json` *(+1/-1)*
+- `package.json` *(+1/-1)*
+- `packages/agents/package.json` *(+1/-1)*
+- `packages/better-ws/package.json` *(+1/-1)*
+- `packages/cap-vite/package.json` *(+1/-1)*
+- `packages/cloud-client/package.json` *(+1/-1)*
+- `packages/core-character/package.json` *(+1/-1)*
+- `packages/electron-eventa/package.json` *(+1/-1)*
+- `packages/electron-native-backdrop/package.json` *(+1/-1)*
+- `packages/electron-screen-capture/package.json` *(+1/-1)*
+- `packages/electron-vueuse/package.json` *(+1/-1)*
+- `packages/font-chillroundm/package.json` *(+1/-1)*
+- `packages/font-cjkfonts-allseto/package.json` *(+1/-1)*
+- `packages/font-departure-mono/package.json` *(+1/-1)*
+- `packages/font-xiaolai/package.json` *(+1/-1)*
+- `packages/input-gamepad-vueuse/package.json` *(+1/-1)*
+- `packages/input-gamepad/package.json` *(+1/-1)*
+- `packages/input-playstation-dualsense-5/package.json` *(+1/-1)*
+- `packages/mathjson/package.json` *(+1/-1)*
+- `packages/memory-pgvector/package.json` *(+1/-1)*
+- `packages/model-driver-lipsync/package.json` *(+1/-1)*
+- `packages/model-driver-magic-live2d/package.json` *(+1/-1)*
+- `packages/motion-driver-magic/package.json` *(+1/-1)*
+- `packages/pipelines-audio/package.json` *(+1/-1)*
+- `packages/plugin-protocol/package.json` *(+1/-1)*
+- `packages/plugin-sdk-tamagotchi/package.json` *(+1/-1)*
+- `packages/plugin-sdk/package.json` *(+1/-1)*
+- `packages/provider-inference/package.json` *(+1/-1)*
+- `packages/scenarios-stage-tamagotchi-browser/package.json` *(+1/-1)*
+- `packages/scenarios-stage-tamagotchi-electron/package.json` *(+1/-1)*
+- `packages/server-runtime/package.json` *(+1/-1)*
+- `packages/server-sdk/package.json` *(+1/-1)*
+- `packages/server-shared/package.json` *(+1/-1)*
+- `packages/speech-transformer-chem/package.json` *(+1/-1)*
+- `packages/speech-transformer-math/package.json` *(+1/-1)*
+- `packages/stage-ui/package.json` *(+1/-1)*
+- `packages/stream-kit/package.json` *(+1/-1)*
+- `packages/testing-audio/package.json` *(+1/-1)*
+- `packages/unocss-preset-fonts/package.json` *(+1/-1)*
+- `packages/vitest-plugin-fakemic/package.json` *(+1/-1)*
+- `plugins/airi-plugin-bilibili-laplace/package.json` *(+1/-1)*
+- `plugins/airi-plugin-claude-code/package.json` *(+1/-1)*
+- `plugins/airi-plugin-game-chess/package.json` *(+1/-1)*
+- `plugins/airi-plugin-web-extension/package.json` *(+1/-1)*
+- `pnpm-lock.yaml` *(+252/-252)*
+- `services/computer-use-mcp/package.json` *(+1/-1)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 9 file(s) (+218/-20)
+- `nix/package.nix` *(+6/-1)*
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/stage-shared/src/global-shortcut/accelerators.test.ts` *(+44/-0)*
+- `packages/stage-shared/src/global-shortcut/accelerators.ts` *(+16/-7)*
+- `packages/stage-ui/src/components/scenarios/chat/reply.test.ts` *(+28/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/reply.ts` *(+3/-2)*
+- `packages/stage-ui/src/stores/modules/airi-card.browser.test.ts` *(+95/-1)*
+- `packages/stage-ui/src/stores/modules/airi-card.ts` *(+22/-6)*
+- `pnpm-workspace.yaml` *(+3/-2)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 1 file(s) (+1/-1)
+- `packages/core-agent/package.json` *(+1/-1)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 10 file(s) (+2/-42)
+- `packages/i18n/src/locales/en/tamagotchi/stage.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/es/tamagotchi/stage.yaml` *(+0/-5)*
+- `packages/i18n/src/locales/fr/tamagotchi/stage.yaml` *(+0/-5)*
+- `packages/i18n/src/locales/ja/tamagotchi/stage.yaml` *(+0/-5)*
+- `packages/i18n/src/locales/ko/tamagotchi/stage.yaml` *(+0/-5)*
+- `packages/i18n/src/locales/ru/tamagotchi/stage.yaml` *(+0/-5)*
+- `packages/i18n/src/locales/th/tamagotchi/stage.yaml` *(+0/-5)*
+- `packages/i18n/src/locales/vi/tamagotchi/stage.yaml` *(+0/-5)*
+- `packages/i18n/src/locales/zh-Hans/tamagotchi/stage.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/zh-Hant/tamagotchi/stage.yaml` *(+0/-5)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 1 file(s) (+1/-1)
+- `packages/ui/package.json` *(+1/-1)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 5 file(s) (+5/-5)
+- `server/apps/api/package.json` *(+1/-1)*
+- `server/apps/auth/package.json` *(+1/-1)*
+- `server/packages/auth-shared/package.json` *(+1/-1)*
+- `server/packages/http-error-shared/package.json` *(+1/-1)*
+- `server/packages/server-sdk-shared/package.json` *(+1/-1)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (14)
+- [PR] [#3090](https://github.com/moeru-ai/airi/pull/3090) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(3 comments)*
+- [PR] [#3089](https://github.com/moeru-ai/airi/pull/3089) `chore(stage-tamagotchi): upgrade auv to 0.0.38` by **@nekomeowww** *(3 comments)*
+- [PR] [#3088](https://github.com/moeru-ai/airi/pull/3088) `fix(ci): use setup-android v4 for the removed tools package` by **@nekomeowww** *(3 comments)*
+- [PR] [#3086](https://github.com/moeru-ai/airi/pull/3086) `fix(stage-tamagotchi): make two builds of one commit give the same output` by **@nekomeowww** *(3 comments)*
+- [PR] [#3085](https://github.com/moeru-ai/airi/pull/3085) `fix(stage-tamagotchi): show the app version from the main process` by **@nekomeowww** *(3 comments)*
+- [PR] [#3087](https://github.com/moeru-ai/airi/pull/3087) `fix(stage-tamagotchi): run window IPC once per request` by **@nekomeowww** *(3 comments)*
+- [PR] [#3084](https://github.com/moeru-ai/airi/pull/3084) `fix(stage-tamagotchi): disable the updater in Nix packages` by **@nekomeowww** *(3 comments)*
+- [PR] [#3081](https://github.com/moeru-ai/airi/pull/3081) `fix(stage-tamagotchi): disable the updater in Flatpak` by **@nekomeowww** *(3 comments)*
+- [PR] [#3080](https://github.com/moeru-ai/airi/pull/3080) `feat(stage-tamagotchi): bundle pure JS dependencies into the main bundle` by **@nekomeowww** *(3 comments)*
+- [PR] [#3079](https://github.com/moeru-ai/airi/pull/3079) `refactor(stage-tamagotchi): resolve renderer and preload paths in one place` by **@nekomeowww** *(3 comments)*
+- [PR] [#3082](https://github.com/moeru-ai/airi/pull/3082) `fix(stage-tamagotchi): let the main window close for an update install` by **@nekomeowww** *(3 comments)*
+- [PR] [#3083](https://github.com/moeru-ai/airi/pull/3083) `fix(stage-tamagotchi): run updater IPC once per request` by **@nekomeowww** *(3 comments)*
+- [PR] [#3078](https://github.com/moeru-ai/airi/pull/3078) `fix(stage-ui): move the legacy global Stage model into the active card` by **@nekomeowww** *(3 comments)*
+- [PR] [#3077](https://github.com/moeru-ai/airi/pull/3077) `feat(tamagotchi-kirie): migrate the system tray to Kirie Tray` by **@BeanDz** *(3 comments)*
+
+#### 🔄 Status & Lifecycle Changes (4)
+- [PR] [#2667](https://github.com/moeru-ai/airi/pull/2667) `fix(stage-tamagotchi): isolate Eventa IPC contexts by window` — `OPEN` ➔ `CLOSED`
+- [PR] [#3071](https://github.com/moeru-ai/airi/pull/3071) `chore(i18n): update translations` — `OPEN` ➔ `MERGED`
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` — `OPEN` ➔ `MERGED`
+- [PR] [#3053](https://github.com/moeru-ai/airi/pull/3053) `fix(stage-ui): avoid splitting surrogate pairs in chat reply preview` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (3)
+- [PR] [#2936](https://github.com/moeru-ai/airi/pull/2936) `fix(tamagotchi): guard payload.url access in artistryTestComfyUIConnection to prevent TypeError` — *+2 comments (17 ➔ 19 total)*
+- [PR] [#2667](https://github.com/moeru-ai/airi/pull/2667) `fix(stage-tamagotchi): isolate Eventa IPC contexts by window` — *+1 comments (6 ➔ 7 total)*
+- [PR] [#2916](https://github.com/moeru-ai/airi/pull/2916) `fix(core-agent): exclude nested reasoning from streamed speech` — *+1 comments (1 ➔ 2 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [OPEN] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(120 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+
+---
 ## [2026-10-22] Upstream Delta: `de5844c3..6794f2e2` (11 commits, 124 files, 13 update(s))
 
 ### 🎯 Executive Highlights

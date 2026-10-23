@@ -1099,7 +1099,7 @@ function selectSurface(surface: typeof activeSurface.value) {
 </script>
 
 <template>
-  <div class="relative h-full w-full flex flex-col overflow-hidden">
+  <div class="relative h-full w-full flex flex-col overflow-hidden bg-[#FAF9F6] transition-colors duration-300 dark:bg-[#18181B]">
     <!-- Layer 1: Chatbox Background (Wallpaper or Solid) -->
     <Transition
       enter-active-class="transition-opacity duration-700 ease-in-out will-change-opacity"

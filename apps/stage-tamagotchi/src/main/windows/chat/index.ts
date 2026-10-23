@@ -70,7 +70,7 @@ export function setupChatWindowReusableFunc(params: {
       x: initialX,
       y: initialY,
       show: false,
-      backgroundColor: '#121212',
+      backgroundColor: '#18181B',
       icon,
       // NOTICE: The chat renderer provides replacement window controls for
       // macOS (traffic lights) and Windows (titleBarOverlay) only. On Linux
@@ -81,7 +81,7 @@ export function setupChatWindowReusableFunc(params: {
       trafficLightPosition: isMacOS ? { x: 14, y: 13 } : undefined,
       titleBarOverlay: isWindows
         ? {
-            color: '#121214',
+            color: '#18181B',
             symbolColor: '#A1A1AA',
             height: 38,
           }
