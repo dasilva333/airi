@@ -3,8 +3,8 @@ import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 interface QuickAccessItem {
   id: string
@@ -15,6 +15,7 @@ interface QuickAccessItem {
 }
 
 const router = useRouter()
+const route = useRoute()
 const cardStore = useAiriCardStore()
 const onboardingStore = useOnboardingStore()
 const { activeCardId } = storeToRefs(cardStore)
@@ -22,6 +23,32 @@ const { activeCardId } = storeToRefs(cardStore)
 const isVoiceModalOpen = ref(false)
 const isFreeAiModalOpen = ref(false)
 const isCharacterWizardModalOpen = ref(false)
+
+// Deep-link: `/settings?freeAi=open` (or `?action=free-ai`) auto-opens the Free AI picker.
+// The portrait provider nudge routes here so new users land on zero-cost options.
+watch(
+  () => route.query.freeAi,
+  (freeAi) => {
+    if (freeAi === 'open' || freeAi === '1' || freeAi === '') {
+      isFreeAiModalOpen.value = true
+      const { freeAi: _omit, ...rest } = route.query
+      router.replace({ query: rest })
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => route.query.action,
+  (action) => {
+    if (action === 'free-ai') {
+      isFreeAiModalOpen.value = true
+      const { action: _omitAction, ...rest } = route.query
+      router.replace({ query: rest })
+    }
+  },
+  { immediate: true },
+)
 
 const characterWizards = [
   {
