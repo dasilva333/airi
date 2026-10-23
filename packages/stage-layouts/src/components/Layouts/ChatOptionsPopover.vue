@@ -135,6 +135,14 @@ function handleOpenAllSettings() {
     void router.push('/settings').catch(() => {})
   }
 }
+
+function handleOpenProviderSettings() {
+  isOpen.value = false
+  emit('openSettings')
+  if (router && typeof window !== 'undefined' && !(window as any).electron) {
+    void router.push('/settings/providers/speech/airi-audio-server').catch(() => {})
+  }
+}
 </script>
 
 <template>
@@ -259,6 +267,7 @@ function handleOpenAllSettings() {
             <ChatOptionsToolsView
               v-else-if="currentView === 'tools'"
               key="tools"
+              @open-provider-settings="handleOpenProviderSettings"
             />
 
             <!-- ================= CONTEXT INJECTIONS VIEW ================= -->

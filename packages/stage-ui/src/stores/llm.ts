@@ -274,11 +274,16 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
       return allowedTools.includes('bash') || allowedTools.includes('mcp_bash')
     }
     if (name.includes('mcp_') || name.startsWith('mcp')) {
+      // The MCP meta-tools are the only path to any MCP-hosted capability, so
+      // every family that provisions an MCP server must also unlock discovery
+      // and invocation here. Missing an entry silently hides that server's tools.
       return allowedTools.includes('mcp')
         || allowedTools.includes('web_search')
         || allowedTools.includes('filesystem')
+        || allowedTools.includes('music')
         || allowedTools.includes('mcp_web_search')
         || allowedTools.includes('mcp_filesystem')
+        || allowedTools.includes('mcp_music')
     }
     if (name.includes('generate_motion')) {
       return allowedTools.includes('generate_motion')

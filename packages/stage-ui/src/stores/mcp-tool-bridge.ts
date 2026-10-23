@@ -112,7 +112,168 @@ export interface McpToolBridge {
   testServer?: (payload: McpTestPayload) => Promise<McpTestResult>
 }
 
-export async function ensureMcpServersForAllowedTools(allowedTools: string[] | undefined): Promise<boolean> {
+/**
+ * Default REST base URL for the local AIRI Audio Server. Mirrors the
+ * `defaultBaseUrl` of the `airi-audio-server` speech provider registry entry.
+ */
+export const DEFAULT_AUDIO_SERVER_BASE_URL = 'http://127.0.0.1:8095/v1/'
+
+/** Key used for the audio server inside `mcp.json` (also the qualified tool prefix). */
+export const MUSIC_MCP_SERVER_NAME = 'airi-audio-server'
+
+export type MusicToolProvisionFailure = 'no-bridge' | 'config-error' | 'unreachable' | 'not-advertised'
+
+export type MusicToolProvisionOutcome
+  = | { ok: true, url?: string, source: 'existing' | 'provisioned' }
+    | { ok: false, reason: MusicToolProvisionFailure }
+
+export function normalizeAudioServerBaseUrl(raw?: string): string {
+  const value = (raw ?? '').trim() || DEFAULT_AUDIO_SERVER_BASE_URL
+  return value.endsWith('/') ? value : `${value}/`
+}
+
+/**
+ * Turns a provisioning failure into copy safe to show a user.
+ * Shared by every surface that exposes the music toggle.
+ */
+export function describeMusicProvisionFailure(reason: MusicToolProvisionFailure): string {
+  switch (reason) {
+    case 'no-bridge':
+      return 'MCP is unavailable in this runtime (desktop app only).'
+    case 'config-error':
+      return 'Could not write the MCP configuration file.'
+    case 'unreachable':
+      return 'AIRI Audio Server is not running. Start it and try again.'
+    case 'not-advertised':
+      return 'The audio server is running but does not expose an MCP endpoint.'
+  }
+}
+
+/**
+ * Asks the audio server for its MCP endpoint.
+ *
+ * The endpoint is advertised through `GET /v1/capabilities` rather than derived
+ * from the REST base URL, so custom ports and reverse proxies keep working.
+ */
+export async function resolveAudioServerMcpEndpoint(
+  baseUrl: string,
+  timeoutMs = 2500,
+): Promise<{ url?: string, reason?: 'unreachable' | 'not-advertised' }> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(`${normalizeAudioServerBaseUrl(baseUrl)}capabilities`, {
+      method: 'GET',
+      signal: controller.signal,
+    })
+    if (!response.ok)
+      return { reason: 'unreachable' }
+
+    const payload = await response.json() as { mcp?: { url?: unknown } }
+    const url = typeof payload?.mcp?.url === 'string' ? payload.mcp.url.trim() : ''
+    return url ? { url } : { reason: 'not-advertised' }
+  }
+  catch {
+    return { reason: 'unreachable' }
+  }
+  finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * Ensures the `airi-audio-server` entry exists in the supplied server map.
+ *
+ * Mirrors the web-search and filesystem branches: the `mcp.json` entry is the
+ * activation record. An existing entry is reused without a network call, so the
+ * server does not need to be running on later toggles.
+ */
+async function applyMusicServerEntry(
+  servers: Record<string, McpServerConfig>,
+  providerBaseUrl?: string,
+): Promise<{ changed: boolean, url?: string, failure?: 'unreachable' | 'not-advertised' }> {
+  const existing = servers[MUSIC_MCP_SERVER_NAME]
+  if (existing) {
+    // Never clobber a transport the user wired by hand.
+    if (!isHttpServerConfig(existing))
+      return { changed: false }
+
+    if (existing.enabled !== false)
+      return { changed: false, url: existing.url }
+
+    servers[MUSIC_MCP_SERVER_NAME] = { ...existing, enabled: true }
+    return { changed: true, url: existing.url }
+  }
+
+  const probe = await resolveAudioServerMcpEndpoint(providerBaseUrl ?? DEFAULT_AUDIO_SERVER_BASE_URL)
+  if (!probe.url)
+    return { changed: false, failure: probe.reason ?? 'not-advertised' }
+
+  servers[MUSIC_MCP_SERVER_NAME] = { url: probe.url, enabled: true }
+  return { changed: true, url: probe.url }
+}
+
+/**
+ * Reads the configured music MCP endpoint without probing the server.
+ * Used by UI surfaces that only need to display the current connection target.
+ */
+export async function readMusicMcpEndpoint(): Promise<string | undefined> {
+  const bridge = tryGetMcpToolBridge()
+  if (!bridge?.getConfig)
+    return undefined
+
+  try {
+    const config = await bridge.getConfig()
+    const entry = config?.mcpServers?.[MUSIC_MCP_SERVER_NAME]
+    return entry && isHttpServerConfig(entry) ? entry.url : undefined
+  }
+  catch {
+    return undefined
+  }
+}
+
+/**
+ * Enables the music tool by provisioning `airi-audio-server` into `mcp.json`.
+ *
+ * This is the hard blocker for the music toggle: it only succeeds once the
+ * audio server is reachable and advertising an MCP endpoint.
+ */
+export async function ensureMusicToolProvisioned(
+  options: { providerBaseUrl?: string } = {},
+): Promise<MusicToolProvisionOutcome> {
+  const bridge = tryGetMcpToolBridge()
+  if (!bridge?.getConfig || !bridge?.updateConfig)
+    return { ok: false, reason: 'no-bridge' }
+
+  try {
+    const currentConfig = await bridge.getConfig()
+    const servers: Record<string, McpServerConfig> = { ...currentConfig?.mcpServers }
+    const result = await applyMusicServerEntry(servers, options.providerBaseUrl)
+
+    if (result.failure)
+      return { ok: false, reason: result.failure }
+
+    if (!result.changed)
+      return { ok: true, url: result.url, source: 'existing' }
+
+    await bridge.updateConfig({ mcpServers: servers })
+    bridge.applyAndRestart?.().catch((error) => {
+      console.warn('[mcp-tool-bridge] Failed to restart MCP servers after enabling music tools:', error)
+    })
+
+    return { ok: true, url: result.url, source: 'provisioned' }
+  }
+  catch (error) {
+    console.error('[mcp-tool-bridge] Failed to provision music tools:', error)
+    return { ok: false, reason: 'config-error' }
+  }
+}
+
+export async function ensureMcpServersForAllowedTools(
+  allowedTools: string[] | undefined,
+  options: { providerBaseUrl?: string } = {},
+): Promise<boolean> {
   if (!allowedTools || !allowedTools.length)
     return false
 
@@ -128,6 +289,7 @@ export async function ensureMcpServersForAllowedTools(allowedTools: string[] | u
 
     const hasWebSearch = allowedTools.includes('web_search') || allowedTools.includes('mcp_web_search')
     const hasFilesystem = allowedTools.includes('filesystem') || allowedTools.includes('mcp_filesystem')
+    const hasMusic = allowedTools.includes('music') || allowedTools.includes('mcp_music')
 
     // 1. Ensure open-websearch if web_search is enabled
     if (hasWebSearch) {
@@ -188,6 +350,16 @@ export async function ensureMcpServersForAllowedTools(allowedTools: string[] | u
         }
         changed = true
       }
+    }
+
+    // 3. Ensure airi-audio-server if music is enabled.
+    // Unlike web search and filesystem there is no fixed command to spawn: the
+    // endpoint is advertised by the running server, so provisioning is gated on
+    // a capabilities probe.
+    if (hasMusic) {
+      const music = await applyMusicServerEntry(servers, options.providerBaseUrl)
+      if (music.changed)
+        changed = true
     }
 
     if (changed) {
@@ -281,6 +453,7 @@ export function getMcpToolBridge(): McpToolBridge {
  * - If allowedTools includes 'mcp', all tools are permitted.
  * - If allowedTools includes 'web_search' or 'mcp_web_search', servers matching 'websearch', 'web-search', or 'search' are permitted.
  * - If allowedTools includes 'filesystem' or 'mcp_filesystem', servers matching 'filesystem' are permitted.
+ * - If allowedTools includes 'music' or 'mcp_music', servers matching 'audio-server' are permitted.
  * - Explicit tool names or qualified server::tool names also pass.
  */
 export function filterMcpToolsForCard(
@@ -302,11 +475,15 @@ export function filterMcpToolsForCard(
     const sName = t.serverName.toLowerCase()
     const isWebSearch = sName.includes('websearch') || sName.includes('web-search') || sName.includes('search')
     const isFilesystem = sName.includes('filesystem')
+    const isMusic = sName.includes('audio-server') || sName.includes('audio_server')
 
     if (isWebSearch && (allowedTools.includes('web_search') || allowedTools.includes('mcp_web_search'))) {
       return true
     }
     if (isFilesystem && (allowedTools.includes('filesystem') || allowedTools.includes('mcp_filesystem'))) {
+      return true
+    }
+    if (isMusic && (allowedTools.includes('music') || allowedTools.includes('mcp_music'))) {
       return true
     }
     return false

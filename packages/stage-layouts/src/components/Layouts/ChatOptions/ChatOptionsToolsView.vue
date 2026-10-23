@@ -1,9 +1,16 @@
 <script setup lang="ts">
+import { describeMusicProvisionFailure, ensureMusicToolProvisioned } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+
+const emit = defineEmits<{
+  (e: 'openProviderSettings'): void
+}>()
 
 const airiCardStore = useAiriCardStore()
+const providersStore = useProvidersStore()
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 
 const allowedTools = computed<string[]>(() => {
@@ -13,6 +20,10 @@ const allowedTools = computed<string[]>(() => {
 function isToolActive(toolName: string): boolean {
   if (toolName === 'bash') {
     return allowedTools.value.includes('bash') || (activeCard.value?.extensions?.airi?.sandbox?.enabled ?? false)
+  }
+  // Accept the `mcp_` alias so a card that only carries `mcp_music` still reads as enabled.
+  if (toolName === 'music') {
+    return allowedTools.value.includes('music') || allowedTools.value.includes('mcp_music')
   }
   return allowedTools.value.includes(toolName)
 }
@@ -57,6 +68,42 @@ function handleToggleTool(toolName: string) {
       },
     },
   } as any)
+}
+
+// --- Sound Studio (music over MCP) -----------------------------------------
+// Unlike web search and filesystem, music has no fixed command to spawn: the
+// audio server advertises its own MCP endpoint. Enabling therefore requires a
+// live probe, which makes the toggle genuinely blocking instead of optimistic.
+
+const musicProvisioning = ref(false)
+const musicError = ref('')
+
+async function handleToggleMusic() {
+  if (musicProvisioning.value)
+    return
+
+  // Disabling never needs the server: drop the ACL token and keep the mcp.json
+  // entry, exactly like web search.
+  if (isToolActive('music')) {
+    musicError.value = ''
+    handleToggleTool('music')
+    return
+  }
+
+  musicProvisioning.value = true
+  musicError.value = ''
+  try {
+    const providerBaseUrl = providersStore.getProviderConfig('airi-audio-server')?.baseUrl as string | undefined
+    const outcome = await ensureMusicToolProvisioned({ providerBaseUrl })
+    if (!outcome.ok) {
+      musicError.value = describeMusicProvisionFailure(outcome.reason)
+      return
+    }
+    handleToggleTool('music')
+  }
+  finally {
+    musicProvisioning.value = false
+  }
 }
 </script>
 
@@ -301,6 +348,54 @@ function handleToggleTool(toolName: string) {
           class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
         />
       </div>
+    </div>
+
+    <!-- 9. Sound Studio (music over MCP) -->
+    <div
+      class="w-full flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 transition hover:bg-neutral-100 dark:hover:bg-neutral-800/60"
+      :class="{ 'op-60 pointer-events-none': musicProvisioning }"
+      @click="handleToggleMusic"
+    >
+      <div class="flex items-center gap-2.5">
+        <div
+          class="size-4.5"
+          :class="isToolActive('music')
+            ? 'text-fuchsia-500 i-solar:music-notes-bold-duotone'
+            : 'text-neutral-400 dark:text-neutral-500 i-solar:music-notes-linear'"
+        />
+        <div class="flex flex-col">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Sound Studio</span>
+            <span class="rounded bg-fuchsia-500/10 px-1 py-0.2 text-[8px] text-fuchsia-600 font-semibold uppercase dark:text-fuchsia-400">Audio Server</span>
+          </div>
+          <span class="text-[9px] text-neutral-400">
+            {{ musicProvisioning ? 'Connecting to audio server…' : 'Music generation & ABC score planning' }}
+          </span>
+        </div>
+      </div>
+      <div
+        :class="isToolActive('music') ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+        class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+      >
+        <span
+          :class="isToolActive('music') ? 'translate-x-3.5' : 'translate-x-0.5'"
+          class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+        />
+      </div>
+    </div>
+
+    <!-- Music activation failure: the toggle refuses rather than lying about state -->
+    <div v-if="musicError" class="mt-1 rounded-xl bg-red-500/10 px-2.5 py-2">
+      <p class="text-[10px] text-red-600 font-semibold leading-snug dark:text-red-400">
+        {{ musicError }}
+      </p>
+      <button
+        type="button"
+        class="mt-1 text-[10px] text-red-500 underline underline-offset-2"
+        @click="emit('openProviderSettings')"
+      >
+        Open provider settings
+      </button>
     </div>
   </div>
 </template>

@@ -25,6 +25,7 @@ import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { usePerfTracerBridgeStore } from '@proj-airi/stage-ui/stores/perf-tracer-bridge'
 import { listProvidersForPluginHost, shouldPublishPluginHostCapabilities } from '@proj-airi/stage-ui/stores/plugin-host-capabilities'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
+import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings/control-strip'
 import { useSyncEngineStore } from '@proj-airi/stage-ui/stores/sync-engine'
@@ -96,6 +97,7 @@ const backupStore = useBackupStore()
 usePerfTracerBridgeStore()
 
 const proactivityStore = useProactivityStore()
+const providersStore = useProvidersStore()
 const screenWatcherStore = useScreenWatcherStore()
 const stageWindowLifecycleStore = useStageWindowLifecycleStore()
 void stageWindowLifecycleStore.initializeWindowLifecycleBridge()
@@ -195,7 +197,11 @@ if (context.value) {
   watch(activeCard, (card) => {
     const allowed = card?.extensions?.airi?.generation?.known?.allowedTools
     if (allowed?.length) {
-      void ensureMcpServersForAllowedTools(allowed)
+      // The audio server advertises its MCP endpoint itself; the provider baseUrl
+      // is only the fallback target when that advertisement is unavailable.
+      void ensureMcpServersForAllowedTools(allowed, {
+        providerBaseUrl: providersStore.getProviderConfig('airi-audio-server')?.baseUrl as string | undefined,
+      })
     }
   }, { immediate: true })
 }

@@ -62,7 +62,9 @@ chatOrchestratorStore.setToolsResolver(webTools)
 watch(() => cardStore.activeCard, (card) => {
   const allowed = card?.extensions?.airi?.generation?.known?.allowedTools
   if (allowed?.length) {
-    void ensureMcpServersForAllowedTools(allowed)
+    void ensureMcpServersForAllowedTools(allowed, {
+      providerBaseUrl: providersStore.getProviderConfig('airi-audio-server')?.baseUrl as string | undefined,
+    })
   }
 }, { immediate: true })
 

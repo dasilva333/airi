@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearMcpToolBridge,
   ensureMcpServersForAllowedTools,
+  ensureMusicToolProvisioned,
   filterMcpToolsForCard,
   getMcpToolBridge,
 
@@ -19,6 +20,7 @@ describe('mCP tool bridge lifecycle, config reconciliation & titration', () => {
 
   afterEach(() => {
     clearMcpToolBridge()
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
@@ -148,6 +150,80 @@ describe('mCP tool bridge lifecycle, config reconciliation & titration', () => {
     })
   })
 
+  describe('ensureMusicToolProvisioned', () => {
+    function createBridge(config: any) {
+      let savedConfig: any = null
+      const updateConfig = vi.fn().mockImplementation(async (partial) => {
+        savedConfig = partial
+      })
+      const bridge: McpToolBridge = {
+        listTools: vi.fn(),
+        callTool: vi.fn(),
+        getRuntimeStatus: vi.fn(),
+        getConfig: vi.fn().mockResolvedValue(config),
+        updateConfig,
+      }
+      setMcpToolBridge(bridge)
+      return { bridge, updateConfig, getSaved: () => savedConfig }
+    }
+
+    it('fails without a bridge (web runtime)', async () => {
+      expect(await ensureMusicToolProvisioned()).toEqual({ ok: false, reason: 'no-bridge' })
+    })
+
+    it('reuses an existing http entry without probing the server', async () => {
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+      createBridge({
+        mcpServers: { 'airi-audio-server': { url: 'http://127.0.0.1:8095/mcp', enabled: true } },
+      })
+
+      const outcome = await ensureMusicToolProvisioned()
+
+      expect(outcome).toEqual({ ok: true, url: 'http://127.0.0.1:8095/mcp', source: 'existing' })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('provisions the endpoint advertised by /capabilities', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ mcp: { url: 'http://127.0.0.1:8095/mcp' } }),
+      }))
+      const { getSaved } = createBridge({ mcpServers: {} })
+
+      const outcome = await ensureMusicToolProvisioned({ providerBaseUrl: 'http://127.0.0.1:8095/v1/' })
+
+      expect(outcome).toEqual({ ok: true, url: 'http://127.0.0.1:8095/mcp', source: 'provisioned' })
+      expect(getSaved().mcpServers['airi-audio-server']).toEqual({
+        url: 'http://127.0.0.1:8095/mcp',
+        enabled: true,
+      })
+    })
+
+    it('blocks when the audio server is unreachable', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')))
+      const { updateConfig } = createBridge({ mcpServers: {} })
+
+      const outcome = await ensureMusicToolProvisioned()
+
+      expect(outcome).toEqual({ ok: false, reason: 'unreachable' })
+      expect(updateConfig).not.toHaveBeenCalled()
+    })
+
+    it('blocks when the server does not advertise an MCP endpoint', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ supportsExpressionTags: true }),
+      }))
+      const { updateConfig } = createBridge({ mcpServers: {} })
+
+      const outcome = await ensureMusicToolProvisioned()
+
+      expect(outcome).toEqual({ ok: false, reason: 'not-advertised' })
+      expect(updateConfig).not.toHaveBeenCalled()
+    })
+  })
+
   describe('filterMcpToolsForCard (Tool Titration)', () => {
     const rawTools: McpToolDescriptor[] = [
       {
@@ -166,6 +242,12 @@ describe('mCP tool bridge lifecycle, config reconciliation & titration', () => {
         serverName: 'custom-utility',
         name: 'custom-utility::ping',
         toolName: 'ping',
+        inputSchema: {},
+      },
+      {
+        serverName: 'airi-audio-server',
+        name: 'airi-audio-server::music',
+        toolName: 'music',
         inputSchema: {},
       },
     ]
@@ -203,6 +285,20 @@ describe('mCP tool bridge lifecycle, config reconciliation & titration', () => {
       const result = filterMcpToolsForCard(rawTools, ['custom-utility::ping'])
       expect(result).toHaveLength(1)
       expect(result[0].name).toBe('custom-utility::ping')
+    })
+
+    it('filters to only audio server tools when music or mcp_music is specified', () => {
+      const result = filterMcpToolsForCard(rawTools, ['music'])
+      expect(result).toHaveLength(1)
+      expect(result[0].serverName).toBe('airi-audio-server')
+
+      const aliasResult = filterMcpToolsForCard(rawTools, ['mcp_music'])
+      expect(aliasResult).toHaveLength(1)
+      expect(aliasResult[0].serverName).toBe('airi-audio-server')
+    })
+
+    it('does not leak audio server tools when only unrelated families are allowed', () => {
+      expect(filterMcpToolsForCard(rawTools, ['web_search', 'filesystem'])).toHaveLength(2)
     })
   })
 })

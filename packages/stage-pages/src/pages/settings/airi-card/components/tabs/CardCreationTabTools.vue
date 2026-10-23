@@ -3,7 +3,8 @@ import {
   DEFAULT_SANDBOX_SCRATCHPAD_INSTRUCTION,
   DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
 } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
-import { ensureMcpServersForAllowedTools, tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
+import { describeMusicProvisionFailure, ensureMcpServersForAllowedTools, ensureMusicToolProvisioned, readMusicMcpEndpoint, tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
+import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { FieldInput } from '@proj-airi/ui'
 import { computed, onMounted, ref, watch } from 'vue'
 
@@ -12,6 +13,8 @@ withDefaults(defineProps<{
 }>(), {
   dreamStateEnabled: false,
 })
+
+const providersStore = useProvidersStore()
 
 // Allowed tools model from parent CardCreationDialog
 const generationAllowedTools = defineModel<string[] | undefined>('selectedAllowedTools', { required: true })
@@ -101,6 +104,57 @@ const hasMotionGenerator = computed({
     }
   },
 })
+
+// Opt-in only: Music creation over MCP (disabled by default).
+// Enabling is asynchronous because the audio server must advertise its MCP
+// endpoint before the tool can be provisioned into mcp.json.
+const hasMusicTool = computed({
+  get() {
+    const tools = generationAllowedTools.value
+    return !!tools && (tools.includes('music') || tools.includes('mcp_music'))
+  },
+  set(checked) {
+    const current = generationAllowedTools.value ?? ['text_journal', 'image_journal']
+    if (checked) {
+      if (!current.includes('music'))
+        generationAllowedTools.value = [...current, 'music']
+    }
+    else {
+      generationAllowedTools.value = current.filter(t => t !== 'music' && t !== 'mcp_music')
+    }
+  },
+})
+
+const musicProvisioning = ref(false)
+const musicError = ref('')
+const musicEndpoint = ref('')
+
+async function handleToggleMusicTool() {
+  if (musicProvisioning.value)
+    return
+
+  if (hasMusicTool.value) {
+    hasMusicTool.value = false
+    musicError.value = ''
+    return
+  }
+
+  musicProvisioning.value = true
+  musicError.value = ''
+  try {
+    const providerBaseUrl = providersStore.getProviderConfig('airi-audio-server')?.baseUrl as string | undefined
+    const outcome = await ensureMusicToolProvisioned({ providerBaseUrl })
+    if (!outcome.ok) {
+      musicError.value = describeMusicProvisionFailure(outcome.reason)
+      return
+    }
+    musicEndpoint.value = outcome.url ?? ''
+    hasMusicTool.value = true
+  }
+  finally {
+    musicProvisioning.value = false
+  }
+}
 
 // Opt-in only: On-demand screenshots (disabled by default)
 const hasScreenshot = computed({
@@ -197,6 +251,14 @@ async function loadConnectedServers() {
 
 onMounted(() => {
   void loadConnectedServers()
+
+  // Surface the endpoint already recorded in mcp.json; no probe, so this works
+  // even when the audio server is stopped.
+  if (hasMusicTool.value) {
+    void readMusicMcpEndpoint().then((url) => {
+      musicEndpoint.value = url ?? ''
+    })
+  }
 })
 
 watch(hasCustomMcp, (enabled) => {
@@ -1081,6 +1143,61 @@ const textJournalConflictWarning = computed(() => {
       <div v-if="hasMotionGenerator" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-2 dark:border-neutral-800">
         <div class="rounded-xl bg-rose-50/50 p-3 text-xs text-rose-700 dark:bg-rose-950/20 dark:text-rose-300">
           🏃‍♂️ Supports VRM humanoid avatars via Procedural LLM keyframing and FlowMDM Local WebGPU neural diffusion.
+        </div>
+      </div>
+    </section>
+
+    <!-- Music Creation (MCP: airi-audio-server) -->
+    <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="size-10 flex shrink-0 items-center justify-center rounded-xl bg-fuchsia-500/10 text-fuchsia-600 dark:bg-fuchsia-500/20 dark:text-fuchsia-400">
+            <div class="i-solar:music-notes-bold-duotone text-2xl" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
+                Music Creation
+              </h3>
+              <span class="whitespace-nowrap rounded-full bg-fuchsia-100 px-2 py-0.5 text-[10px] text-fuchsia-700 font-bold uppercase dark:bg-fuchsia-900/40 dark:text-fuchsia-300">
+                MCP · Audio Server
+              </span>
+            </div>
+            <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+              Lets the character plan and render original music through AIRI Audio Server over MCP (<code class="rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-800">music</code>). Enabling requires the server to be running so it can advertise its MCP endpoint.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          :disabled="musicProvisioning"
+          :class="[
+            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:op-50',
+            hasMusicTool ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+          ]"
+          @click="handleToggleMusicTool"
+        >
+          <span
+            aria-hidden="true"
+            :class="[
+              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+              hasMusicTool ? 'translate-x-5' : 'translate-x-0',
+            ]"
+          />
+        </button>
+      </div>
+
+      <div v-if="musicError" class="mt-4 rounded-xl bg-red-50 p-3 text-xs text-red-700 leading-relaxed dark:bg-red-950/20 dark:text-red-300">
+        {{ musicError }}
+        <RouterLink to="/settings/providers/speech/airi-audio-server" class="ml-1 underline underline-offset-2">
+          Open provider settings
+        </RouterLink>
+      </div>
+
+      <div v-if="hasMusicTool" class="animate-in fade-in border-neutral-150 mt-4 border-t pt-4 duration-200 space-y-2 dark:border-neutral-800">
+        <div class="rounded-xl bg-fuchsia-50/50 p-3 text-xs text-fuchsia-700 dark:bg-fuchsia-950/20 dark:text-fuchsia-300">
+          🎵 Provisioned at <code class="rounded bg-white/60 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-900/60">{{ musicEndpoint || 'AIRI Audio Server' }}</code> — advertised by the server, so there is no URL to configure by hand.
         </div>
       </div>
     </section>

@@ -1,9 +1,15 @@
 # Proposal: Unified DJ & Music Engine (Tri-Model Generative + Spotify Catalog)
 
-> **Status**: Proposed RFC
+> **Status**: Proposed RFC — Revision 2
 > **Document**: `docs/proposal-comfyui-generative-music-dj-engine.md`
 > **Target Audience**: Core Developers, Audio/Music Engineers, UI Integrators
 > **Key References**: `packages/stage-ui/src/stores/dj-deck.ts`, `airi-audio-server` (`audio.cpp`), `apps/stage-tamagotchi/src/main/services/airi/widgets/providers/comfyui.ts`
+>
+> **Revision 2 changes** (detailed in §3):
+> 1. The tool surface is delivered over **MCP (Streamable HTTP) hosted directly by `airi-audio-server`** — not as bespoke AIRI builtin tools, and not through a separate proxy app.
+> 2. The first LLM surface is a single **`music` hub tool** with a five-value action enum (`plan`, `generate`, `status`, `list`, `cancel`), mirroring the established `text_journal` / `image_journal` hub convention rather than the six discrete `dj_*` tools.
+> 3. **`plan` is promoted to a first-class co-creation step.** ABC notation becomes the artifact the agent reasons over and mutates *before* committing to an acoustic render, instead of a metadata field attached to a finished track. Like every other action it returns a receipt; the score arrives through `status`.
+> 4. The `mcp.json` entry is the single **activation record**; the MCP endpoint is **advertised** by the server via `/v1/capabilities` rather than derived by string-munging the provider `baseUrl`.
 
 This document outlines the architectural design for enabling AI characters to act as dynamic, real-time DJs—interweaving AI-generated tracks (via a Tri-Model Generative Engine: Local MiniMax Music 3.0 & YuE 2 natively served via **AIRI Audio Server / `audio.cpp`**, with remote Suno v6 fallback) with real-world streaming catalogs (via Spotify) while interactively adjusting the setlist and hosting radio-style voiceover transitions in response to ongoing conversation.
 
@@ -28,6 +34,7 @@ Currently, AIRI supports visual generative artistry (via ComfyUI/Replicate) and 
 *   **Zero-Downtime Fail-Safe (GPU / Fallback)**: If local GPU generation encounters an OOM error, latency spike, or the audio server is offline, the DJ loop gracefully falls back to Suno v6 cloud generation or Spotify catalog search without interrupting playback.
 *   **Radio DJ Banter & Audio Ducking**: The character can speak over track intros/outros (e.g., *"Coming up next, one of my favorite tracks from Daft Punk..."*). Music automatically ducks to 20–25% volume during speech and swells back up seamlessly.
 *   **Character Musical Identity**: Character cards (`extensions.airi.music`) define distinct musical tastes, favorite genres, BPM preferences, and DJ banter style.
+*   **Plan-First Co-Creation (ABC Score as Dialogue)**: Before a single audio sample is rendered, the agent produces a compact ABC notation score and *interprets it in conversation* — key, tempo, chord movement, where the drop lands. The user steers in natural language, the score is mutated, and only the agreed composition is committed to the renderer. Planning costs ~3–20 seconds against ~27 minutes for a full render, which is precisely what makes composition interactive rather than a wait (§3.E).
 
 ---
 
@@ -72,13 +79,165 @@ export interface DJTrack {
 }
 ```
 
+> **Phase 1 shape.** Until the deck engine exists (§6), the `music` hub (§3.D) returns a slimmer record:
+> `{ id, title, audioUrl, durationMs, model, abcScore?, createdAt }`.
+> `DJTrack` remains the Phase 2 superset that adds playback handles, deck state, stems, and lossless audio analysis. Every Phase 1 field name is chosen to match its `DJTrack` counterpart so the eventual chat chip and Now Playing widget render Phase 1 output with no translation layer — the request parameter `durationSeconds` is the one intentional exception, because it mirrors the REST endpoint's `duration_seconds`.
+
 ---
 
-## 🛠️ 3. The LLM Interface (Tool Calling)
+## 🛠️ 3. Transport & Tool Surface (MCP-First)
 
-The consciousness orchestrator is equipped with unified tools allowing it to seamlessly curate both generative and catalog music:
+### A. Why MCP, Hosted by `airi-audio-server`
+
+The music tool surface is **not** implemented as bespoke AIRI builtin tools. `airi-audio-server` hosts a Model Context Protocol endpoint over **Streamable HTTP** alongside its existing REST API, and AIRI connects to it declaratively — exactly the way `open-websearch` and `@modelcontextprotocol/server-filesystem` are connected today.
+
+| Concern | Bespoke builtin (`generate-music.ts`) | Separate MCP proxy app | **MCP on `airi-audio-server` (chosen)** |
+| :--- | :--- | :--- | :--- |
+| New AIRI client files | Tool file plus six scattered touch points | New proxy package | Declarative entry only |
+| Where tool logic lives | Split between renderer and server | Thin proxy re-calling REST | Co-located with the implementation |
+| Extra runtime processes | 0 | +1 Node.js process | 0 — the server already runs |
+| Tool discovery | Hardcoded in `builtinTools()` | `mcp_list_tools` | `mcp_list_tools` |
+| Network hops per generation | Renderer → server | Renderer → bridge → proxy → server | Renderer → bridge → server |
+| Server changes | None | None | MCP transport + tool defs (needed anyway) |
+
+The Electron MCP manager already supports this natively — no new plumbing required:
+
+* `ElectronMcpHttpServerConfig` (`url`, `headers?`, `enabled?`) is part of the `ElectronMcpServerConfig` union in `apps/stage-tamagotchi/src/shared/eventa.ts`.
+* `apps/stage-tamagotchi/src/main/services/airi/mcp-servers/index.ts` imports `StreamableHTTPClientTransport`, branches in `createTransport()`, and reports `transport: 'http'` in runtime status.
+* `isHttpServerConfig()` is literally `'url' in config`.
+
+A dedicated `apps/airi-audio-mcp-server` proxy package is explicitly rejected: it would be a process whose entire job is to re-call `POST /v1/audio/music` on the server that already defines the semantics.
+
+### B. Endpoint Advertisement (no URL derivation on the client)
+
+AIRI never constructs the MCP URL. `airi-audio-server` advertises it in the capabilities payload AIRI already fetches for the speech provider:
+
+```json
+// GET /v1/capabilities
+{
+  "...": "existing speech capability fields",
+  "mcp": { "url": "http://127.0.0.1:8095/mcp", "transport": "streamable-http" }
+}
+```
+
+This keeps a single source of truth on the server side, survives custom ports and reverse proxies, and reduces the client to one question: *did the server advertise an MCP endpoint?* Extra fields are ignored by the existing `getSpeechCapabilities` consumer, so the addition is backward-compatible.
+
+**Fallback if advertisement is unavailable:** derive the URL from the resolved provider `baseUrl` by stripping a trailing `/v1/` and appending `/mcp`. This is a compatibility path, not the contract.
+
+### C. Activation: `mcp.json` Is the Record
+
+The `airi-audio-server` provider is `deployment: 'local'` and keyless, so `isProviderConfigured()` short-circuits to `true` before it ever consults `addedProviders` — checking it would be a no-op on a fresh install. Rather than invent a second activation concept, the **`mcp.json` entry itself is the activation record**, exactly as the presence of the `open-websearch` entry is what makes web search provisioned.
+
+```
+LLM tool toggle: OFF → ON
+        │
+        ├─ entry already in mcp.json?
+        │     └─ YES → reuse its url. No network call. Done.
+        │
+        └─ NO → GET {baseUrl}capabilities   (2.5s budget)
+                 ├─ reachable + mcp.url present → write { url, enabled: true }, applyAndRestart
+                 └─ unreachable / no mcp.url    → refuse the toggle, show dialog,
+                                                  route to /settings/providers/speech/airi-audio-server
+```
+
+Three properties fall out of this for free:
+
+* **Hard blocker at enable time.** The toggle cannot be turned on unless the server is reachable and advertising MCP.
+* **No liveness requirement afterwards.** Once written, the URL resolves from `mcp.json` even with the server stopped.
+* **No new persisted state.** Disabling music removes the ACL token but leaves the `mcp.json` entry intact — identical to web search.
+
+### D. Phase 1 Tool Surface: the `music` Hub
+
+The hub convention is established house style: `text_journal` exposes `action: ['create', 'search']`; `image_journal` exposes `action: ['create', 'apply']` plus a `mode` enum. Music follows it with a single MCP tool named **`music`** on the `airi-audio-server` server, invoked through the generic `mcp_call_tool` meta-tool as `airi-audio-server::music`.
+
+| `action` | Purpose | Blocking? | Returns |
+| :--- | :--- | :--- | :--- |
+| `plan` | Generate or mutate an ABC score without acoustic rendering | No — receipt only | `planId`, `state`, `next` |
+| `generate` | Commit a score/prompt to the NAR ODE renderer | No — receipt only | `jobId`, `state`, `next` |
+| `status` | Poll a `plan` or `render` job | No | `jobId`, `kind`, `state`, `progress`, `track`, `plan` |
+| `list` | Browse and search the generated library | No | `tracks[]` |
+| `cancel` | Abort an in-flight job | No | `jobId`, `state` |
+
+**Arguments** — one flat schema, all non-action fields optional and validated per action, exactly like `text_journal`:
+
+```json
+{
+  "action": "plan" | "generate" | "status" | "list" | "cancel",
+
+  "prompt": "melodic synthwave, analog synths, driving bassline, 120 bpm",
+  "lyrics": "[Verse]\nNeon reflections on the wet asphalt...\n[Chorus]\nRunning through the grid...",
+  "title": "Neon Horizon",
+  "model": "yue-2" | "minimax-music-3",
+  "durationSeconds": 60,
+  "cot": "full" | "melody" | "off",
+  "instrumental": false,
+  "temperature": 0.8,
+
+  "abcScore": "X:1\nT:Neon Horizon\nM:4/4\nL:1/8\nQ:1/4=120\nK:Cm\n...",
+  "planId": "plan_99a8b",
+  "jobId": "job_4f2c1",
+  "query": "synthwave",
+  "limit": 5
+}
+```
+
+Why a hub instead of five discrete MCP tools (`music_plan`, `music_generate`, …): AIRI's tool gate and prompt builder both optimize for context budget, and `mcp_list_tools` surfaces one schema per tool. A single discriminated-action schema costs a fraction of five, which matters for the small local models AIRI explicitly protects.
+
+**The description is load-bearing.** A receipt-returning `generate` only works if the model knows to poll, and how often. The `status` action's description must state the cadence explicitly — *check at most once per turn; a 60-second track typically takes 1–3 minutes* — otherwise the model polls four times in a single turn and exhausts the tool-step budget.
+
+### E. Plan-First: ABC as the Conversational Artifact
+
+Revision 2 promotes planning from a side effect to the center of the interaction. Measured on 8GB hardware, the symbolic AR pass takes **~3–20 seconds** (~115 tokens/sec) versus **~27 minutes** for a 2-minute rendered track — under 1.2% of total time, for a large coherence gain. That asymmetry is what makes the following loop affordably interactive:
+
+1. Agent calls `plan` → receives a receipt (`planId`, `state`, `next`), where `next` is the server's own polling guidance.
+2. A `status` poll on that id returns `{ plan: { abcScore, summary, tempo, keySignature, bars } }`.
+3. Agent **shows the notation to the user and interprets it** — key, tempo, chord movement, where the drop lands.
+4. User steers in natural language: *"transpose the bridge darker, move the drop to bar 16."*
+5. Agent calls `plan` again with the modified `abcScore`, or edits the ABC directly.
+6. Only once the score is agreed does the agent call `generate` with the final `abcScore`.
+
+Because ABC is compact human-readable text, steps 3–5 need no audio at all. It also gives the Sound Studio panel (§8) a real artifact to render with `abcjs`, and makes the user's edits and the agent's edits the same object.
+
+The extra poll is the price of the constraint below, and it buys something in exchange: the user can keep talking while a plan renders, and a slow `cot=full` pass no longer holds the conversation hostage.
+
+### F. Timeout Reality: Every Action Returns a Receipt
+
+The MCP manager caps every `callTool` at **`mcpRequestTimeoutMsec = 10_000`** per request and **`mcpRequestMaxTotalTimeoutMsec = 15_000`** total, both hardcoded constants in `apps/stage-tamagotchi/src/main/services/airi/mcp-servers/index.ts`. With `resetTimeoutOnProgress` left at its default (`false`), the per-request timer never resets, so 10 seconds is the real ceiling and 15 seconds only bounds retries. The transport has no progress-notification handling either, so a long call cannot stream keepalives.
+
+A `plan` pass measured at 3–20s therefore cannot be a blocking action. **The resolution is structural rather than a timeout override: no action blocks.** `plan` and `generate` both return a receipt immediately and the caller polls `status` — which is also why the async job model (§3.G) is not over-engineering but the only shape that fits the transport.
+
+This keeps the required AIRI-side change surface at zero for the manager: no `timeoutMs` field, no per-server override, no change to `mcp-servers/index.ts at all.
+
+### G. Receipt & Job Model
+
+Both planning and rendering are jobs. Receipts carry their own polling guidance so the model does not have to infer cadence:
+
+```
+plan     → { planId, state: "queued", next: "call status with jobId=plan_99a8b in ~10s" }
+generate → { jobId,  state: "queued", next: "call status with jobId=job_4f2c1 in ~45s" }
+
+status   → { jobId,
+             kind: "plan" | "render",
+             state: "queued" | "running" | "done" | "failed" | "cancelled",
+             progress?: { percent, stage? },
+             plan?:   { planId, abcScore, summary, tempo, keySignature, bars },
+             track?:  Track }
+```
+
+`Track` = `{ id, title, audioUrl, durationMs, model, abcScore?, createdAt }` — the same record the Sound Studio already renders, so a completed job drops straight into the library and into `list` results.
+
+The `next` string is deliberately human-readable rather than structured: it is injected into the model's context, and a natural-language instruction survives summarization better than a `retryAfterMs` integer that the model may ignore.
+
+Job state survives across turns and `status` calls. It does not need to survive an `airi-audio-server` restart in Phase 1: a restarted server reports an unknown `jobId` as `failed` with `reason: "server_restarted"`.
+
+---
+
+## 🧰 4. Deck Tool Surface (Phase 2)
+
+Once the deck engine exists (§6), the consciousness orchestrator is additionally equipped with unified tools allowing it to seamlessly curate both generative and catalog music:
 
 ### A. `dj_queue_track`
+
 Queues a track into the DJ deck from either a generative prompt or a catalog query.
 *   **Arguments**:
     ```json
@@ -142,9 +301,12 @@ Direct playback and transition controls.
     ```json
     {
       "action": "fade_to_next" | "skip" | "pause" | "resume" | "set_volume" | "clear_queue",
-      "fadeDurationSeconds": 4,
+      "fadeDurationSeconds": 4
+    }
+    ```
+
 ### E. `dj_plan_composition` (Music Room / Sound Studio)
-Initiates the fast symbolic planning phase (taking only 3–15s). Generates or mutates an ABC musical notation score without running heavy acoustic diffusion.
+Deck-level wrapper over `music { action: "plan" }` (§3.D). Initiates the fast symbolic planning phase (~3–20s). Generates or mutates an ABC musical notation score without running heavy acoustic diffusion.
 *   **Arguments**:
     ```json
     {
@@ -169,7 +331,7 @@ Initiates the fast symbolic planning phase (taking only 3–15s). Generates or m
     ```
 
 ### F. `dj_render_composition`
-Commits an approved or edited ABC score into high-fidelity 48 kHz stereo audio via the YuE 2 NAR ODE pipeline.
+Deck-level wrapper over `music { action: "generate" }` (§3.D). Commits an approved or edited ABC score into high-fidelity 48 kHz stereo audio via the YuE 2 NAR ODE pipeline. Returns a `jobId`; the deck learns about completion through the proactivity hook in §7 rather than by polling.
 *   **Arguments**:
     ```json
     {
@@ -182,7 +344,7 @@ Commits an approved or edited ABC score into high-fidelity 48 kHz stereo audio v
 
 ---
 
-## ⚙️ 4. Modular Provider Architecture
+## ⚙️ 5. Modular Provider Architecture
 
 Audio sources are implemented under `packages/stage-ui/src/libs/providers/` as part of the `music` provider category:
 
@@ -287,7 +449,7 @@ Audio sources are implemented under `packages/stage-ui/src/libs/providers/` as p
 
 ---
 
-## 🎛️ 5. DJ Deck Engine & Dual-Stream Audio Pipeline
+## 🎛️ 6. DJ Deck Engine & Dual-Stream Audio Pipeline
 
 The playback engine in `packages/stage-ui/src/stores/dj-deck.ts` coordinates both native Web Audio and Spotify streaming:
 
@@ -318,7 +480,7 @@ The playback engine in `packages/stage-ui/src/stores/dj-deck.ts` coordinates bot
 
 ---
 
-## 🧠 6. Status-Anchored Proactivity & Setlist Adaptation
+## 🧠 7. Status-Anchored Proactivity & Setlist Adaptation
 
 Instead of arbitrary clock-interval polling, the DJ engine hooks directly into the Proactivity Engine (`packages/stage-ui/src/stores/proactivity.ts`):
 
@@ -331,7 +493,7 @@ Instead of arbitrary clock-interval polling, the DJ engine hooks directly into t
 
 ---
 
-## 🖥️ 7. UI Surfaces & State Sync
+## 🖥️ 8. UI Surfaces & State Sync
 
 *   **DJ Deck Overlay / Control Strip Widget**:
     *   Displays current track title, artist, source badge (`[Spotify]` | `[YuE2]` | `[MiniMax]` | `[Suno]`), waveform/progress bar, and "On Deck" track preview chip.
@@ -344,13 +506,17 @@ Instead of arbitrary clock-interval polling, the DJ engine hooks directly into t
     *   **One-Click Stem & Score Export**: Export raw ABC notation, MIDI files, and generated 48 kHz stereo audio directly from the studio.
 *   **Chat Stream Moments**:
     *   Subtle inline track chips when a new song starts playing.
+*   **Tool Enablement Surfaces** (Phase 1, no UI beyond the toggle itself):
+    *   **Quick Settings → Tools subview**: a "Sound Studio" tile styled identically to the existing Web & Research / Computer Files rows.
+    *   **Character card settings → Tools tab**: the same toggle, for parity with web search and filesystem.
+    *   Both write the card-scoped ACL token (`music`) and never ask the user for an MCP URL — activation and URL resolution are handled by the provisioning branch in §3.C.
 *   **Cross-Window Sync (`BroadcastChannel`)**:
     *   Registered channel: `airi-dj-sync` (listed in `docs/rosetta-stone.md` §13).
     *   Synchronizes playback state, deck buffers, and queue across Control Strip, Stage, and Chatbox windows.
 
 ---
 
-## ⚠️ 8. Technical Realities & Audio Nuances
+## ⚠️ 9. Technical Realities & Audio Nuances
 
 *   **Spotify Premium Requirement**: The Spotify Web Playback SDK strictly requires an active Spotify Premium subscription. For non-Premium users, the engine defaults to **Generative Mode** (YuE2 / MiniMax / Suno) and **Local File Mode**.
 *   **DRM Audio Boundary**: Spotify streams are DRM-encrypted and cannot be directly routed through Web Audio API `AudioNode` chains (e.g., custom visualizer FFTs or audio filters). Volume ducking for Spotify is handled directly via SDK player volume controls (`player.setVolume()`).
@@ -358,22 +524,45 @@ Instead of arbitrary clock-interval polling, the DJ engine hooks directly into t
 
 ---
 
-## 📅 9. Roadmap & Implementation Checklist
+## 📅 10. Roadmap & Implementation Checklist
 
-- [x] **AIRI Audio Server Music & Sound Generation Extension**:
-  - [x] Add `POST /v1/audio/music` endpoint handling genre prompts, structured lyrics, duration, and LoRA adapters.
-  - [x] Add `POST /v1/audio/music/plan` for fast symbolic ABC score planning.
-  - [x] Add LoRA adapter management & training endpoints (`/v1/audio/music/loras`, `/v1/audio/music/loras/train`, `/v1/audio/music/loras/jobs`).
-  - [x] Add `POST /v1/audio/voice-design` endpoint for natural language character voice synthesis via `MOSS-VoiceGenerator`.
-  - [x] Add `POST /v1/audio/sfx` endpoint for rapid 8-step sound effects & foley synthesis via `Stable Audio 3 Small SFX`.
-  - [x] Add 1-click model downloaders (`npm run add-music`, `npm run add-voicegen`, `npm run add-sfx`) and modular `install.bat` wizard.
-- [ ] **AIRI Client Music Provider**:
-  - [ ] Define `MusicProvider`, `DJTrack`, and provider registry entries in `packages/stage-ui/src/libs/providers/`.
-  - [ ] Implement `AiriAudioServerMusicProvider` connecting to `/v1/audio/music`.
-  - [ ] Implement Suno v6 cloud API wrapper for fast remote fallback.
-  - [ ] Implement Spotify OAuth PKCE flow and Web Playback SDK / Connect API wrapper.
-- [ ] **DJ Deck Store**: Build `packages/stage-ui/src/stores/dj-deck.ts` with dual-deck buffer management, crossfading, and TTS audio ducking.
-- [ ] **Unified DJ Tools**: Implement `dj_queue_track`, `dj_search_catalog`, `dj_get_status`, and `dj_control` in `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/`.
-- [ ] **Playback-Anchored Proactivity**: Connect DJ deck remaining-time threshold to the proactivity dispatcher.
-- [ ] **DJ Widget & UI**: Create the "Now Playing / On Deck" media strip component on Stage and Control Strip.
-- [ ] **"Sound Studio" Left Sidebar Panel**: Implement dedicated Music Room tab with embedded `abcjs` score renderer, LoRA Cartridge Rack, and bidirectional conversational ABC score editor.
+### Phase 0 — Server contract (`airi-audio-server`)
+
+- [x] Add `POST /v1/audio/music` endpoint handling genre prompts, structured lyrics, duration, and LoRA adapters.
+- [x] Add `POST /v1/audio/music/plan` for fast symbolic ABC score planning.
+- [x] Add LoRA adapter management & training endpoints (`/v1/audio/music/loras`, `/v1/audio/music/loras/train`, `/v1/audio/music/loras/jobs`).
+- [x] Add `POST /v1/audio/voice-design` endpoint for natural language character voice synthesis via `MOSS-VoiceGenerator`.
+- [x] Add `POST /v1/audio/sfx` endpoint for rapid 8-step sound effects & foley synthesis via `Stable Audio 3 Small SFX`.
+- [x] Add 1-click model downloaders (`npm run add-music`, `npm run add-voicegen`, `npm run add-sfx`) and modular `install.bat` wizard.
+- [ ] Advertise the MCP endpoint in `GET /v1/capabilities` as `mcp: { url, transport }` (§3.B).
+- [ ] Host a Streamable HTTP MCP endpoint at `POST /mcp` (§3.A).
+- [ ] Implement the `music` hub tool with the `plan` / `generate` / `status` / `list` / `cancel` actions (§3.D).
+- [ ] Implement the job registry backing `plan` and `generate` → `status`, with receipts carrying their own `next` polling guidance, plus `server_restarted` handling (§3.G).
+
+### Phase 1 — AIRI client bridge (MCP)
+
+- [ ] Add the `music` / `mcp_music` family to `filterToolsByAllowedTools` in `packages/stage-ui/src/stores/llm.ts`. **Hard requirement** — without it the MCP meta-tools are stripped and the LLM can never discover the server.
+- [ ] Add an `airi-audio-server` (music) branch to `filterToolsForCard` in `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/mcp.ts`.
+- [ ] Add a `music` branch to `ensureMcpServersForAllowedTools`: probe capabilities, then write or reuse the HTTP entry (§3.C).
+- [ ] Add the "Sound Studio" tile to the Quick Settings **Tools** subview (`ChatOptionsToolsView.vue`).
+- [ ] Add the matching toggle to the card creation **Tools** tab (`CardCreationTabTools.vue`).
+- [ ] *(Optional)* Receipt and completed-track rendering in `tool-call-block.vue`.
+
+### Phase 2 — Deck engine & catalog
+
+- [ ] Define `MusicProvider`, `DJTrack`, and provider registry entries in `packages/stage-ui/src/libs/providers/`.
+- [ ] Implement `AiriAudioServerMusicProvider` connecting to `/v1/audio/music`.
+- [ ] Implement Suno v6 cloud API wrapper for fast remote fallback.
+- [ ] Implement Spotify OAuth PKCE flow and Web Playback SDK / Connect API wrapper.
+- [ ] Build `packages/stage-ui/src/stores/dj-deck.ts` with dual-deck buffer management, crossfading, and TTS audio ducking.
+- [ ] Implement `dj_queue_track`, `dj_search_catalog`, `dj_get_status`, and `dj_control` in `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/`.
+- [ ] Connect the DJ deck remaining-time threshold to the proactivity dispatcher.
+- [ ] Create the "Now Playing / On Deck" media strip component on Stage and Control Strip.
+
+### Phase 3 — Sound Studio depth
+
+- [ ] Render ABC notation in the existing Sound Studio tab via `abcjs`. The data path already exists — `chat_music.vue` parses `abc_score` / `abc` out of the generation response and stores it as `abcScore` on the track, but no template branch ever displays it, so today it is captured and discarded from the user's perspective.
+- [ ] Bidirectional conversational ABC editing: user edits and agent edits operate on the same score before `generate`.
+- [ ] LoRA Cartridge Rack and training workshop (§5.A).
+- [ ] One-click ABC / MIDI / WAV export.
+

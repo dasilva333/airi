@@ -2,6 +2,7 @@
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
+import { describeMusicProvisionFailure, ensureMusicToolProvisioned, readMusicMcpEndpoint } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
@@ -105,7 +106,7 @@ const chatSession = useChatSessionStore()
 const consciousnessStore = useConsciousnessStore()
 const airiCard = useAiriCardStore()
 
-const { activeCard } = storeToRefs(airiCard)
+const { activeCard, activeCardId } = storeToRefs(airiCard)
 
 // --- Server Connection State ---
 const isCheckingServer = ref(false)
@@ -152,6 +153,77 @@ async function checkServerHealth() {
   }
   finally {
     isCheckingServer.value = false
+  }
+}
+
+// --- AI Music Tools (MCP) ---
+// Enabling writes the `music` ACL token onto the active card. Provisioning is
+// gated on the audio server advertising an MCP endpoint, so the toggle is
+// genuinely blocking rather than optimistic.
+
+const musicProvisioning = ref(false)
+const musicToolError = ref('')
+const musicEndpoint = ref('')
+
+const musicToolsEnabled = computed(() => {
+  const tools = activeCard.value?.extensions?.airi?.generation?.known?.allowedTools
+  return !!tools && (tools.includes('music') || tools.includes('mcp_music'))
+})
+
+function patchMusicAllowedTool(enabled: boolean) {
+  const card = activeCard.value
+  const cardId = activeCardId.value
+  if (!card || !cardId)
+    return
+
+  const current = card.extensions?.airi?.generation?.known?.allowedTools ?? ['text_journal', 'image_journal']
+  const nextAllowedTools = enabled
+    ? (current.includes('music') ? current : [...current, 'music'])
+    : current.filter(tool => tool !== 'music' && tool !== 'mcp_music')
+
+  airiCard.updateCard(cardId, {
+    extensions: {
+      ...card.extensions,
+      airi: {
+        ...card.extensions?.airi,
+        generation: {
+          ...card.extensions?.airi?.generation,
+          known: {
+            ...card.extensions?.airi?.generation?.known,
+            allowedTools: nextAllowedTools,
+          },
+        },
+      },
+    },
+  } as any)
+}
+
+async function toggleMusicTools() {
+  if (musicProvisioning.value)
+    return
+
+  // Disabling never needs the server: drop the token, keep the mcp.json entry.
+  if (musicToolsEnabled.value) {
+    patchMusicAllowedTool(false)
+    musicToolError.value = ''
+    return
+  }
+
+  musicProvisioning.value = true
+  musicToolError.value = ''
+  try {
+    const outcome = await ensureMusicToolProvisioned({
+      providerBaseUrl: providersStore.getProviderConfig('airi-audio-server')?.baseUrl as string | undefined,
+    })
+    if (!outcome.ok) {
+      musicToolError.value = describeMusicProvisionFailure(outcome.reason)
+      return
+    }
+    musicEndpoint.value = outcome.url ?? ''
+    patchMusicAllowedTool(true)
+  }
+  finally {
+    musicProvisioning.value = false
   }
 }
 
@@ -569,6 +641,12 @@ function sendTrackToChat(track: MusicTrack) {
 
 onMounted(() => {
   void checkServerHealth()
+
+  // Read the endpoint already recorded in mcp.json. This deliberately does not
+  // probe the server, so it resolves even when the audio server is stopped.
+  void readMusicMcpEndpoint().then((url) => {
+    musicEndpoint.value = url ?? ''
+  })
 })
 
 onUnmounted(() => {
@@ -659,6 +737,59 @@ onUnmounted(() => {
           </select>
         </div>
       </div>
+
+      <!-- AI Music Tools (MCP): lets the character compose from chat -->
+      <div
+        class="flex items-center justify-between gap-3 border rounded-xl px-3 py-2 transition-colors"
+        :class="musicToolsEnabled
+          ? 'border-fuchsia-500/30 bg-fuchsia-500/10'
+          : 'border-neutral-200/60 bg-white/50 dark:border-neutral-800/60 dark:bg-neutral-900/40'"
+      >
+        <div class="min-w-0 flex items-center gap-2.5">
+          <div
+            class="h-7 w-7 flex shrink-0 items-center justify-center rounded-lg"
+            :class="musicToolsEnabled ? 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400' : 'bg-neutral-500/10 text-neutral-400'"
+          >
+            <div class="i-solar:magic-stick-3-bold-duotone text-sm" />
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[11px] text-neutral-700 font-bold dark:text-neutral-200">AI Music Tools</span>
+              <span
+                class="rounded px-1 py-0.2 text-[8px] font-semibold uppercase"
+                :class="musicToolsEnabled
+                  ? 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400'
+                  : 'bg-neutral-500/10 text-neutral-400'"
+              >
+                {{ musicToolsEnabled ? 'MCP connected' : 'Off' }}
+              </span>
+            </div>
+            <p class="truncate text-[10px] text-neutral-400" :title="musicEndpoint">
+              {{ musicToolsEnabled
+                ? (musicEndpoint || 'Endpoint recorded in mcp.json')
+                : 'Let the character plan &amp; render tracks from chat' }}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          :disabled="musicProvisioning"
+          :class="musicToolsEnabled ? 'bg-fuchsia-500' : 'bg-neutral-300 dark:bg-neutral-700'"
+          class="relative h-5 w-9 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out disabled:op-50"
+          :title="musicToolsEnabled ? 'Disable autonomous music tools' : 'Enable autonomous music tools'"
+          @click="toggleMusicTools"
+        >
+          <span
+            :class="musicProvisioning ? 'animate-pulse' : (musicToolsEnabled ? 'translate-x-4.5' : 'translate-x-0.5')"
+            class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+          />
+        </button>
+      </div>
+
+      <p v-if="musicToolError" class="text-[10px] text-rose-500 leading-snug -mt-2">
+        {{ musicToolError }}
+      </p>
 
       <!-- Quick Genre Presets Row -->
       <div class="space-y-1.5">

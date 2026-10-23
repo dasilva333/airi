@@ -19,11 +19,15 @@ function filterToolsForCard(rawTools: ElectronMcpToolDescriptor[]): ElectronMcpT
     const sName = t.serverName.toLowerCase()
     const isWebSearch = sName.includes('websearch') || sName.includes('web-search') || sName.includes('search')
     const isFilesystem = sName.includes('filesystem')
+    const isMusic = sName.includes('audio-server') || sName.includes('audio_server')
 
     if (isWebSearch && (allowedTools.includes('web_search') || allowedTools.includes('mcp_web_search'))) {
       return true
     }
     if (isFilesystem && (allowedTools.includes('filesystem') || allowedTools.includes('mcp_filesystem'))) {
+      return true
+    }
+    if (isMusic && (allowedTools.includes('music') || allowedTools.includes('mcp_music'))) {
       return true
     }
     return false
