@@ -473,7 +473,18 @@ graph LR
 3. **Prompt effect**: the `[PERSONA SNAPSHOTS]` layer (§7.1) is populated on both sides from the stored taglines, and the `[DIALOG STATE]` `No prior episodes` branch fires the first-contact guidance clause. Net effect: the first turn references a real shared fact (who the other persona claims to be) instead of a bare name.
 4. **Non-goals**: no `description` sharing in the handshake (premium tier, deferred to authenticated per-turn exchange); no auto-opt-in anywhere — allowlist answers "who may talk", disclosure toggles answer "what they may know", both fail closed and default off.
 
-### 7.4 As-Built Addendum: Dialog Sessions, State Facts, History Window (Landed 2026-10-21)
+### 7.4a Autonomous Drafting Loop (Experimental, Planned — Settled 2026-10-22)
+
+Status: the autonomous loop is **not wired**. `evaluateTrigger` is called only by the preview checklist; `beginSession`/`finishSession` only by the preview (which never finishes) and tests; the proactivity heartbeat has zero nap references; `shouldDeliverRecap` is never invoked. Both Live toggles carry an explicit Experimental badge saying the loop isn't live yet.
+
+Settled loop design (human-in-the-loop, no unsupervised sends — v1 never auto-sends):
+1. **Tick**: the proactivity heartbeat (or a dedicated interval) evaluates `coordinator.evaluateTrigger(idleSec, roster, ambassadorCompanionId)` once the user is past `afkThresholdMinutes`.
+2. **Draft**: on `fire`, run the exact preview pipeline (§7.1 + dialog state + persona layers) via `useLLM.generate` and `coordinator.beginSession`/`recordTurn` — same code path as Generate preview, no forked logic.
+3. **Stage, don't send**: the draft goes to the pending shelf (`stagedOutbound`, `review` status) with a "drafted while away" marker for human approve/discard. `finishSession` + journal write-back happen only on approval.
+4. **Recap**: on presence recovery, the existing `shouldDeliverRecap` single-fire path delivers the welcome-back summary; `NO_REPLY` stays silent.
+5. **Explicit non-goals for v1**: no unsupervised wire transmission, no TTS for background turns, no token-spend without a cap. Auto-send stays off until the trust model earns it — a later release decision, not a flag flip.
+
+### 7.4b As-Built Addendum: Dialog Sessions, State Facts, History Window (Landed 2026-10-21)
 
 Nap dialog history is **not** a side-buffer: each companion↔peer pair owns one chat session in a dedicated **`napchat` universe** (`ChatSessionMeta.napPeerId`, `createSession(..., { universeId: 'napchat', setActive: false })` so nap traffic never hijacks the active chat and never leaks into `global` grounding; `migrateSessionUniverse` already supports user-initiated promotion to `global`). Ours inscribe as `assistant`, inbound turns as `user`, via `inscribeTurn` — never the `chat.ts` send path (no TTS/speech side effects). The prompt renders a `[DIALOG STATE]` fact line plus the last-N turns (default **6**, user-adjustable `napHistoryWindow` in Region E); zero-length history renders the stable `No prior episodes with this peer.` marker the guidance's first-contact clause keys on. Previews never inscribe (draft-only promise holds); Approve and the inbound fan-out do.
 
@@ -495,6 +506,7 @@ Nap dialog history is **not** a side-buffer: each companion↔peer pair owns one
 | **Phase 4d** | **Episodic Memory Consolidation & Welcome-Back Recap** | Append-only `text_journal` memory write-back; single-fire welcome-back greeting on presence recovery; `NO_REPLY` guard enforcement. | 📋 **Planned** |
 | **Phase 4e** | **Ambassador Tagline (First-Class)** | `AiriCard.tagline` schema + Identity-tab field; `COMPANION_TAGLINE` deploy binding; Region A display + set-link; peer-record persistence. | 📋 **Planned** |
 | **Phase 4f** | **Handshake Tagline Exchange & Priming** | Request-side include-tagline checkbox; two-button accept sheet; tagline ferrying through Edge/DO; `[PERSONA SNAPSHOTS]` prompt layers. | 📋 **Planned** |
+| **Phase 4g** | **Autonomous Drafting Loop (Experimental)** | Heartbeat tick → `evaluateTrigger` → preview-pipeline draft → stage to pending with "drafted while away" marker; single-fire welcome-back recap. Explicitly no auto-send in v1. | 📋 **Planned** |
 
 ---
 

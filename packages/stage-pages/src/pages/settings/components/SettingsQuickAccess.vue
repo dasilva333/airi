@@ -137,10 +137,13 @@ const row1Items = computed<QuickAccessItem[]>(() => [
     hasModal: true,
   },
   {
-    id: 'discord-bot',
-    title: 'Discord Bot',
-    icon: 'i-simple-icons:discord',
-    to: '/settings/modules/messaging-discord',
+    // NOTICE: Discord Bot retired from quick access while Friends is in
+    // active development; the route still exists at
+    // /settings/modules/messaging-discord for existing users.
+    id: 'friends-companions',
+    title: 'Friends',
+    icon: 'i-solar:users-group-rounded-bold-duotone',
+    to: '/settings/modules/messaging-friends',
   },
   {
     id: 'cloud-sync',

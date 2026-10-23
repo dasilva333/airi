@@ -2060,7 +2060,7 @@ const surfaceCardClass = computed(() => [
             <FieldCheckbox
               v-model="napChatEnabled"
               label="Enable autonomous nap-chat"
-              description="Let companions talk with approved friends while you're away."
+              description="Experimental: the autonomous drafting loop is not live yet — drafts still need your review in the workbench."
             />
 
             <div :class="['mt-3', 'space-y-3', 'border-t', 'border-neutral-200/60', 'dark:border-white/5', 'pt-3']">
@@ -2498,11 +2498,16 @@ const surfaceCardClass = computed(() => [
                   <div class="i-solar:moon-stars-bold-duotone text-lg" />
                 </div>
                 <div>
-                  <h3 :class="['text-xs', 'font-semibold', 'text-neutral-900', 'dark:text-white']">
-                    Live nap-chat
-                  </h3>
+                  <div :class="['flex', 'items-center', 'gap-1.5']">
+                    <h3 :class="['text-xs', 'font-semibold', 'text-neutral-900', 'dark:text-white']">
+                      Live nap-chat
+                    </h3>
+                    <span :class="['rounded-full', 'border', 'border-amber-500/30', 'bg-amber-500/15', 'px-1.5', 'py-0.2', 'text-[10px]', 'font-medium', 'text-amber-700', 'dark:text-amber-300']">
+                      Experimental
+                    </span>
+                  </div>
                   <p :class="['text-[11px]', 'text-neutral-500', 'dark:text-neutral-400']">
-                    {{ napChatEnabled ? 'On · active when idle' : 'Off · preview works while disabled' }}
+                    {{ napChatEnabled ? 'On · loop not live yet, drafts need review' : 'Off · preview works while disabled' }}
                   </p>
                 </div>
               </div>
