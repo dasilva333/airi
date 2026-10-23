@@ -107,7 +107,7 @@ function handleSelectCard(cardId: string) {
         :class="[
           'z-[10000] w-[370px] max-w-[calc(100vw-24px)] max-h-[min(650px,88dvh)]',
           'flex flex-col overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-neutral-800/80',
-          'bg-white/95 dark:bg-neutral-950/95 shadow-2xl backdrop-blur-2xl duration-150',
+          'bg-white/70 dark:bg-neutral-950/70 shadow-2xl backdrop-blur-2xl duration-150',
         ]"
       >
         <!-- Top Title Bar -->
