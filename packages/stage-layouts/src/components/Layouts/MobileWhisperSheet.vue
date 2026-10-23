@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 
-import { ChatHistory, WhisperComposerBar } from '@proj-airi/stage-ui/components'
+import { ChatHistory, ProviderSetupNudge, WhisperComposerBar } from '@proj-airi/stage-ui/components'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
-import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
-import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { useLocalStorage, useScreenSafeArea } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
-import { useRouter } from 'vue-router'
 
 export type MobilePosture = 'voice' | 'composer' | 'preview' | 'history'
 export type PresentationMode = 'translucent' | 'frosted'
@@ -48,16 +45,6 @@ const screenSafeArea = useScreenSafeArea()
 const chatOrchestrator = useChatOrchestratorStore()
 const chatSession = useChatSessionStore()
 const chatStream = useChatStreamStore()
-const consciousnessStore = useConsciousnessStore()
-const onboardingStore = useOnboardingStore()
-
-let router: ReturnType<typeof useRouter> | undefined
-try {
-  router = useRouter()
-}
-catch {
-  router = undefined
-}
 
 onMounted(async () => {
   await chatSession.ensureActiveSessionForCharacter()
@@ -90,22 +77,6 @@ const groundingActiveLabel = computed(() => {
 })
 
 const historyMessages = computed(() => messages.value as unknown as ChatHistoryItem[])
-
-const { configured: isChatConfigured } = storeToRefs(consciousnessStore)
-const isProviderMissing = computed(() => !isChatConfigured.value)
-
-function openProviderSettings() {
-  router?.push('/settings/providers/chat').catch(() => {})
-}
-
-function openFreeAi() {
-  router?.push({ path: '/settings', query: { freeAi: 'open' } }).catch(() => {})
-}
-
-function openSetupWizard() {
-  onboardingStore.resetSetupState()
-  onboardingStore.forceShowSetup()
-}
 
 function setPosture(posture: MobilePosture) {
   if (currentPosture.value !== posture) {
@@ -358,49 +329,9 @@ defineExpose({
         </div>
       </div>
 
-      <!-- Provider Not Configured Nudge (floating over portrait composer) -->
-      <div
-        v-if="isProviderMissing"
-        class="pointer-events-auto mx-3 mb-2 overflow-hidden border border-amber-200/30 rounded-2xl from-amber-950/90 via-[#2a1a0e]/90 to-neutral-950/90 bg-gradient-to-br shadow-black/20 shadow-xl backdrop-blur-xl dark:border-amber-500/25"
-      >
-        <div class="flex items-start gap-2.5 p-3">
-          <div class="size-7 flex shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
-            <div class="i-solar:cpu-bolt-bold-duotone size-4" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="text-[13px] text-amber-100 font-bold leading-tight">
-              Not ready yet
-            </div>
-            <div class="mt-0.5 text-[11px] text-amber-100/70 leading-snug">
-              Choose and validate a chat provider before sending a message.
-            </div>
-            <div class="mt-2 flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                class="cursor-pointer rounded-full bg-cyan-500 px-3 py-1.5 text-[11px] text-white font-bold shadow-md transition active:scale-95 hover:bg-cyan-400"
-                @click="openProviderSettings"
-              >
-                Open provider settings
-              </button>
-              <button
-                type="button"
-                class="flex cursor-pointer items-center gap-1 border border-amber-200/30 rounded-full bg-white/10 px-3 py-1.5 text-[11px] text-amber-100 font-bold transition active:scale-95 hover:bg-white/20"
-                @click="openFreeAi"
-              >
-                <div class="i-solar:magic-stick-3-bold-duotone size-3.5" />
-                <span>Try Free AI</span>
-              </button>
-              <button
-                type="button"
-                class="flex cursor-pointer items-center gap-1 border border-amber-200/30 rounded-full bg-white/10 px-3 py-1.5 text-[11px] text-amber-100 font-bold transition active:scale-95 hover:bg-white/20"
-                @click="openSetupWizard"
-              >
-                <div class="i-solar:stars-line-bold-duotone size-3.5" />
-                <span>Setup Wizard</span>
-              </button>
-            </div>
-          </div>
-        </div>
+      <!-- Setup Nudge (responsive: stacked / sidekick / 3-column) -->
+      <div class="pointer-events-auto w-full px-3 pb-1">
+        <ProviderSetupNudge />
       </div>
 
       <!-- Whisper Composer Bar (Active in Postures 2, 3 & 4) -->

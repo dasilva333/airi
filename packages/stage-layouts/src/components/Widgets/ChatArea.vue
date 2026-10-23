@@ -3,6 +3,7 @@ import {
   ChatImagesPopover,
   ProducerChoiceBubble,
   ProducerGuidanceModal,
+  ProviderSetupNudge,
   StageBackgroundDialogPicker,
 } from '@proj-airi/stage-ui/components'
 import { useChatComposer, useProducer } from '@proj-airi/stage-ui/composables'
@@ -193,6 +194,9 @@ function handleScreenshotClick() {
         <span class="truncate text-[10px] opacity-90">{{ groundingActiveLabel }}</span>
       </div>
     </div>
+
+    <!-- Setup Nudge (responsive: stacked / sidekick / 3-column) -->
+    <ProviderSetupNudge />
 
     <!-- Unified Composer Card -->
     <div
