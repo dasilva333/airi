@@ -199,16 +199,28 @@ export class CloudflareStageDeployer {
       workerScriptCode = await packageWorkerScript()
     }
     catch (err: any) {
-      console.warn(`[Stage-Deployer] Packager fallback: ${err.message}`)
-      workerScriptCode = `
-export default {
-  async fetch(request, env) {
-    return new Response(JSON.stringify({ status: 'ok', script: "${options.scriptName}" }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-};
-`
+      console.warn(`[Stage-Deployer] Packager unavailable, will try prebuilt fallback: ${err?.message}`)
+      // NOTE: no stub installed here. An empty bundle must fail loudly below —
+      // uploading a placeholder with DO bindings attached is exactly what
+      // produces Cloudflare error 10061 on the recipient's screen.
+      workerScriptCode = ''
+    }
+    {
+      // Validate OUTSIDE the fallback above: a validation failure must never
+      // be papered over by placeholder code (Cloudflare answers 10061).
+      let scriptIssue: string | null = null
+      try {
+        const { validateWorkerScriptForUpload } = await import('./packager')
+        scriptIssue = validateWorkerScriptForUpload(workerScriptCode, options.discordBotToken ? 'DiscordHostDO' : undefined)
+      }
+      catch {
+        scriptIssue = !workerScriptCode || !workerScriptCode.trim()
+          ? 'Worker script bundle is empty and the packager module itself is unavailable. '
+          + 'Deploy from a full checkout: run `pnpm install`, then `pnpm --filter @proj-airi/stage-edge build`, then retry.'
+          : null
+      }
+      if (scriptIssue)
+        throw new Error(scriptIssue)
     }
 
     const bindings: any[] = [
@@ -347,9 +359,35 @@ export default {
       const { packageWorkerScript } = await import('./packager')
       workerScriptCode = await packageWorkerScript()
     }
-    catch {
-      const { BUNDLED_WORKER_SCRIPT } = await import('../bundle-code')
-      workerScriptCode = BUNDLED_WORKER_SCRIPT
+    catch (err: any) {
+      console.warn(`[Stage-Deployer] Packager unavailable, will try prebuilt fallback: ${err?.message}`)
+      try {
+        const { BUNDLED_WORKER_SCRIPT } = await import('../bundle-code')
+        workerScriptCode = typeof BUNDLED_WORKER_SCRIPT === 'string' ? BUNDLED_WORKER_SCRIPT : ''
+      }
+      catch {
+        workerScriptCode = ''
+      }
+    }
+    {
+      // Validate OUTSIDE the fallback above: uploading an empty script, or one
+      // missing the bound DO class, is exactly what Cloudflare rejects with
+      // 10061 ("Cannot create binding for class ... not exported by the
+      // script") on the recipient's screen. Fail loudly here instead.
+      const enableEmbassy = options?.enableEmbassyDO ?? (scriptName === 'airi-stage-edge')
+      let scriptIssue: string | null = null
+      try {
+        const { validateWorkerScriptForUpload } = await import('./packager')
+        scriptIssue = validateWorkerScriptForUpload(workerScriptCode, enableEmbassy ? 'EmbassyDO' : undefined)
+      }
+      catch {
+        scriptIssue = !workerScriptCode || !workerScriptCode.trim()
+          ? 'Worker script bundle is empty and the packager module itself is unavailable. '
+          + 'Deploy from a full checkout: run `pnpm install`, then `pnpm --filter @proj-airi/stage-edge build`, then retry.'
+          : null
+      }
+      if (scriptIssue)
+        throw new Error(scriptIssue)
     }
 
     const bindings: any[] = []

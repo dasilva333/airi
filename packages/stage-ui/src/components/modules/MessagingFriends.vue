@@ -520,7 +520,6 @@ const draftRunTrace = ref({
   latencyMs: 0,
   promptTokens: 0,
   completionTokens: 0,
-  temperature: 0.7,
 })
 
 // Modals for inspection & review
@@ -711,13 +710,13 @@ async function handleGeneratePreview() {
     const model = consciousnessStore.activeModel
     const providerId = consciousnessStore.activeProvider
     if (!model || !providerId) {
-      draftRunTrace.value = { model: 'unconfigured', latencyMs: 0, promptTokens: 0, completionTokens: 0, temperature: 0.7 }
+      draftRunTrace.value = { model: 'unconfigured', latencyMs: 0, promptTokens: 0, completionTokens: 0 }
       toast.error('Configure a chat provider + model first (Settings → Providers), then regenerate.')
       return
     }
     const provider = await providersStore.getProviderInstance(providerId) as any
     if (!provider) {
-      draftRunTrace.value = { model: String(model), latencyMs: 0, promptTokens: 0, completionTokens: 0, temperature: 0.7 }
+      draftRunTrace.value = { model: String(model), latencyMs: 0, promptTokens: 0, completionTokens: 0 }
       toast.error('Chat provider instance unavailable — check provider credentials.')
       return
     }
@@ -726,12 +725,12 @@ async function handleGeneratePreview() {
     const result = await llmStore.generate(String(model), provider, [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
-    ] as any, { temperature: 0.7, max_tokens: 120 }) as any
+    ] as any) as any
     const latencyMs = Math.round(performance.now() - startedAt)
     const rawText = String(result?.text ?? result ?? '').trim()
 
     if (!rawText || rawText === 'NO_REPLY') {
-      draftRunTrace.value = { model: String(model), latencyMs, promptTokens: Number(result?.usage?.promptTokens ?? result?.usage?.prompt_tokens ?? 0) || 0, completionTokens: Number(result?.usage?.completionTokens ?? result?.usage?.completion_tokens ?? 0) || 0, temperature: 0.7 }
+      draftRunTrace.value = { model: String(model), latencyMs, promptTokens: Number(result?.usage?.promptTokens ?? result?.usage?.prompt_tokens ?? 0) || 0, completionTokens: Number(result?.usage?.completionTokens ?? result?.usage?.completion_tokens ?? 0) || 0 }
       toast.info('Model chose silence for this preview (NO_REPLY). Try different guidance.')
       return
     }
@@ -756,7 +755,6 @@ async function handleGeneratePreview() {
       latencyMs,
       promptTokens: Number(usage?.promptTokens ?? usage?.prompt_tokens ?? usage?.inputTokens ?? 0) || 0,
       completionTokens: Number(usage?.completionTokens ?? usage?.completion_tokens ?? usage?.outputTokens ?? 0) || 0,
-      temperature: 0.7,
     }
 
     // NOTICE: preview-only session bookkeeping — begin/record so turnCount is
@@ -2485,13 +2483,9 @@ const surfaceCardClass = computed(() => [
                 <span class="text-neutral-500">Execution latency</span>
                 <span class="text-neutral-800 font-medium dark:text-neutral-200">{{ draftRunTrace.latencyMs }} ms</span>
               </div>
-              <div :class="['flex', 'items-center', 'justify-between', 'py-1', 'border-b', 'border-neutral-200/50', 'dark:border-white/5']">
+              <div :class="['flex', 'items-center', 'justify-between', 'py-1']">
                 <span class="text-neutral-500">Prompt / Completion tokens</span>
                 <span class="text-neutral-800 font-medium dark:text-neutral-200">{{ draftRunTrace.promptTokens }} in / {{ draftRunTrace.completionTokens }} out</span>
-              </div>
-              <div :class="['flex', 'items-center', 'justify-between', 'py-1']">
-                <span class="text-neutral-500">Sampling temperature</span>
-                <span class="text-neutral-800 font-medium dark:text-neutral-200">{{ draftRunTrace.temperature }}</span>
               </div>
             </div>
           </div>

@@ -37,6 +37,30 @@ async function loadBundledFallback(): Promise<string> {
   }
 }
 
+/**
+ * Upload-time tripwire for packaged worker code. esbuild bundling can fail
+ * silently in environments without native deps (packaged Electron apps,
+ * partial installs) and the prebuilt fallback can be an empty placeholder —
+ * uploading either as the worker with Durable Object bindings attached
+ * produces Cloudflare error 10061 ("Cannot create binding for class ...
+ * that is not exported by the script"). Fail loudly here instead of
+ * uploading garbage the API will reject.
+ *
+ * Returns an actionable error message, or null when the code is uploadable.
+ */
+export function validateWorkerScriptForUpload(code: string, requiredClass?: string): string | null {
+  if (!code || code.trim().length === 0) {
+    return 'Worker script bundle is empty: esbuild packaging failed and no prebuilt fallback exists. '
+      + 'On a dev machine, run `pnpm install` then `pnpm --filter @proj-airi/stage-edge build` and retry. '
+      + 'Inside a packaged app, deploy from a full checkout instead.'
+  }
+  if (requiredClass && !code.includes(requiredClass)) {
+    return `Worker script does not export the Durable Object class '${requiredClass}' but the upload binds it. `
+      + 'The bundle is stale or truncated — rebuild with `pnpm --filter @proj-airi/stage-edge build` and retry.'
+  }
+  return null
+}
+
 export async function packageWorkerScript(): Promise<string> {
   try {
     const candidates = [
