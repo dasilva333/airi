@@ -87,6 +87,11 @@ const WATCHED_UPSTREAM_PRS = [
     title: 'feat(memory-eval): add identity-continuity evaluation package',
     focus: 'Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement',
   },
+  {
+    number: 3049,
+    title: 'fix(stage-shared): parse Electron punctuation accelerators',
+    focus: 'Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback',
+  },
 ]
 
 const WATCHED_7N1M4_ITEMS = [
@@ -234,6 +239,15 @@ const SUBSYSTEM_RULES = [
       /display-model-sync/,
       /file-transfer/,
       /display-models\.repo/,
+    ],
+  },
+  {
+    name: 'Auto-Updater & Packaging Infrastructure',
+    risk: '⚪ ignore / rejected in fork (offline/local distribution)',
+    patterns: [
+      /services\/electron\/auto-updater/,
+      /windows\/main\/hide-on-close/,
+      /check-reproducible-build/,
     ],
   },
   {
