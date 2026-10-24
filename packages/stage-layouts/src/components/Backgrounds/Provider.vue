@@ -19,7 +19,7 @@ const containerRef = ref<HTMLElement | null>(null)
 
 // Connect to Stage-UI background store (where cardStore.activeCard.extensions.airi.modules.activeBackgroundId lives)
 const uiBackgroundStore = useStageUiBackgroundStore()
-const { activeBackgroundUrl, activeAtmosphereId } = storeToRefs(uiBackgroundStore)
+const { activeBackgroundUrl, activeBackgroundColor, activeAtmosphereId } = storeToRefs(uiBackgroundStore)
 
 const effectiveBackgroundSrc = computed(() => {
   if (activeBackgroundUrl.value)
@@ -59,6 +59,14 @@ defineExpose({
         >
         <!-- Subtle dark scrim for avatar and UI contrast -->
         <div class="pointer-events-none absolute inset-0 bg-black/10 dark:bg-black/30" />
+      </template>
+
+      <!-- Solid Color (from Appearance > Solid swatches) -->
+      <template v-else-if="activeBackgroundColor">
+        <div
+          class="h-full w-full transition-colors duration-500"
+          :style="{ backgroundColor: activeBackgroundColor }"
+        />
       </template>
 
       <!-- Default Background (Wave on desktop, or ambient radial gradient on mobile) when no custom image -->

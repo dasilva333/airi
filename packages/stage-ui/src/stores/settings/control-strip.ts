@@ -47,8 +47,10 @@ export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
   { id: 'theme-mode', enabled: true, label: 'Theme Mode', icon: 'i-solar:sun-2-bold-duotone' },
   { id: 'actor-characters', enabled: true, label: 'Characters', icon: 'i-solar:users-group-rounded-outline' },
   { id: 'actor-avatars', enabled: true, label: 'Avatars', icon: 'i-solar:user-bold-duotone' },
-  { id: 'stage-atmosphere', enabled: true, label: 'Stage Theme', icon: 'i-solar:magic-stick-3-bold-duotone' },
-  { id: 'actor-wardrobe', enabled: true, label: 'Wardrobe (Outfits)', icon: 'i-solar:t-shirt-outline' },
+  // NOTICE (mobile deprecations, no version bump — the keyed merge handles
+  // existing users): 'stage-atmosphere' (Stage Theme) is consolidated into
+  // Quick Settings > Appearance; 'actor-wardrobe' (WEAR) stays in the catalog
+  // but is no longer a default while it has no outfits to show.
   { id: 'workspace', enabled: true, label: 'Workspace', icon: 'i-solar:code-square-bold-duotone' },
 ]
 
@@ -124,16 +126,14 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
     let changed = false
     const existing = [...buttons.value]
 
-    // On mobile/web, seamlessly migrate any existing 'gemini-session' button slot to 'stage-atmosphere'
+    // On mobile/web, drop any legacy 'gemini-session' button slot. It used to
+    // migrate into 'stage-atmosphere', but Stage Theme is deprecated on
+    // mobile (consolidated into Quick Settings > Appearance), so there is
+    // nothing to migrate it into.
     if (!isStageTamagotchi()) {
       const geminiIdx = existing.findIndex(btn => btn.id === 'gemini-session')
-      if (geminiIdx !== -1 && !existing.some(btn => btn.id === 'stage-atmosphere')) {
-        existing[geminiIdx] = {
-          id: 'stage-atmosphere',
-          enabled: true,
-          label: 'Stage Theme',
-          icon: 'i-solar:magic-stick-3-bold-duotone',
-        }
+      if (geminiIdx !== -1) {
+        existing.splice(geminiIdx, 1)
         changed = true
       }
     }
