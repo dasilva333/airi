@@ -7,8 +7,8 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { buildVRMA, VRMA_SYSTEM_PROMPT, VRMAMotionSpecSchema } from '../../utils'
-import { getClipEmbedding } from '../../utils/flowmdm/clipEncoder'
-import { getDenoisingSession, runDdimLoop } from '../../utils/flowmdm/ddimSolver'
+import { getClipEmbedding, isClipEncoderCached, prewarmClipEncoder } from '../../utils/flowmdm/clipEncoder'
+import { getDenoisingSession, isDenoisingModelCached, runDdimLoop } from '../../utils/flowmdm/ddimSolver'
 import { exportFlowMDMToVRMA } from '../../utils/flowmdm/vrmaExporter'
 import { useLLM } from '../llm'
 import { useProvidersStore } from '../providers'
@@ -50,6 +50,141 @@ export const useTextToMotionStore = defineStore('text-to-motion', () => {
   const enabled = computed(() => true)
   const configured = computed(() => true)
 
+  // --- Motion engine pre-warm (FlowMDM CLIP + ONNX denoiser) ---
+  // Lives on the store, not the onboarding step, so navigating away does not
+  // fake a reset to "Pre-warm". `ready` means the weights are loaded and cached.
+  const prewarmStatus = ref<'idle' | 'prewarming' | 'ready' | 'error'>('idle')
+  const prewarmError = ref<string | null>(null)
+  let prewarmPromise: Promise<void> | null = null
+
+  const isPrewarming = computed(() => prewarmStatus.value === 'prewarming')
+  const engineReady = computed(() => prewarmStatus.value === 'ready')
+
+  /**
+   * Reads the real Cache Storage state so a previously pre-warmed engine shows
+   * as ready after a remount or app restart instead of asking again.
+   */
+  async function refreshPrewarmState(): Promise<void> {
+    if (prewarmStatus.value === 'ready' || prewarmStatus.value === 'prewarming')
+      return
+
+    try {
+      const [clipCached, denoiserCached] = await Promise.all([
+        isClipEncoderCached(),
+        isDenoisingModelCached(),
+      ])
+      if (clipCached && denoiserCached) {
+        prewarmStatus.value = 'ready'
+        prewarmError.value = null
+      }
+    }
+    catch (err) {
+      console.warn('[TextToMotion] Failed to inspect motion engine cache:', err)
+    }
+  }
+
+  /**
+   * Downloads and initializes the local FlowMDM engine (CLIP text encoder +
+   * ONNX denoiser). Deliberately does NOT run generation: pre-warming must not
+   * depend on an LLM provider or burn a diffusion pass.
+   *
+   * Downloading FlowMDM is only meaningful if generation uses it, so a
+   * successful pre-warm also commits the persisted engine selection to
+   * `flowmdm`. The switch happens on success only: a failed download must not
+   * strand the user on an engine that is not there.
+   */
+  async function prewarmEngine(options?: { onLog?: (msg: string) => void }): Promise<void> {
+    if (prewarmStatus.value === 'ready') {
+      // Already downloaded (e.g. cache from a previous session) but the engine
+      // selection may have been switched back to procedural since.
+      setMode('flowmdm')
+      return
+    }
+    if (prewarmPromise)
+      return prewarmPromise
+
+    const log = options?.onLog ?? (() => {})
+
+    prewarmPromise = (async () => {
+      prewarmStatus.value = 'prewarming'
+      prewarmError.value = null
+      downloadProgress.value = {
+        percentage: 5,
+        file: 'Xenova/clip-vit-base-patch32',
+        status: 'Loading CLIP text encoder...',
+        isDownloading: true,
+      }
+
+      try {
+        if (!isWebGPUSupported())
+          log('[WARN] WebGPU is not supported on this device/browser. The engine will run on WASM.')
+
+        log('Pre-warming CLIP text encoder...')
+        // Transformers.js reports progress per file; keep the bar monotonic so
+        // the tokenizer finishing does not snap the percentage back down.
+        let clipProgressFloor = 5
+        await prewarmClipEncoder(log, (percentage, status) => {
+          const mapped = Math.max(clipProgressFloor, Math.round(5 + percentage * 0.35))
+          clipProgressFloor = mapped
+          downloadProgress.value = {
+            percentage: mapped,
+            file: 'Xenova/clip-vit-base-patch32',
+            status,
+            isDownloading: true,
+          }
+        })
+
+        downloadProgress.value = {
+          percentage: 40,
+          file: 'dasilva333/flowmdm-onnx',
+          status: 'Preparing FlowMDM denoiser...',
+          isDownloading: true,
+        }
+
+        const session = await getDenoisingSession(log, (percentage, status) => {
+          downloadProgress.value = {
+            percentage: Math.round(40 + percentage * 0.6),
+            file: 'dasilva333/flowmdm-onnx',
+            status,
+            isDownloading: percentage < 100,
+          }
+        })
+
+        if (!session)
+          throw new Error('FlowMDM denoiser session could not be initialized.')
+
+        downloadProgress.value = {
+          percentage: 100,
+          file: '',
+          status: 'Motion engine ready',
+          isDownloading: false,
+        }
+        prewarmStatus.value = 'ready'
+        // Engine is on disk and loaded: make generation use it.
+        setMode('flowmdm')
+        log('Motion engine pre-warmed and cached. Engine set to FlowMDM.')
+      }
+      catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        prewarmStatus.value = 'error'
+        prewarmError.value = message
+        downloadProgress.value = {
+          percentage: 0,
+          file: '',
+          status: `Pre-warm failed: ${message}`,
+          isDownloading: false,
+        }
+        log(`[WARN] Motion engine pre-warm failed: ${message}`)
+        throw err
+      }
+      finally {
+        prewarmPromise = null
+      }
+    })()
+
+    return prewarmPromise
+  }
+
   /**
    * Centralized Motion Generation Entry Point
    * Handles routing between procedural (LLM) and flowmdm (WebGPU) modes.
@@ -60,13 +195,21 @@ export const useTextToMotionStore = defineStore('text-to-motion', () => {
       format?: 'vrma' | 'vmd' | 'motion_json'
       outputLength?: number
       onLog?: (msg: string) => void
+      /**
+       * Overrides the persisted engine selection for this call only. Callers
+       * that already guarantee the local engine is warm (e.g. the onboarding
+       * finale demo, which runs before the draft provider is committed) use
+       * this instead of depending on the active consciousness provider.
+       */
+      engine?: TextToMotionMode
     },
   ): Promise<MotionGenerationResult> {
     const format = options?.format || 'vrma'
     const log = options?.onLog || (() => {})
+    const engine = options?.engine ?? mode.value
 
     // Route: FlowMDM (Local WebGPU ONNX Pipeline)
-    if (mode.value === 'flowmdm') {
+    if (engine === 'flowmdm') {
       log('Initiating FlowMDM WebGPU pipeline...')
 
       if (!isWebGPUSupported()) {
@@ -91,7 +234,14 @@ export const useTextToMotionStore = defineStore('text-to-motion', () => {
       }
 
       // Step 2: Load ONNX Session
-      const session = await getDenoisingSession(log)
+      const session = await getDenoisingSession(log, (percentage, status) => {
+        downloadProgress.value = {
+          percentage: Math.round(30 + percentage * 0.2),
+          file: 'dasilva333/flowmdm-onnx',
+          status,
+          isDownloading: percentage < 100,
+        }
+      })
 
       downloadProgress.value = {
         percentage: 50,
@@ -123,6 +273,12 @@ export const useTextToMotionStore = defineStore('text-to-motion', () => {
 
       const cleanName = prompt.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 20) || 'flowmdm_motion'
       log(`FlowMDM Motion exported successfully. Format: ${format.toUpperCase()}`)
+
+      // A successful FlowMDM pass means the engine is loaded and warm.
+      if (session) {
+        prewarmStatus.value = 'ready'
+        prewarmError.value = null
+      }
 
       return {
         buffer,
@@ -209,6 +365,12 @@ export const useTextToMotionStore = defineStore('text-to-motion', () => {
     enabled,
     configured,
     downloadProgress,
+    prewarmStatus,
+    prewarmError,
+    isPrewarming,
+    engineReady,
+    refreshPrewarmState,
+    prewarmEngine,
     setMode,
     isWebGPUSupported,
     generateMotion,

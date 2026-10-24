@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../../../stores/display-models'
@@ -37,13 +37,16 @@ const isVrmModel = computed(() => {
   return false
 })
 
-const isPrewarming = ref(false)
-const prewarmDone = ref(false)
+const isPrewarming = computed(() => textToMotionStore.isPrewarming)
+const prewarmDone = computed(() => textToMotionStore.engineReady)
 
 onMounted(async () => {
   if (displayModelsStore.displayModels.length === 0) {
     await displayModelsStore.loadDisplayModelsFromIndexedDB?.(true)
   }
+  // Pre-warm state lives on the store and is derived from Cache Storage, so
+  // returning to this step does not reset an already warmed engine to "Pre-warm".
+  void textToMotionStore.refreshPrewarmState()
 })
 
 function handleToggleWebSearch() {
@@ -67,26 +70,25 @@ function handleToggleScreenshot() {
 function handleToggleMotionGenerator() {
   const nextState = !draftStore.state.toolMotionGeneratorEnabled
   draftStore.setTools({ toolMotionGeneratorEnabled: nextState })
-  if (nextState && !prewarmDone.value && !isPrewarming.value) {
-    void triggerPrewarmMotion()
-  }
+
+  // Enabling the pack selects the local engine. Commit immediately only when
+  // the engine is already available; otherwise the Pre-warm button commits the
+  // selection after a successful download. No implicit download here.
+  if (nextState && textToMotionStore.engineReady)
+    textToMotionStore.setMode('flowmdm')
 }
 
 async function triggerPrewarmMotion() {
   if (isPrewarming.value)
     return
 
-  isPrewarming.value = true
   try {
-    await textToMotionStore.generateMotion('wave hello')
-    prewarmDone.value = true
+    // Also commits the motion engine selection to FlowMDM once the download
+    // succeeds (or is already cached), so generation actually uses it.
+    await textToMotionStore.prewarmEngine()
   }
   catch (err) {
-    console.warn('[StepTools] Motion prewarm fallback:', err)
-    prewarmDone.value = true
-  }
-  finally {
-    isPrewarming.value = false
+    console.warn('[StepTools] Motion engine pre-warm failed:', err)
   }
 }
 
@@ -310,8 +312,10 @@ const activeToolCount = computed(() => {
         </div>
       </div>
 
-      <!-- 4. Kinetic Motion Generator Pack -->
+      <!-- 4. Kinetic Motion Generator Pack (VRM vessels only: generate_motion
+           emits VRMA tracks, which Live2D/Spine/MMD cannot play) -->
       <div
+        v-if="isVrmModel"
         :class="[
           'rounded-2xl border transition-all p-4.5 flex flex-col gap-3',
           draftStore.state.toolMotionGeneratorEnabled
@@ -388,7 +392,7 @@ const activeToolCount = computed(() => {
 
               <span>
                 {{
-                  isPrewarming ? t('onboarding.steps.tools.downloadingShardsValue', { percentage15: textToMotionStore.downloadProgress.percentage || 15 }) : prewarmDone ? t('onboarding.steps.tools.preWarmedCached') : t('onboarding.steps.tools.preWarmDownloadEngine')
+                  isPrewarming ? t('onboarding.steps.tools.downloadingShardsValue', { percentage15: textToMotionStore.downloadProgress.percentage }) : prewarmDone ? t('onboarding.steps.tools.preWarmedCached') : t('onboarding.steps.tools.preWarmDownloadEngine')
                 }}
               </span>
             </button>
@@ -401,12 +405,12 @@ const activeToolCount = computed(() => {
           >
             <div :class="['flex items-center justify-between text-[11px] font-mono text-rose-700 dark:text-rose-300']">
               <span>{{ textToMotionStore.downloadProgress.status || t('onboarding.steps.tools.loadingClipEncoderOnnxDenoiser') }}</span>
-              <span>{{ textToMotionStore.downloadProgress.percentage || 15 }}%</span>
+              <span>{{ textToMotionStore.downloadProgress.percentage }}%</span>
             </div>
             <div :class="['w-full h-1.5 bg-rose-500/20 rounded-full overflow-hidden']">
               <div
                 :class="['h-full bg-rose-500 rounded-full transition-all duration-300']"
-                :style="{ width: `${textToMotionStore.downloadProgress.percentage || 15}%` }"
+                :style="{ width: `${textToMotionStore.downloadProgress.percentage}%` }"
               />
             </div>
           </div>

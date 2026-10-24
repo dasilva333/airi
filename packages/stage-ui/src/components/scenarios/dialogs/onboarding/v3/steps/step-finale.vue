@@ -53,10 +53,6 @@ const modelStore = useModelStore()
 const { stageModelRenderer } = storeToRefs(settingsStore)
 
 // --- Motion Playground Demo (VRM + Primed Motion Tool) ---
-const isMotionDemoEligible = computed(() => {
-  return modelType.value === 'vrm' && draft.state.toolMotionGeneratorEnabled === true
-})
-
 const motionPrompt = ref('')
 const isGeneratingMotion = ref(false)
 const motionDemoStatus = ref('')
@@ -81,6 +77,10 @@ async function handleGenerateMotionDemo() {
   motionDemoStatus.value = t('onboarding.steps.finale.messages.generating3dVrmaAnimation')
   try {
     const result = await textToMotionStore.generateMotion(prompt, {
+      // Onboarding runs before the draft provider is committed, so the
+      // procedural path has no active LLM provider here. When the user
+      // pre-warmed the local engine, use it instead of failing.
+      engine: textToMotionStore.engineReady ? 'flowmdm' : undefined,
       onLog: (msg) => { motionDemoStatus.value = msg },
     })
 
@@ -159,6 +159,11 @@ const modelType = computed<'live2d' | 'vrm' | 'mmd' | 'spine' | 'unknown'>(() =>
   return 'unknown'
 })
 
+// Declared after `modelType` so the dependency resolves at definition time.
+const isMotionDemoEligible = computed(() => {
+  return modelType.value === 'vrm' && draft.state.toolMotionGeneratorEnabled === true
+})
+
 const modelFormatLabel = computed(() => {
   const type = modelType.value
   const name = currentModel.value?.name
@@ -230,6 +235,9 @@ onMounted(async () => {
   if (displayModelsStore.displayModels.length === 0) {
     await displayModelsStore.loadDisplayModelsFromIndexedDB?.(true)
   }
+  // Detect an engine that was pre-warmed earlier (same session or a previous
+  // one) so the motion demo can use it instead of the pre-commit LLM path.
+  void textToMotionStore.refreshPrewarmState()
   await initializeStageRenderer()
 })
 
