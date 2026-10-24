@@ -183,7 +183,7 @@ The hub convention is established house style: `text_journal` exposes `action: [
 
 Why a hub instead of five discrete MCP tools (`music_plan`, `music_generate`, …): AIRI's tool gate and prompt builder both optimize for context budget, and `mcp_list_tools` surfaces one schema per tool. A single discriminated-action schema costs a fraction of five, which matters for the small local models AIRI explicitly protects.
 
-**The description is load-bearing.** A receipt-returning `generate` only works if the model knows to poll, and how often. The `status` action's description must state the cadence explicitly — *check at most once per turn; a 60-second track typically takes 1–3 minutes* — otherwise the model polls four times in a single turn and exhausts the tool-step budget.
+**The description is load-bearing.** A receipt-returning `generate` only works if the model knows to poll, and how often. The `status` action's description must state the cadence explicitly, with measured numbers rather than optimistic ones — YuE 2 renders at roughly **10–15x real time** on an 8GB laptop GPU (15x in the shootout benchmarks, 10.7x on a warm 30s render through the server), so 30 seconds of audio is 5–8 minutes and a 2 minute track is 20–27 minutes. An under-stated budget is worse than no guidance: a model told "1–3 minutes" declares a healthy render failed at the four-minute mark.
 
 ### E. Plan-First: ABC as the Conversational Artifact
 
@@ -228,7 +228,7 @@ status   → { jobId,
 
 The `next` string is deliberately human-readable rather than structured: it is injected into the model's context, and a natural-language instruction survives summarization better than a `retryAfterMs` integer that the model may ignore.
 
-Job state survives across turns and `status` calls. It does not need to survive an `airi-audio-server` restart in Phase 1: a restarted server reports an unknown `jobId` as `failed` with `reason: "server_restarted"`.
+Job state survives across turns and `status` calls. It does **not** survive an `airi-audio-server` restart — job records are in-memory, so an unknown `jobId` returns a not-found tool error. Completed tracks do survive, because the library is written to disk; `list` still returns them after a restart. Tool descriptions should tell the model to treat a not-found error after a restart as "re-plan", not as a crash.
 
 ---
 
@@ -534,10 +534,10 @@ Instead of arbitrary clock-interval polling, the DJ engine hooks directly into t
 - [x] Add `POST /v1/audio/voice-design` endpoint for natural language character voice synthesis via `MOSS-VoiceGenerator`.
 - [x] Add `POST /v1/audio/sfx` endpoint for rapid 8-step sound effects & foley synthesis via `Stable Audio 3 Small SFX`.
 - [x] Add 1-click model downloaders (`npm run add-music`, `npm run add-voicegen`, `npm run add-sfx`) and modular `install.bat` wizard.
-- [ ] Advertise the MCP endpoint in `GET /v1/capabilities` as `mcp: { url, transport }` (§3.B).
-- [ ] Host a Streamable HTTP MCP endpoint at `POST /mcp` (§3.A).
-- [ ] Implement the `music` hub tool with the `plan` / `generate` / `status` / `list` / `cancel` actions (§3.D).
-- [ ] Implement the job registry backing `plan` and `generate` → `status`, with receipts carrying their own `next` polling guidance, plus `server_restarted` handling (§3.G).
+- [x] Advertise the MCP endpoint in `GET /v1/capabilities` as `mcp: { url, transport }` (§3.B).
+- [x] Host a Streamable HTTP MCP endpoint at `POST /mcp` (§3.A).
+- [x] Implement the `music` hub tool with the `plan` / `generate` / `status` / `list` / `cancel` actions (§3.D).
+- [x] Implement the job registry backing `plan` and `generate` → `status`, with receipts carrying their own `next` polling guidance (§3.G).
 
 ### Phase 1 — AIRI client bridge (MCP)
 
