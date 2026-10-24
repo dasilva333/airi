@@ -7,6 +7,7 @@ import { useAutoSuggestions, useProducer, useSpeechCaptionPlayer } from '@proj-a
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores'
 import { useSpeakingStore } from '@proj-airi/stage-ui/stores/audio'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
+import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useAutonomousArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry-autonomous'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
@@ -19,7 +20,7 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, onBeforeUnmount, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
-import { electron, electronApplySizePreset, electronStageToggleVisibility, electronStartDraggingWindow } from '../../shared/eventa'
+import { electron, electronApplySizePreset, electronStageMateEnsureModel, electronStageMateSaveModel, electronStageMateSyncOutfits, electronStageMateToggleVisibility, electronStageToggleVisibility, electronStartDraggingWindow } from '../../shared/eventa'
 import { useWindowStore } from '../stores/window'
 
 const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
@@ -64,9 +65,10 @@ function handleOverlayHide() {
 }
 
 useEventListener(window, 'keydown', (e: KeyboardEvent) => {
-  if (e.key === 'Escape' && configOverlayOpen.value) {
+  if (e.key === 'Escape' && (configOverlayOpen.value || stageMateMenuOpen.value)) {
     e.stopImmediatePropagation()
     configOverlayOpen.value = false
+    stageMateMenuOpen.value = false
   }
 }, { capture: true })
 
@@ -75,12 +77,155 @@ const { activeBackgroundUrl, activeAtmosphereId } = storeToRefs(backgroundStore)
 const activeAtmosphereComponent = computed(() => resolveAtmosphereComponent(activeAtmosphereId.value))
 
 const settingsStore = useSettings()
-const { stageModelSelected } = storeToRefs(settingsStore)
+const { stageModelSelected, stageModelRenderer } = storeToRefs(settingsStore)
 
 const controlStripStore = useSettingsControlStrip()
 const { stageEnabled } = storeToRefs(controlStripStore)
 
 const positioningStore = usePositioningStore()
+const displayModelsStore = useDisplayModelsStore()
+
+// --- Stage-Mate quick actions (VRM only) ---
+const toggleStageMateVisibility = useElectronEventaInvoke(electronStageMateToggleVisibility)
+const ensureStageMateModel = useElectronEventaInvoke(electronStageMateEnsureModel)
+const saveStageMateModel = useElectronEventaInvoke(electronStageMateSaveModel)
+const syncStageMateOutfitsInvoke = useElectronEventaInvoke(electronStageMateSyncOutfits)
+
+const stageMateMenuOpen = ref(false)
+const isSyncingMate = ref(false)
+const isVrmModel = computed(() => stageModelRenderer.value === 'vrm')
+
+async function ensureVrmCachedForMate(): Promise<boolean> {
+  try {
+    const modelId = stageModelSelected.value
+    if (!modelId || modelId === 'none')
+      return false
+    const model: any = await displayModelsStore.getDisplayModel(modelId)
+    if (!model || model.format !== DisplayModelFormat.VRM || !model.file || typeof model.file.arrayBuffer !== 'function')
+      return false
+    const pos = positioningStore.getPosition(modelId)
+    const rawPos = pos
+      ? { x: Number(pos.x ?? 0), y: Number(pos.y ?? 0), scale: Number(pos.scale ?? 1) }
+      : { x: 0, y: 0, scale: 1 }
+    const checkRes: any = await ensureStageMateModel({
+      modelId: String(model.id),
+      modelName: String(model.name || 'model.vrm'),
+      position: rawPos,
+    })
+    if (checkRes?.status === 'need_binary') {
+      const arrayBuffer = await model.file.arrayBuffer()
+      await saveStageMateModel({
+        modelId: String(model.id),
+        modelName: String(model.name || 'model.vrm'),
+        data: new Uint8Array(arrayBuffer),
+        position: rawPos,
+      })
+    }
+    return true
+  }
+  catch (err) {
+    console.warn('[Actor Window] Failed to cache VRM for Stage-Mate:', err)
+    return false
+  }
+}
+
+// Same sync function as the outfit tab in ModelCustomizer.vue (syncStageMateSidecar with reload).
+async function syncMateOutfits(reload = true): Promise<boolean> {
+  try {
+    const modelId = stageModelSelected.value
+    if (!modelId || modelId === 'none')
+      return false
+    const model: any = await displayModelsStore.getDisplayModel(modelId)
+    if (!model)
+      return false
+    const rawOutfits = toRaw(model.outfits || [])
+    const plainOutfits = rawOutfits.map((o: any) => {
+      const plainObj = toRaw(o)
+      const rawMeshes = plainObj.meshes ? toRaw(plainObj.meshes) : []
+      return {
+        name: String(plainObj.name || ''),
+        tag: String(plainObj.tag || ''),
+        meshes: Array.from(rawMeshes as unknown[]).map(m => String(m)),
+      }
+    })
+    const payload = JSON.parse(JSON.stringify({
+      modelId: String(model.id),
+      outfits: plainOutfits,
+      reload: Boolean(reload),
+    }))
+    const res: any = await syncStageMateOutfitsInvoke(payload)
+    return !!res?.success
+  }
+  catch (err) {
+    console.error('[Actor Window] Failed to sync outfits with Stage-Mate:', err)
+    return false
+  }
+}
+
+async function handleSwapToMate() {
+  stageMateMenuOpen.value = false
+  const toastId = toast.loading('Swapping to Mate Engine…')
+  try {
+    const cached = await ensureVrmCachedForMate()
+    if (!cached) {
+      toast.error('Current model is not a cached VRM file.', { id: toastId })
+      return
+    }
+    await syncMateOutfits(false)
+    controlStripStore.stageMateEnabled = true
+    await toggleStageMateVisibility(true)
+    controlStripStore.stageEnabled = false
+    await toggleStageVisibility(false)
+    toast.success('Swapped to Mate Engine.', { id: toastId })
+  }
+  catch (err: any) {
+    toast.error(`Swap failed: ${err?.message || 'Unknown error'}`, { id: toastId })
+  }
+}
+
+async function handleOpenMate() {
+  stageMateMenuOpen.value = false
+  const toastId = toast.loading('Opening Mate Engine…')
+  try {
+    const cached = await ensureVrmCachedForMate()
+    if (!cached) {
+      toast.error('Current model is not a cached VRM file.', { id: toastId })
+      return
+    }
+    controlStripStore.stageMateEnabled = true
+    await toggleStageMateVisibility(true)
+    toast.success('Mate Engine opened.', { id: toastId })
+  }
+  catch (err: any) {
+    toast.error(`Open failed: ${err?.message || 'Unknown error'}`, { id: toastId })
+  }
+}
+
+async function handleSyncMate() {
+  if (isSyncingMate.value)
+    return
+  stageMateMenuOpen.value = false
+  isSyncingMate.value = true
+  const toastId = toast.loading('Syncing outfits with Stage-Mate…')
+  try {
+    const success = await syncMateOutfits(true)
+    if (success)
+      toast.success('Stage-Mate synchronized successfully!', { id: toastId })
+    else
+      toast.error('Failed to sync Stage-Mate outfits sidecar.', { id: toastId })
+  }
+  catch (err: any) {
+    toast.error(`Failed to sync Stage-Mate: ${err?.message || 'Unknown error'}`, { id: toastId })
+  }
+  finally {
+    isSyncingMate.value = false
+  }
+}
+
+watch(isVrmModel, (isVrm) => {
+  if (!isVrm)
+    stageMateMenuOpen.value = false
+})
 
 const windowStore = useWindowStore()
 const { live2dLookAtX, live2dLookAtY } = storeToRefs(windowStore)
@@ -311,6 +456,8 @@ watch(
     stageIsHidden.value = shouldHide
     setIgnoreMouseEvents([shouldHide, { forward: true }])
     showControls.value = inside && !shouldHide
+    if (!showControls.value)
+      stageMateMenuOpen.value = false
   },
   { immediate: true },
 )
@@ -619,6 +766,46 @@ onBeforeUnmount(() => {
         ]"
       >
         <div class="flex items-center gap-0.5 border border-neutral-200/50 rounded-lg bg-white/80 p-0.5 shadow-sm backdrop-blur-md dark:border-neutral-800/40 dark:bg-neutral-900/70">
+          <!-- Stage-Mate Quick Actions Button (VRM only) -->
+          <div v-if="isVrmModel" class="relative">
+            <button
+              class="text-neutral-850 size-6 flex cursor-pointer items-center justify-center rounded-md transition-all duration-200 active:scale-95 hover:bg-neutral-200/60 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+              title="Mate Engine options"
+              @click="stageMateMenuOpen = !stageMateMenuOpen"
+            >
+              <div class="i-ph:cube-bold size-3.5" />
+            </button>
+            <div
+              v-if="stageMateMenuOpen"
+              class="absolute right-0 top-7 z-50 min-w-44 flex flex-col gap-0.5 border border-neutral-200/50 rounded-lg bg-white/95 p-1 shadow-lg backdrop-blur-md dark:border-neutral-800/40 dark:bg-neutral-900/95"
+            >
+              <button
+                class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-neutral-700 transition-colors hover:bg-neutral-200/60 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+                title="Enable Mate Engine and hide the WebGL stage"
+                @click="handleSwapToMate"
+              >
+                <div class="i-ph:arrows-left-right-bold size-3.5 shrink-0" />
+                <span>Swap to Mate Engine</span>
+              </button>
+              <button
+                class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-neutral-700 transition-colors hover:bg-neutral-200/60 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+                title="Enable Mate Engine and keep the WebGL stage"
+                @click="handleOpenMate"
+              >
+                <div class="i-ph:arrow-square-out-bold size-3.5 shrink-0" />
+                <span>Open Mate Engine</span>
+              </button>
+              <button
+                class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-neutral-700 transition-colors disabled:cursor-wait hover:bg-neutral-200/60 dark:text-neutral-200 disabled:opacity-60 dark:hover:bg-neutral-700/60"
+                title="Sync outfits with Stage-Mate (same as the outfit tab)"
+                :disabled="isSyncingMate"
+                @click="handleSyncMate"
+              >
+                <div :class="isSyncingMate ? 'i-ph:circle-notch-bold animate-spin' : 'i-ph:arrows-clockwise-bold'" class="size-3.5 shrink-0" />
+                <span>{{ isSyncingMate ? 'Syncing…' : 'Sync Mate Engine' }}</span>
+              </button>
+            </div>
+          </div>
           <!-- Drag Handle Button -->
           <button
             class="text-neutral-850 size-6 flex cursor-pointer items-center justify-center rounded-md transition-all duration-200 active:scale-95 hover:bg-neutral-200/60 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
