@@ -180,12 +180,26 @@ const musicResult = computed<any | null>(() => {
   if (!isMusicToolCall.value)
     return null
 
-  const structured = props.result?.structuredContent
+  // The transcript stores tool results as JSON strings, so unwrap before probing
+  // for structuredContent. Objects are handled too, for callers that pass them.
+  let envelope: any = props.result
+  if (typeof envelope === 'string') {
+    try {
+      envelope = JSON.parse(envelope)
+    }
+    catch {
+      return null
+    }
+  }
+  if (!envelope || typeof envelope !== 'object')
+    return null
+
+  const structured = envelope.structuredContent
   if (structured && typeof structured === 'object')
     return structured
 
-  // Fall back to text content for clients/results that omit structuredContent.
-  const text = props.result?.content?.find((entry: any) => entry?.type === 'text')?.text
+  // Fall back to the text content for results that omit structuredContent.
+  const text = envelope.content?.find((entry: any) => entry?.type === 'text')?.text
   if (typeof text === 'string') {
     try {
       return JSON.parse(text)
