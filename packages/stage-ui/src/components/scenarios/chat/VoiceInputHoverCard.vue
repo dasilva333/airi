@@ -193,16 +193,19 @@ function deviceDisplayLabel(device: MediaDeviceInfo, index: number) {
 
       <button
         type="button"
-        title="Record a voice message"
+        disabled
+        title="Voice messages need a native audio pipeline — dictation only for now"
         :class="[
           'w-full flex items-center gap-2.5',
           'px-4 py-2 text-left text-[15px]',
-          voiceInputMode === 'voice-message' ? 'text-sky-300' : 'text-neutral-100',
+          'cursor-not-allowed opacity-40',
         ]"
-        @click="selectMode('voice-message')"
       >
         <div class="i-solar:microphone-linear size-5 shrink-0" />
-        <span>Voice message</span>
+        <span class="min-w-0 flex-1 truncate">Voice message</span>
+        <span class="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase">
+          Coming soon
+        </span>
       </button>
 
       <button

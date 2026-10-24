@@ -149,10 +149,13 @@ class AutomaticSpeechRecognitionPipeline {
     // NOTICE: progressive dtype fallback. fp16 encoder may fail on some
     // devices/browsers — fall back to fp32. Decoder fp16 is known broken
     // (see Issue #989), so it is never attempted.
-    // The q4 decoder can additionally fail session creation when ORT's
+    // The q4 decoder can additionally fail session creation when ORT 1.24's
     // SimplifiedLayerNorm fusion trips over its baked-in quantization casts
-    // ("InsertedPrecisionFreeCast_...Constant does not exist"); the fp32
-    // decoder has no quantized casts to misfuse, so it is the last resort.
+    // ("InsertedPrecisionFreeCast_...Constant does not exist"). The fp32
+    // decoder is attempted last, but on whisper-tiny it fails the same
+    // fusion — the bug is in the fusion engine vs this graph family, not the
+    // quantization. Retained in case other shards differ; see
+    // docs/project-future-modalities-support.md §3 for the full story.
     // https://github.com/huggingface/transformers.js/issues/989
     this.model ??= (async () => {
       const attempts = [
