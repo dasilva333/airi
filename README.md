@@ -159,7 +159,7 @@ An AI companion interacts with your most personal thoughts, daily habits, emotio
 ## Download
 
 <p float="left" align="center">
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.40-stable.20261018/airi-dasilva333-0.9.40-stable.20261018-windows-x64-setup.exe">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.41-stable.20261024/airi-dasilva333-0.9.41-stable.20261024-windows-x64-setup.exe">
     <picture>
       <source
         width="33%"
@@ -174,7 +174,7 @@ An AI companion interacts with your most personal thoughts, daily habits, emotio
       <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.windows.light.en-US.avif" alt="Download AIRI for Windows" />
     </picture>
   </a>
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.40-stable.20261018/airi-dasilva333-0.9.40-stable.20261018-darwin-arm64.dmg">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.41-stable.20261024/airi-dasilva333-0.9.41-stable.20261024-darwin-arm64.dmg">
     <picture>
       <source
         width="33%"
@@ -207,7 +207,7 @@ An AI companion interacts with your most personal thoughts, daily habits, emotio
 </p>
 
 <p float="left" align="center">
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.40-stable.20261018/AIRI-0.9.40-stable.20261018-android.apk">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.41-stable.20261024/AIRI-0.9.41-stable.20261024-android.apk">
     <picture>
       <source
         width="33%"
@@ -222,7 +222,7 @@ An AI companion interacts with your most personal thoughts, daily habits, emotio
       <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.mobile.light.en-US.avif" alt="Download AIRI for Android" />
     </picture>
   </a>
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.40-stable.20261018/AIRI-0.9.40-stable.20261018-ios.ipa">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.41-stable.20261024/AIRI-0.9.41-stable.20261024-ios.ipa">
     <picture>
       <source
         width="33%"
