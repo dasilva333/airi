@@ -3,14 +3,18 @@ import { estimateTokens } from '@proj-airi/stage-shared'
 import { BrainModelPicker } from '@proj-airi/stage-ui/components'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, ref } from 'vue'
 
+import ControlStripEditorSheet from './ControlStripEditorSheet.vue'
 import MobileHeaderLink from './MobileHeaderLink.vue'
 import MobileUtilityPopover from './MobileUtilityPopover.vue'
 
 const chatSessionStore = useChatSessionStore()
 const { messages } = storeToRefs(chatSessionStore)
+
+// Control Strip editor opens as a bottom sheet (not a settings page) so
+// tweaking the strip never navigates away from the stage.
+const customizerSheetOpen = ref(false)
 
 // Approximate context capacity bar
 const MAX_CONTEXT_TOKENS = 128_000
@@ -77,14 +81,16 @@ const tokenBarColorClass = computed(() => {
           side="bottom"
         />
 
-        <!-- 2. Control Strip Customizer Trigger -->
-        <RouterLink
-          to="/settings/stage"
-          class="size-8.5 flex items-center justify-center border border-neutral-200/30 rounded-full bg-white/10 text-neutral-700 shadow-sm backdrop-blur-md transition-all active:scale-95 dark:border-neutral-700/40 dark:bg-neutral-800/60 dark:text-neutral-200"
+        <!-- 2. Control Strip Customizer Trigger (bottom sheet) -->
+        <button
+          type="button"
+          class="size-8.5 flex cursor-pointer items-center justify-center border border-neutral-200/30 rounded-full bg-white/10 text-neutral-700 shadow-sm backdrop-blur-md transition-all active:scale-95 dark:border-neutral-700/40 dark:bg-neutral-800/60 dark:text-neutral-200"
           title="Control Customizer"
+          @click="customizerSheetOpen = true"
         >
           <div class="i-solar:widget-2-bold-duotone size-4.5 text-sky-500 dark:text-sky-400" />
-        </RouterLink>
+        </button>
+        <ControlStripEditorSheet v-model="customizerSheetOpen" />
 
         <!-- 3. Quick Settings (Popover with Cog trigger) -->
         <MobileUtilityPopover />

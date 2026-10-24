@@ -24,7 +24,7 @@ export const DEFAULT_BUTTONS: ControlStripButton[] = [
   { id: 'actor-characters', enabled: true, label: 'Characters', icon: 'i-solar:users-group-rounded-outline' },
   { id: 'mic', enabled: true, label: 'Microphone Toggle', icon: 'i-solar:muted-linear' },
   { id: 'stage', enabled: true, label: 'Actor Stage', icon: 'i-solar:clapperboard-play-bold-duotone' },
-  { id: 'stage-atmosphere', enabled: true, label: 'Stage & Chat Theme', icon: 'i-solar:magic-stick-3-bold-duotone' },
+  { id: 'stage-atmosphere', enabled: true, label: 'Stage & Chat Theme', icon: 'i-solar:magic-stick-3-linear' },
   { id: 'caption', enabled: true, label: 'Captions', icon: 'i-ph:closed-captioning-duotone' },
   { id: 'gemini-session', enabled: true, label: 'Toggle Speech Session', icon: 'i-ph:sparkle' },
   { id: 'settings', enabled: true, label: 'Settings', icon: 'i-solar:settings-linear' },
@@ -36,22 +36,24 @@ export const DEFAULT_BUTTONS: ControlStripButton[] = [
   { id: 'gemini-voice', enabled: false, label: 'Voice Switch', icon: 'i-solar:user-speak-linear' },
   { id: 'gemini-schedule', enabled: false, label: 'Respect Schedule', icon: 'i-solar:calendar-linear' },
   { id: 'gemini-grounding', enabled: false, label: 'Google Search Grounding', icon: 'i-solar:global-linear' },
-  { id: 'actor-selfies', enabled: false, label: 'Selfies', icon: 'i-solar:camera-bold-duotone' },
+  { id: 'actor-selfies', enabled: false, label: 'Selfies', icon: 'i-solar:camera-linear' },
   { id: 'actor-macaron', enabled: false, label: 'Macaron Floatie', icon: 'i-solar:donut-bold-duotone' },
-  { id: 'workspace', enabled: true, label: 'Workspace', icon: 'i-solar:code-square-bold-duotone' },
+  { id: 'workspace', enabled: true, label: 'Workspace', icon: 'i-solar:code-square-linear' },
 ]
 
 export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
-  { id: 'viewport-cycle-modes', enabled: true, label: 'Cycle Viewport Modes', icon: 'i-solar:cursor-bold-duotone' },
-  { id: 'head-tethered-caption', enabled: true, label: 'Head-Tethered Caption', icon: 'i-solar:chat-round-call-bold-duotone' },
-  { id: 'theme-mode', enabled: true, label: 'Theme Mode', icon: 'i-solar:sun-2-bold-duotone' },
-  { id: 'actor-characters', enabled: true, label: 'Characters', icon: 'i-solar:users-group-rounded-outline' },
-  { id: 'actor-avatars', enabled: true, label: 'Avatars', icon: 'i-solar:user-bold-duotone' },
+  { id: 'viewport-cycle-modes', enabled: true, label: 'Cycle Viewport Modes', icon: 'i-solar:cursor-linear' },
+  { id: 'head-tethered-caption', enabled: true, label: 'Head-Tethered Caption', icon: 'i-solar:chat-round-line-linear' },
+  { id: 'actor-idle-animations', enabled: true, label: 'Animation Cycler', icon: 'i-solar:running-2-linear' },
+  { id: 'actor-motions', enabled: true, label: 'Motions', icon: 'i-solar:magic-stick-3-linear' },
+  { id: 'actor-all-emotions', enabled: true, label: 'All Emotions', icon: 'i-solar:emoji-funny-square-linear' },
+  { id: 'actor-selfies', enabled: true, label: 'Selfies', icon: 'i-solar:camera-linear' },
   // NOTICE (mobile deprecations, no version bump — the keyed merge handles
   // existing users): 'stage-atmosphere' (Stage Theme) is consolidated into
   // Quick Settings > Appearance; 'actor-wardrobe' (WEAR) stays in the catalog
-  // but is no longer a default while it has no outfits to show.
-  { id: 'workspace', enabled: true, label: 'Workspace', icon: 'i-solar:code-square-bold-duotone' },
+  // but is no longer a default while it has no outfits to show. Previous
+  // defaults ('theme-mode', 'actor-characters', 'actor-avatars', 'workspace')
+  // remain valid catalog entries for existing strips.
 ]
 
 export function getDefaultControlStripButtons(): ControlStripButton[] {
@@ -145,7 +147,7 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
         id: 'stage-atmosphere',
         enabled: true,
         label: 'Stage & Chat Theme',
-        icon: 'i-solar:magic-stick-3-bold-duotone',
+        icon: 'i-solar:magic-stick-3-linear',
       })
       changed = true
     }

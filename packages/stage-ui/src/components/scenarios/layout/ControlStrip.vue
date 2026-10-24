@@ -1017,40 +1017,6 @@ const availableMotions = computed(() => {
   return list
 })
 
-function isMotionActive(motion: any) {
-  if (motion.key === '') {
-    if (settingsStore.stageModelRenderer === 'vrm') {
-      return !vrmIdleAnimation.value
-    }
-    if (settingsStore.stageModelRenderer === 'live2d') {
-      const modelId = activeCardId.value || 'global'
-      const savedPath = localStorage.getItem(`live2d-${modelId}-selected-motion`)
-      return !savedPath
-    }
-    if (settingsStore.stageModelRenderer === 'mmd') {
-      return !mmdStore.currentMotion
-    }
-    if (settingsStore.stageModelRenderer === 'spine') {
-      return !spineStore.currentAnimation?.name
-    }
-    return false
-  }
-
-  if (settingsStore.stageModelRenderer === 'vrm') {
-    return vrmIdleAnimation.value === motion.key
-  }
-  if (settingsStore.stageModelRenderer === 'live2d') {
-    return live2dStore.currentMotion?.group === motion.raw?.motionName && live2dStore.currentMotion?.index === motion.raw?.motionIndex
-  }
-  if (settingsStore.stageModelRenderer === 'mmd') {
-    return mmdStore.currentMotion === motion.key
-  }
-  if (settingsStore.stageModelRenderer === 'spine') {
-    return spineStore.currentAnimation?.name === motion.key
-  }
-  return false
-}
-
 const availableAllExpressions = computed(() => {
   if (settingsStore.stageModelRenderer === 'vrm') {
     return modelStore.availableExpressions.map(name => ({
@@ -1066,6 +1032,47 @@ const availableAllExpressions = computed(() => {
   }
   return []
 })
+
+// Membership in the idle cycle set (persisted on the card) — the multi-select
+// replacement for the old "now playing" highlight. Tapping a row toggles it;
+// the play end-cap auditions without touching the set.
+function isMotionInCycle(motion: any): boolean {
+  if (!motion.key)
+    return idleCycleCount.value === 0
+  const set = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
+  return set.includes(motion.key)
+}
+
+const idleCycleCount = computed(() => {
+  const set = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
+  return availableMotions.value.filter(m => m.key && set.includes(m.key)).length
+})
+
+function toggleMotionInCycle(motion: any) {
+  if (!activeCardId.value || !activeCard.value)
+    return
+  if (!motion.key) {
+    // None: clear the set through the existing per-renderer reset path.
+    playMotion(motion)
+    return
+  }
+  const current = activeCard.value.extensions.airi.acting?.idleAnimations || []
+  const next = current.includes(motion.key)
+    ? current.filter(key => key !== motion.key)
+    : [...current, motion.key]
+  cardStore.updateCard(activeCardId.value, {
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...activeCard.value.extensions.airi,
+        acting: {
+          ...activeCard.value.extensions.airi.acting,
+          idleAnimations: next,
+        },
+      },
+    },
+  })
+}
 
 function playMotion(motion: any) {
   if (motion.key === '') {
@@ -2785,32 +2792,50 @@ function getShortLabel(btnId: string): string {
         <!-- MOTIONS POPOVER -->
         <div v-if="activePopover === 'actor-motions'" class="flex flex-col gap-2">
           <div class="flex items-center justify-between border-b border-neutral-200 pb-2 dark:border-neutral-800">
-            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">Motions</span>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">Motions</span>
+              <span class="rounded-full bg-primary-500/10 px-2 py-0.5 text-[10px] text-primary-600 font-bold font-mono dark:text-primary-400">
+                {{ idleCycleCount }} in cycle
+              </span>
+            </div>
             <button class="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300" @click="activePopover = null">
               <span class="i-solar:close-circle-outline text-lg" />
             </button>
           </div>
 
           <div class="max-h-48 flex flex-col gap-1.5 overflow-y-auto py-1 scrollbar-thin">
-            <button
+            <div
               v-for="motion in availableMotions"
               :key="motion.key"
               :class="[
-                'w-full cursor-pointer border rounded-xl px-3 py-2 text-left text-xs transition-all duration-200',
-                isMotionActive(motion)
+                'w-full flex items-center gap-1 border rounded-xl p-1 text-left text-xs transition-all duration-200',
+                isMotionInCycle(motion)
                   ? 'bg-amber-500/20 border-amber-400/50 text-amber-600 dark:text-amber-300 font-semibold'
                   : 'bg-neutral-50/50 dark:bg-neutral-800/40 border-neutral-200/50 dark:border-neutral-800/20 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50',
               ]"
-              @click="playMotion(motion)"
             >
-              <div class="flex items-center justify-between">
+              <button
+                type="button"
+                class="min-w-0 flex flex-1 cursor-pointer items-center justify-between rounded-lg px-2 py-1.5"
+                :title="motion.key ? 'Toggle in idle cycle' : 'Clear idle cycle'"
+                @click="toggleMotionInCycle(motion)"
+              >
                 <span class="mr-2 truncate font-medium">{{ motion.label }}</span>
                 <span
-                  v-if="isMotionActive(motion)"
+                  v-if="isMotionInCycle(motion)"
                   class="i-solar:check-circle-bold flex-shrink-0 text-sm text-amber-500"
                 />
-              </div>
-            </button>
+              </button>
+              <button
+                v-if="motion.key"
+                type="button"
+                class="flex shrink-0 cursor-pointer items-center justify-center rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-200/70 hover:text-neutral-700 dark:hover:bg-neutral-700 dark:hover:text-neutral-200"
+                title="Play once"
+                @click.stop="playMotion(motion)"
+              >
+                <span class="i-solar:play-bold size-4" />
+              </button>
+            </div>
 
             <div
               v-if="availableMotions.length <= 1"
