@@ -2245,9 +2245,8 @@ steps:
   tools:
     label: Herramientas
     subtitle: Automatización y MCP de escritorio
-    title: Automatización y herramientas externas
-    description: Otorga a tu acompañante búsqueda web en tiempo real y capacidades
-      sobre el sistema.
+    title: Dale a tu compañero algunas herramientas
+    description: Elige lo que puede hacer. Puedes cambiarlo cuando quieras.
     webSearch:
       title: Búsqueda web en vivo (DuckDuckGo / Brave)
       desc: Permite consultar noticias recientes, documentación técnica y el clima sin
@@ -2306,6 +2305,49 @@ steps:
     screenOrAnyWindow: Pantalla o cualquier ventana
     usesVisionSettings: Usa la configuración de visión
     takeScreenshotDesktop: take_screenshot (Escritorio)
+    sections:
+      find: Encontrar y recordar
+      create: Crear y expresar
+      work: Trabajar y conectar
+    cards:
+      web:
+        title: Web e investigación
+        description: Busca en la web y lee páginas útiles. Sin clave API.
+      memory:
+        title: Memoria y diario
+        description: Escribe entradas de diario y recuerda momentos pasados.
+      snapshots:
+        title: Capturas de pantalla
+        description: Ve tu pantalla o una ventana elegida.
+      image:
+        title: Estudio de imágenes
+        description: Crea imágenes y fondos de escena. Usa tu proveedor de imágenes.
+      music:
+        title: Creación musical
+        description: Compón y reproduce música original.
+      motion:
+        title: Creación de movimiento
+        description: Crea movimientos para un compañero 3D.
+      terminal:
+        title: Terminal virtual
+        description: Ejecuta código, crea archivos y construye widgets.
+      files:
+        title: Archivos del ordenador
+        description: Lee y busca en las carpetas que elijas.
+      plugins:
+        title: Complementos conectados
+        description: Usa herramientas de tus servicios conectados.
+    badges:
+      builtInWorkspace: Espacio de trabajo integrado
+      setupInCardConfig: Configurar en Card Config
+      audioServerRequired: Requiere servidor de audio
+      vrmAvatarRequired: Requiere avatar VRM
+    hint: Ajusta prompts, límites de herramientas y conexiones más tarde en Card
+      Config → Tools.
+    footer:
+      toolsEnabled: '{count} herramienta activada · Todas las opciones son opcionales
+        | {count} herramientas activadas · Todas las opciones son opcionales'
+    greeting: 'Empieza simple: todo aquí es opcional.'
   finale:
     label: Despegue
     subtitle: Revisión final y lanzamiento

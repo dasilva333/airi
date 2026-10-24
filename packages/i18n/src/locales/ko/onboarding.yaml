@@ -2165,8 +2165,8 @@ steps:
   tools:
     label: 도구
     subtitle: 자동화 및 데스크톱 MCP
-    title: 자동화 도구 및 데스크톱 제어
-    description: 실시간 웹 검색과 데스크톱 파일 접근 기능으로 컴패니언의 역량을 강화합니다.
+    title: 동반자에게 도구를 몇 개 쥐여 주세요
+    description: 무엇을 할 수 있는지 선택하세요. 언제든 바꿀 수 있습니다.
     webSearch:
       title: 실시간 웹 검색 (DuckDuckGo / Brave)
       desc: 별도의 API 키 없이도 최신 뉴스, 날씨, 기술 문서를 찾아볼 수 있습니다.
@@ -2221,6 +2221,47 @@ steps:
     screenOrAnyWindow: 화면 또는 모든 창
     usesVisionSettings: 비전 설정 사용
     takeScreenshotDesktop: take_screenshot (데스크톱)
+    sections:
+      find: 찾기 & 기억
+      create: 창작 & 표현
+      work: 작업 & 연결
+    cards:
+      web:
+        title: 웹 & 리서치
+        description: 웹을 검색하고 유용한 페이지를 읽습니다. API 키가 필요 없습니다.
+      memory:
+        title: 메모리 & 저널
+        description: 저널을 쓰고 지난 순간을 떠올립니다.
+      snapshots:
+        title: 화면 스냅샷
+        description: 화면 또는 선택한 창을 봅니다.
+      image:
+        title: 이미지 스튜디오
+        description: 이미지와 장면 배경을 만듭니다. 이미지 공급자를 사용합니다.
+      music:
+        title: 음악 만들기
+        description: 원곡을 작곡하고 렌더링합니다.
+      motion:
+        title: 모션 만들기
+        description: 3D 동반자의 움직임을 만듭니다.
+      terminal:
+        title: 가상 터미널
+        description: 코드를 실행하고 파일과 위젯을 만듭니다.
+      files:
+        title: 컴퓨터 파일
+        description: 선택한 폴더를 읽고 검색합니다.
+      plugins:
+        title: 연결된 플러그인
+        description: 연결된 서비스의 도구를 사용합니다.
+    badges:
+      builtInWorkspace: 내장 워크스페이스
+      setupInCardConfig: Card Config에서 설정
+      audioServerRequired: 오디오 서버 필요
+      vrmAvatarRequired: VRM 아바타 필요
+    hint: 프롬프트, 도구 한도, 연결은 나중에 Card Config → Tools에서 조정하세요.
+    footer:
+      toolsEnabled: '{count}개 도구 활성화 · 모든 선택은 선택 사항 | {count}개 도구 활성화 · 모든 선택은 선택 사항'
+    greeting: 간단하게 시작하세요 — 여기의 모든 것은 선택 사항입니다.
   finale:
     label: 준비 완료
     subtitle: 최종 확인 및 무대 시작

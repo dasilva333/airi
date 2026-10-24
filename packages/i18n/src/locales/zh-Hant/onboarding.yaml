@@ -2153,8 +2153,8 @@ steps:
   tools:
     label: 工具擴充
     subtitle: 系統自動化與桌面 MCP
-    title: 自動化工具與桌面能力
-    description: 為伴侶接上即時網路搜尋與本地電腦控制的強大羽翼。
+    title: 給你的夥伴一些工具
+    description: 選擇他們能做什麼。你隨時可以更改。
     webSearch:
       title: 即時網路搜尋 (DuckDuckGo / Brave)
       desc: 讓伴侶無需額外 API 金鑰即可檢索當下新聞、即時天氣與技術文件。
@@ -2208,6 +2208,47 @@ steps:
     screenOrAnyWindow: 螢幕或任意視窗
     usesVisionSettings: 使用視覺設定
     takeScreenshotDesktop: take_screenshot（桌面版）
+    sections:
+      find: 尋找與記憶
+      create: 創作與表達
+      work: 工作與連結
+    cards:
+      web:
+        title: 網路與研究
+        description: 搜尋網路並閱讀有用的頁面。無需 API 金鑰。
+      memory:
+        title: 記憶與日記
+        description: 寫下日記，回想過往時刻。
+      snapshots:
+        title: 螢幕快照
+        description: 查看你的螢幕或選定的視窗。
+      image:
+        title: 圖像工作室
+        description: 建立圖像與場景背景。使用你的圖像提供者。
+      music:
+        title: 音樂創作
+        description: 創作並生成原創音樂。
+      motion:
+        title: 動作創作
+        description: 為 3D 夥伴建立動作。
+      terminal:
+        title: 虛擬終端機
+        description: 執行程式碼、建立檔案與小工具。
+      files:
+        title: 電腦檔案
+        description: 讀取並搜尋你選擇的資料夾。
+      plugins:
+        title: 已連結外掛
+        description: 使用你已連結服務中的工具。
+    badges:
+      builtInWorkspace: 內建工作區
+      setupInCardConfig: 在 Card Config 中設定
+      audioServerRequired: 需要音訊伺服器
+      vrmAvatarRequired: 需要 VRM 虛擬形象
+    hint: 稍後可在 Card Config → Tools 中調整提示詞、工具上限與連結。
+    footer:
+      toolsEnabled: 已啟用 {count} 個工具 · 所有選項皆為選用 | 已啟用 {count} 個工具 · 所有選項皆為選用
+    greeting: 從簡單開始——這裡的一切都是選用的。
   finale:
     label: 啟航就緒
     subtitle: 最終檢查與舞台發射

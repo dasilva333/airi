@@ -102,7 +102,7 @@ Below is the comprehensive field-by-field and control breakdown for every page i
 │ 13 │ proactivity        │ step-proactivity.vue    │ Schedule, Heartbeats & Screen │
 │ 14 │ artistry           │ step-artistry.vue       │ Pollinations/ComfyUI Visuals  │
 │ 15 │ memory             │ step-memory.vue         │ 4 Temporal Memory Quadrants   │
-│ 16 │ tools              │ step-tools.vue          │ Web Search & Desktop MCP      │
+│ 16 │ tools              │ step-tools.vue          │ 9-Card Capability Grid        │
 │ 17 │ finale             │ step-finale.vue         │ Honesty Matrix & Stage Launch │
 └────┴────────────────────┴─────────────────────────┴───────────────────────────────┘
 ```
@@ -335,19 +335,13 @@ Below is the comprehensive field-by-field and control breakdown for every page i
 ---
 
 ### Step 16: Automation & Tools (`step-tools.vue` - Optional)
-- **External Action Capability Packs**:
-  1. **Web & Research Pack**:
-     - Master toggle: `0-Key Real-Time Web Search` via `open-websearch`.
-     - Badges: `web_search`, `fetch_content (Markdown)`, `Zero Setup Needed` (DuckDuckGo, Bing, Brave, Baidu).
-  2. **Local Workspace & Filesystem Pack**:
-     - Master toggle: `Desktop Filesystem MCP` via `@modelcontextprotocol/server-filesystem`.
-     - Badges: `read_file`, `list_directory`, `directory_tree`, `search_files`.
-     - Scoped to safe user directory boundaries (e.g. `~/Projects`).
-  3. **3D Kinetic Motion Generator Pack**:
-     - Master toggle: `3D Kinetic Motion Generator` (`generate_motion`).
-     - Badges: `FlowMDM WebGPU`, `Procedural VRMA`.
-     - Autonomously authors and compiles custom 3D animations in real time for VRM models.
-- **Active Desktop Toolbelt Summary**: Real-time badge overview of granted external tool permissions.
+- **Descriptor-driven Capability Grid** (`TOOL_CARDS` array → filtered sections → responsive 1/2/3-column grid):
+  1. **Find & Remember**: `Web & Research` (desktop only, stdio `open-websearch`), `Memory & Journal` (`text_journal`, bound to `memoryLongTermJournalEnabled`), `Screen Snapshots` (desktop only, `take_screenshot`).
+  2. **Create & Express**: `Image Studio` (`image_journal`, visible only when an artistry provider is configured), `Music Creation` (`music` over streaming MCP, async provisioning), `Motion Creation` (`generate_motion`, visible only for VRM vessels; the engine pre-warm control occupies the badge slot).
+  3. **Work & Connect**: `Virtual Terminal` (`bash`, in-memory POSIX workspace), `Computer Files` (desktop only, `filesystem` MCP), `Connected Plugins` (`mcp` unrestricted discovery).
+- **Availability is capability-based, not registration-based**: only stdio/Electron-bound capabilities are desktop-scoped; web and pocket keep terminal, journals, plugins, music, image and motion.
+- **No default-on tool flags**: every card starts off except the pre-existing LTMM journal default; the footer reports the live enabled count.
+- **Deferred tuning**: prompts, tool limits (`maxToolSteps`), preserve-history and intrusion templates remain in Card Config → Tools.
 
 ---
 
@@ -394,7 +388,7 @@ packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/
 │   ├── step-proactivity.vue           # Step 13: Schedule, heartbeats, screen watching & telemetry
 │   ├── step-artistry.vue              # Step 14: Pollinations/ComfyUI, visual prompt & director
 │   ├── step-memory.vue                # Step 15: 4 Temporal Memory Quadrants (STMM, LTMM, Lifetime, Dreams)
-│   ├── step-tools.vue                 # Step 16: Web search, Desktop MCP filesystem & 3D motions
+│   ├── step-tools.vue                 # Step 16: Descriptor-driven 9-card capability grid
 │   └── step-finale.vue                # Step 17: 4-pillar readiness honesty matrix & stage launch
 ├── stores/
 │   └── useOnboardingV3Draft.ts        # LocalStorage-persisted draft store via useLocalStorageManualReset

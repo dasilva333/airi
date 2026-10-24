@@ -2015,8 +2015,8 @@ steps:
   tools:
     label: 工具扩展
     subtitle: 系统自动化与桌面 MCP
-    title: 自动化工具与桌面能力
-    description: 为伴侣接上实时网络搜索与本地计算机控制的强大羽翼。
+    title: 给你的伙伴一些工具
+    description: 选择他们能做什么。你随时可以更改。
     webSearch:
       title: 实时网络搜索 (DuckDuckGo / Brave)
       desc: 让伴侣无需额外 API 密钥即可检索当下新闻、实时天气与技术文档。
@@ -2061,6 +2061,47 @@ steps:
     screenOrAnyWindow: 屏幕或任意窗口
     usesVisionSettings: 使用视觉设置
     takeScreenshotDesktop: take_screenshot（桌面端）
+    sections:
+      find: 查找与记忆
+      create: 创作与表达
+      work: 工作与连接
+    cards:
+      web:
+        title: 网络与研究
+        description: 搜索网络并阅读有用的页面。无需 API 密钥。
+      memory:
+        title: 记忆与日记
+        description: 写下日记，回忆过去的时刻。
+      snapshots:
+        title: 屏幕快照
+        description: 查看你的屏幕或选定的窗口。
+      image:
+        title: 图像工作室
+        description: 创建图像和场景背景。使用你的图像提供方。
+      music:
+        title: 音乐创作
+        description: 创作并生成原创音乐。
+      motion:
+        title: 动作创作
+        description: 为 3D 伙伴创建动作。
+      terminal:
+        title: 虚拟终端
+        description: 运行代码、创建文件和小组件。
+      files:
+        title: 电脑文件
+        description: 读取并搜索你选择的文件夹。
+      plugins:
+        title: 已连接插件
+        description: 使用你已连接服务中的工具。
+    badges:
+      builtInWorkspace: 内置工作区
+      setupInCardConfig: 在 Card Config 中设置
+      audioServerRequired: 需要音频服务器
+      vrmAvatarRequired: 需要 VRM 虚拟形象
+    hint: 稍后可在 Card Config → Tools 中调整提示词、工具上限和连接。
+    footer:
+      toolsEnabled: 已启用 {count} 个工具 · 所有选项均为可选 | 已启用 {count} 个工具 · 所有选项均为可选
+    greeting: 从简单开始——这里的一切都是可选的。
   finale:
     label: 启航就绪
     subtitle: 最终检查与舞台发射

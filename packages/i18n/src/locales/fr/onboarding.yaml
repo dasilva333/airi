@@ -2245,9 +2245,8 @@ steps:
   tools:
     label: Outils
     subtitle: Automatisation et MCP de bureau
-    title: Automatisation, MCP et outils externes
-    description: Enrichissez votre compagnon avec la recherche web en temps réel et
-      des capacités système.
+    title: Donnez quelques outils à votre compagnon
+    description: Choisissez ce qu'il peut faire. Vous pourrez changer à tout moment.
     webSearch:
       title: Recherche web en direct (DuckDuckGo / Brave)
       desc: Permet à votre compagnon de consulter l'actualité, la météo et de la
@@ -2306,6 +2305,50 @@ steps:
     screenOrAnyWindow: Écran ou n’importe quelle fenêtre
     usesVisionSettings: Utilise les réglages de vision
     takeScreenshotDesktop: take_screenshot (Bureau)
+    sections:
+      find: Trouver et mémoriser
+      create: Créer et exprimer
+      work: Travailler et connecter
+    cards:
+      web:
+        title: Web et recherche
+        description: Recherchez sur le web et lisez des pages utiles. Aucune clé API
+          requise.
+      memory:
+        title: Mémoire et journal
+        description: Écrivez des entrées de journal et rappelez-vous des moments passés.
+      snapshots:
+        title: Captures d'écran
+        description: Voyez votre écran ou une fenêtre choisie.
+      image:
+        title: Studio d'images
+        description: Créez des images et des décors. Utilise votre fournisseur d'images.
+      music:
+        title: Création musicale
+        description: Composez et générez de la musique originale.
+      motion:
+        title: Création de mouvement
+        description: Créez des mouvements pour un compagnon 3D.
+      terminal:
+        title: Terminal virtuel
+        description: Exécutez du code, créez des fichiers et des widgets.
+      files:
+        title: Fichiers de l'ordinateur
+        description: Lisez et recherchez dans les dossiers de votre choix.
+      plugins:
+        title: Extensions connectées
+        description: Utilisez les outils de vos services connectés.
+    badges:
+      builtInWorkspace: Espace de travail intégré
+      setupInCardConfig: Configurer dans Card Config
+      audioServerRequired: Serveur audio requis
+      vrmAvatarRequired: Avatar VRM requis
+    hint: Ajustez les prompts, les limites d'outils et les connexions plus tard dans
+      Card Config → Tools.
+    footer:
+      toolsEnabled: '{count} outil activé · Tous les choix sont facultatifs | {count}
+        outils activés · Tous les choix sont facultatifs'
+    greeting: Commencez simple — tout ici est facultatif.
   finale:
     label: Lancement
     subtitle: Vérification finale et envol

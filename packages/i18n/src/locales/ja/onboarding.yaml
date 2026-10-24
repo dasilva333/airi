@@ -2159,8 +2159,8 @@ steps:
   tools:
     label: ツール
     subtitle: 自動化とデスクトップ MCP
-    title: 自動化・MCP・外部連携
-    description: リアルタイムの Web 検索やデスクトップ操作機能でパートナーの可能性を広げます。
+    title: コンパニオンにツールをいくつか渡しましょう
+    description: できることを選びましょう。いつでも変更できます。
     webSearch:
       title: リアルタイム Web 検索 (DuckDuckGo / Brave)
       desc: API キー不要で最新のニュース、技術ドキュメント、天気を調べることができます。
@@ -2215,6 +2215,47 @@ steps:
     screenOrAnyWindow: 画面または任意のウィンドウ
     usesVisionSettings: ビジョン設定を使用
     takeScreenshotDesktop: take_screenshot（デスクトップ）
+    sections:
+      find: 見つける・覚える
+      create: 創る・表現する
+      work: 作業する・つなぐ
+    cards:
+      web:
+        title: ウェブとリサーチ
+        description: ウェブを検索して役立つページを読みます。APIキーは不要です。
+      memory:
+        title: メモリーとジャーナル
+        description: ジャーナルを書き、過去の出来事を思い出します。
+      snapshots:
+        title: 画面スナップショット
+        description: 画面または選択したウィンドウを表示します。
+      image:
+        title: イメージスタジオ
+        description: 画像やシーンの背景を作成します。画像プロバイダーを使用します。
+      music:
+        title: 音楽制作
+        description: オリジナル曲を作曲・生成します。
+      motion:
+        title: モーション制作
+        description: 3Dコンパニオンの動きを作成します。
+      terminal:
+        title: 仮想ターミナル
+        description: コードを実行し、ファイルやウィジェットを作成します。
+      files:
+        title: コンピューターのファイル
+        description: 選択したフォルダーを読み取り・検索します。
+      plugins:
+        title: 接続済みプラグイン
+        description: 接続したサービスのツールを使用します。
+    badges:
+      builtInWorkspace: 内蔵ワークスペース
+      setupInCardConfig: Card Configで設定
+      audioServerRequired: オーディオサーバーが必要
+      vrmAvatarRequired: VRMアバターが必要
+    hint: プロンプト、ツールの上限、接続は後で Card Config → Tools で調整できます。
+    footer:
+      toolsEnabled: '{count} 個のツールが有効 · すべて任意 | {count} 個のツールが有効 · すべて任意'
+    greeting: まずはシンプルに — ここはすべて任意です。
   finale:
     label: 準備完了
     subtitle: 最終チェックと出航

@@ -2229,9 +2229,8 @@ steps:
   tools:
     label: Tools
     subtitle: Automation & Desktop MCP
-    title: Automation, MCP & External Tools
-    description: Supercharge your companion with real-time web search and desktop
-      system capabilities.
+    title: Give your companion a few tools
+    description: Choose what they can do. You can change these anytime.
     webSearch:
       title: Live Web Search (DuckDuckGo / Brave)
       desc: Allows your companion to look up real-time news, documentation, and
@@ -2289,6 +2288,49 @@ steps:
     screenOrAnyWindow: Screen or any window
     usesVisionSettings: Uses Vision settings
     takeScreenshotDesktop: take_screenshot (Desktop)
+    sections:
+      find: Find & Remember
+      create: Create & Express
+      work: Work & Connect
+    cards:
+      web:
+        title: Web & Research
+        description: Search the web and read useful pages. No API key needed.
+      memory:
+        title: Memory & Journal
+        description: Write journal entries and recall past moments.
+      snapshots:
+        title: Screen Snapshots
+        description: See your screen or a chosen window.
+      image:
+        title: Image Studio
+        description: Create images and scene backdrops. Uses your image provider.
+      music:
+        title: Music Creation
+        description: Compose and render original music.
+      motion:
+        title: Motion Creation
+        description: Create movements for a 3D companion.
+      terminal:
+        title: Virtual Terminal
+        description: Run code, create files, and build widgets.
+      files:
+        title: Computer Files
+        description: Read and search folders you choose.
+      plugins:
+        title: Connected Plugins
+        description: Use tools from your connected services.
+    badges:
+      builtInWorkspace: Built-in workspace
+      setupInCardConfig: Setup in Card Config
+      audioServerRequired: Audio Server required
+      vrmAvatarRequired: VRM avatar required
+    hint: Fine-tune prompts, tool limits, and connections later in Card Config →
+      Tools.
+    footer:
+      toolsEnabled: '{count} tool enabled · All choices optional | {count} tools
+        enabled · All choices optional'
+    greeting: Start simple—everything here is optional.
 
   finale:
     label: Stage Finale

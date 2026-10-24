@@ -402,13 +402,23 @@ const activeMemoryQuadrants = computed(() => {
 const activeToolsList = computed(() => {
   const list: string[] = []
   if (draft.state.mcpWebSearchEnabled)
-    list.push(t('onboarding.steps.finale.tools.webSearch'))
+    list.push(t('onboarding.steps.tools.cards.web.title'))
   if (draft.state.mcpFilesystemEnabled)
-    list.push(t('onboarding.steps.finale.tools.filesystem'))
+    list.push(t('onboarding.steps.tools.cards.files.title'))
   if (draft.state.toolMotionGeneratorEnabled)
-    list.push(t('onboarding.steps.finale.tools.motions'))
+    list.push(t('onboarding.steps.tools.cards.motion.title'))
   if (draft.state.toolScreenshotEnabled)
-    list.push(t('onboarding.steps.finale.tools.screenshots'))
+    list.push(t('onboarding.steps.tools.cards.snapshots.title'))
+  if (draft.state.toolTerminalEnabled)
+    list.push(t('onboarding.steps.tools.cards.terminal.title'))
+  if (draft.state.toolCustomMcpEnabled)
+    list.push(t('onboarding.steps.tools.cards.plugins.title'))
+  if (draft.state.toolMusicEnabled)
+    list.push(t('onboarding.steps.tools.cards.music.title'))
+  if (draft.state.artistryImageJournalToolEnabled)
+    list.push(t('onboarding.steps.tools.cards.image.title'))
+  if (draft.state.memoryLongTermJournalEnabled !== false)
+    list.push(t('onboarding.steps.tools.cards.memory.title'))
   return list
 })
 

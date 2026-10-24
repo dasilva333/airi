@@ -2226,9 +2226,8 @@ steps:
   tools:
     label: Tools
     subtitle: Automation & Desktop MCP
-    title: Automation, MCP & External Tools
-    description: Supercharge your companion with real-time web search and desktop
-      system capabilities.
+    title: Beri pendamping Anda beberapa alat
+    description: Pilih apa yang bisa mereka lakukan. Anda dapat mengubahnya kapan saja.
     webSearch:
       title: Live Web Search (DuckDuckGo / Brave)
       desc: Allows your companion to look up real-time news, documentation, and
@@ -2286,6 +2285,48 @@ steps:
     screenOrAnyWindow: Layar atau jendela apa pun
     usesVisionSettings: Memakai pengaturan Vision
     takeScreenshotDesktop: take_screenshot (Desktop)
+    sections:
+      find: Temukan & Ingat
+      create: Ciptakan & Ekspresikan
+      work: Bekerja & Terhubung
+    cards:
+      web:
+        title: Web & Riset
+        description: Cari di web dan baca halaman berguna. Tanpa kunci API.
+      memory:
+        title: Memori & Jurnal
+        description: Tulis entri jurnal dan ingat momen lampau.
+      snapshots:
+        title: Tangkapan Layar
+        description: Lihat layar atau jendela pilihan Anda.
+      image:
+        title: Studio Gambar
+        description: Buat gambar dan latar adegan. Memakai penyedia gambar Anda.
+      music:
+        title: Pembuatan Musik
+        description: Susun dan hasilkan musik orisinal.
+      motion:
+        title: Pembuatan Gerakan
+        description: Buat gerakan untuk pendamping 3D.
+      terminal:
+        title: Terminal Virtual
+        description: Jalankan kode, buat berkas, dan widget.
+      files:
+        title: Berkas Komputer
+        description: Baca dan cari di folder yang Anda pilih.
+      plugins:
+        title: Plugin Terhubung
+        description: Gunakan alat dari layanan yang terhubung.
+    badges:
+      builtInWorkspace: Ruang kerja bawaan
+      setupInCardConfig: Atur di Card Config
+      audioServerRequired: Server audio diperlukan
+      vrmAvatarRequired: Avatar VRM diperlukan
+    hint: Sesuaikan prompt, batas alat, dan koneksi nanti di Card Config → Tools.
+    footer:
+      toolsEnabled: '{count} alat aktif · Semua pilihan opsional | {count} alat aktif
+        · Semua pilihan opsional'
+    greeting: Mulai sederhana — semua di sini opsional.
   finale:
     label: Stage Finale
     subtitle: Pre-Flight Readiness & Launch

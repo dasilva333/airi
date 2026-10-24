@@ -235,7 +235,12 @@ export function resolvePromptDirectives(draft: OnboardingV3DraftState, card: any
   }
 
   // 5. Long-Term Text Journal Directive
-  const isTextJournalEnabled = Boolean(draft.modules?.memory && draft.memoryLongTermJournalEnabled !== false)
+  // The journal tool IS LTMM, so it is granted from its own switch rather than
+  // from the Memory step's module gate: a pruned memory module must not remove
+  // a capability the user explicitly enabled on the Tools step. It still needs
+  // at least one surface that can toggle it (Memory or Tools step).
+  const isTextJournalEnabled = Boolean(draft.modules?.memory || draft.modules?.tools)
+    && draft.memoryLongTermJournalEnabled !== false
   if (isTextJournalEnabled) {
     toolsSet.add('text_journal')
     airi.textJournal = airi.textJournal || {}
@@ -249,6 +254,10 @@ export function resolvePromptDirectives(draft: OnboardingV3DraftState, card: any
       toolsSet.add('fetch_content')
     }
     if (draft.mcpFilesystemEnabled) {
+      // The `filesystem` family key is what provisions the MCP server and
+      // unlocks the MCP meta-tools; the explicit names keep tool-level
+      // filtering working once the server is discovered.
+      toolsSet.add('filesystem')
       toolsSet.add('read_file')
       toolsSet.add('list_directory')
       toolsSet.add('directory_tree')
@@ -259,6 +268,15 @@ export function resolvePromptDirectives(draft: OnboardingV3DraftState, card: any
     }
     if (draft.toolScreenshotEnabled) {
       toolsSet.add('take_screenshot')
+    }
+    if (draft.toolTerminalEnabled) {
+      toolsSet.add('bash')
+    }
+    if (draft.toolCustomMcpEnabled) {
+      toolsSet.add('mcp')
+    }
+    if (draft.toolMusicEnabled) {
+      toolsSet.add('music')
     }
   }
 
@@ -482,9 +500,15 @@ export function populateAiriExtensions(
       enabled: Boolean(draft.memoryDreamStateEnabled),
       strictAfkGating: true,
     }
-    airi.textJournal = {
-      injectJournalContext: Boolean(draft.memoryLongTermJournalEnabled),
-    }
+  }
+
+  // The journal injection follows its own switch, not the memory module: the
+  // Tools step can grant text_journal independently of the (always-prunable)
+  // memory hierarchy step. Requires at least one surface that can toggle it.
+  const isJournalSurfaceAvailable = Boolean(draft.modules?.memory || draft.modules?.tools)
+  airi.textJournal = {
+    ...airi.textJournal,
+    injectJournalContext: isJournalSurfaceAvailable && draft.memoryLongTermJournalEnabled !== false,
   }
 
   // Grounding & Situational Awareness

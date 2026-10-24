@@ -2236,9 +2236,8 @@ steps:
   tools:
     label: Công cụ
     subtitle: Tự động hóa & MCP máy tính
-    title: Tự động hóa, MCP & Công cụ mở rộng
-    description: Tiếp thêm sức mạnh cho bạn đồng hành với khả năng tìm kiếm web trực
-      tiếp và tương tác với máy tính.
+    title: Trao cho bạn đồng hành vài công cụ
+    description: Chọn những gì họ có thể làm. Bạn có thể thay đổi bất cứ lúc nào.
     webSearch:
       title: Tìm kiếm web trực tiếp (DuckDuckGo / Brave)
       desc: Giúp bạn đồng hành tra cứu tin tức thời sự, thời tiết và tài liệu kỹ thuật
@@ -2296,6 +2295,49 @@ steps:
     screenOrAnyWindow: Màn hình hoặc bất kỳ cửa sổ nào
     usesVisionSettings: Dùng cài đặt Vision
     takeScreenshotDesktop: take_screenshot (Máy tính)
+    sections:
+      find: Tìm & Ghi nhớ
+      create: Sáng tạo & Thể hiện
+      work: Làm việc & Kết nối
+    cards:
+      web:
+        title: Web & Nghiên cứu
+        description: Tìm kiếm web và đọc các trang hữu ích. Không cần khóa API.
+      memory:
+        title: Ký ức & Nhật ký
+        description: Viết nhật ký và nhớ lại những khoảnh khắc đã qua.
+      snapshots:
+        title: Ảnh chụp màn hình
+        description: Xem màn hình hoặc cửa sổ bạn chọn.
+      image:
+        title: Xưởng hình ảnh
+        description: Tạo hình ảnh và phông nền cảnh. Dùng nhà cung cấp hình ảnh của bạn.
+      music:
+        title: Sáng tác nhạc
+        description: Soạn và tạo nhạc gốc.
+      motion:
+        title: Tạo chuyển động
+        description: Tạo chuyển động cho bạn đồng hành 3D.
+      terminal:
+        title: Terminal ảo
+        description: Chạy mã, tạo tệp và tiện ích.
+      files:
+        title: Tệp máy tính
+        description: Đọc và tìm kiếm trong các thư mục bạn chọn.
+      plugins:
+        title: Plugin đã kết nối
+        description: Dùng công cụ từ các dịch vụ đã kết nối.
+    badges:
+      builtInWorkspace: Không gian làm việc tích hợp
+      setupInCardConfig: Thiết lập trong Card Config
+      audioServerRequired: Cần máy chủ âm thanh
+      vrmAvatarRequired: Cần avatar VRM
+    hint: Tinh chỉnh prompt, giới hạn công cụ và kết nối sau trong Card Config →
+      Tools.
+    footer:
+      toolsEnabled: '{count} công cụ đã bật · Mọi lựa chọn đều tùy chọn | {count} công
+        cụ đã bật · Mọi lựa chọn đều tùy chọn'
+    greeting: Bắt đầu đơn giản — mọi thứ ở đây đều tùy chọn.
   finale:
     label: Sẵn sàng
     subtitle: Kiểm tra cuối cùng & Lên sân khấu

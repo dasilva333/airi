@@ -2229,9 +2229,8 @@ steps:
   tools:
     label: Tools
     subtitle: Automation & Desktop MCP
-    title: Automation, MCP & External Tools
-    description: Supercharge your companion with real-time web search and desktop
-      system capabilities.
+    title: มอบเครื่องมือให้เพื่อนของคุณสักหน่อย
+    description: เลือกสิ่งที่ทำได้ คุณเปลี่ยนภายหลังได้เสมอ
     webSearch:
       title: Live Web Search (DuckDuckGo / Brave)
       desc: Allows your companion to look up real-time news, documentation, and
@@ -2280,6 +2279,49 @@ steps:
       and play live on Stage. {emphasis}
     motion:
       status: 'Engine Status: {status}'
+    sections:
+      find: ค้นหาและจดจำ
+      create: สร้างและแสดงออก
+      work: ทำงานและเชื่อมต่อ
+    cards:
+      web:
+        title: เว็บและวิจัย
+        description: ค้นเว็บและอ่านหน้าที่มีประโยชน์ ไม่ต้องใช้คีย์ API
+      memory:
+        title: ความทรงจำและไดอารี่
+        description: เขียนบันทึกและนึกถึงช่วงเวลาที่ผ่านมา
+      snapshots:
+        title: ภาพหน้าจอ
+        description: ดูหน้าจอหรือหน้าต่างที่เลือก
+      image:
+        title: สตูดิโอภาพ
+        description: สร้างภาพและฉากหลัง ใช้ผู้ให้บริการภาพของคุณ
+      music:
+        title: สร้างเพลง
+        description: แต่งและสร้างเพลงต้นฉบับ
+      motion:
+        title: สร้างการเคลื่อนไหว
+        description: สร้างการเคลื่อนไหวสำหรับเพื่อน 3D
+      terminal:
+        title: เทอร์มินัลเสมือน
+        description: รันโค้ด สร้างไฟล์และวิดเจ็ต
+      files:
+        title: ไฟล์คอมพิวเตอร์
+        description: อ่านและค้นหาในโฟลเดอร์ที่คุณเลือก
+      plugins:
+        title: ปลั๊กอินที่เชื่อมต่อ
+        description: ใช้เครื่องมือจากบริการที่เชื่อมต่อ
+    badges:
+      builtInWorkspace: พื้นที่ทำงานในตัว
+      setupInCardConfig: ตั้งค่าใน Card Config
+      audioServerRequired: ต้องมีเซิร์ฟเวอร์เสียง
+      vrmAvatarRequired: ต้องมีอวตาร VRM
+    hint: ปรับพรอมต์ ขีดจำกัดเครื่องมือ และการเชื่อมต่อภายหลังได้ใน Card Config →
+      Tools
+    footer:
+      toolsEnabled: เปิดใช้งาน {count} เครื่องมือ · ทุกตัวเลือกเป็นทางเลือก |
+        เปิดใช้งาน {count} เครื่องมือ · ทุกตัวเลือกเป็นทางเลือก
+    greeting: เริ่มง่าย ๆ — ทุกอย่างที่นี่เป็นทางเลือก
 
   finale:
     label: Stage Finale
