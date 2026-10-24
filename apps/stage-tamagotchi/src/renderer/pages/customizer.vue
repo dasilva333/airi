@@ -78,6 +78,7 @@ const DEFAULT_ORDER = [
   'actor-wardrobe',
   'actor-motions',
   'actor-all-emotions',
+  'actor-vfx',
 
   'gemini-manual-capture',
 ]

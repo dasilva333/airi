@@ -15,6 +15,7 @@ import { toast } from 'vue-sonner'
 
 import CharacterAvatar from '../../misc/CharacterAvatar.vue'
 import ExpressionExplorer from '../settings/model-settings/ExpressionExplorer.vue'
+import VfxPreviewGrid from './VfxPreviewGrid.vue'
 
 import { useControlStripAction } from '../../../composables/use-control-strip-action'
 import { ATMOSPHERE_PRESETS, CUSTOMIZER_CATALOG } from '../../../constants'
@@ -1331,7 +1332,7 @@ function cleanupDragListeners() {
 function handleAction(actionId: string) {
   console.info(`[Control Strip] Button clicked: "${actionId}".`)
 
-  const menuButtons = ['actor-characters', 'actor-avatars', 'actor-wardrobe', 'actor-motions', 'actor-all-emotions', 'actor-selfies', 'actor-macaron', 'gemini-voice', 'stage-atmosphere']
+  const menuButtons = ['actor-characters', 'actor-avatars', 'actor-wardrobe', 'actor-motions', 'actor-all-emotions', 'actor-vfx', 'actor-selfies', 'actor-macaron', 'gemini-voice', 'stage-atmosphere']
   if (menuButtons.includes(actionId)) {
     if (activePopover.value === actionId) {
       activePopover.value = null
@@ -1534,6 +1535,7 @@ function getShortLabel(btnId: string): string {
     'actor-wardrobe': 'Wear',
     'actor-motions': 'Move',
     'actor-all-emotions': 'Mood',
+    'actor-vfx': 'VFX',
     'actor-selfies': 'Self',
     'actor-macaron': 'Snack',
     'workspace': 'Work',
@@ -2788,6 +2790,18 @@ function getShortLabel(btnId: string): string {
               mode="trigger"
             />
           </div>
+        </div>
+
+        <!-- VFX & AURAS POPOVER (bespoke preview grid) -->
+        <div v-if="activePopover === 'actor-vfx'" class="flex flex-col gap-2">
+          <div class="flex items-center justify-between border-b border-neutral-200 pb-2 dark:border-neutral-800">
+            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">VFX & Auras</span>
+            <button class="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300" @click="activePopover = null">
+              <span class="i-solar:close-circle-outline text-lg" />
+            </button>
+          </div>
+
+          <VfxPreviewGrid />
         </div>
 
         <!-- AVATARS POPOVER -->

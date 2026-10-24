@@ -39,6 +39,8 @@ export const DEFAULT_BUTTONS: ControlStripButton[] = [
   { id: 'actor-selfies', enabled: false, label: 'Selfies', icon: 'i-solar:camera-linear' },
   { id: 'actor-macaron', enabled: false, label: 'Macaron Floatie', icon: 'i-solar:donut-bold-duotone' },
   { id: 'workspace', enabled: true, label: 'Workspace', icon: 'i-solar:code-square-linear' },
+  { id: 'actor-all-emotions', enabled: true, label: 'All Emotions', icon: 'i-solar:emoji-funny-square-linear' },
+  { id: 'actor-vfx', enabled: true, label: 'VFX & Auras', icon: 'i-solar:fire-linear' },
 ]
 
 export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
@@ -46,6 +48,7 @@ export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
   { id: 'head-tethered-caption', enabled: true, label: 'Head-Tethered Caption', icon: 'i-solar:chat-round-line-linear' },
   { id: 'actor-motions', enabled: true, label: 'Motions', icon: 'i-solar:running-2-linear' },
   { id: 'actor-all-emotions', enabled: true, label: 'All Emotions', icon: 'i-solar:emoji-funny-square-linear' },
+  { id: 'actor-vfx', enabled: true, label: 'VFX & Auras', icon: 'i-solar:fire-linear' },
   { id: 'actor-selfies', enabled: true, label: 'Selfies', icon: 'i-solar:camera-linear' },
   // NOTICE (mobile deprecations, no version bump — the keyed merge handles
   // existing users): 'stage-atmosphere' (Stage Theme) is consolidated into
@@ -108,7 +111,7 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
   // Desktop preserves existing 'v4' and 'v5' configs without wiping user layouts.
   const storedVersion = localStorage.getItem('settings/control-strip/buttons-version')
   const isValidDesktopVersion = isStageTamagotchi() && (storedVersion === 'v4' || storedVersion === 'v5')
-  const isValidMobileVersion = !isStageTamagotchi() && storedVersion === 'v4-mobile'
+  const isValidMobileVersion = !isStageTamagotchi() && (storedVersion === 'v4-mobile' || storedVersion === 'v5-mobile')
 
   if (!isValidDesktopVersion && !isValidMobileVersion) {
     buttons.value = [...defaultButtons]

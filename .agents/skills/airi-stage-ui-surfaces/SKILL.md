@@ -105,6 +105,7 @@ Edit the `mode === 'mobile'` branches in §3's table — not a new component. To
 ### 4.4 Styling
 - UnoCSS arrays (`:class="['px-2 py-1', 'flex items-center']"`), `@proj-airi/ui` primitives + Iconify icons over bespoke SVGs.
 - Glassmorphic pill styling and `backgroundTint` live in `ControlStrip.vue`; dark tokens via `dark:*`.
+- **Strip + catalog icons stay linear (`*-linear`).** Do not introduce `*-bold-duotone` variants for new strip/catalog buttons — the strip was converted to linear (Oct 2026) and the keyed merge resyncs icons from defaults/catalog, so a duotone icon ships to every existing user.
 
 ## 5. Known Pitfalls & Failure Modes
 

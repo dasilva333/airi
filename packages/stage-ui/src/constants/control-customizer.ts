@@ -322,6 +322,14 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         defaultOnStrip: false,
       },
       {
+        id: 'actor-vfx',
+        label: 'VFX & Auras',
+        description: 'Trigger elemental aura previews: fire, electric, magic, verdant.',
+        icon: 'i-solar:fire-linear',
+        type: 'menu',
+        defaultOnStrip: false,
+      },
+      {
         id: 'actor-selfies',
         label: 'Selfies',
         description: 'Take and manage character selfies and card thumbnails.',
