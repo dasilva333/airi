@@ -2,6 +2,8 @@
 import { Collapsible } from '@proj-airi/ui'
 import { computed } from 'vue'
 
+import MusicTrackPreview from './MusicTrackPreview.vue'
+
 import { useBackgroundStore } from '../../../stores/background'
 import { useJournalPreviewStore } from '../../../stores/journal-preview'
 import { MarkdownRenderer } from '../../markdown'
@@ -159,7 +161,51 @@ const formattedArgs = computed(() => {
   }
 })
 
+// --- MCP music tool results ------------------------------------------------
+// A finished track arrives as an mcp_call_tool result whose structuredContent
+// carries the track record. Detect that specific call so the transcript renders
+// a player instead of a wall of JSON.
+
+const mcpCall = computed<{ name?: string } | null>(() => {
+  if (props.toolName !== 'mcp_call_tool')
+    return null
+  return (parsedArgs.value as any) || null
+})
+
+const isMusicToolCall = computed(() => {
+  return !!mcpCall.value?.name?.endsWith('::music')
+})
+
+const musicResult = computed<any | null>(() => {
+  if (!isMusicToolCall.value)
+    return null
+
+  const structured = props.result?.structuredContent
+  if (structured && typeof structured === 'object')
+    return structured
+
+  // Fall back to text content for clients/results that omit structuredContent.
+  const text = props.result?.content?.find((entry: any) => entry?.type === 'text')?.text
+  if (typeof text === 'string') {
+    try {
+      return JSON.parse(text)
+    }
+    catch {
+      return null
+    }
+  }
+  return null
+})
+
+const musicTrack = computed<{ title?: string, model?: string, audioUrl?: string } | null>(() => {
+  const track = musicResult.value?.track
+  return track?.audioUrl ? track : null
+})
+
 const toolSummary = computed(() => {
+  // A named track beats "🛠️ music: status" once the render is done.
+  if (musicTrack.value?.title)
+    return `🎵 ${musicTrack.value.title}`
   return formatToolCallSummary(props.toolName, parsedArgs.value || props.args)
 })
 </script>
@@ -215,7 +261,17 @@ const toolSummary = computed(() => {
         'bg-neutral-100/70 text-sm text-neutral-800 dark:bg-neutral-900/70 dark:text-neutral-200',
       ]"
     >
-      <template v-if="isTextJournalCreate">
+      <template v-if="musicTrack">
+        <div class="mb-2 flex items-center gap-2">
+          <div class="i-solar:music-notes-bold-duotone text-base text-fuchsia-500" />
+          <div class="rounded-full bg-fuchsia-500/12 px-2.5 py-1 text-xs text-fuchsia-700 dark:text-fuchsia-300">
+            Track ready
+          </div>
+        </div>
+        <MusicTrackPreview :track="musicTrack" />
+      </template>
+
+      <template v-else-if="isTextJournalCreate">
         <div class="mb-2 flex items-center gap-2">
           <div class="i-solar:notebook-bookmark-bold-duotone text-base text-emerald-500" />
           <div class="rounded-full bg-emerald-500/12 px-2.5 py-1 text-xs text-emerald-700 dark:text-emerald-300">
