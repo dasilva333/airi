@@ -24,7 +24,7 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "CSC_IDENTITY_AUTO_DISCOVERY=false pnpm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
     "build:win": "pnpm -F @proj-airi/stage-mate run build:win && pnpm run build && tsx scripts/copy-deps.ts && electron-builder --win && tsx scripts/package-win-zip.ts",
-    "build:mac": "NODE_OPTIONS=\"--max-old-space-size=12288\" CSC_IDENTITY_AUTO_DISCOVERY=false pnpm run build && NODE_OPTIONS=\"--max-old-space-size=12288\" CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg && NODE_OPTIONS=\"--max-old-space-size=12288\" CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac zip",
+    "build:mac": "NODE_OPTIONS=\"--max-old-space-size=12288\" CSC_IDENTITY_AUTO_DISCOVERY=false pnpm run build && NODE_OPTIONS=\"--max-old-space-size=12288\" CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg zip",
     "build:linux": "pnpm run build && electron-builder --linux",
     "build:deb": "pnpm run build && electron-builder --linux deb",
     "build:rpm": "pnpm run build && electron-builder --linux rpm",

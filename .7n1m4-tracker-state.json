@@ -1,6 +1,6 @@
 {
-  "last_inspected_sha": "904120f8ae5d2ea398ee465387f109c3cf226ffa",
-  "last_run_timestamp": "2026-10-21T16:22:46.665Z",
+  "last_inspected_sha": "52f99542a2bc161af67de0d3ce5372fc317cd517",
+  "last_run_timestamp": "2026-10-24T15:46:43.536Z",
   "remote": "7n1m4",
   "branch": "main",
   "tracked_prs": {
@@ -45,12 +45,12 @@
       "type": "PR"
     },
     "Issue:1": {
-      "title": "roadmap (permanent):  libp2p Local Mesh → Agentic OS integration",
+      "title": "roadmap (permanent):  libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)",
       "state": "OPEN",
       "isDraft": false,
       "author": "7n1m4",
-      "commentsCount": 15,
-      "updatedAt": "2026-10-21T16:21:49Z",
+      "commentsCount": 16,
+      "updatedAt": "2026-10-24T10:20:08Z",
       "url": "https://github.com/anlmalabs/airi/issues/1",
       "type": "Issue"
     },
@@ -86,11 +86,11 @@
     },
     "PR:20": {
       "title": "feat(cross-wan): stand up a three-runner libp2p mesh across the WAN",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "author": "anlmabot",
       "commentsCount": 1,
-      "updatedAt": "2026-10-21T15:13:12Z",
+      "updatedAt": "2026-10-24T09:20:31Z",
       "url": "https://github.com/anlmalabs/airi/pull/20",
       "type": "PR"
     },
@@ -179,8 +179,8 @@
       "state": "OPEN",
       "isDraft": false,
       "author": "anlmabot",
-      "commentsCount": 9,
-      "updatedAt": "2026-10-21T15:06:00Z",
+      "commentsCount": 27,
+      "updatedAt": "2026-10-24T09:27:15Z",
       "url": "https://github.com/anlmalabs/airi/issues/17",
       "type": "Issue"
     },
@@ -229,9 +229,18 @@
       "commits_count": 0,
       "files_count": 0,
       "pr_changes_count": 1
+    },
+    {
+      "date": "2026-10-24T15:46:43.536Z",
+      "from_sha": "904120f8ae5d2ea398ee465387f109c3cf226ffa",
+      "to_sha": "52f99542a2bc161af67de0d3ce5372fc317cd517",
+      "commits_count": 2,
+      "files_count": 5,
+      "pr_changes_count": 3
     }
   ],
   "acknowledged_mentions": [
-    "https://github.com/anlmalabs/airi/issues/1#issuecomment-6313736629"
+    "https://github.com/anlmalabs/airi/issues/1#issuecomment-6313736629",
+    "https://github.com/anlmalabs/airi/issues/1#issuecomment-6382505252"
   ]
 }

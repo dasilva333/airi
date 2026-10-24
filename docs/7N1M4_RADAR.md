@@ -18,6 +18,79 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-10-24] 7n1m4 Fork Delta: `904120f8..52f99542` (2 commits, 5 files, 3 update(s))
+
+### 🚨 Action Required: Direct Mentions & Maintainer Inquiries
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `roadmap (permanent):  libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6313736629)):
+  > "Hey @dasilva333! On behalf of the team here at Anima Labs, thanks so much for the detailed write-up and the awesome shoutout! It’s great to see our roadmaps aligning so closely. To give a bit of context on our end: our core product vision for AnimaOS centers on strict local sovereignty—a puristic, z"
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `roadmap (permanent):  libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Replied & Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6382505252)):
+  > "@dasilva333  — thank you for putting together such a comprehensive blueprint! Having reviewed it end-to-end, the proposed 4-layer inversion aligns perfectly with our architecture and integrates seamlessly into the components we have already deployed without any structural rework. ### Architecture Ma"
+  - **Our Response**: [Issue #1 Comment #6386372201](https://github.com/anlmalabs/airi/issues/1#issuecomment-6386372201) — Accepted PR #11 `TransportAdapter` seam as canonical contract; endorsed peer record as source of truth with transport boundary as enforcer; approved Phase 6 roadmap (`peers.ts` port to IndexedDB).
+
+### 🎯 Executive Highlights
+**Sister Fork Intelligence Briefing & Architectural Alignment**:
+
+• **Actionable Maintainer Inquiry & 4-Layer Architectural Convergence (@dasilva333)**:
+  - **Full Blueprint Endorsement**: Vi (@7n1m4) reviewed @dasilva333's 4-layer inversion blueprint (`docs/phase-2b-mesh-and-nap-chat.md`) end-to-end, confirming that it maps cleanly to their deployed stack without structural rework.
+  - **Phase 6 Universal Friends & Peers Plan**: 7n1m4 proposed Phase 6 to port `packages/stage-shared/src/peers.ts` domain types (`BasePeer`, `SameAccountDevice`, `ExternalFriend`, `FriendRequest`, `AmbassadorCard`) into their stack, backed by an IndexedDB repository in `stage-tamagotchi` (honoring local sovereignty). Transport routing will leave `endpoints.cloudflareWorkerUrl` unset and route through libp2p multiaddrs (mDNS + signed peer records), re-hosting nap-chat on the new peers roster.
+  - **Contract Reconciliation & Open Question**: 7n1m4 proposed adopting their deployed `TransportAdapter` seam (PR #11/#12) as the canonical interface in `stage-shared` and refactoring `transport.ts` (including loopback) as a conforming driver. They raised an open design question for @dasilva333: should capability gating (`canNapChat`, `canShareMemories`, `canStreamSensory`) reside directly on the `ExternalFriend` peer record (dasilva333 model) or at the transport boundary (7n1m4 sovereign gate)? Vi leans toward peer record as source of truth and transport as enforcer.
+
+• **Executive Highlights**:
+  - **Cross-WAN P2P Tunnel Mesh Shipped (PR #20)**: Replaced failed WebRTC/STUN hole-punching against Azure symmetric NAT on GitHub-hosted runners with an automated 3-node libp2p mesh (`scripts/cross-wan-node.mjs`, `.github/workflows/ci-cross-wan-p2p.yml`). Nodes establish outbound connections via anonymous quick tunnels (`cloudflared`, `pinggy`, `localhost.run`) and coordinate public multiaddrs via GitHub Issue #17 rendezvous ledger.
+  - **STUN Reversion to Preserve Local Sovereignty**: Removed Google STUN servers (`stun.l.google.com:19302`) from WebRTC in `apps/stage-tamagotchi/src/main/services/airi/libp2p/index.ts`, confirming that external STUN is ineffective against symmetric NAT and unneeded for local sovereign operation.
+  - **CI Quota Preservation**: Migrated heavy monorepo verification (`.github/workflows/ci.yml`) to a daily schedule (`0 3 * * *`) instead of triggering on every commit/PR.
+
+• **Discussion Velocity**:
+  - **Issue #1 (Permanent Roadmap)**: 1 new critical architectural comment from Vi (@7n1m4) addressed to @dasilva333 detailing the Phase 6 convergence roadmap and capability gating question.
+  - **Issue #17 (Cross-WAN Rendezvous)**: +18 new automated journal comments (27 total) tracking 3-runner multiaddr registrations and gossipsub ping/pong exchanges.
+  - **PR #20**: Successfully transitioned from `OPEN` ➔ `MERGED`.
+
+• **Cherry-Pick Candidates**:
+  - `e867a6679` (PR #20 diff in `apps/stage-tamagotchi/src/main/services/airi/libp2p/index.ts`): Revert of Google STUN configuration in `webRTC()`. Matches our offline-first sovereign stance; safe to keep in sync.
+  - **Gossipsub Tie-Breaking Logic**: The symmetric lower-Peer-ID dialer constraint in `scripts/cross-wan-node.mjs` prevents dual-dial race conditions that orphan gossipsub publish streams in libp2p. High-value pattern for P2P connection management.
+  - *(Quarantine per Cherry-Pick Policy)*: `scripts/cross-wan-node.mjs` and `.github/workflows/ci-cross-wan-p2p.yml` rely on ephemeral third-party tunnel providers (`*.trycloudflare.com`, `*.pinggy.net`, `*.lhr.life`); keep quarantined from production build.
+
+• **Collision Warnings**:
+  - `apps/stage-tamagotchi/src/main/services/airi/libp2p/index.ts`: Touched (-14 lines) to revert STUN. Clean diff with zero conflicts against our local changes.
+  - `packages/stage-shared/src/transport.ts`: Discrepancy between dasilva333's `TransportAdapter` interface and 7n1m4's PR #11/#12 contract requires resolution before executing Phase 6 `peers.ts` port.
+
+### 📋 7n1m4 Fork Commits
+- `52f99542a` ci: run monorepo verification on a daily schedule instead of every commit/PR  _(7n1m4, 2026-10-24)_
+- `e867a6679` feat(cross-wan): stand up a three-runner libp2p mesh across the WAN (#20) [#20](https://github.com/7n1m4/airi/pull/20) _(anlmabot[bot], 2026-10-24)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 3 file(s) (+116/-42)
+- `.github/workflows/ci-cross-wan-p2p.yml` *(+106/-40)*
+- `.github/workflows/ci.yml` *(+4/-2)*
+- `README.md` *(+6/-0)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 1 file(s) (+1/-15)
+- `apps/stage-tamagotchi/src/main/services/airi/libp2p/index.ts` *(+1/-15)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 1 file(s) (+546/-0)
+- `scripts/cross-wan-node.mjs` *(+546/-0)*
+
+### 📬 7n1m4 Fork Activity Radar
+#### 🔄 Status & Lifecycle Changes (1)
+- [PR] [#20](https://github.com/anlmalabs/airi/pull/20) `feat(cross-wan): stand up a three-runner libp2p mesh across the WAN` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (2)
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `roadmap (permanent):  libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — *+1 comments (15 ➔ 16 total)*
+- [Issue] [#17](https://github.com/anlmalabs/airi/issues/17) `[CI] Cross-WAN rendezvous (auto-managed, do not close)` — *+18 comments (9 ➔ 27 total)*
+
+### 👁️ Watched 7n1m4 Fork Monitor
+- [PR] [#7](https://github.com/anlmalabs/airi/pull/7) `feat(agentic): presence single source + nap & companion nap-chat` [MERGED] — *(1 comments)*
+  - *Focus*: Presence-derived idle state triggering autonomous peer-to-peer companion nap-chat over libp2p with memory write-back & recap
+- [PR] [#6](https://github.com/anlmalabs/airi/pull/6) `feat(libp2p): complete pairing over the wire and paired-device management` [MERGED] — *(0 comments)*
+  - *Focus*: Wire pairing negotiation, multiaddr identity storage, and eventa message transport
+- [PR] [#8](https://github.com/anlmalabs/airi/pull/8) `fix: migrate zod imports to default for Node 26 Vite SSR interop` [MERGED] — *(0 comments)*
+  - *Focus*: Vite SSR interop for Node 26 runtime
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `roadmap (permanent):  libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` [OPEN] — 🚨 **+1 comments** (16 total)
+  - *Focus*: Violet's master roadmap and architectural milestone tracker
+- [Issue] [#4](https://github.com/anlmalabs/airi/issues/4) `Phase 3: Agentic OS Integration` [CLOSED] — *(0 comments)*
+  - *Focus*: Autonomous mode toggle, memory-driven proactive intentions, Jev decision loop
+
+---
 ## [2026-10-21] 7n1m4 Fork Delta: `cf090ed5..904120f8` (10 commits, 40 files, 15 update(s))
 
 ### 🚨 Action Required: Direct Mentions & Maintainer Inquiries
