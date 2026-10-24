@@ -50,6 +50,29 @@ export function forwardLive2dWidgetMessage(data: { type: string, target?: unknow
   return false
 }
 
+/**
+ * Resolves the human-readable reason from a failed tool result.
+ *
+ * AIRI's `mcp_call_tool` reports failures in `content` rather than `toolResult`,
+ * so reading only `toolResult` collapsed every error to a generic string — a
+ * widget could not tell "no such job" apart from "server unreachable".
+ */
+export function describeToolError(res: McpCallToolResult): string {
+  if (typeof res.toolResult === 'string' && res.toolResult.trim())
+    return res.toolResult
+
+  const text = Array.isArray(res.content)
+    ? res.content
+        .filter(entry => entry?.type === 'text')
+        .map(entry => String(entry.text ?? ''))
+        .filter(Boolean)
+        .join('\n')
+        .trim()
+    : ''
+
+  return text || 'MCP tool execution failed'
+}
+
 export async function handleWidgetMcpMessage(e: MessageEvent): Promise<boolean> {
   if (typeof e.data?.type === 'string' && e.data.type.startsWith('airi:live2d:'))
     return forwardLive2dWidgetMessage(e.data)
@@ -66,7 +89,7 @@ export async function handleWidgetMcpMessage(e: MessageEvent): Promise<boolean> 
       target?.postMessage({
         type: 'mcp-call-result',
         id,
-        error: String(res.toolResult || 'MCP tool execution failed'),
+        error: describeToolError(res),
       }, '*')
     }
     else {

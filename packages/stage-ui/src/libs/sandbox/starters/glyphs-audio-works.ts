@@ -1,12 +1,16 @@
 import type { WidgetExportManifest } from '../export'
 
 /**
- * Glyph's Audio Works — a listening room widget authored live in the sandbox by
- * a character during a music session.
+ * Glyph's Audio Works — a listening room with an oven.
  *
- * Shipped with empty state on purpose: the exported state referenced a specific
- * track on the author's own audio server. Populate `audioUrl`/`tracks` via
- * `setState` (or let the agent fill it once a render completes).
+ * The character queues job ids into `state.pending` (via `setState`, or by
+ * editing `/workspace/glyphs_audio_works.json`, which the sandbox syncs back
+ * into the widget). The widget polls the audio server *only* while something is
+ * pending, folds finished renders into its library, and plays them. An empty
+ * oven means no timers at all.
+ *
+ * Ships with empty state on purpose: the library backfills from the server's
+ * `music { action: "list" }` on mount, so a fresh install is never a dead panel.
  */
 export const GLYPHS_AUDIO_WORKS_STARTER: WidgetExportManifest = {
   version: '1.0',
@@ -17,565 +21,1449 @@ export const GLYPHS_AUDIO_WORKS_STARTER: WidgetExportManifest = {
   target: 'sidepanel',
   state: {},
   sourcePath: '/workspace/glyphs_audio_works.ts',
-  sourceCode: `// Glyph's Audio Works — a little listening room for gremlin tunes
+  sourceCode: `// Glyph's Audio Works — a listening room with an oven.
+//
+// Flow: the agent queues job ids into \`state.pending\` (via setState or by editing
+// /workspace/glyphs_audio_works.json). This widget polls the audio server only
+// while something is pending, moves finished tracks into the library, and plays
+// them. It never polls when the oven is empty.
+
+type OrderRequest = {
+  prompt?: string
+  lyrics?: string
+  title?: string
+  durationSeconds?: number
+  cot?: string
+}
+
+type PendingOrder = {
+  jobId: string
+  title?: string
+  requestedAt?: number
+  durationSeconds?: number
+  request?: OrderRequest
+}
+
+type TrackStatus = 'ready' | 'failed' | 'expired' | 'cancelled'
+
+type Track = {
+  jobId: string
+  title: string
+  audioUrl: string
+  durationMs: number
+  model?: string
+  completedAt: number
+  status: TrackStatus
+  isNew?: boolean
+  error?: string
+  request?: OrderRequest
+}
+
+const DEFAULT_TOOL = 'airi-audio-server::music'
+const POLL_MS = 15000
+const MAX_POLL_MS = 60000
+const SHELF_LIMIT = 50
+// Measured YuE 2 throughput is 10-15x real time on an 8GB laptop GPU; the midpoint
+// turns a 20 minute wait into an honest ETA instead of a mystery.
+const REALTIME_FACTOR = 12.5
+
 const KAO = ['(￣▽￣)ノ', '(≧▽≦)ﾉ', '(◕‿◕✿)', '(￣ω￣)', '(｀・ω・´)', '(╯°□°)╯︵ ┻━┻']
 
-function el(tag: string, cls = '', html = '') {
-  const n = document.createElement(tag)
-  if (cls) n.className = cls
-  if (html) n.innerHTML = html
-  return n
+function fmtClock(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000))
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return \`\${m}:\${String(s).padStart(2, '0')}\`
+}
+
+function fmtEta(ms: number): string {
+  if (ms <= 0)
+    return 'any moment'
+  const mins = Math.ceil(ms / 60000)
+  return mins <= 1 ? 'under a minute' : \`~\${mins} min left\`
 }
 
 export default function mount(ctx: any) {
-  const { container, state, setState, onStateChange } = ctx
-  const s = Object.assign(
-    { audioUrl: '', title: 'nothing loaded yet', subtitle: 'waiting for a gremlin tune',
-      tracks: [] as any[], volume: 0.9, loops: 0 },
-    state || {}
-  )
+  const { container, state, setState, onStateChange, callMcpTool } = ctx
 
-  const root = el('div', 'w-full h-full overflow-y-auto bg-[#FFF8F1] dark:bg-[#141414] text-[#6b4a33] dark:text-[#FAD2B8] p-3 sm:p-4 font-mono text-[13px] space-y-3')
+  // ---- state -------------------------------------------------------------
+  const s: any = Object.assign({
+    pending: [],
+    finished: [],
+    current: { url: '', title: '' },
+    volume: 0.9,
+    loops: 0,
+    chime: true,
+    toolName: DEFAULT_TOOL,
+  }, state || {})
+
+  if (!Array.isArray(s.pending))
+    s.pending = []
+  if (!Array.isArray(s.finished))
+    s.finished = []
+  if (!s.current)
+    s.current = { url: '', title: '' }
+
+  let pollTimer: any = null
+  let inFlight = false
+  let backoffMs = POLL_MS
+  let aclBlocked = false
+  let offline = false
+  let disposed = false
+
+  // ---- dom helpers -------------------------------------------------------
+  function el(tag: string, cls = '', html = ''): HTMLElement {
+    const node = document.createElement(tag)
+    if (cls)
+      node.className = cls
+    if (html)
+      node.innerHTML = html
+    return node
+  }
+
+  const root = el(
+    'div',
+    'w-full h-full overflow-y-auto bg-[#FFF8F1] dark:bg-[#141414] text-[#6b4a33] dark:text-[#FAD2B8] p-3 sm:p-4 font-mono text-[13px] space-y-3',
+  )
   container.innerHTML = ''
   container.appendChild(root)
 
   // header
-  const head = el('div', 'flex items-center justify-between gap-2')
+  const head = el('div', 'flex items-start justify-between gap-2')
   head.innerHTML = \`
-    <div>
+    <div class="min-w-0">
       <div class="text-[15px] font-bold tracking-tight text-[#8A5A3B] dark:text-[#FAD2B8]">♫ Glyph's Audio Works ♫</div>
-      <div class="text-[11px] opacity-60">listening room・12 second wonders・no vocal, apparently</div>
+      <div class="text-[11px] opacity-60">listening room・12 second wonders・orders welcome</div>
     </div>
-    <div class="text-2xl select-none">🎛️</div>\`
+  \`
+  const headActions = el('div', 'flex shrink-0 items-center gap-1')
+  const chimeBtn = el('button', 'px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[11px]')
+  const refreshBtn = el('button', 'px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[11px]', '↻')
+  refreshBtn.title = 'Refresh library'
+  headActions.appendChild(chimeBtn)
+  headActions.appendChild(refreshBtn)
+  head.appendChild(headActions)
   root.appendChild(head)
 
-  // ---- player card ----
-  const card = el('div', 'rounded-2xl border border-[#EAD9C7] dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/70 p-3 space-y-2')
-  card.innerHTML = \`<div class="text-[11px] uppercase tracking-widest opacity-50">now playing</div>\`
+  const banner = el('div', 'hidden')
+  root.appendChild(banner)
 
-  const titleEl = el('div', 'text-[14px] font-bold text-[#8A5A3B] dark:text-[#FAD2B8] truncate', s.title)
-  const subEl = el('div', 'text-[10px] opacity-60 truncate', s.subtitle)
-  card.appendChild(titleEl); card.appendChild(subEl)
+  // now playing
+  const player = el('div', 'p-2.5 rounded-xl border border-[#EAD9C7] dark:border-neutral-700 bg-[#FFFDF8] dark:bg-[#1b1b1b] space-y-2')
+  player.innerHTML = \`
+    <div class="flex items-center justify-between text-[10px] uppercase tracking-wider opacity-60">Now playing</div>
+    <div class="flex items-baseline gap-2">
+      <span class="truncate text-[13px] font-bold" data-role="np-title">nothing loaded yet</span>
+      <span class="shrink-0 text-[10px] opacity-60" data-role="np-meta"></span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button data-role="play" class="px-2 py-0.5 rounded bg-[#E8B78E] dark:bg-[#B98D6E] text-[#3b2415] font-bold text-[11px]">▶ play</button>
+      <span class="text-[10px] tabular-nums opacity-70" data-role="np-time">0:00 / 0:00</span>
+    </div>
+    <input data-role="seek" type="range" min="0" max="1000" value="0" class="w-full accent-[#E8B78E] dark:accent-[#B98D6E] cursor-pointer" />
+    <div class="flex items-center gap-2 text-[11px]">
+      <span>🔈</span>
+      <input data-role="vol" type="range" min="0" max="100" value="90" class="flex-1 accent-[#E8B78E] dark:accent-[#B98D6E] cursor-pointer" />
+      <button data-role="loop" class="px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[10px]">loop</button>
+    </div>
+    <div class="text-[10px] opacity-60" data-role="np-source"></div>
+  \`
+  root.appendChild(player)
 
-  // progress bars thing
-  const bars = el('div', 'flex items-end gap-[2px] h-10 select-none')
-  const BAR_COUNT = 56
-  const barEls: HTMLDivElement[] = []
-  for (let i = 0; i < BAR_COUNT; i++) {
-    const b = el('div', 'flex-1 rounded-sm bg-[#E8B78E] dark:bg-[#7a5a44]') as HTMLDivElement
-    b.style.height = '8%'
-    b.style.transition = 'height 90ms linear, background-color 200ms'
-    bars.appendChild(b); barEls.push(b)
-  }
-  card.appendChild(bars)
+  // in the oven
+  const oven = el('div', 'space-y-1.5')
+  root.appendChild(oven)
 
-  const timeRow = el('div', 'flex justify-between text-[10px] opacity-60 tabular-nums')
-  const tNow = el('span', '', '0:00'); const tEnd = el('span', '', '0:00')
-  timeRow.appendChild(tNow); timeRow.appendChild(tEnd)
-  card.appendChild(timeRow)
+  // library
+  const library = el('div', 'space-y-1.5')
+  root.appendChild(library)
 
-  // seek
-  const seek = el('input', 'w-full accent-[#E8B78E] dark:accent-[#B98D6E] cursor-pointer') as HTMLInputElement
-  seek.type = 'range'; seek.min = '0'; seek.max = '1000'; seek.value = '0'
-  card.appendChild(seek)
-
-  // controls
-  const ctrl = el('div', 'flex items-center justify-center gap-2 pt-1')
-  const btn = (label: string, cls: string) => {
-    const b = el('button', \`rounded-full px-3 py-2 text-[13px] border transition active:scale-95 \${cls}\`)
-    b.textContent = label
-    return b as HTMLButtonElement
-  }
-  const back = btn('⏮', 'border-[#EAD9C7] dark:border-neutral-700 hover:bg-[#FFF3E6] dark:hover:bg-neutral-800')
-  const playB = btn('▶ play', 'bg-[#F6DCC3] dark:bg-neutral-800 border-[#E8B78E] dark:border-[#7a5a44] font-bold')
-  const fwd = btn('⏭', 'border-[#EAD9C7] dark:border-neutral-700 hover:bg-[#FFF3E6] dark:hover:bg-neutral-800')
-  const loopB = btn('↻ loop', 'border-[#EAD9C7] dark:border-neutral-700 hover:bg-[#FFF3E6] dark:hover:bg-neutral-800')
-  ctrl.appendChild(back); ctrl.appendChild(playB); ctrl.appendChild(fwd); ctrl.appendChild(loopB)
-  card.appendChild(ctrl)
-
-  // volume
-  const volRow = el('div', 'flex items-center gap-2 pt-1 text-[10px] opacity-70')
-  const volIcon = el('span', '', '🔈')
-  const vol = el('input', 'flex-1 accent-[#E8B78E] dark:accent-[#B98D6E] cursor-pointer') as HTMLInputElement
-  vol.type = 'range'; vol.min = '0'; vol.max = '100'; vol.value = String(Math.round((s.volume ?? 0.9) * 100))
-  volRow.appendChild(volIcon); volRow.appendChild(vol)
-  card.appendChild(volRow)
-
-  // fallback link
-  const linkRow = el('div', 'text-[10px] pt-1 break-all')
-  card.appendChild(linkRow)
-
-  root.appendChild(card)
-
-  // ---- library ----
-  const lib = el('div', 'rounded-2xl border border-[#EAD9C7] dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/70 p-3 space-y-2')
-  lib.innerHTML = \`<div class="text-[11px] uppercase tracking-widest opacity-50">library</div>\`
-  const libList = el('div', 'space-y-1')
-  lib.appendChild(libList)
-  root.appendChild(lib)
-
-  // ---- footer kao ----
-  const foot = el('div', 'text-center text-[11px] opacity-40 pt-1', KAO[Math.floor(Math.random() * KAO.length)])
+  const foot = el('div', 'text-[10px] opacity-50 text-center pt-1')
   root.appendChild(foot)
 
-  // ---- audio element ----
-  const audio = document.createElement('audio')
+  // audio
+  const audio = document.createElement('audio') as HTMLAudioElement
   audio.preload = 'metadata'
-  audio.crossOrigin = 'anonymous'
-  audio.volume = Math.max(0, Math.min(1, s.volume ?? 0.9))
-  root.appendChild(audio)
+  audio.volume = typeof s.volume === 'number' ? s.volume : 0.9
+  audio.loop = !!s.loops
 
-  let fakeTimer: any = null
-  let fakePos = 0
-  const FAKE_DUR = 12
+  const npTitle = player.querySelector('[data-role="np-title"]') as HTMLElement
+  const npMeta = player.querySelector('[data-role="np-meta"]') as HTMLElement
+  const npTime = player.querySelector('[data-role="np-time"]') as HTMLElement
+  const npSource = player.querySelector('[data-role="np-source"]') as HTMLElement
+  const playBtn = player.querySelector('[data-role="play"]') as HTMLButtonElement
+  const seek = player.querySelector('[data-role="seek"]') as HTMLInputElement
+  const vol = player.querySelector('[data-role="vol"]') as HTMLInputElement
+  const loopBtn = player.querySelector('[data-role="loop"]') as HTMLButtonElement
 
-  function fmt(t: number) {
-    if (!isFinite(t) || t < 0) t = 0
-    const m = Math.floor(t / 60)
-    const sec = Math.floor(t % 60)
-    return \`\${m}:\${String(sec).padStart(2, '0')}\`
+  // ---- helpers -----------------------------------------------------------
+  function pending(): PendingOrder[] {
+    return Array.isArray(s.pending) ? s.pending : []
   }
 
-  function paintBars(progress: number, playing: boolean) {
-    for (let i = 0; i < BAR_COUNT; i++) {
-      const p = i / BAR_COUNT
-      const active = p <= progress
-      const wave = playing
-        ? 20 + Math.abs(Math.sin(i * 0.7 + Date.now() / 130)) * 70
-        : 12 + Math.abs(Math.sin(i * 1.3)) * 22
-      barEls[i].style.height = \`\${Math.max(8, active ? wave : wave * 0.45)}%\`
-      barEls[i].className = \`flex-1 rounded-sm \${active ? 'bg-[#E8B78E] dark:bg-[#B98D6E]' : 'bg-[#EAD9C7] dark:bg-neutral-800'}\`
+  function finished(): Track[] {
+    return Array.isArray(s.finished) ? s.finished : []
+  }
+
+  function toolName(): string {
+    return s.toolName || DEFAULT_TOOL
+  }
+
+  async function callMusic(action: string, extra: Record<string, any> = {}): Promise<any> {
+    return await callMcpTool(toolName(), Object.assign({ action }, extra))
+  }
+
+  function errorText(err: any): string {
+    return String((err && err.message) || err || '')
+  }
+
+  function classify(err: any): 'acl' | 'expired' | 'offline' {
+    const msg = errorText(err)
+    if (/not permitted|not enabled|disabled|allow/i.test(msg))
+      return 'acl'
+    if (/No music job with id/i.test(msg))
+      return 'expired'
+    return 'offline'
+  }
+
+  function setBanner(text: string, tone: 'warn' | 'error' | ''): void {
+    if (!text) {
+      banner.className = 'hidden'
+      banner.innerHTML = ''
+      return
+    }
+    const palette = tone === 'error'
+      ? 'border-rose-400/40 bg-rose-500/10 text-rose-600 dark:text-rose-300'
+      : tone === 'warn'
+        ? 'border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+        : 'border-[#EAD9C7] dark:border-neutral-700 bg-black/5 dark:bg-white/5'
+    banner.className = \`px-2.5 py-1.5 rounded-lg border text-[11px] \${palette}\`
+    banner.textContent = text
+  }
+
+  function chime(): void {
+    if (!s.chime)
+      return
+    try {
+      const Ctor = (window as any).AudioContext || (window as any).webkitAudioContext
+      if (!Ctor)
+        return
+      const actx = new Ctor()
+      const start = actx.currentTime
+      const notes = [880, 1174.66]
+      notes.forEach((freq, i) => {
+        const osc = actx.createOscillator()
+        const gain = actx.createGain()
+        const at = start + i * 0.13
+        osc.type = 'sine'
+        osc.frequency.value = freq
+        gain.gain.setValueAtTime(0.0001, at)
+        gain.gain.exponentialRampToValueAtTime(0.11, at + 0.02)
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.34)
+        osc.connect(gain)
+        gain.connect(actx.destination)
+        osc.start(at)
+        osc.stop(at + 0.38)
+      })
+      setTimeout(() => {
+        try {
+          actx.close()
+        }
+        catch (e) {}
+      }, 900)
+    }
+    catch (e) {
+      // Autoplay/audio unavailable — the "new" badge still tells the story.
     }
   }
 
-  function renderLink() {
-    linkRow.innerHTML = s.audioUrl
-      ? \`source: <a href="\${s.audioUrl}" target="_blank" rel="noopener" class="underline text-[#8A5A3B] dark:text-[#FAD2B8]">open in browser ↗</a>\`
-      : \`no source yet — someone feed me a URL <span class="opacity-60">(￣ω￣)</span>\`
+  // ---- polling -----------------------------------------------------------
+  function schedulePoll(delay: number): void {
+    if (disposed)
+      return
+    if (pollTimer)
+      clearTimeout(pollTimer)
+    pollTimer = setTimeout(tick, delay)
+  }
+
+  function stopPolling(): void {
+    if (pollTimer) {
+      clearTimeout(pollTimer)
+      pollTimer = null
+    }
+  }
+
+  /** Only ever runs while something is pending; stops itself when the oven empties. */
+  function ensurePolling(): void {
+    if (disposed || aclBlocked)
+      return
+    if (!pending().length) {
+      stopPolling()
+      return
+    }
+    if (pollTimer || inFlight)
+      return
+    schedulePoll(500)
+  }
+
+  async function tick(): Promise<void> {
+    pollTimer = null
+    if (disposed || inFlight)
+      return
+    const jobs = pending().slice()
+    if (!jobs.length)
+      return
+
+    inFlight = true
+    let sawError = false
+    try {
+      for (const job of jobs) {
+        const ok = await checkOne(job)
+        if (!ok)
+          sawError = true
+        if (aclBlocked)
+          break
+      }
+    }
+    finally {
+      inFlight = false
+    }
+
+    if (aclBlocked)
+      return
+
+    if (sawError) {
+      backoffMs = Math.min(MAX_POLL_MS, Math.round(backoffMs * 1.5))
+    }
+    else {
+      backoffMs = POLL_MS
+      if (offline) {
+        offline = false
+        render()
+      }
+    }
+
+    if (pending().length)
+      schedulePoll(backoffMs)
+  }
+
+  /** Returns false when the check could not reach the server. */
+  async function checkOne(job: PendingOrder): Promise<boolean> {
+    let res: any
+    try {
+      res = await callMusic('status', { jobId: job.jobId })
+    }
+    catch (err) {
+      const kind = classify(err)
+      if (kind === 'acl') {
+        aclBlocked = true
+        setBanner('Music Creation is disabled for this character — enable it in the card tools tab to track orders.', 'warn')
+        return true
+      }
+      if (kind === 'expired') {
+        // Server restarted: job records are in-memory and gone.
+        moveToFinished(job, { status: 'expired', error: 'The server restarted before this finished.' })
+        return true
+      }
+      if (!offline) {
+        offline = true
+        setBanner('Cannot reach the audio server — retrying quietly. Tracks already rendered stay in the library.', 'warn')
+        render()
+      }
+      return false
+    }
+
+    if (!res)
+      return true
+
+    if (res.state === 'done' && res.track) {
+      complete(job, res.track)
+      return true
+    }
+    if (res.state === 'failed') {
+      moveToFinished(job, { status: 'failed', error: res.error || 'Render failed.' })
+      return true
+    }
+    if (res.state === 'cancelled') {
+      moveToFinished(job, { status: 'cancelled', error: 'Cancelled.' })
+      return true
+    }
+    return true
+  }
+
+  // ---- state transitions -------------------------------------------------
+  function persist(): void {
+    setState({
+      pending: pending(),
+      finished: finished().slice(0, SHELF_LIMIT),
+      current: s.current,
+      volume: s.volume,
+      loops: s.loops,
+      chime: s.chime,
+    })
+  }
+
+  function complete(job: PendingOrder, track: any): void {
+    const entry: Track = {
+      jobId: job.jobId,
+      title: track.title || job.title || 'Untitled',
+      audioUrl: track.audioUrl,
+      durationMs: track.durationMs || 0,
+      model: track.model || '',
+      completedAt: Date.now(),
+      status: 'ready',
+      isNew: true,
+    }
+    s.pending = pending().filter(j => j.jobId !== job.jobId)
+    s.finished = [entry, ...finished().filter(t => t.jobId !== entry.jobId)].slice(0, SHELF_LIMIT)
+    persist()
+    chime()
+    render()
+    if (pending().length)
+      schedulePoll(POLL_MS)
+  }
+
+  function moveToFinished(job: PendingOrder, patch: { status: TrackStatus, error?: string }): void {
+    const entry: Track = {
+      jobId: job.jobId,
+      title: job.title || job.request?.title || 'Untitled',
+      audioUrl: '',
+      durationMs: Math.round((job.durationSeconds || 60) * 1000),
+      completedAt: Date.now(),
+      status: patch.status,
+      error: patch.error,
+      request: job.request,
+    }
+    s.pending = pending().filter(j => j.jobId !== job.jobId)
+    s.finished = [entry, ...finished().filter(t => t.jobId !== entry.jobId)].slice(0, SHELF_LIMIT)
+    persist()
+    render()
+  }
+
+  // ---- actions -----------------------------------------------------------
+  async function cancelOrder(job: PendingOrder): Promise<void> {
+    try {
+      await callMusic('cancel', { jobId: job.jobId })
+    }
+    catch (err) {
+      // Cancelling a finished job is harmless; drop it from the oven either way.
+    }
+    s.pending = pending().filter(j => j.jobId !== job.jobId)
+    persist()
+    render()
+    if (pending().length)
+      ensurePolling()
+  }
+
+  async function reorder(track: Track): Promise<void> {
+    const request = track.request
+    if (!request) {
+      setBanner('This order has no stored brief — ask your character to re-order it.', 'warn')
+      return
+    }
+    try {
+      const receipt = await callMusic('generate', {
+        prompt: request.prompt,
+        lyrics: request.lyrics,
+        title: request.title,
+        durationSeconds: request.durationSeconds,
+        cot: request.cot,
+      })
+      if (receipt && receipt.jobId) {
+        s.pending = [...pending(), {
+          jobId: receipt.jobId,
+          title: request.title || track.title,
+          requestedAt: Date.now(),
+          durationSeconds: request.durationSeconds,
+          request,
+        }]
+        s.finished = finished().filter(t => t.jobId !== track.jobId)
+        persist()
+        render()
+        ensurePolling()
+      }
+    }
+    catch (err) {
+      setBanner(\`Could not re-order: \${errorText(err)}\`, 'error')
+    }
+  }
+
+  async function backfill(): Promise<void> {
+    try {
+      const res = await callMusic('list', { limit: SHELF_LIMIT })
+      const remote: any[] = (res && res.tracks) || []
+      const byId = new Map<string, Track>()
+      for (const track of finished())
+        byId.set(track.jobId, track)
+      for (const track of remote) {
+        if (!track || !track.id)
+          continue
+        if (byId.has(track.id))
+          continue
+        byId.set(track.id, {
+          jobId: track.id,
+          title: track.title || 'Untitled',
+          audioUrl: track.audioUrl,
+          durationMs: track.durationMs || 0,
+          model: track.model || '',
+          completedAt: track.createdAt ? Date.parse(track.createdAt) || 0 : 0,
+          status: 'ready',
+        })
+      }
+      const merged = [...byId.values()].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
+      s.finished = merged.slice(0, SHELF_LIMIT)
+      persist()
+      render()
+    }
+    catch (err) {
+      const kind = classify(err)
+      if (kind === 'acl')
+        setBanner('Music Creation is disabled for this character — enable it in the card tools tab.', 'warn')
+      else if (!pending().length)
+        setBanner('Library unavailable — the audio server is not answering.', 'warn')
+    }
+  }
+
+  function load(track: Track): void {
+    if (!track || !track.audioUrl)
+      return
+    s.current = { url: track.audioUrl, title: track.title }
+    track.isNew = false
+    audio.src = track.audioUrl
+    audio.loop = !!s.loops
+    npTitle.textContent = track.title
+    npMeta.textContent = [track.model, track.durationMs ? fmtClock(track.durationMs) : ''].filter(Boolean).join(' · ')
+    npSource.innerHTML = \`source: <a href="\${track.audioUrl}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
+    persist()
+    render()
+    void audio.play().catch(() => {})
+  }
+
+  // ---- render ------------------------------------------------------------
+  function renderOven(): void {
+    oven.innerHTML = ''
+    const jobs = pending()
+    if (!jobs.length) {
+      oven.appendChild(el('div', 'text-[11px] opacity-50 px-1', 'oven empty — ask your character for a tune'))
+      return
+    }
+    oven.appendChild(el('div', 'text-[10px] uppercase tracking-wider opacity-60 px-1', \`in the oven · \${jobs.length}\`))
+    for (const job of jobs) {
+      const requestedAt = job.requestedAt || Date.now()
+      const elapsed = Date.now() - requestedAt
+      const expected = (job.durationSeconds || 60) * 1000 * REALTIME_FACTOR
+      const remaining = expected - elapsed
+      const late = elapsed > expected * 1.5
+      const row = el('div', 'flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[#EAD9C7] dark:border-neutral-700 bg-[#FFFDF8] dark:bg-[#1b1b1b]')
+      row.innerHTML = \`
+        <span class="shrink-0 animate-pulse">◌</span>
+        <span class="min-w-0 flex-1 truncate text-[12px]">\${job.title || job.jobId}</span>
+        <span class="shrink-0 text-[10px] tabular-nums opacity-60">\${fmtClock(elapsed)}</span>
+        <span class="shrink-0 text-[10px] \${late ? 'text-amber-600 dark:text-amber-400' : 'opacity-60'}">\${late ? 'slower than usual' : fmtEta(remaining)}</span>
+      \`
+      const cancelBtn = el('button', 'shrink-0 px-1 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[10px]', '✕')
+      cancelBtn.title = 'Cancel this order'
+      cancelBtn.onclick = () => void cancelOrder(job)
+      row.appendChild(cancelBtn)
+      oven.appendChild(row)
+    }
+  }
+
+  function renderLibrary(): void {
+    library.innerHTML = ''
+    const tracks = finished()
+    if (!tracks.length) {
+      library.appendChild(el('div', 'text-[11px] opacity-50 px-1', 'library empty — rendered tracks land here'))
+      return
+    }
+    library.appendChild(el('div', 'text-[10px] uppercase tracking-wider opacity-60 px-1', 'library'))
+    for (const track of tracks) {
+      const row = el('div', 'flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[#EAD9C7] dark:border-neutral-700')
+      const icon = track.status === 'ready' ? '♫' : track.status === 'expired' ? '⌛' : '⚠'
+      row.innerHTML = \`
+        <span class="shrink-0 opacity-70">\${icon}</span>
+        <span class="min-w-0 flex-1 truncate text-[12px] \${track.isNew ? 'font-bold' : ''}">\${track.title}</span>
+        \${track.isNew ? '<span class="shrink-0 rounded px-1 text-[9px] bg-[#E8B78E]/30">new</span>' : ''}
+        <span class="shrink-0 text-[10px] tabular-nums opacity-60">\${track.durationMs ? fmtClock(track.durationMs) : ''}</span>
+      \`
+      if (track.status === 'ready') {
+        const play = el('button', 'shrink-0 px-1.5 rounded bg-[#E8B78E] dark:bg-[#B98D6E] text-[#3b2415] text-[10px] font-bold', '▶')
+        play.onclick = () => load(track)
+        row.appendChild(play)
+      }
+      else {
+        if (track.request) {
+          const again = el('button', 'shrink-0 px-1 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[10px]', '↻')
+          again.title = 'Order this again'
+          again.onclick = () => void reorder(track)
+          row.appendChild(again)
+        }
+        if (track.error)
+          row.title = track.error
+      }
+      library.appendChild(row)
+    }
+  }
+
+  function renderPlayer(): void {
+    const hasTrack = !!s.current.url
+    npTitle.textContent = s.current.title || 'nothing loaded yet'
+    if (!hasTrack)
+      npMeta.textContent = ''
+    playBtn.textContent = audio.paused ? '▶ play' : '⏸ pause'
+    loopBtn.className = \`px-1.5 py-0.5 rounded border text-[10px] \${audio.loop
+      ? 'bg-[#E8B78E] dark:bg-[#B98D6E] text-[#3b2415] border-transparent'
+      : 'border-[#EAD9C7] dark:border-neutral-700'}\`
+    vol.value = String(Math.round((audio.volume || 0) * 100))
+    chimeBtn.textContent = s.chime ? '🔔 chime' : '🔕 chime'
+    foot.textContent = KAO[Math.min(KAO.length - 1, finished().length % KAO.length)]
+  }
+
+  function render(): void {
+    renderPlayer()
+    renderOven()
+    renderLibrary()
+  }
+
+  // ---- wiring ------------------------------------------------------------
+  playBtn.onclick = () => {
+    if (!s.current.url)
+      return
+    if (audio.paused)
+      void audio.play().catch(() => {})
+    else
+      audio.pause()
+  }
+
+  seek.oninput = () => {
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
+    if (!duration)
+      return
+    audio.currentTime = (Number(seek.value) / 1000) * duration
+  }
+
+  vol.oninput = () => {
+    const next = Number(vol.value) / 100
+    audio.volume = next
+    s.volume = next
+    setState({ volume: next })
+  }
+
+  loopBtn.onclick = () => {
+    audio.loop = !audio.loop
+    s.loops = audio.loop ? 1 : 0
+    setState({ loops: s.loops })
+    renderPlayer()
+  }
+
+  chimeBtn.onclick = () => {
+    s.chime = !s.chime
+    setState({ chime: s.chime })
+    if (s.chime)
+      chime()
+    renderPlayer()
+  }
+
+  refreshBtn.onclick = () => {
+    void backfill()
+    ensurePolling()
+  }
+
+  audio.addEventListener('timeupdate', () => {
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
+    const cur = audio.currentTime || 0
+    npTime.textContent = \`\${fmtClock(cur * 1000)} / \${duration ? fmtClock(duration * 1000) : '0:00'}\`
+    if (duration)
+      seek.value = String(Math.round((cur / duration) * 1000))
+  })
+  audio.addEventListener('play', () => renderPlayer())
+  audio.addEventListener('pause', () => renderPlayer())
+  audio.addEventListener('ended', () => renderPlayer())
+  audio.addEventListener('loadedmetadata', () => {
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
+    if (duration)
+      npTime.textContent = \`\${fmtClock((audio.currentTime || 0) * 1000)} / \${fmtClock(duration * 1000)}\`
+  })
+
+  const onVisible = () => {
+    if (!document.hidden) {
+      // Background windows clamp timers; catch up as soon as we are seen again.
+      if (pending().length)
+        ensurePolling()
+      render()
+    }
+  }
+  document.addEventListener('visibilitychange', onVisible)
+
+  // Refresh the ETA/elapsed labels even while a poll is pending.
+  const ticker = setInterval(() => {
+    if (!disposed && pending().length)
+      renderOven()
+  }, 5000)
+
+  const unsub = typeof onStateChange === 'function'
+    ? onStateChange((next: any) => {
+        if (disposed || !next)
+          return
+        s.pending = Array.isArray(next.pending) ? next.pending : []
+        s.finished = Array.isArray(next.finished) ? next.finished : []
+        if (next.current)
+          s.current = next.current
+        if (typeof next.chime === 'boolean')
+          s.chime = next.chime
+        if (typeof next.loops === 'number')
+          s.loops = next.loops
+        render()
+        if (pending().length)
+          ensurePolling()
+      })
+    : null
+
+  // ---- boot --------------------------------------------------------------
+  if (s.current.url) {
+    audio.src = s.current.url
+    npSource.innerHTML = \`source: <a href="\${s.current.url}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
+    npMeta.textContent = s.current.title || ''
+  }
+
+  render()
+  void backfill()
+  ensurePolling()
+
+  return () => {
+    disposed = true
+    stopPolling()
+    clearInterval(ticker)
+    document.removeEventListener('visibilitychange', onVisible)
+    audio.pause()
+    audio.src = ''
+    if (unsub)
+      unsub()
+    container.innerHTML = ''
+  }
+}
+`,
+  code: ` function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }// Glyph's Audio Works — a listening room with an oven.
+//
+// Flow: the agent queues job ids into \`state.pending\` (via setState or by editing
+// /workspace/glyphs_audio_works.json). This widget polls the audio server only
+// while something is pending, moves finished tracks into the library, and plays
+// them. It never polls when the oven is empty.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const DEFAULT_TOOL = 'airi-audio-server::music'
+const POLL_MS = 15000
+const MAX_POLL_MS = 60000
+const SHELF_LIMIT = 50
+// Measured YuE 2 throughput is 10-15x real time on an 8GB laptop GPU; the midpoint
+// turns a 20 minute wait into an honest ETA instead of a mystery.
+const REALTIME_FACTOR = 12.5
+
+const KAO = ['(￣▽￣)ノ', '(≧▽≦)ﾉ', '(◕‿◕✿)', '(￣ω￣)', '(｀・ω・´)', '(╯°□°)╯︵ ┻━┻']
+
+function fmtClock(ms) {
+  const total = Math.max(0, Math.round(ms / 1000))
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return \`\${m}:\${String(s).padStart(2, '0')}\`
+}
+
+function fmtEta(ms) {
+  if (ms <= 0)
+    return 'any moment'
+  const mins = Math.ceil(ms / 60000)
+  return mins <= 1 ? 'under a minute' : \`~\${mins} min left\`
+}
+
+export default function mount(ctx) {
+  const { container, state, setState, onStateChange, callMcpTool } = ctx
+
+  // ---- state -------------------------------------------------------------
+  const s = Object.assign({
+    pending: [],
+    finished: [],
+    current: { url: '', title: '' },
+    volume: 0.9,
+    loops: 0,
+    chime: true,
+    toolName: DEFAULT_TOOL,
+  }, state || {})
+
+  if (!Array.isArray(s.pending))
+    s.pending = []
+  if (!Array.isArray(s.finished))
+    s.finished = []
+  if (!s.current)
+    s.current = { url: '', title: '' }
+
+  let pollTimer = null
+  let inFlight = false
+  let backoffMs = POLL_MS
+  let aclBlocked = false
+  let offline = false
+  let disposed = false
+
+  // ---- dom helpers -------------------------------------------------------
+  function el(tag, cls = '', html = '') {
+    const node = document.createElement(tag)
+    if (cls)
+      node.className = cls
+    if (html)
+      node.innerHTML = html
+    return node
+  }
+
+  const root = el(
+    'div',
+    'w-full h-full overflow-y-auto bg-[#FFF8F1] dark:bg-[#141414] text-[#6b4a33] dark:text-[#FAD2B8] p-3 sm:p-4 font-mono text-[13px] space-y-3',
+  )
+  container.innerHTML = ''
+  container.appendChild(root)
+
+  // header
+  const head = el('div', 'flex items-start justify-between gap-2')
+  head.innerHTML = \`
+    <div class="min-w-0">
+      <div class="text-[15px] font-bold tracking-tight text-[#8A5A3B] dark:text-[#FAD2B8]">♫ Glyph's Audio Works ♫</div>
+      <div class="text-[11px] opacity-60">listening room・12 second wonders・orders welcome</div>
+    </div>
+  \`
+  const headActions = el('div', 'flex shrink-0 items-center gap-1')
+  const chimeBtn = el('button', 'px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[11px]')
+  const refreshBtn = el('button', 'px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[11px]', '↻')
+  refreshBtn.title = 'Refresh library'
+  headActions.appendChild(chimeBtn)
+  headActions.appendChild(refreshBtn)
+  head.appendChild(headActions)
+  root.appendChild(head)
+
+  const banner = el('div', 'hidden')
+  root.appendChild(banner)
+
+  // now playing
+  const player = el('div', 'p-2.5 rounded-xl border border-[#EAD9C7] dark:border-neutral-700 bg-[#FFFDF8] dark:bg-[#1b1b1b] space-y-2')
+  player.innerHTML = \`
+    <div class="flex items-center justify-between text-[10px] uppercase tracking-wider opacity-60">Now playing</div>
+    <div class="flex items-baseline gap-2">
+      <span class="truncate text-[13px] font-bold" data-role="np-title">nothing loaded yet</span>
+      <span class="shrink-0 text-[10px] opacity-60" data-role="np-meta"></span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button data-role="play" class="px-2 py-0.5 rounded bg-[#E8B78E] dark:bg-[#B98D6E] text-[#3b2415] font-bold text-[11px]">▶ play</button>
+      <span class="text-[10px] tabular-nums opacity-70" data-role="np-time">0:00 / 0:00</span>
+    </div>
+    <input data-role="seek" type="range" min="0" max="1000" value="0" class="w-full accent-[#E8B78E] dark:accent-[#B98D6E] cursor-pointer" />
+    <div class="flex items-center gap-2 text-[11px]">
+      <span>🔈</span>
+      <input data-role="vol" type="range" min="0" max="100" value="90" class="flex-1 accent-[#E8B78E] dark:accent-[#B98D6E] cursor-pointer" />
+      <button data-role="loop" class="px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[10px]">loop</button>
+    </div>
+    <div class="text-[10px] opacity-60" data-role="np-source"></div>
+  \`
+  root.appendChild(player)
+
+  // in the oven
+  const oven = el('div', 'space-y-1.5')
+  root.appendChild(oven)
+
+  // library
+  const library = el('div', 'space-y-1.5')
+  root.appendChild(library)
+
+  const foot = el('div', 'text-[10px] opacity-50 text-center pt-1')
+  root.appendChild(foot)
+
+  // audio
+  const audio = document.createElement('audio') 
+  audio.preload = 'metadata'
+  audio.volume = typeof s.volume === 'number' ? s.volume : 0.9
+  audio.loop = !!s.loops
+
+  const npTitle = player.querySelector('[data-role="np-title"]') 
+  const npMeta = player.querySelector('[data-role="np-meta"]') 
+  const npTime = player.querySelector('[data-role="np-time"]') 
+  const npSource = player.querySelector('[data-role="np-source"]') 
+  const playBtn = player.querySelector('[data-role="play"]') 
+  const seek = player.querySelector('[data-role="seek"]') 
+  const vol = player.querySelector('[data-role="vol"]') 
+  const loopBtn = player.querySelector('[data-role="loop"]') 
+
+  // ---- helpers -----------------------------------------------------------
+  function pending() {
+    return Array.isArray(s.pending) ? s.pending : []
+  }
+
+  function finished() {
+    return Array.isArray(s.finished) ? s.finished : []
+  }
+
+  function toolName() {
+    return s.toolName || DEFAULT_TOOL
+  }
+
+  async function callMusic(action, extra = {}) {
+    return await callMcpTool(toolName(), Object.assign({ action }, extra))
+  }
+
+  function errorText(err) {
+    return String((err && err.message) || err || '')
+  }
+
+  function classify(err) {
+    const msg = errorText(err)
+    if (/not permitted|not enabled|disabled|allow/i.test(msg))
+      return 'acl'
+    if (/No music job with id/i.test(msg))
+      return 'expired'
+    return 'offline'
+  }
+
+  function setBanner(text, tone) {
+    if (!text) {
+      banner.className = 'hidden'
+      banner.innerHTML = ''
+      return
+    }
+    const palette = tone === 'error'
+      ? 'border-rose-400/40 bg-rose-500/10 text-rose-600 dark:text-rose-300'
+      : tone === 'warn'
+        ? 'border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+        : 'border-[#EAD9C7] dark:border-neutral-700 bg-black/5 dark:bg-white/5'
+    banner.className = \`px-2.5 py-1.5 rounded-lg border text-[11px] \${palette}\`
+    banner.textContent = text
+  }
+
+  function chime() {
+    if (!s.chime)
+      return
+    try {
+      const Ctor = (window ).AudioContext || (window ).webkitAudioContext
+      if (!Ctor)
+        return
+      const actx = new Ctor()
+      const start = actx.currentTime
+      const notes = [880, 1174.66]
+      notes.forEach((freq, i) => {
+        const osc = actx.createOscillator()
+        const gain = actx.createGain()
+        const at = start + i * 0.13
+        osc.type = 'sine'
+        osc.frequency.value = freq
+        gain.gain.setValueAtTime(0.0001, at)
+        gain.gain.exponentialRampToValueAtTime(0.11, at + 0.02)
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.34)
+        osc.connect(gain)
+        gain.connect(actx.destination)
+        osc.start(at)
+        osc.stop(at + 0.38)
+      })
+      setTimeout(() => {
+        try {
+          actx.close()
+        }
+        catch (e) {}
+      }, 900)
+    }
+    catch (e) {
+      // Autoplay/audio unavailable — the "new" badge still tells the story.
+    }
+  }
+
+  // ---- polling -----------------------------------------------------------
+  function schedulePoll(delay) {
+    if (disposed)
+      return
+    if (pollTimer)
+      clearTimeout(pollTimer)
+    pollTimer = setTimeout(tick, delay)
+  }
+
+  function stopPolling() {
+    if (pollTimer) {
+      clearTimeout(pollTimer)
+      pollTimer = null
+    }
+  }
+
+  /** Only ever runs while something is pending; stops itself when the oven empties. */
+  function ensurePolling() {
+    if (disposed || aclBlocked)
+      return
+    if (!pending().length) {
+      stopPolling()
+      return
+    }
+    if (pollTimer || inFlight)
+      return
+    schedulePoll(500)
+  }
+
+  async function tick() {
+    pollTimer = null
+    if (disposed || inFlight)
+      return
+    const jobs = pending().slice()
+    if (!jobs.length)
+      return
+
+    inFlight = true
+    let sawError = false
+    try {
+      for (const job of jobs) {
+        const ok = await checkOne(job)
+        if (!ok)
+          sawError = true
+        if (aclBlocked)
+          break
+      }
+    }
+    finally {
+      inFlight = false
+    }
+
+    if (aclBlocked)
+      return
+
+    if (sawError) {
+      backoffMs = Math.min(MAX_POLL_MS, Math.round(backoffMs * 1.5))
+    }
+    else {
+      backoffMs = POLL_MS
+      if (offline) {
+        offline = false
+        render()
+      }
+    }
+
+    if (pending().length)
+      schedulePoll(backoffMs)
+  }
+
+  /** Returns false when the check could not reach the server. */
+  async function checkOne(job) {
+    let res
+    try {
+      res = await callMusic('status', { jobId: job.jobId })
+    }
+    catch (err) {
+      const kind = classify(err)
+      if (kind === 'acl') {
+        aclBlocked = true
+        setBanner('Music Creation is disabled for this character — enable it in the card tools tab to track orders.', 'warn')
+        return true
+      }
+      if (kind === 'expired') {
+        // Server restarted: job records are in-memory and gone.
+        moveToFinished(job, { status: 'expired', error: 'The server restarted before this finished.' })
+        return true
+      }
+      if (!offline) {
+        offline = true
+        setBanner('Cannot reach the audio server — retrying quietly. Tracks already rendered stay in the library.', 'warn')
+        render()
+      }
+      return false
+    }
+
+    if (!res)
+      return true
+
+    if (res.state === 'done' && res.track) {
+      complete(job, res.track)
+      return true
+    }
+    if (res.state === 'failed') {
+      moveToFinished(job, { status: 'failed', error: res.error || 'Render failed.' })
+      return true
+    }
+    if (res.state === 'cancelled') {
+      moveToFinished(job, { status: 'cancelled', error: 'Cancelled.' })
+      return true
+    }
+    return true
+  }
+
+  // ---- state transitions -------------------------------------------------
+  function persist() {
+    setState({
+      pending: pending(),
+      finished: finished().slice(0, SHELF_LIMIT),
+      current: s.current,
+      volume: s.volume,
+      loops: s.loops,
+      chime: s.chime,
+    })
+  }
+
+  function complete(job, track) {
+    const entry = {
+      jobId: job.jobId,
+      title: track.title || job.title || 'Untitled',
+      audioUrl: track.audioUrl,
+      durationMs: track.durationMs || 0,
+      model: track.model || '',
+      completedAt: Date.now(),
+      status: 'ready',
+      isNew: true,
+    }
+    s.pending = pending().filter(j => j.jobId !== job.jobId)
+    s.finished = [entry, ...finished().filter(t => t.jobId !== entry.jobId)].slice(0, SHELF_LIMIT)
+    persist()
+    chime()
+    render()
+    if (pending().length)
+      schedulePoll(POLL_MS)
+  }
+
+  function moveToFinished(job, patch) {
+    const entry = {
+      jobId: job.jobId,
+      title: job.title || _optionalChain([job, 'access', _ => _.request, 'optionalAccess', _2 => _2.title]) || 'Untitled',
+      audioUrl: '',
+      durationMs: Math.round((job.durationSeconds || 60) * 1000),
+      completedAt: Date.now(),
+      status: patch.status,
+      error: patch.error,
+      request: job.request,
+    }
+    s.pending = pending().filter(j => j.jobId !== job.jobId)
+    s.finished = [entry, ...finished().filter(t => t.jobId !== entry.jobId)].slice(0, SHELF_LIMIT)
+    persist()
+    render()
+  }
+
+  // ---- actions -----------------------------------------------------------
+  async function cancelOrder(job) {
+    try {
+      await callMusic('cancel', { jobId: job.jobId })
+    }
+    catch (err) {
+      // Cancelling a finished job is harmless; drop it from the oven either way.
+    }
+    s.pending = pending().filter(j => j.jobId !== job.jobId)
+    persist()
+    render()
+    if (pending().length)
+      ensurePolling()
+  }
+
+  async function reorder(track) {
+    const request = track.request
+    if (!request) {
+      setBanner('This order has no stored brief — ask your character to re-order it.', 'warn')
+      return
+    }
+    try {
+      const receipt = await callMusic('generate', {
+        prompt: request.prompt,
+        lyrics: request.lyrics,
+        title: request.title,
+        durationSeconds: request.durationSeconds,
+        cot: request.cot,
+      })
+      if (receipt && receipt.jobId) {
+        s.pending = [...pending(), {
+          jobId: receipt.jobId,
+          title: request.title || track.title,
+          requestedAt: Date.now(),
+          durationSeconds: request.durationSeconds,
+          request,
+        }]
+        s.finished = finished().filter(t => t.jobId !== track.jobId)
+        persist()
+        render()
+        ensurePolling()
+      }
+    }
+    catch (err) {
+      setBanner(\`Could not re-order: \${errorText(err)}\`, 'error')
+    }
+  }
+
+  async function backfill() {
+    try {
+      const res = await callMusic('list', { limit: SHELF_LIMIT })
+      const remote = (res && res.tracks) || []
+      const byId = new Map()
+      for (const track of finished())
+        byId.set(track.jobId, track)
+      for (const track of remote) {
+        if (!track || !track.id)
+          continue
+        if (byId.has(track.id))
+          continue
+        byId.set(track.id, {
+          jobId: track.id,
+          title: track.title || 'Untitled',
+          audioUrl: track.audioUrl,
+          durationMs: track.durationMs || 0,
+          model: track.model || '',
+          completedAt: track.createdAt ? Date.parse(track.createdAt) || 0 : 0,
+          status: 'ready',
+        })
+      }
+      const merged = [...byId.values()].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
+      s.finished = merged.slice(0, SHELF_LIMIT)
+      persist()
+      render()
+    }
+    catch (err) {
+      const kind = classify(err)
+      if (kind === 'acl')
+        setBanner('Music Creation is disabled for this character — enable it in the card tools tab.', 'warn')
+      else if (!pending().length)
+        setBanner('Library unavailable — the audio server is not answering.', 'warn')
+    }
+  }
+
+  function load(track) {
+    if (!track || !track.audioUrl)
+      return
+    s.current = { url: track.audioUrl, title: track.title }
+    track.isNew = false
+    audio.src = track.audioUrl
+    audio.loop = !!s.loops
+    npTitle.textContent = track.title
+    npMeta.textContent = [track.model, track.durationMs ? fmtClock(track.durationMs) : ''].filter(Boolean).join(' · ')
+    npSource.innerHTML = \`source: <a href="\${track.audioUrl}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
+    persist()
+    render()
+    void audio.play().catch(() => {})
+  }
+
+  // ---- render ------------------------------------------------------------
+  function renderOven() {
+    oven.innerHTML = ''
+    const jobs = pending()
+    if (!jobs.length) {
+      oven.appendChild(el('div', 'text-[11px] opacity-50 px-1', 'oven empty — ask your character for a tune'))
+      return
+    }
+    oven.appendChild(el('div', 'text-[10px] uppercase tracking-wider opacity-60 px-1', \`in the oven · \${jobs.length}\`))
+    for (const job of jobs) {
+      const requestedAt = job.requestedAt || Date.now()
+      const elapsed = Date.now() - requestedAt
+      const expected = (job.durationSeconds || 60) * 1000 * REALTIME_FACTOR
+      const remaining = expected - elapsed
+      const late = elapsed > expected * 1.5
+      const row = el('div', 'flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[#EAD9C7] dark:border-neutral-700 bg-[#FFFDF8] dark:bg-[#1b1b1b]')
+      row.innerHTML = \`
+        <span class="shrink-0 animate-pulse">◌</span>
+        <span class="min-w-0 flex-1 truncate text-[12px]">\${job.title || job.jobId}</span>
+        <span class="shrink-0 text-[10px] tabular-nums opacity-60">\${fmtClock(elapsed)}</span>
+        <span class="shrink-0 text-[10px] \${late ? 'text-amber-600 dark:text-amber-400' : 'opacity-60'}">\${late ? 'slower than usual' : fmtEta(remaining)}</span>
+      \`
+      const cancelBtn = el('button', 'shrink-0 px-1 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[10px]', '✕')
+      cancelBtn.title = 'Cancel this order'
+      cancelBtn.onclick = () => void cancelOrder(job)
+      row.appendChild(cancelBtn)
+      oven.appendChild(row)
+    }
   }
 
   function renderLibrary() {
-    const list = Array.isArray(s.tracks) ? s.tracks : []
-    libList.innerHTML = ''
-    if (!list.length) {
-      libList.innerHTML = \`<div class="text-[11px] opacity-50">empty shelf. tragic.</div>\`
+    library.innerHTML = ''
+    const tracks = finished()
+    if (!tracks.length) {
+      library.appendChild(el('div', 'text-[11px] opacity-50 px-1', 'library empty — rendered tracks land here'))
       return
     }
-    list.forEach((t: any, i: number) => {
-      const row = el('button', 'w-full text-left rounded-xl px-2 py-1.5 border border-transparent hover:border-[#E8B78E] dark:hover:border-[#7a5a44] hover:bg-[#FFF3E6] dark:hover:bg-neutral-800 transition')
-      row.innerHTML = \`<div class="flex items-center justify-between gap-2">
-          <span class="truncate text-[12px] \${t.url === s.audioUrl ? 'font-bold' : ''}">\${t.title || 'untitled'}</span>
-          <span class="text-[10px] opacity-50 shrink-0">\${fmt((t.durationMs || 0) / 1000)}</span>
-        </div>\`
-      row.onclick = () => load(t.url, t.title, t.subtitle, (t.durationMs || 12000) / 1000)
-      libList.appendChild(row)
-    })
-  }
-
-  function load(url: string, title?: string, subtitle?: string, dur?: number) {
-    s.audioUrl = url
-    s.title = title || 'untitled'
-    s.subtitle = subtitle || 'glyph original'
-    titleEl.textContent = s.title
-    subEl.textContent = s.subtitle
-    audio.src = url
-    audio.load()
-    fakePos = 0
-    seek.value = '0'
-    tNow.textContent = '0:00'
-    tEnd.textContent = fmt(dur || FAKE_DUR)
-    paintBars(0, false)
-    renderLink(); renderLibrary()
-    setState({ audioUrl: s.audioUrl, title: s.title, subtitle: s.subtitle })
-  }
-
-  function startFakeClock() {
-    stopFakeClock()
-    fakeTimer = setInterval(() => {
-      const d = isFinite(audio.duration) && audio.duration > 0 ? audio.duration : FAKE_DUR
-      fakePos = Math.min(d, fakePos + 0.15)
-      const pct = d ? fakePos / d : 0
-      seek.value = String(Math.round(pct * 1000))
-      tNow.textContent = fmt(fakePos)
-      paintBars(pct, true)
-      if (fakePos >= d) stopFakeClock()
-    }, 150)
-  }
-  function stopFakeClock() { if (fakeTimer) { clearInterval(fakeTimer); fakeTimer = null } }
-
-  // real audio events (also drive UI when reachable)
-  audio.addEventListener('loadedmetadata', () => {
-    if (isFinite(audio.duration) && audio.duration > 0) tEnd.textContent = fmt(audio.duration)
-  })
-  audio.addEventListener('timeupdate', () => {
-    if (!isFinite(audio.duration) || !audio.duration) return
-    fakePos = audio.currentTime
-    const pct = audio.currentTime / audio.duration
-    seek.value = String(Math.round(pct * 1000))
-    tNow.textContent = fmt(audio.currentTime)
-    paintBars(pct, !audio.paused)
-  })
-  audio.addEventListener('play', () => { playB.textContent = '⏸ pause'; startFakeClock() })
-  audio.addEventListener('pause', () => { playB.textContent = '▶ play'; stopFakeClock(); paintBars(Number(seek.value) / 1000, false) })
-  audio.addEventListener('ended', () => {
-    playB.textContent = '▶ play'; stopFakeClock(); fakePos = 0
-    if (s.loops) { audio.currentTime = 0; audio.play().catch(() => {}) }
-  })
-  audio.addEventListener('error', () => {
-    subEl.textContent = 'source not reachable from here — use the link ↗'
-  })
-
-  // controls wiring
-  playB.onclick = () => {
-    if (!s.audioUrl) { foot.textContent = '(￣ω￣) nothing to play yet'; return }
-    if (audio.paused) {
-      audio.play().catch(() => {
-        // unreachable source: still animate so the room feels alive
-        playB.textContent = '⏸ pause'
-        startFakeClock()
-      })
-    } else audio.pause()
-  }
-  seek.oninput = () => {
-    const d = isFinite(audio.duration) && audio.duration > 0 ? audio.duration : FAKE_DUR
-    const t = (Number(seek.value) / 1000) * d
-    fakePos = t
-    try { audio.currentTime = t } catch {}
-    tNow.textContent = fmt(t)
-    paintBars(Number(seek.value) / 1000, !audio.paused)
-  }
-  back.onclick = () => { fakePos = 0; try { audio.currentTime = 0 } catch {}; seek.value = '0'; tNow.textContent = '0:00'; paintBars(0, !audio.paused) }
-  fwd.onclick = () => {
-    const d = isFinite(audio.duration) && audio.duration > 0 ? audio.duration : FAKE_DUR
-    fakePos = Math.max(0, d - 1); try { audio.currentTime = fakePos } catch {}
-    seek.value = String(Math.round((fakePos / d) * 1000)); tNow.textContent = fmt(fakePos)
-  }
-  loopB.onclick = () => {
-    s.loops = s.loops ? 0 : 1
-    audio.loop = !!s.loops
-    loopB.className = \`rounded-full px-3 py-2 text-[13px] border transition active:scale-95 \${s.loops
-      ? 'bg-[#F6DCC3] dark:bg-neutral-800 border-[#E8B78E] dark:border-[#7a5a44] font-bold'
-      : 'border-[#EAD9C7] dark:border-neutral-700'}\`
-    setState({ loops: s.loops })
-  }
-  vol.oninput = () => {
-    const v = Number(vol.value) / 100
-    audio.volume = v
-    volIcon.textContent = v === 0 ? '🔇' : v < 0.5 ? '🔈' : '🔊'
-    setState({ volume: v })
-  }
-
-  // ---- initial paint ----
-  if (s.audioUrl) load(s.audioUrl, s.title, s.subtitle, FAKE_DUR)
-  else { renderLink(); renderLibrary(); paintBars(0, false) }
-  volIcon.textContent = audio.volume === 0 ? '🔇' : audio.volume < 0.5 ? '🔈' : '🔊'
-
-  // react to external state edits (agent via bash, etc.)
-  if (onStateChange) {
-    onStateChange((next: any) => {
-      if (!next) return
-      if (next.audioUrl && next.audioUrl !== s.audioUrl) {
-        load(next.audioUrl, next.title, next.subtitle, (next.durationMs || 12000) / 1000)
+    library.appendChild(el('div', 'text-[10px] uppercase tracking-wider opacity-60 px-1', 'library'))
+    for (const track of tracks) {
+      const row = el('div', 'flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[#EAD9C7] dark:border-neutral-700')
+      const icon = track.status === 'ready' ? '♫' : track.status === 'expired' ? '⌛' : '⚠'
+      row.innerHTML = \`
+        <span class="shrink-0 opacity-70">\${icon}</span>
+        <span class="min-w-0 flex-1 truncate text-[12px] \${track.isNew ? 'font-bold' : ''}">\${track.title}</span>
+        \${track.isNew ? '<span class="shrink-0 rounded px-1 text-[9px] bg-[#E8B78E]/30">new</span>' : ''}
+        <span class="shrink-0 text-[10px] tabular-nums opacity-60">\${track.durationMs ? fmtClock(track.durationMs) : ''}</span>
+      \`
+      if (track.status === 'ready') {
+        const play = el('button', 'shrink-0 px-1.5 rounded bg-[#E8B78E] dark:bg-[#B98D6E] text-[#3b2415] text-[10px] font-bold', '▶')
+        play.onclick = () => load(track)
+        row.appendChild(play)
       }
-      if (Array.isArray(next.tracks)) { s.tracks = next.tracks; renderLibrary() }
-    })
+      else {
+        if (track.request) {
+          const again = el('button', 'shrink-0 px-1 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[10px]', '↻')
+          again.title = 'Order this again'
+          again.onclick = () => void reorder(track)
+          row.appendChild(again)
+        }
+        if (track.error)
+          row.title = track.error
+      }
+      library.appendChild(row)
+    }
   }
 
-  // gentle idle animation
-  setInterval(() => { if (!audio.paused && audio.currentTime) paintBars(audio.currentTime / (audio.duration || 1), true) }, 400)
+  function renderPlayer() {
+    const hasTrack = !!s.current.url
+    npTitle.textContent = s.current.title || 'nothing loaded yet'
+    if (!hasTrack)
+      npMeta.textContent = ''
+    playBtn.textContent = audio.paused ? '▶ play' : '⏸ pause'
+    loopBtn.className = \`px-1.5 py-0.5 rounded border text-[10px] \${audio.loop
+      ? 'bg-[#E8B78E] dark:bg-[#B98D6E] text-[#3b2415] border-transparent'
+      : 'border-[#EAD9C7] dark:border-neutral-700'}\`
+    vol.value = String(Math.round((audio.volume || 0) * 100))
+    chimeBtn.textContent = s.chime ? '🔔 chime' : '🔕 chime'
+    foot.textContent = KAO[Math.min(KAO.length - 1, finished().length % KAO.length)]
+  }
+
+  function render() {
+    renderPlayer()
+    renderOven()
+    renderLibrary()
+  }
+
+  // ---- wiring ------------------------------------------------------------
+  playBtn.onclick = () => {
+    if (!s.current.url)
+      return
+    if (audio.paused)
+      void audio.play().catch(() => {})
+    else
+      audio.pause()
+  }
+
+  seek.oninput = () => {
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
+    if (!duration)
+      return
+    audio.currentTime = (Number(seek.value) / 1000) * duration
+  }
+
+  vol.oninput = () => {
+    const next = Number(vol.value) / 100
+    audio.volume = next
+    s.volume = next
+    setState({ volume: next })
+  }
+
+  loopBtn.onclick = () => {
+    audio.loop = !audio.loop
+    s.loops = audio.loop ? 1 : 0
+    setState({ loops: s.loops })
+    renderPlayer()
+  }
+
+  chimeBtn.onclick = () => {
+    s.chime = !s.chime
+    setState({ chime: s.chime })
+    if (s.chime)
+      chime()
+    renderPlayer()
+  }
+
+  refreshBtn.onclick = () => {
+    void backfill()
+    ensurePolling()
+  }
+
+  audio.addEventListener('timeupdate', () => {
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
+    const cur = audio.currentTime || 0
+    npTime.textContent = \`\${fmtClock(cur * 1000)} / \${duration ? fmtClock(duration * 1000) : '0:00'}\`
+    if (duration)
+      seek.value = String(Math.round((cur / duration) * 1000))
+  })
+  audio.addEventListener('play', () => renderPlayer())
+  audio.addEventListener('pause', () => renderPlayer())
+  audio.addEventListener('ended', () => renderPlayer())
+  audio.addEventListener('loadedmetadata', () => {
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
+    if (duration)
+      npTime.textContent = \`\${fmtClock((audio.currentTime || 0) * 1000)} / \${fmtClock(duration * 1000)}\`
+  })
+
+  const onVisible = () => {
+    if (!document.hidden) {
+      // Background windows clamp timers; catch up as soon as we are seen again.
+      if (pending().length)
+        ensurePolling()
+      render()
+    }
+  }
+  document.addEventListener('visibilitychange', onVisible)
+
+  // Refresh the ETA/elapsed labels even while a poll is pending.
+  const ticker = setInterval(() => {
+    if (!disposed && pending().length)
+      renderOven()
+  }, 5000)
+
+  const unsub = typeof onStateChange === 'function'
+    ? onStateChange((next) => {
+        if (disposed || !next)
+          return
+        s.pending = Array.isArray(next.pending) ? next.pending : []
+        s.finished = Array.isArray(next.finished) ? next.finished : []
+        if (next.current)
+          s.current = next.current
+        if (typeof next.chime === 'boolean')
+          s.chime = next.chime
+        if (typeof next.loops === 'number')
+          s.loops = next.loops
+        render()
+        if (pending().length)
+          ensurePolling()
+      })
+    : null
+
+  // ---- boot --------------------------------------------------------------
+  if (s.current.url) {
+    audio.src = s.current.url
+    npSource.innerHTML = \`source: <a href="\${s.current.url}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
+    npMeta.textContent = s.current.title || ''
+  }
+
+  render()
+  void backfill()
+  ensurePolling()
+
+  return () => {
+    disposed = true
+    stopPolling()
+    clearInterval(ticker)
+    document.removeEventListener('visibilitychange', onVisible)
+    audio.pause()
+    audio.src = ''
+    if (unsub)
+      unsub()
+    container.innerHTML = ''
+  }
 }
 `,
-  code: `// Glyph's Audio Works — a little listening room for gremlin tunes
-const KAO = ['(￣▽￣)ノ', '(≧▽≦)ﾉ', '(◕‿◕✿)', '(￣ω￣)', '(｀・ω・´)', '(╯°□°)╯︵ ┻━┻'];
-function el(tag, cls = '', html = '') {
-    const n = document.createElement(tag);
-    if (cls)
-        n.className = cls;
-    if (html)
-        n.innerHTML = html;
-    return n;
-}
-export default function mount(ctx) {
-    const { container, state, setState, onStateChange } = ctx;
-    const s = Object.assign({ audioUrl: '', title: 'nothing loaded yet', subtitle: 'waiting for a gremlin tune',
-        tracks: [], volume: 0.9, loops: 0 }, state || {});
-    const root = el('div', 'w-full h-full overflow-y-auto bg-[#FFF8F1] dark:bg-[#141414] text-[#6b4a33] dark:text-[#FAD2B8] p-3 sm:p-4 font-mono text-[13px] space-y-3');
-    container.innerHTML = '';
-    container.appendChild(root);
-    // header
-    const head = el('div', 'flex items-center justify-between gap-2');
-    head.innerHTML = \`
-    <div>
-      <div class="text-[15px] font-bold tracking-tight text-[#8A5A3B] dark:text-[#FAD2B8]">♫ Glyph's Audio Works ♫</div>
-      <div class="text-[11px] opacity-60">listening room・12 second wonders・no vocal, apparently</div>
-    </div>
-    <div class="text-2xl select-none">🎛️</div>\`;
-    root.appendChild(head);
-    // ---- player card ----
-    const card = el('div', 'rounded-2xl border border-[#EAD9C7] dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/70 p-3 space-y-2');
-    card.innerHTML = \`<div class="text-[11px] uppercase tracking-widest opacity-50">now playing</div>\`;
-    const titleEl = el('div', 'text-[14px] font-bold text-[#8A5A3B] dark:text-[#FAD2B8] truncate', s.title);
-    const subEl = el('div', 'text-[10px] opacity-60 truncate', s.subtitle);
-    card.appendChild(titleEl);
-    card.appendChild(subEl);
-    // progress bars thing
-    const bars = el('div', 'flex items-end gap-[2px] h-10 select-none');
-    const BAR_COUNT = 56;
-    const barEls = [];
-    for (let i = 0; i < BAR_COUNT; i++) {
-        const b = el('div', 'flex-1 rounded-sm bg-[#E8B78E] dark:bg-[#7a5a44]');
-        b.style.height = '8%';
-        b.style.transition = 'height 90ms linear, background-color 200ms';
-        bars.appendChild(b);
-        barEls.push(b);
-    }
-    card.appendChild(bars);
-    const timeRow = el('div', 'flex justify-between text-[10px] opacity-60 tabular-nums');
-    const tNow = el('span', '', '0:00');
-    const tEnd = el('span', '', '0:00');
-    timeRow.appendChild(tNow);
-    timeRow.appendChild(tEnd);
-    card.appendChild(timeRow);
-    // seek
-    const seek = el('input', 'w-full accent-[#E8B78E] dark:accent-[#B98D6E] cursor-pointer');
-    seek.type = 'range';
-    seek.min = '0';
-    seek.max = '1000';
-    seek.value = '0';
-    card.appendChild(seek);
-    // controls
-    const ctrl = el('div', 'flex items-center justify-center gap-2 pt-1');
-    const btn = (label, cls) => {
-        const b = el('button', \`rounded-full px-3 py-2 text-[13px] border transition active:scale-95 \${cls}\`);
-        b.textContent = label;
-        return b;
-    };
-    const back = btn('⏮', 'border-[#EAD9C7] dark:border-neutral-700 hover:bg-[#FFF3E6] dark:hover:bg-neutral-800');
-    const playB = btn('▶ play', 'bg-[#F6DCC3] dark:bg-neutral-800 border-[#E8B78E] dark:border-[#7a5a44] font-bold');
-    const fwd = btn('⏭', 'border-[#EAD9C7] dark:border-neutral-700 hover:bg-[#FFF3E6] dark:hover:bg-neutral-800');
-    const loopB = btn('↻ loop', 'border-[#EAD9C7] dark:border-neutral-700 hover:bg-[#FFF3E6] dark:hover:bg-neutral-800');
-    ctrl.appendChild(back);
-    ctrl.appendChild(playB);
-    ctrl.appendChild(fwd);
-    ctrl.appendChild(loopB);
-    card.appendChild(ctrl);
-    // volume
-    const volRow = el('div', 'flex items-center gap-2 pt-1 text-[10px] opacity-70');
-    const volIcon = el('span', '', '🔈');
-    const vol = el('input', 'flex-1 accent-[#E8B78E] dark:accent-[#B98D6E] cursor-pointer');
-    vol.type = 'range';
-    vol.min = '0';
-    vol.max = '100';
-    vol.value = String(Math.round((s.volume ?? 0.9) * 100));
-    volRow.appendChild(volIcon);
-    volRow.appendChild(vol);
-    card.appendChild(volRow);
-    // fallback link
-    const linkRow = el('div', 'text-[10px] pt-1 break-all');
-    card.appendChild(linkRow);
-    root.appendChild(card);
-    // ---- library ----
-    const lib = el('div', 'rounded-2xl border border-[#EAD9C7] dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/70 p-3 space-y-2');
-    lib.innerHTML = \`<div class="text-[11px] uppercase tracking-widest opacity-50">library</div>\`;
-    const libList = el('div', 'space-y-1');
-    lib.appendChild(libList);
-    root.appendChild(lib);
-    // ---- footer kao ----
-    const foot = el('div', 'text-center text-[11px] opacity-40 pt-1', KAO[Math.floor(Math.random() * KAO.length)]);
-    root.appendChild(foot);
-    // ---- audio element ----
-    const audio = document.createElement('audio');
-    audio.preload = 'metadata';
-    audio.crossOrigin = 'anonymous';
-    audio.volume = Math.max(0, Math.min(1, s.volume ?? 0.9));
-    root.appendChild(audio);
-    let fakeTimer = null;
-    let fakePos = 0;
-    const FAKE_DUR = 12;
-    function fmt(t) {
-        if (!isFinite(t) || t < 0)
-            t = 0;
-        const m = Math.floor(t / 60);
-        const sec = Math.floor(t % 60);
-        return \`\${m}:\${String(sec).padStart(2, '0')}\`;
-    }
-    function paintBars(progress, playing) {
-        for (let i = 0; i < BAR_COUNT; i++) {
-            const p = i / BAR_COUNT;
-            const active = p <= progress;
-            const wave = playing
-                ? 20 + Math.abs(Math.sin(i * 0.7 + Date.now() / 130)) * 70
-                : 12 + Math.abs(Math.sin(i * 1.3)) * 22;
-            barEls[i].style.height = \`\${Math.max(8, active ? wave : wave * 0.45)}%\`;
-            barEls[i].className = \`flex-1 rounded-sm \${active ? 'bg-[#E8B78E] dark:bg-[#B98D6E]' : 'bg-[#EAD9C7] dark:bg-neutral-800'}\`;
-        }
-    }
-    function renderLink() {
-        linkRow.innerHTML = s.audioUrl
-            ? \`source: <a href="\${s.audioUrl}" target="_blank" rel="noopener" class="underline text-[#8A5A3B] dark:text-[#FAD2B8]">open in browser ↗</a>\`
-            : \`no source yet — someone feed me a URL <span class="opacity-60">(￣ω￣)</span>\`;
-    }
-    function renderLibrary() {
-        const list = Array.isArray(s.tracks) ? s.tracks : [];
-        libList.innerHTML = '';
-        if (!list.length) {
-            libList.innerHTML = \`<div class="text-[11px] opacity-50">empty shelf. tragic.</div>\`;
-            return;
-        }
-        list.forEach((t, i) => {
-            const row = el('button', 'w-full text-left rounded-xl px-2 py-1.5 border border-transparent hover:border-[#E8B78E] dark:hover:border-[#7a5a44] hover:bg-[#FFF3E6] dark:hover:bg-neutral-800 transition');
-            row.innerHTML = \`<div class="flex items-center justify-between gap-2">
-          <span class="truncate text-[12px] \${t.url === s.audioUrl ? 'font-bold' : ''}">\${t.title || 'untitled'}</span>
-          <span class="text-[10px] opacity-50 shrink-0">\${fmt((t.durationMs || 0) / 1000)}</span>
-        </div>\`;
-            row.onclick = () => load(t.url, t.title, t.subtitle, (t.durationMs || 12000) / 1000);
-            libList.appendChild(row);
-        });
-    }
-    function load(url, title, subtitle, dur) {
-        s.audioUrl = url;
-        s.title = title || 'untitled';
-        s.subtitle = subtitle || 'glyph original';
-        titleEl.textContent = s.title;
-        subEl.textContent = s.subtitle;
-        audio.src = url;
-        audio.load();
-        fakePos = 0;
-        seek.value = '0';
-        tNow.textContent = '0:00';
-        tEnd.textContent = fmt(dur || FAKE_DUR);
-        paintBars(0, false);
-        renderLink();
-        renderLibrary();
-        setState({ audioUrl: s.audioUrl, title: s.title, subtitle: s.subtitle });
-    }
-    function startFakeClock() {
-        stopFakeClock();
-        fakeTimer = setInterval(() => {
-            const d = isFinite(audio.duration) && audio.duration > 0 ? audio.duration : FAKE_DUR;
-            fakePos = Math.min(d, fakePos + 0.15);
-            const pct = d ? fakePos / d : 0;
-            seek.value = String(Math.round(pct * 1000));
-            tNow.textContent = fmt(fakePos);
-            paintBars(pct, true);
-            if (fakePos >= d)
-                stopFakeClock();
-        }, 150);
-    }
-    function stopFakeClock() { if (fakeTimer) {
-        clearInterval(fakeTimer);
-        fakeTimer = null;
-    } }
-    // real audio events (also drive UI when reachable)
-    audio.addEventListener('loadedmetadata', () => {
-        if (isFinite(audio.duration) && audio.duration > 0)
-            tEnd.textContent = fmt(audio.duration);
-    });
-    audio.addEventListener('timeupdate', () => {
-        if (!isFinite(audio.duration) || !audio.duration)
-            return;
-        fakePos = audio.currentTime;
-        const pct = audio.currentTime / audio.duration;
-        seek.value = String(Math.round(pct * 1000));
-        tNow.textContent = fmt(audio.currentTime);
-        paintBars(pct, !audio.paused);
-    });
-    audio.addEventListener('play', () => { playB.textContent = '⏸ pause'; startFakeClock(); });
-    audio.addEventListener('pause', () => { playB.textContent = '▶ play'; stopFakeClock(); paintBars(Number(seek.value) / 1000, false); });
-    audio.addEventListener('ended', () => {
-        playB.textContent = '▶ play';
-        stopFakeClock();
-        fakePos = 0;
-        if (s.loops) {
-            audio.currentTime = 0;
-            audio.play().catch(() => { });
-        }
-    });
-    audio.addEventListener('error', () => {
-        subEl.textContent = 'source not reachable from here — use the link ↗';
-    });
-    // controls wiring
-    playB.onclick = () => {
-        if (!s.audioUrl) {
-            foot.textContent = '(￣ω￣) nothing to play yet';
-            return;
-        }
-        if (audio.paused) {
-            audio.play().catch(() => {
-                // unreachable source: still animate so the room feels alive
-                playB.textContent = '⏸ pause';
-                startFakeClock();
-            });
-        }
-        else
-            audio.pause();
-    };
-    seek.oninput = () => {
-        const d = isFinite(audio.duration) && audio.duration > 0 ? audio.duration : FAKE_DUR;
-        const t = (Number(seek.value) / 1000) * d;
-        fakePos = t;
-        try {
-            audio.currentTime = t;
-        }
-        catch { }
-        tNow.textContent = fmt(t);
-        paintBars(Number(seek.value) / 1000, !audio.paused);
-    };
-    back.onclick = () => { fakePos = 0; try {
-        audio.currentTime = 0;
-    }
-    catch { } ; seek.value = '0'; tNow.textContent = '0:00'; paintBars(0, !audio.paused); };
-    fwd.onclick = () => {
-        const d = isFinite(audio.duration) && audio.duration > 0 ? audio.duration : FAKE_DUR;
-        fakePos = Math.max(0, d - 1);
-        try {
-            audio.currentTime = fakePos;
-        }
-        catch { }
-        seek.value = String(Math.round((fakePos / d) * 1000));
-        tNow.textContent = fmt(fakePos);
-    };
-    loopB.onclick = () => {
-        s.loops = s.loops ? 0 : 1;
-        audio.loop = !!s.loops;
-        loopB.className = \`rounded-full px-3 py-2 text-[13px] border transition active:scale-95 \${s.loops
-            ? 'bg-[#F6DCC3] dark:bg-neutral-800 border-[#E8B78E] dark:border-[#7a5a44] font-bold'
-            : 'border-[#EAD9C7] dark:border-neutral-700'}\`;
-        setState({ loops: s.loops });
-    };
-    vol.oninput = () => {
-        const v = Number(vol.value) / 100;
-        audio.volume = v;
-        volIcon.textContent = v === 0 ? '🔇' : v < 0.5 ? '🔈' : '🔊';
-        setState({ volume: v });
-    };
-    // ---- initial paint ----
-    if (s.audioUrl)
-        load(s.audioUrl, s.title, s.subtitle, FAKE_DUR);
-    else {
-        renderLink();
-        renderLibrary();
-        paintBars(0, false);
-    }
-    volIcon.textContent = audio.volume === 0 ? '🔇' : audio.volume < 0.5 ? '🔈' : '🔊';
-    // react to external state edits (agent via bash, etc.)
-    if (onStateChange) {
-        onStateChange((next) => {
-            if (!next)
-                return;
-            if (next.audioUrl && next.audioUrl !== s.audioUrl) {
-                load(next.audioUrl, next.title, next.subtitle, (next.durationMs || 12000) / 1000);
-            }
-            if (Array.isArray(next.tracks)) {
-                s.tracks = next.tracks;
-                renderLibrary();
-            }
-        });
-    }
-    // gentle idle animation
-    setInterval(() => { if (!audio.paused && audio.currentTime)
-        paintBars(audio.currentTime / (audio.duration || 1), true); }, 400);
-}
-`,
-  exportedAt: 1792808551033,
+  exportedAt: 1792816062592,
 }
