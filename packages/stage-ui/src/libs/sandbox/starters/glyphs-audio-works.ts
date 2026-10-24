@@ -76,6 +76,26 @@ function fmtClock(ms: number): string {
   return \`\${m}:\${String(s).padStart(2, '0')}\`
 }
 
+function esc(value: any): string {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/** Only http(s)/blob/data URLs may reach an href. */
+function safeUrl(value: any): string {
+  const url = String(value || '')
+  return /^(https?:|blob:|data:)/i.test(url) ? url : ''
+}
+
+function slugTail(jobId: string): string {
+  const parts = String(jobId || '').split('-').filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : ''
+}
+
 function fmtEta(ms: number): string {
   if (ms <= 0)
     return 'any moment'
@@ -533,7 +553,7 @@ export default function mount(ctx: any) {
     audio.loop = !!s.loops
     npTitle.textContent = track.title
     npMeta.textContent = [track.model, track.durationMs ? fmtClock(track.durationMs) : ''].filter(Boolean).join(' · ')
-    npSource.innerHTML = \`source: <a href="\${track.audioUrl}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
+    npSource.innerHTML = \`source: <a href="\${esc(safeUrl(track.audioUrl))}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
     persist()
     render()
     void audio.play().catch(() => {})
@@ -557,7 +577,7 @@ export default function mount(ctx: any) {
       const row = el('div', 'flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[#EAD9C7] dark:border-neutral-700 bg-[#FFFDF8] dark:bg-[#1b1b1b]')
       row.innerHTML = \`
         <span class="shrink-0 animate-pulse">◌</span>
-        <span class="min-w-0 flex-1 truncate text-[12px]">\${job.title || job.jobId}</span>
+        <span class="min-w-0 flex-1 truncate text-[12px]">\${esc(job.title || job.jobId)}</span>
         <span class="shrink-0 text-[10px] tabular-nums opacity-60">\${fmtClock(elapsed)}</span>
         <span class="shrink-0 text-[10px] \${late ? 'text-amber-600 dark:text-amber-400' : 'opacity-60'}">\${late ? 'slower than usual' : fmtEta(remaining)}</span>
       \`
@@ -577,12 +597,21 @@ export default function mount(ctx: any) {
       return
     }
     library.appendChild(el('div', 'text-[10px] uppercase tracking-wider opacity-60 px-1', 'library'))
+
+    // Repeated titles are common when a character re-orders the same brief; tag
+    // duplicates with the tail of their job slug so the shelf stays scannable.
+    const counts = new Map<string, number>()
+    for (const track of tracks)
+      counts.set(track.title, (counts.get(track.title) || 0) + 1)
+
     for (const track of tracks) {
+      const duplicated = (counts.get(track.title) || 0) > 1
+      const label = duplicated ? \`\${track.title} · \${slugTail(track.jobId)}\` : track.title
       const row = el('div', 'flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[#EAD9C7] dark:border-neutral-700')
       const icon = track.status === 'ready' ? '♫' : track.status === 'expired' ? '⌛' : '⚠'
       row.innerHTML = \`
         <span class="shrink-0 opacity-70">\${icon}</span>
-        <span class="min-w-0 flex-1 truncate text-[12px] \${track.isNew ? 'font-bold' : ''}">\${track.title}</span>
+        <span class="min-w-0 flex-1 truncate text-[12px] \${track.isNew ? 'font-bold' : ''}">\${esc(label)}</span>
         \${track.isNew ? '<span class="shrink-0 rounded px-1 text-[9px] bg-[#E8B78E]/30">new</span>' : ''}
         <span class="shrink-0 text-[10px] tabular-nums opacity-60">\${track.durationMs ? fmtClock(track.durationMs) : ''}</span>
       \`
@@ -722,7 +751,7 @@ export default function mount(ctx: any) {
   // ---- boot --------------------------------------------------------------
   if (s.current.url) {
     audio.src = s.current.url
-    npSource.innerHTML = \`source: <a href="\${s.current.url}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
+    npSource.innerHTML = \`source: <a href="\${esc(safeUrl(s.current.url))}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
     npMeta.textContent = s.current.title || ''
   }
 
@@ -796,6 +825,26 @@ function fmtClock(ms) {
   const m = Math.floor(total / 60)
   const s = total % 60
   return \`\${m}:\${String(s).padStart(2, '0')}\`
+}
+
+function esc(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/** Only http(s)/blob/data URLs may reach an href. */
+function safeUrl(value) {
+  const url = String(value || '')
+  return /^(https?:|blob:|data:)/i.test(url) ? url : ''
+}
+
+function slugTail(jobId) {
+  const parts = String(jobId || '').split('-').filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : ''
 }
 
 function fmtEta(ms) {
@@ -1255,7 +1304,7 @@ export default function mount(ctx) {
     audio.loop = !!s.loops
     npTitle.textContent = track.title
     npMeta.textContent = [track.model, track.durationMs ? fmtClock(track.durationMs) : ''].filter(Boolean).join(' · ')
-    npSource.innerHTML = \`source: <a href="\${track.audioUrl}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
+    npSource.innerHTML = \`source: <a href="\${esc(safeUrl(track.audioUrl))}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
     persist()
     render()
     void audio.play().catch(() => {})
@@ -1279,7 +1328,7 @@ export default function mount(ctx) {
       const row = el('div', 'flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[#EAD9C7] dark:border-neutral-700 bg-[#FFFDF8] dark:bg-[#1b1b1b]')
       row.innerHTML = \`
         <span class="shrink-0 animate-pulse">◌</span>
-        <span class="min-w-0 flex-1 truncate text-[12px]">\${job.title || job.jobId}</span>
+        <span class="min-w-0 flex-1 truncate text-[12px]">\${esc(job.title || job.jobId)}</span>
         <span class="shrink-0 text-[10px] tabular-nums opacity-60">\${fmtClock(elapsed)}</span>
         <span class="shrink-0 text-[10px] \${late ? 'text-amber-600 dark:text-amber-400' : 'opacity-60'}">\${late ? 'slower than usual' : fmtEta(remaining)}</span>
       \`
@@ -1299,12 +1348,21 @@ export default function mount(ctx) {
       return
     }
     library.appendChild(el('div', 'text-[10px] uppercase tracking-wider opacity-60 px-1', 'library'))
+
+    // Repeated titles are common when a character re-orders the same brief; tag
+    // duplicates with the tail of their job slug so the shelf stays scannable.
+    const counts = new Map()
+    for (const track of tracks)
+      counts.set(track.title, (counts.get(track.title) || 0) + 1)
+
     for (const track of tracks) {
+      const duplicated = (counts.get(track.title) || 0) > 1
+      const label = duplicated ? \`\${track.title} · \${slugTail(track.jobId)}\` : track.title
       const row = el('div', 'flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[#EAD9C7] dark:border-neutral-700')
       const icon = track.status === 'ready' ? '♫' : track.status === 'expired' ? '⌛' : '⚠'
       row.innerHTML = \`
         <span class="shrink-0 opacity-70">\${icon}</span>
-        <span class="min-w-0 flex-1 truncate text-[12px] \${track.isNew ? 'font-bold' : ''}">\${track.title}</span>
+        <span class="min-w-0 flex-1 truncate text-[12px] \${track.isNew ? 'font-bold' : ''}">\${esc(label)}</span>
         \${track.isNew ? '<span class="shrink-0 rounded px-1 text-[9px] bg-[#E8B78E]/30">new</span>' : ''}
         <span class="shrink-0 text-[10px] tabular-nums opacity-60">\${track.durationMs ? fmtClock(track.durationMs) : ''}</span>
       \`
@@ -1444,7 +1502,7 @@ export default function mount(ctx) {
   // ---- boot --------------------------------------------------------------
   if (s.current.url) {
     audio.src = s.current.url
-    npSource.innerHTML = \`source: <a href="\${s.current.url}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
+    npSource.innerHTML = \`source: <a href="\${esc(safeUrl(s.current.url))}" target="_blank" rel="noopener" class="underline opacity-80">open in browser ↗</a>\`
     npMeta.textContent = s.current.title || ''
   }
 
@@ -1465,5 +1523,5 @@ export default function mount(ctx) {
   }
 }
 `,
-  exportedAt: 1792816062592,
+  exportedAt: 1792817481348,
 }
