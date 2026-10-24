@@ -2,7 +2,6 @@
 import type { Live2dCapabilities } from '@proj-airi/stage-ui-live2d'
 import type { DiscoveredMeshNode } from '@proj-airi/stage-ui-three'
 
-import type { ExpressionCategory } from '../../../../libs/character/expression-noise-gate'
 import type { ModelCapabilityItem } from '../../../../stores/display-models'
 import type { AiriOutfit } from '../../../../stores/modules/airi-card'
 
@@ -31,8 +30,8 @@ import { toast } from 'vue-sonner'
 
 import ModelCustomizerSkeleton from './components/ModelCustomizerSkeleton.vue'
 import WardrobeMeshTreeNode from './components/WardrobeMeshTreeNode.vue'
+import ExpressionExplorer from './ExpressionExplorer.vue'
 
-import { classifyExpression } from '../../../../libs/character/expression-noise-gate'
 import { DEFAULT_VFX_MAPPINGS, DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { useSettingsControlStrip } from '../../../../stores/settings/control-strip'
@@ -200,15 +199,6 @@ const dslIntimacyScore = computed(() => {
 })
 
 // Unified interface mappings
-interface UnifiedExpression {
-  key: string
-  displayName: string
-  isActive: boolean
-  usable: boolean
-  category?: string
-  expressionCategory?: ExpressionCategory
-}
-
 interface UnifiedMotion {
   key: string
   displayName: string
@@ -221,7 +211,6 @@ interface UnifiedMotion {
 }
 
 // Local capability state
-const expressionCapabilities = ref<ModelCapabilityItem[]>([])
 const motionCapabilities = ref<ModelCapabilityItem[]>([])
 const vfxMappings = ref<Record<string, string[]>>({
   fire: [...DEFAULT_VFX_MAPPINGS.fire],
@@ -242,9 +231,6 @@ const modelOutfits = ref<AiriOutfit[]>([])
 function applyModelMappings(model?: any) {
   if (!model)
     return
-  if (model.expressionCapabilities) {
-    expressionCapabilities.value = JSON.parse(JSON.stringify(model.expressionCapabilities))
-  }
   if (model.motionCapabilities) {
     motionCapabilities.value = JSON.parse(JSON.stringify(model.motionCapabilities))
   }
@@ -257,17 +243,12 @@ function applyModelMappings(model?: any) {
   }
 
   // Sync to store for stage window cross-process triggers
+  // (expression labels sync inside ExpressionExplorer)
   const motionMap: Record<string, string> = {}
   for (const m of motionCapabilities.value) {
     motionMap[m.rawKey] = m.label
   }
   live2dStore.motionMap = motionMap
-
-  const emotionMap: Record<string, string> = {}
-  for (const e of expressionCapabilities.value) {
-    emotionMap[e.rawKey] = e.label
-  }
-  live2dStore.emotionMappings = emotionMap
 }
 
 // React when currentModel in store updates (e.g. from IndexedDB or background sync)
@@ -297,7 +278,6 @@ watch(() => props.modelId, async (newId) => {
   console.log(`[ModelCustomizer] modelId changed → ${newId}`, {
     found: !!model,
     format: model?.format,
-    expressionCapabilities: model?.expressionCapabilities?.length ?? 'none',
     motionCapabilities: model?.motionCapabilities?.length ?? 'none',
   })
 
@@ -305,20 +285,18 @@ watch(() => props.modelId, async (newId) => {
     applyModelMappings(model)
   }
 
-  // Resolve expression + motion lists via the store resolver.
+  // Resolve motion list via the store resolver (expressions live in
+  // ExpressionExplorer now).
   capabilitiesLoading.value = true
   try {
     const caps = await displayModelsStore.getOrLoadModelCapabilities(newId)
-    expressionCapabilities.value = JSON.parse(JSON.stringify(caps.expressionCapabilities || []))
     motionCapabilities.value = JSON.parse(JSON.stringify(caps.motionCapabilities || []))
     console.log(`[ModelCustomizer] capabilities resolved for ${newId}:`, {
-      expressions: caps.expressionCapabilities?.length,
       motions: caps.motionCapabilities?.length,
     })
   }
   catch (e) {
     console.error(`[ModelCustomizer] Failed to load capabilities for ${newId}:`, e)
-    expressionCapabilities.value = []
     motionCapabilities.value = []
   }
   finally {
@@ -328,62 +306,19 @@ watch(() => props.modelId, async (newId) => {
 
 async function saveMetadata() {
   await displayModelsStore.updateDisplayModelCapabilities(props.modelId, {
-    expressionCapabilities: expressionCapabilities.value,
     motionCapabilities: motionCapabilities.value,
     vfxMappings: vfxMappings.value,
     outfits: [...modelOutfits.value],
   })
 
   // Sync to store for stage window cross-process triggers
+  // (expression labels sync inside ExpressionExplorer)
   const motionMap: Record<string, string> = {}
   for (const m of motionCapabilities.value) {
     motionMap[m.rawKey] = m.label
   }
   live2dStore.motionMap = motionMap
-
-  const emotionMap: Record<string, string> = {}
-  for (const e of expressionCapabilities.value) {
-    emotionMap[e.rawKey] = e.label
-  }
-  live2dStore.emotionMappings = emotionMap
 }
-
-// Expression/motion lists driven by getOrLoadModelCapabilities (not live renderer stores).
-// isActive still reads from the renderer for on-stage feedback, but the list itself is
-// sourced from the model file — works whether or not the model is currently on stage.
-const rawExpressions = computed<UnifiedExpression[]>(() => {
-  const mType = modelType.value
-  if (mType === 'unknown' || capabilitiesLoading.value)
-    return []
-
-  return expressionCapabilities.value.map((item) => {
-    let isActive = false
-    if (mType === 'live2d') {
-      isActive = !!live2dStore.activeExpressions[item.rawKey]
-    }
-    else if (mType === 'mmd') {
-      isActive = mmdStore.previewExpression === item.rawKey
-    }
-    else if (mType === 'spine') {
-      const match = item.rawKey.match(/^(.+?)\s*\[(.+?)\]$/)
-      if (match) {
-        isActive = spineStore.currentVariant === match[1].trim() && spineStore.currentSkin === match[2].trim()
-      }
-      else {
-        isActive = spineStore.currentVariant === item.rawKey
-      }
-    }
-
-    return {
-      key: item.rawKey,
-      displayName: item.label,
-      isActive,
-      usable: item.usable,
-      category: item.rawKey === item.rawKey.toUpperCase() ? 'preset' : 'custom',
-      expressionCategory: classifyExpression(item.label || item.rawKey),
-    }
-  })
-})
 
 const rawMotions = computed<UnifiedMotion[]>(() => {
   const card = activeCard.value
@@ -492,8 +427,6 @@ const advancedTabHeaderTitle = computed(() => {
 const usableFilter = ref<'usable' | 'all'>('usable')
 const filterRenamedOnly = ref(false)
 
-const usableExpressionsCount = computed(() => rawExpressions.value.filter(e => e.usable).length)
-const allExpressionsCount = computed(() => rawExpressions.value.length)
 const usableMotionsCount = computed(() => rawMotions.value.filter(m => m.usable).length)
 const allMotionsCount = computed(() => rawMotions.value.length)
 
@@ -750,20 +683,14 @@ function toggleSlotVisibility(slot: AiriOutfit) {
   modelStore.setMeshesVisibility(meshes, !currentlyVisible)
 }
 
-const expressionsToRender = computed(() => {
-  let list = rawExpressions.value
+// Visible usable emotion names, reported up by ExpressionExplorer (which owns
+// the expression capability list now). Merged with motions below for the
+// legacy combined visible-capabilities event.
+const visibleEmotions = ref<{ usable: string[], total: number }>({ usable: [], total: 0 })
 
-  if (usableFilter.value === 'usable') {
-    list = list.filter(e => e.usable)
-  }
-
-  // Renamed Filter
-  if (filterRenamedOnly.value) {
-    list = list.filter(e => e.displayName !== e.key)
-  }
-
-  return list
-})
+function handleVisibleEmotions(payload: { usable: string[], total: number }) {
+  visibleEmotions.value = payload
+}
 
 const motionsToRender = computed(() => {
   const groups: Record<string, UnifiedMotion[]> = {}
@@ -779,49 +706,12 @@ const motionsToRender = computed(() => {
   return groups
 })
 
-watch([expressionsToRender, motionsToRender], () => {
+watch([() => visibleEmotions.value.usable, motionsToRender], () => {
   emit('update:visible-capabilities', {
-    emotions: rawExpressions.value.filter(e => e.usable).map(e => e.displayName),
+    emotions: [...visibleEmotions.value.usable],
     motions: rawMotions.value.filter(m => m.usable).map(m => m.displayName),
   })
 }, { deep: true, immediate: true })
-
-// Trigger Click-to-Effectuate on Stage
-function triggerExpressionEffect(key: string) {
-  if (modelType.value === 'live2d') {
-    live2dStore.triggerEmotion(key, 1.0)
-  }
-  else if (modelType.value === 'vrm') {
-    modelStore.triggerEmotion(key, 1.0)
-    if (stageMateEnabled.value && isElectron.value) {
-      import('@proj-airi/electron-vueuse').then(({ useElectronEventaInvoke }) => {
-        import('@proj-airi/stage-shared').then(({ electronStageMateTriggerExpression }) => {
-          const triggerExpr = useElectronEventaInvoke(electronStageMateTriggerExpression)
-          triggerExpr({ name: key, weight: 1.0, durationMs: 2500 })
-        })
-      }).catch(() => {})
-    }
-  }
-  else if (modelType.value === 'mmd') {
-    mmdStore.previewExpression = key
-    setTimeout(() => {
-      if (mmdStore.previewExpression === key)
-        mmdStore.previewExpression = null
-    }, 2000)
-  }
-  else if (modelType.value === 'spine') {
-    const match = key.match(/^(.+?)\s*\[(.+?)\]$/)
-    if (match) {
-      const variant = match[1].trim()
-      const skin = match[2].trim()
-      spineStore.selectVariantAndSkin(variant, skin)
-    }
-    else {
-      spineStore.selectVariantAndSkin(key, 'default')
-    }
-  }
-  toast.info(`Triggered expression: ${key}`)
-}
 
 function triggerMotionEffect(key: string) {
   if (modelType.value === 'live2d') {
@@ -979,13 +869,7 @@ async function saveEdits(key: string) {
     return
 
   const newValue = editingValue.value.trim()
-  if (activeTab.value === 'expressions') {
-    const item = expressionCapabilities.value.find(e => e.rawKey === key)
-    if (item) {
-      item.label = newValue || item.rawKey
-    }
-  }
-  else if (activeTab.value === 'motions') {
+  if (activeTab.value === 'motions') {
     const item = motionCapabilities.value.find(m => m.rawKey === key)
     if (item) {
       item.label = newValue || item.rawKey
@@ -999,14 +883,7 @@ async function saveEdits(key: string) {
 }
 
 async function toggleUsable(key: string) {
-  if (activeTab.value === 'expressions') {
-    const item = expressionCapabilities.value.find(e => e.rawKey === key)
-    if (item) {
-      item.usable = !item.usable
-      await saveMetadata()
-    }
-  }
-  else if (activeTab.value === 'motions') {
+  if (activeTab.value === 'motions') {
     const item = motionCapabilities.value.find(m => m.rawKey === key)
     if (item) {
       item.usable = !item.usable
@@ -1094,7 +971,7 @@ function toggleMotionCycle(key: string) {
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'"
             @click="activeTab = 'expressions'"
           >
-            Emotions ({{ usableExpressionsCount }} / {{ allExpressionsCount }})
+            Emotions ({{ visibleEmotions.usable.length }} / {{ visibleEmotions.total }})
           </button>
           <button
             v-if="rawMotions.length > 0"
@@ -1196,11 +1073,11 @@ function toggleMotionCycle(key: string) {
         </div>
       </div>
 
-      <!-- Shimmer skeleton while capabilities resolve -->
-      <ModelCustomizerSkeleton v-if="capabilitiesLoading" :show-tabs="false" class="my-1" />
+      <!-- Shimmer skeleton while capabilities resolve (expressions tab owns its own) -->
+      <ModelCustomizerSkeleton v-if="capabilitiesLoading && activeTab !== 'expressions'" :show-tabs="false" class="my-1" />
 
-      <!-- Filter Controls (Emotions & Motions only) -->
-      <div v-if="!capabilitiesLoading && activeTab !== 'outfits' && activeTab !== 'vfx' && !isAdvancedTabActive" class="flex shrink-0 items-center justify-between py-2">
+      <!-- Filter Controls (Motions only — expressions live in ExpressionExplorer) -->
+      <div v-if="!capabilitiesLoading && activeTab !== 'outfits' && activeTab !== 'vfx' && activeTab !== 'expressions' && !isAdvancedTabActive" class="flex shrink-0 items-center justify-between py-2">
         <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
           Filters
         </span>
@@ -1216,7 +1093,7 @@ function toggleMotionCycle(key: string) {
           >
             <div class="inline-flex items-center gap-1">
               <div :class="usableFilter === 'usable' ? 'i-solar:check-circle-bold-duotone' : 'i-solar:circle-linear'" />
-              <span>Usable ({{ activeTab === 'expressions' ? usableExpressionsCount : usableMotionsCount }})</span>
+              <span>Usable ({{ usableMotionsCount }})</span>
             </div>
           </button>
           <!-- Show All -->
@@ -1229,7 +1106,7 @@ function toggleMotionCycle(key: string) {
             @click="usableFilter = 'all'"
           >
             <div class="inline-flex items-center gap-1">
-              <span>All ({{ activeTab === 'expressions' ? allExpressionsCount : allMotionsCount }})</span>
+              <span>All ({{ allMotionsCount }})</span>
             </div>
           </button>
           <!-- Renamed Only -->
@@ -1292,78 +1169,15 @@ function toggleMotionCycle(key: string) {
 
       <!-- Scrollable List Area -->
       <div v-if="!capabilitiesLoading" class="min-h-0 flex-1 overflow-y-auto pb-4">
-        <!-- ====== EXPRESSIONS LIST ====== -->
+        <!-- ====== EXPRESSIONS LIST (owned by ExpressionExplorer) ====== -->
         <template v-if="activeTab === 'expressions'">
-          <div v-if="expressionsToRender.length === 0" class="py-8 text-center text-xs text-neutral-400">
-            No expressions match filters
-          </div>
-          <div v-else class="min-w-0 w-full overflow-hidden border border-neutral-200 rounded-lg bg-white dark:border-neutral-700 dark:bg-neutral-900">
-            <div
-              v-for="exp in expressionsToRender"
-              :key="exp.key"
-              :class="[
-                'flex items-center justify-between px-3 py-2 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0 transition-colors min-w-0 w-full overflow-hidden',
-                exp.isActive ? 'bg-primary-50/30 dark:bg-primary-900/15' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/50',
-              ]"
-            >
-              <!-- Left: Active dot + name + key -->
-              <div class="min-w-0 flex flex-1 cursor-pointer items-center gap-2" @click="triggerExpressionEffect(exp.key)">
-                <div
-                  :class="['h-2 w-2 rounded-full shrink-0 transition-colors', exp.isActive ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-600']"
-                />
-                <div class="min-w-0 flex-1">
-                  <template v-if="editingKey === exp.key">
-                    <input
-                      v-model="editingValue"
-                      type="text"
-                      class="w-full border-b border-primary-500 bg-transparent text-sm dark:text-neutral-100 focus:outline-none"
-                      @click.stop
-                      @keydown.enter="saveEdits(exp.key)"
-                      @keydown.esc="editingKey = null"
-                    >
-                  </template>
-                  <template v-else>
-                    <div class="min-w-0 flex flex-1 items-center gap-1 text-sm text-neutral-900 font-medium dark:text-neutral-100">
-                      <span class="min-w-0 flex-1 truncate">{{ exp.displayName }}</span>
-                    </div>
-                  </template>
-                  <span class="block truncate text-[10px] text-neutral-400">{{ exp.key }}</span>
-                </div>
-              </div>
-
-              <!-- Right: Actions -->
-              <div class="ml-2 flex shrink-0 items-center gap-0.5">
-                <!-- Append to Sandbox -->
-                <button
-                  v-if="props.showInsertActions"
-                  class="cursor-pointer rounded p-1 text-neutral-400 hover:bg-primary-500/10 dark:text-neutral-500 hover:text-primary-500"
-                  title="Insert into Sandbox"
-                  @click.stop="emit('insert-token', `<|ACT:emotion=\x22${exp.displayName}\x22|>`)"
-                >
-                  <div class="i-solar:document-add-bold-duotone text-sm" />
-                </button>
-                <!-- Rename -->
-                <button
-                  class="cursor-pointer rounded p-1 text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:bg-neutral-700"
-                  title="Rename"
-                  @click.stop="startEditing(exp.key, exp.displayName)"
-                >
-                  <div class="i-solar:pen-bold-duotone text-sm" />
-                </button>
-                <!-- Usable Toggle -->
-                <button
-                  class="cursor-pointer rounded p-1 transition-colors"
-                  :class="exp.usable
-                    ? 'text-primary-500 hover:text-primary-600 bg-primary-500/10'
-                    : 'text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-neutral-700'"
-                  :title="exp.usable ? 'Usable (Click to disable)' : 'Disabled (Click to enable)'"
-                  @click.stop="toggleUsable(exp.key)"
-                >
-                  <div :class="exp.usable ? 'i-solar:check-circle-bold-duotone' : 'i-solar:close-circle-line-duotone'" class="text-sm" />
-                </button>
-              </div>
-            </div>
-          </div>
+          <ExpressionExplorer
+            :model-id="props.modelId"
+            mode="manage"
+            :show-insert-actions="props.showInsertActions"
+            @insert-token="(token) => emit('insert-token', token)"
+            @update:visible-emotions="handleVisibleEmotions"
+          />
         </template>
 
         <!-- ====== MOTIONS LIST ====== -->

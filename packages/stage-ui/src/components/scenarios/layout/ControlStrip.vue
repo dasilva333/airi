@@ -14,6 +14,7 @@ import { toast } from 'vue-sonner'
 // Ported stores & states for Popovers
 
 import CharacterAvatar from '../../misc/CharacterAvatar.vue'
+import ExpressionExplorer from '../settings/model-settings/ExpressionExplorer.vue'
 
 import { useControlStripAction } from '../../../composables/use-control-strip-action'
 import { ATMOSPHERE_PRESETS, CUSTOMIZER_CATALOG } from '../../../constants'
@@ -244,6 +245,12 @@ const { fadeOnHoverEnabled, alwaysOnTop } = storeToRefs(controlsIslandStore)
 
 const cardStore = useAiriCardStore()
 const { cards, activeCard, activeCardId } = storeToRefs(cardStore)
+
+// Display model backing the All Emotions popover (capability-driven, works
+// for every renderer — unlike the old live-store list, no MMD/Spine gap).
+const popoverDisplayModelId = computed(() => {
+  return cardStore.getCardDisplayModelId(activeCardId.value) || ''
+})
 
 const speechStore = useSpeechStore()
 const providersStore = useProvidersStore()
@@ -1017,22 +1024,6 @@ const availableMotions = computed(() => {
   return list
 })
 
-const availableAllExpressions = computed(() => {
-  if (settingsStore.stageModelRenderer === 'vrm') {
-    return modelStore.availableExpressions.map(name => ({
-      name,
-      isActive: (modelStore.activeExpressions[name] || 0) > 0,
-    }))
-  }
-  if (settingsStore.stageModelRenderer === 'live2d') {
-    return (live2dStore.availableExpressions || []).map(exp => ({
-      name: exp.name,
-      isActive: (live2dStore.activeExpressions[exp.fileName] || 0) > 0,
-    }))
-  }
-  return []
-})
-
 // Membership in the idle cycle set (persisted on the card) — the multi-select
 // replacement for the old "now playing" highlight. Tapping a row toggles it;
 // the play end-cap auditions without touching the set.
@@ -1175,17 +1166,6 @@ function triggerEmotion(emotion: string) {
 function triggerRandomEmotion() {
   const random = ACT_EMOTIONS[Math.floor(Math.random() * ACT_EMOTIONS.length)]
   triggerEmotion(random.key)
-}
-
-function triggerExpression(name: string) {
-  if (settingsStore.stageModelRenderer === 'vrm') {
-    const current = modelStore.activeExpressions[name] || 0
-    const next = current > 0 ? 0 : 1
-    modelStore.activeExpressions = { ...modelStore.activeExpressions, [name]: next }
-  }
-  else if (settingsStore.stageModelRenderer === 'live2d') {
-    live2dStore.triggerEmotion(name)
-  }
 }
 
 function triggerWardrobeItem(id: string) {
@@ -2847,7 +2827,7 @@ function getShortLabel(btnId: string): string {
           </div>
         </div>
 
-        <!-- ALL EMOTIONS POPOVER -->
+        <!-- ALL EMOTIONS POPOVER (owned by ExpressionExplorer) -->
         <div v-if="activePopover === 'actor-all-emotions'" class="flex flex-col gap-2">
           <div class="flex items-center justify-between border-b border-neutral-200 pb-2 dark:border-neutral-800">
             <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">All Emotions</span>
@@ -2856,44 +2836,12 @@ function getShortLabel(btnId: string): string {
             </button>
           </div>
 
-          <template v-if="settingsStore.stageModelRenderer === 'mmd' || settingsStore.stageModelRenderer === 'spine'">
-            <div class="flex flex-col items-center justify-center py-6 text-center opacity-60">
-              <span class="i-solar:shield-warning-outline animate-pulse text-2xl text-amber-500" />
-              <span class="mt-2 text-xs font-medium">Not supported for {{ settingsStore.stageModelRenderer.toUpperCase() }}</span>
-              <span class="mt-1 text-[10px] text-neutral-500 dark:text-neutral-400">Please use the Controls Island.</span>
-            </div>
-          </template>
-          <template v-else>
-            <div class="max-h-48 flex flex-col gap-1 overflow-y-auto py-1 scrollbar-thin">
-              <button
-                v-for="exp in availableAllExpressions"
-                :key="exp.name"
-                :class="[
-                  'w-full cursor-pointer border rounded-xl px-2.5 py-1.5 text-left text-xs transition-all duration-200',
-                  exp.isActive
-                    ? 'bg-purple-500/20 border-purple-400/50 text-purple-600 dark:text-purple-300 font-semibold'
-                    : 'bg-neutral-50/50 dark:bg-neutral-800/40 border-neutral-200/50 dark:border-neutral-800/20 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50',
-                ]"
-                @click="triggerExpression(exp.name)"
-              >
-                <div class="flex items-center justify-between">
-                  <span class="mr-2 truncate font-medium">{{ exp.name }}</span>
-                  <span
-                    v-if="exp.isActive"
-                    class="i-solar:check-circle-bold flex-shrink-0 text-sm text-purple-500"
-                  />
-                </div>
-              </button>
-
-              <div
-                v-if="availableAllExpressions.length === 0"
-                class="flex flex-col items-center justify-center py-6 text-center opacity-40"
-              >
-                <span class="i-solar:emoji-funny-square-linear text-2xl" />
-                <span class="mt-1 text-[10px]">No expressions available</span>
-              </div>
-            </div>
-          </template>
+          <div class="max-h-64 min-h-0 flex flex-col overflow-hidden">
+            <ExpressionExplorer
+              :model-id="popoverDisplayModelId"
+              mode="trigger"
+            />
+          </div>
         </div>
 
         <!-- AVATARS POPOVER -->
