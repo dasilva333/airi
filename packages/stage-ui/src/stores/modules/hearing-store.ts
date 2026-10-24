@@ -55,6 +55,11 @@ export const useHearingStore = defineStore('hearing-store', () => {
   const autoSendEnabled = useLocalStorageManualReset<boolean>('settings/hearing/auto-send-enabled', true)
   const autoSendDelay = useLocalStorageManualReset<number>('settings/hearing/auto-send-delay', 2000) // Default 2 seconds
   const hearingDetectionMode = useLocalStorageManualReset<'vad' | 'manual'>('settings/hearing/detection-mode', 'vad')
+  // Tap-to-talk (single tap captures one utterance and stops itself at
+  // speech end) vs open line (tap opens, tap closes, utterances segment
+  // automatically). Independent of the mic-hot `enabled` flag — taps never
+  // touch ambient listening.
+  const tapToTalk = useLocalStorageManualReset<boolean>('settings/hearing/tap-to-talk', true)
   const voiceInputMode = useLocalStorageManualReset<'dictation' | 'voice-message'>('settings/hearing/voice-input-mode', 'dictation')
   const vadThreshold = useLocalStorageManualReset<number>('settings/hearing/vad-threshold', 0.6)
   const isTranscribing = ref(false)
@@ -127,6 +132,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
     autoSendEnabled.reset()
     autoSendDelay.reset()
     hearingDetectionMode.reset()
+    tapToTalk.reset()
     voiceInputMode.reset()
     vadThreshold.reset()
   }
@@ -285,6 +291,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
     autoSendEnabled,
     autoSendDelay,
     hearingDetectionMode,
+    tapToTalk,
     voiceInputMode,
     vadThreshold,
     isTranscribing,

@@ -6,6 +6,7 @@ import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useLocalStorage, useScreenSafeArea } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
@@ -56,6 +57,9 @@ const { sending } = storeToRefs(chatOrchestrator)
 
 const airiCardStore = useAiriCardStore()
 const { activeCard } = storeToRefs(airiCardStore)
+
+const hearingStore = useHearingStore()
+const { voiceInputMode } = storeToRefs(hearingStore)
 
 const isGroundingActive = computed(() => {
   const ext = activeCard.value?.extensions?.airi
@@ -116,12 +120,21 @@ function handleGrabHandleClick() {
 }
 
 function handleVoiceToggle(active: boolean) {
+  // Dictation keeps the composer on screen (live transcript + mic-as-stop),
+  // so only voice-message collapses the sheet into the voice capsule.
+  if (voiceInputMode.value !== 'voice-message')
+    return
   if (active) {
     setPosture('voice')
   }
   else if (currentPosture.value === 'voice') {
     setPosture(previousPosture.value || 'preview')
   }
+}
+
+async function closeVoiceCapsule() {
+  await composerRef.value?.stopAllVoice?.()
+  setPosture(previousPosture.value || 'preview')
 }
 
 // Automatically promote to preview posture when sending or streaming starts
@@ -184,7 +197,7 @@ defineExpose({
       <button
         type="button"
         class="size-7 flex cursor-pointer items-center justify-center rounded-full bg-rose-500/10 text-rose-500 transition hover:bg-rose-500/20"
-        @click="setPosture(previousPosture || 'preview')"
+        @click="closeVoiceCapsule"
       >
         <div class="i-solar:close-circle-bold size-4" />
       </button>

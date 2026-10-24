@@ -128,9 +128,10 @@ const {
   handleFileSelect,
   removeAttachment,
   handleSend,
-  startListening,
   stopListening,
+  stopVoiceRecording,
   toggleVoiceRecording,
+  toggleDictation,
 } = useChatComposer({
   tools: props.tools,
   onSendStart: () => {
@@ -254,14 +255,16 @@ async function handleVoiceClick() {
     emit('voiceToggle', isRecording.value)
     return
   }
-  if (isListening.value) {
-    await stopListening()
-    emit('voiceToggle', false)
-  }
-  else {
-    await startListening()
-    emit('voiceToggle', true)
-  }
+  // Dictation keeps the composer on screen: the mic button itself is the
+  // stop control, and the transcript streams into the input (live for
+  // streaming providers, whole-utterance otherwise).
+  await toggleDictation()
+}
+
+async function stopAllVoice() {
+  await stopVoiceRecording()
+  await stopListening()
+  emit('voiceToggle', false)
 }
 
 // Voice-message clip preview playback (runtime-only Audio elements keyed by clip URL)
@@ -358,6 +361,7 @@ defineExpose({
   isListening,
   producerSuggestion,
   send: onSubmit,
+  stopAllVoice,
 })
 </script>
 

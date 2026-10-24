@@ -1,8 +1,12 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 
+import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
+
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
+import { useVAD } from '../stores/ai/models/vad'
 import { useChatOrchestratorStore } from '../stores/chat'
 import { appendDraftText } from '../stores/chat/composer-draft-bridge'
 import { useChatSessionStore } from '../stores/chat/session-store'
@@ -70,7 +74,26 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   const hearingPipeline = useHearingSpeechInputPipeline()
   const { transcribeForMediaStream, transcribeForRecording, stopStreamingTranscription } = hearingPipeline
   const { supportsStreamInput } = storeToRefs(hearingPipeline)
-  const { configured: hearingConfigured, autoSendEnabled, autoSendDelay, voiceInputMode } = storeToRefs(hearingStore)
+  const { configured: hearingConfigured, autoSendEnabled, autoSendDelay, voiceInputMode, isTranscribing, tapToTalk, vadThreshold } = storeToRefs(hearingStore)
+
+  // The hearing pipeline has a single transcription slot shared across
+  // surfaces (ambient open-mic loop, settings tests, composer captures).
+  // Never drop our recording when the slot is busy — wait for it (bounded)
+  // and transcribe afterwards. Throws through so callers keep their own
+  // error handling; returns undefined only when there is nothing to send.
+  async function transcribeRecordingExclusive(recording: Blob): Promise<string | undefined> {
+    for (let i = 0; i < 40 && isTranscribing.value; i++) {
+      if (i === 0)
+        console.warn('[ChatComposer] Transcription slot busy, waiting for our turn')
+      await new Promise(resolve => setTimeout(resolve, 250))
+    }
+    if (isTranscribing.value) {
+      console.warn('[ChatComposer] Transcription slot still busy after 10s, dropping utterance')
+      return undefined
+    }
+    const text = await transcribeForRecording(recording)
+    return text?.trim() || undefined
+  }
 
   const isListening = ref(false)
   const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
@@ -123,6 +146,140 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
       }
       autoSendTimeout = undefined
     }, autoSendDelay.value)
+  }
+
+  // VAD speech-end watch: fulfills the tap-to-talk contract (one tap captures
+  // one utterance and stops itself) without ever hiding text behind a manual
+  // stop. Voice-message is always single-shot; dictation follows tapToTalk
+  // (single-shot vs continuous segmenting for non-streaming providers —
+  // streaming providers segment on their own, so continuous needs no watch).
+  const vadWatchMode = ref<'single-shot' | 'segment' | null>(null)
+  const continuousSession = ref(false)
+  const hadVadSpeech = ref(false)
+  let vadSpeechStartAt = 0
+  let suppressNextStop = false
+  let vadGeneration = 0
+  let vadNoSpeechTimer: ReturnType<typeof setTimeout> | undefined
+  let vadMaxTimer: ReturnType<typeof setTimeout> | undefined
+
+  const {
+    init: initVAD,
+    dispose: disposeVAD,
+    start: startVAD,
+    stop: stopVAD,
+  } = useVAD(workletUrl, {
+    threshold: vadThreshold,
+    onSpeechStart: () => {
+      hadVadSpeech.value = true
+      vadSpeechStartAt = Date.now()
+      if (vadNoSpeechTimer) {
+        clearTimeout(vadNoSpeechTimer)
+        vadNoSpeechTimer = undefined
+      }
+    },
+    onSpeechEnd: () => {
+      void handleVadSpeechEnd()
+    },
+  })
+
+  function clearVadTimers() {
+    if (vadNoSpeechTimer) {
+      clearTimeout(vadNoSpeechTimer)
+      vadNoSpeechTimer = undefined
+    }
+    if (vadMaxTimer) {
+      clearTimeout(vadMaxTimer)
+      vadMaxTimer = undefined
+    }
+  }
+
+  function stopVadWatch() {
+    vadGeneration += 1
+    vadWatchMode.value = null
+    clearVadTimers()
+    try {
+      stopVAD()
+    }
+    catch {}
+  }
+
+  async function stopCaptureForVad() {
+    // Mirror a manual stop so the normal hook/send flow runs.
+    if (isListening.value)
+      await stopListening()
+    else if (isRecording.value)
+      await stopVoiceRecording()
+  }
+
+  async function handleVadSpeechEnd() {
+    const mode = vadWatchMode.value
+    if (!mode)
+      return
+    // Ignore sub-second blips; keep waiting for real speech.
+    if (vadSpeechStartAt && Date.now() - vadSpeechStartAt < 700) {
+      vadSpeechStartAt = 0
+      return
+    }
+    vadSpeechStartAt = 0
+    if (mode === 'single-shot') {
+      await stopCaptureForVad()
+      return
+    }
+    // Segment mode: close this utterance through the normal hook flow, then
+    // open the next segment while the continuous session is still live.
+    // NOTE: no generation check here — stopCaptureForVad() intentionally
+    // retires the current watch generation via stopVadWatch(); the live
+    // session flag is the restart authority (a manual stop clears it first).
+    await stopCaptureForVad()
+    if (!continuousSession.value)
+      return
+    await startVoiceRecording()
+    if (!continuousSession.value || !isRecording.value)
+      return
+    await startVadWatch('segment')
+  }
+
+  async function startVadWatch(mode: 'single-shot' | 'segment') {
+    const generation = ++vadGeneration
+    vadWatchMode.value = mode
+    hadVadSpeech.value = false
+    vadSpeechStartAt = 0
+    clearVadTimers()
+    try {
+      await initVAD()
+    }
+    catch (err) {
+      console.warn('[ChatComposer] VAD unavailable, capture runs without auto-stop:', err)
+      vadWatchMode.value = null
+      return
+    }
+    if (vadGeneration !== generation || !vadWatchMode.value || !stream.value)
+      return
+    try {
+      await startVAD(stream.value)
+    }
+    catch (err) {
+      console.warn('[ChatComposer] VAD start failed:', err)
+      vadWatchMode.value = null
+      return
+    }
+    // Silence from the start means an empty capture — abort it instead of
+    // transcribing quiet (the hearing models hallucinate on silence).
+    vadNoSpeechTimer = setTimeout(() => {
+      if (vadGeneration !== generation || hadVadSpeech.value)
+        return
+      console.info('[ChatComposer] No speech detected, stopping empty capture')
+      suppressNextStop = true
+      toast.info('Stopped listening — no speech detected.')
+      void stopCaptureForVad()
+    }, 20_000)
+    vadMaxTimer = setTimeout(() => {
+      if (vadGeneration !== generation)
+        return
+      if (!hadVadSpeech.value)
+        suppressNextStop = true
+      void stopCaptureForVad()
+    }, 120_000)
   }
 
   // File/Attachments Helpers
@@ -242,9 +399,9 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
         for (const clip of audioAttachmentsToSend) {
           if (!clip.blob)
             continue
-          const text = await transcribeForRecording(clip.blob)
-          if (text && text.trim())
-            transcripts.push(text.trim())
+          const text = await transcribeRecordingExclusive(clip.blob)
+          if (text)
+            transcripts.push(text)
         }
         const combined = [textToSend.trim(), ...transcripts].filter(Boolean).join('\n')
         if (!combined) {
@@ -401,6 +558,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   }
 
   async function stopListening() {
+    stopVadWatch()
     if (!isListening.value)
       return
     try {
@@ -449,27 +607,61 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   }
 
   const stopVoiceHook = voiceRecorder.onStopRecord(async (recording) => {
-    isRecording.value = false
-    if (voiceInputMode.value !== 'voice-message' || !recording)
-      return
-    // Send ON = transcribe now and send as the message. Providers have no
-    // audio-input path yet, so the transcript is what the brain receives;
-    // the playable clip is what the user keeps (attached below when manual).
-    if (autoSendEnabled.value) {
-      try {
-        const text = await transcribeForRecording(recording)
-        if (text && text.trim()) {
-          messageInput.value = text.trim()
-          await handleSend()
+    // NOTE: isRecording stays true through transcription so the mic button
+    // keeps its active/stop affordance until the text actually lands.
+    try {
+      // Empty auto-abort (no speech ever detected): discard, don't transcribe.
+      if (suppressNextStop) {
+        suppressNextStop = false
+        return
+      }
+      if (!recording)
+        return
+      if (voiceInputMode.value === 'dictation') {
+        // No streaming provider: the utterance arrives whole — feed it into
+        // the input exactly like a live sentence delta, so auto-send semantics
+        // match the streaming path (send ON dispatches after the delay,
+        // otherwise the text waits in the composer for review).
+        try {
+          const text = await transcribeRecordingExclusive(recording)
+          if (text) {
+            const currentText = messageInput.value.trim()
+            messageInput.value = currentText ? `${currentText} ${text}` : text
+            if (autoSendEnabled.value) {
+              debouncedAutoSend(text)
+            }
+          }
+        }
+        catch (err) {
+          console.error('[ChatComposer] Dictation transcribe error:', err)
+          options.onSendError?.(err)
+        }
+        return
+      }
+      if (voiceInputMode.value !== 'voice-message')
+        return
+      // Send ON = transcribe now and send as the message. Providers have no
+      // audio-input path yet, so the transcript is what the brain receives;
+      // the playable clip is what the user keeps (attached below when manual).
+      if (autoSendEnabled.value) {
+        try {
+          const text = await transcribeRecordingExclusive(recording)
+          if (text) {
+            messageInput.value = text
+            await handleSend()
+          }
+        }
+        catch (err) {
+          console.error('[ChatComposer] Voice message auto-send error:', err)
+          options.onSendError?.(err)
         }
       }
-      catch (err) {
-        console.error('[ChatComposer] Voice message auto-send error:', err)
-        options.onSendError?.(err)
+      else {
+        addAudioAttachment(recording)
       }
     }
-    else {
-      addAudioAttachment(recording)
+    finally {
+      isRecording.value = false
     }
   })
 
@@ -494,6 +686,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   }
 
   async function stopVoiceRecording() {
+    stopVadWatch()
     if (!isRecording.value)
       return
     try {
@@ -505,10 +698,55 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   }
 
   async function toggleVoiceRecording() {
+    if (isRecording.value) {
+      await stopVoiceRecording()
+      return
+    }
+    await startVoiceRecording()
+    // Voice messages are single utterances in every mode: VAD ends the
+    // capture at speech end so no second tap is ever required.
+    if (isRecording.value)
+      await startVadWatch('single-shot')
+  }
+
+  // Dictation entry point (mode-aware): streaming providers transcribe live
+  // into the composer; otherwise record-then-transcribe into the input.
+  // Either way the composer stays on screen and the mic button is the stop.
+  async function startDictation() {
+    if (shouldUseStreamInput.value) {
+      await startListening()
+      return
+    }
+    await startVoiceRecording()
+  }
+
+  async function stopDictation() {
+    if (isListening.value)
+      await stopListening()
     if (isRecording.value)
       await stopVoiceRecording()
-    else
-      await startVoiceRecording()
+  }
+
+  async function toggleDictation() {
+    if (isListening.value || isRecording.value) {
+      continuousSession.value = false
+      await stopDictation()
+      return
+    }
+    await startDictation()
+    if (!isListening.value && !isRecording.value)
+      return
+    if (tapToTalk.value) {
+      // Tap mode: one tap captures one utterance and stops itself.
+      await startVadWatch('single-shot')
+    }
+    else if (!shouldUseStreamInput.value) {
+      // Open line, non-streaming: VAD segments utterances automatically
+      // until the next tap closes the session. (Streaming providers
+      // segment on their own, so no watch is needed.)
+      continuousSession.value = true
+      await startVadWatch('segment')
+    }
   }
 
   watch(enabled, async (val) => {
@@ -539,6 +777,11 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     if (autoSendTimeout) {
       clearTimeout(autoSendTimeout)
     }
+    stopVadWatch()
+    try {
+      disposeVAD()
+    }
+    catch {}
     try {
       stopVoiceHook?.()
     }
@@ -574,5 +817,8 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     startVoiceRecording,
     stopVoiceRecording,
     toggleVoiceRecording,
+    startDictation,
+    stopDictation,
+    toggleDictation,
   }
 }

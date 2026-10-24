@@ -15,27 +15,17 @@ import { useSettingsAudioDevice } from '../../../stores/settings'
 const view = ref<'main' | 'devices'>('main')
 
 const hearingStore = useHearingStore()
-const { autoSendEnabled, voiceInputMode } = storeToRefs(hearingStore)
+const { autoSendEnabled, tapToTalk, voiceInputMode } = storeToRefs(hearingStore)
 
 const audioDeviceStore = useSettingsAudioDevice()
 const {
   audioInputs,
   selectedAudioInput,
   selectedAudioInputLabel,
-  enabled,
   stream,
 } = storeToRefs(audioDeviceStore)
 
 const hasMultipleMics = computed(() => audioInputs.value.length > 1)
-
-// "Tap to talk" is the inverted mic-hot flag. ON (default) = tap the mic for
-// each utterance; OFF = open mic, never tap (persistent VAD session).
-const tapToTalk = computed({
-  get: () => !enabled.value,
-  set: (val: boolean) => {
-    enabled.value = !val
-  },
-})
 
 function selectMode(mode: 'voice-message' | 'dictation') {
   voiceInputMode.value = mode
@@ -282,7 +272,7 @@ function deviceDisplayLabel(device: MediaDeviceInfo, index: number) {
           'w-full flex items-center justify-between gap-2',
           'px-4 py-2 text-left text-[15px]',
         ]"
-        title="Tap the mic for each utterance. Off = mic stays hot and hears every utterance on its own."
+        title="On: one tap captures one utterance and stops itself at speech end. Off: open line — tap opens, tap closes, utterances segment on their own."
       >
         <span>Tap to talk</span>
         <Checkbox v-model="tapToTalk" />
