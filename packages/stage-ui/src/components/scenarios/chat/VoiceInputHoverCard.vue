@@ -219,7 +219,8 @@ function deviceDisplayLabel(device: MediaDeviceInfo, index: number) {
         @click="selectMode('dictation')"
       >
         <div class="i-solar:keyboard-linear size-5 shrink-0" />
-        <span>Dictation</span>
+        <span class="min-w-0 flex-1 truncate">Dictation</span>
+        <div v-if="voiceInputMode === 'dictation'" class="i-solar:check-circle-bold size-4 shrink-0" />
       </button>
 
       <div class="h-px bg-white/10" />

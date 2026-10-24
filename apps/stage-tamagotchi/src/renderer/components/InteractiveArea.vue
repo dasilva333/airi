@@ -3,6 +3,8 @@ import type { ChatComposerDraftMessage } from '@proj-airi/stage-ui/stores/chat/c
 import type { ChatSendMode, ChatSuggestMode } from '@proj-airi/stage-ui/stores/settings'
 import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 
+import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
+
 // Watch messageInput and search universe-scoped memory context
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
@@ -15,8 +17,11 @@ import {
   MarkdownRenderer,
   ProducerGuidanceModal,
   StageBackgroundDialogPicker,
+  VoiceInputHover,
 } from '@proj-airi/stage-ui/components'
 import { useAutoSuggestions, usePreFlightGrounding, useProducer } from '@proj-airi/stage-ui/composables'
+import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-recorder'
+import { useVAD } from '@proj-airi/stage-ui/stores/ai/models/vad'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { appendDraftText, CHAT_COMPOSER_DRAFT_CHANNEL, CHAT_COMPOSER_DRAFT_STORAGE_KEY } from '@proj-airi/stage-ui/stores/chat/composer-draft-bridge'
@@ -31,10 +36,11 @@ import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-jour
 import { buildSystemPrompt, useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useAutonomousArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry-autonomous'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
+import { useHearingSpeechInputPipeline, useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
+import { useSettingsAudioDevice, useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
 import { BasicTextarea, Button } from '@proj-airi/ui'
 import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
@@ -83,6 +89,341 @@ const { activeModel, activeProvider } = storeToRefs(useConsciousnessStore())
 const settingsChat = useSettingsChat()
 const isComposing = ref(false)
 const CHAT_WINDOW_TITLE = 'AIRI - Chat Window'
+
+// --- Desktop dictation (port of the web-stage voice flow) ---
+// NOTICE: the desktop mic is dictation-only. Voice-message mode stays
+// coming-soon globally, so taps here always run the dictation path below
+// and never touch the ambient open-mic `enabled` flag.
+const hearingStore = useHearingStore()
+const hearingPipeline = useHearingSpeechInputPipeline()
+const settingsAudioDeviceStore = useSettingsAudioDevice()
+const { stream } = storeToRefs(settingsAudioDeviceStore)
+const { transcribeForMediaStream, transcribeForRecording, stopStreamingTranscription } = hearingPipeline
+const { autoSendEnabled, tapToTalk, vadThreshold, isTranscribing } = storeToRefs(hearingStore)
+
+const isListening = ref(false)
+const isRecording = ref(false)
+const isDictating = computed(() => isListening.value || isRecording.value)
+const { supportsStreamInput } = storeToRefs(hearingPipeline)
+const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
+
+const voiceRecorder = useAudioRecorder(stream)
+
+// The hearing pipeline has a single transcription slot shared across
+// surfaces — wait for it (bounded) rather than dropping the utterance.
+async function transcribeRecordingExclusive(recording: Blob): Promise<string | undefined> {
+  for (let i = 0; i < 40 && isTranscribing.value; i++) {
+    if (i === 0)
+      console.warn('[DesktopComposer] Transcription slot busy, waiting for our turn')
+    await new Promise(resolve => setTimeout(resolve, 250))
+  }
+  if (isTranscribing.value) {
+    console.warn('[DesktopComposer] Transcription slot still busy after 10s, dropping utterance')
+    return undefined
+  }
+  const text = await transcribeForRecording(recording)
+  return text?.trim() || undefined
+}
+
+// VAD speech-end watch: tap mode = one tap captures one utterance and stops
+// itself; open line = VAD segments non-streaming utterances automatically.
+// Streaming providers segment on their own, so continuous needs no watch.
+const vadWatchMode = ref<'single-shot' | 'segment' | null>(null)
+const continuousSession = ref(false)
+const hadVadSpeech = ref(false)
+let vadSpeechStartAt = 0
+let suppressNextStop = false
+let vadGeneration = 0
+let vadNoSpeechTimer: ReturnType<typeof setTimeout> | undefined
+let vadMaxTimer: ReturnType<typeof setTimeout> | undefined
+
+const {
+  init: initVAD,
+  dispose: disposeVAD,
+  start: startVAD,
+  stop: stopVAD,
+} = useVAD(workletUrl, {
+
+  threshold: vadThreshold,
+  onSpeechStart: () => {
+    hadVadSpeech.value = true
+    vadSpeechStartAt = Date.now()
+    if (vadNoSpeechTimer) {
+      clearTimeout(vadNoSpeechTimer)
+      vadNoSpeechTimer = undefined
+    }
+  },
+  onSpeechEnd: () => {
+    void handleVadSpeechEnd()
+  },
+})
+
+function clearVadTimers() {
+  if (vadNoSpeechTimer) {
+    clearTimeout(vadNoSpeechTimer)
+    vadNoSpeechTimer = undefined
+  }
+  if (vadMaxTimer) {
+    clearTimeout(vadMaxTimer)
+    vadMaxTimer = undefined
+  }
+}
+
+function stopVadWatch() {
+  vadGeneration += 1
+  vadWatchMode.value = null
+  clearVadTimers()
+  try {
+    stopVAD()
+  }
+  catch {}
+}
+
+async function stopCaptureForVad() {
+  if (isListening.value)
+    await stopDictationListening()
+  else if (isRecording.value)
+    await stopDictationRecording()
+}
+
+async function handleVadSpeechEnd() {
+  const mode = vadWatchMode.value
+  if (!mode)
+    return
+  // Ignore sub-second blips; keep waiting for real speech.
+  if (vadSpeechStartAt && Date.now() - vadSpeechStartAt < 700) {
+    vadSpeechStartAt = 0
+    return
+  }
+  vadSpeechStartAt = 0
+  if (mode === 'single-shot') {
+    await stopCaptureForVad()
+    return
+  }
+  // Segment mode: close this utterance through the normal hook flow, then
+  // open the next segment while the continuous session is still live. No
+  // generation check — the stop above intentionally retires this generation;
+  // the live session flag is the restart authority.
+  await stopCaptureForVad()
+  if (!continuousSession.value)
+    return
+  await startDictationRecording()
+  if (!continuousSession.value || !isRecording.value)
+    return
+  await startVadWatch('segment')
+}
+
+async function startVadWatch(mode: 'single-shot' | 'segment') {
+  const generation = ++vadGeneration
+  vadWatchMode.value = mode
+  hadVadSpeech.value = false
+  vadSpeechStartAt = 0
+  clearVadTimers()
+  try {
+    await initVAD()
+  }
+  catch (err) {
+    console.warn('[DesktopComposer] VAD unavailable, capture runs without auto-stop:', err)
+    vadWatchMode.value = null
+    return
+  }
+  if (vadGeneration !== generation || !vadWatchMode.value || !stream.value)
+    return
+  try {
+    await startVAD(stream.value)
+  }
+  catch (err) {
+    console.warn('[DesktopComposer] VAD start failed:', err)
+    vadWatchMode.value = null
+    return
+  }
+  // Silence from the start means an empty capture — abort it instead of
+  // transcribing quiet (the hearing models hallucinate on silence).
+  vadNoSpeechTimer = setTimeout(() => {
+    if (vadGeneration !== generation || hadVadSpeech.value)
+      return
+    console.info('[DesktopComposer] No speech detected, stopping empty capture')
+    suppressNextStop = true
+    toast.info('Stopped listening — no speech detected.')
+    void stopCaptureForVad()
+  }, 20_000)
+  vadMaxTimer = setTimeout(() => {
+    if (vadGeneration !== generation)
+      return
+    if (!hadVadSpeech.value)
+      suppressNextStop = true
+    void stopCaptureForVad()
+  }, 120_000)
+}
+
+const stopVoiceHook = voiceRecorder.onStopRecord(async (recording) => {
+  // NOTE: isRecording stays true through transcription so the mic button
+  // keeps its active/stop affordance until the text actually lands.
+  try {
+    // Empty auto-abort (no speech ever detected): discard, don't transcribe.
+    if (suppressNextStop) {
+      suppressNextStop = false
+      return
+    }
+    if (!recording)
+      return
+    const text = await transcribeRecordingExclusive(recording)
+    if (!text)
+      return
+    messageInput.value = messageInput.value.trim() ? `${messageInput.value.trim()} ${text}` : text
+    if (autoSendEnabled.value)
+      await handleSend()
+  }
+  catch (err) {
+    console.error('[DesktopComposer] Dictation transcribe error:', err)
+    toast.error(err instanceof Error ? err.message : String(err))
+  }
+  finally {
+    isRecording.value = false
+  }
+})
+
+async function startDictationRecording() {
+  if (isRecording.value)
+    return
+  if (!stream.value) {
+    await settingsAudioDeviceStore.askPermission()
+    if (!stream.value && settingsAudioDeviceStore.enabled) {
+      settingsAudioDeviceStore.startStream()
+    }
+  }
+  if (!stream.value)
+    return
+  try {
+    await voiceRecorder.startRecord()
+    isRecording.value = true
+  }
+  catch {
+    isRecording.value = false
+  }
+}
+
+async function stopDictationRecording() {
+  stopVadWatch()
+  if (!isRecording.value)
+    return
+  try {
+    await voiceRecorder.stopRecord()
+  }
+  finally {
+    isRecording.value = false
+  }
+}
+
+async function startDictationListening() {
+  if (!shouldUseStreamInput.value || !stream.value)
+    return
+  try {
+    await transcribeForMediaStream(stream.value, {
+      onSentenceEnd: (delta) => {
+        if (delta && delta.trim()) {
+          const currentText = messageInput.value.trim()
+          messageInput.value = currentText ? `${currentText} ${delta}` : delta
+        }
+      },
+      onSpeechEnd: async (text) => {
+        if (!text || !text.trim())
+          return
+        if (!messageInput.value.includes(text.trim()))
+          messageInput.value = appendDraftText(messageInput.value, text)
+        if (autoSendEnabled.value)
+          await handleSend()
+      },
+    })
+    isListening.value = true
+  }
+  catch (err) {
+    console.error('[DesktopComposer] Dictation listen error:', err)
+    isListening.value = false
+    throw err
+  }
+}
+
+async function stopDictationListening() {
+  stopVadWatch()
+  if (!isListening.value)
+    return
+  try {
+    await stopStreamingTranscription(true)
+  }
+  finally {
+    isListening.value = false
+  }
+}
+
+async function startDictation() {
+  if (shouldUseStreamInput.value) {
+    await startDictationListening()
+    return
+  }
+  await startDictationRecording()
+}
+
+async function stopDictation() {
+  if (isListening.value)
+    await stopDictationListening()
+  if (isRecording.value)
+    await stopDictationRecording()
+}
+
+async function toggleDictation() {
+  if (isListening.value || isRecording.value) {
+    continuousSession.value = false
+    await stopDictation()
+    return
+  }
+  await startDictation()
+  if (!isListening.value && !isRecording.value)
+    return
+  if (tapToTalk.value) {
+    await startVadWatch('single-shot')
+  }
+  else if (!shouldUseStreamInput.value) {
+    continuousSession.value = true
+    await startVadWatch('segment')
+  }
+}
+
+function handleComposerSubmit() {
+  // While dictating, Enter ends the capture instead of sending.
+  if (isDictating.value) {
+    void stopDictation()
+    return
+  }
+  void handleSend()
+}
+
+function handleComposerSuggest() {
+  if (isDictating.value) {
+    void stopDictation()
+    return
+  }
+  if (messageInput.value.trim())
+    handleQuickSuggest()
+}
+
+const sendKeyHintLabels = { 'enter': 'Enter', 'ctrl-enter': 'Ctrl+Enter', 'double-enter': 'Double Enter' } as const
+const suggestKeyHintLabels = { 'disabled': 'Off', 'enter': 'Enter', 'ctrl-enter': 'Ctrl+Enter', 'double-enter': 'Double' } as const
+const sendKeyHint = computed(() => sendKeyHintLabels[settingsChat.sendMode as keyof typeof sendKeyHintLabels] ?? 'Enter')
+const suggestKeyHint = computed(() => suggestKeyHintLabels[settingsChat.suggestMode as keyof typeof suggestKeyHintLabels] ?? 'Off')
+
+onUnmounted(() => {
+  continuousSession.value = false
+  stopVadWatch()
+  try {
+    disposeVAD()
+  }
+  catch {}
+  try {
+    stopVoiceHook?.()
+  }
+  catch {}
+})
 
 const isWandMenuOpen = ref(false)
 const isSendMenuOpen = ref(false)
@@ -1402,220 +1743,251 @@ defineExpose({
       </div>
     </div>
 
-    <div class="relative w-full flex items-end">
+    <div :class="['relative w-full flex flex-col', 'rounded-2xl border border-primary-500/25 bg-primary-500/[0.05] shadow-sm backdrop-blur-xl', 'dark:border-primary-400/20 dark:bg-primary-400/[0.07]', 'transition-colors focus-within:border-primary-500/50 focus-within:ring-2 focus-within:ring-primary-500/15', 'dark:focus-within:border-primary-400/40']">
       <BasicTextarea
         v-model="messageInput"
         :send-mode="settingsChat.sendMode"
         :suggest-mode="settingsChat.suggestMode"
         :placeholder="t('stage.message')"
-        class="ph-no-capture w-full pr-36"
+        class="ph-no-capture w-full"
         text="primary-600 dark:primary-100 placeholder:primary-500 dark:placeholder:primary-200"
-        border="solid 2 primary-200/20 dark:primary-400/20"
-        bg="primary-100/50 dark:primary-900/70"
-        max-h="[10lh]" min-h="[1lh]"
+        border="solid 2 transparent"
+        bg="transparent"
+        max-h="[10lh]" min-h="[2lh]"
         shrink-0 resize-none overflow-y-scroll rounded-xl p-2 font-medium outline-none
         transition="all duration-250 ease-in-out placeholder:all placeholder:duration-250 placeholder:ease-in-out"
-        @submit="handleSend"
-        @suggest="messageInput.trim() && handleQuickSuggest()"
+        @submit="handleComposerSubmit"
+        @suggest="handleComposerSuggest"
         @compositionstart="isComposing = true"
         @compositionend="isComposing = false"
         @attach="handleFilePaste"
       />
-      <div class="composer-buttons no-drag absolute right-2.5 top-1/2 z-10 flex select-none items-center -translate-y-1/2">
-        <!-- Add Media inline button -->
-        <ChatImagesPopover
-          @attach="fileInput?.click()"
-          @screenshot="handleScreenshotClick"
-        />
+      <div class="composer-buttons no-drag flex select-none items-center justify-between px-2 pb-2">
+        <!-- Left cluster: attachments + suggestions + key hint -->
+        <div class="min-w-0 flex items-center gap-1">
+          <!-- Add Media inline button -->
+          <ChatImagesPopover
+            @attach="fileInput?.click()"
+            @screenshot="handleScreenshotClick"
+          />
 
-        <!-- Suggest Response (Producer Sparkle) Inline Button -->
-        <PopoverRoot v-model:open="isTooltipOpen">
-          <PopoverAnchor as-child>
-            <PopoverRoot v-model:open="isWandMenuOpen">
-              <PopoverAnchor as-child>
-                <button
-                  class="relative ml-1 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl transition-all duration-250 active:scale-95 hover:bg-neutral-200/40 hover:text-neutral-700 dark:hover:bg-neutral-800/40 dark:hover:text-neutral-200"
-                  :class="[
-                    messageInput.trim()
-                      ? 'bg-primary-500/15 text-primary-500 shadow-[0_0_12px_rgba(168,85,247,0.2)] dark:bg-primary-500/20 dark:text-primary-400 border-primary-500/30'
-                      : isAutoSuggestionsEnabled
-                        ? 'bg-amber-500/15 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.25)]'
-                        : 'bg-neutral-200/20 text-neutral-500 dark:bg-neutral-800/20 dark:text-neutral-400',
-                  ]"
-                  :title="isAutoSuggestionsEnabled ? 'Auto Suggestions active (generates reply choices after each turn)' : 'Suggest responses (Right-click to configure)'"
-                  @click="handleQuickSuggest"
-                  @contextmenu.prevent="isWandMenuOpen = true"
-                >
-                  <div class="i-solar:magic-stick-3-bold-duotone text-base" />
-                  <span v-if="isAutoSuggestionsEnabled" class="absolute right-1 top-1 h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-                </button>
-              </PopoverAnchor>
-              <PopoverPortal>
-                <PopoverContent
-                  side="top"
-                  align="center"
-                  :side-offset="8"
-                  class="animate-in fade-in slide-in-from-bottom-1 z-[10000] w-36 flex flex-col border border-neutral-200/60 rounded-xl bg-white/95 p-1.5 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
-                >
-                  <div class="select-none px-2 py-1 text-[9px] text-neutral-400 font-bold tracking-wider uppercase">
-                    Suggest Mode
+          <!-- Suggest Response (Producer Sparkle) Inline Button -->
+          <PopoverRoot v-model:open="isTooltipOpen">
+            <PopoverAnchor as-child>
+              <PopoverRoot v-model:open="isWandMenuOpen">
+                <PopoverAnchor as-child>
+                  <button
+                    :class="[
+                      'relative h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl transition-all duration-200 active:scale-95',
+                      'bg-neutral-200/20 text-neutral-500 hover:bg-neutral-200/40 hover:text-neutral-700',
+                      'dark:bg-neutral-800/20 dark:text-neutral-400 dark:hover:bg-neutral-800/40 dark:hover:text-neutral-200',
+                    ]"
+                    :title="isAutoSuggestionsEnabled ? `Auto Suggestions active (${suggestKeyHint})` : `Suggest responses (${suggestKeyHint}) · Right-click to configure`"
+                    @click="handleQuickSuggest"
+                    @contextmenu.prevent="isWandMenuOpen = true"
+                  >
+                    <div class="i-solar:magic-stick-3-bold-duotone text-base" />
+                    <span v-if="isAutoSuggestionsEnabled" class="absolute right-1 top-1 h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                  </button>
+                </PopoverAnchor>
+                <PopoverPortal>
+                  <PopoverContent
+                    side="top"
+                    align="center"
+                    :side-offset="8"
+                    class="animate-in fade-in slide-in-from-bottom-1 z-[10000] w-36 flex flex-col border border-neutral-200/60 rounded-xl bg-white/95 p-1.5 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
+                  >
+                    <div class="select-none px-2 py-1 text-[9px] text-neutral-400 font-bold tracking-wider uppercase">
+                      Suggest Mode
+                    </div>
+                    <button
+                      v-for="opt in ([
+                        { label: 'Off', value: 'disabled' },
+                        { label: 'Enter', value: 'enter' },
+                        { label: 'Ctrl+Enter', value: 'ctrl-enter' },
+                        { label: 'Double', value: 'double-enter' },
+                      ] as const)"
+                      :key="opt.value"
+                      :class="[
+                        'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',
+                        settingsChat.suggestMode === opt.value
+                          ? 'bg-primary-50/50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400 font-bold'
+                          : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
+                      ]"
+                      @click="settingsChat.suggestMode = opt.value as ChatSuggestMode; isWandMenuOpen = false"
+                    >
+                      <span>{{ opt.label }}</span>
+                      <div v-if="settingsChat.suggestMode === opt.value" class="i-solar:check-circle-bold text-xs" />
+                    </button>
+                    <div class="my-1 h-px bg-neutral-200/60 dark:bg-neutral-800/60" />
+                    <button
+                      class="w-full flex cursor-pointer items-center justify-between rounded-lg px-2 py-1 text-left text-[10px] font-semibold transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      :class="isAutoSuggestionsEnabled ? 'bg-amber-50/50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400 font-bold' : 'text-neutral-600 dark:text-neutral-400'"
+                      @click="isAutoSuggestionsEnabled = !isAutoSuggestionsEnabled; isWandMenuOpen = false"
+                    >
+                      <span>Auto Suggestions</span>
+                      <div v-if="isAutoSuggestionsEnabled" class="i-solar:check-circle-bold text-xs" />
+                    </button>
+                  </PopoverContent>
+                </PopoverPortal>
+              </PopoverRoot>
+            </PopoverAnchor>
+            <PopoverPortal>
+              <PopoverContent
+                side="top"
+                align="center"
+                :side-offset="12"
+                class="animate-in fade-in slide-in-from-bottom-2 z-[10000] w-64 flex flex-col gap-2 border border-primary-200 rounded-xl bg-primary-50/95 p-3 text-xs text-primary-900 shadow-xl backdrop-blur-xl duration-200 dark:border-primary-800 dark:bg-neutral-900/95 dark:text-primary-100"
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex select-none items-center gap-1.5 text-primary-700 font-bold dark:text-primary-400">
+                    <div class="i-solar:magic-stick-3-bold-duotone animate-pulse text-sm" />
+                    <span>Quick Suggestions!</span>
                   </div>
                   <button
-                    v-for="opt in ([
-                      { label: 'Off', value: 'disabled' },
-                      { label: 'Enter', value: 'enter' },
-                      { label: 'Ctrl+Enter', value: 'ctrl-enter' },
-                      { label: 'Double', value: 'double-enter' },
-                    ] as const)"
-                    :key="opt.value"
-                    :class="[
-                      'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',
-                      settingsChat.suggestMode === opt.value
-                        ? 'bg-primary-50/50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400 font-bold'
-                        : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
-                    ]"
-                    @click="settingsChat.suggestMode = opt.value as ChatSuggestMode; isWandMenuOpen = false"
+                    class="cursor-pointer rounded p-0.5 text-neutral-400 hover:bg-primary-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+                    @click="dismissTooltip"
                   >
-                    <span>{{ opt.label }}</span>
-                    <div v-if="settingsChat.suggestMode === opt.value" class="i-solar:check-circle-bold text-xs" />
+                    <div class="i-ph:x-bold text-xs" />
                   </button>
-                  <div class="my-1 h-px bg-neutral-200/60 dark:bg-neutral-800/60" />
-                  <button
-                    class="w-full flex cursor-pointer items-center justify-between rounded-lg px-2 py-1 text-left text-[10px] font-semibold transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                    :class="isAutoSuggestionsEnabled ? 'bg-amber-50/50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400 font-bold' : 'text-neutral-600 dark:text-neutral-400'"
-                    @click="isAutoSuggestionsEnabled = !isAutoSuggestionsEnabled; isWandMenuOpen = false"
-                  >
-                    <span>Auto Suggestions</span>
-                    <div v-if="isAutoSuggestionsEnabled" class="i-solar:check-circle-bold text-xs" />
-                  </button>
-                </PopoverContent>
-              </PopoverPortal>
-            </PopoverRoot>
-          </PopoverAnchor>
-          <PopoverPortal>
-            <PopoverContent
-              side="top"
-              align="center"
-              :side-offset="12"
-              class="animate-in fade-in slide-in-from-bottom-2 z-[10000] w-64 flex flex-col gap-2 border border-primary-200 rounded-xl bg-primary-50/95 p-3 text-xs text-primary-900 shadow-xl backdrop-blur-xl duration-200 dark:border-primary-800 dark:bg-neutral-900/95 dark:text-primary-100"
-            >
-              <div class="flex items-start justify-between gap-2">
-                <div class="flex select-none items-center gap-1.5 text-primary-700 font-bold dark:text-primary-400">
-                  <div class="i-solar:magic-stick-3-bold-duotone animate-pulse text-sm" />
-                  <span>Quick Suggestions!</span>
                 </div>
+                <p class="text-[11px] leading-relaxed">
+                  Type a draft and click here to generate response suggestions directly. Right-click this button to change settings.
+                </p>
                 <button
-                  class="cursor-pointer rounded p-0.5 text-neutral-400 hover:bg-primary-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+                  class="cursor-pointer self-end rounded bg-primary-600 px-2 py-0.5 text-[10px] text-white font-bold transition-colors hover:bg-primary-700"
                   @click="dismissTooltip"
                 >
-                  <div class="i-ph:x-bold text-xs" />
+                  Got it!
                 </button>
-              </div>
-              <p class="text-[11px] leading-relaxed">
-                Type a draft and click here to generate response suggestions directly. Right-click this button to change settings.
-              </p>
-              <button
-                class="cursor-pointer self-end rounded bg-primary-600 px-2 py-0.5 text-[10px] text-white font-bold transition-colors hover:bg-primary-700"
-                @click="dismissTooltip"
-              >
-                Got it!
-              </button>
-            </PopoverContent>
-          </PopoverPortal>
-        </PopoverRoot>
+              </PopoverContent>
+            </PopoverPortal>
+          </PopoverRoot>
 
-        <!-- Send / Greet Inline Button — morphs into the Stop button while a reply streams,
+          <!-- Key hint beside the left tools (quiet; hidden when tight) -->
+          <div class="min-w-0 shrink-0 select-none items-center px-1 text-[10px] text-neutral-400 hidden min-[560px]:block dark:text-neutral-500">
+            <span v-if="isDictating">Enter to end</span>
+            <span v-else>{{ sendKeyHint }} to send</span>
+          </div>
+        </div>
+
+        <!-- Right cluster: voice + send -->
+        <div class="flex items-center gap-1">
+          <!-- Voice / STT Mic Button (+ hover card, dictation-only) -->
+          <VoiceInputHover>
+            <button
+              v-if="!isDictating"
+              type="button"
+              :class="['h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl transition-all duration-200 active:scale-95', 'bg-neutral-200/20 text-neutral-500 hover:bg-neutral-200/40 hover:text-neutral-700', 'dark:bg-neutral-800/20 dark:text-neutral-400 dark:hover:bg-neutral-800/40 dark:hover:text-neutral-200']"
+              title="Voice input (Dictation)"
+              @click="toggleDictation"
+            >
+              <div class="i-solar:microphone-linear text-base" />
+            </button>
+            <button
+              v-else
+              type="button"
+              :class="['h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-500/35 transition-all active:scale-95 hover:bg-red-700']"
+              title="Stop dictation"
+              @click="stopDictation"
+            >
+              <div class="i-solar:stop-bold text-base" />
+            </button>
+          </VoiceInputHover>
+
+          <!-- Send / Greet Inline Button — morphs into the Stop button while a reply streams,
              so the escape hatch lives exactly where the send muscle memory aims. -->
-        <PopoverRoot :open="isWaveTooltipOpen" @update:open="handleWaveTooltipOpenUpdate">
-          <PopoverAnchor as-child>
-            <PopoverRoot v-model:open="isSendMenuOpen">
-              <PopoverAnchor as-child>
-                <button
-                  v-if="canStop"
-                  class="ml-2.5 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-500/35 transition-all duration-250 active:scale-95 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600"
-                  :title="sending ? 'Stop Generating' : 'Stop Speaking'"
-                  @click="handleStopGeneration"
-                >
-                  <div class="i-solar:stop-bold-duotone text-base" />
-                </button>
-                <button
-                  v-else
-                  class="ml-2.5 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-primary-600 text-white transition-all duration-250 active:scale-95 dark:bg-primary-500 hover:bg-primary-700 dark:hover:bg-primary-600"
-                  :class="[
-                    messageInput.trim()
-                      ? 'shadow-lg shadow-primary-500/35 scale-[1.03]'
-                      : 'opacity-90',
-                  ]"
-                  :title="isGreetMode ? 'Greet (Right-click to configure)' : 'Send Message (Right-click to configure)'"
-                  @click="handleSend"
-                  @contextmenu.prevent="isSendMenuOpen = true"
-                >
-                  <div :class="[isGreetMode ? 'i-ph:hand-waving-bold' : 'i-solar:plain-2-bold-duotone', 'text-base']" />
-                </button>
-              </PopoverAnchor>
-              <PopoverPortal>
-                <PopoverContent
-                  side="top"
-                  align="center"
-                  :side-offset="8"
-                  class="animate-in fade-in slide-in-from-bottom-1 z-[10000] w-36 flex flex-col border border-neutral-200/60 rounded-xl bg-white/95 p-1.5 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
-                >
-                  <div class="select-none px-2 py-1 text-[9px] text-neutral-400 font-bold tracking-wider uppercase">
-                    Send Key Mode
+          <PopoverRoot :open="isWaveTooltipOpen" @update:open="handleWaveTooltipOpenUpdate">
+            <PopoverAnchor as-child>
+              <PopoverRoot v-model:open="isSendMenuOpen">
+                <PopoverAnchor as-child>
+                  <button
+                    v-if="canStop"
+                    class="h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-500/35 transition-all duration-250 active:scale-95 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600"
+                    :title="sending ? 'Stop Generating' : 'Stop Speaking'"
+                    @click="handleStopGeneration"
+                  >
+                    <div class="i-solar:stop-bold-duotone text-base" />
+                  </button>
+                  <button
+                    v-else
+                    class="h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-primary-600 text-white shadow-md shadow-primary-500/20 transition-all duration-250 active:scale-95 dark:bg-primary-500 hover:bg-primary-700 dark:hover:bg-primary-600"
+                    :class="[
+                      messageInput.trim()
+                        ? 'shadow-md shadow-primary-500/20 scale-[1.03]'
+                        : 'opacity-90',
+                    ]"
+                    :title="isGreetMode ? 'Greet (Right-click to configure)' : 'Send Message (Right-click to configure)'"
+                    @click="handleSend"
+                    @contextmenu.prevent="isSendMenuOpen = true"
+                  >
+                    <div :class="[isGreetMode ? 'i-ph:hand-waving-bold' : 'i-solar:plain-2-bold-duotone', 'text-base']" />
+                  </button>
+                </PopoverAnchor>
+                <PopoverPortal>
+                  <PopoverContent
+                    side="top"
+                    align="center"
+                    :side-offset="8"
+                    class="animate-in fade-in slide-in-from-bottom-1 z-[10000] w-36 flex flex-col border border-neutral-200/60 rounded-xl bg-white/95 p-1.5 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
+                  >
+                    <div class="select-none px-2 py-1 text-[9px] text-neutral-400 font-bold tracking-wider uppercase">
+                      Send Key Mode
+                    </div>
+                    <button
+                      v-for="opt in ([
+                        { label: 'Enter', value: 'enter' },
+                        { label: 'Ctrl+Enter', value: 'ctrl-enter' },
+                        { label: 'Double', value: 'double-enter' },
+                      ] as const)"
+                      :key="opt.value"
+                      :class="[
+                        'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',
+                        settingsChat.sendMode === opt.value
+                          ? 'bg-primary-50/50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400 font-bold'
+                          : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
+                      ]"
+                      @click="settingsChat.sendMode = opt.value as ChatSendMode; isSendMenuOpen = false"
+                    >
+                      <span>{{ opt.label }}</span>
+                      <div v-if="settingsChat.sendMode === opt.value" class="i-solar:check-circle-bold text-xs" />
+                    </button>
+                  </PopoverContent>
+                </PopoverPortal>
+              </PopoverRoot>
+            </PopoverAnchor>
+            <PopoverPortal>
+              <PopoverContent
+                side="top"
+                align="end"
+                :side-offset="12"
+                class="animate-in fade-in slide-in-from-bottom-2 z-[10000] w-64 flex flex-col gap-2 border border-primary-200 rounded-xl bg-primary-50/95 p-3 text-xs text-primary-900 shadow-xl backdrop-blur-xl duration-200 dark:border-primary-800 dark:bg-neutral-900/95 dark:text-primary-100"
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex select-none items-center gap-1.5 text-primary-700 font-bold dark:text-primary-400">
+                    <div class="i-ph:hand-waving-bold animate-pulse text-sm" />
+                    <span>Break the Ice!</span>
                   </div>
                   <button
-                    v-for="opt in ([
-                      { label: 'Enter', value: 'enter' },
-                      { label: 'Ctrl+Enter', value: 'ctrl-enter' },
-                      { label: 'Double', value: 'double-enter' },
-                    ] as const)"
-                    :key="opt.value"
-                    :class="[
-                      'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',
-                      settingsChat.sendMode === opt.value
-                        ? 'bg-primary-50/50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400 font-bold'
-                        : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
-                    ]"
-                    @click="settingsChat.sendMode = opt.value as ChatSendMode; isSendMenuOpen = false"
+                    class="cursor-pointer rounded p-0.5 text-neutral-400 hover:bg-primary-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+                    @click="dismissWaveTooltip"
                   >
-                    <span>{{ opt.label }}</span>
-                    <div v-if="settingsChat.sendMode === opt.value" class="i-solar:check-circle-bold text-xs" />
+                    <div class="i-ph:x-bold text-xs" />
                   </button>
-                </PopoverContent>
-              </PopoverPortal>
-            </PopoverRoot>
-          </PopoverAnchor>
-          <PopoverPortal>
-            <PopoverContent
-              side="top"
-              align="end"
-              :side-offset="12"
-              class="animate-in fade-in slide-in-from-bottom-2 z-[10000] w-64 flex flex-col gap-2 border border-primary-200 rounded-xl bg-primary-50/95 p-3 text-xs text-primary-900 shadow-xl backdrop-blur-xl duration-200 dark:border-primary-800 dark:bg-neutral-900/95 dark:text-primary-100"
-            >
-              <div class="flex items-start justify-between gap-2">
-                <div class="flex select-none items-center gap-1.5 text-primary-700 font-bold dark:text-primary-400">
-                  <div class="i-ph:hand-waving-bold animate-pulse text-sm" />
-                  <span>Break the Ice!</span>
                 </div>
+                <p class="text-[11px] leading-relaxed">
+                  Don't know what to say? Click here and let your companion greet you first.
+                </p>
                 <button
-                  class="cursor-pointer rounded p-0.5 text-neutral-400 hover:bg-primary-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+                  class="cursor-pointer self-end rounded bg-primary-600 px-2.5 py-1 text-[10px] text-white font-bold transition-colors hover:bg-primary-700"
                   @click="dismissWaveTooltip"
                 >
-                  <div class="i-ph:x-bold text-xs" />
+                  Got It
                 </button>
-              </div>
-              <p class="text-[11px] leading-relaxed">
-                Don't know what to say? Click here and let your companion greet you first.
-              </p>
-              <button
-                class="cursor-pointer self-end rounded bg-primary-600 px-2.5 py-1 text-[10px] text-white font-bold transition-colors hover:bg-primary-700"
-                @click="dismissWaveTooltip"
-              >
-                Got It
-              </button>
-            </PopoverContent>
-          </PopoverPortal>
-        </PopoverRoot>
+              </PopoverContent>
+            </PopoverPortal>
+          </PopoverRoot>
+        </div>
       </div>
     </div>
 
