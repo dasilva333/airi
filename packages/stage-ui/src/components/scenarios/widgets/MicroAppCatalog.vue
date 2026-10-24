@@ -17,14 +17,7 @@ import {
   copyWidgetManifestToClipboard,
   downloadWidgetManifestFile,
 } from '../../../libs/sandbox'
-import {
-  DAILY_CHECKLIST_STARTER,
-  FOCUS_TIMER_STARTER,
-  HAVEN_WEATHER_STARTER,
-  HONEY_NOTES_STARTER,
-  LIVE2D_MENU_DRIVER_STARTER,
-  STRAWBERRY_PET_STARTER,
-} from '../../../libs/sandbox/starters'
+import { BUNDLED_STARTER_WIDGETS } from '../../../libs/sandbox/starters'
 
 const props = withDefaults(defineProps<{
   compact?: boolean
@@ -74,55 +67,71 @@ interface StarterSlot {
   isCustomSlot?: boolean
 }
 
-const STARTER_SLOTS: StarterSlot[] = [
-  {
-    id: 'starter-live2d-menu-driver',
+/**
+ * Presentation metadata for known starters, keyed by manifest id.
+ *
+ * The slot list itself is derived from `BUNDLED_STARTER_WIDGETS`, so adding a
+ * starter never requires editing this component again — an unlisted starter
+ * still appears, just with a default icon and its manifest title.
+ */
+const STARTER_META: Record<string, Omit<StarterSlot, 'id' | 'manifest' | 'isCustomSlot'>> = {
+  'starter-live2d-menu-driver': {
     title: 'Live2D Controller (Generic)',
     subtitle: 'Model gimmick deck',
     iconClass: 'i-carbon:game-wireless text-cyan-500',
     accentBg: 'bg-cyan-100/70 dark:bg-cyan-950/40 border border-cyan-200/50 dark:border-cyan-900/30',
-    manifest: LIVE2D_MENU_DRIVER_STARTER,
   },
-  {
-    id: 'starter-strawberry-pet',
+  'starter-strawberry-pet': {
     title: 'Strawberry Pet',
     subtitle: 'Desk companion',
     iconUrl: starterStrawberryPetIcon,
     accentBg: 'bg-pink-100/70 dark:bg-pink-950/40 border border-pink-200/50 dark:border-pink-900/30',
-    manifest: STRAWBERRY_PET_STARTER,
   },
-  {
-    id: 'starter-focus-timer',
+  'starter-focus-timer': {
     title: 'Focus Timer',
     subtitle: 'Focus countdown',
     iconUrl: starterFocusTimerIcon,
     accentBg: 'bg-amber-100/70 dark:bg-amber-950/40 border border-amber-200/50 dark:border-amber-900/30',
-    manifest: FOCUS_TIMER_STARTER,
   },
-  {
-    id: 'starter-daily-checklist',
+  'starter-daily-checklist': {
     title: 'Daily Checklist',
     subtitle: 'Daily task list',
     iconUrl: starterDailyChecklistIcon,
     accentBg: 'bg-sky-100/70 dark:bg-sky-950/40 border border-sky-200/50 dark:border-sky-900/30',
-    manifest: DAILY_CHECKLIST_STARTER,
   },
-  {
-    id: 'starter-honey-notes',
+  'starter-honey-notes': {
     title: 'Honey Notes',
     subtitle: 'Quick memos',
     iconUrl: starterHoneyNotesIcon,
     accentBg: 'bg-yellow-100/70 dark:bg-yellow-950/40 border border-yellow-200/50 dark:border-yellow-900/30',
-    manifest: HONEY_NOTES_STARTER,
   },
-  {
-    id: 'starter-haven-weather',
+  'starter-haven-weather': {
     title: 'Haven Weather',
     subtitle: 'Local forecast',
     iconUrl: starterHavenWeatherIcon,
     accentBg: 'bg-blue-100/70 dark:bg-blue-950/40 border border-blue-200/50 dark:border-blue-900/30',
-    manifest: HAVEN_WEATHER_STARTER,
   },
+  'starter-glyphs-audio-works': {
+    title: 'Glyph\'s Audio Works',
+    subtitle: 'Music order tracker',
+    iconClass: 'i-solar:music-notes-bold-duotone text-fuchsia-500',
+    accentBg: 'bg-fuchsia-100/70 dark:bg-fuchsia-950/40 border border-fuchsia-200/50 dark:border-fuchsia-900/30',
+  },
+}
+
+const STARTER_SLOTS: StarterSlot[] = [
+  ...BUNDLED_STARTER_WIDGETS.map((manifest) => {
+    const meta = STARTER_META[manifest.id]
+    return {
+      id: manifest.id,
+      title: meta?.title || manifest.title,
+      subtitle: meta?.subtitle || 'Starter widget',
+      iconUrl: meta?.iconUrl,
+      iconClass: meta?.iconClass || 'i-solar:widget-5-bold-duotone text-fuchsia-500',
+      accentBg: meta?.accentBg || 'bg-neutral-100/70 dark:bg-neutral-800/40 border border-neutral-200/50 dark:border-neutral-800/30',
+      manifest,
+    }
+  }),
   {
     id: 'starter-custom-widget',
     title: 'Custom Widget',
