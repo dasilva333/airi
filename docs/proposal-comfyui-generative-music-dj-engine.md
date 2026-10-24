@@ -175,14 +175,16 @@ The hub convention is established house style: `text_journal` exposes `action: [
   "temperature": 0.8,
 
   "abcScore": "X:1\nT:Neon Horizon\nM:4/4\nL:1/8\nQ:1/4=120\nK:Cm\n...",
-  "planId": "plan_99a8b",
-  "jobId": "job_4f2c1",
+  "planId": "plan-ember-quartz-tide",
+  "jobId": "song-velvet-thunder-lark",
   "query": "synthwave",
   "limit": 5
 }
 ```
 
 Why a hub instead of five discrete MCP tools (`music_plan`, `music_generate`, …): AIRI's tool gate and prompt builder both optimize for context budget, and `mcp_list_tools` surfaces one schema per tool. A single discriminated-action schema costs a fraction of five, which matters for the small local models AIRI explicitly protects.
+
+**Discoverability is the price of the MCP path.** The tool is not in the model's native toolset — it is reachable only through `mcp_list_tools` — and nothing in the system prompt announces that a server is connected. In practice a character reports that it cannot make music until it is asked to list its MCP tools, which is exactly what happened on the first live connection. Injecting a "you have MCP tools" line into the system prompt was deliberately rejected: it spends context on every turn for one optional capability. The guidance therefore lives in the UI — the card tools tab, the Quick Settings tile, and the Sound Studio strip all tell the user to ask the character to list its MCP tools.
 
 **The description is load-bearing.** A receipt-returning `generate` only works if the model knows to poll, and how often. The `status` action's description must state the cadence explicitly, with measured numbers rather than optimistic ones — YuE 2 renders at roughly **10–15x real time** on an 8GB laptop GPU (15x in the shootout benchmarks, 10.7x on a warm 30s render through the server), so 30 seconds of audio is 5–8 minutes and a 2 minute track is 20–27 minutes. An under-stated budget is worse than no guidance: a model told "1–3 minutes" declares a healthy render failed at the four-minute mark.
 
@@ -244,8 +246,8 @@ This keeps the required AIRI-side change surface at zero for the manager: no `ti
 Both planning and rendering are jobs. Receipts carry their own polling guidance so the model does not have to infer cadence:
 
 ```
-plan     → { planId, state: "queued", next: "call status with jobId=plan_99a8b in ~10s" }
-generate → { jobId,  state: "queued", next: "call status with jobId=job_4f2c1 in ~45s" }
+plan     → { planId, state: "queued", next: "call status with jobId=plan-ember-quartz-tide in ~10s" }
+generate → { jobId,  state: "queued", next: "call status with jobId=song-velvet-thunder-lark in ~45s" }
 
 status   → { jobId,
              kind: "plan" | "render",
@@ -254,6 +256,8 @@ status   → { jobId,
              plan?:   { planId, abcScore, summary, tempo, keySignature, bars },
              track?:  Track }
 ```
+
+**Identifiers are readable slugs, not timestamps.** Plans get `plan-<word>-<word>-<word>` and renders get `song-<word>-<word>-<word>` (e.g. `plan-night-thunder-drift`), drawn from a fixed vocabulary with collisions checked against live jobs and the library. Characters read receipts aloud, and `plan_mvlqsf8102` is noise to a listener.
 
 `Track` = `{ id, title, audioUrl, durationMs, model, abcScore?, createdAt }` — the same record the Sound Studio already renders, so a completed job drops straight into the library and into `list` results.
 
@@ -356,10 +360,10 @@ Deck-level wrapper over `music { action: "plan" }` (§3.D). Initiates the fast s
 *   **Returns**:
     ```json
     {
-      "planId": "plan_99a8b",
+      "planId": "plan-ember-quartz-tide",
       "abcScore": "X:1\nT:Neon Drive\nM:4/4\nL:1/8\nQ:1/4=128\nK:Cm\n|: \"Cm\" c2 e2 g2 c'2 | \"Ab\" _A2 c2 e2 _a2 :|",
       "summary": "Generated 64 bars of 128 BPM electro in C Minor with annotated chord progressions and verse/drop structure.",
-      "visualArtifactUrl": "music://artifacts/plan_99a8b.abc"
+      "visualArtifactUrl": "music://artifacts/plan-ember-quartz-tide.abc"
     }
     ```
 
@@ -368,7 +372,7 @@ Deck-level wrapper over `music { action: "generate" }` (§3.D). Commits an appro
 *   **Arguments**:
     ```json
     {
-      "planId": "plan_99a8b",
+      "planId": "plan-ember-quartz-tide",
       "abcScore": "X:1\nT:Neon Drive\n...",
       "odeSteps": 8,
       "priority": "next" | "tail"
