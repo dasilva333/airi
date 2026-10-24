@@ -138,6 +138,7 @@ function handleClose() {
 
 <template>
   <div
+    id="onboarding-v3-root"
     :class="[
       'h-full w-full flex flex-col justify-between select-none relative text-[#142333] dark:text-white overflow-hidden',
       'bg-[#F6F9FC] dark:bg-neutral-950',

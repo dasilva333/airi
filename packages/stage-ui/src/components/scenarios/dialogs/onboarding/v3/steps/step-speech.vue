@@ -2550,7 +2550,7 @@ function handleContinue() {
       </div>
 
       <!-- Hugging Face Token Helper Modal -->
-      <Teleport to="body">
+      <Teleport to="#onboarding-v3-root">
         <div
           v-if="isHFTokenModalOpen"
           class="pointer-events-auto fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"

@@ -293,7 +293,7 @@ const displayName = computed(() => draft.state.userName?.trim() || 'Richie')
                     >
                       <div :class="['i-solar:info-circle-linear h-3.5 w-3.5']" />
                     </PopoverTrigger>
-                    <PopoverPortal>
+                    <PopoverPortal to="#onboarding-v3-root">
                       <PopoverContent
                         side="top"
                         :side-offset="6"
@@ -340,7 +340,7 @@ const displayName = computed(() => draft.state.userName?.trim() || 'Richie')
                     >
                       <div :class="['i-solar:info-circle-linear h-3.5 w-3.5']" />
                     </PopoverTrigger>
-                    <PopoverPortal>
+                    <PopoverPortal to="#onboarding-v3-root">
                       <PopoverContent
                         side="top"
                         :side-offset="6"
@@ -402,7 +402,7 @@ const displayName = computed(() => draft.state.userName?.trim() || 'Richie')
                   >
                     <div :class="['i-solar:info-circle-linear h-3.5 w-3.5']" />
                   </PopoverTrigger>
-                  <PopoverPortal>
+                  <PopoverPortal to="#onboarding-v3-root">
                     <PopoverContent
                       side="top"
                       :side-offset="6"
@@ -448,7 +448,7 @@ const displayName = computed(() => draft.state.userName?.trim() || 'Richie')
                   >
                     <div :class="['i-solar:info-circle-linear h-3.5 w-3.5']" />
                   </PopoverTrigger>
-                  <PopoverPortal>
+                  <PopoverPortal to="#onboarding-v3-root">
                     <PopoverContent
                       side="top"
                       :side-offset="6"

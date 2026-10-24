@@ -551,7 +551,7 @@ async function handleRestoreAndBuildAnother() {
                     <div :class="['i-solar:alt-arrow-right-line-duotone text-xs group-hover:translate-x-0.5 transition-transform']" />
                   </button>
                 </PopoverTrigger>
-                <PopoverPortal>
+                <PopoverPortal to="#onboarding-v3-root">
                   <PopoverContent
                     side="top"
                     align="start"
@@ -672,7 +672,7 @@ async function handleRestoreAndBuildAnother() {
                     <div :class="['i-solar:alt-arrow-right-line-duotone text-xs group-hover:translate-x-0.5 transition-transform']" />
                   </button>
                 </PopoverTrigger>
-                <PopoverPortal>
+                <PopoverPortal to="#onboarding-v3-root">
                   <PopoverContent
                     side="top"
                     align="start"

@@ -558,7 +558,7 @@ function resetToPresetDefaults() {
                     <span>{{ t(`onboarding.steps.experience.capabilities.${chip.capabilityId}.title`) }}</span>
                   </div>
                 </TooltipTrigger>
-                <TooltipPortal>
+                <TooltipPortal to="#onboarding-v3-root">
                   <TooltipContent
                     side="top"
                     :side-offset="8"

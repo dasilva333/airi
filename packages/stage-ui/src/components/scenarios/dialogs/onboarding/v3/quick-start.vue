@@ -1821,7 +1821,7 @@ function continueAnywayIntoStage() {
     </div>
 
     <!-- 5. Option C: Deferred Pre-flight Setup Modal -->
-    <Teleport to="body">
+    <Teleport to="#onboarding-v3-root">
       <div
         v-if="isPreparingModalOpen"
         :class="['fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fadeIn select-none']"

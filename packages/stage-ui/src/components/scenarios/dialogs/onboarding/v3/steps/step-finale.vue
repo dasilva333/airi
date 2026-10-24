@@ -1015,7 +1015,7 @@ async function handleLaunch() {
 
     <!-- AiriCard JSON Inspection Dialog -->
     <DialogRoot :open="isPayloadModalOpen" @update:open="isPayloadModalOpen = $event">
-      <DialogPortal>
+      <DialogPortal to="#onboarding-v3-root">
         <DialogOverlay :class="['fixed inset-0 z-50 bg-black/60 backdrop-blur-sm transition-opacity']" />
         <DialogContent
           :class="['fixed left-1/2 top-1/2 z-50 max-h-[85vh] max-w-2xl w-[92vw] flex flex-col border border-neutral-200 dark:border-neutral-800 rounded-2xl bg-white dark:bg-neutral-900 shadow-2xl -translate-x-1/2 -translate-y-1/2 focus:outline-none p-6']"

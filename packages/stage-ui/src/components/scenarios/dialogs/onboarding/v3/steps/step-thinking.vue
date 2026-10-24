@@ -1231,7 +1231,7 @@ function handleSkipPrewarmAndContinue() {
     </div>
 
     <!-- Option A: Pre-warm Thinking Fillers Confirmation Modal -->
-    <Teleport to="body">
+    <Teleport to="#onboarding-v3-root">
       <div
         v-if="showPrewarmPrompt"
         :class="['fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn']"

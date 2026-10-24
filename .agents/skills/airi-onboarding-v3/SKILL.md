@@ -111,3 +111,4 @@ Directory: `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/`
 2. **Dynamic Step Pruning**: Never hardcode numeric step indices. Step traversal is computed reactively from `activeSteps` based on `draftStore.state.modules`.
 3. **Sliding Breadcrumb Stepper**: Header navigation displays a maximum 5-item sliding window around the active step, preventing horizontal scrollbars and layout shifts.
 4. **Quick Start (60s)**: Always maintain the fast path in `quick-start.vue` so users who desire instant setup can start talking to an avatar immediately without navigating all 18 modular chapters.
+5. **Portal Target**: Every portaled overlay inside onboarding (`PopoverPortal`, `TooltipPortal`, `DialogPortal`, `<Teleport>`) must target `#onboarding-v3-root` instead of `body`. Web-stage hosts the wizard inside a `z-[9999]` overlay, so body-level portals at `z-50` render behind it and appear broken; Electron has no such wrapper, which is why the bug is web-only.

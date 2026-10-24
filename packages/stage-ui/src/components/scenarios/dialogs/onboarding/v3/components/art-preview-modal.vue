@@ -154,7 +154,7 @@ function handleClose() {
 
 <template>
   <DialogRoot :open="open" @update:open="(val) => emit('update:open', val)">
-    <DialogPortal>
+    <DialogPortal to="#onboarding-v3-root">
       <DialogOverlay :class="['fixed inset-0 z-50 bg-black/80 backdrop-blur-sm animate-fadeIn']" />
       <DialogContent :class="['fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl bg-[#0e1726] border border-primary-500/40 p-5 text-white shadow-2xl space-y-3.5']">
         <!-- Header -->

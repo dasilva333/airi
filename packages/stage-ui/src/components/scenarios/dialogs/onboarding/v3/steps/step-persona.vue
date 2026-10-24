@@ -1528,7 +1528,7 @@ onBeforeUnmount(() => {
                   <div :class="['i-solar:alt-arrow-right-line-duotone text-sm text-neutral-400']" />
                 </button>
               </PopoverTrigger>
-              <PopoverPortal>
+              <PopoverPortal to="#onboarding-v3-root">
                 <PopoverContent
                   align="end"
                   :side-offset="8"
@@ -2304,7 +2304,7 @@ onBeforeUnmount(() => {
     />
 
     <!-- Electron In-App Webview Side Drawer with automatic card download interceptor -->
-    <Teleport to="body">
+    <Teleport to="#onboarding-v3-root">
       <!-- Backdrop Overlay for Webview Drawer -->
       <Transition
         enter-active-class="transition-opacity duration-300 ease-out"
