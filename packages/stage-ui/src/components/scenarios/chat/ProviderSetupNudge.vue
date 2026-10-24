@@ -130,7 +130,7 @@ function openFreeAi() {
         </div>
         <div class="min-w-0 flex-1">
           <div class="truncate text-[15px] text-neutral-900 font-bold leading-tight dark:text-neutral-50 min-[768px]:hidden">
-            AI providers
+            Directory
           </div>
           <div class="truncate text-[15px] text-neutral-900 font-bold leading-tight hidden min-[768px]:block min-[768px]:whitespace-normal dark:text-neutral-50">
             Browse AI providers

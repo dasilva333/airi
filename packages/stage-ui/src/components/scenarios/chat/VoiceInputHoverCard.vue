@@ -11,6 +11,7 @@ import { useRouter } from 'vue-router'
 import { useAudioAnalyzer } from '../../../composables/audio/audio-analyzer'
 import { useAudioContext } from '../../../stores/audio'
 import { useHearingStore } from '../../../stores/modules/hearing'
+import { useProvidersStore } from '../../../stores/providers'
 import { useSettingsAudioDevice } from '../../../stores/settings'
 
 // NOTICE: card owns a two-view panel swap (main ⇄ devices) instead of a nested
@@ -19,7 +20,29 @@ import { useSettingsAudioDevice } from '../../../stores/settings'
 const view = ref<'main' | 'devices'>('main')
 
 const hearingStore = useHearingStore()
-const { autoSendEnabled, tapToTalk, voiceInputMode } = storeToRefs(hearingStore)
+const { autoSendEnabled, tapToTalk, voiceInputMode, configured: isHearingConfigured, activeTranscriptionProvider } = storeToRefs(hearingStore)
+
+const providersStore = useProvidersStore()
+
+// STT tri-state: an explicit provider means Ready everywhere; otherwise
+// Electron has nothing to fall back on (Not Ready) while web/pocket fall
+// back to zero-setup browser speech recognition (Web Speech).
+const sttStatus = computed<'ready' | 'not-ready' | 'web-speech'>(() => {
+  if (isHearingConfigured.value)
+    return 'ready'
+  return isElectron ? 'not-ready' : 'web-speech'
+})
+
+const sttProviderLabel = computed(() => {
+  const id = activeTranscriptionProvider.value
+  if (!id)
+    return ''
+  const metadata = providersStore.getProviderMetadata(id) as { localizedName?: string, name?: string } | null
+  return metadata?.localizedName || metadata?.name || id
+})
+
+// Microphone end-cap: device presence, independent of the STT state above.
+const hasMicrophone = computed(() => audioInputs.value.length > 0)
 
 const audioDeviceStore = useSettingsAudioDevice()
 const {
@@ -224,9 +247,44 @@ function deviceDisplayLabel(device: MediaDeviceInfo, index: number) {
 
     <!-- Main view -->
     <template v-else>
+      <!-- Status row: STT tri-state (Ready / Not Ready / Web Speech). -->
+      <div class="flex items-center justify-between gap-2 px-4 pb-1 pt-3">
+        <span class="text-xs text-neutral-400">Status</span>
+        <span class="min-w-0 flex items-center gap-1.5">
+          <span
+            :class="[
+              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase',
+              sttStatus === 'ready'
+                ? 'bg-emerald-500/15 text-emerald-300'
+                : sttStatus === 'web-speech'
+                  ? 'bg-amber-500/15 text-amber-300'
+                  : 'bg-red-500/15 text-red-300',
+            ]"
+          >
+            {{ sttStatus === 'ready' ? 'Ready' : sttStatus === 'web-speech' ? 'Web Speech' : 'Not Ready' }}
+          </span>
+          <button
+            v-if="sttStatus !== 'ready'"
+            type="button"
+            title="Set up a hearing provider"
+            class="shrink-0 cursor-pointer text-[11px] text-sky-300 font-semibold hover:underline"
+            @click="openHearingSettings"
+          >
+            Setup Hearing
+          </button>
+          <span
+            v-else-if="sttProviderLabel"
+            :title="sttProviderLabel"
+            class="min-w-0 truncate text-[11px] text-neutral-300"
+          >
+            {{ sttProviderLabel }}
+          </span>
+        </span>
+      </div>
+
       <div
         :class="[
-          'px-4 pb-1 pt-3',
+          'px-4 pb-1 pt-2',
           'text-xs text-neutral-400',
         ]"
       >
@@ -269,11 +327,23 @@ function deviceDisplayLabel(device: MediaDeviceInfo, index: number) {
 
       <div
         :class="[
+          'flex items-center justify-between gap-2',
           'px-4 pb-1 pt-2',
           'text-xs text-neutral-400',
         ]"
       >
-        Microphone
+        <span>Microphone</span>
+        <span
+          :title="hasMicrophone ? 'Microphone available' : 'No microphone found — check permission'"
+          :class="[
+            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase',
+            hasMicrophone
+              ? 'bg-emerald-500/15 text-emerald-300'
+              : 'bg-red-500/15 text-red-300',
+          ]"
+        >
+          {{ hasMicrophone ? 'Ready' : 'No mic' }}
+        </span>
       </div>
 
       <button
