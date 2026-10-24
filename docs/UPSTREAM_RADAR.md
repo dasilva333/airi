@@ -32,6 +32,136 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-10-24] Upstream Delta: `3b0672e3..f1b81967` (7 commits, 37 files, 14 update(s))
+
+### 🎯 Executive Highlights
+#### Upstream Trajectory & Key Highlights
+- **Multi-Tab Pinia Synced Stage Action Routing (#3101, commit `599336d03`)**: Upgraded `pinia-plugin-synced` to `0.1.6` and introduced `syncedRoles.speechPlayer`. Chat actions (`submit`, `retry`, `cancelTurn`, etc.) are now explicitly routed to execute in the tab hosting the Stage component (`Stage.vue`) so TTS speech playback hooks run reliably.
+- **Durable Chat Session Action Hardening (#3097, commit `300773ef2`)**: Refactored `chat-orchestrator-runtime` and `useChatSessionStore` so that chat session persistence occurs strictly through dedicated session actions (`storeMessage`, `updateUserMessage`, `replaceSessionHistory`, `clearSessionMessages`, `commitAssistantMessage`). Read operations (`getSessionMessages`, `getSessionGeneration`) are now strictly read-only and no longer create or mutate sessions (`ensureSession` removed), eliminating race conditions across synchronized contexts.
+- **Inherited Card Settings Synchronization (#3103, commit `f1b81967f`)**: In `useAiriCardStore`, introduced `followInheritedSettings()`. Whenever runtime module stores update (e.g. when authentication resolves voice catalogs asynchronously), inherited defaults are reactively synchronized so speech synthesis does not fail with missing voice errors.
+- **Responsive Microphone Selection & Permission Reactivity (#3096, commit `d759427ba`)**: Replaced dropdown device selector on narrow viewports with a dedicated row-based radio group (`hearing-input-radio-group.vue`). Added reactive `navigator.permissions.query({ name: 'microphone' })` tracking to automatically refresh audio inputs upon permission grant.
+- **Settings Navigation Unblock & UnoCSS Modernization (#3100, commit `b60856009`)**: Removed an orphaned navigation guard in `pages/settings/index.vue` that hung settings page links when transitions were enabled, and modernized template styling to UnoCSS grouped array classes.
+
+#### 💬 Discussion & Community Buzz
+- **#2936: `fix(tamagotchi): guard payload.url access in artistryTestComfyUIConnection`** by @bitxwolf (**+5 new comments, 24 total**): Active discussion and review on defensive URL access during ComfyUI connection testing.
+- **#2937: `fix(tamagotchi): replace invalid app.getPath('cache') with app.getPath('userData')/cache`** by @bitxwolf (**+1 new comment, 34 total**): Discussion on cross-platform Electron cache path resolution.
+- **#2932: `fix(tamagotchi): await setupBaseWindowElectronInvokes in widgets RPC setup`** by @bitxwolf (**+1 new comment, 26 total**): Follow-up commentary (already ported and typechecked in our fork via commit `9e12e1f35`).
+
+#### 🍒 Cherry-Pick Candidates
+- **`fix(stage-tamagotchi): unblock settings navigation (#3100, Commit b60856009)`**: **🟢 High-Value / Clean Fit**. Our fork had already removed the blocking navigation guard, but upstream modernized the legacy UnoCSS attributify syntax (`flex="~ col gap-4"`, `text="neutral-200/50"`) into UnoCSS grouped array classes (`:class="['flex flex-col gap-4', 'font-normal']"`), exactly matching our fork's `airi-ui-design-conventions`. A zero-risk cleanup.
+- **`feat(stage-ui,stage-pages): pick microphones as rows on narrow screens (#3096, Commit d759427ba)`**: **🟢 Acoustic & Mobile UI Primitive**. Introduces `RadioGroupRoot`/`RadioGroupItem` row selection on narrow screens and adds reactive `navigator.permissions.query` tracking to `useAudioDevice()`. Highly valuable for Capacitor/Stage-Pocket and narrow Control Strip modal dialogs.
+- **`fix(core-agent,stage-ui): write chat sessions only through session actions (#3097, Commit 300773ef2)`**: **🟡 Architectural Study / Cherry-Pick Candidate**. Idempotent assistant message storage (`commitAssistantMessage` / `storeMessage`) and eliminating write side-effects from read-only session calls (`getSessionMessages`) is solid defensive architecture. However, our fork uses the Eight Pillars memory architecture (STMM/LTMM/Dreaming/Sacred Journal), so changes touching `chat.ts` and `session-store.ts` must be hand-merged carefully rather than applied directly.
+
+#### ⚠️ Divergence / Collision Warnings
+- **`fix(stage-ui): run chat actions in the tab that has the Stage (#3101, Commit 599336d03)`**: **AUTO-REJECT / ARCHITECTURAL DIVERGENCE**. Upstream relies on `pinia-plugin-synced` role delegation (`syncedRoles.speechPlayer`) to route actions across browser tabs. In our desktop fork, desktop surfaces are cleanly decoupled into an authoritative, always-on Control Strip host (`ControlStrip.vue`) and Actor Stage (`RendererStage.vue`), with RPC handlers injected strictly per window via `injeca` and `@moeru/eventa`. We do not rely on Pinia synced tab leadership for audio playback routing.
+- **`fix(stage-ui): keep inherited card defaults in step with module settings (#3103, Commit f1b81967f)`**: **⚠️ Hand-Merge / Fork Logic Collision**. Touches `packages/stage-ui/src/stores/modules/airi-card.ts`. In our fork, `airi-card.ts` has extensive multi-actor support (`<|ACTOR|>` tokens, LRU model caching, ghost migrations). Additionally, upstream's test case is tied to their cloud auth (`useAuthStore`) and official voice catalog APIs, which our offline/local-first fork rejects. Any watcher logic must be strictly decoupled from upstream cloud auth semantics.
+- **Cloud Server SDK & Deployment PRs (#3099, #3098)**: Upstream cloud server SDK queueing and 1-click cloud host deployers are irrelevant to our local-first offline desktop architecture.
+
+### 📋 Upstream Commits
+- `f1b81967f` fix(stage-ui): keep inherited card defaults in step with module settings (#3103) [#3103](https://github.com/moeru-ai/airi/pull/3103) _(Neko, 2026-10-24)_
+- `6fe81fb6f` chore(nix): update pnpmDeps hash (#3102) [#3102](https://github.com/moeru-ai/airi/pull/3102) _(Weathercold, 2026-10-24)_
+- `599336d03` fix(stage-ui): run chat actions in the tab that has the Stage (#3101) [#3101](https://github.com/moeru-ai/airi/pull/3101) _(Neko, 2026-10-24)_
+- `300773ef2` fix(core-agent,stage-ui): write chat sessions only through session actions (#3097) [#3097](https://github.com/moeru-ai/airi/pull/3097) _(Neko, 2026-10-24)_
+- `b60856009` fix(stage-tamagotchi): unblock settings navigation (#3100) [#3100](https://github.com/moeru-ai/airi/pull/3100) _(蓝莓🫐, 2026-10-24)_
+- `d759427ba` feat(stage-ui,stage-pages): pick microphones as rows on narrow screens (#3096) [#3096](https://github.com/moeru-ai/airi/pull/3096) _(Neko, 2026-10-24)_
+- `6874cecc2` chore: update README release artifacts to v0.12.0 (#3093) [#3093](https://github.com/moeru-ai/airi/pull/3093) _(Neko, 2026-10-23)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 7 file(s) (+14/-14)
+- `README.md` *(+2/-2)*
+- `docs/README.fr.md` *(+2/-2)*
+- `docs/README.ja-JP.md` *(+2/-2)*
+- `docs/README.ko-KR.md` *(+2/-2)*
+- `docs/README.ru-RU.md` *(+2/-2)*
+- `docs/README.vi.md` *(+2/-2)*
+- `docs/README.zh-CN.md` *(+2/-2)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 1 file(s) (+10/-25)
+- `apps/stage-tamagotchi/src/renderer/pages/settings/index.vue` *(+10/-25)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 16 file(s) (+483/-17)
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-input-button.vue` *(+16/-1)*
+- `packages/stage-ui/src/components/scenarios/dialogs/audio-input/hearing-config.browser.test.ts` *(+20/-2)*
+- `packages/stage-ui/src/components/scenarios/dialogs/audio-input/hearing-config.vue` *(+18/-4)*
+- `packages/stage-ui/src/components/scenarios/providers/transcription-playground.vue` *(+7/-4)*
+- `packages/stage-ui/src/components/scenarios/settings/index.ts` *(+2/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/microphone-picker.browser.test.ts` *(+114/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/microphone-picker.vue` *(+140/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/option-list.vue` *(+52/-0)*
+- `packages/stage-ui/src/composables/audio/audio-device.ts` *(+27/-1)*
+- `packages/stage-ui/src/libs/pinia/setup-synced.ts` *(+1/-1)*
+- `packages/stage-ui/src/libs/pinia/synced-context.ts` *(+9/-0)*
+- `packages/stage-ui/src/stores/modules/airi-card-inheritance.test.ts` *(+47/-0)*
+- `packages/stage-ui/src/stores/modules/airi-card.ts` *(+27/-2)*
+- `packages/stage-ui/src/stores/settings/audio-device.ts` *(+1/-0)*
+- `pnpm-workspace.yaml` *(+1/-1)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 3 file(s) (+19/-19)
+- `packages/core-agent/src/runtime/chat-orchestrator-host-options.test.ts` *(+1/-4)*
+- `packages/core-agent/src/runtime/chat-orchestrator-runtime.test.ts` *(+1/-4)*
+- `packages/core-agent/src/runtime/chat-orchestrator-runtime.ts` *(+17/-11)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 2 file(s) (+16/-0)
+- `packages/i18n/src/locales/en/settings.yaml` *(+8/-0)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+8/-0)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 2 file(s) (+22/-7)
+- `packages/stage-pages/src/pages/settings/modules/hearing/index.browser.test.ts` *(+16/-2)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/transcriber.vue` *(+6/-5)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 1 file(s) (+4/-0)
+- `packages/stage-ui/src/components/scenes/Stage.vue` *(+4/-0)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 4 file(s) (+163/-54)
+- `packages/stage-ui/src/stores/chat.contract.test.ts` *(+18/-13)*
+- `packages/stage-ui/src/stores/chat.ts` *(+53/-36)*
+- `packages/stage-ui/src/stores/chat/session-store.browser.test.ts` *(+40/-0)*
+- `packages/stage-ui/src/stores/chat/session-store.ts` *(+52/-5)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 1 file(s) (+6/-6)
+- `pnpm-lock.yaml` *(+6/-6)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (11)
+- [PR] [#3103](https://github.com/moeru-ai/airi/pull/3103) `fix(stage-ui): keep inherited card defaults in step with module settings` by **@nekomeowww** *(3 comments)*
+- [PR] [#3102](https://github.com/moeru-ai/airi/pull/3102) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(3 comments)*
+- [PR] [#3101](https://github.com/moeru-ai/airi/pull/3101) `fix(stage-ui): run chat actions in the tab that has the Stage` by **@nekomeowww** *(3 comments)*
+- [PR] [#3095](https://github.com/moeru-ai/airi/pull/3095) `fix(stage-ui,stage-web): speak replies when the leader tab has no stage` by **@nekomeowww** *(4 comments)*
+- [PR] [#3097](https://github.com/moeru-ai/airi/pull/3097) `fix(core-agent,stage-ui): write chat sessions only through session actions` by **@nekomeowww** *(2 comments)*
+- [PR] [#3100](https://github.com/moeru-ai/airi/pull/3100) `fix(stage-tamagotchi): unblock settings navigation` by **@chiba233** *(3 comments)*
+- [PR] [#3099](https://github.com/moeru-ai/airi/pull/3099) `fix(stage-ui): queue events the server sdk refuses before it is ready` by **@kenny-ish** *(2 comments)*
+- [PR] [#3098](https://github.com/moeru-ai/airi/pull/3098) `Add a one-click deploy button for Railyard` by **@almokhtarbr** *(2 comments)*
+- [PR] [#3096](https://github.com/moeru-ai/airi/pull/3096) `feat(stage-ui,stage-pages): pick microphones as rows on narrow screens` by **@nekomeowww** *(3 comments)*
+- [PR] [#3094](https://github.com/moeru-ai/airi/pull/3094) `fix(stage-ui,stage-pages): request microphone access from an empty device select` by **@nekomeowww** *(4 comments)*
+- [PR] [#3093](https://github.com/moeru-ai/airi/pull/3093) `chore: update README release artifacts to v0.12.0` by **@nekomeowww** *(3 comments)*
+
+#### 💬 Discussion Activity (3)
+- [PR] [#2936](https://github.com/moeru-ai/airi/pull/2936) `fix(tamagotchi): guard payload.url access in artistryTestComfyUIConnection to prevent TypeError` — *+5 comments (19 ➔ 24 total)*
+- [PR] [#2932](https://github.com/moeru-ai/airi/pull/2932) `fix(tamagotchi): await setupBaseWindowElectronInvokes in widgets RPC setup` — *+1 comments (25 ➔ 26 total)*
+- [PR] [#2937](https://github.com/moeru-ai/airi/pull/2937) `fix(tamagotchi): replace invalid app.getPath('cache') with app.getPath('userData')/cache` — *+1 comments (33 ➔ 34 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [OPEN] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(120 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+
+---
 ## [2026-10-23] Upstream Delta: `6794f2e2..3b0672e3` (18 commits, 131 files, 21 update(s))
 
 ### 🎯 Executive Highlights
