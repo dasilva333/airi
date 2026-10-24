@@ -76,8 +76,6 @@ const DEFAULT_ORDER = [
 
   'actor-characters',
   'actor-wardrobe',
-  'actor-expressions',
-  'actor-idle-animations',
   'actor-motions',
   'actor-all-emotions',
 

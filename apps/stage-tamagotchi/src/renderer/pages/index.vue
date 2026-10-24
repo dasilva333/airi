@@ -12,7 +12,6 @@ import {
   useElectronRelativeMouse,
 } from '@proj-airi/electron-vueuse'
 import { debug } from '@proj-airi/stage-shared'
-import { useMmd } from '@proj-airi/stage-ui-mmd'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
 import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-recorder'
@@ -686,53 +685,6 @@ function handleOpenSettings(e: Event) {
   openSettings({ route })
 }
 
-function cycleAnimation() {
-  if (stageModelRenderer.value === 'mmd') {
-    const mmdStore = useMmd()
-    const allKeys = mmdStore.availableMotions
-    if (allKeys.length === 0) {
-      toast.error('No MMD motions available', { id: 'animation-cycle' })
-      return
-    }
-    const currentKey = mmdStore.currentMotion
-    const currentIndex = allKeys.indexOf(currentKey)
-    const nextIndex = (currentIndex + 1) % allKeys.length
-    const nextAnimation = allKeys[nextIndex]
-
-    mmdStore.currentMotion = nextAnimation
-    toast.info(`Cycling MMD: ${nextAnimation}`, { id: 'animation-cycle' })
-    return
-  }
-
-  const cardIdleAnimations = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
-  const allKeys = customVrmAnimationsStore.animationKeys
-  const hasCardSubset = cardIdleAnimations.length > 0
-
-  if (cardIdleAnimations.length === 1) {
-    const currentKey = cardIdleAnimations[0]
-    const currentIndex = allKeys.indexOf(currentKey)
-    const nextIndex = (currentIndex + 1) % allKeys.length
-    const nextAnimation = allKeys[nextIndex]
-
-    if (activeCard.value?.extensions?.airi?.acting) {
-      activeCard.value.extensions.airi.acting.idleAnimations = [nextAnimation]
-    }
-    toast.info(`Character Fixed: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
-    return
-  }
-
-  const keys = hasCardSubset ? cardIdleAnimations.filter(k => allKeys.includes(k)) : allKeys
-  const finalKeys = keys.length > 0 ? keys : allKeys
-
-  const currentKey = vrmIdleAnimation.value
-  const currentIndex = finalKeys.indexOf(currentKey)
-  const nextIndex = (currentIndex + 1) % finalKeys.length
-  const nextAnimation = finalKeys[nextIndex]
-
-  vrmIdleAnimation.value = nextAnimation
-  toast.info(`Cycling: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
-}
-
 function handleControlStripAction(e: Event) {
   const action = (e as CustomEvent).detail.action
   console.info(`[Main Page] [Control Strip Action] Received action: "${action}"`)
@@ -779,9 +731,6 @@ function handleControlStripAction(e: Event) {
       modelStore.modelOffset = { x: 0, y: 0, z: 0 }
       modelStore.cameraDistance = modelStore.modelSize.z * 10
     }
-  }
-  else if (action === 'actor-idle-animations') {
-    cycleAnimation()
   }
 }
 

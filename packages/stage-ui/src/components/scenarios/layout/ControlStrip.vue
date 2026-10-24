@@ -962,16 +962,6 @@ watch(activePopover, (newVal) => {
   }
 })
 
-const ACT_EMOTIONS = [
-  { key: 'happy', emoji: '😊' },
-  { key: 'sad', emoji: '😢' },
-  { key: 'angry', emoji: '😠' },
-  { key: 'surprised', emoji: '😲' },
-  { key: 'neutral', emoji: '😐' },
-  { key: 'think', emoji: '🤔' },
-  { key: 'cool', emoji: '😎' },
-] as const
-
 const wardrobeItems = computed(() => {
   const outfits = activeCard.value?.extensions?.airi?.outfits || []
   return outfits.filter(item => wardrobeFilter.value === 'all' || item.type === wardrobeFilter.value)
@@ -1155,17 +1145,6 @@ function playMotion(motion: any) {
   else if (settingsStore.stageModelRenderer === 'spine') {
     spineStore.currentAnimation = { ...spineStore.currentAnimation, name: motion.key }
   }
-}
-
-function triggerEmotion(emotion: string) {
-  if (typeof (window as any).testEmotion === 'function') {
-    ;(window as any).testEmotion(emotion)
-  }
-}
-
-function triggerRandomEmotion() {
-  const random = ACT_EMOTIONS[Math.floor(Math.random() * ACT_EMOTIONS.length)]
-  triggerEmotion(random.key)
 }
 
 function triggerWardrobeItem(id: string) {
@@ -1352,7 +1331,7 @@ function cleanupDragListeners() {
 function handleAction(actionId: string) {
   console.info(`[Control Strip] Button clicked: "${actionId}".`)
 
-  const menuButtons = ['actor-characters', 'actor-avatars', 'actor-wardrobe', 'actor-expressions', 'actor-motions', 'actor-all-emotions', 'actor-selfies', 'actor-macaron', 'gemini-voice', 'stage-atmosphere']
+  const menuButtons = ['actor-characters', 'actor-avatars', 'actor-wardrobe', 'actor-motions', 'actor-all-emotions', 'actor-selfies', 'actor-macaron', 'gemini-voice', 'stage-atmosphere']
   if (menuButtons.includes(actionId)) {
     if (activePopover.value === actionId) {
       activePopover.value = null
@@ -1550,11 +1529,9 @@ function getShortLabel(btnId: string): string {
           ? 'Pos'
           : settingsStore.controlStripInteractionMode === 'orbit' ? 'Orbt' : 'Modes',
     'viewport-reset-coordinates': 'Reset',
-    'actor-idle-animations': 'Anim',
     'actor-characters': 'Char',
     'actor-avatars': 'Avtr',
     'actor-wardrobe': 'Wear',
-    'actor-expressions': 'Expr',
     'actor-motions': 'Move',
     'actor-all-emotions': 'Mood',
     'actor-selfies': 'Self',
@@ -2736,37 +2713,6 @@ function getShortLabel(btnId: string): string {
               </button>
             </div>
           </template>
-        </div>
-
-        <!-- EXPRESSIONS POPOVER -->
-        <div v-if="activePopover === 'actor-expressions'" class="flex flex-col gap-2">
-          <div class="flex items-center justify-between border-b border-neutral-200 pb-2 dark:border-neutral-800">
-            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">Expressions</span>
-            <button class="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300" @click="activePopover = null">
-              <span class="i-solar:close-circle-outline text-lg" />
-            </button>
-          </div>
-
-          <div class="grid grid-cols-4 justify-items-center gap-2 py-1">
-            <button
-              v-for="emotion in ACT_EMOTIONS"
-              :key="emotion.key"
-              class="h-10 w-10 flex cursor-pointer items-center justify-center border border-neutral-200/50 rounded-xl bg-neutral-50/50 text-lg transition-all dark:border-neutral-800/20 dark:bg-neutral-800/40 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50"
-              :title="emotion.key"
-              @click="triggerEmotion(emotion.key)"
-            >
-              {{ emotion.emoji }}
-            </button>
-
-            <!-- Random Button -->
-            <button
-              class="h-10 w-10 flex cursor-pointer items-center justify-center border border-amber-400/30 rounded-xl bg-amber-500/10 text-lg text-amber-500 transition-all hover:bg-amber-500/20"
-              title="Random"
-              @click="triggerRandomEmotion"
-            >
-              <span class="i-solar:shuffle-linear" />
-            </button>
-          </div>
         </div>
 
         <!-- MOTIONS POPOVER -->
