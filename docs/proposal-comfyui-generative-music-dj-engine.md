@@ -34,7 +34,7 @@ Currently, AIRI supports visual generative artistry (via ComfyUI/Replicate) and 
 *   **Zero-Downtime Fail-Safe (GPU / Fallback)**: If local GPU generation encounters an OOM error, latency spike, or the audio server is offline, the DJ loop gracefully falls back to Suno v6 cloud generation or Spotify catalog search without interrupting playback.
 *   **Radio DJ Banter & Audio Ducking**: The character can speak over track intros/outros (e.g., *"Coming up next, one of my favorite tracks from Daft Punk..."*). Music automatically ducks to 20–25% volume during speech and swells back up seamlessly.
 *   **Character Musical Identity**: Character cards (`extensions.airi.music`) define distinct musical tastes, favorite genres, BPM preferences, and DJ banter style.
-*   **Plan-First Co-Creation (ABC Score as Dialogue)**: Before a single audio sample is rendered, the agent produces a compact ABC notation score and *interprets it in conversation* — key, tempo, chord movement, where the drop lands. The user steers in natural language, the score is mutated, and only the agreed composition is committed to the renderer. Planning costs ~3–20 seconds against ~27 minutes for a full render, which is precisely what makes composition interactive rather than a wait (§3.E).
+*   **Plan-First Co-Creation (ABC Score as Dialogue)**: Before a single audio sample is rendered, the agent produces a compact ABC notation score and *interprets it in conversation* — key, tempo, chord movement, where the drop lands. The user steers in natural language, the score is mutated, and only the agreed composition is committed to the renderer. Planning costs ~3–20 seconds against ~27 minutes for a full render, which is precisely what makes composition interactive rather than a wait (§3.F).
 
 ---
 
@@ -152,6 +152,7 @@ The hub convention is established house style: `text_journal` exposes `action: [
 
 | `action` | Purpose | Blocking? | Returns |
 | :--- | :--- | :--- | :--- |
+| `describe` | Return the ABC format, voice layout, engine limits, and a score template | No | capability contract |
 | `plan` | Generate or mutate an ABC score without acoustic rendering | No — receipt only | `planId`, `state`, `title`, `next` |
 | `generate` | Commit a score/prompt to the NAR ODE renderer | No — receipt only | `jobId`, `state`, `next` |
 | `status` | Poll a `plan` or `render` job | No | `jobId`, `kind`, `state`, `progress`, `track`, `plan` |
@@ -185,7 +186,35 @@ Why a hub instead of five discrete MCP tools (`music_plan`, `music_generate`, �
 
 **The description is load-bearing.** A receipt-returning `generate` only works if the model knows to poll, and how often. The `status` action's description must state the cadence explicitly, with measured numbers rather than optimistic ones — YuE 2 renders at roughly **10–15x real time** on an 8GB laptop GPU (15x in the shootout benchmarks, 10.7x on a warm 30s render through the server), so 30 seconds of audio is 5–8 minutes and a 2 minute track is 20–27 minutes. An under-stated budget is worse than no guidance: a model told "1–3 minutes" declares a healthy render failed at the four-minute mark.
 
-### E. Plan-First: ABC as the Conversational Artifact
+### E. The ABC Contract (and Why It Cannot Simply Be Published)
+
+The score is **not parsed**. `pipeline.cpp` builds the AR prompt as:
+
+```
+<eod> {style + lyrics + cot instruction} <abc> {score tokens} </abc> <music> …
+```
+
+An external score is tokenised and inserted as a prefix; `</abc>` is emitted immediately so the model proceeds straight to the acoustic stage conditioned on it. There is no grammar, no validator, and no MIDI transcription — which is precisely why the tool cannot "self-describe its ABC support" by exporting a schema. The only meaningful contract is *the distribution YuE 2 was trained on*:
+
+| Convention | What to emit |
+| :--- | :--- |
+| Headers | `X: T: M: L: Q: K:` |
+| Voices | `V: Vocal` (lead; `Z4|` for instrumental sections) + `V: Ins` (melody and harmony) |
+| Chords | Quoted, on the instrumental staff: `"G#m"G2B2d2g2` |
+| Sections | `% intro`, `% verse`, `% chorus`, `% drop` |
+| Rests | `Z` / `z` |
+| Off-distribution | Modal keys (`K:Dmix`), odd meters (`6/8`, `7/8`), literal repeats (`\|: … :\|`), stacked chords (`[CEG]`) |
+
+Two consequences the model must be told, or it will build the wrong mental model:
+
+1. **The score biases, it does not dictate.** Repeat marks and exact voicings are suggestions conditioned on, not instructions honoured.
+2. **Duration is independent of the score.** Output length comes from `durationSeconds` via the semantic token budget; a four-bar loop requested at 120 seconds still renders ~120 seconds.
+
+Because AIRI's MCP bridge exposes only `listTools` and `callTool`, MCP *resources* and *prompts* would never reach the model. The contract therefore ships as an on-demand `describe` action returning machine-readable capabilities plus a canonical `abc.template`, while the always-on tool description stays lean (~900 chars) to protect the context budget. `GET /v1/audio/music/describe` returns the same object for REST clients.
+
+`cot` is validated rather than ignored: supplying `abcScore` with `cot: "off"` is rejected, because the engine only consumes an external score when planning is on (`melody` or `full`). The requested `cot` is now always forwarded — previously it was dropped whenever a score was supplied, so callers believed a mode had been applied when it had not.
+
+### F. Plan-First: ABC as the Conversational Artifact
 
 Revision 2 promotes planning from a side effect to the center of the interaction. Measured on 8GB hardware, the symbolic AR pass takes **~3–20 seconds** (~115 tokens/sec) versus **~27 minutes** for a 2-minute rendered track — under 1.2% of total time, for a large coherence gain. That asymmetry is what makes the following loop affordably interactive:
 
@@ -202,15 +231,15 @@ Because ABC is compact human-readable text, steps 3–5 need no audio at all. It
 
 The extra poll is the price of the constraint below, and it buys something in exchange: the user can keep talking while a plan renders, and a slow `cot=full` pass no longer holds the conversation hostage.
 
-### F. Timeout Reality: Every Action Returns a Receipt
+### G. Timeout Reality: Every Action Returns a Receipt
 
 The MCP manager caps every `callTool` at **`mcpRequestTimeoutMsec = 10_000`** per request and **`mcpRequestMaxTotalTimeoutMsec = 15_000`** total, both hardcoded constants in `apps/stage-tamagotchi/src/main/services/airi/mcp-servers/index.ts`. With `resetTimeoutOnProgress` left at its default (`false`), the per-request timer never resets, so 10 seconds is the real ceiling and 15 seconds only bounds retries. The transport has no progress-notification handling either, so a long call cannot stream keepalives.
 
-A `plan` pass measured at 3–20s therefore cannot be a blocking action. **The resolution is structural rather than a timeout override: no action blocks.** `plan` and `generate` both return a receipt immediately and the caller polls `status` — which is also why the async job model (§3.G) is not over-engineering but the only shape that fits the transport.
+A `plan` pass measured at 3–20s therefore cannot be a blocking action. **The resolution is structural rather than a timeout override: no action blocks.** `plan` and `generate` both return a receipt immediately and the caller polls `status` — which is also why the async job model (§3.H) is not over-engineering but the only shape that fits the transport.
 
 This keeps the required AIRI-side change surface at zero for the manager: no `timeoutMs` field, no per-server override, no change to `mcp-servers/index.ts at all.
 
-### G. Receipt & Job Model
+### H. Receipt & Job Model
 
 Both planning and rendering are jobs. Receipts carry their own polling guidance so the model does not have to infer cadence:
 
@@ -559,10 +588,12 @@ Instead of arbitrary clock-interval polling, the DJ engine hooks directly into t
 - [x] Add 1-click model downloaders (`npm run add-music`, `npm run add-voicegen`, `npm run add-sfx`) and modular `install.bat` wizard.
 - [x] Advertise the MCP endpoint in `GET /v1/capabilities` as `mcp: { url, transport }` (§3.B).
 - [x] Host a Streamable HTTP MCP endpoint at `POST /mcp` (§3.A).
-- [x] Implement the `music` hub tool with the `plan` / `generate` / `status` / `list` / `cancel` actions (§3.D).
-- [x] Implement the job registry backing `plan` and `generate` → `status`, with receipts carrying their own `next` polling guidance (§3.G).
-- [x] Real cancellation: per-job `AbortController` kills the spawned `audiocpp_cli` so a running render actually stops (§3.G).
+- [x] Implement the `music` hub tool with the `describe` / `plan` / `generate` / `status` / `list` / `cancel` actions (§3.D).
+- [x] Implement the job registry backing `plan` and `generate` → `status`, with receipts carrying their own `next` polling guidance (§3.H).
+- [x] Real cancellation: per-job `AbortController` kills the spawned `audiocpp_cli` so a running render actually stops (§3.H).
 - [x] Titles: `plan` accepts a `title` and fills the ABC `T:` field, so scores are referencable by name (§3.D).
+- [x] Self-description: a `describe` action returns the ABC contract, voice layout, limits, and a canonical score template; `abcScore`/`cot` descriptions state that a score conditions rather than dictates, and that duration is independent (§3.E).
+- [x] Validate `cot` instead of ignoring it: `cot="off"` with an external score is rejected, and the requested `cot` is always forwarded to the engine (§3.E).
 
 ### Phase 1 — AIRI client bridge (MCP)
 
