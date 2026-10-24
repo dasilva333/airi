@@ -152,11 +152,11 @@ The hub convention is established house style: `text_journal` exposes `action: [
 
 | `action` | Purpose | Blocking? | Returns |
 | :--- | :--- | :--- | :--- |
-| `plan` | Generate or mutate an ABC score without acoustic rendering | No — receipt only | `planId`, `state`, `next` |
+| `plan` | Generate or mutate an ABC score without acoustic rendering | No — receipt only | `planId`, `state`, `title`, `next` |
 | `generate` | Commit a score/prompt to the NAR ODE renderer | No — receipt only | `jobId`, `state`, `next` |
 | `status` | Poll a `plan` or `render` job | No | `jobId`, `kind`, `state`, `progress`, `track`, `plan` |
 | `list` | Browse and search the generated library | No | `tracks[]` |
-| `cancel` | Abort an in-flight job | No | `jobId`, `state` |
+| `cancel` | Abort a queued or running job | No | `jobId`, `state`, `cancelSupported` |
 
 **Arguments** — one flat schema, all non-action fields optional and validated per action, exactly like `text_journal`:
 
@@ -196,6 +196,8 @@ Revision 2 promotes planning from a side effect to the center of the interaction
 5. Agent calls `plan` again with the modified `abcScore`, or edits the ABC directly.
 6. Only once the score is agreed does the agent call `generate` with the final `abcScore`.
 
+**The edited score is the actual input, not a suggestion.** `generate` accepts an `abcScore` string that is forwarded verbatim to the engine as `--request-option abc="..."`, bypassing text-derived structure entirely. That means the thing the user and agent hash out in conversation — a transposed bridge, a moved drop, a tempo change — is exactly what gets rendered, and the completed track's `abcScore` echoes the score that produced it. This is the difference between "prompt a song" and "compose together": the intermediate representation is editable, inspectable, and cheap to iterate on before any GPU time is spent.
+
 Because ABC is compact human-readable text, steps 3–5 need no audio at all. It also gives the Sound Studio panel (§8) a real artifact to render with `abcjs`, and makes the user's edits and the agent's edits the same object.
 
 The extra poll is the price of the constraint below, and it buys something in exchange: the user can keep talking while a plan renders, and a slow `cot=full` pass no longer holds the conversation hostage.
@@ -229,6 +231,8 @@ status   → { jobId,
 The `next` string is deliberately human-readable rather than structured: it is injected into the model's context, and a natural-language instruction survives summarization better than a `retryAfterMs` integer that the model may ignore.
 
 Job state survives across turns and `status` calls. It does **not** survive an `airi-audio-server` restart — job records are in-memory, so an unknown `jobId` returns a not-found tool error. Completed tracks do survive, because the library is written to disk; `list` still returns them after a restart. Tool descriptions should tell the model to treat a not-found error after a restart as "re-plan", not as a crash.
+
+`cancel` is real, not cosmetic: each job owns an `AbortController`, and aborting it kills the spawned `audiocpp_cli` process so a running render stops instead of quietly finishing in the background and holding the GPU. A completion that races a cancel is discarded rather than resurrecting the job.
 
 ---
 
@@ -437,7 +441,26 @@ Audio sources are implemented under `packages/stage-ui/src/libs/providers/` as p
 ### E. Fail-Safe & Latency Controller (The Generation Time Reality)
 * **Latency Tiering**:
   * **Instantaneous / Real-Time Tier (< 10s)**: Spotify streaming (0s), Pre-rendered local "Record Crate" tracks (0s), and Suno v6 cloud API (<10s).
-  * **Heavy Asynchronous Tier (~27 min on 8GB GPU)**: Full 2-minute YuE 2 NAR ODE generation.
+  * **Heavy Asynchronous Tier**: Full YuE 2 NAR ODE generation. Measured, see below.
+* **Measured Throughput (RTX 4070 Laptop, 8 GB VRAM, CUDA 13.1, SM 8.9)**:
+
+  | Metric | MiniMax Music 3.0 (Q4_0) | YuE 2 Base (3B Q4_0) | YuE 2 + AR LoRA |
+  | :--- | :--- | :--- | :--- |
+  | Wall time for 12 s of audio | **11.74 min** (704 s) | **~3.0 min** (~180 s) | **~3.9 min** (~234 s) |
+  | Real-time factor (RTF) | **70.55x** | **~15.0x** | **~19.5x** |
+  | Peak VRAM | ~7.2 GB (88% of 8 GB) | ~2.8 GB (34%) | ~2.9 GB (35%) |
+  | Output sample rate | 44.1 kHz | 48 kHz | 48 kHz |
+
+  A 30-second render through the MCP server measured **321 s wall (RTF 10.7x)**, producing 5,759,788 bytes — exactly 48 kHz stereo 16-bit. RTF improves on warm runs and worsens on cold starts, so the operating range is **10–15x real time**:
+
+  | Requested duration | Typical wall time |
+  | :--- | :--- |
+  | 30 s | 5–8 min |
+  | 60 s | 10–15 min |
+  | 120 s | 20–27 min |
+
+* **Why Plan-First Is Affordable**: in the 2-minute `cot=full` shootout, the symbolic ABC planning pass took **20.7 s of a ~27 min render — under 1.2%**. The score-guided run also landed at exactly 120.0 s versus 116.4 s for `cot=off`, with coherent chord movement ($D\sharp m \to B \to G\sharp m \to F\sharp$) instead of freeform transitions. Paying ~1% for the planning step is unambiguously worth it, and it is what makes the interactive plan/discuss/edit loop viable.
+
 * **Operational Dispatch Logic**:
   * When `dj_queue_track` is called with `priority="next"` (for an imminent track transition occurring in < 60s), the engine **strictly routes to the Real-Time Tier** (Spotify, Suno v6, or pre-rendered local tracks).
   * When local YuE 2 song creation is requested during an active set, the system registers it as a **"Backstage Studio Order"** (`priority="tail"` or background job). It generates asynchronously without blocking the "On Deck" slot.
@@ -538,6 +561,8 @@ Instead of arbitrary clock-interval polling, the DJ engine hooks directly into t
 - [x] Host a Streamable HTTP MCP endpoint at `POST /mcp` (§3.A).
 - [x] Implement the `music` hub tool with the `plan` / `generate` / `status` / `list` / `cancel` actions (§3.D).
 - [x] Implement the job registry backing `plan` and `generate` → `status`, with receipts carrying their own `next` polling guidance (§3.G).
+- [x] Real cancellation: per-job `AbortController` kills the spawned `audiocpp_cli` so a running render actually stops (§3.G).
+- [x] Titles: `plan` accepts a `title` and fills the ABC `T:` field, so scores are referencable by name (§3.D).
 
 ### Phase 1 — AIRI client bridge (MCP)
 
