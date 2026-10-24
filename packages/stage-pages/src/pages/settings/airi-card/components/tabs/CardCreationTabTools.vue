@@ -1199,6 +1199,14 @@ const textJournalConflictWarning = computed(() => {
         <div class="rounded-xl bg-fuchsia-50/50 p-3 text-xs text-fuchsia-700 dark:bg-fuchsia-950/20 dark:text-fuchsia-300">
           🎵 Provisioned at <code class="rounded bg-white/60 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-900/60">{{ musicEndpoint || 'AIRI Audio Server' }}</code> — advertised by the server, so there is no URL to configure by hand.
         </div>
+        <div class="rounded-xl bg-neutral-100/70 p-3 text-[11px] text-neutral-600 leading-relaxed dark:bg-neutral-800/60 dark:text-neutral-300">
+          💡 This is not a native tool. The character reaches it through MCP discovery, so it will not see
+          <code class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-900/60">music</code> until it lists its MCP tools.
+          If it says it cannot make music, ask it to call
+          <code class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-900/60">mcp_list_tools</code>
+          — the tool appears as
+          <code class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-900/60">airi-audio-server::music</code>.
+        </div>
       </div>
     </section>
   </div>

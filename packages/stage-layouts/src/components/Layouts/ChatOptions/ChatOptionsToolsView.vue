@@ -354,6 +354,7 @@ async function handleToggleMusic() {
     <div
       class="w-full flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 transition hover:bg-neutral-100 dark:hover:bg-neutral-800/60"
       :class="{ 'op-60 pointer-events-none': musicProvisioning }"
+      title="Reached through MCP discovery. If the character says it cannot make music, ask it to list its MCP tools."
       @click="handleToggleMusic"
     >
       <div class="flex items-center gap-2.5">

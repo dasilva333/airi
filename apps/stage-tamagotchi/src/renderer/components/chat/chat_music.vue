@@ -791,6 +791,10 @@ onUnmounted(() => {
         {{ musicToolError }}
       </p>
 
+      <p v-else-if="musicToolsEnabled" class="text-[10px] text-neutral-400 leading-snug -mt-2">
+        Reached through MCP discovery — if the character says it cannot make music, ask it to list its MCP tools.
+      </p>
+
       <!-- Quick Genre Presets Row -->
       <div class="space-y-1.5">
         <div class="flex items-center justify-between text-[11px] text-neutral-500 font-semibold dark:text-neutral-400">
