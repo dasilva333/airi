@@ -684,11 +684,15 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
           model,
           fileName: 'recording.wav',
         })
+        // NOTICE: File does not inherit the Blob's MIME type — pass it
+        // explicitly, otherwise downstream senders (e.g. Deepgram, which
+        // falls back to 'audio/webm') declare the wrong container and the
+        // provider decodes silence.
         const result = await hearingStore.transcription(
           providerId,
           provider,
           model,
-          new File([recording], 'recording.wav'),
+          new File([recording], 'recording.wav', { type: recording.type || 'audio/wav' }),
         )
         const text = result.mode === 'stream' ? await result.text : result.text
         if (!text || !text.trim()) {
