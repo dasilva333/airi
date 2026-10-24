@@ -10,6 +10,7 @@ import {
 import { useChatComposer, useProducer } from '@proj-airi/stage-ui/composables'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useSettings, useSettingsAudioDevice, useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
 import { BasicContentEditable } from '@proj-airi/ui'
 import { useLocalStorage } from '@vueuse/core'
@@ -162,7 +163,11 @@ async function handleVoiceClick() {
       console.error('Microphone permission error:', err)
     }
   }
-  isAudioInputEnabled.value = !isAudioInputEnabled.value
+  // Mic authority pact (mirrors the control strip + lock keys): claim or
+  // release ownership with the shared flag so composer captures stop too.
+  const nextEnabled = !isAudioInputEnabled.value
+  isAudioInputEnabled.value = nextEnabled
+  useHearingStore().micOwner = nextEnabled ? 'ambient' : null
 }
 
 function handleScreenshotClick() {

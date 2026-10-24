@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { MicToggleHotkey } from '@proj-airi/stage-shared/shortcuts'
+
+import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
+import { electronGetMicToggleHotkey, electronSetMicToggleHotkey } from '@proj-airi/stage-shared/shortcuts'
 import { Checkbox } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
@@ -57,6 +61,44 @@ catch {
 function openHearingSettings() {
   router?.push('/settings/modules/hearing').catch(() => {})
 }
+
+// Global Hotkey picker (Electron/desktop only — same isElectron gate and
+// fetch-then-persist discipline as the onboarding lock-key picker). Shares
+// the mic authority pact: whichever lock key is armed toggles the same
+// shared `enabled` flag as the strip and composer buttons.
+const isElectron = typeof window !== 'undefined' && !!(window as any).electron
+const getHotkeyInvoke = isElectron ? useElectronEventaInvoke(electronGetMicToggleHotkey) : null
+const setHotkeyInvoke = isElectron ? useElectronEventaInvoke(electronSetMicToggleHotkey) : null
+
+const selectedHotkey = ref<MicToggleHotkey>('Scroll')
+const hotkeyFetched = ref(false)
+const hotkeyOptions: { id: MicToggleHotkey, label: string }[] = [
+  { id: 'Caps', label: 'Caps' },
+  { id: 'Scroll', label: 'Scroll' },
+  { id: 'Num', label: 'Num' },
+]
+
+onMounted(async () => {
+  if (!isElectron)
+    return
+  try {
+    const hotkey = await getHotkeyInvoke?.()
+    if (hotkey)
+      selectedHotkey.value = hotkey as MicToggleHotkey
+  }
+  catch {}
+  hotkeyFetched.value = true
+})
+
+// Only persist after the initial fetch to avoid overwriting the stored key.
+watch(selectedHotkey, async (next, prev) => {
+  if (isElectron && hotkeyFetched.value && next !== prev) {
+    try {
+      await setHotkeyInvoke?.(next)
+    }
+    catch {}
+  }
+})
 
 // Live input meter, same wiring as Hearing settings monitoring: source the
 // shared AudioContext from the active MediaStream into the analyzer loop.
@@ -280,6 +322,32 @@ function deviceDisplayLabel(device: MediaDeviceInfo, index: number) {
       >
         <span>Tap to talk</span>
         <Checkbox v-model="tapToTalk" />
+      </div>
+
+      <!-- Global Hotkey picker (desktop Electron only): which lock key shares
+        the mic authority pact — pressing it toggles the same shared flag as
+        the strip and composer buttons. -->
+      <div v-if="isElectron" class="px-4 py-2">
+        <div class="mb-1.5 text-xs text-neutral-400">
+          Global Hotkey
+        </div>
+        <div class="grid grid-cols-3 gap-1">
+          <button
+            v-for="opt in hotkeyOptions"
+            :key="opt.id"
+            type="button"
+            :title="`${opt.label} Lock toggles the microphone`"
+            :class="[
+              'cursor-pointer rounded-lg border px-2 py-1.5 text-[13px] font-semibold transition',
+              selectedHotkey === opt.id
+                ? 'border-sky-400/40 bg-sky-500/20 text-sky-300'
+                : 'border-white/10 text-neutral-300 hover:bg-white/5',
+            ]"
+            @click="selectedHotkey = opt.id"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
       </div>
 
       <div class="h-px bg-white/10" />

@@ -132,6 +132,7 @@ const {
   stopVoiceRecording,
   toggleVoiceRecording,
   toggleDictation,
+  releaseMicAuthority,
 } = useChatComposer({
   tools: props.tools,
   onSendStart: () => {
@@ -264,6 +265,7 @@ async function handleVoiceClick() {
 async function stopAllVoice() {
   await stopVoiceRecording()
   await stopListening()
+  releaseMicAuthority()
   emit('voiceToggle', false)
 }
 

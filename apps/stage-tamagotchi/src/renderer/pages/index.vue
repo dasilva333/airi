@@ -427,7 +427,7 @@ const {
 const { supportsStreamInput } = storeToRefs(hearingPipeline)
 const chatStore = useChatOrchestratorStore()
 const hearingStore = useHearingStore()
-const { hearingDetectionMode, vadThreshold } = storeToRefs(hearingStore)
+const { hearingDetectionMode, vadThreshold, micOwner } = storeToRefs(hearingStore)
 
 const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
 
@@ -647,8 +647,10 @@ const voiceInputBinding = createVoiceInputBinding({
   stop: stopAudioInteraction,
 })
 
-watch([enabled, stream, supportsStreamInput], ([isEnabled, currentStream, supportsStream]) => {
-  const binding: VoiceInputBinding | undefined = isEnabled && currentStream
+// Mic authority pact: an explicit composer tap (owner === 'composer') owns the
+// live capture, so the ambient page loop stands down until release.
+watch([enabled, stream, supportsStreamInput, micOwner], ([isEnabled, currentStream, supportsStream, owner]) => {
+  const binding: VoiceInputBinding | undefined = isEnabled && currentStream && owner !== 'composer'
     ? { stream: currentStream, mode: supportsStream ? 'stream' : 'recording' }
     : undefined
   void voiceInputBinding.update(binding).catch((error) => {
@@ -859,7 +861,12 @@ onMounted(async () => {
         return
       }
 
-      settingsAudioDeviceStore.enabled = !settingsAudioDeviceStore.enabled
+      // Mic authority pact (mirrors the control strip): lock keys toggle the
+      // shared flag and claim/release ownership with it, so an in-flight
+      // composer capture stops too (composers watch `enabled` going false).
+      const nextEnabled = !settingsAudioDeviceStore.enabled
+      settingsAudioDeviceStore.enabled = nextEnabled
+      hearingStore.micOwner = nextEnabled ? 'ambient' : null
     })
     window.electron.ipcRenderer.on('chat-window-state', (_, isOpen: boolean) => {
       lastIpcChatOpen = isOpen

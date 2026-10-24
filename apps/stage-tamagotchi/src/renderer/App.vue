@@ -70,6 +70,7 @@ import {
 import { useServerChannelSettingsStore } from './stores/settings/server-channel'
 import { useStageWindowLifecycleStore } from './stores/stage-window-lifecycle'
 import { builtinTools } from './stores/tools/builtin'
+import { snapshotAudioStateFromWindow, stopAmbientAudioFromWindow } from './utils/debug-audio'
 import { seedTextJournalEntryFromWindow } from './utils/debug-journal'
 
 const { isDark: dark } = useTheme()
@@ -145,6 +146,10 @@ async function ensureYesterdayShortTermBlockForActiveCharacter() {
 if (import.meta.env.DEV && typeof window !== 'undefined') {
   Object.assign(window as Window & typeof globalThis, {
     seedTextJournalEntry: seedTextJournalEntryFromWindow,
+    __AIRI_DEBUG_AUDIO__: {
+      snapshotAudioState: snapshotAudioStateFromWindow,
+      stopAmbientAudio: stopAmbientAudioFromWindow,
+    },
   })
 }
 
@@ -701,7 +706,9 @@ onUnmounted(() => {
   // NOTICE: Release the dev-only debug handle so `window` drops its last
   // reference to the journal seeder (and anything it touched).
   if (import.meta.env.DEV && typeof window !== 'undefined')
-    delete (window as Window & typeof globalThis & { seedTextJournalEntry?: unknown }).seedTextJournalEntry
+    delete (window as Window & typeof globalThis & { seedTextJournalEntry?: unknown, __AIRI_DEBUG_AUDIO__?: unknown }).seedTextJournalEntry
+  if (import.meta.env.DEV && typeof window !== 'undefined')
+    delete (window as Window & typeof globalThis & { __AIRI_DEBUG_AUDIO__?: unknown }).__AIRI_DEBUG_AUDIO__
 })
 </script>
 

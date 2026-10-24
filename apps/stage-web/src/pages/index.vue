@@ -107,7 +107,7 @@ watch([activeChatProvider, activeChatModel], async () => {
 const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
 
 const hearingStore = useHearingStore()
-const { vadThreshold } = storeToRefs(hearingStore)
+const { vadThreshold, micOwner } = storeToRefs(hearingStore)
 
 const {
   init: initVAD,
@@ -212,8 +212,10 @@ const voiceInputBinding = createVoiceInputBinding({
   stop: stopAudioInteraction,
 })
 
-watch([enabled, stream, supportsStreamInput], ([isEnabled, currentStream, supportsStream]) => {
-  const binding: VoiceInputBinding | undefined = isEnabled && currentStream
+// Mic authority pact: an explicit composer tap (owner === 'composer') owns the
+// live capture, so the ambient page loop stands down until release.
+watch([enabled, stream, supportsStreamInput, micOwner], ([isEnabled, currentStream, supportsStream, owner]) => {
+  const binding: VoiceInputBinding | undefined = isEnabled && currentStream && owner !== 'composer'
     ? { stream: currentStream, mode: supportsStream ? 'stream' : 'recording' }
     : undefined
   void voiceInputBinding.update(binding).catch((error) => {

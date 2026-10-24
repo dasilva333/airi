@@ -4,6 +4,7 @@ import { useBroadcastChannel } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 
 import { useAiriCardStore } from '../stores/modules/airi-card'
+import { useHearingStore } from '../stores/modules/hearing'
 import { useLiveSessionStore } from '../stores/modules/live-session'
 import { useSettings, useSettingsAudioDevice, useSettingsControlsIsland, useSettingsControlStrip, useSettingsStageModel } from '../stores/settings'
 
@@ -172,9 +173,16 @@ export function useControlStripAction() {
         controlStripStore.workspaceOpen = !controlStripStore.workspaceOpen
         break
 
-      case 'mic':
-        settingsAudioDeviceStore.enabled = !settingsAudioDeviceStore.enabled
+      case 'mic': {
+        // Mic authority pact: the strip toggles the shared `enabled` flag
+        // and claims/releases ownership with it, so composer captures and
+        // lock keys stay in lockstep.
+        const hearingStore = useHearingStore()
+        const nextEnabled = !settingsAudioDeviceStore.enabled
+        settingsAudioDeviceStore.enabled = nextEnabled
+        hearingStore.micOwner = nextEnabled ? 'ambient' : null
         break
+      }
 
       case 'layout':
         if (typeof window !== 'undefined') {

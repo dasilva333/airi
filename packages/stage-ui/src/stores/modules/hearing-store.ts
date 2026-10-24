@@ -60,6 +60,17 @@ export const useHearingStore = defineStore('hearing-store', () => {
   // automatically). Independent of the mic-hot `enabled` flag — taps never
   // touch ambient listening.
   const tapToTalk = useLocalStorageManualReset<boolean>('settings/hearing/tap-to-talk', true)
+  // Mic capture ownership — the single authority pact shared by the control
+  // strip, lock-key hotkeys, and every chat composer (desktop, web, pocket).
+  // 'composer' = an explicit composer tap owns the live capture (ambient
+  // page loops stand down); 'ambient' = strip/lock-key toggle owns it;
+  // null = released. Last actor wins; releasing always also drops `enabled`.
+  // Persisted (not a plain ref) so main-window and chat-window stores agree.
+  const micOwner = useLocalStorageManualReset<'composer' | 'ambient' | null>('settings/audio/input/owner', null)
+  // A persisted 'composer' can only be stale (a reload kills any live
+  // capture), so clear it at store setup — within-session taps set it after.
+  if (micOwner.value === 'composer')
+    micOwner.value = null
   const voiceInputMode = useLocalStorageManualReset<'dictation' | 'voice-message'>('settings/hearing/voice-input-mode', 'dictation')
   const vadThreshold = useLocalStorageManualReset<number>('settings/hearing/vad-threshold', 0.6)
   const isTranscribing = ref(false)
@@ -133,6 +144,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
     autoSendDelay.reset()
     hearingDetectionMode.reset()
     tapToTalk.reset()
+    micOwner.reset()
     voiceInputMode.reset()
     vadThreshold.reset()
   }
@@ -292,6 +304,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
     autoSendDelay,
     hearingDetectionMode,
     tapToTalk,
+    micOwner,
     voiceInputMode,
     vadThreshold,
     isTranscribing,

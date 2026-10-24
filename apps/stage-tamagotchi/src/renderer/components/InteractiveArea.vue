@@ -99,7 +99,23 @@ const hearingPipeline = useHearingSpeechInputPipeline()
 const settingsAudioDeviceStore = useSettingsAudioDevice()
 const { stream } = storeToRefs(settingsAudioDeviceStore)
 const { transcribeForMediaStream, transcribeForRecording, stopStreamingTranscription } = hearingPipeline
-const { autoSendEnabled, tapToTalk, vadThreshold, isTranscribing } = storeToRefs(hearingStore)
+const { autoSendEnabled, tapToTalk, vadThreshold, isTranscribing, micOwner } = storeToRefs(hearingStore)
+const { enabled: micHotEnabled } = storeToRefs(settingsAudioDeviceStore)
+
+// Mic authority pact (shared with the control strip, lock-key hotkeys and
+// every page-level ambient loop): an explicit composer tap claims ownership
+// plus the shared `enabled` flag; every release drops both. Last actor wins.
+function claimMicAuthority() {
+  micOwner.value = 'composer'
+  if (!micHotEnabled.value)
+    micHotEnabled.value = true
+}
+
+function releaseMicAuthority() {
+  if (micHotEnabled.value)
+    micHotEnabled.value = false
+  micOwner.value = null
+}
 
 const isListening = ref(false)
 const isRecording = ref(false)
@@ -198,6 +214,8 @@ async function handleVadSpeechEnd() {
   vadSpeechStartAt = 0
   if (mode === 'single-shot') {
     await stopCaptureForVad()
+    // Tap-to-talk auto-release: the utterance is done, the mic goes cold.
+    releaseMicAuthority()
     return
   }
   // Segment mode: close this utterance through the normal hook flow, then
@@ -239,20 +257,24 @@ async function startVadWatch(mode: 'single-shot' | 'segment') {
   }
   // Silence from the start means an empty capture — abort it instead of
   // transcribing quiet (the hearing models hallucinate on silence).
+  const releaseAndStop = () => {
+    releaseMicAuthority()
+    void stopCaptureForVad()
+  }
   vadNoSpeechTimer = setTimeout(() => {
     if (vadGeneration !== generation || hadVadSpeech.value)
       return
     console.info('[DesktopComposer] No speech detected, stopping empty capture')
     suppressNextStop = true
     toast.info('Stopped listening — no speech detected.')
-    void stopCaptureForVad()
+    releaseAndStop()
   }, 20_000)
   vadMaxTimer = setTimeout(() => {
     if (vadGeneration !== generation)
       return
     if (!hadVadSpeech.value)
       suppressNextStop = true
-    void stopCaptureForVad()
+    releaseAndStop()
   }, 120_000)
 }
 
@@ -375,11 +397,15 @@ async function toggleDictation() {
   if (isListening.value || isRecording.value) {
     continuousSession.value = false
     await stopDictation()
+    releaseMicAuthority()
     return
   }
+  claimMicAuthority()
   await startDictation()
-  if (!isListening.value && !isRecording.value)
+  if (!isListening.value && !isRecording.value) {
+    releaseMicAuthority()
     return
+  }
   if (tapToTalk.value) {
     await startVadWatch('single-shot')
   }
@@ -388,6 +414,16 @@ async function toggleDictation() {
     await startVadWatch('segment')
   }
 }
+
+// Master-switch kill: a strip/lock-key OFF (shared `enabled` false) ends any
+// live composer capture, whatever started it.
+watch(micHotEnabled, async (val) => {
+  if (!val && (isListening.value || isRecording.value)) {
+    continuousSession.value = false
+    await stopDictation()
+    await stopDictationRecording()
+  }
+})
 
 function handleComposerSubmit() {
   // While dictating, Enter ends the capture instead of sending.
@@ -412,6 +448,16 @@ const suggestKeyHintLabels = { 'disabled': 'Off', 'enter': 'Enter', 'ctrl-enter'
 const sendKeyHint = computed(() => sendKeyHintLabels[settingsChat.sendMode as keyof typeof sendKeyHintLabels] ?? 'Enter')
 const suggestKeyHint = computed(() => suggestKeyHintLabels[settingsChat.suggestMode as keyof typeof suggestKeyHintLabels] ?? 'Off')
 
+function handleDebugStopAllAudio() {
+  continuousSession.value = false
+  releaseMicAuthority()
+  void stopDictation()
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('debug:stop-all-audio', handleDebugStopAllAudio)
+}
+
 onUnmounted(() => {
   continuousSession.value = false
   stopVadWatch()
@@ -423,6 +469,9 @@ onUnmounted(() => {
     stopVoiceHook?.()
   }
   catch {}
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('debug:stop-all-audio', handleDebugStopAllAudio)
+  }
 })
 
 const isWandMenuOpen = ref(false)

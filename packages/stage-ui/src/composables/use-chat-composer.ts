@@ -74,7 +74,23 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   const hearingPipeline = useHearingSpeechInputPipeline()
   const { transcribeForMediaStream, transcribeForRecording, stopStreamingTranscription } = hearingPipeline
   const { supportsStreamInput } = storeToRefs(hearingPipeline)
-  const { configured: hearingConfigured, autoSendEnabled, autoSendDelay, voiceInputMode, isTranscribing, tapToTalk, vadThreshold } = storeToRefs(hearingStore)
+  const { configured: hearingConfigured, autoSendEnabled, autoSendDelay, voiceInputMode, isTranscribing, tapToTalk, vadThreshold, micOwner } = storeToRefs(hearingStore)
+
+  // Mic authority pact (shared with the control strip, lock-key hotkeys and
+  // every page-level ambient loop): an explicit composer tap claims
+  // ownership plus the shared `enabled` flag; every release drops both.
+  // Last actor wins — releasing never restores a previous owner.
+  function claimMicAuthority() {
+    micOwner.value = 'composer'
+    if (!enabled.value)
+      enabled.value = true
+  }
+
+  function releaseMicAuthority() {
+    if (enabled.value)
+      enabled.value = false
+    micOwner.value = null
+  }
 
   // The hearing pipeline has a single transcription slot shared across
   // surfaces (ambient open-mic loop, settings tests, composer captures).
@@ -223,6 +239,8 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     vadSpeechStartAt = 0
     if (mode === 'single-shot') {
       await stopCaptureForVad()
+      // Tap-to-talk auto-release: the utterance is done, the mic goes cold.
+      releaseMicAuthority()
       return
     }
     // Segment mode: close this utterance through the normal hook flow, then
@@ -265,20 +283,24 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     }
     // Silence from the start means an empty capture — abort it instead of
     // transcribing quiet (the hearing models hallucinate on silence).
+    const releaseAndStop = () => {
+      releaseMicAuthority()
+      void stopCaptureForVad()
+    }
     vadNoSpeechTimer = setTimeout(() => {
       if (vadGeneration !== generation || hadVadSpeech.value)
         return
       console.info('[ChatComposer] No speech detected, stopping empty capture')
       suppressNextStop = true
       toast.info('Stopped listening — no speech detected.')
-      void stopCaptureForVad()
+      releaseAndStop()
     }, 20_000)
     vadMaxTimer = setTimeout(() => {
       if (vadGeneration !== generation)
         return
       if (!hadVadSpeech.value)
         suppressNextStop = true
-      void stopCaptureForVad()
+      releaseAndStop()
     }, 120_000)
   }
 
@@ -700,13 +722,18 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   async function toggleVoiceRecording() {
     if (isRecording.value) {
       await stopVoiceRecording()
+      releaseMicAuthority()
       return
     }
+    claimMicAuthority()
     await startVoiceRecording()
+    if (!isRecording.value) {
+      releaseMicAuthority()
+      return
+    }
     // Voice messages are single utterances in every mode: VAD ends the
     // capture at speech end so no second tap is ever required.
-    if (isRecording.value)
-      await startVadWatch('single-shot')
+    await startVadWatch('single-shot')
   }
 
   // Dictation entry point (mode-aware): streaming providers transcribe live
@@ -731,11 +758,15 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     if (isListening.value || isRecording.value) {
       continuousSession.value = false
       await stopDictation()
+      releaseMicAuthority()
       return
     }
+    claimMicAuthority()
     await startDictation()
-    if (!isListening.value && !isRecording.value)
+    if (!isListening.value && !isRecording.value) {
+      releaseMicAuthority()
       return
+    }
     if (tapToTalk.value) {
       // Tap mode: one tap captures one utterance and stops itself.
       await startVadWatch('single-shot')
@@ -750,15 +781,28 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   }
 
   watch(enabled, async (val) => {
-    if (val && stream.value) {
-      await startListening()
+    if (!val) {
+      // Master-switch kill: a strip/lock-key OFF ends any live composer
+      // capture, whatever started it.
+      if (isListening.value || isRecording.value) {
+        continuousSession.value = false
+        await stopDictation()
+        await stopVoiceRecording()
+      }
+      return
     }
-    else if (!val && isListening.value) {
-      await stopListening()
+    // An explicit composer tap owns the capture (owner === 'composer') and
+    // drives it directly — never double-start from here.
+    if (micOwner.value === 'composer')
+      return
+    if (stream.value) {
+      await startListening()
     }
   })
 
   watch(stream, async (val) => {
+    if (micOwner.value === 'composer')
+      return
     if (val && enabled.value && !isListening.value) {
       await startListening()
     }
@@ -814,6 +858,8 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     stopGeneration,
     startListening,
     stopListening,
+    claimMicAuthority,
+    releaseMicAuthority,
     startVoiceRecording,
     stopVoiceRecording,
     toggleVoiceRecording,
