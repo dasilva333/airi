@@ -54,7 +54,7 @@ Web/pocket never mount the strip inside `WidgetStage` (the `isElectron` guard is
 
 ### 2.4 The editors
 - **Desktop**: dedicated Customizer window — `apps/stage-tamagotchi/src/renderer/pages/customizer.vue` (toggle via `electronCustomizerToggleVisibility`; it re-dispatches `control-strip:action` CustomEvents at :268, :342).
-- **Web/pocket (and desktop)**: the in-settings editor `packages/stage-pages/src/pages/settings/stage/index.vue` — route `/settings/stage` (sidebar entry `packages/stage-pages/src/pages/settings/index.vue:88`). Filters `desktopOnly` items on non-desktop, reorders within `buttons`, and enforces `MAX_MOBILE_SLOTS = 7` (:14). `resetButtons()` there (:135) restores the platform defaults.
+- **Web/pocket (and desktop)**: the in-settings editor `packages/stage-pages/src/pages/settings/stage/index.vue` — route `/settings/stage` (sidebar entry `packages/stage-pages/src/pages/settings/index.vue:88`). Filters `desktopOnly` items on non-desktop and reorders within `buttons` (no slot cap — users may add as many as they want). `resetButtons()` there (:135) restores the platform defaults.
 - Master intent docs: `docs/catalog-control-strip.md` (5 categories / per-button display-type table) and `docs/project-control-strip-rfc.md`.
 
 ### 2.5 Desktop window machinery (Electron only)
@@ -77,7 +77,7 @@ The mobile experience lives in the same `ControlStrip.vue`; every behavioral for
 | Drag handle | `onDragStart` toggles `collapsed` (no window dragging on mobile) | `:1057+` |
 | Popovers | Placement is dock-relative: `dockedEdge === 'left' ? 'right' : 'left'` | `popoverPlacement` `:683-684` |
 | Panels | Emoji/expression/wardrobe grids keep `variant="mobile"` touch sizing | `docs/project-mobile-revamp.md` §3 |
-| Customizer | No right-click path (no listener, §2.2 gap); use `/settings/stage`, 7-slot cap | `settings/stage/index.vue:14` |
+| Customizer | No right-click path (no listener, §2.2 gap); use `/settings/stage`, no slot cap | `StageControlEditor.vue` |
 
 **Opposite-edge chatbox rule** (both layout modes): the side chatbox docks to the *opposite* edge of the strip to avoid collision — `dockedEdge === 'left' ? 'right-6' : 'left-6'` applied to `InteractiveArea` (`apps/stage-web/src/pages/index.vue:262`, `apps/stage-pocket/src/pages/index.vue:256`), gated on `!isPortraitMobile`. Orientation detection: `isLandscape = useMediaQuery('(orientation: landscape)')` + `isPortraitMobile = breakpoints.smaller('md') && !isLandscape` (web `:72-73`, pocket `:66-67`; a width-only breakpoint misclassified landscape phones — keep the orientation check).
 
@@ -95,7 +95,7 @@ The mobile experience lives in the same `ControlStrip.vue`; every behavioral for
 5. **Tests on all shells**: desktop pill (customizer window), web/pocket landscape, and pocket portrait — plus `/settings/stage` editor rendering.
 
 ### 4.2 Change mobile UX rules
-Edit the `mode === 'mobile'` branches in §3's table — not a new component. Touch `DEFAULT_MOBILE_BUTTONS` / `MAX_MOBILE_SLOTS` for default or slot-count changes. Then re-check the opposite-edge rule in both web and pocket `index.vue`.
+Edit the `mode === 'mobile'` branches in §3's table — not a new component. Touch `DEFAULT_MOBILE_BUTTONS` for default changes (no slot cap). Then re-check the opposite-edge rule in both web and pocket `index.vue`.
 
 ### 4.3 Create or modify a floating window overlay (Desktop)
 1. Register the manager under `apps/stage-tamagotchi/src/main/windows/<name>/` (`transparent: true`, `frame: false`, `alwaysOnTop: true` as needed).
@@ -126,7 +126,7 @@ Edit the `mode === 'mobile'` branches in §3's table — not a new component. To
 - Desktop window/page changes: `pnpm -F @proj-airi/stage-tamagotchi typecheck` (`typecheck:node` then `typecheck:web`)
 - stage-pages editor changes: `pnpm -F @proj-airi/stage-pages typecheck`
 - Web/pocket mount or layout changes: build/run the app (`pnpm -F @proj-airi/stage-web dev`, `pnpm -F @proj-airi/stage-pocket dev`); there is no behavior test suite for the strip.
-- Manual: desktop — drag, dock to each edge, collapse/notch hover, verify OS clicks pass through the notch; mobile — portrait vs landscape, left vs right edge, opposite-edge chatbox placement, `/settings/stage` slot cap.
+- Manual: desktop — drag, dock to each edge, collapse/notch hover, verify OS clicks pass through the notch; mobile — portrait vs landscape, left vs right edge, opposite-edge chatbox placement, `/settings/stage` add/remove.
 
 ## 7. Authoritative Design & Architecture Documents
 

@@ -344,6 +344,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:donut-bold-duotone',
         type: 'menu',
         defaultOnStrip: false,
+        desktopOnly: true,
       },
       {
         id: 'actor-gunslinger',
@@ -352,6 +353,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-ph:crosshair-bold',
         type: 'cycler',
         defaultOnStrip: false,
+        desktopOnly: true,
       },
     ],
   },

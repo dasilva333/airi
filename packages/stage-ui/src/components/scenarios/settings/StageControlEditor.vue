@@ -20,7 +20,6 @@ const controlStripStore = useSettingsControlStrip()
 const { buttons, dockedEdge } = storeToRefs(controlStripStore)
 
 const selectedCategory = ref<string>('all')
-const MAX_MOBILE_SLOTS = 7
 
 // List of all active/enabled buttons in their current order (filtered for mobile)
 const activeButtons = computed(() => {
@@ -385,12 +384,11 @@ function handleResetDefaults() {
             <button
               v-else
               type="button"
-              :disabled="activeButtons.length >= MAX_MOBILE_SLOTS"
               :class="[
                 'flex cursor-pointer items-center gap-1 rounded-xl bg-neutral-100 px-2.5 py-1.5 text-xs text-neutral-700 font-bold transition active:scale-95',
-                'disabled:cursor-not-allowed dark:bg-neutral-800 hover:bg-primary-500 dark:text-neutral-200 hover:text-white disabled:opacity-40 dark:hover:bg-primary-600 dark:hover:text-white',
+                'dark:bg-neutral-800 hover:bg-primary-500 dark:text-neutral-200 hover:text-white dark:hover:bg-primary-600 dark:hover:text-white',
               ]"
-              :title="activeButtons.length >= MAX_MOBILE_SLOTS ? 'Maximum 7 slots reached' : 'Add to strip'"
+              title="Add to strip"
               @click="handleAddControl(item)"
             >
               <div :class="['i-solar:add-circle-linear size-3.5']" />

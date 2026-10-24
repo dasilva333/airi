@@ -95,9 +95,7 @@ function handleBack() {
         ref="scrollContainerRef"
         class="relative min-h-0 flex-1 overflow-y-auto px-3 py-3 scrollbar-none sm:px-4 sm:py-4"
       >
-        <div class="mx-auto max-w-2xl">
-          <RouterView />
-        </div>
+        <RouterView />
       </div>
     </div>
 

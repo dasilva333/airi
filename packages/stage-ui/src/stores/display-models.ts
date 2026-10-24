@@ -193,8 +193,8 @@ export function buildDisplayModelSearchKey(m: any): string {
 const rawPresets: DisplayModelURL[] = [
   { id: 'preset-live2d-1', format: DisplayModelFormat.Live2dZip, type: 'url', url: presetLive2dProUrl, name: 'Hiyori (Pro)', authorIcon: presetLive2dPreview, previewImage: presetLive2dPreview, importedAt: 1733113886840 },
   { id: 'preset-live2d-2', format: DisplayModelFormat.Live2dZip, type: 'url', url: presetLive2dFreeUrl, name: 'Hiyori (Free)', authorIcon: presetLive2dPreview, previewImage: presetLive2dPreview, importedAt: 1733113886840 },
-  { id: 'preset-vrm-1', format: DisplayModelFormat.VRM, type: 'url', url: presetVrmAvatarAUrl, name: 'AvatarSample_A', previewImage: presetVrmAvatarAPreview, importedAt: 1733113886840 },
-  { id: 'preset-vrm-2', format: DisplayModelFormat.VRM, type: 'url', url: presetVrmAvatarBUrl, name: 'AvatarSample_B', previewImage: presetVrmAvatarBPreview, importedAt: 1733113886840 },
+  { id: 'preset-vrm-1', format: DisplayModelFormat.VRM, type: 'url', url: presetVrmAvatarAUrl, name: 'AvatarSample_A', previewImage: presetVrmAvatarAPreview, importedAt: 1733113886840, outfits: [{ id: 'preset-tanktop-leggings', name: 'TANKTOP_LEGGINGS', tag: '', icon: 'i-solar:t-shirt-outline', meshes: ['Body_1'], defaultEnabled: true }] },
+  { id: 'preset-vrm-2', format: DisplayModelFormat.VRM, type: 'url', url: presetVrmAvatarBUrl, name: 'AvatarSample_B', previewImage: presetVrmAvatarBPreview, importedAt: 1733113886840, outfits: [{ id: 'qPJXZdPQeJupaPqZKx4ZY', name: 'UNDIES', tag: '', icon: 'i-solar:t-shirt-outline', meshes: ['Body_1'], defaultEnabled: true }] },
 ]
 
 const displayModelsPresets: DisplayModel[] = rawPresets.map(p => ({

@@ -15,6 +15,7 @@ import { toast } from 'vue-sonner'
 
 import CharacterAvatar from '../../misc/CharacterAvatar.vue'
 import ExpressionExplorer from '../settings/model-settings/ExpressionExplorer.vue'
+import OutfitSlotList from './OutfitSlotList.vue'
 import VfxPreviewGrid from './VfxPreviewGrid.vue'
 
 import { useControlStripAction } from '../../../composables/use-control-strip-action'
@@ -528,7 +529,6 @@ function handleEditActiveCard() {
 }
 
 const modelStore = useModelStore()
-const { activeExpressions } = storeToRefs(modelStore)
 const vrmIdleAnimation = toRef(modelStore as any, 'vrmIdleAnimation')
 
 const live2dStore = useLive2d()
@@ -720,7 +720,6 @@ async function applyMacaron(shell: string, whip: string, heart: string, presetId
 
 const hoveredButtonId = ref<string | null>(null)
 const popoverRef = ref<HTMLElement | null>(null)
-const wardrobeFilter = ref<'all' | 'base' | 'overlay'>('all')
 
 const isElectron = computed(() => typeof window !== 'undefined' && !!(window as any).electron)
 
@@ -963,20 +962,6 @@ watch(activePopover, (newVal) => {
   }
 })
 
-const wardrobeItems = computed(() => {
-  const outfits = activeCard.value?.extensions?.airi?.outfits || []
-  return outfits.filter(item => wardrobeFilter.value === 'all' || item.type === wardrobeFilter.value)
-})
-
-function isOutfitActive(outfitId: string) {
-  const outfit = activeCard.value?.extensions?.airi?.outfits?.find(o => o.id === outfitId)
-  if (!outfit || !outfit.expressions)
-    return false
-  return Object.entries(outfit.expressions).every(([name, weight]) => {
-    return Math.abs((activeExpressions.value[name] || 0) - weight) < 0.05
-  })
-}
-
 const availableMotions = computed(() => {
   const list = []
 
@@ -1146,10 +1131,6 @@ function playMotion(motion: any) {
   else if (settingsStore.stageModelRenderer === 'spine') {
     spineStore.currentAnimation = { ...spineStore.currentAnimation, name: motion.key }
   }
-}
-
-function triggerWardrobeItem(id: string) {
-  cardStore.applyOutfit(id)
 }
 
 function handleViewGallery() {
@@ -2632,89 +2613,7 @@ function getShortLabel(btnId: string): string {
             </button>
           </div>
 
-          <template v-if="settingsStore.stageModelRenderer === 'mmd' || settingsStore.stageModelRenderer === 'spine'">
-            <div class="flex flex-col items-center justify-center py-6 text-center opacity-60">
-              <span class="i-solar:shield-warning-outline animate-pulse text-2xl text-amber-500" />
-              <span class="mt-2 text-xs font-medium">Not supported for {{ settingsStore.stageModelRenderer.toUpperCase() }}</span>
-              <span class="mt-1 text-[10px] text-neutral-500 dark:text-neutral-400">Please use the Controls Island.</span>
-            </div>
-          </template>
-          <template v-else>
-            <!-- 3-Column Outfit Grid -->
-            <div class="max-h-40 overflow-y-auto py-1 scrollbar-thin">
-              <div class="grid grid-cols-3 gap-2">
-                <button
-                  v-for="item in wardrobeItems"
-                  :key="item.id"
-                  :class="[
-                    'relative flex flex-col items-center justify-center p-2 rounded-xl border border-solid transition-all duration-200 cursor-pointer',
-                    isOutfitActive(item.id)
-                      ? item.type === 'base'
-                        ? 'bg-amber-500/20 border-amber-400 text-amber-600 dark:text-amber-400'
-                        : 'bg-sky-500/20 border-sky-400 text-sky-600 dark:text-sky-400 ring-2 ring-sky-400/40'
-                      : 'bg-neutral-50/50 dark:bg-neutral-800/40 border-neutral-200/50 dark:border-neutral-800/20 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50',
-                  ]"
-                  :title="item.name"
-                  @click="triggerWardrobeItem(item.id)"
-                >
-                  <span
-                    :class="[
-                      'text-xl mb-1',
-                      item.type === 'base' ? 'text-amber-500' : 'text-sky-400',
-                      item.icon || 'i-solar:t-shirt-outline',
-                    ]"
-                  />
-                  <span class="w-full truncate text-center text-[9px]">{{ item.name }}</span>
-                </button>
-
-                <!-- Empty state if no outfits -->
-                <div
-                  v-if="wardrobeItems.length === 0"
-                  class="col-span-3 flex flex-col items-center justify-center py-6 text-center opacity-40"
-                >
-                  <span class="i-solar:t-shirt-outline text-2xl" />
-                  <span class="mt-1 text-[10px]">No outfits found</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Filters Row -->
-            <div class="grid grid-cols-3 gap-2 border-t border-neutral-200 pt-2 dark:border-neutral-800">
-              <button
-                :class="[
-                  'flex items-center justify-center py-1.5 px-2 rounded-xl text-[10px] font-semibold transition-colors cursor-pointer',
-                  wardrobeFilter === 'base'
-                    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold border border-amber-400/30'
-                    : 'bg-neutral-500/10 hover:bg-neutral-500/20 text-neutral-600 dark:text-neutral-400',
-                ]"
-                @click="wardrobeFilter = wardrobeFilter === 'base' ? 'all' : 'base'"
-              >
-                Base
-              </button>
-              <button
-                :class="[
-                  'flex items-center justify-center py-1.5 px-2 rounded-xl text-[10px] font-semibold transition-colors cursor-pointer',
-                  wardrobeFilter === 'overlay'
-                    ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 font-bold border border-sky-400/30'
-                    : 'bg-neutral-500/10 hover:bg-neutral-500/20 text-neutral-600 dark:text-neutral-400',
-                ]"
-                @click="wardrobeFilter = wardrobeFilter === 'overlay' ? 'all' : 'overlay'"
-              >
-                Overlay
-              </button>
-              <button
-                :class="[
-                  'flex items-center justify-center py-1.5 px-2 rounded-xl text-[10px] font-semibold transition-colors cursor-pointer',
-                  wardrobeFilter === 'all'
-                    ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400 font-bold border border-purple-400/30'
-                    : 'bg-neutral-500/10 hover:bg-neutral-500/20 text-neutral-600 dark:text-neutral-400',
-                ]"
-                @click="wardrobeFilter = 'all'"
-              >
-                All
-              </button>
-            </div>
-          </template>
+          <OutfitSlotList :model-id="popoverDisplayModelId" />
         </div>
 
         <!-- MOTIONS POPOVER -->
