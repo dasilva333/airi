@@ -225,10 +225,19 @@ const SUBSYSTEM_RULES = [
     ],
   },
   {
-    name: 'Deprecated Surfaces (Control Island)',
+    name: 'Deprecated Surfaces (Control Island / Chat Floating)',
     risk: '⚪ ignore / rejected in fork (decoupled into Control Strip)',
     patterns: [
       /stage-islands\/controls-island/,
+      /chat-floating\.vue/,
+    ],
+  },
+  {
+    name: 'Wake Words & Voice Trigger',
+    risk: '⚪ ignore / rejected in fork (no wake words in fork)',
+    patterns: [
+      /wake-word/,
+      /wakeword/,
     ],
   },
   {

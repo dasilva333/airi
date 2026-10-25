@@ -201,12 +201,12 @@ It is critical to distinguish between **Radar Reconnaissance** and **Selective P
 
 The following areas represent permanent or intentional architectural divergences between `dasilva333/airi` and `moeru-ai/airi`. Changes in these categories must NOT be recommended as cherry-pick candidates:
 
-### 1. Control Island vs. Control Strip (Decoupled Stage Architecture)
-- **Fork Reality**: In commit `e10223f2e`, this fork completely eliminated the legacy monolithic `controls-island` (`apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/`). The architecture underwent a deep structural decoupling:
+### 1. Control Island & Chat Floating vs. Control Strip (Decoupled Stage Architecture)
+- **Fork Reality**: In commit `e10223f2e` and subsequent stage cleanups, this fork completely eliminated the legacy monolithic `controls-island` (`apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/`) and `chat-floating.vue`. The architecture underwent a deep structural decoupling:
   - **Actor Stage Window (`windows/stage`)**: Dedicated strictly to avatar rendering (`RendererStage.vue` / `WidgetStage.vue` for VRM, Live2D, Spine, MMD).
-  - **Main Window / Control Strip (`windows/main`)**: Hosts the independent, floating, draggable glassmorphic ribbon (`ControlStrip.vue`, `ControlStripHost.vue`).
-- **Upstream Reality**: Upstream never decoupled this. They continue to maintain and patch the monolithic `controls-island` inside their stage window (e.g. PR #2522 Wayland hover fixes, drawer menus).
-- **Filter Rule**: Any upstream commits, PRs, or diffs touching `controls-island` are **permanent auto-rejects** for porting. Never propose or cherry-pick them.
+  - **Main Window / Control Strip (`windows/main`)**: Hosts the independent, floating, draggable glassmorphic ribbon (`ControlStrip.vue`, `ControlStripHost.vue`) and desktop chat window.
+- **Upstream Reality**: Upstream never decoupled this. They continue to maintain and patch the monolithic `controls-island` inside their stage window (e.g. PR #2522 Wayland hover fixes, drawer menus) and the legacy floating chat dock (`chat-floating.vue`, e.g. PR #3107).
+- **Filter Rule**: Any upstream commits, PRs, or diffs touching `controls-island` or `chat-floating.vue` are **permanent auto-rejects** for porting. Never propose or cherry-pick them.
 
 ### 2. Local-First Desktop vs. Hosted Cloud & Monetization
 - **Fork Reality**: `dasilva333/airi` is strictly a private, local-first desktop application with Bring Your Own Storage (BYOS: S3/R2/Google Drive backup), local unstorage/localforage persistence, and zero online account requirements.
@@ -227,6 +227,11 @@ The following areas represent permanent or intentional architectural divergences
 - **Fork Reality**: `dasilva333/airi` is strictly client- and local-first, directly dispatching to AI providers (e.g. OpenRouter, Ollama, OpenAI, Anthropic, Gemini) via client-side adapters and WebGPU/local runtimes (`packages/provider-inference`, `packages/stage-ui/src/stores/providers`). There is no intermediate proxy or server-side responses gateway.
 - **Upstream Reality**: Upstream is actively building and hardening a hosted `/v1/responses` gateway (OpenResponses specification) with server-side settlement, Flux billing, token aggregation, and OpenRouter routing in `server/apps/api`.
 - **Filter Rule**: We do not support the Responses API (at least not yet, and there is no plan to do so). Upstream commits, PRs, or diffs touching the Responses API (`server/apps/api/.../responses`, OpenResponses schemas, or client adapters specifically binding to `/v1/responses`) can be safely ignored and treated as auto-rejects for porting.
+
+### 6. Wake Words & Voice Triggers
+- **Fork Reality**: `dasilva333/airi` does not use or maintain wake words (`openwakeword`, Sherpa-ONNX wake-word engines, or acoustic wake triggers). Audio interaction relies strictly on user-initiated Push-to-Talk, VAD speech input, or intentional desktop hotkeys.
+- **Upstream Reality**: Upstream actively develops wake word catalogs, wake word preparation lifecycles, and openwakeword integration.
+- **Filter Rule**: All upstream commits, PRs, and fixes touching wake word engines, wake word catalogs, or wake word preparation (e.g. PR #3104) are permanent auto-rejects for cherry-picking. Never recommend them as cherry-pick candidates.
 
 ## Relevant Skills
 

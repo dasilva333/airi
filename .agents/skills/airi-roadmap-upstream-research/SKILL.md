@@ -26,7 +26,7 @@ Research first, port deliberately. This fork is highly divergent; the `upstream`
 - **Touching `upstream` without authorization.** Upstream is reference-only. No `push`/`rebase`/`fetch`/`inspect` of `upstream` (or any remote mutation) unless the user explicitly authorizes it — and a greenlight is one-time, for that checkpoint only.
 - **Treating the roadmap as all-unbuilt.** Read each roadmap entry; several are already marked `[COMPLETED]` or carry priority tags. Verify current source before assuming a feature is missing.
 - **Assuming a proposal doc reflects shipped code.** Proposal documents are design intent. If a proposal conflicts with current source, source wins — verify against the actual files before planning.
-- **Recommending Obsolete or Superseded Surfaces.** Upstream still actively develops on surfaces that this fork deprecated and removed months ago (e.g. `controls-island`). Never recommend upstream commits or PRs modifying `controls-island` as cherry-pick candidates.
+- **Recommending Obsolete or Superseded Surfaces.** Upstream still actively develops on surfaces that this fork deprecated and removed months ago (e.g. `controls-island`, `chat-floating.vue`) or subsystems this fork does not use (e.g. wake words / `openwakeword`). Never recommend upstream commits or PRs modifying `controls-island`, `chat-floating.vue`, or wake-word engines as cherry-pick candidates.
 - **Scope creep on a port.** Port narrowly and deliberately; do not bundle a broad refactor into a research/port task. Root-cause and state the proposed approach and tradeoffs, and wait for approval before changing application code (pair-programming rule).
 - **Momentum toward commit/push.** Never proactively commit or push. The user decides when a tested checkpoint becomes a commit and when it is published; validate before any push.
 
@@ -34,10 +34,10 @@ Research first, port deliberately. This fork is highly divergent; the `upstream`
 
 This fork (`dasilva333/airi`) has undergone deep, structural architectural shifts that separate it from upstream (`moeru-ai/airi`). When conducting research or triaging PRs, evaluate changes against these core distinctions:
 
-1. **Decoupled Desktop Surfaces (Control Strip vs. Control Island)**:
-   - In commit `e10223f2e`, this fork deleted the legacy monolithic `controls-island/` inside the stage window.
+1. **Decoupled Desktop Surfaces (Control Strip vs. Control Island & Chat Floating)**:
+   - In commit `e10223f2e` and subsequent stage cleanups, this fork deleted the legacy monolithic `controls-island/` and `chat-floating.vue` inside the stage window.
    - The desktop was cleanly split into the **Actor Stage** (`windows/stage`, `RendererStage.vue` dedicated solely to avatar rendering) and the **Main Window / Control Strip** (`windows/main`, `ControlStrip.vue`, `ControlStripHost.vue` floating ribbon).
-   - Upstream never decoupled this and still patches `controls-island` (e.g. Wayland hover fixes, menus). **Upstream `controls-island` changes are permanent auto-rejects for porting.**
+   - Upstream never decoupled this and still patches `controls-island` (e.g. Wayland hover fixes, menus) and `chat-floating.vue` (e.g. dock buttons). **Upstream `controls-island` and `chat-floating.vue` changes are permanent auto-rejects for porting.**
 2. **Local-First & Privacy Invariant vs. Hosted Cloud / Commercial Services**:
    - This fork is strictly local-first desktop with Bring Your Own Storage (BYOS: S3/R2/Google Drive backup), local unstorage/localforage persistence, and zero online accounts.
    - Upstream actively develops hosted cloud services, remote database provider syncing (e.g. PR #2471), Stripe billing for Flux (PR #2533), Apple App Store IAP (PR #2339), and remote email verification (PR #2473).
@@ -69,6 +69,10 @@ This fork (`dasilva333/airi`) has undergone deep, structural architectural shift
    - This fork operates as a local-first desktop application with explicit, user-directed release packaging and offline distribution. It does not run background auto-updater daemons, remote feed polling, or auto-restart installer hooks.
    - Upstream actively develops Electron `autoUpdater` integrations, Flatpak/Nix packaging-specific updater disable flags, update download/check mutexes, and `quitAndInstall` window lifecycle hooks (`auto-updater.ts`, `hide-on-close.ts`, PRs #3081, #3082, #3083, #3084).
    - **Filter Rule**: All upstream PRs, commits, and fixes touching Electron auto-updater services, background update feeds, and installer window closure workarounds (e.g. PR #3081, #3082, #3083, #3084) are permanent auto-rejects for cherry-picking. Never recommend upstream auto-updater changes as cherry-pick candidates.
+12. **Absence of Wake Words / Voice Trigger Engines**:
+   - This fork does not include, maintain, or use wake words (`openwakeword`, Sherpa-ONNX wake engines, or acoustic trigger catalogs). Audio ingestion relies strictly on user-directed Push-to-Talk, VAD, or explicit hotkeys.
+   - Upstream actively develops wake word catalogs, wake word preparation lifecycles, and openwakeword integration.
+   - **Filter Rule**: All upstream PRs, commits, and fixes touching wake word engines, wake word catalogs, or wake word preparation (e.g. PR #3104) are permanent auto-rejects for cherry-picking. Never recommend wake word changes as cherry-pick candidates.
 
 ## Upstream Radar Watchlist (High-Interest Monitored PRs)
 

@@ -32,6 +32,122 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-10-25] Upstream Delta: `f1b81967..74ddd90c` (2 commits, 44 files, 10 update(s))
+
+### 🎯 Executive Highlights
+#### Upstream Trajectory & Key Highlights
+- **v0.12 Release Artifacts & Promotional Assets (`1bf946fde`)**: Upstream merged v0.12 release banners, dark/light screenshots, and promotional media across `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/`, finalizing the v0.12.0 milestone release.
+- **Floating Chat Dock Button Uniformity (#3107, commit `74ddd90c0`)**: Polished the sessions/character button in `chat-floating.vue` to harmonize with neighboring dock buttons by removing the solid neutral circular pill and applying `group-hover:text-primary-500` color transitions on hover.
+- **Wake Word Catalog State Protection (#3104)**: New PR opened by @liziye627-design ensuring that when an identical wake word catalog arrives during an ongoing load, preparation is not prematurely discarded or restarted.
+- **Cross-Platform Export Automation (#3106)**: New PR adding multi-platform artifacts-only CI workflow for the `stage-tamagotchi-kirie` scenario.
+
+#### 💬 Discussion & Community Buzz
+- **#2936: `fix(tamagotchi): guard payload.url access in artistryTestComfyUIConnection`** (+3 new comments, 27 total): Continued maintainer discussion on defensive null-checking for ComfyUI connection testing.
+- **#2937: `fix(tamagotchi): replace invalid app.getPath('cache') with app.getPath('userData')/cache`** (+1 new comment, 35 total): Follow-up on macOS/Linux cache directory resolution.
+- **#2935: `fix(tamagotchi): clamp ttlMs to prevent 32-bit setTimeout overflow in widget destruction`** (+1 new comment, 49 total): Sustained review approaching merge on 32-bit integer timer boundary guards.
+- **#2934: `fix(tamagotchi): use showWindowOnAllWorkspaces to prevent Dock icon restoring on macOS`** (+1 new comment, 30 total): Review on macOS native window workspace switching behavior.
+- **#2932: `fix(tamagotchi): await setupBaseWindowElectronInvokes in widgets RPC setup`** (+1 new comment, 27 total): Follow-up commentary (already ported into fork via commit `9e12e1f35`).
+
+#### 🍒 Cherry-Pick Candidates
+- *None for this delta.* (Both PR #3107 and PR #3104 touch surfaces and subsystems absent from this fork).
+
+#### ⚠️ Divergence / Collision Warnings
+- **`apps/stage-tamagotchi/src/renderer/pages/chat-floating.vue` (Commit `74ddd90c0` / PR #3107)**: **AUTO-REJECT / DEPRECATED SURFACE**. This fork does NOT have `chat-floating.vue` at all. Like `controls-island`, `chat-floating.vue` was completely eliminated when the desktop was decoupled into the floating Control Strip (`windows/main`, `ControlStrip.vue`) and Actor Stage (`windows/stage`, `RendererStage.vue`). Permanent auto-reject; never cherry-pick.
+- **Wake Word Catalog State Protection (PR #3104)**: **AUTO-REJECT / UNUSED SUBSYSTEM**. This fork does NOT use or maintain wake words (`openwakeword` / wake-word pipelines) at all. Permanent auto-reject; never cherry-pick.
+- **Cloud Client Docs (#3105)**: References `VITE_CLOUD_URL` for hosted backend services, which are auto-rejected under our fork's local-first offline architecture.
+- **Minecraft Scenario (#3108)**: Scoped strictly to upstream's Minecraft game integration, unrelated to fork core.
+
+### 📋 Upstream Commits
+- `74ddd90c0` chore(stage-tamagotchi): match the chat name button to the dock buttons (#3107) [#3107](https://github.com/moeru-ai/airi/pull/3107) _(蓝莓🫐, 2026-10-25)_
+- `1bf946fde` chore(scenarios-stage-tamagotchi-browser): release banner  _(Neko Ayaka, 2026-10-25)_
+
+### 🔬 Subsystem Breakdown
+#### Deprecated Surfaces (Control Island / Chat Floating) (`⚪ ignore`) — 1 file(s) (+6/-5)
+- `apps/stage-tamagotchi/src/renderer/pages/chat-floating.vue` *(+6/-5)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 1 file(s) (+17/-0)
+- `packages/scenarios-stage-tamagotchi-browser/README.md` *(+17/-0)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 42 file(s) (+769/-0)
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/chat-floating-danmaku-light.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/chat-floating-danmaku.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/chat-tool-calls-light.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/chat-tool-calls.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/mobile-chat-light.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/mobile-chat.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/mobile-menu-light.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/mobile-menu.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/settings-hearing-light.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/settings-hearing.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/settings-live2d-import-report-light.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/settings-live2d-import-report.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/settings-live2d-magic-light.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/settings-live2d-magic.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/settings-stickers-light.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/settings-stickers.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/settings-wake-words-light.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/settings-wake-words.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/stage-live2d-magic-1.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/stage-live2d-magic-2.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/stage-mmd.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/stage-tachie.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/stage-vrm.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/web-stage-chat-light.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/artifacts/raw/releases/v0-12/web-stage-chat.avif` *(+0/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/area-avatars.vue` *(+39/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/area-cover.vue` *(+60/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/area-desktop.vue` *(+50/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/area-live2d.vue` *(+33/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/area-stickers.vue` *(+20/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/area-tool-calls.vue` *(+28/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/area-voice.vue` *(+45/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/area-web-mobile.vue` *(+28/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/release-area.vue` *(+95/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/release-copy.ts` *(+97/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/release-reveal.vue` *(+41/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/release-shots.ts` *(+74/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/release-theme-scope.vue` *(+22/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/release-theme.ts` *(+11/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/release-timeline.ts` *(+21/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/components/shot-crop.vue` *(+37/-0)*
+- `packages/scenarios-stage-tamagotchi-browser/src/scenes/releases/v0-12/index.vue` *(+68/-0)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (5)
+- [PR] [#3106](https://github.com/moeru-ai/airi/pull/3106) `ci(stage-tamagotchi-kirie): artifacts-only multi-platform export CI` by **@LemonNekoGH** *(Draft)* *(3 comments)*
+- [PR] [#3104](https://github.com/moeru-ai/airi/pull/3104) `fix(stage-ui): keep wake word preparation when an equal catalog arrives during load` by **@liziye627-design** *(3 comments)*
+- [PR] [#3108](https://github.com/moeru-ai/airi/pull/3108) `fix(minecraft): correct chest transfer counts and cleanup` by **@louisjia2008-ux** *(1 comments)*
+- [PR] [#3107](https://github.com/moeru-ai/airi/pull/3107) `chore(stage-tamagotchi): match the chat name button to the dock buttons` by **@chiba233** *(2 comments)*
+- [PR] [#3105](https://github.com/moeru-ai/airi/pull/3105) `docs(cloud-client): use VITE_CLOUD_URL in the README example` by **@liziye627-design** *(2 comments)*
+
+#### 💬 Discussion Activity (5)
+- [PR] [#2936](https://github.com/moeru-ai/airi/pull/2936) `fix(tamagotchi): guard payload.url access in artistryTestComfyUIConnection to prevent TypeError` — *+7 comments (24 ➔ 31 total)*
+- [PR] [#2932](https://github.com/moeru-ai/airi/pull/2932) `fix(tamagotchi): await setupBaseWindowElectronInvokes in widgets RPC setup` — *+1 comments (26 ➔ 27 total)*
+- [PR] [#2937](https://github.com/moeru-ai/airi/pull/2937) `fix(tamagotchi): replace invalid app.getPath('cache') with app.getPath('userData')/cache` — *+1 comments (34 ➔ 35 total)*
+- [PR] [#2935](https://github.com/moeru-ai/airi/pull/2935) `fix(tamagotchi): clamp ttlMs to prevent 32-bit setTimeout overflow in widget destruction` — *+1 comments (48 ➔ 49 total)*
+- [PR] [#2934](https://github.com/moeru-ai/airi/pull/2934) `fix(tamagotchi): use showWindowOnAllWorkspaces to prevent Dock icon restoring on macOS` — *+1 comments (29 ➔ 30 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [OPEN] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(120 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+
+---
 ## [2026-10-24] Upstream Delta: `3b0672e3..f1b81967` (7 commits, 37 files, 14 update(s))
 
 ### 🎯 Executive Highlights
