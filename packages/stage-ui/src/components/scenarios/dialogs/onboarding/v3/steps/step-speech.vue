@@ -15,6 +15,7 @@ import { STARTER_VOICE_CATALOG } from '../../../../../../constants/voices/starte
 import { getKokoroAdapter } from '../../../../../../libs/inference/adapters/kokoro'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useProvidersStore } from '../../../../../../stores/providers'
+import { getMing3AdapterInstance } from '../../../../../../stores/providers/ming3-audio-utils'
 import { getMossAdapterInstance } from '../../../../../../stores/providers/moss-audio-utils'
 import { getPocketTtsAdapterInstance } from '../../../../../../stores/providers/pocket-audio-utils'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
@@ -67,7 +68,7 @@ function resolveInitialSegment(prov: string): EngineSegment {
   const norm = normalizeProviderId(prov)
   if (norm === 'airi-audio-server')
     return 'server'
-  if (['kokoro-local', 'pocket-tts-local', 'moss-nano-local', 'pocket', 'kokoro', 'moss'].includes(norm))
+  if (['kokoro-local', 'pocket-tts-local', 'moss-nano-local', 'ming3-local', 'pocket', 'kokoro', 'moss'].includes(norm))
     return 'builtin'
   return 'cloud'
 }
@@ -456,7 +457,7 @@ async function handleDeleteCurrentClonedVoice() {
 
 const isLocalProvider = computed(() => {
   const norm = normalizeProviderId(selectedProvider.value)
-  return ['kokoro-local', 'pocket-tts-local', 'moss-nano-local'].includes(norm)
+  return ['kokoro-local', 'pocket-tts-local', 'moss-nano-local', 'ming3-local'].includes(norm)
 })
 
 // Dynamic models & listVoices queries from stores
@@ -526,6 +527,7 @@ const INTERNAL_PROVIDERS = [
   'kokoro-local',
   'pocket-tts-local',
   'moss-nano-local',
+  'ming3-local',
   'airi-audio-server',
   'chatterbox',
 ]
@@ -674,6 +676,15 @@ const availableVoices = computed(() => {
       ...STARTER_VOICE_CATALOG.map(v => ({ id: v.id, label: `★ ${v.name}` })),
       { id: 'Trump', label: 'Trump (Preset)', labelKey: 'onboarding.steps.speech.availableVoices.trump.label' },
       { id: 'LJS', label: 'LJ Speech (Female Preset)', labelKey: 'onboarding.steps.speech.availableVoices.ljs.label' },
+    ]
+  }
+  if (normId === 'ming3-local') {
+    return [
+      { id: 'US_Emma', label: 'Emma (Female · US)' },
+      { id: 'US_James', label: 'James (Male · US Narrator)' },
+      { id: 'US_Stella', label: 'Stella (Female · US)' },
+      { id: 'UK_George', label: 'George (Male · UK)' },
+      { id: 'UK_Charlotte', label: 'Charlotte (Female · UK)' },
     ]
   }
   if (normId === 'deepgram-tts') {
@@ -867,6 +878,10 @@ async function checkEngineReadiness() {
       const adapter = await getMossAdapterInstance()
       isEngineReady.value = adapter.state === 'ready'
     }
+    else if (normId === 'ming3-local') {
+      const adapter = await getMing3AdapterInstance()
+      isEngineReady.value = adapter.state === 'ready'
+    }
     else {
       isEngineReady.value = true
     }
@@ -918,6 +933,17 @@ async function activateAndDownloadEngine() {
           downloadProgress.value = Math.round(p.percent ?? (p.loaded && p.total ? (p.loaded / p.total) * 100 : 0))
           downloadStatusText.value = p.file || p.name || ''
           downloadStatusKey.value = 'onboarding.steps.speech.download.moss'
+        },
+      })
+    }
+    else if (normId === 'ming3-local') {
+      const adapter = await getMing3AdapterInstance()
+      await adapter.loadModel({
+        model: selectedModel.value || 'ming-3.0-tts-0.5b-mix',
+        onProgress: (p: any) => {
+          downloadProgress.value = Math.round(p.percent ?? (p.loaded && p.total ? (p.loaded / p.total) * 100 : 0))
+          downloadStatusText.value = p.file || p.name || ''
+          downloadStatusKey.value = 'onboarding.steps.speech.download.ming3'
         },
       })
     }

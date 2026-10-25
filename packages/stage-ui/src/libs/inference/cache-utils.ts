@@ -6,6 +6,9 @@ const TRANSFORMERS_CACHE_NAME = 'transformers-cache'
 const OPFS_DIR_NAME = 'web-rwkv'
 const MOSS_OPFS_DIR_NAME = 'nano-reader-browser-model-store'
 const POCKET_OPFS_DIR_NAME = 'pocket-tts-browser-model-store'
+// Ming 3.0 TTS browser bundle (fusor WASM): manifest.json + parts/*.bin shards +
+// tokenizer.json, one file per BLAKE3 hash — matches the loader's `CACHE_DIR`.
+const MING3_OPFS_DIR_NAME = 'ming-tts-parts'
 // WebLLM (`@mlc-ai/web-llm`) stores weights / WASM libs / model config in the
 // browser Cache Storage API under these scoped cache names (its default
 // `cacheBackend` is `"cache"`; see `createScopedArtifactCache` in the library).
@@ -155,9 +158,97 @@ function normalizePocketLangFolderId(languageOrFolder: string): string {
   return POCKET_LANG_FOLDER_ALIASES[languageOrFolder] || languageOrFolder.replace(/_2026_/, '_2026-')
 }
 
+async function getMing3OpfsCacheSize(): Promise<number> {
+  if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory)
+    return 0
+  try {
+    const root = await navigator.storage.getDirectory()
+    let dir: FileSystemDirectoryHandle
+    try {
+      dir = await root.getDirectoryHandle(MING3_OPFS_DIR_NAME, { create: false })
+    }
+    catch {
+      return 0
+    }
+    return await getDirectorySizeRecursive(dir)
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to get Ming3 cache size', error)
+    return 0
+  }
+}
+
+async function clearMing3OpfsCache(): Promise<void> {
+  if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory)
+    return
+  try {
+    const root = await navigator.storage.getDirectory()
+    try {
+      await root.removeEntry(MING3_OPFS_DIR_NAME, { recursive: true })
+    }
+    catch {
+      // Ignored if directory doesn't exist
+    }
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to clear Ming3 cache', error)
+  }
+}
+
+async function isMing3ModelCached(): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory)
+    return false
+  try {
+    const root = await navigator.storage.getDirectory()
+    const dir = await root.getDirectoryHandle(MING3_OPFS_DIR_NAME, { create: false })
+    for await (const _entry of dir.values()) {
+      return true // directory is not empty
+    }
+    return false
+  }
+  catch {
+    return false
+  }
+}
+
+/**
+ * Enforce a single active Ming 3.0 bundle in OPFS (mix vs future q7 profiles
+ * use distinct BLAKE3 part hashes that would otherwise accumulate side by side).
+ * Keeps exactly the part files listed in the just-loaded manifest; everything
+ * else in `ming-tts-parts` is removed.
+ */
+export async function evictOtherMing3Models(keepBlake3Hashes: string[]): Promise<void> {
+  if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory)
+    return
+  try {
+    const root = await navigator.storage.getDirectory()
+    let dir: FileSystemDirectoryHandle
+    try {
+      dir = await root.getDirectoryHandle(MING3_OPFS_DIR_NAME, { create: false })
+    }
+    catch {
+      return
+    }
+    const keep = new Set(keepBlake3Hashes)
+    for await (const entry of dir.values()) {
+      if (entry.kind === 'file' && !keep.has(entry.name)) {
+        try {
+          await dir.removeEntry(entry.name)
+        }
+        catch (error) {
+          console.warn('[cache-utils] failed to evict Ming3 bundle part', entry.name, error)
+        }
+      }
+    }
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to evict other Ming3 models', error)
+  }
+}
+
 /**
  * Enforce single active Pocket TTS language bundle in OPFS (mirrors the
- * Whisper single-shard eviction). Removes every `{langFolder}/` subdir except
+ * Whisper single-shard eviction). Removes every `{langFolder}/` subdirs except
  * the one just loaded — including its `voices/` embeddings (full-dir evict).
  * Root-level shared files (`sentencepiece.js`) are files, not directories, so
  * they are never touched.
@@ -322,18 +413,19 @@ async function isOpfsModelCached(modelUrl: string): Promise<boolean> {
  * Returns 0 if no caches exist or all are empty.
  */
 export async function getModelCacheSize(): Promise<number> {
-  const [transformersSize, opfsSize, mossSize, pocketSize, webLlmSize, needleSize, layaSize, nativeSize] = await Promise.all([
+  const [transformersSize, opfsSize, mossSize, pocketSize, ming3Size, webLlmSize, needleSize, layaSize, nativeSize] = await Promise.all([
     getTransformersCacheSize(),
     getOpfsCacheSize(),
     getMossOpfsCacheSize(),
     getPocketOpfsCacheSize(),
+    getMing3OpfsCacheSize(),
     getWebLlmCacheSize(),
     getNeedleCacheSize(),
     getLayaCacheSize(),
     NativeAI.listCachedModels().then(res => res.totalSizeBytes).catch(() => 0),
   ])
 
-  return transformersSize + opfsSize + mossSize + pocketSize + webLlmSize + needleSize + layaSize + nativeSize
+  return transformersSize + opfsSize + mossSize + pocketSize + ming3Size + webLlmSize + needleSize + layaSize + nativeSize
 }
 
 async function getTransformersCacheSize(): Promise<number> {
@@ -377,6 +469,7 @@ export async function clearModelCache(): Promise<void> {
     clearOpfsCache(),
     clearMossOpfsCache(),
     clearPocketOpfsCache(),
+    clearMing3OpfsCache(),
     clearWebLlmCache(),
     clearNeedleCache(),
     clearLayaCache(),
@@ -402,6 +495,10 @@ export async function clearSingleModelCache(modelId: string): Promise<void> {
   }
   if (modelId === 'pocket-tts-local') {
     await clearPocketOpfsCache()
+    return
+  }
+  if (modelId === 'ming3-local') {
+    await clearMing3OpfsCache()
     return
   }
   if (modelId === 'web-llm') {
@@ -881,6 +978,9 @@ export async function isModelCached(modelId: string): Promise<boolean> {
   if (modelId === 'pocket-tts-local') {
     return isPocketModelCached()
   }
+  if (modelId === 'ming3-local') {
+    return isMing3ModelCached()
+  }
   if (modelId === 'web-llm') {
     return isWebLlmModelCached()
   }
@@ -984,6 +1084,16 @@ export async function getDetailedModelCacheMap(): Promise<ModelCacheStatusMap> {
   }
   catch {
     result['pocket-tts-local'] = { cached: false, sizeBytes: 0 }
+  }
+
+  // 3c. Ming 3.0 TTS (OPFS, BLAKE3-addressed bundle parts)
+  try {
+    const ming3Cached = await isMing3ModelCached()
+    const ming3Size = ming3Cached ? await getMing3OpfsCacheSize() : 0
+    result['ming3-local'] = { cached: ming3Cached, sizeBytes: ming3Size }
+  }
+  catch {
+    result['ming3-local'] = { cached: false, sizeBytes: 0 }
   }
 
   // 4. WebLLM (Cache Storage API)

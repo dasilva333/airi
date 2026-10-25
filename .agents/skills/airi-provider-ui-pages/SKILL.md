@@ -34,6 +34,20 @@ Live API connection testing is powered by `useProviderValidation`.
 1. Create the setting page under `packages/stage-pages/src/pages/settings/providers/<category>/<provider-id>.vue`.
 2. Wrap the form in `provider-settings-layout.vue`.
 3. Wire live connection testing via `useProviderValidation(providerId)`.
+4. Confirm the provider is searchable (see "Settings Quick Search" below). A page with no search entry is effectively unreachable.
+
+### 2. Settings Quick Search (Hub ⌘K)
+
+The heading search is `packages/stage-ui/src/components/widgets/SettingsSearchBar.vue`. It matches against `getAllCatalogItems(allProvidersMetadata)` converted via `convertCatalogItemToSearchItem`, then relevance-ranks with `rankSearchResults` and slices the top 12.
+
+Know the two index feeds or you will misdiagnose "missing from search":
+
+- **Static catalog sweep** (`packages/stage-ui/src/constants/settings-catalog.ts` → `staticIndex`): curated `SETTINGS_CATALOG_ITEMS` plus dynamic nodes from the unified `defineProvider` registry (`listProviders`). Legacy speech/transcription providers are NOT in that registry and never enter through this feed.
+- **Live provider sweep** (same `getAllCatalogItems` call, passed `allProvidersMetadata` from `providersStore`): `createProviderRegistry` merges `createSpeechMetadata` + transcription metadata + local engines, so legacy providers (Kokoro, Pocket, MOSS, Ming, Whisper…) arrive here. Provider-not-found debugging starts by checking which feed should carry the entry.
+
+Relevance rules (`searchMatchTier` in `packages/stage-ui/src/constants/settings-search-index.ts`): title hits outrank id/route hits, which outrank keyword hits, which outrank bare description/category substring hits. Short provider names that are substrings of common words ("ming" in "streaming") get buried without this — do not "fix" ranking by curating entries; fix the tiering.
+
+Related but separate: `SettingsRecallOverlay` (in-settings recall palette) searches the static index only. `convertProviderMetadataToSearchItem` is the tested converter for live metadata. Tests live in `packages/stage-ui/src/constants/settings-search-index.test.ts` — extend the tier cases there, not in component tests.
 
 ## 4. Known Pitfalls & Failure Modes
 

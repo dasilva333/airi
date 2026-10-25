@@ -16,6 +16,7 @@ export {
   clearWdTaggerCache,
   clearWebLlmCache,
   clearWebRwkvCache,
+  evictOtherMing3Models,
   evictOtherPocketModels,
   evictOtherWdTaggerModels,
   evictOtherWhisperModels,

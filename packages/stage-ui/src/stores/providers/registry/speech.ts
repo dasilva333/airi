@@ -41,6 +41,15 @@ import { getDefaultKokoroModel, getKokoroVoiceList, KOKORO_MODELS, kokoroModelsT
 import { models as elevenLabsModels } from '../elevenlabs/list-models'
 import { createNativeElevenLabsProvider } from '../elevenlabs/native'
 import { logWarn, toProviderRootBaseUrl, toV1SpeechBaseUrl, validateProviderBaseUrl } from '../helpers'
+import { getMing3AdapterInstance, sanitizeMing3InputText } from '../ming3-audio-utils'
+import {
+  listMingDesignVoices,
+  MING3_BUILTIN_VOICES,
+  MING3_EXPRESSION_TAGS,
+  MING3_MODEL_DESCRIPTION,
+  MING3_MODEL_ID,
+  MING3_MODEL_NAME,
+} from '../ming3-catalog'
 import { getMossAdapterInstance, preprocessMossReferenceAudio, sanitizeMossInputText } from '../moss-audio-utils'
 import { buildOpenAICompatibleProvider } from '../openai-compatible-builder'
 import { getPocketTtsAdapterInstance, preprocessPocketReferenceAudio } from '../pocket-audio-utils'
@@ -861,6 +870,194 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
       },
       validators: {
         validateProviderConfig: async (_config: any) => {
+          return {
+            errors: [],
+            reason: '',
+            valid: true,
+          }
+        },
+      },
+    },
+    'ming3-local': {
+      id: 'ming3-local',
+      category: 'speech',
+      tasks: ['text-to-speech'],
+      nameKey: 'settings.pages.providers.provider.ming3-local.title',
+      name: 'Ming 3.0 TTS',
+      descriptionKey: 'settings.pages.providers.provider.ming3-local.description',
+      description: 'On-device multilingual speech with voices you design in words (0.5B, WASM)',
+      icon: 'i-solar:soundwave-bold-duotone',
+      deployment: 'local',
+      pricing: 'free',
+      requiresCredentials: false,
+      defaultOptions: () => ({
+        model: MING3_MODEL_ID,
+        voiceId: '',
+        preset: 'quality',
+        threads: 'auto',
+      }),
+      createProvider: async (_config) => {
+        const adapter = await getMing3AdapterInstance()
+
+        const provider: SpeechProvider = {
+          speech: () => {
+            return {
+              baseURL: 'http://ming3-local/v1/',
+              model: MING3_MODEL_ID,
+              fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+                try {
+                  if (!init?.body || typeof init.body !== 'string') {
+                    throw new Error('Invalid request body')
+                  }
+                  const body = JSON.parse(init.body)
+                  // NOTICE: brackets are deliberately preserved here — Ming's
+                  // `[Laughter]`-style paralinguistic tags are first-class input.
+                  const text = sanitizeMing3InputText(body.input || '')
+                  const voiceId = body.voice || ''
+
+                  if (!text) {
+                    return new Response(new ArrayBuffer(0), {
+                      status: 200,
+                      headers: { 'Content-Type': 'audio/wav' },
+                    })
+                  }
+
+                  if (!voiceId) {
+                    throw new Error('Voice parameter is required')
+                  }
+
+                  // Ensure the model is loaded before generating speech.
+                  await adapter.loadModel({
+                    model: (_config.model as string) || MING3_MODEL_ID,
+                    threads: (_config.threads as number | 'auto' | undefined) ?? 'auto',
+                  })
+
+                  const wavBuffer = await adapter.generate(text, voiceId, {
+                    preset: (typeof _config.preset === 'string' ? _config.preset : undefined) || 'quality',
+                    threads: (_config.threads as number | 'auto' | undefined) ?? 'auto',
+                  })
+
+                  return new Response(wavBuffer, {
+                    status: 200,
+                    headers: {
+                      'Content-Type': 'audio/wav',
+                    },
+                  })
+                }
+                catch (error) {
+                  console.error('[Ming3 Provider] Ming 3.0 generation failed:', error)
+                  throw error
+                }
+              },
+            }
+          },
+        }
+        return provider
+      },
+      capabilities: {
+        listModels: async (_config: Record<string, unknown>) => {
+          return [
+            {
+              id: MING3_MODEL_ID,
+              name: MING3_MODEL_NAME,
+              provider: 'ming3-local',
+              description: MING3_MODEL_DESCRIPTION,
+              deployment: 'local',
+            },
+          ]
+        },
+        loadModel: async (_config: Record<string, unknown>, hooks?: { onProgress?: (progress: ProgressInfo) => Promise<void> | void }) => {
+          const adapter = await getMing3AdapterInstance()
+          await adapter.loadModel({
+            model: (_config.model as string) || MING3_MODEL_ID,
+            threads: (_config.threads as number | 'auto' | undefined) ?? 'auto',
+            onProgress: (p: any) => {
+              if (hooks?.onProgress) {
+                hooks.onProgress({
+                  status: 'progress',
+                  file: p.file || 'ming-3.0-tts-0.5b',
+                  name: p.name || p.file || 'ming-3.0-tts-0.5b',
+                  progress: p.percent ?? 0,
+                  loaded: p.loaded ?? 0,
+                  total: p.total ?? 0,
+                })
+              }
+            },
+          })
+        },
+        listVoices: async (_config: Record<string, unknown>) => {
+          const builtin: VoiceInfo[] = MING3_BUILTIN_VOICES.map(v => ({
+            id: v.id,
+            name: v.name,
+            provider: 'ming3-local',
+            languages: [{ code: v.languageCode, title: v.languageTitle }],
+            gender: v.gender,
+            description: v.description,
+            compatibleModels: [MING3_MODEL_ID],
+          }))
+          try {
+            const designs = await listMingDesignVoices()
+            const custom: VoiceInfo[] = designs.map(d => ({
+              id: d.id,
+              name: d.name,
+              provider: 'ming3-local',
+              languages: [{ code: 'mul', title: 'Multilingual' }],
+              description: d.designPrompt.length > 140 ? `${d.designPrompt.slice(0, 140)}…` : d.designPrompt,
+              compatibleModels: [MING3_MODEL_ID],
+            }))
+            return [...builtin, ...custom]
+          }
+          catch {
+            return [...builtin]
+          }
+        },
+        getSpeechCapabilities: async (_config: Record<string, unknown>) => {
+          return {
+            supportsPresets: false,
+            supportsExpressionTags: true,
+            supportsMannerisms: false,
+            expressionTags: MING3_EXPRESSION_TAGS.map(t => ({
+              tag: t.tag,
+              category: t.category,
+              description: t.description,
+            })),
+            mannerisms: [],
+          } satisfies SpeechCapabilitiesInfo
+        },
+      },
+      validators: {
+        // Downloaded is not the same as ready: a cached bundle passes
+        // validation (integrity is verified by BLAKE3 on load), while runtime
+        // initialization is tracked separately as page-level Ready state.
+        validateProviderConfig: async (config: any) => {
+          const model = config.model as string
+          if (!model) {
+            return {
+              errors: [new Error('No model selected')],
+              reason: 'Please select a model from the dropdown menu',
+              valid: false,
+            }
+          }
+          if (model !== MING3_MODEL_ID) {
+            return {
+              errors: [new Error(`Invalid model: ${model}`)],
+              reason: `Invalid model. Must be one of: ${MING3_MODEL_ID}`,
+              valid: false,
+            }
+          }
+          try {
+            const { isModelCached } = await import('../../../libs/inference/cache-utils')
+            if (!(await isModelCached('ming3-local'))) {
+              return {
+                errors: [new Error('Model bundle not downloaded')],
+                reason: 'Download the model bundle to continue',
+                valid: false,
+              }
+            }
+          }
+          catch {
+            // If the cache cannot be inspected, do not block configuration.
+          }
           return {
             errors: [],
             reason: '',

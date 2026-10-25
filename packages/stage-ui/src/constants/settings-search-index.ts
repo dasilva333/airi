@@ -123,7 +123,40 @@ export function convertProviderMetadataToSearchItem(p: ProviderMetadata): Search
 
 /**
  * Static baseline index dynamically generated from the canonical Settings Catalog and Provider Registry.
+ *
+ * NOTICE: the unified-registry sweep only covers `defineProvider` backends.
+ * Legacy speech/transcription providers (Kokoro, Pocket, MOSS, Ming, Whisper…)
+ * ride in through the live `allProvidersMetadata` sweep in SettingsSearchBar
+ * instead — see `rankSearchResults` below for how exact matches stay visible.
  */
 export const staticIndex: SearchItem[] = getAllCatalogItems()
   .map(convertCatalogItemToSearchItem)
   .filter((item): item is SearchItem => item !== null)
+
+/**
+ * Match tier for relevance ranking: title hits outrank id/route hits, which
+ * outrank keyword hits, which outrank bare description/category substring hits.
+ * Without this, an exact provider-name match sorts wherever the catalog order
+ * put it and can fall off the dropdown slice behind substring noise
+ * (e.g. "ming" matching "streaming" in a dozen descriptions).
+ */
+export function searchMatchTier(item: SearchItem, query: string): number {
+  const q = query.toLowerCase()
+  if (item.title.toLowerCase().includes(q))
+    return 0
+  if (item.id.toLowerCase().includes(q) || item.to.toLowerCase().includes(q))
+    return 1
+  if (item.keywords?.some(k => k.toLowerCase().includes(q)))
+    return 2
+  return 3
+}
+
+/**
+ * Stable relevance sort for filtered search results: exact title/id/route
+ * matches first, description-only substring matches last. Same-tier order is
+ * preserved, so callers can still `.slice(0, N)` for the dropdown.
+ */
+export function rankSearchResults(items: SearchItem[], query: string): SearchItem[] {
+  const q = query.trim().toLowerCase()
+  return [...items].sort((a, b) => searchMatchTier(a, q) - searchMatchTier(b, q))
+}

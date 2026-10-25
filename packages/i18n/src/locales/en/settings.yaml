@@ -1081,6 +1081,106 @@ pages:
           default-text: Hello! This is a test of the Kokoro text-to-speech system.
           title: Voice Playground
         title: Kokoro TTS (Local)
+      ming3-local:
+        description: On-device multilingual speech with voices you design in words
+          (0.5B, WASM)
+        header:
+          preview: Preview
+          tagline: Multilingual speech and voices you design in words.
+        chips:
+          voiceDesign: Voice design
+          multilingual: Multilingual
+          sampleRate: 44.1 kHz
+        model:
+          title: Model & performance
+          description: Choose the model and runtime settings for Ming 3.0.
+          label: Model
+          caption: 850 MB download · About 1.2–1.4 GB memory while running.
+          downloaded: Downloaded to this device
+          downloadModel: Download model
+          loadModel: Load model
+          downloading: Downloading model…
+          loading: Loading engine…
+          deleteFiles: Delete model files
+          deleteConfirm: Delete the downloaded 850 MB model bundle? Your saved voice
+            designs are kept.
+          cancel: Cancel
+          delete: Delete
+          compatible: Multithreading available
+          compatibleSingle: Single-thread mode
+          compatHint: Threaded synthesis needs a cross-origin-isolated page. Single-thread
+            mode may be slower than real time.
+          requiresReload: Changing threads reloads the engine when idle.
+          files: Model files
+        preset:
+          label: Generation preset
+          caption: Applies to every voice using Ming. Fast may skip words. Quality is
+            recommended.
+          quality: Quality
+          balanced: Balanced
+          fast: Fast
+        threads:
+          label: CPU threads
+          caption: More threads can improve synthesis speed.
+          auto: Auto (up to 8)
+        diagnostics:
+          title: Advanced runtime diagnostics
+          build: Runtime build
+          threads: Threads
+          cache: Model cache
+          cached: cached
+          notCached: not cached
+        designs:
+          title: Voice designs
+          description: Create and manage your custom voices with natural language
+            descriptions.
+          new: New design
+          nameLabel: Voice name
+          namePlaceholder: Evening storyteller
+          promptLabel: Describe the voice
+          promptPlaceholder: A warm, low voice with a calm pace…
+          promptHint: Describe the voice—not the words to speak.
+          try: Try this draft
+          save: Save voice design
+          saveAsNew: Save as new voice
+          saveAsNewHint: Changing the description creates a new voice and keeps the original.
+          savedTitle: Saved designs
+          noCloning: Recording-based voice cloning is not available in this browser build.
+          deleteConfirm: Delete this voice design? This cannot be undone.
+          empty: No saved designs yet — describe a voice above to create one.
+          viewDescription: View description
+        playground:
+          title: Voice Playground
+          hint: Listen while you tune your settings.
+          voiceLabel: Voice
+          savedDesignBadge: Saved design
+          builtinBadge: Built-in
+          tabsAll: All voices
+          tabsBuiltin: Built-in
+          tabsDesigns: My designs
+          searchPlaceholder: Search voices…
+          voicePrompt: Voice prompt
+          sayLabel: What should it say?
+          sampleLabel: English sample
+          insertExpression: Insert expression
+          experimentalNote: Expression tags are experimental in this build.
+          loadAndTest: Load model & test voice
+          testVoice: Test voice
+          stop: Stop
+          runningNote: Speech runs on this device after the model is downloaded.
+          audioOutput: Audio output
+          downloadWav: Download WAV
+          previewEmpty: Your voice preview appears here.
+          streamingDiagnostics: Streaming diagnostics
+          firstAudio: First audio
+          generationTime: Generation time
+          rtf: Real-time factor
+          frames: Frames
+          presetSuffix: preset
+          outputSuffix: output
+          keepEditing: Keep editing
+          replaceText: Replace
+        title: Ming 3.0 TTS (Local)
       fireworks:
         description: Speed-Optimized - $1 free credit for premium model hosting
         title: Fireworks.ai

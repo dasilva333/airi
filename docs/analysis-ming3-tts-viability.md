@@ -177,6 +177,55 @@ If browser-cache/COOP work stalls, ship Ming as a **native sidecar first**: `min
 - 44.1 kHz vs 24 kHz sentence-sync path — resample in adapter vs native-rate player?
 - 850 MB OPFS quota + BYOS backup exclusion (model shards must never enter the sync outbox).
 - `fast`-preset word drops (upstream WER note) — default to `quality`, offer `fast` with a reliability label.
+- Whether the fusor `Runtime` exposes a design-conditioning precompute/cache entry point (see §6) — probe in Phase 3, file upstream ask if absent.
+
+---
+
+## 6. Voice-Design Persistence (3-Part Tuple)
+
+Voice design follows the exact persistence pattern established by WAV voice cloning, minus the WAV. Ground truth for the pattern:
+
+| | Pocket (`pocket-tts-local.vue` + `speech.ts`) | MOSS (`moss-nano-local.vue` + `speech.ts`) |
+|---|---|---|
+| Metadata store | `pocket-voice-profiles-metadata`: `{id, name, createdAt, sourceFilename, sha256}` | `moss-voice-profiles-metadata`: `{id, name, createdAt, sourceFilename, sha256}` |
+| Blob store | `pocket-voice-profiles-blobs`: raw uploaded `File` | `voice-profile-blobs`: raw uploaded `File` |
+| Id scheme | `pocket-profile-${sha256(file).slice(0,16)}` — content-derived, dedups identical uploads | Same content-hash scheme |
+| Conditioned artifact | `promptVoiceEmbedding`, harvested from the worker's `voice-embedding` event after first synthesis and written back into metadata; subsequent turns skip encode entirely | `promptAudioCodes`, same harvest-and-cache shape |
+| Rename | Editable `name` via `saveProfileName` (id stable) | Same |
+
+The Ming design-voice record maps 1:1, with the WAV slot replaced by prompt text:
+
+```ts
+interface MingDesignVoice {
+  /** `ming-design-${sha256(designPrompt).slice(0,16)}` — content-derived, dedups identical prompts. */
+  id: string
+  /** User title. Fully open-ended (CJK-safe): the id carries the charset burden, so the title needs no restrictions. Editable post-save. */
+  name: string
+  createdAt: number
+  /** Verbatim design description. Never passes through UST — only speech text is transformed. */
+  designPrompt: string
+  /** Reserved. Populated if/when the fusor Runtime exposes a design-conditioning precompute/cache entry point. */
+  conditionedEmbedding?: unknown
+  /** Bundle/profile identifier for invalidating `conditionedEmbedding` on bundle change. */
+  artifactVersion?: string
+}
+```
+
+Storage and lifecycle rules:
+
+- **One store, metadata-only**: `ming-design-voices-metadata` (localforage). No blob store — the "binary" is bytes-tiny text, so there is nothing to put in it. CRUD mirrors the Pocket settings page (`handleFileUpload` → "save design" form with title + textarea + optional test-synthesis; `deleteVoiceProfile`; `saveProfileName`).
+- **`listVoices` merge**: built-ins + `★` starter (if any) + custom iterate over the metadata store — the same three-tier shape as the MOSS/Pocket providers in `speech.ts`.
+- **Generation path**: `{ voice: { design: description } }` per-request passthrough until artifact caching lands (demo API shape — upstream re-conditions per turn as far as can be observed; measure the per-turn cost in Phase 4). When the runtime exposes a cacheable artifact, harvest-and-write-back follows the `promptVoiceEmbedding` precedent.
+- **Composes with tags**: design voices (who) stack with `[Laughter]`-style inline tags (how) — tags live in speech text under the §2.2 allowlist, the design prompt lives in the voice record. No interaction.
+- **Sync**: text-tiny records are sync-safe by construction, unlike WAV blobs — no quota-gate pressure on the voice-profile reconciliation path (`data-catalog.md` §3.1.2 pattern applies as-is).
+
+## 7. Phased Rollout
+
+1. **Phase 1 — Provider entry.** `ming3-local` in `createSpeechMetadata` only: models (mix + `q7`), voices = built-ins, `defaultOptions.preset = 'quality'`. No custom settings UI yet. *Exit: the provider appears in the provider list and synthesizes end-to-end through the generic path.*
+2. **Phase 2 — Mockup shell page.** `speech/ming3-local.vue` skeleton first, wiring second: preset radio, thread count, voice-design textarea + saved-design list, model download status, cache row. *Exit: UX agreed on the mockup before any plumbing lands.*
+3. **Phase 3 — Plumbing + registry nuances.** Worker/adapter, `cache-utils` trio + `ModelCacheManager` row + coordinator budget (step 4 checklist), §6 design-voice tuple persistence, UST tag exemption for the 14 Ming tags, fusor `Runtime` conditioning-cache probe. *Exit: every registry touchpoint reports correctly (size, cached flags, per-row purge), design CRUD round-trips, tags reach the model.*
+4. **Phase 4 — Provider-page testing.** Presets, design-voice CRUD, tag firing (incl. lowercase rejection), error/empty-input paths, language/bundle evict + re-download, thread fallback labeling. *Exit: the settings page is fully functional against the real runtime.*
+5. **Phase 5 — End-to-end validation.** Synthesis across surfaces (desktop/web/pocket), first-audio latency, OPFS revisit load, WER spot-check, standby/hibernation behavior. *Exit: pilot-ready behind the threads gate.*
 
 ---
 

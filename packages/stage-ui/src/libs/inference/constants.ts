@@ -15,6 +15,7 @@ export const MODEL_IDS = {
   WHISPER: 'onnx-community/whisper-large-v3-turbo',
   BG_REMOVAL: 'jellybox/isnet-anime',
   WD14: 'SmilingWolf/wd-v1-4-swinv2-tagger-v2',
+  MING3: 'fusorlabs/ming-3.0-tts-0.5b-web',
 } as const
 
 /** Short model identifiers used in adapter state tracking and logging */
@@ -29,6 +30,7 @@ export const MODEL_NAMES = {
   MOONDREAM: 'moondream2',
   ATTENTION_GUARD: 'attention-guard',
   LAYA: 'laya',
+  MING3: 'ming3-local',
 } as const
 
 /**
@@ -429,6 +431,17 @@ export const TIMEOUTS = {
   LAYA_LOAD: 300_000,
   /** Laya System-1 single decide timeout (batched session.run on WASM) */
   LAYA_DECIDE: 15_000,
+
+  /** Ming 3.0 TTS bundle download timeout (absolute; 850MB mix bundle in 15 parts) */
+  MING3_LOAD: 3_600_000,
+  /**
+   * Time-to-first-audio budget for Ming generation, armed at request start.
+   * Covers prefill + the streaming vocoder's look-ahead frames (~0.3s threaded,
+   * ~2s single-threaded); single-thread on slower machines may exceed this.
+   */
+  MING3_GENERATE_FIRST_CHUNK: 30_000,
+  /** Inter-frame inactivity budget for Ming generation (one 80ms frame per step) */
+  MING3_GENERATE_IDLE: 15_000,
 } as const
 
 // ---------------------------------------------------------------------------

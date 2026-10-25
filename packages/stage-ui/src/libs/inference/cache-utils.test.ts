@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { clearSingleModelCache, evictOtherPocketModels, getDetailedModelCacheMap, isModelCached } from './cache-utils'
+import { clearSingleModelCache, evictOtherMing3Models, evictOtherPocketModels, getDetailedModelCacheMap, isModelCached } from './cache-utils'
 
 describe('isModelCached - moondream2', () => {
   const originalCaches = globalThis.caches
@@ -187,5 +187,59 @@ describe('pocket TTS OPFS registry', () => {
     await clearSingleModelCache('pocket-tts-local')
 
     expect(await isModelCached('pocket-tts-local')).toBe(false)
+  })
+})
+
+// Builds `ming-tts-parts` with flat BLAKE3-addressed part files.
+function mockMing3Store(hashes: string[]) {
+  const mingChildren = new Map<string, FakeFsNode>()
+  for (const hash of hashes)
+    mingChildren.set(hash, { kind: 'file', size: 50_000_000 })
+  const rootChildren = new Map<string, FakeFsNode>([
+    ['ming-tts-parts', { kind: 'directory', children: mingChildren }],
+  ])
+  const rootHandle = createFakeDirHandle(rootChildren)
+  vi.stubGlobal('navigator', {
+    storage: { async getDirectory() { return rootHandle } },
+  })
+  return { rootChildren, mingChildren }
+}
+
+describe('ming 3.0 OPFS registry', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('reports not cached when OPFS is unavailable', async () => {
+    expect(await isModelCached('ming3-local')).toBe(false)
+    const map = await getDetailedModelCacheMap()
+    expect(map['ming3-local']).toEqual({ cached: false, sizeBytes: 0 })
+  })
+
+  it('reports cached with the summed size of all bundle parts', async () => {
+    mockMing3Store(['aaa', 'bbb', 'ccc'])
+
+    expect(await isModelCached('ming3-local')).toBe(true)
+
+    const map = await getDetailedModelCacheMap()
+    expect(map['ming3-local']).toEqual({ cached: true, sizeBytes: 3 * 50_000_000 })
+  })
+
+  it('evicts stale parts but keeps the just-loaded manifest hashes', async () => {
+    const { mingChildren } = mockMing3Store(['keep1', 'keep2', 'stale'])
+
+    await evictOtherMing3Models(['keep1', 'keep2'])
+
+    expect(mingChildren.has('keep1')).toBe(true)
+    expect(mingChildren.has('keep2')).toBe(true)
+    expect(mingChildren.has('stale')).toBe(false)
+  })
+
+  it('clearSingleModelCache removes the whole Ming store', async () => {
+    mockMing3Store(['aaa'])
+
+    await clearSingleModelCache('ming3-local')
+
+    expect(await isModelCached('ming3-local')).toBe(false)
   })
 })

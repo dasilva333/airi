@@ -104,6 +104,14 @@ const knownModels: KnownModelItem[] = [
     icon: 'i-solar:speaker-minimalistic-bold-duotone',
     description: 'Single active language · switching languages evicts the previous bundle',
   },
+  {
+    id: 'ming3-local',
+    name: 'Ming 3.0 TTS (0.5B)',
+    category: 'audio',
+    runtime: 'WASM / OPFS',
+    icon: 'i-solar:soundwave-bold-duotone',
+    description: 'Multilingual neural TTS with voice design · ~850 MB bundle',
+  },
 
   // 3. Vision & Artistry
   {

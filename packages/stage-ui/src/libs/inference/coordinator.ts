@@ -102,6 +102,10 @@ export const MODEL_VRAM_ESTIMATES: Record<string, number> = {
   // single active language, ~160MB weights + arena)
   'pocket-tts-local': 200 * 1024 * 1024, // ~200 MB
 
+  // Ming 3.0 TTS (850MB mix bundle in OPFS, CPU WASM heap, not WebGPU VRAM —
+  // single-threaded-first until cross-origin isolation lands for worker threads)
+  'ming3-local': 1500 * 1024 * 1024, // ~1.5 GB (weights + WASM arena)
+
   // Laya System-1 ModernBERT ONNX — WASM heap backing, freed by worker terminate
   'laya-int8': 500 * 1024 * 1024, // ~500 MB (424MB weights + arena)
   'laya-fp16': 1000 * 1024 * 1024, // ~1 GB (843MB weights + arena)

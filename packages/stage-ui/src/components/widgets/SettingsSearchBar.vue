@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SearchItem } from '@proj-airi/stage-ui/constants'
 
-import { convertCatalogItemToSearchItem, getAllCatalogItems } from '@proj-airi/stage-ui/constants'
+import { convertCatalogItemToSearchItem, getAllCatalogItems, rankSearchResults } from '@proj-airi/stage-ui/constants'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { onClickOutside, useMediaQuery } from '@vueuse/core'
@@ -108,7 +108,7 @@ const searchResults = computed(() => {
   if (!query)
     return fullSearchIndex.value.slice(0, 8)
 
-  return fullSearchIndex.value.filter((item) => {
+  const matched = fullSearchIndex.value.filter((item) => {
     const kwMatch = item.keywords?.some(k => k.toLowerCase().includes(query))
     return (
       item.title.toLowerCase().includes(query)
@@ -116,7 +116,10 @@ const searchResults = computed(() => {
       || (item.description && item.description.toLowerCase().includes(query))
       || kwMatch
     )
-  }).slice(0, 12)
+  })
+  // Title/id matches first: an exact provider-name hit must not fall off the
+  // dropdown slice behind description-substring noise ("ming" vs "streaming").
+  return rankSearchResults(matched, query).slice(0, 12)
 })
 
 function handleExpand() {

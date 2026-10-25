@@ -3,7 +3,7 @@ import type { CatalogNodeItem } from './settings-catalog'
 
 import { describe, expect, it } from 'vitest'
 
-import { convertCatalogItemToSearchItem, convertProviderMetadataToSearchItem, staticIndex } from './settings-search-index'
+import { convertCatalogItemToSearchItem, convertProviderMetadataToSearchItem, rankSearchResults, searchMatchTier, staticIndex } from './settings-search-index'
 
 describe('settings-search-index', () => {
   describe('convertCatalogItemToSearchItem', () => {
@@ -146,6 +146,34 @@ describe('settings-search-index', () => {
   describe('staticIndex', () => {
     it('is an array', () => {
       expect(Array.isArray(staticIndex)).toBe(true)
+    })
+  })
+
+  describe('rankSearchResults', () => {
+    const item = (patch: Partial<{ id: string, title: string, to: string, keywords: string[], description: string }>) => ({
+      id: 'x',
+      title: 'X',
+      category: 'Settings',
+      to: '/x',
+      ...patch,
+    })
+
+    it('tiers title > id/route > keyword > description-only', () => {
+      expect(searchMatchTier(item({ title: 'Ming 3.0 TTS' }), 'ming')).toBe(0)
+      expect(searchMatchTier(item({ id: 'prov-ming3-local' }), 'ming')).toBe(1)
+      expect(searchMatchTier(item({ to: '/settings/providers/speech/ming3-local' }), 'ming')).toBe(1)
+      expect(searchMatchTier(item({ keywords: ['something-ming'] }), 'ming')).toBe(2)
+      expect(searchMatchTier(item({ description: 'incoming streams' }), 'ming')).toBe(3)
+    })
+
+    it('sorts exact provider matches above substring noise, stably', () => {
+      const noiseA = item({ id: 'a', title: 'Hearing', description: 'live streaming audio' })
+      const noiseB = item({ id: 'b', title: 'Discord Bot', description: 'incoming voice events' })
+      const exact = item({ id: 'prov-ming3-local', title: 'Ming 3.0 TTS', to: '/settings/providers/speech/ming3-local' })
+      const ranked = rankSearchResults([noiseA, noiseB, exact], 'ming')
+      expect(ranked[0]).toBe(exact)
+      // Stable within a tier: original relative order preserved.
+      expect(ranked.slice(1)).toEqual([noiseA, noiseB])
     })
   })
 })
