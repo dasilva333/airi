@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { VrmHiddenPrimitive } from '../hacker-studio/adapters/vrm/glb-exporter'
+import type { SupportedUploadMime, UploadNotice } from '../hacker-studio/domain/upload-validation'
+
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { ARTISTRY_PRESET_GROUPS, artistryGenerateHeadless, REPLICATE_IMAGEEDIT_PRESETS } from '@proj-airi/stage-shared'
 import { useModelStore } from '@proj-airi/stage-ui-three'
@@ -13,6 +16,13 @@ import { useAiriCardStore } from '../../../../../stores/modules/airi-card'
 import { useArtistryStore } from '../../../../../stores/modules/artistry'
 import { useSettings } from '../../../../../stores/settings'
 import { useVHackStore } from '../../../../../stores/vhack'
+import { exportVrmBinary } from '../hacker-studio/adapters/vrm/glb-exporter'
+import { buildExportFileName as buildHackerExportFileName } from '../hacker-studio/domain/export-filename'
+import { withUvGuidance } from '../hacker-studio/domain/generation-guidance'
+import { prettyMaterialName } from '../hacker-studio/domain/material-owners'
+import { linearizeRgba } from '../hacker-studio/domain/preview-gamma'
+import { textureIdentitiesMatch, textureKeyForIdentity } from '../hacker-studio/domain/texture-identity'
+import { buildUploadNotices, inferImageMime } from '../hacker-studio/domain/upload-validation'
 
 const settingsStore = useSettings()
 
@@ -43,12 +53,6 @@ watch(labMode, (mode) => {
   catch {}
 })
 const ACCENT_ACTION_CLASS = '!border-primary-500/30 !bg-primary-500 !text-white shadow-primary-500/20 shadow-sm hover:!bg-primary-600 active:!bg-primary-700 dark:!bg-primary-600 dark:hover:!bg-primary-500'
-const UV_GUIDANCE = 'Preserve the UV layout, seams, and transparent areas.'
-interface UploadNotice {
-  dimension?: string
-  transparency?: string
-  format?: string
-}
 const uploadNotice = ref<UploadNotice | null>(null)
 const uploadError = ref<string | null>(null)
 const isDragOver = ref(false)
@@ -363,12 +367,6 @@ interface TextureItem {
   materials: string[]
 }
 
-function prettyMaterialName(name: string) {
-  return name
-    .replace(/\s*\(Instance\)\s*$/i, '')
-    .replace(/\s*\(Outline\)\s*$/i, ' outline')
-    .replace(/^N00_[0-9_]+_/, '')
-}
 const textureList = ref<TextureItem[]>([])
 
 function extractTextures() {
@@ -414,23 +412,26 @@ function extractTextures() {
   })
 }
 
+function textureFingerprint(texture: any): string | null {
+  return texture?.image?.uuid || texture?.image?.src || texture?.uuid || null
+}
+
 function textureKeyFor(texture: any): number | string | null {
   if (!texture)
     return null
-  const idx = getGltfImageIndex(texture)
-  if (idx !== null)
-    return idx
-  return texture.image?.uuid || texture.image?.src || texture.uuid || null
+  return textureKeyForIdentity({
+    index: getGltfImageIndex(texture),
+    fingerprint: textureFingerprint(texture),
+  })
 }
 
 function textureMatchesSlot(slot: any, target: any, targetIdx: number | null): boolean {
   if (!slot || !target)
     return false
-  const sIdx = getGltfImageIndex(slot)
-  if (targetIdx !== null && sIdx !== null)
-    return sIdx === targetIdx
-  const fingerprint = target.image?.uuid || target.image?.src || target.uuid
-  return slot.image?.uuid === fingerprint || slot.image?.src === fingerprint || slot.uuid === fingerprint
+  return textureIdentitiesMatch(
+    { index: getGltfImageIndex(slot), fingerprint: textureFingerprint(slot) },
+    { index: targetIdx, fingerprint: textureFingerprint(target) },
+  )
 }
 
 function selectNode(item: any) {
@@ -652,14 +653,8 @@ function selectTexture(item: TextureItem) {
 
 // Unified Artistry Generation
 function effectiveGenerationPrompt() {
-  const prompt = aiPrompt.value.trim()
-  if (!prompt)
-    return prompt
-  // Guidance is added to the request only; never rewrite the saved prompt or
-  // append the same clause repeatedly.
-  if (/(uv\s*layout|seams|transparent\s*areas)/i.test(prompt))
-    return prompt
-  return `${prompt}\n\n${UV_GUIDANCE}`
+  // Guidance is added to the request only; never rewrite the saved prompt.
+  return withUvGuidance(aiPrompt.value)
 }
 
 async function generateAndSwap() {
@@ -842,25 +837,12 @@ function imageHasTransparency(image: any): boolean {
   return false
 }
 
-function inferImageMime(file: File): string | null {
-  const type = file.type.toLowerCase()
-  if (['image/png', 'image/jpeg', 'image/webp'].includes(type))
-    return type
-  if (/\.png$/i.test(file.name))
-    return 'image/png'
-  if (/\.jpe?g$/i.test(file.name))
-    return 'image/jpeg'
-  if (/\.webp$/i.test(file.name))
-    return 'image/webp'
-  return null
-}
-
 interface DecodedUpload {
   dataUrl: string
   width: number
   height: number
   hasAlpha: boolean
-  mime: string
+  mime: SupportedUploadMime
 }
 
 async function decodeUploadFile(file: File): Promise<DecodedUpload> {
@@ -896,18 +878,11 @@ async function applyUploadFile(file: File) {
     const original = vhackStore.getOriginalTextureImage?.(targetTex.uuid) || targetTex.image
     const originalWidth = original?.width || original?.naturalWidth
     const originalHeight = original?.height || original?.naturalHeight
-    const notices: UploadNotice = {}
-
-    if (originalWidth && originalHeight && (originalWidth !== decoded.width || originalHeight !== decoded.height)) {
-      notices.dimension = `Dimensions ${decoded.width}×${decoded.height} differ from the original ${originalWidth}×${originalHeight}; UVs will stretch.`
-    }
-    if (original && imageHasTransparency(original) && !decoded.hasAlpha) {
-      notices.transparency = 'This upload has no transparency, but the original texture does; cut-out areas may fill in.'
-    }
-    if (decoded.mime !== 'image/png') {
-      notices.format = 'PNG is recommended; JPEG and WebP can lose alpha or quality.'
-    }
-    uploadNotice.value = currentTextureKey.value === replacementKey && Object.keys(notices).length ? notices : null
+    const notices = buildUploadNotices(
+      { width: decoded.width, height: decoded.height, hasAlpha: decoded.hasAlpha, mime: decoded.mime },
+      { width: originalWidth || null, height: originalHeight || null, hasAlpha: original ? imageHasTransparency(original) : false },
+    )
+    uploadNotice.value = currentTextureKey.value === replacementKey ? notices : null
 
     // Successful decode: this now invalidates any in-flight generation for
     // this texture and applies immediately.
@@ -977,18 +952,7 @@ function linearizeForPreview(image: any): HTMLCanvasElement | null {
     return null
   ctx.drawImage(image, 0, 0)
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  const data = imageData.data
-  const lut = new Uint8Array(256)
-  for (let i = 0; i < 256; i++) {
-    const c = i / 255
-    const linear = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-    lut[i] = Math.round(linear * 255)
-  }
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = lut[data[i]]
-    data[i + 1] = lut[data[i + 1]]
-    data[i + 2] = lut[data[i + 2]]
-  }
+  linearizeRgba(imageData.data)
   ctx.putImageData(imageData, 0, 0)
   return canvas
 }
@@ -1198,63 +1162,21 @@ function finalizeEraserBake() {
 // Binary Export Logic (Surgical)
 
 // --- Export filename ---------------------------------------------------------
-// The native save panel uses this name, so prefer the real source name over a
-// generic "Surgical" fallback: VRM meta -> display-model name/file -> URL
-// basename -> active card -> stable id.
-function sanitizeModelBaseName(value?: string | null): string {
-  if (!value)
-    return ''
-  let name = value.trim()
-  try {
-    name = decodeURIComponent(name)
-  }
-  catch {}
-  name = name.split(/[?#]/)[0]
-  name = name.split(/[\\/]/).pop() || name
-  name = name.replace(/\.(vrm|glb|gltf|zip|pmx|pmd)$/i, '')
-  name = name.replace(/^(display-model-|preset-)/i, '')
-  name = name.replace(/[<>:"|?*\u0000-\u001F]/g, '_')
-  name = name.replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^[._]+|[._]+$/g, '')
-  return name.slice(0, 64)
-}
-
-function modelNameFromUrl(url?: string | null): string {
-  if (!url || url.startsWith('blob:') || url.startsWith('data:'))
-    return ''
-  try {
-    return new URL(url).pathname.split('/').pop() || ''
-  }
-  catch {
-    return url.split('/').pop() || ''
-  }
-}
-
-function resolveModelBaseName(): string {
-  const displayModel: any = settingsStore.stageModelSelectedDisplayModel
-  const candidates = [
-    activeVrm.value?.meta?.name,
-    activeVrm.value?.meta?.title,
-    displayModel?.name,
-    displayModel?.file?.name,
-    settingsStore.stageModelSelectedFile?.name,
-    modelNameFromUrl(settingsStore.stageModelSelectedUrl),
-    displayModel?.url ? modelNameFromUrl(displayModel.url) : '',
-    airiCardStore.activeCard?.name,
-    settingsStore.stageModelSelected,
-  ]
-  for (const candidate of candidates) {
-    const name = sanitizeModelBaseName(candidate)
-    if (name)
-      return name
-  }
-  return 'Avatar'
-}
-
+// The native save panel uses this name; source resolution is characterized by
+// hacker-studio/domain/export-filename.test.ts.
 function buildExportFileName(): string {
-  const now = new Date()
-  const pad = (value: number) => String(value).padStart(2, '0')
-  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
-  return `${resolveModelBaseName()}_VHACK_${stamp}.vrm`
+  const displayModel: any = settingsStore.stageModelSelectedDisplayModel
+  return buildHackerExportFileName({
+    metaName: activeVrm.value?.meta?.name,
+    metaTitle: activeVrm.value?.meta?.title,
+    displayModelName: displayModel?.name,
+    displayModelFileName: displayModel?.file?.name,
+    selectedFileName: settingsStore.stageModelSelectedFile?.name,
+    selectedUrl: settingsStore.stageModelSelectedUrl,
+    displayModelUrl: displayModel?.url,
+    cardName: airiCardStore.activeCard?.name,
+    selectedModelId: settingsStore.stageModelSelected,
+  }, new Date(), 'vrm')
 }
 
 async function exportVrm() {
@@ -1280,199 +1202,60 @@ async function exportVrm() {
     aiError.value = 'No source binary found (Reload model?)'
     return
   }
+
   isExporting.value = true
   try {
-    const originalBuffer = vhackStore.sourceArrayBuffer
-    const dataView = new DataView(originalBuffer)
+    const gltf = activeVrmParser.value?.json
+    if (!gltf)
+      throw new Error('No parsed glTF metadata available')
 
-    // GLB Header
-    const magic = dataView.getUint32(0, true)
-    if (magic !== 0x46546C67)
-      throw new Error('Invalid GLB magic')
-
-    // JSON Chunk
-    const jsonLen = dataView.getUint32(12, true)
-    const jsonContent = new TextDecoder().decode(new Uint8Array(originalBuffer, 20, jsonLen))
-    const gltf = JSON.parse(jsonContent)
-
-    // EXPORT VISIBILITY SURGERY: Permanently disable nodes that are hidden in the UI
-    console.group('>>> [VHACK] Surgical Export (Primitive-Aware Active)')
-    let unlinkedCount = 0
+    const hiddenPrimitives: VrmHiddenPrimitive[] = []
+    const hiddenNodeIndices: number[] = []
     let hiddenCandidates = 0
-
-    // Create a "Hidden Material" to neuter merged mesh primitives safely
-    if (!gltf.materials)
-      gltf.materials = []
-    const hiddenMatIdx = gltf.materials.length
-    gltf.materials.push({
-      name: 'VHACK_HIDDEN',
-      pbrMetallicRoughness: {
-        baseColorFactor: [0, 0, 0, 0], // Fully transparent
-        metallicFactor: 0,
-        roughnessFactor: 1,
-      },
-      alphaMode: 'BLEND',
-    })
 
     activeVrm.value.scene.traverse((node: any) => {
       const isRenderable = node.type === 'Mesh' || node.type === 'SkinnedMesh'
       const isRuntimeProxy = node.name?.startsWith('VRMExpression')
+      if (node.visible !== false || !isRenderable || isRuntimeProxy)
+        return
 
-      if (node.visible === false && isRenderable && !isRuntimeProxy) {
-        hiddenCandidates++
-        const assoc = activeVrmParser.value.associations.get(node)
-        const nodeIdx = getGltfNodeIndex(node, gltf)
-
-        // CASE A: Merged Mesh Primitive (Gura Mode)
-        // If Three.js split the mesh, associations will point to a specific primitive
-        if (assoc && assoc.meshes !== undefined && assoc.primitives !== undefined) {
-          const meshIdx = assoc.meshes
-          const primIdx = assoc.primitives
-          if (gltf.meshes[meshIdx] && gltf.meshes[meshIdx].primitives[primIdx]) {
-            console.log(`[VHACK] Primitive Surgery: Neutering Mesh [${meshIdx}] Prim [${primIdx}] ("${node.name}")`)
-            gltf.meshes[meshIdx].primitives[primIdx].material = hiddenMatIdx
-            unlinkedCount++
-          }
+      hiddenCandidates++
+      const assoc = activeVrmParser.value.associations.get(node)
+      if (assoc && assoc.meshes !== undefined && assoc.primitives !== undefined) {
+        const mesh = gltf.meshes?.[assoc.meshes]
+        if (mesh?.primitives?.[assoc.primitives]) {
+          hiddenPrimitives.push({
+            meshIndex: assoc.meshes,
+            primitiveIndex: assoc.primitives,
+          })
         }
-        // CASE B: Isolated Node (Maika Mode)
-        // If it's a dedicated node for this part, use the scale trick
-        else if (nodeIdx !== null && gltf.nodes[nodeIdx]) {
-          console.log(`[VHACK] Node Surgery (Ghost Scale): Hiding Node [${nodeIdx}] ("${node.name}")`)
-          gltf.nodes[nodeIdx].scale = [0, 0, 0]
-          unlinkedCount++
-        }
-      }
-    })
-
-    if (hiddenCandidates > 0 && unlinkedCount === 0) {
-      console.error('[VHACK] CRITICAL FAILURE: Found hidden meshes but could not resolve any GLTF indices.')
-    }
-    console.log(`[VHACK] Surgery Complete. Candidates: ${hiddenCandidates}, Unlinked: ${unlinkedCount}`)
-    console.groupEnd()
-
-    // BIN Chunk Info
-    const binOffset = 20 + jsonLen + 8
-    const binLen = dataView.getUint32(20 + jsonLen, true)
-    const originalBin = new Uint8Array(originalBuffer, binOffset, binLen)
-
-    // Mutation map: offset -> new data
-    // We only mutate if the texture exists in both our registry and the original file
-    const mutations: { offset: number, oldLen: number, newData: Uint8Array }[] = []
-
-    vhackStore.mutatedTextures.forEach((val, imgIndex) => {
-      const img = gltf.images[imgIndex]
-      if (img && img.bufferView !== undefined) {
-        const bv = gltf.bufferViews[img.bufferView]
-        const binaryString = atob(val.data)
-        const bytes = new Uint8Array(binaryString.length)
-        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i)
-        mutations.push({ offset: bv.byteOffset, oldLen: bv.byteLength, newData: bytes })
-        // Update JSON with new length and format so the rebuilt GLB stays valid
-        bv.byteLength = bytes.length
-        img.mimeType = val.mimeType || img.mimeType || 'image/png'
-      }
-    })
-
-    // Sort mutations by offset so we can splice sequentially
-    mutations.sort((a, b) => a.offset - b.offset)
-
-    // Reconstruction logic: Building a NEW BIN chunk and updating all bufferView offsets
-    let currentShift = 0
-    let lastOriginalOffset = 0
-    const newBinParts: Uint8Array[] = []
-
-    // We need to update ALL bufferViews, not just mutated ones, because their offsets shift
-    const sortedBufferViews = gltf.bufferViews.map((bv: any, idx: number) => ({ ...bv, idx })).sort((a: any, b: any) => a.byteOffset - b.byteOffset)
-
-    sortedBufferViews.forEach((bvProxy: any) => {
-      const originalBv = gltf.bufferViews[bvProxy.idx]
-      const mutation = mutations.find(m => m.offset === originalBv.byteOffset)
-
-      // 1. Copy original data from last offset to current offset
-      if (originalBv.byteOffset > lastOriginalOffset) {
-        newBinParts.push(originalBin.slice(lastOriginalOffset, originalBv.byteOffset))
-      }
-
-      // Update this bufferView's offset in the final JSON
-      originalBv.byteOffset += currentShift
-
-      if (mutation) {
-        // 2. Inject mutated data
-        newBinParts.push(mutation.newData)
-        currentShift += (mutation.newData.length - mutation.oldLen)
-        lastOriginalOffset = mutation.offset + mutation.oldLen
       }
       else {
-        // 3. Copy original bufferView data
-        newBinParts.push(originalBin.slice(originalBv.byteOffset - currentShift, originalBv.byteOffset - currentShift + originalBv.byteLength))
-        lastOriginalOffset = originalBv.byteOffset - currentShift + originalBv.byteLength
-      }
-
-      // 4. Handle alignment (GLB requires 4-byte padding for bufferViews)
-      const currentTotalLen = newBinParts.reduce((acc, curr) => acc + curr.length, 0)
-      const padding = (4 - (currentTotalLen % 4)) % 4
-      if (padding > 0) {
-        newBinParts.push(new Uint8Array(padding).fill(0x20)) // Padding with spaces or zeros
-        currentShift += padding
-        // Note: we don't increment lastOriginalOffset here because padding is "fresh"
+        const nodeIdx = getGltfNodeIndex(node, gltf)
+        if (nodeIdx !== null && gltf.nodes?.[nodeIdx])
+          hiddenNodeIndices.push(nodeIdx)
       }
     })
 
-    // Copy remaining original BIN data if any
-    if (lastOriginalOffset < originalBin.length) {
-      newBinParts.push(originalBin.slice(lastOriginalOffset))
-    }
+    console.group('>>> [VHACK] Surgical Export')
+    if (hiddenCandidates > 0 && hiddenPrimitives.length + hiddenNodeIndices.length === 0)
+      console.error('[VHACK] CRITICAL FAILURE: Found hidden meshes but could not resolve any GLTF indices.')
+    console.log(`[VHACK] Surgery Complete. Candidates: ${hiddenCandidates}, Resolved: ${hiddenPrimitives.length + hiddenNodeIndices.length}`)
 
-    // Final JSON Stringification and Padding (Surgical UTF-8 Fix)
-    const jsonEncoder = new TextEncoder()
-    const jsonStr = JSON.stringify(gltf)
-    let jsonBytes = jsonEncoder.encode(jsonStr)
+    const mutations = [...vhackStore.mutatedTextures.entries()].map(([imageIndex, mutation]) => ({
+      imageIndex,
+      data: mutation.data,
+      mimeType: mutation.mimeType,
+    }))
 
-    const jsonPadding = (4 - (jsonBytes.length % 4)) % 4
-    if (jsonPadding > 0) {
-      const paddedBytes = new Uint8Array(jsonBytes.length + jsonPadding)
-      paddedBytes.set(jsonBytes)
-      for (let i = 0; i < jsonPadding; i++) paddedBytes[jsonBytes.length + i] = 0x20 // Pad with spaces
-      jsonBytes = paddedBytes
-    }
-
-    const finalBinLen = newBinParts.reduce((acc, curr) => acc + curr.length, 0)
-    // The buffer's declared length must follow the rebuilt BIN chunk, otherwise
-    // strict glTF/VRM loaders may ignore the patched texture bytes.
-    if (gltf.buffers?.[0])
-      gltf.buffers[0].byteLength = finalBinLen
-    const finalTotalLen = 12 + 8 + jsonBytes.length + 8 + finalBinLen
-
-    // Assembly
-    const outputBuffer = new ArrayBuffer(finalTotalLen)
-    const outView = new DataView(outputBuffer)
-    const outBytes = new Uint8Array(outputBuffer)
-
-    // Header
-    outView.setUint32(0, 0x46546C67, true)
-    outView.setUint32(4, 2, true)
-    outView.setUint32(8, finalTotalLen, true)
-
-    // JSON Chunk Header
-    outView.setUint32(12, jsonBytes.length, true)
-    outView.setUint32(16, 0x4E4F534A, true) // "JSON"
-
-    // JSON Content
-    outBytes.set(jsonBytes, 20)
-
-    // BIN Chunk Header
-    const binChunkHeaderOffset = 20 + jsonBytes.length
-    outView.setUint32(binChunkHeaderOffset, finalBinLen, true)
-    outView.setUint32(binChunkHeaderOffset + 4, 0x004E4942, true) // "BIN"
-
-    // BIN Content
-    let currentOutOffset = binChunkHeaderOffset + 8
-    newBinParts.forEach((part) => {
-      outBytes.set(part, currentOutOffset)
-      currentOutOffset += part.length
+    const outputBuffer = exportVrmBinary({
+      source: vhackStore.sourceArrayBuffer,
+      mutations,
+      hiddenPrimitives,
+      hiddenNodeIndices,
     })
+    console.groupEnd()
 
-    // Download
     const blob = new Blob([outputBuffer], { type: 'application/octet-stream' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')

@@ -158,8 +158,8 @@ This document tracks all active pending items, architectural roadmaps, and featu
 *   **Director Spatial Upgrade**: Evolve Director LLM into Spatial Scene Architect, AIRIRegionalResolver custom ComfyUI node, Ideogram 4 spatial integration (0-1000 grid).
 
 ### Unified Texture Editor (V-HACK / L-HACK & ModelCustomizer)
-*References: [design-vhack-studio.md](../../../../../design-vhack-studio.md) | [design-model-customizer.md](../../../../../design-model-customizer.md)*
-*   **Multi-Model Reskin & ModelCustomizer Extension**: Dynamic reskinning editor building on ModelCustomizer unified model handling across VRM (3D), Live2D (2D), MMD/PMX, and Spine.
+*References: [design-hacker-studio.md](../../../../design-hacker-studio.md) | [design-vhack-studio.md](../../../../design-vhack-studio.md) (historical) | [design-model-customizer.md](../../../../design-model-customizer.md)*
+*   **Multi-Model Reskin & ModelCustomizer Extension**: Dynamic reskinning editor building on ModelCustomizer unified model handling across VRM (3D), Live2D (2D), and Spine. MMD/PMX is deferred: the current loader has no writable export bundle, so it is excluded from the Hacker Studio adapter scope.
 
 ### Unified Sticker System: In-Chat Slices & Desktop Screen Spawning (Dormant)
 *Reference: [project-stickers-system-spec.md](../../../../../project-stickers-system-spec.md)*

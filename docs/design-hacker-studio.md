@@ -1,0 +1,589 @@
+# Hacker Studio: Model-Agnostic Avatar Asset Modding
+
+**Status:** Draft, October 2026
+**Supersedes:** the V-HACK-only UX and architecture in [design-vhack-studio.md](design-vhack-studio.md) (kept as historical context)
+**Roadmap entry:** [Unified Texture Editor (V-HACK / L-HACK & ModelCustomizer)](content/en/docs/chronicles/roadmap.md)
+**Related:** [design-model-customizer.md](design-model-customizer.md), [AIRI Character Rendering skill](../.agents/skills/airi-character-rendering/SKILL.md)
+
+---
+
+## 1. Summary
+
+Hacker Studio is one docked **Avatar Appearance** section shared by the supported display-model formats. It brings the V-HACK / L-HACK texture workflow to **VRM, Live2D, and Spine** through a common shell and format adapters:
+
+- Same tabs, Local editing / Promptcraft modes, upload/drop flow, replacement history, preview, validation, generation progress, and footer for all formats.
+- **Atlas/texture replacement is the first milestone.** Parts/visibility is the second.
+- **New UI only.** The old V-HACK Lab and the L-HACK purple drawer are retired; format-specific internals move behind adapters.
+- **Thin shell, thick adapters.** GLB surgery, Pixi baseTexture swaps, and Spine atlas/ZIP handling stay inside their format adapters.
+- **One new serializable session store.** No migration from `vhack.ts` / `lhack.ts`; old AI keys and session state are intentionally dropped.
+- **MMD is excluded.** Its current wiring has no writable export bundle; a preview-only MMD surface is not worth building.
+- **Three adapters in one initiative**, phased so VRM and Live2D establish the contract before Spine lands.
+
+---
+
+## 2. Context
+
+The original V-HACK design was deliberately VRM-only: a Three.js/GLB inspector with MToon parameters, texture decks, AI texture generation, and a surgical GLB repacker. L-HACK grew as a parallel Live2D panel with its own purple drawer, Pixi atlas swapping, ZIP export, and a second store.
+
+The roadmap already names the intended convergence:
+
+> **Unified Texture Editor (V-HACK / L-HACK & ModelCustomizer)** — Dynamic reskinning editor building on ModelCustomizer unified model handling across VRM (3D), Live2D (2D), MMD/PMX, and Spine.
+
+MMD was part of the original roadmap target, but is now explicitly deferred: the current MMD loader has no writable export bundle (see §3.1). This initiative covers VRM, Live2D, and Spine.
+
+The concepts already exist in every format:
+
+| Concept | VRM | Live2D | Spine |
+| :--- | :--- | :--- | :--- |
+| Texture unit | glTF image | atlas page | atlas page |
+| Owner | material / outline | drawable / part | slot / attachment |
+| Preview apply | in-memory `Texture.image` | `baseTexture` swap | atlas page swap |
+| Export | surgical GLB | ZIP rewrite | ZIP rewrite |
+| Parts | nodes | drawables | slots / attachments |
+
+The UI, state, and export plumbing are what diverged. Hacker Studio converges those, not the format internals.
+
+### Current split (for context)
+
+- `vrm.vue` embeds `vrm-vhack/HackerPanel.vue` docked in Avatar Appearance.
+- `live2d-lhack/LHackerPanel.vue` is a fixed drawer toggled from `live2d.vue`, mounted globally in `model-settings/index.vue`.
+- `vhack.ts` and `lhack.ts` duplicate AI settings, generation state, mutation maps, and visibility sets.
+- Live2D's drawable list currently returns `[]` behind a `SCALED BACK` comment; its revert path calls `window.location.reload()`.
+
+This document specifies the replacement.
+
+---
+
+## 3. Goals and non-goals
+
+### Goals
+
+1. One **Avatar Appearance** experience for VRM, Live2D, and Spine.
+2. First-class **atlas/texture replacement** for all three, including download, local upload/drop, AI generation, preview, revert, and export where a source bundle exists.
+3. Preserve the new UI contract: Local editing / Promptcraft, shared chrome outside forms, decode-before-apply uploads, replacement origin/history, generation revisions, and accessible owner information.
+4. Thin shared shell; format adapters own rendering, texture application, parts, and export.
+5. One new serializable store for cross-format session state; **no migration** and no legacy dual-write.
+6. Retire the old V-HACK Lab and L-HACK drawer rather than running two UIs.
+
+### Non-goals (first milestone)
+
+- Full Parts parity for Live2D/Spine before texture replacement works. VRM Parts remains; other Parts are capability-gated until phase 5.
+- A universal material editor. Only adapters that can expose material controls do so.
+- UV-aware painting or per-material image duplication for shared atlases (a known VRM limitation; see §13).
+- Exporting a complete bundle when the source is a bare model URL with no original archive.
+- Migrating old `vhack_*` / `lhack_*` settings, AI keys, or session data.
+- MMD support of any kind (see §3.1).
+- Spine skin authoring beyond the existing settings panels.
+
+### 3.1 MMD is intentionally out of scope
+
+The current MMD pipeline consumes a PMX/PMD and either a ZIP bundle or a bare model URL. It exposes the loaded Three.js mesh but does not retain a writable PMX/source bundle, and there is no viable export path in the present architecture. Shipping a texture-preview-only MMD adapter would contradict Hacker Studio's export contract and create a second-class surface.
+
+MMD is therefore not an adapter in this initiative. Revisit only if the MMD loader is redesigned to retain a writable bundle (PMX + external texture paths) and an exporter is specified separately. No MMD UI, store state, or deferred tab should be added now.
+
+---
+
+## 4. Product and UX
+
+### 4.1 Mount
+
+Each format settings panel owns an `Avatar Appearance` section that hosts the shared shell:
+
+- `vrm.vue`
+- `live2d.vue`
+- `spine.vue`
+
+The Live2D L-HACK drawer, its toggle, and the global `LHackerPanel` mount in `model-settings/index.vue` are removed. The old VRM `HackerPanel` becomes a thin compatibility wrapper or is removed once the shell is in place.
+
+The shell is the same 440px controls-rail content used by the current Lab. No format-specific heading is duplicated; the outer Section title/subtitle remain.
+
+### 4.2 Shared chrome
+
+Outside the Local/Promptcraft forms:
+
+- Selected texture header: name, format/type, dimensions, owner count, expandable owner list (touch-friendly `<details>`).
+- Current / Replacement thumbnails.
+- Preview eye with “on avatar” hint.
+- Download replacement, surgical eraser, Revert texture, Change texture.
+- Replacement origin status: uploaded filename or “Generated replacement”; “Loaded in preview” / “Saved · preview off”.
+- Upload warnings (dimensions, transparency loss, non-PNG format, adapter-specific metadata).
+- Material adjustments (only if `capabilities.materials`).
+- Shared-texture warning using adapter vocabulary.
+- Generation progress/error status visible in both modes.
+- Footer: Reset changes + adapter export action. Export is the persistent primary action.
+
+### 4.3 Local editing / Promptcraft
+
+- One segmented mode switch immediately above the active form.
+- Default **Local editing**; mode is session-persisted globally across formats/textures.
+- Prompt is preserved when switching modes; texture selection does not reset the mode.
+- **Local editing**: download, drop zone, upload; decode/validate before applying; warnings; immediate preview; Revert available.
+- **Promptcraft**: style presets, prompt, provider settings, Generate. The UV-layout/seams/transparency guidance is appended to the request only, never written back to `aiPrompt` or appended repeatedly.
+- Generation is allowed to continue while switching modes. A compact shared status remains visible in Local editing; Promptcraft shows the action label and percentage alongside the Generate button.
+- A late generation result is discarded if a newer upload, eraser bake, revert, reset, or model change landed on the originating texture.
+
+### 4.4 Tabs
+
+- **Textures** — atlas/texture browser. The shell label is “Textures”; adapters may use “Atlas” in descriptions and summaries.
+- **Lab** — per-texture replacement.
+- **Parts** — format parts/drawables. Priority 2. Hidden until an adapter declares `capabilities.parts`, except VRM which already has it.
+
+### 4.5 Upload contract
+
+- PNG recommended; JPEG and WebP accepted when the adapter/runtime can load them.
+- Decode and validate before mutating anything.
+- Non-blocking warnings:
+  - dimensions differ from the original;
+  - upload loses transparency the original uses;
+  - non-PNG format;
+  - adapter-specific warnings (for example, Spine atlas-page dimension metadata).
+- Valid uploads apply immediately to the preview; no second confirmation.
+- Replacing an existing replacement is allowed; Revert and per-texture history remain the safety net.
+- Show filename for uploads and “Generated replacement” for AI results, derived from the selected texture’s stored replacement metadata. Switching textures must not erase that origin.
+
+### 4.6 Styling
+
+- Use the current docked, theme-aware surface and typography.
+- Accent using existing `primary` chroma tokens; no hardcoded cyan/purple and no global `Button` variant changes.
+- Upload/Generate use the accent within their forms; Export is the persistent primary in the footer.
+- The old L-HACK purple/dark drawer is retired. A small format badge is sufficient identity; layout and accent remain unified.
+
+---
+
+## 5. Architecture
+
+### 5.1 Shape
+
+```text
+packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/
+  HackerStudioSection.vue          # host: adapter selection, lifecycle, Section wrapper
+  HackerStudioShell.vue            # tabs, mode switch, shared chrome, footer
+  components/
+    TextureGrid.vue
+    TextureLab.vue
+    PartTree.vue
+    UploadDropZone.vue
+    ReplacementStatus.vue
+    GenerationStatus.vue
+    MaterialAdjustments.vue         # adapter-supplied controls
+  composables/
+    useHackerStudio.ts              # selection, mode, history, revision, generation, validation
+  adapters/
+    types.ts
+    vrm/
+      adapter.ts
+      glbSurgeon.ts
+      texturePipeline.ts
+    live2d/
+      adapter.ts
+      pixiPipeline.ts
+      zipExporter.ts
+    spine/
+      adapter.ts
+      atlasZipExporter.ts
+  exporters/
+    types.ts
+  stores/
+    hacker-studio.ts
+```
+
+The shell never imports Three.js, PixiJS, or Spine runtime types. Adapters never render shared chrome.
+
+### 5.2 Data flow
+
+```text
+adapter (active format)
+  ├─ textures / parts descriptors (serializable)
+  ├─ applyTexture(id, dataUrl, meta) ──► live model
+  ├─ getGenerationBase(id) ──► raw image
+  └─ exportAsset() ──► { blob, filename, extension }
+
+useHackerStudio(adapter)
+  ├─ selected texture/part
+  ├─ mode + prompt
+  ├─ replacement metadata + previewing
+  ├─ per-texture revision guard
+  ├─ upload validation
+  └─ generation lifecycle
+
+HackerStudioShell
+  ├─ Textures tab
+  ├─ Lab (Local / Promptcraft)
+  ├─ Parts tab (capability-gated)
+  └─ footer (Reset / adapter export)
+```
+
+### 5.3 Adapter contract
+
+```ts
+export type HackerModelKind = 'vrm' | 'live2d' | 'spine'
+
+export interface HackerCapabilities {
+  textures: boolean
+  preview: boolean
+  revert: boolean
+  parts: boolean
+  materials: boolean
+  /**
+   * VRM only: pre-linearize the preview image to compensate the legacy
+   *  NoColorSpace swap. Must never affect export bytes.
+   */
+  previewGamma: boolean
+  export: 'full-bundle' | 'disabled'
+}
+
+export interface HackerTexture {
+  id: string | number
+  name: string
+  kind: string // Main | Shade | Atlas | ...
+  previewUrl: string | null
+  width: number | null
+  height: number | null
+  owners: string[] // material/drawable/slot labels
+  hasAlpha: boolean | null
+  shared: boolean
+}
+
+export interface HackerPart {
+  id: string
+  name: string
+  kind: string
+  visible: boolean
+  canFocus: boolean
+}
+
+export interface HackerMaterialControls {
+  // Adapter-defined, serializable descriptors; values are read/written through
+  // adapter methods, not by the shell directly.
+}
+
+export interface HackerExportResult {
+  blob: Blob
+  filename: string
+}
+
+export interface HackerAdapter {
+  readonly kind: HackerModelKind
+  readonly identity: string // model id/url/hash; stable for session keying
+  readonly label: string // VRM / Live2D / Spine
+  readonly capabilities: HackerCapabilities
+
+  readonly ready: Ref<boolean>
+  readonly textures: Ref<HackerTexture[]>
+  readonly parts: Ref<HackerPart[]>
+  readonly materialControls: Ref<HackerMaterialControls[]>
+
+  /**
+   * Raw, unmodified current texture for AI generation. Must not return the
+   *  gamma-compensated preview image.
+   */
+  getGenerationBase: (id: HackerTexture['id']) => Promise<string>
+
+  applyTexture: (id: HackerTexture['id'], dataUrl: string, meta: {
+    source: 'upload' | 'generated'
+    fileName?: string
+  }) => Promise<void>
+
+  /** Restore the live model to the original image for this texture. */
+  restoreTexture: (id: HackerTexture['id']) => void
+
+  setPartVisibility: (id: string, visible: boolean) => void
+
+  /** Optional adapter-specific image preparation (VRM gamma compensation). */
+  preparePreviewImage?: (dataUrl: string, id: HackerTexture['id']) => Promise<string>
+
+  exportAsset: () => Promise<HackerExportResult>
+
+  reset: () => void
+  dispose: () => void
+}
+```
+
+Rules:
+
+- The shell only sees serializable descriptors and calls adapter methods.
+- The adapter owns the original texture map, mutation registry, source archive, and format-specific cleanup.
+- `getGenerationBase` returns the raw applied image, not the normalized preview.
+- `applyTexture` is atomic from the shell’s perspective: adapter errors surface as typed failures and do not silently overwrite.
+- `identity` is used to namespace replacement history and revisions. It must combine format and previewed model identity.
+- Adapters must not put raw Three/Pixi/Spine objects into Pinia.
+
+### 5.4 Shared state
+
+A new `useHackerStudioStore` (`model-settings/hacker-studio/stores/hacker-studio.ts`) owns only serializable state:
+
+```ts
+interface HackerSession {
+  identity: string
+  mode: 'local' | 'prompt'
+  selectedTextureId: string | number | null
+  selectedPartId: string | null
+  replacements: Map<string, {
+    url: string
+    source: 'upload' | 'generated'
+    fileName?: string
+  }>
+  previewing: Set<string>
+  revisions: Map<string, number>
+  uploadNotice: UploadNotice | null
+  uploadError: string | null
+  generation: {
+    textureId: string | number | null
+    targetName: string | null
+    startedRevision: number
+    progress: number
+    actionLabel: string | null
+    error: string | null
+    isGenerating: boolean
+  }
+}
+```
+
+- Texture key = `${adapter.identity}:${texture.id}`.
+- Mode is one global session value, not format-specific.
+- Replacements/history persist across tab, texture, and format switches within the session, and are cleared on model change/reset.
+- Prompt text is shell state, preserved across mode switches; no silent rewriting.
+- AI provider configuration comes from `useArtistryStore`. The duplicated `vhack_gemini_*` / `lhack_gemini_*` keys and `vhack.ts` / `lhack.ts` stores are removed once adapters are in place. **No migration and no legacy fallback reads.**
+
+### 5.5 Exporters
+
+The footer calls `adapter.exportAsset()`; the shell only renders the label and handles the download.
+
+| Adapter | Export contract |
+| :--- | :--- |
+| VRM | Surgical GLB rebuild → `.vrm` |
+| Live2D | Existing JSZip rewrite of `model3.json` texture entries → `.zip`; port `LHackerPanel.exportZip()`, don't rebuild it |
+| Spine | New JSZip rewrite of atlas-page images + `.atlas` metadata → `.zip` |
+
+The Live2D exporter already exists in `LHackerPanel.exportZip()`: it loads `lhackStore.originalZipBuffer`, reads `model3.json.FileReferences.Textures`, overwrites the matching ZIP entries from `mutatedTextures`, and downloads a ZIP. This is a working feature to port, not a capability gap. It requires the source ZIP buffer; models loaded from a bare model URL may not have one.
+The Spine exporter is new but follows the same ZIP-rewrite pattern: capture the original ZIP, locate the `.atlas` and its page paths, overwrite the page entries, patch page dimensions/PMA in the atlas text when replacement dimensions differ, and download a ZIP. This is feasible for ZIP-sourced models; only a sibling-URL source without an archive has no bundle to rewrite.
+
+Filename pattern: `<base>_HACK_<YYYYMMDD-HHmm>.<ext>`, derived from VRM meta/display model, or the model/ZIP basename for 2D formats.
+
+`export: 'disabled'` is a visible capability, not a silent no-op. The shell shows the adapter’s reason (for example, “Load a ZIP bundle to export a complete model”).
+
+---
+
+## 6. Capability matrix
+
+| Capability | VRM | Live2D | Spine |
+| :--- | :--- | :--- | :--- |
+| Atlas/texture replacement | ✅ embedded images | ✅ atlas pages | ✅ atlas pages |
+| Local upload / drop | ✅ | ✅ | ✅ |
+| AI generation | ✅ | ✅ | ✅ |
+| Preview / restore / revert | ✅ | ✅ | ✅ |
+| Full bundle export | ✅ `.vrm` | ✅ `.zip` (existing exporter; needs source ZIP) | ✅ `.zip` (new exporter; needs source ZIP) |
+| Parts tab | ✅ existing nodes | ⏳ drawables (currently disabled) | ⏳ slots/attachments |
+| Material adjustments | ✅ MToon | ❌ | ❌ |
+| Gamma preview compensation | ✅ | ❌ | ❌ |
+| Owner vocabulary | materials | drawables | slots/attachments |
+
+### Capability policy
+
+- Parts tabs are **hidden** until the adapter declares `parts` true. Do not show an empty Parts tab.
+- Material adjustments are hidden when `materials` is false.
+- Export is disabled with an explicit reason when the source archive is unavailable.
+- Gamma compensation is adapter-local; the shell never re-encodes texture bytes.
+- For shared textures, the warning uses `owners.length` and adapter-provided noun; there is no generic “materials” assumption.
+
+---
+
+## 7. Format adapter notes
+
+### 7.1 VRM
+
+- Port the current `HackerPanel` internals into `adapters/vrm`.
+- Textures = glTF images; owners = materials, including outlines.
+- Apply = in-memory texture image swap; preserve the legacy NoColorSpace behavior and use the **preview-only sRGB linearization LUT** (`previewGamma`), keeping export bytes raw/alpha-patched.
+- Parts = current node visibility tree.
+- Materials = current MToon adjustments.
+- Export = existing surgical GLB repacker, hidden-node surgery, mutation registry, and filename resolver.
+- Known limitation: one glTF image shared by several material slots cannot have per-slot replacement on export; the shared-image warning remains.
+- This adapter is the parity baseline: its extracted shell must behave exactly as the current committed UI before Live2D work starts.
+
+### 7.2 Live2D
+
+- Textures = Pixi atlas pages; owners = drawables/parts that reference them.
+- Apply = replace `baseTexture` and synchronize affected drawables; preserve original texture handles for revert.
+- **Drawable/parts support is currently disabled** (`drawables` returns `[]` under a `SCALED BACK` comment). Implement discovery and opacity/visibility in phase 5; until then, Parts is hidden.
+- Export = the **existing** `LHackerPanel.exportZip()` flow, ported into the adapter: `originalZipBuffer` → `model3.json.FileReferences.Textures` → overwrite ZIP entries from the mutation registry → `JSZip.generateAsync` download. This is functioning today for ZIP-sourced models; it is not a new capability. Keep the ZIP-source requirement and surface a clear disabled reason otherwise.
+- Replace the current full-page reload on revert with in-place restoration.
+- Remove the fixed drawer, the purple styling, and the `lhackStore.isHackerModeActive` toggle. Mount the shared section in `live2d.vue`.
+- Atlas page replacement does not carry material semantics; no Material adjustments.
+
+### 7.3 Spine
+
+- Textures = atlas-page images referenced by the `.atlas` file; owners are slots/attachments that use the page (resolved by the adapter where feasible; otherwise the page itself is the owner).
+- Apply = replace the page texture in the runtime texture atlas; preserve the original page for restore.
+- Source/export: capture the original ZIP buffer and atlas-page paths. Rewrite the page images in the ZIP. This is a ZIP-rewrite problem similar to Live2D, not a fundamental blocker; it is new work because no Spine exporter exists yet. If the model came from a sibling `.skel`/`.json` URL with no archive, full-bundle export is disabled with a reason.
+- Atlas metadata matters: page width/height and premultiplied-alpha are part of the `.atlas` text. If a replacement page has different dimensions, the adapter must patch the atlas text and/or warn; it must never silently produce a mismatched atlas. Preserve PMA.
+- Parts (slots/attachments/skins) are phase 5.
+- No Material adjustments.
+
+---
+
+## 8. Shared behavior details
+
+### 8.1 Upload validation
+
+1. Accept `image/png`, `image/jpeg`, `image/webp`; infer MIME from extension when the browser omits it.
+2. Read/decode the image before mutating the model.
+3. Compare with the adapter texture descriptor:
+   - dimensions mismatch → warning;
+   - original had alpha and upload has none → transparency-loss warning;
+   - non-PNG → format recommendation;
+   - adapter-specific metadata warning (Spine atlas dimensions, etc.).
+4. Bump the texture revision, apply the preview, and store replacement metadata.
+5. On decode failure, leave the live model untouched and show the error.
+
+Warnings do not block. Applying is immediate after successful decode.
+
+### 8.2 Generation ownership
+
+- Capture at start: originating texture id/key, adapter identity, raw generation base, starting revision, and model instance.
+- Upload/eraser/revert/reset/model changes bump or clear the revision.
+- On result: if the revision or model changed, discard the result and surface a visible “result discarded” status. Never overwrite a newer edit.
+- The result applies to the originating texture even if the user has selected another texture/format; history and preview state update for that texture.
+- Progress is shared in the shell so it stays visible in Local editing; Promptcraft additionally shows the action label and percentage.
+- Presets fill the prompt by design; generation guidance is request-only and is not persisted into `aiPrompt`.
+
+### 8.3 Preview and revert
+
+- Preview is per-texture, not global.
+- Restore must not reload the page or model.
+- Reset clears replacement history, preview flags, mutations, warnings, and generation errors for the active model.
+- Adapters dispose temporary canvases/textures and revoke blob URLs they own.
+
+### 8.4 Export
+
+- Export is the persistent primary action, independent of the Lab mode.
+- `exportAsset` runs adapter-specific repacking and returns a filename; the shell downloads the blob and reports failures.
+- Export must use raw/alpha-patched image bytes, never the gamma-normalized preview.
+- Full-bundle export is only advertised when the source archive is captured.
+
+---
+
+## 9. Store and settings
+
+- New namespace: `hacker-studio` store and session state.
+- New AI/provider preference surface: consume `useArtistryStore`; remove duplicated Gemini key fields from the old stores.
+- **No migration.** Old `vhack_*` and `lhack_*` keys are not read, not dual-written, and will be removed with the old stores. Users start with fresh Hacker Studio settings.
+- Raw model objects stay outside the store; only texture descriptors, replacement URLs, metadata, revisions, and generation status are stored.
+- Session key includes adapter kind + previewed model identity; switching format must not cross-contaminate replacement history.
+- Mode is global session state; prompt is shell state and preserved across mode switches.
+
+---
+
+## 10. Lifecycle and mount
+
+1. The host section creates the adapter for the active renderer and previewed model.
+2. The adapter attaches to the live model and publishes serializable texture/part descriptors.
+3. `useHackerStudio` restores any existing session state for `adapter.identity`.
+4. On model change/format switch, adapters dispose listeners and temporary textures; sessions are keyed and retained only for the current app session.
+5. On unmount, adapter `dispose()` runs; no global overlay remains.
+
+Mount points:
+
+- `vrm.vue`: existing Avatar Appearance section → `<HackerStudioSection kind="vrm" />`.
+- `live2d.vue`: new Avatar Appearance section → `<HackerStudioSection kind="live2d" />`; remove drawer/toggle.
+- `spine.vue`: new Avatar Appearance section after its existing Character/Scene sections.
+- `model-settings/index.vue`: remove the global `LHackerPanel` mount.
+
+---
+
+## 11. Rollout
+
+VRM, Live2D, and Spine are in scope for this initiative, sequenced so the contract is stable before the harder format plumbing:
+
+1. **Documentation and contract** — this document; update the old V-HACK spec and roadmap links.
+2. **Shell extraction + VRM adapter** — move the current Lab into shared components/composable; `HackerPanel.vue` becomes a thin adapter wrapper; behavior parity and repacker tests.
+3. **Live2D adapter** — atlases, Pixi swap/sync, **port the existing ZIP exporter**, in-place revert; dock in `live2d.vue`; remove the drawer/toggle and old purple UI.
+4. **Spine adapter** — atlas-page replacement and a **new ZIP exporter** modeled on the Live2D exporter, including atlas-dimension/PMA handling.
+5. **Parts parity** — VRM (already), Live2D drawables, Spine slots/attachments; enable tabs only when ready.
+6. **Cleanup** — delete `vhack.ts`, `lhack.ts`, old panels, old AI keys, and dead code; update manual/showcase docs.
+
+Parts is explicitly phase 5; texture/atlas replacement must be complete for all adapters before it starts.
+
+---
+
+## 12. Risks and decisions
+
+| Risk / decision | Position |
+| :--- | :--- |
+| **Three formats at once** | Phased adapters, one contract; do not build three independent UIs. |
+| **MMD export is not viable** | MMD is deliberately excluded; do not add MMD UI, store state, or a preview-only adapter. |
+| **Export without a source archive** | Disable full-bundle export with a visible reason. Do not fabricate a partial model. |
+| **Spine atlas dimensions** | Adapter must patch `.atlas` page size or warn/block; never silently mismatch. Preserve PMA. |
+| **Live2D drawables disabled** | Parts is deferred; atlas replacement lands first. Do not show an empty Parts tab. |
+| **Shared atlases / per-material** | Keep shared-owner warning; per-slot export duplication is out of scope for this initiative. |
+| **Old UI removal** | No dual UI, no purple drawer, no old Lab. One shell. |
+| **No settings migration** | Accepted: new store/keys; old data is abandoned and old stores removed. |
+| **Large textures / memory** | Offload ZIP/GLB assembly to a worker if main-thread stalls appear; adapters own cleanup. |
+| **Format identity** | Small format badge; unified theme-aware accent, no per-format purple. |
+| **Testing surface** | Adapter contract tests plus one fixture per supported format; VRM repacker regression remains mandatory. |
+
+### Open questions
+
+1. For Spine bare-URL models without an archive: is a “texture pack + instructions” export worth offering, or should export remain disabled? Recommendation: disabled until a full bundle is possible.
+2. Spine replacement with different page dimensions: patch the atlas text automatically, or require same dimensions? Recommendation: patch dimensions when PMA and scale remain safe; otherwise warn and keep the original atlas metadata unchanged.
+3. Parts tab visibility before phase 5: hidden (recommended) or visible with a “coming soon” state?
+
+---
+
+## 13. Testing and verification
+
+- **Contract tests**: a stub adapter exercises selection, mode switching, upload warning construction, replacement history, revision rejection, and export labels in the shell without a renderer.
+- **VRM**: existing repacker regression plus a reload/export round-trip; gamma preview must not leak into mutation bytes.
+- **Live2D**: ZIP fixture with `model3.json` + atlas pages; verify replacement, restore, and exported ZIP entries from the ported exporter.
+- **Spine**: `.atlas` + page + skeleton ZIP fixture; verify page replacement, atlas metadata handling, and export.
+- **Uploads**: decode success/failure, PNG/JPEG/WebP, transparency-loss warning, dimension warning, immediate apply.
+- **Generation races**: late result after upload/eraser/revert/reset/model switch is discarded; result attached to origin when selection changes.
+- **Typechecks**: `pnpm -F @proj-airi/stage-ui typecheck`, plus `stage-ui-three`, `stage-ui-live2d`, and `stage-ui-spine` where the adapters live.
+
+---
+
+## 14. File map (target)
+
+```text
+packages/stage-ui/src/components/scenarios/settings/model-settings/
+  vrm.vue                      → Avatar Appearance hosts HackerStudioSection
+  live2d.vue                   → Avatar Appearance hosts HackerStudioSection
+  spine.vue                    → Avatar Appearance hosts HackerStudioSection
+  index.vue                    → no global LHackerPanel mount
+  hacker-studio/
+    HackerStudioSection.vue
+    HackerStudioShell.vue
+    components/…
+    composables/useHackerStudio.ts
+    adapters/types.ts
+    adapters/vrm/…
+    adapters/live2d/…
+    adapters/spine/…
+    exporters/…
+    stores/hacker-studio.ts
+```
+
+Retired after parity:
+
+- `vrm-vhack/HackerPanel.vue` (replaced by VRM adapter + shell)
+- `live2d-lhack/LHackerPanel.vue`
+- `stores/vhack.ts`
+- `stores/lhack.ts`
+- old L-HACK toggle/drawer UI
+
+---
+
+## Appendix A: Vocabulary
+
+| Shell term | VRM | Live2D | Spine |
+| :--- | :--- | :--- | :--- |
+| Textures | glTF images | atlas pages | atlas pages |
+| Owners | materials | drawables | slots/attachments |
+| Parts | nodes | drawables | slots/attachments |
+| Export | “Export modified VRM” | “Download modified ZIP” | “Download modified ZIP” |
+
+The shell uses the adapter nouns in warnings and owner summaries; it does not hardcode “materials”.
+
+## Appendix B: Why adapters, not one generic texture pipeline
+
+VRM replaces image bytes inside a GLB and rebuilds buffer views. Live2D swaps Pixi base textures and object references, then rewrites ZIP entries for export. Spine rewrites atlas pages plus atlas metadata and ZIP entries. MMD has no viable writable export bundle and is intentionally excluded. Forcing the remaining formats through one generic “texture set” would either leak all three formats into the shell or hide destructive export behavior. The common contract is at the **asset/operation** level, not the byte level.

@@ -1,5 +1,7 @@
 # V-HACK: AIRI Native Integration Design Document 🛠️👾
 
+> **Superseded (October 2026):** the model-agnostic successor is [design-hacker-studio.md](design-hacker-studio.md). This document is retained as the historical V-HACK VRM design and for the original surgical GLB repacker rationale.
+
 This document outlines the pivot from a standalone application to a native "Hacker Editor" integrated directly into **AIRI**. By leveraging AIRI's existing rendering stack (Three.js/React), UI, and expression management, V-HACK becomes an advanced overlay—a hidden "God Mode" panel for modifying compiled VRM binaries on the fly.
 
 ---

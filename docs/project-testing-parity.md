@@ -3,6 +3,7 @@
 **Document ID:** `docs/project-testing-parity.md`
 **Status:** Living Canonical Catalog & Strategy · Active
 **Last Verified Baseline:** 2026-09-14 (Monorepo Vitest Audit)
+**2026-10-25 Addition:** Hacker Studio characterization suites (+7 suites, +45 tests; totals below include them).
 **Monorepo Coverage Baseline:** **110 active test suites · 1,218 passing tests (0 failures)**
 **CI Automated Enforcement:** Active via `.github/workflows/ci.yml` (`unit-test` job)
 **Related Documents:**
@@ -23,7 +24,7 @@
 
 | Package / Workspace | Test Suites (Files) | Total Tests | Primary Subsystem Focus |
 |---|:---:|:---:|---|
-| [`packages/stage-ui`](../packages/stage-ui) | 80 | 923 | Arcade, Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory, Artistry, Proactivity, MCP, Cloudflare OAuth, Gemini Live Bidi, Chat Input Bridge, Audio Device Routing, Character & Session Lifecycle |
+| [`packages/stage-ui`](../packages/stage-ui) | 87 | 968 | Arcade, Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory, Artistry, Proactivity, MCP, Cloudflare OAuth, Gemini Live Bidi, Chat Input Bridge, Audio Device Routing, Character & Session Lifecycle, Hacker Studio |
 | [`packages/nan0-runtime`](../packages/nan0-runtime) | 24 | 301 | Nan0 Cognition Runtime, Thought Engine, Emotional Dynamics, Goal & Prediction Systems |
 | [`packages/live2d-runtime`](../packages/live2d-runtime) | 5 | 79 | Live2D Scripting DSL VM, Command Parser, Selector, Template, VarStore |
 | [`packages/stage-pages`](../packages/stage-pages) | 2 | 34 | Settings Topology & Devtools Context Flow Formatters |
@@ -36,7 +37,7 @@
 | [`packages/plugin-sdk`](../packages/plugin-sdk) | 1 | 22 | Plugin SDK Host Core Lifecycle |
 | [`packages/server-runtime`](../packages/server-runtime) | 1 | 9 | Server Route Middleware |
 | [`packages/i18n`](../packages/i18n) | 1 | 3 | Canonical Locales Discovery, Base YAML Syntax/Duplicates, Onboarding V3 100% Parity Assertion |
-| **Monorepo Vitest Baseline** | **137 Suites** | **1,533 Tests** | **Automated Zero-Failure Headless Test Baseline** |
+| **Monorepo Vitest Baseline** | **144 Suites** | **1,578 Tests** | **Automated Zero-Failure Headless Test Baseline** |
 
 *(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 114 total test files cataloged and audited).*
 
@@ -208,6 +209,17 @@
 | **Model Capabilities Discovery** | [`packages/stage-ui/src/libs/character/model-capabilities.test.ts`](../packages/stage-ui/src/libs/character/model-capabilities.test.ts) | 8 | Node / Pure TS | Blocking in CI | Model capabilities discovery, format detection, and feature mapping. | Pure capability resolution tests. |
 | **VRM FPS Throttling & Browser Metrics** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-fps.browser.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-fps.browser.test.ts) | 2 | Browser / Playwright | Optional in CI | Headless browser test for VRM FPS throttle behavior. | Browser-dependent. |
 | **Model Lighting Calculations** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/model-lighting.browser.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/model-lighting.browser.test.ts) | 2 | Browser / Playwright | Optional in CI | Headless browser test for model lighting shader parameters. | Browser-dependent. |
+
+#### Hacker Studio Characterization & VRM Exporter
+| Invariant / Subsystem | Test Path | Tests | Runner / Env | CI Inclusion | What Assertions Directly Establish | Coverage Boundary & Known Limits |
+|---|---|:---:|:---:|:---:|---|---|
+| **Export Filename Policy** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/export-filename.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/export-filename.test.ts) | 8 | Node / Pure TS | Blocking in CI | Source precedence (VRM meta → title → display model/file → selected file/URL → card → id → Avatar), path/query/extension stripping, invalid-character sanitization, 64-char cap, deterministic local timestamp, `.vrm`/`.zip` extension pattern. | Pure filename policy; no native save panel or filesystem write. |
+| **Upload Validation Policy** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/upload-validation.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/upload-validation.test.ts) | 10 | Node / Pure TS | Blocking in CI | PNG/JPEG/WebP MIME acceptance and extension fallback, unsupported rejection, dimension mismatch warning text, transparency-loss warning, non-PNG recommendation, combined stable order, unknown-original-dimension and no-alpha cases. | Pure metadata policy; does not decode real images or sample alpha (browser/decode path). |
+| **Generation Guidance** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/generation-guidance.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/generation-guidance.test.ts) | 5 | Node / Pure TS | Blocking in CI | Request-only UV/seams/transparency guidance, single append, no mutation of the saved prompt, deduplication when guidance is already present in different casings. | Pure prompt transformation; does not call an Artistry provider. |
+| **Material Owner Labels** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/material-owners.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/material-owners.test.ts) | 5 | Node / Pure TS | Blocking in CI | VRM Instance/Outline/N00 label normalization, first-seen deduplication, current whitespace-only label behavior. | Pure label formatting; Three material traversal is not mounted. |
+| **Texture Identity & Matching** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/texture-identity.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/texture-identity.test.ts) | 6 | Node / Pure TS | Blocking in CI | glTF index primary key, fingerprint fallback, index-precedence matching, empty-fingerprint guard, one-sided index fallback. | Pure identity policy; Three texture objects and parser associations are supplied by the adapter. |
+| **Preview Gamma Compensation** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/preview-gamma.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/domain/preview-gamma.test.ts) | 4 | Node / Pure TS | Blocking in CI | 256-entry sRGB-EOTF LUT endpoints/midtones/monotonicity, RGB linearization, alpha preservation. | Pure LUT/array math; canvas draw and GPU color output remain browser smoke coverage. |
+| **VRM GLB Exporter** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/vrm/glb-exporter.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/vrm/glb-exporter.test.ts) | 7 | Node / Pure TS | Blocking in CI | Synthetic GLB round-trip, image byte/mime replacement, bufferView offsets/alignment, declared buffer byteLength, multiple mutations, hidden-primitive material remap, hidden-node scale surgery, invalid magic rejection. | Pure binary surgery; no real VRM fixture or GPU rendering. |
 
 #### Audio Pipeline & Speech Processing
 | Invariant / Subsystem | Test Path | Tests | Runner / Env | CI Inclusion | What Assertions Directly Establish | Coverage Boundary & Known Limits |
