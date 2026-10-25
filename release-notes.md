@@ -63,6 +63,21 @@ Companions can now speak with natural comedic and dramatic pauses across stagger
 * **Decomposed Consciousness Step**: Extracted Consciousness configuration into a modular, reusable workspace component for seamless provider switching in Settings.
 * **Web Stage Provider Onboarding Nudge**: Added responsive setup prompts across both portrait and landscape breakpoints to guide new users through configuring their first AI provider.
 
+### 🧙 Onboarding V3: Capability-Grid Tools Step & Real Motion Pre-Warm
+* **Tools Step Becomes a Capability Grid**: The onboarding tools step is now a single responsive grid of nine capability cards that only offers what your setup can actually run — desktop-only powers stay on desktop, image generation appears when an artistry provider is configured, and motion unlocks with a VRM vessel.
+* **Motion Pre-Warm That Actually Warms Up**: Pre-warming the motion engine now loads the real text encoder and motion model with live byte-level progress, remembers its state as you navigate, and honestly reports failures with a retry instead of a fake success.
+* **Smarter Finale Summary**: The wrap-up screen now reflects the exact capabilities you enabled — including terminal, music, custom tools, and journal — so nothing you turned on goes missing.
+
+### 🎛️ Control Strip: VFX Previews, Wardrobe Rebuild & Bottom-Sheet Editor
+* **Live VFX Preview Popover**: Preview fire, electric, magic, and verdant stage effects from a visual 2x2 grid on every control strip before firing them on your avatar.
+* **Rebuilt Wardrobe Popover**: Outfit switching now lists your character's actual outfit slots with one-tap activate and reset, and preset avatars ship with bundled outfits that survive state resets.
+* **Bottom-Sheet Control Editor**: Customizing the control strip now slides up as a native-feeling bottom sheet, and the motions picker supports multi-select idle cycles with auditioning.
+* **Expression Explorer**: Emotion management gets the same treatment as motions — browse, filter, rename, and toggle expressions from a shared explorer in both the Model Customizer and the strip.
+
+### 🌐 Web Stage & Voice Polish
+* **Solid-Color Stage Backgrounds**: Paint the web stage with solid pastel or dark colors, and navigate chats through the same unified workspace popover as desktop.
+* **Clearer Mic Status**: The microphone popover now shows a live speech-recognition status row with a one-tap link to hearing setup when something needs attention.
+
 ### ⚡ Platform Performance & Polish
 * **Surrogate-Pair Safe Truncation**: Prevents string truncation from slicing multi-byte Unicode emoji or surrogate pairs in half, eliminating encoding artifacts and broken preview text.
 * **Strict Web URL Parsing**: Hardened URL validation across stage links and citations, cleanly rejecting pseudo-protocols and invalid URLs.

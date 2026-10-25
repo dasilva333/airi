@@ -2,10 +2,6 @@
 import PackageDescription
 
 // DO NOT MODIFY THIS FILE - managed by Capacitor CLI commands
-// NOTICE: CoreLLMKit entries below are a manual integration (NativeAI/CoreLLMKit
-// local Swift package for on-device CoreML inference). `cap sync` regenerates
-// this file from known Capacitor plugins only and drops them, so re-apply after
-// every sync. See commit 4eb4fc8e5a.
 let package = Package(
     name: "CapApp-SPM",
     platforms: [.iOS(.v18)],
