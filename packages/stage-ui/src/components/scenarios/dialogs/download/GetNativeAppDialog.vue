@@ -12,7 +12,7 @@ import {
 
 import { useGetNativeAppModal } from '../../../../composables/use-native-app-modal'
 
-const { isOpen, dismiss, close } = useGetNativeAppModal()
+const { isOpen, dismiss } = useGetNativeAppModal()
 
 const platforms = [
   {
@@ -67,7 +67,7 @@ function openUrl(url: string) {
 </script>
 
 <template>
-  <DialogRoot v-model:open="isOpen">
+  <DialogRoot :open="isOpen" @update:open="(open) => { if (!open) dismiss() }">
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md transition-opacity duration-200" />
       <DialogContent
@@ -91,7 +91,7 @@ function openUrl(url: string) {
 
           <DialogClose
             class="size-8 flex shrink-0 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-            @click="close"
+            @click="dismiss"
           >
             <div class="i-solar:close-circle-bold text-xl" />
           </DialogClose>
