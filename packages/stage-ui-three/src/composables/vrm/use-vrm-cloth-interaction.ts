@@ -164,12 +164,14 @@ export function useVRMClothInteraction() {
     camera: THREE.Camera,
     vrm: VRM,
     vrmEmote?: any, // Accept managed emote service
+    canvasRect?: { left: number, top: number, width: number, height: number },
   ) {
     if (!vrm || modelStore.interactionMode !== 'tactile')
       return
 
-    mouse.x = (event.x / window.innerWidth) * 2 - 1
-    mouse.y = -(event.y / window.innerHeight) * 2 + 1
+    const rect = canvasRect ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
+    mouse.x = ((event.x - rect.left) / rect.width) * 2 - 1
+    mouse.y = -((event.y - rect.top) / rect.height) * 2 + 1
     raycaster.setFromCamera(mouse, camera)
 
     resolveNodes(vrm)
@@ -313,12 +315,17 @@ export function useVRMClothInteraction() {
     }
   }
 
-  function handleTug(event: { x: number, y: number }, camera: THREE.Camera) {
+  function handleTug(
+    event: { x: number, y: number },
+    camera: THREE.Camera,
+    canvasRect?: { left: number, top: number, width: number, height: number },
+  ) {
     if (!isDragging.value || !targetBone.value || modelStore.interactionMode !== 'tactile')
       return
 
-    mouse.x = (event.x / window.innerWidth) * 2 - 1
-    mouse.y = -(event.y / window.innerHeight) * 2 + 1
+    const rect = canvasRect ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
+    mouse.x = ((event.x - rect.left) / rect.width) * 2 - 1
+    mouse.y = -((event.y - rect.top) / rect.height) * 2 + 1
     raycaster.setFromCamera(mouse, camera)
 
     const plane = new THREE.Plane()

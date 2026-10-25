@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref, shallowRef, watch } from 'vue'
 
 export const useVHackStore = defineStore('vhack', () => {
   const isHackerModeActive = ref(false)
@@ -26,6 +26,50 @@ export const useVHackStore = defineStore('vhack', () => {
 
   // Snapshots
   const snapshotMap = ref<Map<string, any>>(new Map())
+
+  // Texture replacement workspace (panel-local in spirit, store-scoped so the
+  // docked panel can unmount when Avatar Appearance collapses without losing
+  // preview/revert state). Images are kept in a plain Map, never reactive.
+  interface TextureReplacement { url: string }
+  const replacementByIndex = shallowRef<Map<number | string, TextureReplacement>>(new Map())
+  const previewingKeys = shallowRef<Set<number | string>>(new Set())
+  const originalTextureImages = new Map<string, any>()
+
+  function setTextureReplacement(key: number | string, url: string) {
+    const next = new Map(replacementByIndex.value)
+    next.set(key, { url })
+    replacementByIndex.value = next
+  }
+
+  function removeTextureReplacement(key: number | string) {
+    const next = new Map(replacementByIndex.value)
+    next.delete(key)
+    replacementByIndex.value = next
+  }
+
+  function markTexturePreviewing(key: number | string, value: boolean) {
+    const next = new Set(previewingKeys.value)
+    if (value)
+      next.add(key)
+    else
+      next.delete(key)
+    previewingKeys.value = next
+  }
+
+  function setOriginalTextureImage(uuid: string, image: any) {
+    if (!originalTextureImages.has(uuid))
+      originalTextureImages.set(uuid, image)
+  }
+
+  function getOriginalTextureImage(uuid: string) {
+    return originalTextureImages.get(uuid)
+  }
+
+  function clearTextureReplacements() {
+    replacementByIndex.value = new Map()
+    previewingKeys.value = new Set()
+    originalTextureImages.clear()
+  }
 
   // Persist AI Settings
   watch(geminiApiKey, v => localStorage.setItem('vhack_gemini_api_key', v))
@@ -86,6 +130,7 @@ export const useVHackStore = defineStore('vhack', () => {
     sourceArrayBuffer.value = buffer
     // Reset mutations when a new model is loaded
     mutatedTextures.value.clear()
+    clearTextureReplacements()
   }
 
   function registerMutation(index: number, data: string, mimeType: string) {
@@ -115,6 +160,15 @@ export const useVHackStore = defineStore('vhack', () => {
 
     hiddenNodeUuids,
     snapshotMap,
+
+    replacementByIndex,
+    previewingKeys,
+    setTextureReplacement,
+    removeTextureReplacement,
+    markTexturePreviewing,
+    setOriginalTextureImage,
+    getOriginalTextureImage,
+    clearTextureReplacements,
 
     sourceArrayBuffer,
     mutatedTextures,

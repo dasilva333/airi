@@ -25,10 +25,12 @@ V-HACK is the "hidden devtools" pivot: rather than a standalone app, it is a HAC
 
 ## 2. Panel Modules (HackerPanel.vue)
 
-1. **StageMap Tree (inspector)** — parses `json.nodes`/`json.meshes` from the source VRM buffer; click a mesh to select + show/hide (`toggleNodeVisibility`, `focusNode` isolation). Hiding a node is tracked as a `VHACK_HIDDEN` entry; at export the spleener transforms/ghosts that primitive so it never reappears (see §3).
-2. **Material Lab** — live sliders binding directly to Three.js MToon uniforms (`_RimWidth`, `_ShadeShift`, `_SphereAdd` matcap index, alpha-mode toggle) — zero-latency because edits hit in-memory material objects, not file IO.
-3. **Texture Deck + Forge** — grid of all `json.images`; extract PNG / hot-swap upload; `registerMutation(index, data, mimeType)` tracks every touched texture image index in `vhack.ts`. Includes AI eraser (color-picker key-out of black pixels; see `Alpha Patch` :584), color-picker, and "NUCLEAR" mesh texture injection (:553) that matches scene node → mesh → texture slot through UV containment.
-4. **AI Studio** — generates replacement textures through the active Artistry provider (Gemini API key/model/resolution persist in `localStorage` keys `vhack_gemini_api_key|model|res`, NOT the providers store); result slots into the Texture Deck and immediately applies to the mapped texture.
+Tabs are `Textures | Lab | Parts` (default `Textures`), all rendered inside one shared 440px rail frame with theme-aware surfaces.
+
+1. **Textures** — 2-column atlas grid of every glTF image (`textureList` from `extractTextures`), with `Find a texture...` search, `All / Main / Shade` filters, size/format metadata, and a selected-texture summary. Selecting a card resolves the first material that actually uses that image and opens it in **Lab**.
+2. **Lab** — per-texture replacement workspace. `Current` vs `Replacement` comparison, `Upload PNG`, `OR GENERATE` (presets + prompt + Generate replacement), and a collapsed **Material adjustments** block (Rim Width, Shade Shift, Additive Blending) so the old MToon sliders survive. `Preview` toggles the replacement on/off on the avatar without discarding it; `Revert texture` restores the original image and drops its mutation. Replacements are tracked per glTF image index in the store (`replacementByIndex`, `previewingKeys`, with `originalTextureImages` captured before in-place swaps) so switching textures and collapsing/remounting the section preserve each one.
+3. **Parts** — mesh/part inspector; search + show/hide, per-part visibility, Ctrl+click focus. Hiding a node is tracked as `VHACK_HIDDEN`; at export the spleener transforms/ghosts that primitive so it never reappears (see §3).
+4. **Texture Forge/AI Studio** (inside Lab) — upload, AI eraser (color-picker key-out; see `Alpha Patch`), and Artistry-provider generation (Gemini key/model/resolution persist in `localStorage` keys `vhack_gemini_api_key|model|res`, NOT the providers store). Generation applies immediately and registers a texture mutation.
 
 ## 3. The Surgical Export / Repacker
 
@@ -43,8 +45,9 @@ GLB chunk-header math (offset = `20 + jsonBytes.length`, then 8-byte header + da
 - The VRM panel is always mounted (no presence flag); `isHackerModeActive` / `toggleHackerMode()` / `closeHackerMode()` now only serve the Live2D `LHACK` sibling. `isHackerModeActive` is dead state for VRM and can be retired.
 - `selectedNodeName` / `selectedMaterialName` / `hiddenNodeUuids` — inspector selection & visibility set (Store's Set is rebuilt after mutations so Vue reactivity reflects).
 - `geminiApiKey` / `geminiModel` / `geminiResolution` — AI persist keys into `localStorage` (watch-based write-back at :31-33).
-- `sourceArrayBuffer` — the untouched imported GLB (`setSourceArrayBuffer`, cleared via :90-93 when model reloaded); `mutatedTextures` (Map<index, {data, mimeType}>) tracks every texture swap. `revert()` must clear this map as well as restoring snapshots, or the next export re-applies reset mutations.
-- `registerMutation()`, `resetState()` — registration/reset hooks used by Texture Forge / deck sections.
+- `sourceArrayBuffer` — the untouched imported GLB (`setSourceArrayBuffer`, cleared via :90-93 when model reloaded); `mutatedTextures` (Map<index, {data, mimeType}>) tracks the applied/exportable texture swaps. Preview-off and per-texture revert delete the index entry; global `revert()` clears the map after restoring snapshots.
+- **In-place image mutation**: `swapTextureByRef` changes `THREE.Texture.image` rather than replacing the texture object, so the panel captures the pre-swap image via `setOriginalTextureImage` (keyed by texture uuid) to support preview-off/revert. `replacementByIndex` / `previewingKeys` / the original-image map live in this store so the docked panel can unmount without losing replacement state; `setSourceArrayBuffer` and global `revert()` clear them.
+- `registerMutation()`, `resetState()` — registration/reset hooks used by the texture workflow.
 
 ## 5. Pitfalls & Failure Modes
 

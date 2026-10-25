@@ -138,6 +138,7 @@ Expressions can be activated via three distinct pathways:
 - **BroadcastChannel Mismatch**: `useModelStore` (VRM) and `useLive2d` communicate stage events over the channel configured in the store (`airi-stores-live2d`). If a window does not listen on the matching channel name, click-to-preview will fail silently across windows.
 - **Additive Expression Collisions**: Never zero out all unmanaged expressions when activating a new emotion; doing so kills blink and lip-sync loops. Only fade out expressions in `previouslyManagedExpressions`.
 - **WebGL Context Loss**: Destroying and re-mounting stage overlay windows can drop WebGL contexts. Always dispose Three.js geometries, textures, and PixiJS apps cleanly in `onUnmounted()`.
+- **Tactile Pointer NDC & Event Bleed**: `use-vrm-cloth-interaction` hit-testing must normalize by the canvas `getBoundingClientRect()` (left/top/width/height), never `window.innerWidth/Height` — split layouts otherwise offset the activation puff and eye-tracking target. Its `mousedown`/`dblclick` listeners are window-scoped, so they must ignore events outside the canvas or clicks in settings panels tug the avatar.
 
 ---
 

@@ -9,6 +9,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 // @ts-ignore
 import * as THREE from 'three'
 
+import { useAiriCardStore } from '../../../../../stores/modules/airi-card'
 import { useArtistryStore } from '../../../../../stores/modules/artistry'
 import { useSettings } from '../../../../../stores/settings'
 import { useVHackStore } from '../../../../../stores/vhack'
@@ -18,11 +19,18 @@ const settingsStore = useSettings()
 const vhackStore = useVHackStore()
 const modelStore = useModelStore()
 const artistryStore = useArtistryStore()
+const airiCardStore = useAiriCardStore()
 const { activeVrm, activeVrmParser } = storeToRefs(modelStore)
 
 const generateInvoke = useElectronEventaInvoke(artistryGenerateHeadless)
 
-const activeTab = ref<'tree' | 'material' | 'texture'>('tree')
+const activeTab = ref<'tree' | 'material' | 'texture'>('texture')
+const TOOL_TABS = [
+  { id: 'texture', label: 'Textures' },
+  { id: 'material', label: 'Lab' },
+  { id: 'tree', label: 'Parts' },
+] as const
+const textureTypeFilters: Array<'All' | 'Main' | 'Shade'> = ['All', 'Main', 'Shade']
 const scrollContainer = ref<HTMLElement | null>(null)
 
 // Selected State
@@ -30,9 +38,13 @@ const selectedMesh = ref<any>(null)
 const selectedMaterial = ref<any>(null)
 const lastSelectedTextureItem = ref<any>(null)
 
-// AI Comparison State
-const sourceTextureUrl = ref<string | null>(null)
-const lastGeneratedUrl = ref<string | null>(null)
+// Texture replacements are tracked per glTF image index so switching textures
+// preserves each replacement and its preview state. They live on the store so
+// collapsing/remounting the docked panel does not lose them.
+// Defensive getters: a dev-server HMR cycle that updates the store module
+// before a hard refresh leaves the old store instance without these fields.
+const replacementByIndex = computed(() => vhackStore.replacementByIndex ?? new Map<number | string, { url: string }>())
+const previewingKeys = computed(() => vhackStore.previewingKeys ?? new Set<number | string>())
 
 // AI State
 // AI State
@@ -45,9 +57,11 @@ const aiComfyParams = ref('{}')
 const isGenerating = ref(false)
 const isExporting = ref(false)
 const aiError = ref<string | null>(null)
-const showPresets = ref(false)
-const selectedCategory = ref<string | null>(null)
+const selectedCategory = ref<string | null>('fabrics')
+const showAllPresets = ref(false)
 const nodeFilter = ref('')
+const textureFilter = ref('')
+const textureTypeFilter = ref<'All' | 'Main' | 'Shade'>('All')
 const textureUploader = ref<HTMLInputElement | null>(null)
 const eraserCanvas = ref<HTMLCanvasElement | null>(null)
 
@@ -64,6 +78,18 @@ const activePresets = computed(() => {
   return ARTISTRY_PRESET_GROUPS.find(g => g.id === selectedCategory.value)?.presets || []
 })
 
+const PREFERRED_PRESET_IDS = ['gold', 'gothic', 'denim', 'satin']
+const visiblePresets = computed(() => {
+  if (showAllPresets.value)
+    return activePresets.value
+  const preferred = activePresets.value.filter(preset => PREFERRED_PRESET_IDS.includes(preset.id))
+  return preferred.length === 4 ? preferred : activePresets.value.slice(0, 4)
+})
+
+watch(selectedCategory, () => {
+  showAllPresets.value = false
+})
+
 const availableProviders = [
   { id: 'nanobanana', name: 'Nano Banana', icon: 'i-solar:gallery-round-bold-duotone' },
   { id: 'replicate', name: 'Replicate', icon: 'i-solar:cloud-bold-duotone' },
@@ -74,7 +100,6 @@ const availableProviders = [
 
 function injectPreset(text: string) {
   aiPrompt.value = text
-  showPresets.value = false
 }
 
 function getGltfImageIndex(texture: any) {
@@ -226,28 +251,40 @@ const nodes = computed(() => {
   return result
 })
 
+function syncMeshVisibility(item: any, visible: boolean) {
+  item.node.visible = visible
+  // The canonical stage path (broadcast + name matching). This keeps the
+  // settings preview and any other stage window in sync with the panel.
+  modelStore.setMeshVisibility(item.name, visible)
+}
+
+function syncAllVisibility() {
+  nodes.value.forEach(item => modelStore.setMeshVisibility(item.name, item.node.visible))
+}
+
+function showAllNodes() {
+  vhackStore.showAll(nodes.value)
+  syncAllVisibility()
+}
+
+function hideAllNodes() {
+  vhackStore.hideAll(nodes.value)
+  syncAllVisibility()
+}
+
 function toggleVisibility(item: any, event?: MouseEvent) {
   if (event?.ctrlKey) {
     vhackStore.focusNode(item.uuid, nodes.value)
+    syncAllVisibility()
+    return
   }
-  else {
-    vhackStore.toggleNodeVisibility(item.uuid, item.node)
-  }
-}
 
-function selectNode(item: any) {
-  vhackStore.selectedNodeName = item.name
-  selectedMesh.value = item.node
-  let mat: any = null
-  if (Array.isArray(item.node.material))
-    mat = item.node.material[0]
-  else mat = item.node.material
-  if (mat) {
-    selectedMaterial.value = mat
-    vhackStore.selectedMaterialName = mat.name
-    sourceTextureUrl.value = getTextureUrl(mat.map)
-    lastGeneratedUrl.value = null
-  }
+  syncMeshVisibility(item, !item.node.visible)
+  if (item.node.visible)
+    vhackStore.hiddenNodeUuids.delete(item.uuid)
+  else
+    vhackStore.hiddenNodeUuids.add(item.uuid)
+  vhackStore.hiddenNodeUuids = new Set(vhackStore.hiddenNodeUuids)
 }
 
 // Material Lab Logic
@@ -279,47 +316,24 @@ function updateProp(prop: string, value: number) {
   mat.needsUpdate = true
 }
 
-// Texture Trace Context (Precomputed State for Global Sync)
-const currentTextureNodes = computed(() => {
-  const tex = selectedMaterial.value?.map
-  if (!tex || !activeVrm.value)
-    return []
-
-  // The ultimate source of truth for GLB/VRM: The GLTF Source Image Index
-  const targetIdx = getGltfImageIndex(tex)
-  const targetFingerprint = tex.image?.uuid || tex.image?.src || tex.uuid
-
-  const result: any[] = []
-  activeVrm.value.scene.traverse((node: any) => {
-    if (node.material) {
-      const mats = Array.isArray(node.material) ? node.material : [node.material]
-      mats.forEach((m: any) => {
-        // Check ALL texture slots for a shared GLTF source or image identity
-        const slots = [m.map, m.shadeMultiplyTexture, m.rimMultiplyTexture, m.sphereAddTexture]
-        const hasMatch = slots.some((s) => {
-          if (!s)
-            return false
-          const sIdx = getGltfImageIndex(s)
-          if (targetIdx !== null && sIdx !== null)
-            return sIdx === targetIdx
-          return s.image?.uuid === targetFingerprint || s.image?.src === targetFingerprint || s.uuid === targetFingerprint
-        })
-
-        if (hasMatch) {
-          result.push({
-            name: node.name || 'Unnamed Mesh',
-            uuid: node.uuid,
-          })
-        }
-      })
-    }
-  })
-  // Deduplicate node results by UUID
-  return Array.from(new Map(result.map(r => [r.uuid, r])).values())
-})
+function toggleAdditiveBlending() {
+  if (!selectedMaterial.value)
+    return
+  selectedMaterial.value.blending = selectedMaterial.value.blending === 2 ? 1 : 2
+  selectedMaterial.value.transparent = true
+  selectedMaterial.value.needsUpdate = true
+}
 
 // Texture Deck Logic
-const textureList = ref<{ id: number, name: string, type: string, url: string, texture: any }[]>([])
+interface TextureItem {
+  id: number
+  name: string
+  type: string
+  url: string
+  texture: any
+  hint?: string
+}
+const textureList = ref<TextureItem[]>([])
 
 function extractTextures() {
   if (!activeVrm.value)
@@ -361,45 +375,222 @@ function extractTextures() {
   })
 }
 
-function findAssociatedNodes(texture: any) {
-  if (!activeVrm.value)
-    return []
-  const result: any[] = []
-  activeVrm.value.scene.traverse((node: any) => {
-    if (node.material) {
-      const mats = Array.isArray(node.material) ? node.material : [node.material]
-      const usesTexture = mats.some((m: any) => m.map === texture || m.shadeMultiplyTexture === texture || m.rimMultiplyTexture === texture || m.sphereAddTexture === texture)
-      if (usesTexture)
-        result.push({ name: node.name || 'Unnamed Mesh', node, uuid: node.uuid })
-    }
-  })
-  return result
+function textureKeyFor(texture: any): number | string | null {
+  if (!texture)
+    return null
+  const idx = getGltfImageIndex(texture)
+  if (idx !== null)
+    return idx
+  return texture.image?.uuid || texture.image?.src || texture.uuid || null
 }
 
-const associatedNodesForTexture = computed(() => {
+function textureMatchesSlot(slot: any, target: any, targetIdx: number | null): boolean {
+  if (!slot || !target)
+    return false
+  const sIdx = getGltfImageIndex(slot)
+  if (targetIdx !== null && sIdx !== null)
+    return sIdx === targetIdx
+  const fingerprint = target.image?.uuid || target.image?.src || target.uuid
+  return slot.image?.uuid === fingerprint || slot.image?.src === fingerprint || slot.uuid === fingerprint
+}
+
+function selectNode(item: any) {
+  vhackStore.selectedNodeName = item.name
+  selectedMesh.value = item.node
+  let mat: any = null
+  if (Array.isArray(item.node.material))
+    mat = item.node.material[0]
+  else mat = item.node.material
+  if (mat) {
+    selectedMaterial.value = mat
+    vhackStore.selectedMaterialName = mat.name
+    const matchingTexture = textureList.value.find(entry =>
+      textureMatchesSlot(entry.texture, mat.map, getGltfImageIndex(mat.map)))
+    lastSelectedTextureItem.value = matchingTexture ?? null
+  }
+}
+
+function sharedMaterialNamesFor(texture: any): string[] {
+  if (!activeVrm.value || !texture)
+    return []
+  const targetIdx = getGltfImageIndex(texture)
+  const names = new Set<string>()
+  activeVrm.value.scene.traverse((node: any) => {
+    if (!node.material)
+      return
+    const mats = Array.isArray(node.material) ? node.material : [node.material]
+    mats.forEach((mat: any) => {
+      const slots = [mat.map, mat.shadeMultiplyTexture, mat.rimMultiplyTexture, mat.sphereAddTexture]
+      if (slots.some(slot => textureMatchesSlot(slot, texture, targetIdx)))
+        names.add(mat.name || node.name || 'Material')
+    })
+  })
+  return [...names]
+}
+
+function textureSizeLabel(item: TextureItem): string {
+  const image = item.texture?.image
+  return image?.width && image?.height ? `${image.width} × ${image.height}` : 'Unknown size'
+}
+
+function textureFormatLabel(item: TextureItem): string {
+  const idx = getGltfImageIndex(item.texture)
+  const mime = idx !== null ? activeVrmParser.value?.json?.images?.[idx]?.mimeType : undefined
+  if (typeof mime === 'string' && mime.includes('/'))
+    return mime.split('/')[1].toUpperCase()
+  if (item.url.startsWith('data:image/jpeg'))
+    return 'JPEG'
+  if (item.url.startsWith('data:image/webp'))
+    return 'WEBP'
+  return 'PNG'
+}
+
+const selectedTextureSharedMaterials = computed(() => {
   if (!lastSelectedTextureItem.value)
     return []
-  return findAssociatedNodes(lastSelectedTextureItem.value.texture)
+  return sharedMaterialNamesFor(lastSelectedTextureItem.value.texture)
 })
 
-function selectTexture(item: any) {
+const filteredTextureList = computed(() => {
+  const query = textureFilter.value.trim().toLowerCase()
+  return textureList.value.filter((item) => {
+    if (textureTypeFilter.value !== 'All' && item.type !== textureTypeFilter.value)
+      return false
+    return !query || item.name.toLowerCase().includes(query)
+  })
+})
+
+const selectedTexture = computed(() => lastSelectedTextureItem.value?.texture ?? selectedMaterial.value?.map ?? null)
+const currentTextureKey = computed(() => textureKeyFor(selectedTexture.value))
+const currentReplacement = computed(() => {
+  const key = currentTextureKey.value
+  return key !== null ? replacementByIndex.value.get(key) : undefined
+})
+const currentReplacementUrl = computed(() => currentReplacement.value?.url ?? null)
+const currentPreviewing = computed(() => {
+  const key = currentTextureKey.value
+  return key !== null && previewingKeys.value.has(key)
+})
+
+function setReplacement(key: number | string, url: string) {
+  vhackStore.setTextureReplacement?.(key, url)
+}
+
+function markPreviewing(key: number | string, value: boolean) {
+  vhackStore.markTexturePreviewing?.(key, value)
+}
+
+function restoreTextureImages(key: number | string) {
+  if (!activeVrm.value)
+    return
+  const targetIdx = typeof key === 'number' ? key : null
+  activeVrm.value.scene.traverse((node: any) => {
+    if (!node.material)
+      return
+    const mats = Array.isArray(node.material) ? node.material : [node.material]
+    mats.forEach((mat: any) => {
+      const slots = [mat.map, mat.shadeMultiplyTexture, mat.rimMultiplyTexture, mat.sphereAddTexture]
+      slots.forEach((slot: any) => {
+        if (!slot)
+          return
+        const sIdx = getGltfImageIndex(slot)
+        const matches = targetIdx !== null
+          ? sIdx === targetIdx
+          : (slot.image?.uuid === key || slot.image?.src === key || slot.uuid === key)
+        if (!matches)
+          return
+        const original = vhackStore.getOriginalTextureImage?.(slot.uuid)
+        if (original) {
+          slot.image = original
+          slot.needsUpdate = true
+        }
+      })
+      mat.needsUpdate = true
+    })
+  })
+}
+
+function applyReplacementPreview() {
+  const key = currentTextureKey.value
+  const url = currentReplacementUrl.value
+  if (key === null || !url || !lastSelectedTextureItem.value)
+    return
+  swapTextureByRef(url, selectedTexture.value ?? undefined)
+  markPreviewing(key, true)
+}
+
+function toggleReplacementPreview() {
+  const key = currentTextureKey.value
+  if (key === null || !currentReplacementUrl.value)
+    return
+  if (currentPreviewing.value) {
+    restoreTextureImages(key)
+    if (typeof key === 'number')
+      vhackStore.mutatedTextures.delete(key)
+    markPreviewing(key, false)
+  }
+  else {
+    applyReplacementPreview()
+  }
+}
+
+function revertCurrentTexture() {
+  const key = currentTextureKey.value
+  if (key === null)
+    return
+  restoreTextureImages(key)
+  if (typeof key === 'number')
+    vhackStore.mutatedTextures.delete(key)
+  vhackStore.removeTextureReplacement?.(key)
+  markPreviewing(key, false)
+}
+
+function restoreAllReplacementImages() {
+  const keys = new Set<number | string>([...replacementByIndex.value.keys(), ...previewingKeys.value])
+  keys.forEach(key => restoreTextureImages(key))
+}
+
+function findFirstMaterialForTexture(texture: any): { node: any, material: any } | null {
+  if (!activeVrm.value || !texture)
+    return null
+  const targetIdx = getGltfImageIndex(texture)
+  let found: { node: any, material: any } | null = null
+  activeVrm.value.scene.traverse((node: any) => {
+    if (found || !node.material)
+      return
+    const mats = Array.isArray(node.material) ? node.material : [node.material]
+    const material = mats.find((mat: any) => [mat.map, mat.shadeMultiplyTexture, mat.rimMultiplyTexture, mat.sphereAddTexture]
+      .some(slot => textureMatchesSlot(slot, texture, targetIdx)))
+    if (material)
+      found = { node, material }
+  })
+  return found
+}
+
+function selectTexture(item: TextureItem) {
   lastSelectedTextureItem.value = item
   if (!aiPrompt.value)
     aiPrompt.value = `Stylize the ${item.name} texture...`
+  const target = findFirstMaterialForTexture(item.texture)
+  if (target) {
+    vhackStore.selectedNodeName = target.node.name
+    selectedMesh.value = target.node
+    selectedMaterial.value = target.material
+    vhackStore.selectedMaterialName = target.material.name
+  }
+  else {
+    selectedMaterial.value = null
+  }
+  activeTab.value = 'material'
   nextTick(() => {
     if (scrollContainer.value)
       scrollContainer.value.scrollTo({ top: 0, behavior: 'smooth' })
   })
-  const associated = findAssociatedNodes(item.texture)
-  if (associated.length === 1)
-    jumpToNode(associated[0])
 }
-
-function jumpToNode(nodeItem: any) { selectNode(nodeItem); activeTab.value = 'material' }
 
 // Unified Artistry Generation
 async function generateAndSwap() {
-  if (!selectedMaterial.value || !aiPrompt.value)
+  if (!selectedTexture.value || !aiPrompt.value)
     return
 
   vhackStore.isGeneratingTexture = true
@@ -410,9 +601,9 @@ async function generateAndSwap() {
   aiError.value = null
 
   try {
-    const map = selectedMaterial.value.map
+    const map = selectedTexture.value
     if (!map)
-      throw new Error('No texture found on material')
+      throw new Error('No texture selected')
 
     // 1. Prepare base64 from current texture
     const canvas = document.createElement('canvas')
@@ -474,10 +665,14 @@ async function generateAndSwap() {
       const newUrl = result.base64.startsWith('data:') ? result.base64 : `data:image/png;base64,${result.base64}`
 
       // Capture reference to target before swap
-      const targetTex = selectedMaterial.value?.map
+      const targetTex = selectedTexture.value
+      const replacementKey = textureKeyFor(targetTex)
 
-      lastGeneratedUrl.value = newUrl
       swapTextureByRef(newUrl, targetTex)
+      if (replacementKey !== null) {
+        setReplacement(replacementKey, newUrl)
+        markPreviewing(replacementKey, true)
+      }
 
       // Register mutation for surgical persistence
       const imgIndex = getGltfImageIndex(targetTex)
@@ -507,30 +702,17 @@ async function generateAndSwap() {
   }
 }
 
-function handleFileUpload(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file || !selectedMaterial.value)
-    return
-  const targetTex = selectedMaterial.value?.map
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    const url = e.target?.result as string
-    swapTextureByRef(url, targetTex)
-    lastGeneratedUrl.value = url
-  }
-  reader.readAsDataURL(file)
-}
-
 function triggerManualUpload() {
   textureUploader.value?.click()
 }
 
 async function handleManualUpload(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file || !selectedMaterial.value)
+  if (!file || !selectedTexture.value)
     return
 
-  const targetTex = selectedMaterial.value?.map
+  const targetTex = selectedTexture.value
+  const replacementKey = textureKeyFor(targetTex)
   const reader = new FileReader()
   reader.onload = (e) => {
     const url = e.target?.result as string
@@ -538,7 +720,10 @@ async function handleManualUpload(event: Event) {
 
     // 1. Swap in viewport (Global search)
     swapTextureByRef(url, targetTex)
-    lastGeneratedUrl.value = url
+    if (replacementKey !== null) {
+      setReplacement(replacementKey, url)
+      markPreviewing(replacementKey, true)
+    }
 
     // 2. Register mutation for surgical persistence (Export parity)
     const imgIndex = getGltfImageIndex(targetTex)
@@ -606,6 +791,10 @@ function swapTextureByRef(url: string, targetRef?: any) {
 
             if (matches) {
               console.log(`[VHACK] Nuclear Match: ${node.name} [${slot}]. Injecting pixels.`)
+
+              // Keep the pre-swap image so preview-off / per-texture revert can
+              // restore it without reloading the original VRM.
+              vhackStore.setOriginalTextureImage?.(currentSlotTex.uuid, currentSlotTex.image)
 
               currentSlotTex.image = tex.image
               currentSlotTex.colorSpace = tex.colorSpace
@@ -717,13 +906,78 @@ function finalizeEraserBake() {
   const cleanedUrl = eraserCanvas.value.toDataURL('image/png')
   // Re-run the swap with the cleaned URL
   // This will also hit the vhackStore.registerMutation we added above
-  swapTextureByRef(cleanedUrl)
+  swapTextureByRef(cleanedUrl, selectedTexture.value ?? undefined)
+  const key = currentTextureKey.value
+  if (key !== null) {
+    setReplacement(key, cleanedUrl)
+    markPreviewing(key, true)
+  }
   isEraserOpen.value = false
-  lastGeneratedUrl.value = cleanedUrl // Update result preview
 }
 
 // Binary Export Logic
 // Binary Export Logic (Surgical)
+
+// --- Export filename ---------------------------------------------------------
+// The native save panel uses this name, so prefer the real source name over a
+// generic "Surgical" fallback: VRM meta -> display-model name/file -> URL
+// basename -> active card -> stable id.
+function sanitizeModelBaseName(value?: string | null): string {
+  if (!value)
+    return ''
+  let name = value.trim()
+  try {
+    name = decodeURIComponent(name)
+  }
+  catch {}
+  name = name.split(/[?#]/)[0]
+  name = name.split(/[\\/]/).pop() || name
+  name = name.replace(/\.(vrm|glb|gltf|zip|pmx|pmd)$/i, '')
+  name = name.replace(/^(display-model-|preset-)/i, '')
+  name = name.replace(/[<>:"|?*\u0000-\u001F]/g, '_')
+  name = name.replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^[._]+|[._]+$/g, '')
+  return name.slice(0, 64)
+}
+
+function modelNameFromUrl(url?: string | null): string {
+  if (!url || url.startsWith('blob:') || url.startsWith('data:'))
+    return ''
+  try {
+    return new URL(url).pathname.split('/').pop() || ''
+  }
+  catch {
+    return url.split('/').pop() || ''
+  }
+}
+
+function resolveModelBaseName(): string {
+  const displayModel: any = settingsStore.stageModelSelectedDisplayModel
+  const candidates = [
+    activeVrm.value?.meta?.name,
+    activeVrm.value?.meta?.title,
+    displayModel?.name,
+    displayModel?.file?.name,
+    settingsStore.stageModelSelectedFile?.name,
+    modelNameFromUrl(settingsStore.stageModelSelectedUrl),
+    displayModel?.url ? modelNameFromUrl(displayModel.url) : '',
+    airiCardStore.activeCard?.name,
+    settingsStore.stageModelSelected,
+  ]
+  for (const candidate of candidates) {
+    const name = sanitizeModelBaseName(candidate)
+    if (name)
+      return name
+  }
+  return 'Avatar'
+}
+
+function buildExportFileName(): string {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
+  return `${resolveModelBaseName()}_VHACK_${stamp}.vrm`
+}
+
 async function exportVrm() {
   if (!activeVrm.value)
     return
@@ -939,7 +1193,7 @@ async function exportVrm() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `V-HACK_${activeVrm.value?.meta?.name || 'Surgical'}.vrm`
+    link.download = buildExportFileName()
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -952,18 +1206,32 @@ async function exportVrm() {
   }
 }
 
-function downloadTexture(url: string | null, name: string) {
+function downloadTexture(url: string | null, name: string, extension = 'png') {
   if (!url)
     return
   const link = document.createElement('a')
   link.href = url
-  link.download = `${name}.png`
+  link.download = `${name}.${extension}`
   link.click()
+}
+
+function downloadOriginalTexture() {
+  const item = lastSelectedTextureItem.value
+  if (!item?.url)
+    return
+  const base = (item.name || 'texture')
+    .replace(/[^\w-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '') || 'texture'
+  downloadTexture(item.url, `${base}_original`, textureFormatLabel(item).toLowerCase())
 }
 
 function revert() {
   if (!activeVrm.value)
     return
+  // Put back every image mutated by a preview before restoring snapshots.
+  restoreAllReplacementImages()
+  vhackStore.clearTextureReplacements?.()
   activeVrm.value.scene.traverse((node: any) => {
     const snap = vhackStore.snapshotMap.get(node.uuid)
     if (snap) {
@@ -994,12 +1262,23 @@ function revert() {
   // registry, so a reset must drop those entries too.
   vhackStore.mutatedTextures.clear()
   extractTextures()
-  lastGeneratedUrl.value = null
-  if (selectedMaterial.value)
-    sourceTextureUrl.value = getTextureUrl(selectedMaterial.value.map)
 }
 
-watch(activeVrm, () => { if (activeVrm.value) { extractTextures(); takeGlobalSnapshot() } }, { immediate: true })
+watch(activeVrm, () => {
+  if (activeVrm.value) {
+    extractTextures()
+    takeGlobalSnapshot()
+  }
+}, { immediate: true })
+
+// A new model binary clears the replacement workspace in the store; drop the
+// panel's selection pointers when that happens (not on section remount).
+watch(() => vhackStore.sourceArrayBuffer, () => {
+  lastSelectedTextureItem.value = null
+  selectedMaterial.value = null
+  selectedMesh.value = null
+  vhackStore.selectedNodeName = null
+})
 onMounted(() => {
   if (activeVrm.value)
     takeGlobalSnapshot()
@@ -1011,136 +1290,325 @@ onMounted(() => {
     <!-- Tabs -->
     <div class="flex gap-1 rounded-xl bg-neutral-100 p-1 text-[10px] font-bold tracking-widest uppercase dark:bg-neutral-800">
       <button
+        v-for="tab in TOOL_TABS"
+        :key="tab.id"
+        type="button"
         :class="[
           'flex-1 py-2 rounded-lg transition-colors',
-          activeTab === 'tree'
+          activeTab === tab.id
             ? 'bg-white text-primary-600 shadow-sm dark:bg-neutral-900 dark:text-primary-300'
             : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
         ]"
-        @click="activeTab = 'tree'"
+        @click="activeTab = tab.id"
       >
-        Nodes
-      </button>
-      <button
-        :class="[
-          'flex-1 py-2 rounded-lg transition-colors',
-          activeTab === 'material'
-            ? 'bg-white text-primary-600 shadow-sm dark:bg-neutral-900 dark:text-primary-300'
-            : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
-        ]"
-        @click="activeTab = 'material'"
-      >
-        Lab
-      </button>
-      <button
-        :class="[
-          'flex-1 py-2 rounded-lg transition-colors',
-          activeTab === 'texture'
-            ? 'bg-white text-primary-600 shadow-sm dark:bg-neutral-900 dark:text-primary-300'
-            : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
-        ]"
-        @click="activeTab = 'texture'"
-      >
-        Deck
+        {{ tab.label }}
       </button>
     </div>
 
     <!-- Content -->
-    <div
-      ref="scrollContainer"
-      :class="[
-        'custom-scrollbar min-h-0 overflow-y-auto',
-        activeTab === 'tree'
-          ? 'max-h-[420px] p-1'
-          : 'max-h-[520px] rounded-xl bg-neutral-950 p-3 text-neutral-100',
-      ]"
-    >
-      <!-- Tree View -->
-      <div v-if="activeTab === 'tree'" class="space-y-1">
-        <div
-          v-for="node in nodes"
-          :key="node.uuid"
-          class="group flex cursor-pointer items-center justify-between border border-transparent rounded-lg p-2 text-xs transition-colors hover:bg-neutral-100 dark:hover:bg-white/5"
-          :class="{ 'border-primary-400/40 bg-primary-500/5': vhackStore.selectedNodeName === node.name }"
-          @click="selectNode(node)"
+    <div class="custom-scrollbar max-h-[560px] min-h-0 overflow-y-auto">
+      <!-- Textures -->
+      <div v-if="activeTab === 'texture'" class="flex flex-col gap-3 p-1">
+        <div class="relative min-w-0">
+          <div class="i-solar:magnifer-linear absolute left-3 top-1/2 shrink-0 translate-y-[-50%] text-neutral-400" />
+          <input
+            v-model="textureFilter"
+            placeholder="Find a texture..."
+            class="w-full border border-neutral-200 rounded-xl bg-white py-2 pl-9 pr-3 text-xs text-neutral-800 outline-none dark:border-neutral-700 focus:border-primary-400 dark:bg-neutral-900 dark:text-neutral-100"
+          >
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <button
+            v-for="filter in textureTypeFilters"
+            :key="filter"
+            type="button"
+            :class="[
+              'rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors',
+              textureTypeFilter === filter
+                ? 'bg-primary-600 text-white'
+                : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700',
+            ]"
+            @click="textureTypeFilter = filter"
+          >
+            {{ filter }}
+          </button>
+          <span class="ml-auto text-[10px] text-neutral-400">
+            {{ filteredTextureList.length }} textures
+          </span>
+        </div>
+
+        <button
+          v-if="lastSelectedTextureItem"
+          type="button"
+          class="w-full flex items-center gap-2 border border-primary-500/30 rounded-xl bg-primary-500/5 p-2 text-left transition-colors hover:border-primary-500/50"
+          @click="activeTab = 'material'"
         >
-          <div class="flex items-center gap-2 truncate">
-            <div :class="[node.type === 'Mesh' ? 'i-solar:box-bold-duotone text-sky-500' : 'i-solar:user-bold-duotone text-purple-500']" />
-            <div class="flex flex-col truncate">
-              <span :class="[vhackStore.selectedNodeName === node.name ? 'text-primary-600 font-semibold dark:text-primary-300' : 'text-neutral-700 dark:text-neutral-300']">{{ node.name }}</span>
-              <span class="text-[11px] text-neutral-400 font-medium italic dark:text-neutral-500">({{ node.matName }})</span>
+          <img v-if="lastSelectedTextureItem.url" :src="lastSelectedTextureItem.url" class="h-8 w-8 shrink-0 rounded-md object-cover">
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-[11px] text-neutral-800 font-semibold dark:text-neutral-100">
+              {{ lastSelectedTextureItem.name }}
+            </div>
+            <div class="text-[9px] text-neutral-400">
+              Shared by {{ selectedTextureSharedMaterials.length }} material{{ selectedTextureSharedMaterials.length === 1 ? '' : 's' }}
             </div>
           </div>
-          <button type="button" class="rounded p-1 transition-colors hover:bg-neutral-200 dark:hover:bg-white/10" @click.stop="e => toggleVisibility(node, e)">
-            <div :class="[!vhackStore.hiddenNodeUuids.has(node.uuid) ? 'i-solar:eye-bold-duotone text-primary-500' : 'i-solar:eye-closed-bold-duotone text-neutral-400']" />
+          <span class="shrink-0 border border-primary-500/30 rounded-lg bg-white px-2 py-1 text-[10px] text-primary-600 font-semibold dark:bg-neutral-900 dark:text-primary-300">
+            Open in Lab
+          </span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            v-for="item in filteredTextureList"
+            :key="item.id"
+            type="button"
+            :class="[
+              'group flex flex-col overflow-hidden rounded-xl border text-left transition-colors',
+              lastSelectedTextureItem?.id === item.id
+                ? 'border-primary-500/60 bg-primary-500/5'
+                : 'border-neutral-200/80 bg-white/70 hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900/40 dark:hover:border-neutral-700',
+            ]"
+            @click="selectTexture(item)"
+          >
+            <div class="texture-checker relative aspect-square w-full overflow-hidden">
+              <img v-if="item.url" :src="item.url" class="absolute inset-0 h-full w-full object-contain">
+              <div v-else class="h-full w-full flex items-center justify-center text-neutral-400">
+                <div class="i-solar:gallery-bold-duotone text-2xl" />
+              </div>
+              <span class="absolute right-1.5 top-1.5 rounded-md bg-neutral-900/80 px-1.5 py-0.5 text-[8px] text-white font-semibold">
+                {{ item.type }}
+              </span>
+            </div>
+            <div class="w-full flex flex-col gap-0.5 border-t border-neutral-200/70 p-2 dark:border-neutral-800">
+              <span class="w-full truncate text-[11px] text-neutral-800 font-semibold dark:text-neutral-100">{{ item.name }}</span>
+              <span class="text-[9px] text-neutral-400">{{ textureSizeLabel(item) }} · {{ textureFormatLabel(item) }}</span>
+            </div>
           </button>
+
+          <div v-if="filteredTextureList.length === 0" class="col-span-2 py-8 text-center text-xs text-neutral-400">
+            No textures found.
+          </div>
         </div>
 
-        <div v-if="nodes.length === 0" class="px-2 py-6 text-center text-xs text-neutral-400">
-          No visible parts found.
-        </div>
+        <p class="px-1 text-[10px] text-neutral-400">
+          Select a texture to open it in the Lab.
+        </p>
       </div>
 
-      <!-- Material Lab -->
-      <div v-else-if="activeTab === 'material'" class="pb-20 space-y-6">
-        <div v-if="selectedMaterial" class="space-y-4">
-          <!-- TEXTURE FORGE (Top Priority) -->
-          <div class="space-y-4">
-            <div class="flex items-center justify-between px-1">
-              <div class="flex items-center gap-2">
-                <div i-solar:magic-stick-bold-duotone class="text-sm text-emerald-400" />
-                <div class="text-[10px] text-white font-black tracking-widest uppercase">
-                  ◈ Texture Forge [Hardened v35.6]
+      <!-- Lab -->
+      <div v-else-if="activeTab === 'material'" class="p-1 space-y-3">
+        <template v-if="selectedMaterial">
+          <template v-if="lastSelectedTextureItem">
+            <!-- Selected texture header -->
+            <div class="flex items-center gap-2 border border-neutral-200/80 rounded-xl bg-white/70 p-2.5 dark:border-neutral-800 dark:bg-neutral-900/40">
+              <img v-if="lastSelectedTextureItem.url" :src="lastSelectedTextureItem.url" class="h-10 w-10 shrink-0 rounded-lg object-cover">
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-xs text-neutral-800 font-semibold dark:text-neutral-100">
+                  {{ lastSelectedTextureItem.name }}
+                </div>
+                <div class="text-[10px] text-neutral-400">
+                  {{ textureSizeLabel(lastSelectedTextureItem) }} · Shared by {{ selectedTextureSharedMaterials.length }} material{{ selectedTextureSharedMaterials.length === 1 ? '' : 's' }}
                 </div>
               </div>
-              <button class="text-neutral-500 transition hover:text-emerald-400" @click="vhackStore.showAiSettings = !vhackStore.showAiSettings">
-                <div i-solar:settings-bold-duotone />
+              <button type="button" class="shrink-0 text-[10px] text-primary-600 font-medium dark:text-primary-300" @click="activeTab = 'texture'">
+                Change texture
               </button>
             </div>
 
-            <!-- Texture Context Header (Global Proof) -->
-            <div v-if="selectedMaterial?.map" class="mx-1 flex items-center justify-between border border-white/5 rounded-xl bg-white/5 p-3">
-              <div class="flex flex-col">
-                <div class="text-[7px] text-neutral-500 font-bold uppercase">
-                  Active Texture
+            <!-- Current / Replacement -->
+            <div class="grid grid-cols-2 gap-2">
+              <div class="flex flex-col gap-1">
+                <div class="flex items-center justify-between px-0.5">
+                  <span class="text-[10px] text-neutral-500 font-semibold dark:text-neutral-400">Current</span>
                 </div>
-                <div class="text-[10px] text-emerald-400 font-bold leading-tight font-mono uppercase">
-                  {{ selectedMaterial.map.name?.replace(/\.[^/.]+$/, "") || 'Unnamed' }}
+                <div class="texture-checker relative aspect-square overflow-hidden border border-neutral-200/80 rounded-xl dark:border-neutral-800">
+                  <img v-if="lastSelectedTextureItem.url" :src="lastSelectedTextureItem.url" class="absolute inset-0 h-full w-full object-contain">
+                  <div v-else class="h-full w-full flex items-center justify-center text-[9px] text-neutral-400">
+                    No texture
+                  </div>
                 </div>
               </div>
-              <div class="flex flex-col items-end">
-                <div class="text-[7px] text-neutral-500 font-bold uppercase">
-                  Shared By
+
+              <div class="flex flex-col gap-1">
+                <div class="flex items-center justify-between px-0.5">
+                  <span class="text-[10px] text-neutral-500 font-semibold dark:text-neutral-400">Replacement</span>
+                  <button
+                    type="button"
+                    :disabled="!currentReplacementUrl"
+                    :class="[
+                      'flex items-center gap-1 text-[9px] font-medium transition-colors disabled:op-40',
+                      currentPreviewing ? 'text-primary-600 dark:text-primary-300' : 'text-neutral-400',
+                    ]"
+                    :title="currentPreviewing ? 'Hide replacement preview' : 'Preview replacement on the avatar'"
+                    @click="toggleReplacementPreview"
+                  >
+                    <div :class="[currentPreviewing ? 'i-solar:eye-bold' : 'i-solar:eye-closed-bold']" />
+                    Preview
+                  </button>
                 </div>
-                <div class="flex flex-wrap justify-end gap-1">
-                  <span v-for="node in currentTextureNodes" :key="node.uuid" class="border border-emerald-500/10 rounded-full bg-emerald-500/5 px-1.5 py-0.5 text-[6px] text-emerald-300 font-bold font-mono uppercase">
-                    {{ node.name }}
-                  </span>
+                <div class="texture-checker relative aspect-square overflow-hidden border border-neutral-200/80 rounded-xl dark:border-neutral-800">
+                  <img v-if="currentReplacementUrl" :src="currentReplacementUrl" class="absolute inset-0 h-full w-full object-contain">
+                  <div v-else class="h-full w-full flex items-center justify-center text-[9px] text-neutral-400">
+                    No replacement yet
+                  </div>
+                  <div v-if="currentReplacementUrl" class="absolute right-1 top-1 flex gap-1">
+                    <button
+                      type="button"
+                      class="rounded-md bg-neutral-900/70 p-1 text-white transition-colors hover:bg-neutral-900"
+                      title="Download replacement"
+                      @click.stop="downloadTexture(currentReplacementUrl, `${lastSelectedTextureItem.name}_replacement`)"
+                    >
+                      <div class="i-solar:download-minimalistic-bold" />
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded-md bg-neutral-900/70 p-1 text-white transition-colors hover:bg-neutral-900"
+                      title="Color eraser"
+                      @click.stop="openEraser(currentReplacementUrl)"
+                    >
+                      <div class="i-solar:broom-bold-duotone" />
+                    </button>
+                  </div>
                 </div>
+                <button
+                  v-if="currentReplacementUrl"
+                  type="button"
+                  class="w-full text-right text-[9px] text-primary-600 font-medium dark:text-primary-300"
+                  @click="revertCurrentTexture"
+                >
+                  Revert texture
+                </button>
               </div>
             </div>
 
+            <!-- Download original / upload replacement loop -->
+            <div class="grid grid-cols-2 gap-2">
+              <Button variant="secondary" class="w-full" :disabled="!lastSelectedTextureItem?.url" @click="downloadOriginalTexture">
+                <template #icon>
+                  <div class="i-solar:download-minimalistic-bold" />
+                </template>
+                Download texture
+              </Button>
+              <Button variant="secondary" class="w-full" :disabled="isGenerating" @click="triggerManualUpload">
+                <template #icon>
+                  <div class="i-solar:upload-minimalistic-bold" />
+                </template>
+                Upload PNG
+              </Button>
+            </div>
+            <p class="px-0.5 text-[9px] text-neutral-400">
+              Download the original, edit it, then upload the replacement.
+            </p>
+            <input ref="textureUploader" type="file" accept="image/png" class="hidden" @change="handleManualUpload">
+
+            <!-- Divider -->
+            <div class="flex items-center gap-2">
+              <div class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
+              <span class="text-[9px] text-neutral-400 font-semibold tracking-wider uppercase">OR GENERATE</span>
+              <div class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
+            </div>
+
+            <!-- Style presets -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[10px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Style presets</span>
+                <select
+                  v-model="selectedCategory"
+                  class="max-w-[170px] border border-neutral-200 rounded-lg bg-white px-2 py-1 text-[10px] text-neutral-700 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+                >
+                  <option :value="null">
+                    Preset Palette
+                  </option>
+                  <option v-for="group in ARTISTRY_PRESET_GROUPS" :key="group.id" :value="group.id">
+                    {{ group.label }}
+                  </option>
+                </select>
+              </div>
+              <div v-if="activePresets.length" class="grid grid-cols-2 gap-1.5">
+                <button
+                  v-for="preset in visiblePresets"
+                  :key="preset.id"
+                  type="button"
+                  class="flex items-center gap-1.5 border border-neutral-200 rounded-lg bg-white/70 px-2 py-1.5 text-left text-[10px] text-neutral-600 font-medium transition-colors dark:border-neutral-700 hover:border-primary-400 dark:bg-neutral-900/40 hover:bg-primary-500/5 dark:text-neutral-300"
+                  @click="injectPreset(preset.text)"
+                >
+                  <div :class="[preset.icon, 'shrink-0 text-sm text-primary-500']" />
+                  <span class="truncate">{{ preset.label }}</span>
+                </button>
+              </div>
+              <button
+                v-if="activePresets.length > 4"
+                type="button"
+                class="w-full text-right text-[10px] text-primary-600 font-medium dark:text-primary-300"
+                @click="showAllPresets = !showAllPresets"
+              >
+                {{ showAllPresets ? 'Fewer presets...' : 'More presets...' }}
+              </button>
+            </div>
+
+            <!-- Prompt -->
+            <div class="space-y-1">
+              <label class="text-[10px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Describe the replacement</label>
+              <textarea
+                v-model="aiPrompt"
+                maxlength="500"
+                rows="4"
+                placeholder="Midnight navy fabric with delicate gold celestial embroidery. Keep the existing UV layout, seams, and transparent areas."
+                class="w-full resize-none border border-neutral-200 rounded-xl bg-white px-3 py-2 text-[11px] text-neutral-800 leading-relaxed outline-none dark:border-neutral-700 focus:border-primary-400 dark:bg-neutral-900 dark:text-neutral-100"
+              />
+              <div class="flex items-center justify-between text-[9px] text-neutral-400">
+                <span>Presets fill the prompt—you can edit it.</span>
+                <span>{{ aiPrompt.length }}/500</span>
+              </div>
+            </div>
+
+            <!-- Provider -->
+            <div class="flex items-center justify-between text-[10px] text-neutral-400">
+              <span class="flex items-center gap-1">
+                <div class="i-solar:settings-bold-duotone" />
+                Uses your configured image provider
+              </span>
+              <button
+                type="button"
+                class="rounded p-0.5 text-neutral-400 transition-colors hover:text-primary-600 dark:hover:text-primary-300"
+                title="Configure image provider"
+                @click="vhackStore.showAiSettings = !vhackStore.showAiSettings"
+              >
+                <div class="i-solar:settings-bold-duotone text-sm" />
+              </button>
+            </div>
+
             <!-- AI Settings -->
-            <div v-if="vhackStore.showAiSettings" class="animate-in fade-in slide-in-from-top-2 border border-emerald-500/20 rounded-xl bg-emerald-500/5 p-3 space-y-4">
-              <!-- Provider Selector -->
+            <div v-if="vhackStore.showAiSettings" class="border border-primary-500/20 rounded-xl bg-primary-500/5 p-3 space-y-4">
               <div class="space-y-2">
-                <div class="px-1 text-[8px] text-emerald-400 font-black tracking-widest uppercase">
+                <div class="px-1 text-[8px] text-primary-600 font-black tracking-widest uppercase dark:text-primary-300">
                   Network Provider
                 </div>
                 <div class="grid grid-cols-3 gap-1">
-                  <button v-for="p in availableProviders" :key="p.id" :class="[artistryStore.activeProvider === p.id ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-white/5 text-neutral-400 border-white/5 hover:bg-white/10']" class="flex flex-col items-center gap-1 border rounded-lg p-2 text-[8px] font-bold uppercase transition" @click="artistryStore.activeProvider = p.id">
-                    <div :class="p.icon" class="text-sm" />{{ p.name }}
+                  <button
+                    v-for="provider in availableProviders"
+                    :key="provider.id"
+                    type="button"
+                    :class="[
+                      artistryStore.activeProvider === provider.id
+                        ? 'bg-primary-600 text-white border-primary-500'
+                        : 'bg-neutral-100 text-neutral-500 border-neutral-200 hover:bg-neutral-200 dark:bg-white/5 dark:text-neutral-400 dark:border-white/5 dark:hover:bg-white/10',
+                      'flex flex-col items-center gap-1 border rounded-lg p-2 text-[8px] font-bold uppercase transition-colors',
+                    ]"
+                    @click="artistryStore.activeProvider = provider.id as any"
+                  >
+                    <div :class="[provider.icon, 'text-sm']" />{{ provider.name }}
                   </button>
                 </div>
               </div>
 
-              <!-- Provider Specific Fields -->
               <div v-if="artistryStore.activeProvider === 'nanobanana'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
                 <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
                     Model Name
                   </div>
-                  <select v-model="artistryStore.nanobananaModel" class="w-full border border-white/10 rounded-md bg-black/40 p-1 text-[8px] text-white outline-none">
+                  <select v-model="artistryStore.nanobananaModel" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
                     <option value="gemini-3.1-flash-image-preview">
                       Nano Banana 2 (Gemini 3.1 Flash Image)
                     </option>
@@ -1153,10 +1621,10 @@ onMounted(() => {
                   </select>
                 </div>
                 <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
                     Default Resolution
                   </div>
-                  <select v-model="artistryStore.nanobananaResolution" class="w-full border border-white/10 rounded-md bg-black/40 p-1 text-[8px] text-white outline-none">
+                  <select v-model="artistryStore.nanobananaResolution" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
                     <option value="1K">
                       1,024 x 1,024
                     </option>
@@ -1172,30 +1640,30 @@ onMounted(() => {
 
               <div v-else-if="artistryStore.activeProvider === 'replicate'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
                 <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
                     Model Template
                   </div>
-                  <select v-model="selectedReplicatePreset" class="w-full border border-white/10 rounded-md bg-black/40 p-1 text-[8px] text-white outline-none">
+                  <select v-model="selectedReplicatePreset" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
                     <option value="">
                       Manual Config
                     </option>
-                    <option v-for="p in REPLICATE_IMAGEEDIT_PRESETS" :key="p.id" :value="p.id">
-                      {{ p.label }}
+                    <option v-for="preset in REPLICATE_IMAGEEDIT_PRESETS" :key="preset.id" :value="preset.id">
+                      {{ preset.label }}
                     </option>
                   </select>
                 </div>
                 <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
                     Model ID
                   </div>
-                  <input v-model="aiReplicateModelId" placeholder="owner/model-name..." class="w-full border border-white/10 rounded-md bg-black/40 p-2 text-[10px] text-white outline-none focus:border-emerald-500/50">
+                  <input v-model="aiReplicateModelId" placeholder="owner/model-name..." class="w-full border border-neutral-200 rounded-md bg-white p-2 text-[10px] text-neutral-800 outline-none dark:border-neutral-700 focus:border-primary-400 dark:bg-neutral-900 dark:text-neutral-100">
                 </div>
                 <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
                     JSON Parameters
                   </div>
-                  <textarea v-model="aiReplicateParams" class="h-16 w-full resize-none border border-white/10 rounded-md bg-black/40 p-2 text-[8px] text-white font-mono outline-none" />
-                  <div v-pre class="mt-0.5 text-[7px] text-emerald-400/60 font-bold uppercase italic">
+                  <textarea v-model="aiReplicateParams" class="h-16 w-full resize-none border border-neutral-200 rounded-md bg-white p-2 text-[8px] text-neutral-800 font-mono outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" />
+                  <div v-pre class="mt-0.5 text-[7px] text-primary-600/60 font-bold uppercase italic">
                     Hint: Use {{ IMAGE }} and {{ PROMPT }} placeholders
                   </div>
                 </div>
@@ -1203,249 +1671,195 @@ onMounted(() => {
 
               <div v-else-if="artistryStore.activeProvider === 'comfyui'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
                 <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
                     Active Workflow
                   </div>
-                  <select v-model="artistryStore.comfyuiActiveWorkflow" class="w-full border border-white/10 rounded-md bg-black/40 p-1 text-[8px] text-white outline-none">
+                  <select v-model="artistryStore.comfyuiActiveWorkflow" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
                     <option value="">
                       Default Bridge
                     </option>
-                    <option v-for="w in artistryStore.comfyuiSavedWorkflows" :key="w.id" :value="w.id">
-                      {{ w.name }}
+                    <option v-for="workflow in artistryStore.comfyuiSavedWorkflows" :key="workflow.id" :value="workflow.id">
+                      {{ workflow.name }}
                     </option>
                   </select>
                 </div>
                 <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-400 font-bold uppercase">
+                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
                     JSON Parameters
                   </div>
-                  <textarea v-model="aiComfyParams" class="h-16 w-full resize-none border border-white/10 rounded-md bg-black/40 p-2 text-[8px] text-white font-mono outline-none" />
-                  <div v-pre class="mt-0.5 text-[7px] text-emerald-400/60 font-bold uppercase italic">
+                  <textarea v-model="aiComfyParams" class="h-16 w-full resize-none border border-neutral-200 rounded-md bg-white p-2 text-[8px] text-neutral-800 font-mono outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" />
+                  <div v-pre class="mt-0.5 text-[7px] text-primary-600/60 font-bold uppercase italic">
                     Hint: Use {{ IMAGE }} and {{ PROMPT }} placeholders
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Before/After View -->
-            <div class="grid grid-cols-2 gap-2">
-              <div class="space-y-1">
-                <div class="px-1 text-[8px] text-neutral-500 font-bold uppercase">
-                  Source
-                </div>
-                <div class="group relative aspect-square overflow-hidden border border-white/5 rounded-lg bg-white/5">
-                  <img v-if="sourceTextureUrl" :src="sourceTextureUrl" class="h-full w-full object-cover opacity-60 transition group-hover:opacity-100">
-                  <button
-                    v-if="sourceTextureUrl"
-                    class="absolute right-1 top-1 z-10 border border-white/10 rounded bg-black/60 p-1 text-white opacity-0 transition hover:bg-emerald-500 group-hover:opacity-100"
-                    title="Download Source Texture"
-                    @click.stop="downloadTexture(sourceTextureUrl, `${selectedMaterial.name}_source`)"
-                  >
-                    <div i-solar:download-square-bold-duotone class="text-xs" />
-                  </button>
-                  <div class="absolute inset-0 from-black/60 to-transparent bg-gradient-to-t" />
-                  <div class="absolute bottom-1 left-1 truncate text-[7px] text-neutral-400 font-bold uppercase">
-                    {{ selectedMaterial.name }}
-                  </div>
-                </div>
-              </div>
-              <div class="space-y-1">
-                <div class="px-1 text-[8px] text-emerald-500 font-bold uppercase">
-                  {{ lastGeneratedUrl ? 'Result' : 'Idle' }}
-                </div>
-                <div class="group/result relative aspect-square flex items-center justify-center overflow-hidden border border-emerald-500/20 rounded-lg border-dashed bg-emerald-500/5">
-                  <img v-if="lastGeneratedUrl" :src="lastGeneratedUrl" class="animate-in fade-in zoom-in-95 h-full w-full object-cover">
-                  <div v-if="lastGeneratedUrl" class="absolute right-1 top-1 z-10 flex flex-col gap-1 opacity-0 transition group-hover/result:opacity-100">
-                    <button
-                      class="border border-white/10 rounded bg-black/60 p-1 text-white transition hover:bg-emerald-500"
-                      title="Download Generated Texture"
-                      @click.stop="downloadTexture(lastGeneratedUrl, `${selectedMaterial.name}_result`)"
-                    >
-                      <div i-solar:download-square-bold-duotone class="text-xs" />
-                    </button>
-                    <button
-                      class="border border-white/10 rounded bg-black/60 p-1 text-emerald-400 transition hover:bg-emerald-500 hover:text-white"
-                      title="Pick & Purge (Surgical Eraser)"
-                      @click.stop="openEraser(lastGeneratedUrl)"
-                    >
-                      <div i-solar:broom-bold-duotone class="text-xs" />
-                    </button>
-                  </div>
-                  <div v-else-if="isGenerating" class="flex flex-col items-center gap-2 px-4 text-center">
-                    <div i-solar:spinner-bold class="animate-spin text-xl text-emerald-500" />
-                    <span class="animate-pulse text-[7px] text-emerald-500 font-bold uppercase">{{ vhackStore.generationActionLabel || 'Generating...' }}</span>
-                    <!-- Progress Bar -->
-                    <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/5">
-                      <div class="h-full bg-emerald-500 transition-all duration-500" :style="{ width: `${vhackStore.generationProgress}%` }" />
-                    </div>
-                  </div>
-                  <div v-else i-solar:ghost-bold-duotone class="text-2xl text-white/5" />
-                </div>
-              </div>
+            <!-- Shared texture note -->
+            <div v-if="selectedTextureSharedMaterials.length > 1" class="flex items-start gap-1.5 text-[10px] text-amber-600 leading-relaxed dark:text-amber-300">
+              <div class="i-solar:info-circle-bold mt-0.5 shrink-0" />
+              <span>Shared texture: changes affect all {{ selectedTextureSharedMaterials.length }} materials.</span>
             </div>
 
-            <div v-if="aiError" class="border border-red-500/30 rounded-lg bg-red-500/10 p-2 text-[8px] text-red-400 font-mono">
+            <!-- Generate -->
+            <Button variant="primary" class="w-full" :disabled="!aiPrompt || isGenerating" @click="generateAndSwap">
+              <template #icon>
+                <div :class="[isGenerating ? 'i-solar:spinner-bold animate-spin' : 'i-solar:magic-stick-3-bold-duotone']" />
+              </template>
+              {{ isGenerating ? (vhackStore.generationActionLabel || 'Generating...') : 'Generate replacement' }}
+            </Button>
+            <div v-if="isGenerating" class="h-1 w-full overflow-hidden rounded-full bg-primary-500/20">
+              <div class="h-full rounded-full bg-primary-500 transition-all" :style="{ width: `${vhackStore.generationProgress}%` }" />
+            </div>
+            <div v-if="aiError" class="text-[10px] text-rose-600 leading-relaxed dark:text-rose-300">
               {{ aiError }}
             </div>
+          </template>
 
-            <!-- PRESET PALETTE -->
-            <div class="space-y-2">
-              <button class="group w-full flex items-center justify-between border border-white/10 rounded-lg bg-white/5 p-2 transition hover:border-emerald-500/30" @click="showPresets = !showPresets">
-                <div class="flex items-center gap-2">
-                  <div i-solar:palette-bold-duotone class="text-xs text-emerald-400" />
-                  <span class="text-[10px] text-neutral-300 font-bold tracking-wider uppercase">
-                    {{ selectedCategory ? ARTISTRY_PRESET_GROUPS.find(g => g.id === selectedCategory)?.label : 'Preset Palette' }}
-                  </span>
-                </div>
-                <div :class="[showPresets ? 'i-solar:alt-arrow-down-bold-duotone' : 'i-solar:alt-arrow-right-bold-duotone']" class="text-neutral-500 transition group-hover:text-emerald-400" />
-              </button>
-
-              <div v-if="showPresets" class="animate-in fade-in slide-in-from-top-2 border border-white/5 rounded-lg bg-black/40 p-2 space-y-2">
-                <!-- Category Selection -->
-                <div v-if="!selectedCategory" class="grid grid-cols-2 gap-2">
-                  <button v-for="group in ARTISTRY_PRESET_GROUPS" :key="group.id" class="group/cat relative h-12 flex flex-col items-center justify-center gap-1 overflow-hidden border border-white/5 rounded-lg bg-white/5 transition hover:border-emerald-500/30 hover:bg-emerald-500/10" @click="selectedCategory = group.id">
-                    <div :class="group.icon" class="text-lg text-neutral-500 transition group-hover/cat:text-emerald-400" />
-                    <span class="text-[7px] text-neutral-400 font-bold tracking-tighter uppercase group-hover/cat:text-white">{{ group.label }}</span>
-                  </button>
-                </div>
-
-                <!-- Preset Selection -->
-                <div v-else class="space-y-2">
-                  <button class="w-full flex items-center gap-2 border-b border-white/5 pb-2 text-[8px] text-neutral-500 font-bold uppercase transition hover:text-white" @click="selectedCategory = null">
-                    <div i-solar:alt-arrow-left-bold-duotone class="text-xs" />
-                    Back to Categories
-                  </button>
-                  <div class="grid grid-cols-2 gap-2">
-                    <button v-for="preset in activePresets" :key="preset.id" class="group/preset flex items-center gap-2 border border-transparent rounded-md bg-white/5 p-2 text-left transition hover:border-emerald-500/30 hover:bg-emerald-500/20" @click="injectPreset(preset.text)">
-                      <div :class="preset.icon" class="shrink-0 text-xs text-neutral-500 transition group-hover/preset:text-emerald-400" />
-                      <div class="truncate text-[9px] text-neutral-300 font-bold leading-tight group-hover/preset:text-white">
-                        {{ preset.label }}
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <textarea v-model="aiPrompt" placeholder="Describe the style change..." class="h-20 w-full resize-none border border-white/10 rounded-xl bg-white/5 p-3 text-xs text-white font-mono outline-none transition focus:border-emerald-500/50" />
-            <div class="grid grid-cols-2 gap-2">
-              <Button variant="primary" class="font-bold uppercase shadow-emerald-500/10 shadow-lg" :disabled="!aiPrompt || isGenerating || !artistryStore.activeProvider" @click="generateAndSwap">
-                {{ isGenerating ? (vhackStore.generationActionLabel || 'Inscribing...') : 'Paint New Texture' }}
-              </Button>
-              <Button variant="secondary" class="border-emerald-500/20 bg-emerald-500/5 font-bold uppercase hover:bg-emerald-500/10" :disabled="isGenerating" @click="triggerManualUpload">
-                Upload PNG
-              </Button>
-              <input ref="textureUploader" type="file" accept="image/png" class="hidden" @change="handleManualUpload">
-            </div>
+          <div v-else class="flex items-start gap-1.5 border border-neutral-200/80 rounded-xl bg-white/70 p-3 text-[10px] text-neutral-500 leading-relaxed dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400">
+            <div class="i-solar:info-circle-bold mt-0.5 shrink-0" />
+            <span>This material has no texture to replace, but you can still adjust its shaders below.</span>
           </div>
 
-          <!-- PHYSICAL SHADERS -->
-          <div class="border-t border-white/5 pt-6 space-y-5">
-            <div class="flex items-center gap-2 px-1">
-              <div i-solar:atom-bold-duotone class="text-sm text-blue-400" /><div class="text-[10px] text-neutral-400 font-bold tracking-widest uppercase">
-                Physical Shaders
-              </div>
-            </div>
-            <div class="space-y-4">
-              <div class="space-y-2">
-                <div class="flex justify-between px-1 text-[10px] text-neutral-400 font-bold uppercase">
-                  <span>Rim Width</span><span class="text-emerald-400 font-mono">{{ (selectedMaterial.rimWidthFactor ?? selectedMaterial.uniforms?.rimWidth?.value ?? 0).toFixed(2) }}</span>
+          <!-- Material adjustments -->
+          <details class="group border-t border-neutral-200/70 pt-3 dark:border-neutral-800">
+            <summary class="flex cursor-pointer select-none items-center justify-between text-[10px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
+              <span class="flex items-center gap-1.5">
+                <div class="i-solar:atom-bold-duotone text-sm text-primary-500" />
+                Material adjustments
+              </span>
+              <div class="i-solar:alt-arrow-down-bold transition-transform group-open:rotate-180" />
+            </summary>
+            <div class="pt-3 space-y-3">
+              <div class="space-y-1.5">
+                <div class="flex justify-between px-1 text-[10px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
+                  <span>Rim Width</span>
+                  <span class="text-primary-600 font-mono dark:text-primary-300">{{ (selectedMaterial.rimWidthFactor ?? selectedMaterial.uniforms?.rimWidth?.value ?? 0).toFixed(2) }}</span>
                 </div>
-                <input type="range" min="0" max="1" step="0.01" :value="selectedMaterial.rimWidthFactor ?? selectedMaterial.uniforms?.rimWidth?.value ?? 0" class="h-1 w-full cursor-pointer appearance-none rounded-lg bg-white/10 accent-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.1)]" @input="e => updateProp('rimWidth', parseFloat((e.target as HTMLInputElement).value))">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  :value="selectedMaterial.rimWidthFactor ?? selectedMaterial.uniforms?.rimWidth?.value ?? 0"
+                  class="h-1 w-full cursor-pointer appearance-none rounded-full bg-neutral-200 accent-primary-600 dark:bg-neutral-700"
+                  @input="e => updateProp('rimWidth', parseFloat((e.target as HTMLInputElement).value))"
+                >
               </div>
-              <div class="space-y-2">
-                <div class="flex justify-between px-1 text-[10px] text-neutral-400 font-bold uppercase">
-                  <span>Shade Shift</span><span class="text-emerald-400 font-mono">{{ (selectedMaterial.shadingShiftFactor ?? selectedMaterial.uniforms?.shadingShift?.value ?? 0).toFixed(2) }}</span>
+              <div class="space-y-1.5">
+                <div class="flex justify-between px-1 text-[10px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
+                  <span>Shade Shift</span>
+                  <span class="text-primary-600 font-mono dark:text-primary-300">{{ (selectedMaterial.shadingShiftFactor ?? selectedMaterial.uniforms?.shadingShift?.value ?? 0).toFixed(2) }}</span>
                 </div>
-                <input type="range" min="-1" max="1" step="0.01" :value="selectedMaterial.shadingShiftFactor ?? selectedMaterial.uniforms?.shadingShift?.value ?? 0" class="h-1 w-full cursor-pointer appearance-none rounded-lg bg-white/10 accent-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.1)]" @input="e => updateProp('shadeShift', parseFloat((e.target as HTMLInputElement).value))">
+                <input
+                  type="range"
+                  min="-1"
+                  max="1"
+                  step="0.01"
+                  :value="selectedMaterial.shadingShiftFactor ?? selectedMaterial.uniforms?.shadingShift?.value ?? 0"
+                  class="h-1 w-full cursor-pointer appearance-none rounded-full bg-neutral-200 accent-primary-600 dark:bg-neutral-700"
+                  @input="e => updateProp('shadeShift', parseFloat((e.target as HTMLInputElement).value))"
+                >
               </div>
 
-              <!-- ADDITIVE BLENDING TOGGLE -->
-              <div class="border-t border-white/5 pt-4 space-y-4">
-                <div class="flex items-center justify-between px-1">
-                  <div class="flex items-center gap-2">
-                    <div i-solar:ghost-bold-duotone class="text-[10px] text-emerald-400" />
-                    <div class="text-[10px] text-neutral-400 font-bold uppercase">
-                      Additive Blending
-                    </div>
-                  </div>
-                  <button
-                    class="h-5 w-10 flex items-center border border-white/10 rounded-full bg-white/5 px-1 transition"
-                    :class="{ 'bg-emerald-500/20 border-emerald-500/50': selectedMaterial.blending === 2 }"
-                    @click="selectedMaterial.blending = selectedMaterial.blending === 2 ? 1 : 2; selectedMaterial.transparent = true; selectedMaterial.needsUpdate = true"
-                  >
-                    <div class="h-3 w-3 rounded-full bg-white transition-all" :class="{ 'translate-x-5 !bg-emerald-400': selectedMaterial.blending === 2 }" />
-                  </button>
+              <div class="flex items-center justify-between border-t border-neutral-200/70 pt-3 dark:border-neutral-800">
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
+                  <div class="i-solar:ghost-bold-duotone text-primary-500" />
+                  Additive Blending
                 </div>
-                <div v-if="selectedMaterial.blending === 2" class="px-1 text-[8px] text-emerald-400 font-bold uppercase italic opacity-70">
-                  Patch: Ignoring black data to restore eye transparency
-                </div>
+                <button
+                  type="button"
+                  :class="[
+                    'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+                    selectedMaterial.blending === 2 ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+                  ]"
+                  @click="toggleAdditiveBlending"
+                >
+                  <span
+                    aria-hidden="true"
+                    :class="[
+                      'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                      selectedMaterial.blending === 2 ? 'translate-x-4' : 'translate-x-0.5',
+                    ]"
+                  />
+                </button>
               </div>
+              <p v-if="selectedMaterial.blending === 2" class="px-1 text-[9px] text-primary-600 font-bold uppercase italic opacity-70 dark:text-primary-300">
+                Patch: Ignoring black data to restore eye transparency
+              </p>
             </div>
-          </div>
-        </div>
-        <div v-else class="h-40 flex flex-col items-center justify-center gap-2 text-xs text-neutral-600 italic">
-          <div i-solar:shield-warning-bold-duotone text-2xl />Select mesh in "Nodes" first
+          </details>
+        </template>
+
+        <div v-else class="flex flex-col items-center gap-2 px-4 py-10 text-center">
+          <div class="i-solar:gallery-bold-duotone text-2xl text-neutral-400" />
+          <p class="text-xs text-neutral-500 dark:text-neutral-400">
+            Select a texture in the Textures tab to open it in the Lab.
+          </p>
+          <button type="button" class="text-[10px] text-primary-600 font-medium dark:text-primary-300" @click="activeTab = 'texture'">
+            Go to Textures
+          </button>
         </div>
       </div>
 
-      <!-- Texture Deck -->
-      <div v-else-if="activeTab === 'texture'" class="space-y-4">
-        <div v-if="lastSelectedTextureItem" class="border border-emerald-500/30 rounded-xl bg-white/5 p-3">
-          <div class="mb-3 flex items-start justify-between">
-            <div class="text-[10px] text-neutral-500 font-bold uppercase">
-              Associated Nodes
-            </div><button class="text-neutral-500 transition" @click="lastSelectedTextureItem = null">
-              <div i-solar:close-circle-bold-duotone />
-            </button>
-          </div><div class="custom-scrollbar max-h-32 overflow-y-auto space-y-1">
-            <div v-for="nodeItem in associatedNodesForTexture" :key="nodeItem.uuid" class="group flex cursor-pointer items-center justify-between rounded-lg bg-black/40 p-2 transition hover:bg-emerald-500/20" @click="jumpToNode(nodeItem)">
-              <span class="truncate text-[10px] text-neutral-300 font-mono uppercase">{{ nodeItem.name }}</span><div i-solar:alt-arrow-right-bold-duotone class="text-emerald-500" />
-            </div>
+      <!-- Parts -->
+      <div v-else-if="activeTab === 'tree'" class="flex flex-col gap-2 p-1">
+        <div class="flex items-center gap-2">
+          <div class="relative min-w-0 flex-1">
+            <div class="i-solar:magnifer-linear absolute left-3 top-1/2 shrink-0 translate-y-[-50%] text-neutral-400" />
+            <input
+              v-model="nodeFilter"
+              placeholder="Find a part..."
+              class="w-full border border-neutral-200 rounded-xl bg-white py-2 pl-9 pr-3 text-xs text-neutral-800 outline-none dark:border-neutral-700 focus:border-primary-400 dark:bg-neutral-900 dark:text-neutral-100"
+            >
           </div>
+          <button
+            type="button"
+            class="shrink-0 px-1 text-xs text-primary-600 font-medium transition-colors dark:text-primary-300 hover:text-primary-700 disabled:op-50"
+            :disabled="!activeVrm"
+            @click="showAllNodes()"
+          >
+            Show all
+          </button>
+          <button
+            type="button"
+            class="shrink-0 px-1 text-xs text-primary-600 font-medium transition-colors dark:text-primary-300 hover:text-primary-700 disabled:op-50"
+            :disabled="!activeVrm"
+            @click="hideAllNodes()"
+          >
+            Hide all
+          </button>
         </div>
-        <div class="grid grid-cols-2 gap-3 pb-8">
-          <div v-for="item in textureList" :key="item.id" class="group flex flex-col cursor-pointer gap-1 text-[8px] font-bold uppercase" @click="selectTexture(item)">
-            <div class="relative aspect-square overflow-hidden border border-white/10 rounded-xl bg-white/5 transition" :class="[lastSelectedTextureItem?.id === item.id ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'group-hover:border-white/30']">
-              <img v-if="item.url" :src="item.url" class="absolute inset-0 h-full w-full object-cover opacity-60 transition group-hover:opacity-100"><div v-else i-solar:gallery-bold-duotone class="h-full flex items-center justify-center text-3xl text-neutral-800" /><div class="absolute right-1 top-1 rounded bg-black/80 px-1 py-0.5 text-[7px] text-emerald-400">
-                {{ item.type }}
+
+        <div class="space-y-1">
+          <div
+            v-for="node in nodes"
+            :key="node.uuid"
+            class="group flex cursor-pointer items-center justify-between border border-transparent rounded-lg p-2 text-xs transition-colors hover:bg-neutral-100 dark:hover:bg-white/5"
+            :class="{ 'border-primary-400/40 bg-primary-500/5': vhackStore.selectedNodeName === node.name }"
+            @click="selectNode(node)"
+          >
+            <div class="flex items-center gap-2 truncate">
+              <div :class="[node.type === 'Mesh' ? 'i-solar:box-bold-duotone text-sky-500' : 'i-solar:user-bold-duotone text-purple-500']" />
+              <div class="flex flex-col truncate">
+                <span :class="[vhackStore.selectedNodeName === node.name ? 'text-primary-600 font-semibold dark:text-primary-300' : 'text-neutral-700 dark:text-neutral-300']">{{ node.name }}</span>
+                <span class="text-[11px] text-neutral-400 font-medium italic dark:text-neutral-500">({{ node.matName }})</span>
               </div>
             </div>
+            <button type="button" class="rounded p-1 transition-colors hover:bg-neutral-200 dark:hover:bg-white/10" @click.stop="e => toggleVisibility(node, e)">
+              <div :class="[!vhackStore.hiddenNodeUuids.has(node.uuid) ? 'i-solar:eye-bold-duotone text-primary-500' : 'i-solar:eye-closed-bold-duotone text-neutral-400']" />
+            </button>
           </div>
-          <label class="group mb-10 aspect-square flex flex-col cursor-pointer items-center justify-center border border-white/10 rounded-xl border-dashed bg-white/5 transition hover:border-emerald-500"><input type="file" class="hidden" accept="image/*" @change="handleFileUpload"><div i-solar:add-circle-bold-duotone class="text-3xl transition group-hover:text-emerald-500" /></label>
+
+          <div v-if="nodes.length === 0" class="px-2 py-6 text-center text-xs text-neutral-400">
+            No visible parts found.
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Footer -->
     <div class="flex flex-col gap-2 border-t border-neutral-200/70 pt-3 dark:border-neutral-800">
-      <div v-if="activeTab === 'tree'" class="flex items-center gap-2">
-        <div class="relative min-w-0 flex-1">
-          <div class="i-solar:magnifer-linear absolute left-3 top-1/2 shrink-0 translate-y-[-50%] text-neutral-400" />
-          <input
-            v-model="nodeFilter"
-            placeholder="Find a part..."
-            class="w-full border border-neutral-200 rounded-xl bg-white py-2 pl-9 pr-3 text-xs text-neutral-800 outline-none dark:border-neutral-700 focus:border-primary-400 dark:bg-neutral-900 dark:text-neutral-100"
-          >
-        </div>
-        <button
-          type="button"
-          class="shrink-0 px-1 text-xs text-primary-600 font-medium transition-colors dark:text-primary-300 hover:text-primary-700 disabled:op-50"
-          :disabled="!activeVrm"
-          @click="vhackStore.showAll(nodes)"
-        >
-          Show all
-        </button>
-        <button
-          type="button"
-          class="shrink-0 px-1 text-xs text-primary-600 font-medium transition-colors dark:text-primary-300 hover:text-primary-700 disabled:op-50"
-          :disabled="!activeVrm"
-          @click="vhackStore.hideAll(nodes)"
-        >
-          Hide all
-        </button>
-      </div>
-
       <div class="grid grid-cols-2 gap-2">
         <Button variant="secondary" size="sm" class="w-full" :disabled="!activeVrm" @click="revert">
           <template #icon>
@@ -1460,6 +1874,9 @@ onMounted(() => {
           {{ isExporting ? 'Packaging...' : 'Export modified VRM' }}
         </Button>
       </div>
+      <p class="px-0.5 text-[9px] text-neutral-400">
+        {{ activeTab === 'material' ? 'Replacement previews live on your avatar.' : 'Edits stay in this copy until exported.' }}
+      </p>
     </div>
 
     <!-- FOOTER / MODALS -->
@@ -1517,6 +1934,27 @@ onMounted(() => {
 
 <style scoped>
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%; background: #10b981; cursor: pointer; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.16); border-radius: 10px; }
+:global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%; background: #0891b2; cursor: pointer; }
+
+/* Alpha checkerboard for texture thumbnails, theme-aware. */
+.texture-checker {
+  background-color: #f5f5f5;
+  background-image:
+    linear-gradient(45deg, #e2e2e2 25%, transparent 25%),
+    linear-gradient(-45deg, #e2e2e2 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e2e2e2 75%),
+    linear-gradient(-45deg, transparent 75%, #e2e2e2 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+:global(.dark) .texture-checker {
+  background-color: #171717;
+  background-image:
+    linear-gradient(45deg, #262626 25%, transparent 25%),
+    linear-gradient(-45deg, #262626 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #262626 75%),
+    linear-gradient(-45deg, transparent 75%, #262626 75%);
+}
 </style>

@@ -20,7 +20,7 @@ import type { Ref, WatchStopHandle } from 'vue'
 import type { DiscoveredMeshNode, Vec3 } from '../../stores/model-store'
 
 import { VRMUtils } from '@pixiv/three-vrm'
-import { useLoop, useTresContext } from '@tresjs/core'
+import { useLoop, useTres, useTresContext } from '@tresjs/core'
 import { until, useEventListener, useMouse } from '@vueuse/core'
 import {
   AnimationMixer,
@@ -150,6 +150,7 @@ const {
 
 // Model and scene ref
 const { scene } = useTresContext()
+const { renderer } = useTres()
 const vrm = shallowRef<VRM | null>(null)
 const vrmGroup = shallowRef<Group>()
 const modelLoaded = ref<boolean>(false)
@@ -174,21 +175,39 @@ const vrmLipSync = useVRMLipSync(currentAudioSource)
 const vrmClothTug = useVRMClothInteraction()
 
 // Setup Pointer Interaction (Moved below initialization to fix ReferenceError)
+// The tactile listeners are window-scoped so dragging past the canvas edge keeps
+// working, but the initial press must be inside the actual canvas rect. Using
+// window dimensions for NDC also shifted the hit point on split layouts.
+function getCanvasRect() {
+  return renderer?.domElement?.getBoundingClientRect?.()
+}
+
+function isPointerOnCanvas(e: MouseEvent) {
+  const rect = getCanvasRect()
+  if (!rect)
+    return false
+  return e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom
+}
+
 useEventListener('mousedown', (e) => {
+  if (!isPointerOnCanvas(e))
+    return
   if (modelStore.interactionMode === 'tactile' && vrm.value && camera.value) {
-    vrmClothTug.startTug({ x: e.clientX, y: e.clientY, isCtrlPressed: e.ctrlKey }, camera.value, vrm.value, vrmEmote.value)
+    vrmClothTug.startTug({ x: e.clientX, y: e.clientY, isCtrlPressed: e.ctrlKey }, camera.value, vrm.value, vrmEmote.value, getCanvasRect())
   }
 })
 
 useEventListener('dblclick', (e) => {
+  if (!isPointerOnCanvas(e))
+    return
   if (modelStore.interactionMode === 'tactile' && vrm.value && camera.value) {
-    vrmClothTug.startTug({ x: e.clientX, y: e.clientY, isDoubleClick: true }, camera.value, vrm.value, vrmEmote.value)
+    vrmClothTug.startTug({ x: e.clientX, y: e.clientY, isDoubleClick: true }, camera.value, vrm.value, vrmEmote.value, getCanvasRect())
   }
 })
 
 useEventListener('mousemove', (e) => {
   if (modelStore.interactionMode === 'tactile' && camera.value) {
-    vrmClothTug.handleTug({ x: e.clientX, y: e.clientY }, camera.value)
+    vrmClothTug.handleTug({ x: e.clientX, y: e.clientY }, camera.value, getCanvasRect())
   }
 })
 
@@ -511,9 +530,11 @@ function lookAtMouse(
   mouseX: number,
   mouseY: number,
   camera: Ref<PerspectiveCamera>,
+  canvasRect?: { left: number, top: number, width: number, height: number },
 ): Vec3 {
-  mouse.x = (mouseX / window.innerWidth) * 2 - 1
-  mouse.y = -(mouseY / window.innerHeight) * 2 + 1
+  const rect = canvasRect ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
+  mouse.x = ((mouseX - rect.left) / rect.width) * 2 - 1
+  mouse.y = -((mouseY - rect.top) / rect.height) * 2 + 1
 
   // Raycast from the mouse position
   raycaster.setFromCamera(mouse, camera.value)
@@ -964,7 +985,7 @@ onMounted(async () => {
     stopMouseWatch = undefined
     if (newMode === 'mouse') {
       stopMouseWatch = watch([mouseX, mouseY], ([newX, newY]) => {
-        mouseTarget.value = lookAtMouse(newX, newY, camera)
+        mouseTarget.value = lookAtMouse(newX, newY, camera, getCanvasRect())
         // watch to update look at target to mouse
         emit('lookAtTarget', mouseTarget.value)
       }, { immediate: true, deep: true })
