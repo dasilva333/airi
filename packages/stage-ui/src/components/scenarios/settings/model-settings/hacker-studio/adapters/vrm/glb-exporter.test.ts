@@ -86,7 +86,7 @@ function toBase64(bytes: Uint8Array): string {
 
 function imageBytes(json: any, bin: Uint8Array, index: number): number[] {
   const view = json.bufferViews[json.images[index].bufferView]
-  return bin.slice(view.byteOffset, view.byteOffset + view.byteLength)
+  return Array.from(bin.slice(view.byteOffset, view.byteOffset + view.byteLength))
 }
 
 describe('hacker-studio: VRM GLB exporter characterization', () => {
@@ -120,7 +120,7 @@ describe('hacker-studio: VRM GLB exporter characterization', () => {
     expect(json.images[0].mimeType).toBe('image/png')
     expect(imageBytes(json, bin, 1)).toEqual([5, 6, 7, 8])
     expect(json.bufferViews[2].byteLength).toBe(4)
-    expect(bin.slice(json.bufferViews[2].byteOffset, json.bufferViews[2].byteOffset + 4)).toEqual([9, 10, 11, 12])
+    expect(Array.from(bin.slice(json.bufferViews[2].byteOffset, json.bufferViews[2].byteOffset + 4))).toEqual([9, 10, 11, 12])
     expect(json.buffers[0].byteLength).toBe(bin.length)
   })
 
