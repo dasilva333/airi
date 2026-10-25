@@ -747,6 +747,54 @@ async function handleManualUpload(event: Event) {
   reader.readAsDataURL(file)
 }
 
+// The washed-out preview treats sRGB texels as linear before the renderer
+// encodes them again. Pre-linearizing the displayed image compensates for that
+// double encode (sRGB EOTF -> sample as linear -> sRGB OETF ≈ original), giving
+// a close approximation of the exported VRM without touching the colorSpace
+// path or the export bytes.
+function targetIsColorMap(target: any, targetIdx: number | null): boolean {
+  if (!activeVrm.value || !target)
+    return false
+  let found = false
+  activeVrm.value.scene.traverse((node: any) => {
+    if (found || !node.material)
+      return
+    const materials = Array.isArray(node.material) ? node.material : [node.material]
+    materials.forEach((mat: any) => {
+      if (!found && mat.map && textureMatchesSlot(mat.map, target, targetIdx))
+        found = true
+    })
+  })
+  return found
+}
+
+function linearizeForPreview(image: any): HTMLCanvasElement | null {
+  if (!image?.width || !image?.height)
+    return null
+  const canvas = document.createElement('canvas')
+  canvas.width = image.width
+  canvas.height = image.height
+  const ctx = canvas.getContext('2d')
+  if (!ctx)
+    return null
+  ctx.drawImage(image, 0, 0)
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const data = imageData.data
+  const lut = new Uint8Array(256)
+  for (let i = 0; i < 256; i++) {
+    const c = i / 255
+    const linear = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+    lut[i] = Math.round(linear * 255)
+  }
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = lut[data[i]]
+    data[i + 1] = lut[data[i + 1]]
+    data[i + 2] = lut[data[i + 2]]
+  }
+  ctx.putImageData(imageData, 0, 0)
+  return canvas
+}
+
 function swapTextureByRef(url: string, targetRef?: any) {
   console.info('>>> [VHACK] Starting swap sequence (NUCLEAR)...', { url: `${url.substring(0, 40)}...`, targetRef })
   const target = targetRef || selectedMaterial.value?.map
@@ -755,6 +803,7 @@ function swapTextureByRef(url: string, targetRef?: any) {
 
   const targetIdx = getGltfImageIndex(target)
   const targetFingerprint = target.image?.uuid || target.image?.src || target.uuid
+  const previewShouldLinearize = targetIsColorMap(target, targetIdx)
 
   const loader = new THREE.TextureLoader()
   loader.load(url, (tex: any) => {
@@ -785,6 +834,18 @@ function swapTextureByRef(url: string, targetRef?: any) {
       }
     }
 
+    // Export data must stay raw (or alpha-patched); only the in-memory preview
+    // image gets the gamma compensation.
+    const exportImage = tex.image
+    let previewImage = exportImage
+    if (previewShouldLinearize) {
+      const compensated = linearizeForPreview(exportImage)
+      if (compensated) {
+        previewImage = compensated
+        console.info('[VHACK] Preview gamma compensation applied.')
+      }
+    }
+
     activeVrm.value!.scene.traverse((node: any) => {
       if (node.material) {
         const materials = Array.isArray(node.material) ? node.material : [node.material]
@@ -809,7 +870,7 @@ function swapTextureByRef(url: string, targetRef?: any) {
               // restore it without reloading the original VRM.
               vhackStore.setOriginalTextureImage?.(currentSlotTex.uuid, currentSlotTex.image)
 
-              currentSlotTex.image = tex.image
+              currentSlotTex.image = previewImage
               currentSlotTex.colorSpace = tex.colorSpace
               currentSlotTex.needsUpdate = true
               updated = true
@@ -819,7 +880,7 @@ function swapTextureByRef(url: string, targetRef?: any) {
                 // Determine mime type from URL or default to png
                 const mimeType = url.startsWith('data:image/webp') ? 'image/webp' : 'image/png'
                 // Convert current canvas/image back to base64 if it was modified by the alpha patch
-                const finalDataUrl = (tex.image instanceof HTMLCanvasElement) ? tex.image.toDataURL(mimeType) : url
+                const finalDataUrl = (exportImage instanceof HTMLCanvasElement) ? exportImage.toDataURL(mimeType) : url
                 const base64Data = finalDataUrl.split(',')[1]
                 vhackStore.registerMutation(sIdx, base64Data, mimeType)
               }
