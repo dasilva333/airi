@@ -8,10 +8,12 @@ import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ModelCustomizerSkeleton from './components/ModelCustomizerSkeleton.vue'
+import HackerStudioShell from './hacker-studio/HackerStudioShell.vue'
 
 import { useSettingsSpine } from '../../../../stores/settings/spine'
 import { Section } from '../../../layouts'
 import { ColorPalette } from '../../../widgets'
+import { useSpineHackerStudioHost } from './hacker-studio/use-spine-hacker-studio-host'
 
 const props = withDefaults(defineProps<{
   palette: string[]
@@ -32,6 +34,7 @@ const ModelCustomizer = defineAsyncComponent({
 })
 
 const { t } = useI18n()
+const { adapter: spineHackerAdapter, studio: spineHackerStudio } = useSpineHackerStudioHost()
 
 const settingsSpine = useSettingsSpine()
 const {
@@ -126,7 +129,23 @@ onMounted(() => {
     </div>
   </Section>
 
-  <!-- Block 2: Scene -->
+  <!-- Block 2: Avatar Appearance -->
+  <Section
+    title="Avatar Appearance"
+    icon="i-solar:mask-h-bold-duotone"
+    :class="['rounded-xl', 'bg-white/80', 'dark:bg-black/75', 'backdrop-blur-lg']"
+    size="sm"
+    :expand="true"
+  >
+    <div class="min-w-0 w-full flex flex-col gap-2 p-2">
+      <p class="px-1 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+        Replace Spine atlas pages and fine-tune their appearance.
+      </p>
+      <HackerStudioShell :adapter="spineHackerAdapter" :studio="spineHackerStudio" />
+    </div>
+  </Section>
+
+  <!-- Block 3: Scene -->
   <Section
     title="Scene"
     icon="i-solar:clapperboard-edit-bold-duotone"
@@ -143,7 +162,7 @@ onMounted(() => {
     <FieldRange v-model="positionY" as="div" :min="-3000" :max="3000" :step="1" :default-value="0" :label="t('settings.spine.scale-and-position.y')" />
   </Section>
 
-  <!-- Block 3: Advanced -->
+  <!-- Block 4: Advanced -->
   <Section
     title="Advanced"
     icon="i-solar:settings-bold-duotone"

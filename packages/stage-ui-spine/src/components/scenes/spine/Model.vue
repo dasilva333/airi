@@ -13,6 +13,7 @@ import { nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { useSpineAnimationManager, useSpineGestureInteraction } from '../../../composables/spine'
 import { EMOTION_SpineAnimationName_value, SPINE_IDLE_TRACK, SpineAnimationName } from '../../../constants/emotions'
 import { useSpine } from '../../../stores/spine'
+import { clearSpineHackerRuntime, setSpineHackerRuntime } from '../../../utils/spine-hacker-runtime'
 import { loadSpineRuntime } from '../../../utils/spine-runtime'
 import { detectSpineVersionFromBinary, detectSpineVersionFromJson } from '../../../utils/spine-version'
 import { loadSpineZip } from '../../../utils/spine-zip-loader'
@@ -78,6 +79,7 @@ let loggedBBoxThisLoad = false
 let isTalkActive = false
 const modelLoadMutex = new Mutex()
 const modelLoading = ref(false)
+const spineHackerRuntimeToken = Symbol('spine-hacker-runtime')
 
 // Live runtime objects.
 let spineCanvas: SpineCanvas | undefined
@@ -224,6 +226,7 @@ function disposeSpine() {
   animationState = undefined
   isTalkActive = false
   spineStore.isModelLoaded = false
+  clearSpineHackerRuntime(spineHackerRuntimeToken)
 }
 
 async function loadModel() {
@@ -258,6 +261,8 @@ async function loadModel() {
     let pathPrefix = ''
     let blobUrls: Record<string, string> | undefined
     let rawData: Record<string, Uint8Array | string> | undefined
+    let sourceBuffer: ArrayBuffer | undefined
+    let activeVariantName: string | undefined
 
     const isLocalBlob = modelSrc.value.startsWith('blob:')
     if (isLocalBlob || modelSrc.value.endsWith('.zip')) {
@@ -266,12 +271,14 @@ async function loadModel() {
       const file = new File([blob], 'model.zip', { type: 'application/zip' })
       const loaded = await loadSpineZip(file)
       loadedVariants = loaded.variants
+      sourceBuffer = loaded.sourceBuffer
 
       // Populate variant store.
       availableVariants.value = loaded.variants.map(v => ({ name: v.name }))
       // Select stored variant or default to first.
       const selectedVariant = loaded.variants.find(v => v.name === currentVariant.value)
         ?? loaded.variants[0]
+      activeVariantName = selectedVariant?.name
       if (selectedVariant && currentVariant.value !== selectedVariant.name)
         currentVariant.value = selectedVariant.name
 
@@ -378,6 +385,21 @@ async function loadModel() {
 
             const am = sc.assetManager
             const atlas = am.require(assetPaths.atlasPath) as import('@esotericsoftware/spine-webgl').TextureAtlas
+            setSpineHackerRuntime({
+              atlas,
+              context: sc.context,
+              layout: assetPaths,
+              variantName: activeVariantName,
+              sourceBuffer,
+              premultipliedAlpha: storePremultipliedAlpha.value,
+              modelId: props.modelId,
+              token: spineHackerRuntimeToken,
+              createTexture: (image, page) => new spine.GLTexture(
+                sc.context,
+                image,
+                spine.GLTexture.usesMipMaps(page.minFilter),
+              ),
+            })
             const attachmentLoader = new spine.AtlasAttachmentLoader(atlas)
             const skeletonData = assetPaths.skeletonFormat === 'binary'
               ? new spine.SkeletonBinary(attachmentLoader).readSkeletonData(am.require(assetPaths.skeletonPath) as Uint8Array)
@@ -493,6 +515,7 @@ async function loadModel() {
             resolve()
           }
           catch (err) {
+            clearSpineHackerRuntime(spineHackerRuntimeToken)
             const error = err instanceof Error ? err : new Error(String(err))
             emits('error', error)
             reject(error)

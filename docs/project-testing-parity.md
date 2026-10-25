@@ -3,7 +3,7 @@
 **Document ID:** `docs/project-testing-parity.md`
 **Status:** Living Canonical Catalog & Strategy · Active
 **Last Verified Baseline:** 2026-09-14 (Monorepo Vitest Audit)
-**2026-10-25 Addition:** Hacker Studio characterization/adapter/shell/export suites (+13 suites, +77 tests; totals below include them).
+**2026-10-25 Addition:** Hacker Studio characterization/adapter/shell/export suites (+16 suites, +88 tests; totals below include them).
 **Monorepo Coverage Baseline:** **110 active test suites · 1,218 passing tests (0 failures)**
 **CI Automated Enforcement:** Active via `.github/workflows/ci.yml` (`unit-test` job)
 **Related Documents:**
@@ -24,7 +24,7 @@
 
 | Package / Workspace | Test Suites (Files) | Total Tests | Primary Subsystem Focus |
 |---|:---:|:---:|---|
-| [`packages/stage-ui`](../packages/stage-ui) | 93 | 1,000 | Arcade, Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory, Artistry, Proactivity, MCP, Cloudflare OAuth, Gemini Live Bidi, Chat Input Bridge, Audio Device Routing, Character & Session Lifecycle, Hacker Studio |
+| [`packages/stage-ui`](../packages/stage-ui) | 96 | 1,011 | Arcade, Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory, Artistry, Proactivity, MCP, Cloudflare OAuth, Gemini Live Bidi, Chat Input Bridge, Audio Device Routing, Character & Session Lifecycle, Hacker Studio |
 | [`packages/nan0-runtime`](../packages/nan0-runtime) | 24 | 301 | Nan0 Cognition Runtime, Thought Engine, Emotional Dynamics, Goal & Prediction Systems |
 | [`packages/live2d-runtime`](../packages/live2d-runtime) | 5 | 79 | Live2D Scripting DSL VM, Command Parser, Selector, Template, VarStore |
 | [`packages/stage-pages`](../packages/stage-pages) | 2 | 34 | Settings Topology & Devtools Context Flow Formatters |
@@ -37,7 +37,7 @@
 | [`packages/plugin-sdk`](../packages/plugin-sdk) | 1 | 22 | Plugin SDK Host Core Lifecycle |
 | [`packages/server-runtime`](../packages/server-runtime) | 1 | 9 | Server Route Middleware |
 | [`packages/i18n`](../packages/i18n) | 1 | 3 | Canonical Locales Discovery, Base YAML Syntax/Duplicates, Onboarding V3 100% Parity Assertion |
-| **Monorepo Vitest Baseline** | **150 Suites** | **1,610 Tests** | **Automated Zero-Failure Headless Test Baseline** |
+| **Monorepo Vitest Baseline** | **153 Suites** | **1,621 Tests** | **Automated Zero-Failure Headless Test Baseline** |
 
 *(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 114 total test files cataloged and audited).*
 
@@ -224,6 +224,9 @@
 | **Live2D ZIP Exporter** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/live2d/live2d-exporter.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/live2d/live2d-exporter.test.ts) | 8 | Node / JSZip | Blocking in CI | Atlas replacement, preservation of unmodified ZIP entries, relative paths, case-insensitive matches, missing-path fallback, legacy `model.json`, missing manifest failure, and blank-texture-slot index mapping. | Pure ZIP transformation; no Pixi renderer. |
 | **Live2D BaseTexture Swap** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/live2d/live2d-texture.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/live2d/live2d-texture.test.ts) | 4 | Node / Pure TS | Blocking in CI | Target baseTexture swap, drawable repointing restricted to the previous baseTexture, in-place restore, and drawables without textures. | Pure fake textures/drawables; no live Cubism model. |
 | **Live2D Adapter Characterization** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/live2d/use-live2d-hacker-adapter.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/live2d/use-live2d-hacker-adapter.test.ts) | 4 | JSDOM / Pinia | Blocking in CI | Atlas descriptors, PNG-only upload policy, `atlas page` owner noun, Parts/Materials capability hiding, visible export reason without a ZIP, local ZIP source loading, and valid HACK ZIP export. | Fake Live2D model; no Pixi renderer/apply coverage in this suite. |
+| **Spine ZIP Exporter** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/spine/spine-exporter.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/spine/spine-exporter.test.ts) | 5 | Node / JSZip | Blocking in CI | Atlas-page replacement, preservation of atlas UV metadata and PMA, unmodified files, case-insensitive paths, missing-page creation, missing-atlas failure. | Pure ZIP transformation; no Spine renderer. |
+| **Spine Atlas Page Swap** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/spine/spine-texture.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/spine/spine-texture.test.ts) | 2 | Node / Pure TS | Blocking in CI | Page texture replacement, atlas metadata left untouched, in-place restore. | Fake Spine atlas page; no WebGL context. |
+| **Spine Adapter Characterization** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/spine/use-spine-hacker-adapter.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/spine/use-spine-hacker-adapter.test.ts) | 4 | JSDOM / Pinia | Blocking in CI | Atlas-page descriptors, owner noun, PNG-only policy, capability hiding, missing-source reason, valid HACK ZIP export, runtime unload cleanup. | Bridge seeded with a fake Spine atlas; no live WebGL apply coverage. |
 | **Adapter Contract & Controller** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/adapter-contract.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/adapter-contract.test.ts) | 12 | Node / Vue Refs | Blocking in CI | Texture selection, mode/prompt persistence, upload origin metadata, per-texture history, preview restore/re-apply, revert, generation attached to origin, late-result rejection after upload/revert, export capability gating, reset/dispose. | Fake adapter only; does not mount a renderer or drive a real VRM/Live2D/Spine model. |
 | **Shell Smoke & Texture Selection** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/HackerStudioShell.test.ts`](../packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/HackerStudioShell.test.ts) | 2 | JSDOM / Vue | Blocking in CI | Mounts the adapter-driven shell with a fake adapter, renders the texture deck and count, selects a texture, asserts adapter selection propagation, owner count, and material controls. | Fake adapter + mocked Electron invoke boundary; no WebGL/renderer or real image upload. |
 

@@ -59,6 +59,9 @@ const isDragOver = ref(false)
 const isExporting = ref(false)
 const actionError = ref<string | null>(null)
 const textureUploader = ref<HTMLInputElement | null>(null)
+const pendingUploadTexture = ref<HackerTexture | null>(null)
+const isApplyingUpload = ref(false)
+let lastHandledUploadFile: File | null = null
 
 const aiReplicateModelId = ref('black-forest-labs/flux-schnell')
 const aiReplicateParams = ref('{}')
@@ -240,6 +243,12 @@ function downloadReplacement() {
 }
 
 function triggerManualUpload() {
+  const texture = selectedTexture.value
+  pendingUploadTexture.value = texture
+  if (!texture) {
+    setUploadError('Select an atlas page before uploading a replacement.')
+    return
+  }
   textureUploader.value?.click()
 }
 
@@ -287,6 +296,7 @@ function imageHasTransparency(image: any): boolean {
 
 interface DecodedUpload {
   dataUrl: string
+  image: HTMLImageElement
   width: number
   height: number
   hasAlpha: boolean
@@ -304,34 +314,70 @@ async function decodeUpload(file: File): Promise<DecodedUpload> {
   const height = image.naturalHeight || image.height
   if (!width || !height)
     throw new Error('That image has no readable dimensions.')
-  return { dataUrl, width, height, hasAlpha: imageHasTransparency(image), mime }
+  return { dataUrl, image, width, height, hasAlpha: imageHasTransparency(image), mime }
 }
 
-async function applyUploadFile(file: File) {
-  const texture = selectedTexture.value
-  if (!texture)
+async function applyUploadFile(file: File, target?: HackerTexture | null) {
+  const texture = target ?? pendingUploadTexture.value ?? selectedTexture.value
+  if (!texture) {
+    setUploadError('Select an atlas page before uploading a replacement.')
+    console.warn('[HackerStudio] Upload ignored: no texture selected.')
     return
+  }
+  if (isApplyingUpload.value)
+    return
+
+  isApplyingUpload.value = true
   setUploadError(null)
   actionError.value = null
+  console.info('[HackerStudio] Upload started:', {
+    textureId: texture.id,
+    textureName: texture.name,
+    fileName: file.name,
+    fileType: file.type,
+  })
+
   try {
     const decoded = await decodeUpload(file)
+    console.info('[HackerStudio] Upload decoded:', {
+      width: decoded.width,
+      height: decoded.height,
+      mime: decoded.mime,
+      hasAlpha: decoded.hasAlpha,
+    })
     const notice = buildUploadNotices(
       decoded,
       { width: texture.width, height: texture.height, hasAlpha: texture.hasAlpha ?? false },
     )
-    await applyUpload(texture.id, decoded.dataUrl, file.name, notice)
+    console.info('[HackerStudio] Applying upload to adapter...')
+    await applyUpload(texture.id, decoded.dataUrl, file.name, notice, decoded.image)
+    console.info('[HackerStudio] Upload applied.')
   }
   catch (e: any) {
+    console.warn('[HackerStudio] Upload failed:', e)
     setUploadError(e?.message || 'Could not load that image.')
+  }
+  finally {
+    isApplyingUpload.value = false
+    pendingUploadTexture.value = null
   }
 }
 
 async function handleManualUpload(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
+  if (!file)
+    return
+  // Electron can emit input before change for file inputs. Handle the first
+  // delivery and let the other event no-op.
+  if (file === lastHandledUploadFile)
+    return
+  lastHandledUploadFile = file
+  const target = pendingUploadTexture.value
   input.value = ''
-  if (file)
-    await applyUploadFile(file)
+  console.info('[HackerStudio] File selected:', file.name)
+  await applyUploadFile(file, target)
+  lastHandledUploadFile = null
 }
 
 function handleUploadDrop(event: DragEvent) {
@@ -734,6 +780,10 @@ const selectedMaterialControls = computed(() => adapter.materialControls?.value 
             <div class="i-solar:info-circle-bold mt-0.5 shrink-0" />
             <span>Shared texture · Changes affect all {{ selectedTexture.owners.length }} {{ ownerNounFor(selectedTexture.owners.length) }}.</span>
           </div>
+          <div v-if="selectedTexture.hint" class="flex items-start gap-1.5 text-[10px] text-amber-600 dark:text-amber-300">
+            <div class="i-solar:info-circle-bold mt-0.5 shrink-0" />
+            <span>{{ selectedTexture.hint }}</span>
+          </div>
 
           <div v-if="isGenerating" class="flex items-start gap-2 border border-primary-500/20 rounded-xl bg-primary-500/5 p-2">
             <div class="i-solar:spinner-bold mt-0.5 shrink-0 animate-spin text-primary-500" />
@@ -816,10 +866,13 @@ const selectedMaterialControls = computed(() => adapter.materialControls?.value 
                 </div>
               </div>
             </button>
+            <p v-if="isApplyingUpload" class="text-[9px] text-primary-600 dark:text-primary-300">
+              Applying replacement...
+            </p>
             <p v-if="uploadError" class="text-[9px] text-rose-600 dark:text-rose-300">
               {{ uploadError }}
             </p>
-            <input ref="textureUploader" type="file" :accept="acceptedUploadTypes" class="hidden" @change="handleManualUpload">
+            <input ref="textureUploader" type="file" :accept="acceptedUploadTypes" class="hidden" @input="handleManualUpload" @change="handleManualUpload">
           </div>
 
           <div v-else class="space-y-3">

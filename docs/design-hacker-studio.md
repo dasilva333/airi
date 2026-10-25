@@ -1,6 +1,6 @@
 # Hacker Studio: Model-Agnostic Avatar Asset Modding
 
-**Status:** Draft, October 2026
+**Status:** Implemented (VRM, Live2D, Spine), October 2026
 **Supersedes:** the V-HACK-only UX and architecture in [design-vhack-studio.md](design-vhack-studio.md) (kept as historical context)
 
 **Phase 1 (VRM) status (2026-10-25):** implemented end to end.
@@ -14,7 +14,17 @@
 - Mounted through `hacker-studio/use-live2d-hacker-studio-host.ts` in `live2d.vue` after Character Customizations.
 - The legacy `LHackerPanel.vue`, global drawer mount, L-HACK toggle, `lhack.ts`, and dead `__LHACK_LAST_ZIP_BUFFER__` capture are removed.
 - Export requires a source ZIP; bare model URLs show a disabled reason. Uploads are PNG-only for Live2D in this pass.
-- Deferred: Spine, Live2D Parts/drawables, and the Pinia session store; controller state is serializable, while live Three/Pixi handles use session host singletons.
+
+**Phase 3 (Spine) status (2026-10-25):** implemented end to end for atlas-page replacement and ZIP export.
+- Spine adapter: `hacker-studio/adapters/spine/use-spine-hacker-adapter.ts`; ZIP rewrite: `spine-exporter.ts`; page swap/restore: `spine-texture.ts`.
+- Runtime bridge: `packages/stage-ui-spine/src/utils/spine-hacker-runtime.ts` exposes the live atlas/context, source ZIP, and a `createTexture` callback from `Model.vue`. The callback uses the dynamically loaded Spine runtime's own `GLTexture`, avoiding cross-version context mismatches; raw objects stay outside Pinia.
+- Mounted through `hacker-studio/use-spine-hacker-studio-host.ts` in `spine.vue` after Character Customizations.
+- Atlas metadata is preserved on replacement: Spine derives UVs from the page `size:` header, so patching only that header would corrupt sampling. The replacement image is sampled by the existing normalized UVs; dimension changes are surfaced as a warning in the Lab.
+- Export requires a source ZIP; bare sibling-URL models show a disabled reason. Uploads are PNG-only in this pass.
+- Revert swaps the original `GLTexture` back in place; it never calls `shouldUpdateView()` (which would reload the model).
+
+**Deferred across formats:** Live2D Parts/drawables, Spine Parts/slots/skins, and a Pinia session store. Controller state is serializable; live Three/Pixi/Spine handles use session host singletons.
+
 **Roadmap entry:** [Unified Texture Editor (V-HACK / L-HACK & ModelCustomizer)](content/en/docs/chronicles/roadmap.md)
 **Related:** [design-model-customizer.md](design-model-customizer.md), [AIRI Character Rendering skill](../.agents/skills/airi-character-rendering/SKILL.md)
 
@@ -25,12 +35,12 @@
 Hacker Studio is one docked **Avatar Appearance** section shared by the supported display-model formats. It brings the V-HACK / L-HACK texture workflow to **VRM, Live2D, and Spine** through a common shell and format adapters:
 
 - Same tabs, Local editing / Promptcraft modes, upload/drop flow, replacement history, preview, validation, generation progress, and footer for all formats.
-- **Atlas/texture replacement is the first milestone.** Parts/visibility is the second.
+- **Atlas/texture replacement is the first milestone.** Parts/visibility is VRM-only for now; Live2D drawables and Spine slots are deferred.
 - **New UI only.** The old V-HACK Lab and the L-HACK purple drawer are retired; format-specific internals move behind adapters.
 - **Thin shell, thick adapters.** GLB surgery, Pixi baseTexture swaps, and Spine atlas/ZIP handling stay inside their format adapters.
 - **One shared session runtime.** Controller state is serializable and lives in `useHackerStudio`; a session host keeps the live adapter alive. No migration from `vhack.ts` / `lhack.ts`; old AI keys and session state are intentionally dropped.
 - **MMD is excluded.** Its current wiring has no writable export bundle; a preview-only MMD surface is not worth building.
-- **Three adapters in one initiative**, phased so VRM and Live2D establish the contract before Spine lands.
+- **Three adapters completed** — VRM, Live2D, and Spine share the contract and shell.
 
 ---
 
@@ -106,7 +116,7 @@ Each format settings panel owns an `Avatar Appearance` section that hosts the sh
 - `live2d.vue`
 - `spine.vue`
 
-The Live2D L-HACK drawer, its toggle, and the global `LHackerPanel` mount in `model-settings/index.vue` are removed. The old VRM `HackerPanel` becomes a thin compatibility wrapper or is removed once the shell is in place.
+The Live2D L-HACK drawer, its toggle, the global `LHackerPanel` mount, the old VRM `HackerPanel`, and their stores are removed. Each format mounts `HackerStudioShell` through its own host.
 
 The shell is the same 440px controls-rail content used by the current Lab. No format-specific heading is duplicated; the outer Section title/subtitle remain.
 
@@ -169,36 +179,30 @@ Outside the Local/Promptcraft forms:
 
 ```text
 packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/
-  HackerStudioSection.vue          # host: adapter selection, lifecycle, Section wrapper
   HackerStudioShell.vue            # tabs, mode switch, shared chrome, footer
-  components/
-    TextureGrid.vue
-    TextureLab.vue
-    PartTree.vue
-    UploadDropZone.vue
-    ReplacementStatus.vue
-    GenerationStatus.vue
-    MaterialAdjustments.vue         # adapter-supplied controls
+  use-hacker-studio-host.ts        # VRM session host
+  use-live2d-hacker-studio-host.ts # Live2D session host
+  use-spine-hacker-studio-host.ts  # Spine session host
   composables/
-    useHackerStudio.ts              # selection, mode, history, revision, generation, validation
+    use-hacker-studio.ts           # selection, mode, history, revision, generation, validation
+  domain/                          # pure filename/upload/guidance/identity/gamma policies
   adapters/
     types.ts
     vrm/
-      adapter.ts
-      glbSurgeon.ts
-      texturePipeline.ts
+      use-vrm-hacker-adapter.ts
+      glb-exporter.ts
     live2d/
-      adapter.ts
-      pixiPipeline.ts
-      zipExporter.ts
+      use-live2d-hacker-adapter.ts
+      live2d-exporter.ts
+      live2d-texture.ts
     spine/
-      adapter.ts
-      atlasZipExporter.ts
-  exporters/
-    types.ts
-  stores/
-    hacker-studio.ts
+      use-spine-hacker-adapter.ts
+      spine-exporter.ts
+      spine-texture.ts
 ```
+
+The bridge for live Spine objects lives in `packages/stage-ui-spine/src/utils/spine-hacker-runtime.ts`. The shell imports only `HackerAdapter`/controller types and never a renderer package.
+
 
 The shell never imports Three.js, PixiJS, or Spine runtime types. Adapters never render shared chrome.
 
@@ -207,9 +211,10 @@ The shell never imports Three.js, PixiJS, or Spine runtime types. Adapters never
 ```text
 adapter (active format)
   ├─ textures / parts descriptors (serializable)
-  ├─ applyTexture(id, dataUrl, meta) ──► live model
+  ├─ applyTexture(id, dataUrl, meta, decodedImage?) ──► live model
   ├─ getGenerationBase(id) ──► raw image
-  └─ exportAsset() ──► { blob, filename, extension }
+  ├─ exportUnavailableReason ──► visible disabled reason
+  └─ exportAsset() ──► { blob, filename }
 
 useHackerStudio(adapter)
   ├─ selected texture/part
@@ -323,14 +328,21 @@ Rules:
 
 ### 5.4 Shared state
 
-A new `useHackerStudioStore` (`model-settings/hacker-studio/stores/hacker-studio.ts`) owns only serializable state:
+There is no Pinia `hacker-studio` store. The serializable controller state lives in `useHackerStudio(adapter)` and is owned by a per-format session host:
+
+- `use-hacker-studio-host.ts` — VRM
+- `use-live2d-hacker-studio-host.ts` — Live2D
+- `use-spine-hacker-studio-host.ts` — Spine
+
+Each host creates the adapter/controller inside a detached effect scope so Section collapse and settings remounts preserve replacements and mutation registries for the session. Watch sources reset the controller on model/variant changes. The hosts are deliberately singletons rather than Pinia stores because live Three/Pixi/Spine handles cannot be serialized; a future format registry can replace the factory.
+
+Controller state is serializable and includes:
 
 ```ts
-interface HackerSession {
-  identity: string
+interface HackerSessionState {
   mode: 'local' | 'prompt'
+  prompt: string
   selectedTextureId: string | number | null
-  selectedPartId: string | null
   replacements: Map<string, {
     url: string
     source: 'upload' | 'generated'
@@ -341,22 +353,16 @@ interface HackerSession {
   uploadNotice: UploadNotice | null
   uploadError: string | null
   generation: {
-    textureId: string | number | null
-    targetName: string | null
-    startedRevision: number
+    isGenerating: boolean
     progress: number
     actionLabel: string | null
     error: string | null
-    isGenerating: boolean
+    targetName: string | null
   }
 }
 ```
 
-- Texture key = `${adapter.identity}:${texture.id}`.
-- Mode is one global session value, not format-specific.
-- Replacements/history persist across tab, texture, and format switches within the session, and are cleared on model change/reset.
-- Prompt text is shell state, preserved across mode switches; no silent rewriting.
-- AI provider configuration comes from `useArtistryStore`. The duplicated `vhack_gemini_*` / `lhack_gemini_*` keys and `vhack.ts` / `lhack.ts` stores are removed. **No migration and no legacy fallback reads.**
+Replacement keys combine adapter identity and texture id.
 
 ### 5.5 Exporters
 
@@ -366,12 +372,12 @@ The footer calls `adapter.exportAsset()`; the shell only renders the label and h
 | :--- | :--- |
 | VRM | Surgical GLB rebuild → `.vrm` |
 | Live2D | Implemented: JSZip rewrite of `model3.json` texture entries → `.zip`; requires a source ZIP |
-| Spine | New JSZip rewrite of atlas-page images + `.atlas` metadata → `.zip` |
+| Spine | JSZip rewrite of atlas-page images → `.zip`; atlas UV/PMA metadata preserved; requires a source ZIP |
 
 The Live2D exporter now lives in `adapters/live2d/live2d-exporter.ts`. It reads `model3.json.FileReferences.Textures`, maps runtime indices across filtered blank slots, overwrites the matching ZIP entries from the mutation registry, and returns a ZIP. It requires the source ZIP buffer; models loaded from a bare model URL may not have one.
-The Spine exporter is new but follows the same ZIP-rewrite pattern: capture the original ZIP, locate the `.atlas` and its page paths, overwrite the page entries, patch page dimensions/PMA in the atlas text when replacement dimensions differ, and download a ZIP. This is feasible for ZIP-sourced models; only a sibling-URL source without an archive has no bundle to rewrite.
+The Spine exporter lives in `adapters/spine/spine-exporter.ts`: capture the original ZIP, resolve the selected atlas/page paths, overwrite the page entries, and return a ZIP. Atlas text is intentionally preserved, including `size:` and `pma:` lines. Spine derives region UVs from the page size; patching only that header would distort sampling. Only a sibling-URL source without an archive has no bundle to rewrite.
 
-Filename pattern: `<base>_HACK_<YYYYMMDD-HHmm>.<ext>`, derived from VRM meta/display model, or the model/ZIP basename for 2D formats.
+Filename patterns: VRM uses `<base>_VHACK_<YYYYMMDD-HHmm>.vrm`; Live2D/Spine use `<base>_HACK_<YYYYMMDD-HHmm>.zip`, derived from model metadata/display names or the source basename.
 
 `export: 'disabled'` is a visible capability, not a silent no-op. The shell shows the adapter’s reason (for example, “Load a ZIP bundle to export a complete model”).
 
@@ -385,11 +391,11 @@ Filename pattern: `<base>_HACK_<YYYYMMDD-HHmm>.<ext>`, derived from VRM meta/dis
 | Local upload / drop | ✅ | ✅ | ✅ |
 | AI generation | ✅ | ✅ | ✅ |
 | Preview / restore / revert | ✅ | ✅ | ✅ |
-| Full bundle export | ✅ `.vrm` | ✅ `.zip` (existing exporter; needs source ZIP) | ✅ `.zip` (new exporter; needs source ZIP) |
-| Parts tab | ✅ existing nodes | ⏳ drawables (currently disabled) | ⏳ slots/attachments |
+| Full bundle export | ✅ `.vrm` | ✅ `.zip` (requires source ZIP) | ✅ `.zip` (requires source ZIP) |
+| Parts tab | ✅ existing nodes | ⏳ drawables (deferred) | ⏳ slots/attachments (deferred) |
 | Material adjustments | ✅ MToon | ❌ | ❌ |
 | Gamma preview compensation | ✅ | ❌ | ❌ |
-| Owner vocabulary | materials | drawables | slots/attachments |
+| Owner vocabulary | material | atlas page | atlas page (slots deferred) |
 
 ### Capability policy
 
@@ -426,10 +432,11 @@ Filename pattern: `<base>_HACK_<YYYYMMDD-HHmm>.<ext>`, derived from VRM meta/dis
 
 ### 7.3 Spine
 
-- Textures = atlas-page images referenced by the `.atlas` file; owners are slots/attachments that use the page (resolved by the adapter where feasible; otherwise the page itself is the owner).
-- Apply = replace the page texture in the runtime texture atlas; preserve the original page for restore.
-- Source/export: capture the original ZIP buffer and atlas-page paths. Rewrite the page images in the ZIP. This is a ZIP-rewrite problem similar to Live2D, not a fundamental blocker; it is new work because no Spine exporter exists yet. If the model came from a sibling `.skel`/`.json` URL with no archive, full-bundle export is disabled with a reason.
-- Atlas metadata matters: page width/height and premultiplied-alpha are part of the `.atlas` text. If a replacement page has different dimensions, the adapter must patch the atlas text and/or warn; it must never silently produce a mismatched atlas. Preserve PMA.
+- Textures = atlas-page images referenced by the `.atlas` file; first-pass owners are the page itself (`atlas page`). Slot/attachment ownership is deferred with Parts.
+- Runtime bridge = `spine-hacker-runtime.ts` publishes the selected `TextureAtlas`, `ManagedWebGLRenderingContext`, layout, variant, source ZIP, PMA, and a `createTexture` callback from `Model.vue`. The callback uses the **dynamically loaded Spine runtime's own `GLTexture`**, avoiding cross-version `instanceof` mismatches; raw objects stay outside Pinia.
+- Apply = load the decoded PNG, create the replacement through the bridge callback, call `TextureAtlasPage.setTexture()`, and preserve the original texture for in-place restore. Never call `shouldUpdateView()` (it requests a full model reload).
+- Source/export: capture the original ZIP buffer and atlas-page paths. Rewrite the page images in the ZIP. This is a ZIP-rewrite problem similar to Live2D; no Spine exporter existed before Phase 3. If the model came from a sibling `.skel`/`.json` URL with no archive, full-bundle export is disabled with a reason.
+- Atlas metadata stays authoritative. Spine derives region UVs from the page `size:` header; changing only that header while leaving region coordinates unmodified corrupts sampling. Preserve the atlas text and PMA, sample the replacement by the existing UVs, and expose a dimension warning plus a PMA hint in the Lab.
 - Parts (slots/attachments/skins) are phase 5.
 - No Material adjustments.
 
@@ -497,9 +504,9 @@ Warnings do not block. Applying is immediate after successful decode.
 
 Mount points:
 
-- `vrm.vue`: existing Avatar Appearance section → `<HackerStudioSection kind="vrm" />`.
-- `live2d.vue`: new Avatar Appearance section → `<HackerStudioShell :adapter=":live2d adapter" :studio=":controller" />`; drawer/toggle removed.
-- `spine.vue`: new Avatar Appearance section after its existing Character/Scene sections.
+- `vrm.vue`: existing Avatar Appearance section → `<HackerStudioShell :adapter="hackerAdapter" :studio="hackerStudio" />` via `use-hacker-studio-host.ts`.
+- `live2d.vue`: new Avatar Appearance section after Character Customizations → same shell via `use-live2d-hacker-studio-host.ts`; drawer/toggle removed.
+- `spine.vue`: new Avatar Appearance section after Character Customizations → same shell via `use-spine-hacker-studio-host.ts`.
 - `model-settings/index.vue`: the global `LHackerPanel` mount is removed.
 
 ---
@@ -511,9 +518,9 @@ VRM, Live2D, and Spine are in scope for this initiative, sequenced so the contra
 1. **Documentation and contract** — this document; update the old V-HACK spec and roadmap links.
 2. **Shell extraction + VRM adapter** — move the current Lab into shared components/composable; `HackerPanel.vue` becomes a thin adapter wrapper; behavior parity and repacker tests.
 3. **Live2D adapter** — atlases, Pixi swap/sync, **port the existing ZIP exporter**, in-place revert; dock in `live2d.vue`; remove the drawer/toggle and old purple UI.
-4. **Spine adapter** — atlas-page replacement and a **new ZIP exporter** modeled on the Live2D exporter, including atlas-dimension/PMA handling.
+4. **Spine adapter** — atlas-page replacement and a **new ZIP exporter** modeled on the Live2D exporter, preserving atlas UV metadata/PMA. (Done.)
 5. **Parts parity** — VRM (already), Live2D drawables, Spine slots/attachments; enable tabs only when ready.
-6. **Cleanup** — delete `vhack.ts`, `lhack.ts`, old panels, old AI keys, and dead code; update manual/showcase docs. (Done for VRM/Live2D.)
+6. **Cleanup** — delete `vhack.ts`, `lhack.ts`, old panels, old AI keys, and dead code; update manual/showcase docs. (Done for VRM/Live2D/Spine.)
 
 Parts is explicitly phase 5; texture/atlas replacement must be complete for all adapters before it starts.
 
@@ -526,7 +533,7 @@ Parts is explicitly phase 5; texture/atlas replacement must be complete for all 
 | **Three formats at once** | Phased adapters, one contract; do not build three independent UIs. |
 | **MMD export is not viable** | MMD is deliberately excluded; do not add MMD UI, store state, or a preview-only adapter. |
 | **Export without a source archive** | Disable full-bundle export with a visible reason. Do not fabricate a partial model. |
-| **Spine atlas dimensions** | Adapter must patch `.atlas` page size or warn/block; never silently mismatch. Preserve PMA. |
+| **Spine atlas dimensions** | Preserve the `.atlas` size/UV metadata; resizing only the header would corrupt region UVs. Warn on dimension mismatch and preserve PMA. |
 | **Live2D drawables disabled** | Parts is deferred; atlas replacement lands first. Do not show an empty Parts tab. |
 | **Shared atlases / per-material** | Keep shared-owner warning; per-slot export duplication is out of scope for this initiative. |
 | **Old UI removal** | No dual UI, no purple drawer, no old Lab. One shell. |
@@ -538,7 +545,7 @@ Parts is explicitly phase 5; texture/atlas replacement must be complete for all 
 ### Open questions
 
 1. For Spine bare-URL models without an archive: is a “texture pack + instructions” export worth offering, or should export remain disabled? Recommendation: disabled until a full bundle is possible.
-2. Spine replacement with different page dimensions: patch the atlas text automatically, or require same dimensions? Recommendation: patch dimensions when PMA and scale remain safe; otherwise warn and keep the original atlas metadata unchanged.
+2. ~~Spine replacement dimensions~~ — resolved: preserve atlas UV/PMA metadata and warn on dimension mismatch; do not patch only `size:`.
 3. Parts tab visibility before phase 5: hidden (recommended) or visible with a “coming soon” state?
 
 ---
@@ -555,48 +562,35 @@ Parts is explicitly phase 5; texture/atlas replacement must be complete for all 
 
 ---
 
-## 14. File map (target)
+## 14. File map
 
 ```text
 packages/stage-ui/src/components/scenarios/settings/model-settings/
-  vrm.vue                      → Avatar Appearance hosts HackerStudioSection
-  live2d.vue                   → Avatar Appearance hosts HackerStudioShell + Live2D adapter
-  spine.vue                    → Avatar Appearance hosts HackerStudioSection
-  index.vue                    → no global LHackerPanel mount
+  vrm.vue                      → Avatar Appearance hosts HackerStudioShell + VRM host
+  live2d.vue                   → Avatar Appearance hosts HackerStudioShell + Live2D host
+  spine.vue                    → Avatar Appearance hosts HackerStudioShell + Spine host
+  index.vue                    → no global Hacker panel mount
   hacker-studio/
-    HackerStudioSection.vue
     HackerStudioShell.vue
-    components/…
-    composables/useHackerStudio.ts
+    use-hacker-studio-host.ts
+    use-live2d-hacker-studio-host.ts
+    use-spine-hacker-studio-host.ts
+    composables/use-hacker-studio.ts
+    domain/…
     adapters/types.ts
     adapters/vrm/…
     adapters/live2d/…
     adapters/spine/…
-    exporters/…
-    stores/hacker-studio.ts
+
+packages/stage-ui-spine/src/utils/
+  spine-hacker-runtime.ts      # live atlas/context/source/createTexture bridge
+  spine-zip-loader.ts          # retained source ZIP + layout/PMA detection
 ```
 
-Retired after parity:
+Retired:
 
-- `vrm-vhack/HackerPanel.vue` (replaced by VRM adapter + shell)
+- `vrm-vhack/HackerPanel.vue`
 - `live2d-lhack/LHackerPanel.vue`
 - `stores/vhack.ts`
 - `stores/lhack.ts`
-- old L-HACK toggle/drawer UI
-
----
-
-## Appendix A: Vocabulary
-
-| Shell term | VRM | Live2D | Spine |
-| :--- | :--- | :--- | :--- |
-| Textures | glTF images | atlas pages | atlas pages |
-| Owners | materials | drawables | slots/attachments |
-| Parts | nodes | drawables | slots/attachments |
-| Export | “Export modified VRM” | “Download modified ZIP” | “Download modified ZIP” |
-
-The shell uses the adapter nouns in warnings and owner summaries; it does not hardcode “materials”.
-
-## Appendix B: Why adapters, not one generic texture pipeline
-
-VRM replaces image bytes inside a GLB and rebuilds buffer views. Live2D swaps Pixi base textures and object references, then rewrites ZIP entries for export. Spine rewrites atlas pages plus atlas metadata and ZIP entries. MMD has no viable writable export bundle and is intentionally excluded. Forcing the remaining formats through one generic “texture set” would either leak all three formats into the shell or hide destructive export behavior. The common contract is at the **asset/operation** level, not the byte level.
+- L-HACK toggle/global drawer mount and dead ZIP global

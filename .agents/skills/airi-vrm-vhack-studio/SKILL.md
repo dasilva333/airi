@@ -1,12 +1,12 @@
 ---
 name: airi-vrm-vhack-studio
 description: >-
-  Modify/debug avatar assets with Hacker Studio: VRM adapter/shell, MToon materials, texture atlases, AI textures, mesh surgery, GLB export. Includes the Live2D adapter and the model-agnostic adapter contract; expression/motion mapping uses airi-model-customizer.
+  Modify/debug avatar assets with Hacker Studio: VRM/Live2D/Spine adapters, MToon materials, texture atlases, AI textures, mesh surgery, GLB/ZIP export. Includes the model-agnostic adapter contract; expression/motion mapping uses airi-model-customizer.
 ---
 
 # AIRI Hacker Studio — VRM Adapter & Model-Agnostic Shell
 
-Hacker Studio is the successor to V-HACK and L-HACK: a docked **Avatar Appearance** section that modifies the loaded model in memory, with a model-agnostic shell and format adapters. VRM and Live2D are completed; Spine is deferred. The unified design is [`docs/design-hacker-studio.md`](docs/design-hacker-studio.md); the original V-HACK doc is historical.
+Hacker Studio is the successor to V-HACK and L-HACK: a docked **Avatar Appearance** section that modifies the loaded model in memory, with a model-agnostic shell and format adapters. VRM, Live2D, and Spine are completed. The unified design is [`docs/design-hacker-studio.md`](docs/design-hacker-studio.md); the original V-HACK doc is historical.
 
 ## 1. Key Code Paths
 
@@ -20,10 +20,11 @@ Hacker Studio is the successor to V-HACK and L-HACK: a docked **Avatar Appearanc
 | Domain policies | `.../hacker-studio/domain/` |
 | VRM mount | `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm.vue` — creates the VRM adapter/controller and mounts the shell inside `Avatar Appearance`. |
 | Live2D adapter | `.../hacker-studio/adapters/live2d/`; mounted in `live2d.vue` through `use-live2d-hacker-studio-host.ts`. |
-| Test suites | `.../hacker-studio/**/*.test.ts` — 13 suites / 77 tests. |
+| Spine adapter | `.../hacker-studio/adapters/spine/`; runtime bridge: `stage-ui-spine/src/utils/spine-hacker-runtime.ts`; mounted in `spine.vue` through `use-spine-hacker-studio-host.ts`. |
+| Test suites | `.../hacker-studio/**/*.test.ts` — 16 suites / 88 tests. |
 | Design docs | `docs/design-hacker-studio.md` (current), `docs/design-vhack-studio.md` (historical). |
 
-**How to reach it**: Settings → Models (VRM or Live2D selected) → `Avatar Appearance`. VRM mounts after the model sections; Live2D mounts after Character Customizations. Both are docked; adapter/controller ownership lives above the collapsible section, so collapsing does not lose replacement state.
+**How to reach it**: Settings → Models (VRM, Live2D, or Spine selected) → `Avatar Appearance`. VRM mounts after the model sections; Live2D/Spine mount after Character Customizations. All are docked; adapter/controller ownership lives above the collapsible section, so collapsing does not lose replacement state.
 
 ## 2. Architecture
 
@@ -42,7 +43,7 @@ live2d.vue
 - **Shell** owns UI-only state: tabs, filters, AI provider form, eraser overlay.
 - **Controller** owns selection, mode/prompt, per-texture replacement origin/history, preview flags, revisions, upload feedback, and generation status. It never stores Three/Pixi objects.
 - **Adapter** owns live textures, parts, material controls, originals, mutation registry, source buffer, and export.
-- `use-hacker-studio-host.ts` (VRM) and `use-live2d-hacker-studio-host.ts` (Live2D) own the adapter/controller in detached session scopes, so Section collapse and settings remounts preserve them. The hosts are intentionally singletons rather than Pinia stores until the format registry lands.
+- `use-hacker-studio-host.ts` (VRM), `use-live2d-hacker-studio-host.ts` (Live2D), and `use-spine-hacker-studio-host.ts` (Spine) own the adapter/controller in detached session scopes, so Section collapse and settings remounts preserve them. The hosts are intentionally singletons rather than Pinia stores until the format registry lands.
 
 ### Adapter contract
 
@@ -93,6 +94,14 @@ live2d.vue
 The synthetic GLB suite covers offsets, alignment, multiple mutations, hidden surgery, and invalid magic. Test any changes with:
 `pnpm exec vitest run packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/vrm/glb-exporter.test.ts`.
 
+## 4.2 Spine Adapter Behavior
+
+1. **Textures** — one live `TextureAtlasPage` per descriptor; page name is the owner label; PNG-only uploads.
+2. **Runtime bridge** — `Model.vue` publishes the selected `TextureAtlas`, WebGL context, layout, variant, source ZIP, and PMA to `spine-hacker-runtime.ts`. Raw objects never enter Pinia.
+3. **Apply** — create a `GLTexture` with the live context, call `page.setTexture()`, and leave atlas UV metadata untouched. Restore in place and dispose replacement textures.
+4. **Export** — rewrite page images inside the selected variant's source ZIP; the atlas text (size/PMA/UV coordinates) is preserved. Bare sibling URLs show a disabled reason.
+5. **Capabilities** — Parts, materials, and preview gamma are false.
+
 ## 6. Pitfalls
 
 - **Live2D PNG-only**: the shell enforces `acceptedUploadMimes: ['image/png']`; do not silently accept JPEG/WebP ZIP payloads in this pass.
@@ -114,7 +123,7 @@ The synthetic GLB suite covers offsets, alignment, multiple mutations, hidden su
 - `pnpm exec vitest run packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio`
 - `pnpm exec vitest run packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-fps.browser.test.ts`
 - `node scripts/audit-test-catalog.mjs` (new suites are cataloged; pre-existing uncatalogued suites remain a known warning)
-- Runtime: Settings → Models → Avatar Appearance → upload/generate, Preview/Revert, Parts hide/show (VRM), export, re-import. For Live2D, verify a ZIP import, atlas replacement, in-place revert, ZIP export, and the disabled reason for a bare model URL.
+- Runtime: Settings → Models → Avatar Appearance → upload/generate, Preview/Revert, Parts hide/show (VRM), export, re-import. For Live2D/Spine, verify a ZIP import, atlas/page replacement, in-place revert, ZIP export, and the disabled reason for a bare model URL.
 
 ### Authoritative Docs
 

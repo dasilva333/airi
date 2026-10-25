@@ -122,11 +122,12 @@ export function useHackerStudio(adapter: HackerAdapter) {
     dataUrl: string,
     fileName: string | undefined,
     notice: UploadNotice | null = null,
+    image?: HTMLImageElement,
   ): Promise<void> {
     clearUploadFeedback()
     const revision = bumpRevision(id)
     void revision
-    await adapter.applyTexture(id, dataUrl, { source: 'upload', fileName })
+    await adapter.applyTexture(id, dataUrl, { source: 'upload', fileName }, image)
     setReplacement(id, dataUrl, { source: 'upload', fileName })
     markPreviewing(id, true)
     uploadNotice.value = notice

@@ -25,6 +25,8 @@ export interface HackerTexture {
   owners: string[]
   hasAlpha: boolean | null
   shared: boolean
+  /** Adapter-specific warning shown in the Lab (for example PMA pages). */
+  hint?: string
 }
 
 export interface HackerPart {
@@ -74,7 +76,7 @@ export interface HackerAdapter {
   selectTexture?: (id: HackerTextureId) => void
 
   getGenerationBase: (id: HackerTextureId) => Promise<string>
-  applyTexture: (id: HackerTextureId, dataUrl: string, meta: HackerApplyMeta) => Promise<void>
+  applyTexture: (id: HackerTextureId, dataUrl: string, meta: HackerApplyMeta, image?: HTMLImageElement) => Promise<void>
   restoreTexture: (id: HackerTextureId) => void
   setMaterialControl?: (id: string, value: number | boolean) => void
   setPartVisibility?: (id: string, visible: boolean) => void

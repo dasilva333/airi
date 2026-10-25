@@ -29,6 +29,9 @@ export interface SpineModelVariant {
 export interface SpineLoadedAssets {
   layout: SpineModelLayout
 
+  /** Original ZIP archive bytes, retained for the Hacker Studio exporter. */
+  sourceBuffer: ArrayBuffer
+
   /** All skeleton+atlas pairs found in the ZIP. */
   variants: SpineModelVariant[]
 
@@ -280,8 +283,9 @@ export function isMacOSJunk(path: string): boolean {
 }
 
 export async function loadSpineZip(file: File | Blob | ArrayBuffer): Promise<SpineLoadedAssets> {
+  const sourceBuffer = file instanceof ArrayBuffer ? file.slice(0) : await file.arrayBuffer()
   const zip = new JSZip()
-  const archive = await zip.loadAsync(file)
+  const archive = await zip.loadAsync(sourceBuffer)
 
   const entries: Record<string, string> = {}
   const atlasTexts: Record<string, string> = {}
@@ -387,6 +391,7 @@ export async function loadSpineZip(file: File | Blob | ArrayBuffer): Promise<Spi
 
   return {
     layout,
+    sourceBuffer,
     variants,
     premultipliedAlpha: variants[0].premultipliedAlpha,
     blobUrls,
