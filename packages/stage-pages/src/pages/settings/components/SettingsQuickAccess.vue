@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
@@ -104,42 +105,72 @@ function selectCharacterWizard(wizard: (typeof characterWizards)[number]) {
 const localVoiceEngines = [
   {
     id: 'pocket',
+    providerId: 'pocket-tts-local',
     name: 'Pocket-TTS Local',
     icon: 'i-solar:microphone-3-bold-duotone',
     accent: 'text-emerald-500 dark:text-emerald-400',
-    tag: 'RECOMMENDED · CPU',
+    tag: 'VOICE CLONE',
     tagBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-    desc: 'Low-latency ~100M multilingual CPU engine with zero-shot voice synthesis.',
-    badges: ['🇺🇸 EN', '🇫🇷 FR', '🇪🇸 ES', '🇩🇪 DE', '🇮🇹 IT', '🇯🇵 JP (★ Sakura)'],
+    desc: 'Local speech with support for voice samples.',
+    badges: ['🇺🇸 EN', '🇫🇷 FR', '🇪🇸 ES', '🇩🇪 DE', '🇮🇹 IT', '🇯🇵 JA · Sakura'],
     to: '/settings/providers/speech/pocket-tts-local',
   },
   {
     id: 'kokoro',
+    providerId: 'kokoro-local',
     name: 'Kokoro Local TTS',
     icon: 'i-solar:heart-bold-duotone',
     accent: 'text-pink-500 dark:text-pink-400',
-    tag: 'NEURAL AUDIO',
+    tag: 'PRESET VOICES',
     tagBg: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20',
-    desc: 'High-quality 82M neural TTS with expressive English voices.',
+    desc: 'Expressive English voices.',
     badges: ['🇺🇸 EN (US)', '🇬🇧 EN (UK)'],
     to: '/settings/providers/speech/kokoro-local',
   },
   {
     id: 'moss',
-    name: 'Moss-Nano Local',
+    providerId: 'moss-nano-local',
+    name: 'MOSS-Nano Local',
     icon: 'i-solar:bolt-bold-duotone',
     accent: 'text-amber-500 dark:text-amber-400',
-    tag: 'ULTRA-FAST',
+    tag: 'VOICE CLONE',
     tagBg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-    desc: 'Tiny low-resource voice engine for instant speech on any hardware.',
+    desc: 'Local speech with reference-audio voices.',
     badges: ['🇺🇸 EN', '🇨🇳 ZH'],
     to: '/settings/providers/speech/moss-nano-local',
+  },
+  {
+    id: 'ming',
+    providerId: 'ming3-local',
+    name: 'Ming 3.0',
+    icon: 'i-solar:stars-bold-duotone',
+    accent: 'text-violet-500 dark:text-violet-400',
+    tag: 'VOICE DESIGN',
+    tagBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
+    desc: 'Design a voice in words, or choose a built-in speaker.',
+    badges: ['🇨🇳 ZH', '🇺🇸 EN', '🇯🇵 JA', '🇰🇷 KO', '🇩🇪 DE', '🇫🇷 FR', '🇪🇸 ES'],
+    to: '/settings/providers/speech/ming3-local',
   },
 ]
 
 function selectEngine(to: string) {
   isVoiceModalOpen.value = false
   router.push(to)
+}
+
+// Highlights the card/row matching the currently active speech provider.
+const speechStore = useSpeechStore()
+function isActiveEngine(engine: (typeof localVoiceEngines)[number]) {
+  try {
+    const active = speechStore.activeSpeechProvider as unknown as string | undefined
+    if (!active)
+      return false
+    const baseId = active.includes(':') ? active.split(':')[0] : active
+    return baseId === engine.providerId
+  }
+  catch {
+    return false
+  }
 }
 
 // Row 1: Core Character & Services
@@ -389,7 +420,7 @@ function navigate(target: string | QuickAccessItem) {
         @click.stop.self="isVoiceModalOpen = false"
       >
         <div
-          class="max-w-3xl w-full flex flex-col gap-5 border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl dark:border-neutral-800/80 dark:bg-neutral-900"
+          class="max-h-[85dvh] max-w-3xl w-full flex flex-col gap-5 overflow-y-auto border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl dark:border-neutral-800/80 dark:bg-neutral-900"
           @pointerdown.stop
           @mousedown.stop
           @touchstart.stop
@@ -406,7 +437,7 @@ function navigate(target: string | QuickAccessItem) {
                   Local Voice Engines
                 </h3>
                 <p class="text-xs text-neutral-500 dark:text-neutral-400">
-                  Select an offline TTS engine to configure its models and voices
+                  Choose an engine to configure its models and voices.
                 </p>
               </div>
             </div>
@@ -419,33 +450,36 @@ function navigate(target: string | QuickAccessItem) {
             </button>
           </div>
 
-          <!-- 3 Engine Hero Cards -->
-          <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+          <!-- 4 Engine Hero Cards: 2×2 on desktop, compact list on mobile -->
+          <div class="grid-cols-2 gap-3.5 hidden sm:grid">
             <button
               v-for="engine in localVoiceEngines"
               :key="engine.id"
               type="button"
               :class="[
                 'group relative flex flex-col justify-between text-left rounded-2xl p-4.5 transition-all duration-200 cursor-pointer',
-                'border border-neutral-200/80 bg-neutral-50/70 dark:border-neutral-800 dark:bg-neutral-800/40',
+                isActiveEngine(engine)
+                  ? 'border-2 border-primary-500/70 bg-white dark:border-primary-400/70 dark:bg-neutral-800'
+                  : 'border border-neutral-200/80 bg-neutral-50/70 dark:border-neutral-800 dark:bg-neutral-800/40',
                 'hover:border-primary-500/60 dark:hover:border-primary-400/60 hover:bg-white dark:hover:bg-neutral-800',
                 'hover:-translate-y-1 hover:shadow-lg',
               ]"
               @click="selectEngine(engine.to)"
             >
-              <!-- Card Top: Icon & Tag -->
-              <div class="flex items-start justify-between gap-2">
+              <!-- Card Top: Icon, Tag & Chevron -->
+              <div class="flex items-start gap-2">
                 <div :class="['size-10 flex shrink-0 items-center justify-center rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-700/60 shadow-xs transition-transform group-hover:scale-105', engine.accent]">
                   <div :class="[engine.icon, 'size-5']" />
                 </div>
-                <span :class="['text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-md border uppercase', engine.tagBg]">
+                <span v-if="engine.tag" :class="['ml-auto text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-md border uppercase', engine.tagBg]">
                   {{ engine.tag }}
                 </span>
+                <div class="i-solar:arrow-right-line-duotone shrink-0 text-lg text-neutral-400 transition-transform group-hover:translate-x-0.5 dark:text-neutral-500" :class="engine.tag ? '' : 'ml-auto'" />
               </div>
 
               <!-- Card Content: Name & Description -->
               <div class="mb-3 mt-3.5 flex flex-col gap-1">
-                <span class="text-sm text-neutral-900 font-bold transition-colors dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400">
+                <span class="text-[15px] text-neutral-900 font-bold transition-colors dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400">
                   {{ engine.name }}
                 </span>
                 <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
@@ -454,16 +488,65 @@ function navigate(target: string | QuickAccessItem) {
               </div>
 
               <!-- Card Bottom: Language Badges -->
-              <div class="mt-auto flex flex-wrap gap-1 border-t border-neutral-200/60 pt-3 dark:border-neutral-700/40">
+              <div class="flex flex-wrap gap-1.5">
                 <span
                   v-for="badge in engine.badges"
                   :key="badge"
-                  class="rounded bg-neutral-200/60 px-1.5 py-0.5 text-[10px] text-neutral-600 font-mono dark:bg-white/5 dark:text-neutral-400"
+                  class="rounded-md bg-neutral-200/60 px-2 py-1 text-[10px] text-neutral-600 font-mono dark:bg-white/5 dark:text-neutral-400"
                 >
                   {{ badge }}
                 </span>
               </div>
             </button>
+          </div>
+
+          <!-- Mobile: compact engine list -->
+          <div class="flex flex-col gap-2.5 sm:hidden">
+            <button
+              v-for="engine in localVoiceEngines"
+              :key="engine.id"
+              type="button"
+              :class="[
+                'group relative flex items-start gap-3 rounded-2xl p-3.5 text-left transition-all duration-200 cursor-pointer',
+                isActiveEngine(engine)
+                  ? 'border-2 border-primary-500/70 bg-white dark:border-primary-400/70 dark:bg-neutral-800'
+                  : 'border border-neutral-200/80 bg-neutral-50/70 dark:border-neutral-800 dark:bg-neutral-800/40',
+                'active:bg-white dark:active:bg-neutral-800',
+              ]"
+              @click="selectEngine(engine.to)"
+            >
+              <div :class="['size-10 flex shrink-0 items-center justify-center rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-700/60 shadow-xs', engine.accent]">
+                <div :class="[engine.icon, 'size-5']" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="truncate text-sm text-neutral-900 font-bold dark:text-white">
+                    {{ engine.name }}
+                  </span>
+                  <span v-if="engine.tag" :class="['ml-auto shrink-0 text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-md border uppercase', engine.tagBg]">
+                    {{ engine.tag }}
+                  </span>
+                </div>
+                <p class="mt-1 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+                  {{ engine.desc }}
+                </p>
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                  <span
+                    v-for="badge in engine.badges"
+                    :key="badge"
+                    class="rounded-md bg-neutral-200/60 px-2 py-1 text-[10px] text-neutral-600 font-mono dark:bg-white/5 dark:text-neutral-400"
+                  >
+                    {{ badge }}
+                  </span>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <!-- Footer note -->
+          <div class="mt-1 flex items-center gap-2 border-t border-neutral-200/60 pt-4 text-xs text-neutral-500 dark:border-neutral-700/40 dark:text-neutral-400">
+            <div class="i-solar:download-minimalistic-bold-duotone shrink-0 text-base" />
+            <span>Models download during setup.</span>
           </div>
         </div>
       </div>
