@@ -23,7 +23,8 @@ All in `packages/stage-pages/src/pages/settings/airi-card/components/tabs/`. Thi
 - `CardCreationTabCognition.vue`
 - `CardCreationTabGeneration.vue`
 - `CardCreationTabIdentity.vue`
-- `CardCreationTabModules.vue`
+- `CardCreationTabModules.vue` (legacy: still mounted for the retired `presence`/`modules` tab keys, but no longer in the tab bar)
+- `ProductionStudioTab.vue` (live **Staging** tab: concept registry + stage foundation, incl. Vocal Profile / voice config)
 - `CardCreationTabProactivity.vue`
 - `CardCreationTabTools.vue`
 - `ProductionStudioTab.vue` (multi-cast / scene composer)

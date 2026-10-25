@@ -179,6 +179,13 @@ function handleSave() {
     document.activeElement.blur()
   }
 
+  // Never silently persist an empty voice: an unchosen voice would write ''
+  // and the card would fall back to "Default voice" with no error surfaced.
+  if (!voiceForm.value.baseVoice) {
+    toast.error('Select a voice before saving.')
+    return
+  }
+
   if (voiceForm.value.baseProvider !== 'kokoro-local') {
     emit('save', {
       baseProvider: voiceForm.value.baseProvider,
@@ -434,7 +441,7 @@ async function playVoicePreview() {
               <Select
                 v-if="selectedProviderVoices.length > 0"
                 v-model="voiceForm.baseVoice"
-                :options="selectedProviderVoices.map(v => ({ value: v.id, label: v.gender === 'saved profile' ? v.name : `${v.name} (${v.gender})` }))"
+                :options="selectedProviderVoices.map(v => ({ value: v.id, label: v.gender ? (v.gender === 'saved profile' ? v.name : `${v.name} (${v.gender})`) : (v.name || v.id) }))"
                 placeholder="Select voice"
               />
               <input

@@ -93,7 +93,8 @@ Concept-to-file-path index for rapid context retrieval. Use this to find where a
 | — Generation Tab | `.../tabs/CardCreationTabGeneration.vue` |
 | — Acting Tab | `.../tabs/CardCreationTabActing.vue` |
 | — Artistry Tab | `.../tabs/CardCreationTabArtistry.vue` |
-| — Modules Tab | `.../tabs/CardCreationTabModules.vue` |
+| — Staging Tab (concept registry + stage foundation, incl. Vocal Profile) | `.../tabs/ProductionStudioTab.vue` |
+| — Modules Tab (retired from tab bar; legacy `presence`/`modules` keys still mount it) | `.../tabs/CardCreationTabModules.vue` |
 | — Proactivity Tab | `.../tabs/CardCreationTabProactivity.vue` |
 | **Vision Settings** | `packages/stage-pages/src/pages/settings/modules/vision.vue` | `visionStore` |
 | **Module Settings Pages** | `packages/stage-pages/src/pages/settings/modules/` |

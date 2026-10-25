@@ -114,12 +114,11 @@ const activeVoiceDisplay = computed(() => {
 })
 
 function handleSaveVoice(payload: { baseProvider: string, baseModel: string, baseVoice: string }) {
-  if (selectedSpeechProvider.value)
-    selectedSpeechProvider.value = payload.baseProvider
-  if (selectedSpeechModel.value)
-    selectedSpeechModel.value = payload.baseModel
-  if (selectedSpeechVoiceId.value)
-    selectedSpeechVoiceId.value = payload.baseVoice
+  // Write unconditionally: these are v-model bindings to the editor form, and
+  // guarding on the current (often empty) value silently drops the save.
+  selectedSpeechProvider.value = payload.baseProvider
+  selectedSpeechModel.value = payload.baseModel
+  selectedSpeechVoiceId.value = payload.baseVoice
 }
 
 const showBuilder = ref(false)
