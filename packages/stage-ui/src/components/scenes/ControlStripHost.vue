@@ -51,7 +51,6 @@ import { useSettingsControlStrip } from '../../stores/settings/control-strip'
 import { useSettingsUserProfile } from '../../stores/settings/user-profile'
 import { useSpeechRuntimeStore } from '../../stores/speech-runtime'
 import { useStickersStore } from '../../stores/stickers'
-import { useVHackStore } from '../../stores/vhack'
 import { logMemoryProbe } from '../../utils/memory-sentinel'
 import { StageWidgetsContainer } from '../widgets'
 
@@ -74,7 +73,6 @@ const state = defineModel<'pending' | 'loading' | 'mounted'>('state', { default:
 // const transformersProvider = createTransformers({ embedWorkerURL })
 
 const settingsStore = useSettings()
-const vhackStore = useVHackStore()
 const {
   stageModelRenderer,
   stageModelSelected,
@@ -228,7 +226,11 @@ function handleResizeStateChange(event: Event) {
 
 useEventListener(typeof window !== 'undefined' ? window : null, 'vrm-node-visibility-toggle', (e: Event) => {
   const customEvent = e as CustomEvent<{ uuid: string, node: any }>
-  vhackStore.toggleNodeVisibility(customEvent.detail.uuid, customEvent.detail.node)
+  const node = customEvent.detail.node
+  if (!node)
+    return
+  node.visible = !node.visible
+  vrmStore.setMeshVisibility(node.name || '', node.visible)
 })
 
 const { currentMotion } = storeToRefs(live2dStore)

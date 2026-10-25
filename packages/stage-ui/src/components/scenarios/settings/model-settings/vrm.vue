@@ -7,11 +7,12 @@ import { useI18n } from 'vue-i18n'
 
 import ModelCustomizerSkeleton from './components/ModelCustomizerSkeleton.vue'
 import ModelSceneSettings from './components/ModelSceneSettings.vue'
+import HackerStudioShell from './hacker-studio/HackerStudioShell.vue'
 import VRMExpressions from './vrm-expressions.vue'
-import HackerPanel from './vrm-vhack/HackerPanel.vue'
 
 import { usePositioningStore } from '../../../../stores/settings/positioning'
 import { Section } from '../../../layouts'
+import { useHackerStudioHost } from './hacker-studio/use-hacker-studio-host'
 
 defineProps<{
   palette: string[]
@@ -23,6 +24,8 @@ defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const { adapter: hackerAdapter, studio: hackerStudio } = useHackerStudioHost()
 
 const modelStore = useModelStore()
 const positioningStore = usePositioningStore()
@@ -152,7 +155,7 @@ onMounted(() => {
       </div>
     </Section>
 
-    <!-- === Avatar Appearance (docked V-HACK inspector) === -->
+    <!-- === Avatar Appearance (docked Hacker Studio) === -->
     <Section
       title="Avatar Appearance"
       icon="i-solar:mask-h-bold-duotone"
@@ -168,7 +171,7 @@ onMounted(() => {
         <p class="px-1 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
           Replace textures and fine-tune their appearance.
         </p>
-        <HackerPanel />
+        <HackerStudioShell :adapter="hackerAdapter" :studio="hackerStudio" />
       </div>
     </Section>
   </div>

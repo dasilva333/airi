@@ -1,42 +1,59 @@
 ---
-title: V-HACK Avatar Modding Studio
-description: Discover the hidden V-HACK DevTools panel for real-time 3D VRM material tuning, live texture swaps, and surgical GLB export.
+title: Hacker Studio Avatar Modding
+description: Inspect and edit VRM materials and textures in Avatar Appearance, then export a surgically modified VRM.
 ---
 
-# V-HACK Avatar Modding Studio
+# Hacker Studio Avatar Modding
 
-**V-HACK DevTools** is a built-in power-user suite designed for 3D model creators and modders. Hidden inside Model Settings, V-HACK provides a Unity-like inspector for examining avatar mesh trees, fine-tuning Three.js MToon shader properties, hot-swapping clothing textures live, and exporting modded GLB/VRM binaries without opening external 3D software.
-
----
-
-## 1. Accessing V-HACK Studio
-
-To open the V-HACK panel:
-1. Open **Settings &rarr; Character &rarr; Vessel / Display Model**.
-2. Click **"Customize Model"**.
-3. In the model editor toolbar, click the **"V-HACK Studio"** tab (or press the developer shortcut `Ctrl+Alt+V`).
+**Hacker Studio** is the built-in power-user workspace for examining avatar parts, tuning MToon materials, replacing or generating textures, and exporting a modified VRM without external 3D software. It is the successor to V-HACK and currently supports VRM; Live2D still uses the legacy L-HACK panel while the shared shell is migrated.
 
 ---
 
-## 2. Key Tools & Features
+## 1. Accessing Hacker Studio
 
-### 1. Hierarchy & Stage Tree Inspector
-- View the complete 3D scene hierarchy: Root, Armature, Bones, and Skinned Meshes.
-- Inspect individual sub-meshes, material slots, and polygon counts.
-- Toggle visibility of specific mesh parts (e.g., hiding hats, glasses, or jacket overlays).
+1. Open **Settings → Models** and select a VRM model.
+2. Expand **Avatar Appearance**.
+3. Use the **Textures**, **Lab**, and **Parts** tabs. No developer toggle or shortcut is required.
 
-### 2. MToon Material Lab
-Fine-tune how your VRM reacts to lighting and environment reflections:
-- **Shade Shift & Toon Boundaries**: Adjust the sharpness of cel-shaded anime shadows.
-- **Rim Lighting (`_RimWidth` & `_RimColor`)**: Add or customize atmospheric halo glows around character hair and clothing edges.
-- **Outline Width**: Increase or soften ink outline lines.
+The panel is docked in the controls rail so it does not cover the live preview. Adapter and session state live above the collapsible section, so collapsing Avatar Appearance does not discard your replacements.
 
-### 3. Texture Forge & Hot-Swapper
-- Click on any material slot (e.g., *Eye Texture*, *Shirt Texture*, *Hair Texture*).
-- Drag-and-drop a new `.png` or `.webp` image directly into the slot to see the avatar's texture update live on screen with zero reload lag.
-- Use the **AI Texture Inpainter** to generate custom patterns or logos onto character clothing.
+---
 
-### 4. Surgical GLB / VRM Export
-Once you have customized materials, textures, and mesh toggles:
-- Click **"Export Modified VRM"**.
-- V-HACK compiles your changes into a clean, optimized `.vrm` binary with all material edits permanently saved.
+## 2. Key Tools
+
+### Textures
+
+- Browse every glTF image in a two-column atlas grid.
+- Search by texture or material name and filter to **All / Main / Shade** maps.
+- Every card lists its material owners. A shared texture warns that a replacement affects all owners.
+
+### Lab
+
+Open a texture from the Textures tab to work on it:
+
+- **Local editing** — download the original, edit it externally, then upload/drop a PNG, JPEG, or WebP. Validation runs before the live texture changes and warns about dimension mismatch, lost transparency, or non-PNG formats.
+- **Promptcraft** — choose a style preset, write a prompt, and generate a replacement through the configured Artistry provider. UV-layout, seam, and transparent-area guidance is appended to the request only; the saved prompt is never rewritten.
+- **Preview** — toggle a replacement on or off on the live avatar. The replacement remains stored per texture.
+- **Replacement status** — shows the uploaded filename or “Generated replacement” and whether it is loaded in preview.
+- **Material adjustments** — tune Rim Width, Shade Shift, and Additive Blending for the selected material.
+- **Color eraser** — remove a picked background color from the current replacement and bake the result.
+
+Late generation results are discarded if the texture changed while the request was running.
+
+### Parts
+
+- Search meshes and toggle individual parts.
+- Use **Show all / Hide all** for bulk visibility.
+- Ctrl+click a part to isolate it.
+
+---
+
+## 3. Surgical VRM Export
+
+1. Make texture, material, or part changes.
+2. Click **Export modified VRM**.
+3. Hacker Studio rebuilds the GLB with the new texture buffer views and hidden-part surgery, then downloads a `.vrm` file.
+
+The exported file is self-contained; re-import it into Settings → Models to verify the result.
+
+> Hacker Studio writes raw texture bytes, not the preview gamma-compensated canvas. The preview compensation exists only to make the in-app swap match the re-imported VRM.

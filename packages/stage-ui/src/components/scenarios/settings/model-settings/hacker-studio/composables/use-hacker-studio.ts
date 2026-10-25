@@ -149,6 +149,22 @@ export function useHackerStudio(adapter: HackerAdapter) {
     markPreviewing(id, true)
   }
 
+  async function applyEditedTexture(id: HackerTextureId, dataUrl: string): Promise<void> {
+    const previous = replacementFor(id)
+    bumpRevision(id)
+    await adapter.applyTexture(id, dataUrl, {
+      source: previous?.source ?? 'upload',
+      fileName: previous?.fileName,
+    })
+    setReplacement(id, dataUrl, {
+      source: previous?.source ?? 'upload',
+      fileName: previous?.fileName,
+    })
+    markPreviewing(id, true)
+    clearUploadFeedback()
+    generationError.value = null
+  }
+
   function revertTexture(id: HackerTextureId): void {
     bumpRevision(id)
     adapter.restoreTexture(id)
@@ -261,6 +277,7 @@ export function useHackerStudio(adapter: HackerAdapter) {
     setUploadError,
     applyUpload,
     togglePreview,
+    applyEditedTexture,
     revertTexture,
     beginGeneration,
     getGenerationBase,

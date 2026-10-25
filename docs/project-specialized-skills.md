@@ -405,9 +405,9 @@ The catalog contains 74 discoverable skills. Desktop chatbox and interaction pip
 - **Content**: Provider settings UI panels, category filtering (chat, speech, transcription, vision, embed), inline credential forms in onboarding vs full settings pages, and live connection testing with `useProviderValidation`.
 
 #### 5.9 `airi-vrm-vhack-studio`
-- **Target Domain**: V-HACK DevTools & Live VRM Binary Modding Studio.
-- **Key Paths**: `docs/design-vhack-studio.md`, `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-vhack/` (`HackerPanel.vue`), `packages/stage-ui/src/stores/vhack.ts`.
-- **Content**: In-memory Three.js VRM material inspector (`_RimWidth`, `_ShadeShift`), Texture Deck hot-swapper, glTF JSON / GLB byte-level repacker, and AI UV map generation via Artistry.
+- **Target Domain**: Hacker Studio VRM adapter/shell & Live VRM Binary Modding Studio.
+- **Key Paths**: `docs/design-hacker-studio.md`, `packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/` (`HackerStudioShell.vue`, `adapters/vrm/`, `composables/use-hacker-studio.ts`, `domain/`, `use-hacker-studio-host.ts`), `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm.vue`.
+- **Content**: Model-agnostic shell/controller, VRM adapter with in-memory Three.js material inspector (`_RimWidth`, `_ShadeShift`), texture atlas replacement with preview gamma, glTF JSON / GLB byte-level repacker, Parts visibility, and AI UV map generation via Artistry. The legacy `vhack.ts` store and `HackerPanel.vue` are retired.
 
 #### 5.10 `airi-memory-ui-pages`
 - **Target Domain**: Memory settings pages and job controls.

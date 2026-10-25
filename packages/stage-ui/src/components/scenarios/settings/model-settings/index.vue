@@ -13,7 +13,6 @@ import { useIdleAnimations } from '../../../../composables'
 import { useAiriCardStore } from '../../../../stores/modules'
 import { useSettings } from '../../../../stores/settings'
 import { usePositioningStore } from '../../../../stores/settings/positioning'
-import { useVHackStore } from '../../../../stores/vhack'
 import { ModelAssignmentModal } from '../../dialogs/model-assignment'
 import { ModelSelectorDialog } from '../../dialogs/model-selector'
 
@@ -55,7 +54,6 @@ function openModelSelector(tab: 'library' | 'explore' | 'cloud' = 'library') {
 const modelAssignmentOpen = ref(false)
 const positionCursor = useMouse()
 const settingsStore = useSettings()
-const vhackStore = useVHackStore()
 const spineStore = useSpine()
 const {
   live2dDisableFocus,
@@ -234,7 +232,6 @@ function handleOffsetChange(offset: { x: number, y: number }) {
             :model-src="stageModelSelectedUrl"
             :model-identity="stageModelSelected"
             :idle-animations="resolvedIdleAnimations"
-            @binary-loaded="vhackStore.setSourceArrayBuffer"
           />
         </div>
       </template>

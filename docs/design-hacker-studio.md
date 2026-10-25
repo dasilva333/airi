@@ -2,6 +2,13 @@
 
 **Status:** Draft, October 2026
 **Supersedes:** the V-HACK-only UX and architecture in [design-vhack-studio.md](design-vhack-studio.md) (kept as historical context)
+
+**Phase 1 (VRM) status (2026-10-25):** implemented end to end.
+- Shell: `hacker-studio/HackerStudioShell.vue`, driven by `HackerAdapter` + `useHackerStudio`.
+- VRM adapter: `hacker-studio/adapters/vrm/use-vrm-hacker-adapter.ts`; GLB surgery: `glb-exporter.ts`.
+- Session host: `hacker-studio/use-hacker-studio-host.ts` keeps the adapter/controller alive across Section collapse and settings remounts.
+- Retired: `vrm-vhack/HackerPanel.vue` and `stores/vhack.ts`.
+- Deferred: Live2D/Spine adapters and the Pinia session store; the controller state is serializable, but the live VRM adapter uses a session host singleton because Three textures/originals cannot be serialized. `LHackerPanel.vue` and `lhack.ts` remain until their adapter tranche.
 **Roadmap entry:** [Unified Texture Editor (V-HACK / L-HACK & ModelCustomizer)](content/en/docs/chronicles/roadmap.md)
 **Related:** [design-model-customizer.md](design-model-customizer.md), [AIRI Character Rendering skill](../.agents/skills/airi-character-rendering/SKILL.md)
 
@@ -15,7 +22,7 @@ Hacker Studio is one docked **Avatar Appearance** section shared by the supporte
 - **Atlas/texture replacement is the first milestone.** Parts/visibility is the second.
 - **New UI only.** The old V-HACK Lab and the L-HACK purple drawer are retired; format-specific internals move behind adapters.
 - **Thin shell, thick adapters.** GLB surgery, Pixi baseTexture swaps, and Spine atlas/ZIP handling stay inside their format adapters.
-- **One new serializable session store.** No migration from `vhack.ts` / `lhack.ts`; old AI keys and session state are intentionally dropped.
+- **One shared session runtime.** Controller state is serializable and lives in `useHackerStudio`; a session host keeps the live adapter alive. No migration from `vhack.ts` / `lhack.ts`; old AI keys and session state are intentionally dropped.
 - **MMD is excluded.** Its current wiring has no writable export bundle; a preview-only MMD surface is not worth building.
 - **Three adapters in one initiative**, phased so VRM and Live2D establish the contract before Spine lands.
 
@@ -45,9 +52,9 @@ The UI, state, and export plumbing are what diverged. Hacker Studio converges th
 
 ### Current split (for context)
 
-- `vrm.vue` embeds `vrm-vhack/HackerPanel.vue` docked in Avatar Appearance.
+- `vrm.vue` creates the VRM adapter/controller through `use-hacker-studio-host.ts` and embeds `hacker-studio/HackerStudioShell.vue` docked in Avatar Appearance.
 - `live2d-lhack/LHackerPanel.vue` is a fixed drawer toggled from `live2d.vue`, mounted globally in `model-settings/index.vue`.
-- `vhack.ts` and `lhack.ts` duplicate AI settings, generation state, mutation maps, and visibility sets.
+- `vhack.ts` has been retired; `lhack.ts` still duplicates AI settings/generation state until the Live2D adapter tranche.
 - Live2D's drawable list currently returns `[]` behind a `SCALED BACK` comment; its revert path calls `window.location.reload()`.
 
 This document specifies the replacement.

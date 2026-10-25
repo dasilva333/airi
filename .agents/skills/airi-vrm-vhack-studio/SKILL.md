@@ -1,82 +1,109 @@
 ---
 name: airi-vrm-vhack-studio
 description: >-
-  Modify/debug avatar assets with V-HACK/God MODE: VRM tree inspection, MToon materials, Texture Forge, AI textures, mesh surgery, GLB export. Includes Live2D L-HACK; expression/motion mapping uses airi-model-customizer.
+  Modify/debug avatar assets with Hacker Studio: VRM adapter/shell, MToon materials, texture atlases, AI textures, mesh surgery, GLB export. Includes the remaining Live2D L-HACK panel and the model-agnostic adapter contract; expression/motion mapping uses airi-model-customizer.
 ---
 
-# AIRI V-HACK Studio — Native VRM Binary Modding Panel
+# AIRI Hacker Studio — VRM Adapter & Model-Agnostic Shell
 
-V-HACK is the "hidden devtools" pivot: rather than a standalone app, it is a HACKER MODE panel embedded in AIRI's Model Settings that binary-modifies the loaded VRM **in-memory** — live MToon shader sliders, texture deck, AI texture generation, and a surgical GLB repatcher that compiles changes back to `.vrm`. `docs/design-vhack-studio.md` is the founding spec; this skill maps the implementation.
+Hacker Studio is the successor to V-HACK: a docked **Avatar Appearance** section that modifies the loaded model in memory, with a model-agnostic shell and format adapters. VRM is the first completed adapter. The unified design is [`docs/design-hacker-studio.md`](docs/design-hacker-studio.md); the original V-HACK doc is historical.
 
 ## 1. Key Code Paths
 
 | Surface | Path |
 | :--- | :--- |
-| Main panel | `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-vhack/HackerPanel.vue` |
-| Live2D sibling panel | `./live2d-lhack/LHackerPanel.vue` (same directory parent; parallel lizard-mode UI) |
-| Panel mount point | `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm.vue` — the `Avatar Appearance` section embeds `HackerPanel` directly. The old `model-settings/index.vue` overlay mount was removed. |
-| Tab store | `packages/stage-ui/src/stores/vhack.ts` — `useVHackStore` (132 lines) |
-| Desktop settings route | `packages/stage-pages/src/pages/settings/models/index.vue` |
-| Design doc | `docs/design-vhack-studio.md` |
+| VRM adapter | `packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/vrm/use-vrm-hacker-adapter.ts` |
+| GLB exporter | `.../hacker-studio/adapters/vrm/glb-exporter.ts` |
+| Shell | `.../hacker-studio/HackerStudioShell.vue` |
+| Controller | `.../hacker-studio/composables/use-hacker-studio.ts` |
+| Adapter contract | `.../hacker-studio/adapters/types.ts` |
+| Domain policies | `.../hacker-studio/domain/` |
+| VRM mount | `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm.vue` — creates the VRM adapter/controller and mounts the shell inside `Avatar Appearance`. |
+| Live2D sibling | `packages/stage-ui/src/components/scenarios/settings/model-settings/live2d-lhack/LHackerPanel.vue` — legacy drawer, pending migration to the shared shell. |
+| Test suites | `.../hacker-studio/**/*.test.ts` — 10 suites / 60 tests. |
+| Design docs | `docs/design-hacker-studio.md` (current), `docs/design-vhack-studio.md` (historical). |
 
-**How to reach it**: Settings → Models (VRM selected) → `Avatar Appearance` accordion. The VRM inspector is **docked inline** in the controls rail — no toggle, no fixed overlay, so it can never occlude the preview. The Live2D `LHACK` panel still uses the `lhack` store's toggle + fixed slide-in.
+**How to reach it**: Settings → Models (VRM selected) → `Avatar Appearance`. The VRM section is docked; adapter and controller are owned by `vrm.vue`, so collapsing the section does not lose replacement state.
 
-**Presentation note**: the whole docked panel (frame, tabs, Lab, Parts, footer, eraser excepted) is theme-aware (`bg-white/...` light + `dark:` variants) rather than a dark inset. Keep new surfaces theme-aware.
+## 2. Architecture
 
-## 2. Panel Modules (HackerPanel.vue)
+```text
+vrm.vue
+  ├─ useVrmHackerAdapter() ── implements HackerAdapter over Three/GLB
+  └─ useHackerStudio(adapter) ── serializable controller state
+       └─ HackerStudioShell.vue (props: adapter + studio)
+```
 
-Tabs are `Textures | Lab | Parts` (default `Textures`), all rendered inside one shared 440px rail frame with theme-aware surfaces.
+- **Shell** owns UI-only state: tabs, filters, AI provider form, eraser overlay.
+- **Controller** owns selection, mode/prompt, per-texture replacement origin/history, preview flags, revisions, upload feedback, and generation status. It never stores Three/Pixi objects.
+- **Adapter** owns live textures, parts, material controls, originals, mutation registry, source buffer, and export.
+- `use-hacker-studio-host.ts` owns the adapter/controller in a detached session scope, so Section collapse and settings remounts preserve them. The host is intentionally a singleton rather than a Pinia store until the format registry lands.
 
-1. **Textures** — 2-column atlas grid of every glTF image (`textureList` from `extractTextures`), with `Find a texture...` search, `All / Main / Shade` filters, size/format metadata, and a selected-texture summary. Selecting a card resolves the first material that actually uses that image and opens it in **Lab**.
-2. **Lab** — per-texture replacement workspace split into **Local editing** and **Promptcraft** modes (session-persisted, default Local). Shared outside both forms: selected-texture header (expandable material owners), Current/Replacement thumbnails with Preview/eraser/download, replacement origin status (`File name` or `Generated replacement`), Material adjustments, shared-texture warning, generation progress/errors, and the panel footer. Local supports download + drop/upload with decode-before-apply, dimension/transparency/format warnings; Promptcraft holds presets, prompt, provider settings, and Generate. Replacements are tracked per glTF image index in the store (`replacementByIndex`, `previewingKeys`, with `originalTextureImages` captured before in-place swaps) so switching textures and collapsing/remounting the section preserve each one.
-3. **Parts** — mesh/part inspector; search + show/hide, per-part visibility, Ctrl+click focus. Hiding a node is tracked as `VHACK_HIDDEN`; at export the spleener transforms/ghosts that primitive so it never reappears (see §3).
-4. **Texture Forge/AI Studio** (inside Lab) — upload, AI eraser (color-picker key-out; see `Alpha Patch`), and Artistry-provider generation (Gemini key/model/resolution persist in `localStorage` keys `vhack_gemini_api_key|model|res`, NOT the providers store). Generation applies immediately and registers a texture mutation.
+### Adapter contract
 
-## 3. The Surgical Export / Repacker
+`HackerAdapter` exposes:
 
-`exportVrm()` (:727) is the commit-to-binary pass:
-1. Applies `hiddenNodeUuids` as spleener transforms (mesh primitive unlink / ghost-scale; logs `[VHACK] Surgery Complete`) (:766-817).
-2. Rebuilds the glTF JSON + binary chunk: re-pointing `json.images` to mutated texture indices and rewriting buffer views (`outView.setUint32(16, 0x4E4F534A, true)` = "JSON" chunk magic; `0x004E4942` = "BIN" chunk magic near :940).
-3. Streams a download named `<base>_VHACK_<YYYYMMDD-HHmm>.vrm`, where `<base>` resolves from VRM meta, the display model/file, the source URL, the active card, or the model id (never the old `Surgical` fallback).
-GLB chunk-header math (offset = `20 + jsonBytes.length`, then 8-byte header + data) is the most brittle part of this system — a mismatch of even one byte corrupts the whole container.
+- descriptors: `textures`, `parts`, optional `materialControls`
+- `selectTexture(id)` for adapter-side material selection
+- `getGenerationBase(id)` returning the **raw applied** image
+- `applyTexture(id, dataUrl, meta)` / `restoreTexture(id)` / `setMaterialControl` / `setPartVisibility`
+- `exportAsset()` returning `{ blob, filename }`
+- `reset()` / `dispose()`
+- capabilities including export availability, parts/materials, and preview gamma
 
-## 4. State Store (`vhack.ts`)
+## 3. VRM Adapter Behavior
 
-- The VRM panel is always mounted (no presence flag); `isHackerModeActive` / `toggleHackerMode()` / `closeHackerMode()` now only serve the Live2D `LHACK` sibling. `isHackerModeActive` is dead state for VRM and can be retired.
-- `selectedNodeName` / `selectedMaterialName` / `hiddenNodeUuids` — inspector selection & visibility set (Store's Set is rebuilt after mutations so Vue reactivity reflects).
-- `geminiApiKey` / `geminiModel` / `geminiResolution` — AI persist keys into `localStorage` (watch-based write-back at :31-33).
-- `sourceArrayBuffer` — the untouched imported GLB (`setSourceArrayBuffer`, cleared via :90-93 when model reloaded); `mutatedTextures` (Map<index, {data, mimeType}>) tracks the applied/exportable texture swaps. Preview-off and per-texture revert delete the index entry; global `revert()` clears the map after restoring snapshots.
-- **In-place image mutation**: `swapTextureByRef` changes `THREE.Texture.image` rather than replacing the texture object, so the panel captures the pre-swap image via `setOriginalTextureImage` (keyed by texture uuid) to support preview-off/revert. `replacementByIndex` / `previewingKeys` / the original-image map live in this store so the docked panel can unmount without losing replacement state; `setSourceArrayBuffer` and global `revert()` clear them.
-- `registerMutation()`, `resetState()` — registration/reset hooks used by the texture workflow.
+1. **Textures** — one glTF image per descriptor, with material owners, dimensions, shared flag, preview URL, and alpha detection. IDs are adapter-local.
+2. **Apply** — `TextureLoader` loads the replacement; the legacy alpha patch and preview-only sRGB-EOTF linearization run for display. Export bytes use the raw/alpha-patched image, never the gamma canvas. The legacy `currentSlotTex.colorSpace = tex.colorSpace` path is intentionally preserved.
+3. **Restore** — original images are captured by texture UUID before the first swap and restored in place; the image-index mutation is deleted.
+4. **Material controls** — Rim Width, Shade Shift, Additive Blending, with a material snapshot for reset.
+5. **Parts** — mesh descriptors; visibility is applied directly and through `modelStore.setMeshVisibility`; Ctrl+click in Parts isolates one part.
+6. **Generation** — the controller captures the originating texture and a revision. The shell gets the raw base from the adapter, calls Artistry, and applies through `applyGenerationResult`; uploads/eraser/revert bump the revision, so late results are discarded. UV/seams/transparency guidance is appended to the request only.
+7. **Export** — the adapter gathers hidden primitives/nodes and the mutation registry, calls `exportVrmBinary`, and returns a blob. Filename policy lives in `domain/export-filename.ts`.
 
-## 5. Pitfalls & Failure Modes
+## 4. State and Persistence
 
-- **VRAM leaks on hot-swap**: old Three.js textures/materials must be `.dispose()`d (or leaked GPU memory accumulates) — a known problem class.
-- **Image ≠ part**: a merged/baked VRM can reuse one glTF image across Body SKIN, Bottoms, Hair, and outline materials. The Textures tab shows the owning material names and searches them; never infer a texture's part from its thumbnail. Selecting the Body SKIN atlas and uploading a cardigan is the classic mangled-avatar report.
-- **Live-swap color space + gamma preview**: the docked preview intentionally keeps the legacy `currentSlotTex.colorSpace = tex.colorSpace` overwrite (NoColorSpace) and compensates with a preview-only sRGB-EOTF linearization LUT. Export mutations must keep using the raw/alpha-patched image (captured as `exportImage`); never write the gamma-compensated canvas into the mutation registry. Removing the colorSpace overwrite is the exact fix but changes the preview contract; don't do it as a drive-by.
-- **Generation ownership**: `generateAndSwap` captures the originating texture, its raw applied image, and a per-texture revision. Uploads/eraser/revert bump the revision; late results are discarded rather than overwriting a newer edit. Generation guidance is appended to the request only, never to `aiPrompt`.
-- **GLB binary corruption**: chunk offset rewrites are unforgiving (see §3); test the export against @gltf-transform or a VRM validator before shipping changes.
-- **UI stalls**: serializing large binaries on the main thread freezes the viewport — offload to a Web Worker when repacking large models (this was a flagged bloat concern in the doc).
-- **AI settings persistence**: vhack's Gemini keys live in `localStorage`, not the provider store; don't move them into the BYOS-synced state without a migration plan.
+- There is **no `vhack.ts` store** anymore. The legacy store and `vrm-vhack/HackerPanel.vue` were removed.
+- Controller state is in `vrm.vue` for the lifetime of the settings panel and survives Section collapse/remount.
+- Mode is session-persisted under `hacker-studio-mode`; prompt is controller state and is never rewritten by generation guidance.
+- No migration or fallback reads from the old `vhack_*` keys; AI provider configuration comes from `useArtistryStore`.
+- Raw binaries/Three objects stay out of reactive state. The mutation registry and original images are plain Maps in the adapter.
 
-## 6. Verification
+## 5. Surgical Export / Repacker
 
-- `pnpm -F @proj-airi/stage-ui typecheck`.
-- Runtime smoke: Settings → Models → Avatar Appearance → toggle node visibility, then export and reload the `.vrm` to confirm the surgery round-trips.
+`glb-exporter.ts` is a pure function over `{ source, mutations, hiddenPrimitives, hiddenNodeIndices }`:
 
-### Authoritative Docs & Cross-Citations
+1. Parses GLB JSON/BIN chunks.
+2. Injects the `VHACK_HIDDEN` material and applies primitive/node surgery.
+3. Replaces image bufferViews, updates mimeType and byteLength.
+4. Rebuilds BIN offsets/alignment and serializes a valid GLB with the declared buffer byteLength matching the BIN chunk.
 
-- [docs/design-vhack-studio.md](docs/design-vhack-studio.md) — V-HACK founding spec (panel layout, module breakdown, MVP priorities).
-- `airi-character-rendering` — model/schema layer this panel modifies.
-- `airi-card-schema` — if exploring "write mutated VRM back onto the outfit card" flows.
+The synthetic GLB suite covers offsets, alignment, multiple mutations, hidden surgery, and invalid magic. Test any changes with:
+`pnpm exec vitest run packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/adapters/vrm/glb-exporter.test.ts`.
 
-## Related Skills & References
+## 6. Pitfalls
 
-- **Peer Skills**: [[airi-card-schema]], [[airi-character-rendering]]
-- **Key Documents**: [[design-vhack-studio]]
+- **Image ≠ part**: merged/baked VRMs reuse one image across Body/Bottoms/Hair/outline materials. Surface material owners; never infer a part from a thumbnail.
+- **Color-space hack**: the preview intentionally keeps the legacy NoColorSpace swap and compensates with a preview-only LUT. Do not write the compensated canvas into export mutations.
+- **Generation ownership**: use the controller's revision guard; do not apply a provider result directly to `selectedTexture` after an await.
+- **Shared atlases**: replacing one image affects every material owner; the warning must remain.
+- **No per-slot export duplication** for a shared image yet; per-material replacement is a known limitation.
+- **VRAM**: dispose/replace textures carefully; original image maps are retained for restore.
+- **MMD is excluded** from the unified design; do not add MMD adapters/UI.
 
-### Authoritative Design & Architecture Documents
+## 7. Verification
 
-- [docs/design-vhack-studio.md](docs/design-vhack-studio.md) — V-HACK DevTools design document.
-- [docs/research-vrm-cloth-interaction.md](docs/research-vrm-cloth-interaction.md) — VRM cloth interaction deep dive.
-- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §16 binary-proxy lesson.
+- `pnpm -F @proj-airi/stage-ui typecheck`
+- `pnpm exec vitest run packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio`
+- `pnpm exec vitest run packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-fps.browser.test.ts`
+- `node scripts/audit-test-catalog.mjs` (new suites are cataloged; pre-existing uncatalogued suites remain a known warning)
+- Runtime: Settings → Models → Avatar Appearance → upload/generate, Preview/Revert, Parts hide/show, export, re-import.
+
+### Authoritative Docs
+
+- [docs/design-hacker-studio.md](docs/design-hacker-studio.md) — current unified design.
+- [docs/design-vhack-studio.md](docs/design-vhack-studio.md) — historical V-HACK spec.
+- `airi-character-rendering` — rendering/model layer.
+- `airi-model-customizer` — expression/motion mapping.
+- `docs/research-vrm-cloth-interaction.md` — tactile VRM interactions.
+- `docs/rosetta-stone.md` — canonical path index.

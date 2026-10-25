@@ -19,7 +19,6 @@ import { useBackgroundStore } from '../../stores/background'
 import { useDatingSimStore } from '../../stores/dating-sim'
 import { useAiriCardStore } from '../../stores/modules'
 import { useSettings } from '../../stores/settings'
-import { useVHackStore } from '../../stores/vhack'
 import { StickerStack } from '../scenarios/stickers'
 
 const props = withDefaults(defineProps<{
@@ -79,7 +78,6 @@ const spineViewerRef = ref<InstanceType<typeof SpineScene>>()
 const mmdViewerRef = ref<InstanceType<typeof MMDScene>>()
 
 const settingsStore = useSettings()
-const vhackStore = useVHackStore()
 const { activeCard } = storeToRefs(useAiriCardStore())
 const {
   stageModelRenderer,
@@ -502,7 +500,6 @@ defineExpose({
       :y-offset="yOffset !== undefined ? Number(yOffset) : undefined"
       :draggable="effectiveDraggable"
       @error="console.error"
-      @binary-loaded="vhackStore.setSourceArrayBuffer"
       @finished="emits('animationFinished')"
       @play-status="(status) => emits('animationPlayStatus', status)"
       @scale-change="(val) => emits('scaleChange', val)"

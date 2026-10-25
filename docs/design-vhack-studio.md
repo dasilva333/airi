@@ -10,7 +10,7 @@ This document outlines the pivot from a standalone application to a native "Hack
 
 Instead of rebuilding the wheel (viewport, rendering, file loading, expression management), V-HACK will exist as a **right-side drawer panel** within AIRI's Model Settings page.
 
-> **Update (2026-10)**: for VRM the drawer was replaced by an inline, docked **Avatar Appearance** section in the controls rail (`vrm.vue` → `HackerPanel.vue`); the fixed overlay occluded the live preview. The Live2D LHACK drawer still uses the toggle + slide-in. The original toggle concept below is retained for historical context.
+> **Update (2026-10)**: for VRM the drawer was replaced by an inline, docked **Avatar Appearance** section in the controls rail (`vrm.vue` → `hacker-studio/HackerStudioShell.vue` through the VRM adapter). The fixed overlay occluded the live preview. The Live2D LHACK drawer still uses the toggle + slide-in. The original toggle concept below is retained for historical context.
 
 It is accessed via a dedicated "V-HACK" or "Dev Mode" toggle button. This keeps the primary AIRI interface clean for normal users, while unlocking binary-level modding for power users.
 

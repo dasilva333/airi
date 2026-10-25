@@ -33,6 +33,16 @@ export interface HackerPart {
   canFocus: boolean
 }
 
+export interface HackerMaterialControl {
+  id: string
+  label: string
+  kind: 'range' | 'toggle'
+  min?: number
+  max?: number
+  step?: number
+  value: number | boolean
+}
+
 export interface HackerApplyMeta {
   source: 'upload' | 'generated'
   fileName?: string
@@ -51,10 +61,14 @@ export interface HackerAdapter {
   readonly ready: Ref<boolean>
   readonly textures: Ref<HackerTexture[]>
   readonly parts: Ref<HackerPart[]>
+  readonly materialControls?: Ref<HackerMaterialControl[]>
+
+  selectTexture?: (id: HackerTextureId) => void
 
   getGenerationBase: (id: HackerTextureId) => Promise<string>
   applyTexture: (id: HackerTextureId, dataUrl: string, meta: HackerApplyMeta) => Promise<void>
   restoreTexture: (id: HackerTextureId) => void
+  setMaterialControl?: (id: string, value: number | boolean) => void
   setPartVisibility?: (id: string, visible: boolean) => void
   exportAsset: () => Promise<HackerExportResult>
   reset: () => void
