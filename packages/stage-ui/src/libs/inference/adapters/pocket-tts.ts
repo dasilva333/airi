@@ -11,6 +11,7 @@ import { createContext } from '@moeru/eventa/adapters/webworkers'
 import { Mutex } from 'async-mutex'
 
 import { removeInferenceStatus, updateInferenceStatus } from '../../../composables/use-inference-status'
+import { evictOtherPocketModels } from '../cache-utils'
 import { consumeLoadStream, pocketTtsGenerateEvent, pocketTtsLoadEvent, pocketTtsUnloadEvent } from '../contract'
 
 export interface PocketTtsAdapter {
@@ -168,6 +169,11 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
     state = 'ready'
     console.info('[PocketTTS Adapter] Model successfully loaded & ready.')
     updateInferenceStatus(modelStatusId, { state: 'ready' })
+
+    // Enforce single active Pocket language bundle in OPFS (mirrors the
+    // Whisper single-shard eviction). Switching languages evicts the previous
+    // bundle, including its voice embeddings (full-dir evict).
+    void evictOtherPocketModels(options?.language || 'english_2026-04')
   }
 
   async function loadModel(options?: {

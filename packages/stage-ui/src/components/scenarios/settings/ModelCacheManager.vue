@@ -96,6 +96,14 @@ const knownModels: KnownModelItem[] = [
     icon: 'i-solar:music-note-bold-duotone',
     description: 'Lightweight on-device speech model',
   },
+  {
+    id: 'pocket-tts-local',
+    name: 'Pocket TTS (Kyutai 0.1B)',
+    category: 'audio',
+    runtime: 'Browser OPFS',
+    icon: 'i-solar:speaker-minimalistic-bold-duotone',
+    description: 'Single active language · switching languages evicts the previous bundle',
+  },
 
   // 3. Vision & Artistry
   {

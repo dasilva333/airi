@@ -5,6 +5,7 @@ import { NativeAI } from '../native-ai'
 const TRANSFORMERS_CACHE_NAME = 'transformers-cache'
 const OPFS_DIR_NAME = 'web-rwkv'
 const MOSS_OPFS_DIR_NAME = 'nano-reader-browser-model-store'
+const POCKET_OPFS_DIR_NAME = 'pocket-tts-browser-model-store'
 // WebLLM (`@mlc-ai/web-llm`) stores weights / WASM libs / model config in the
 // browser Cache Storage API under these scoped cache names (its default
 // `cacheBackend` is `"cache"`; see `createScopedArtifactCache` in the library).
@@ -77,6 +78,116 @@ async function isMossModelCached(): Promise<boolean> {
   }
   catch {
     return false
+  }
+}
+
+// NOTICE: Pocket TTS bundles live in per-language subdirs (`{langFolder}/` with
+// 8 REQUIRED_FILES each + `{langFolder}/voices/*.safetensors`), plus a shared
+// `sentencepiece.js` at the store root. Sizes must be measured recursively and
+// eviction must only remove language subdirs — never the root-level shared files.
+async function getPocketOpfsCacheSize(): Promise<number> {
+  if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory)
+    return 0
+  try {
+    const root = await navigator.storage.getDirectory()
+    let dir: FileSystemDirectoryHandle
+    try {
+      dir = await root.getDirectoryHandle(POCKET_OPFS_DIR_NAME, { create: false })
+    }
+    catch {
+      return 0
+    }
+    return await getDirectorySizeRecursive(dir)
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to get Pocket cache size', error)
+    return 0
+  }
+}
+
+async function clearPocketOpfsCache(): Promise<void> {
+  if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory)
+    return
+  try {
+    const root = await navigator.storage.getDirectory()
+    try {
+      await root.removeEntry(POCKET_OPFS_DIR_NAME, { recursive: true })
+    }
+    catch {
+      // Ignored if directory doesn't exist
+    }
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to clear Pocket cache', error)
+  }
+}
+
+async function isPocketModelCached(): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory)
+    return false
+  try {
+    const root = await navigator.storage.getDirectory()
+    const dir = await root.getDirectoryHandle(POCKET_OPFS_DIR_NAME, { create: false })
+    for await (const _entry of dir.values()) {
+      return true // directory is not empty
+    }
+    return false
+  }
+  catch {
+    return false
+  }
+}
+
+// NOTICE: mirrors `POCKET_LANG_ALIASES` in `workers/pocket-tts/worker.ts` (which
+// itself mirrors `langMap` in `workers/pocket-tts/pocket_model_store.ts` and
+// `normalizePocketLangFolder` in `stores/providers/registry/speech.ts`).
+// Everything downstream needs the canonical bundle folder name.
+const POCKET_LANG_FOLDER_ALIASES: Record<string, string> = {
+  english: 'english_2026-04',
+  french: 'french_24l',
+  spanish: 'spanish_24l',
+  german: 'german_24l',
+  portuguese: 'portuguese_24l',
+  italian: 'italian_24l',
+}
+
+function normalizePocketLangFolderId(languageOrFolder: string): string {
+  return POCKET_LANG_FOLDER_ALIASES[languageOrFolder] || languageOrFolder.replace(/_2026_/, '_2026-')
+}
+
+/**
+ * Enforce single active Pocket TTS language bundle in OPFS (mirrors the
+ * Whisper single-shard eviction). Removes every `{langFolder}/` subdir except
+ * the one just loaded — including its `voices/` embeddings (full-dir evict).
+ * Root-level shared files (`sentencepiece.js`) are files, not directories, so
+ * they are never touched.
+ */
+export async function evictOtherPocketModels(keepLanguageOrFolder: string): Promise<void> {
+  if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory)
+    return
+  try {
+    const root = await navigator.storage.getDirectory()
+    let dir: FileSystemDirectoryHandle
+    try {
+      dir = await root.getDirectoryHandle(POCKET_OPFS_DIR_NAME, { create: false })
+    }
+    catch {
+      return
+    }
+    const keepFolder = normalizePocketLangFolderId(keepLanguageOrFolder)
+    for await (const entry of dir.values()) {
+      if (entry.kind === 'directory' && entry.name !== keepFolder) {
+        try {
+          await dir.removeEntry(entry.name, { recursive: true })
+        }
+        catch (error) {
+          console.warn('[cache-utils] failed to evict Pocket language bundle', entry.name, error)
+        }
+      }
+    }
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to evict other Pocket models', error)
   }
 }
 
@@ -211,17 +322,18 @@ async function isOpfsModelCached(modelUrl: string): Promise<boolean> {
  * Returns 0 if no caches exist or all are empty.
  */
 export async function getModelCacheSize(): Promise<number> {
-  const [transformersSize, opfsSize, mossSize, webLlmSize, needleSize, layaSize, nativeSize] = await Promise.all([
+  const [transformersSize, opfsSize, mossSize, pocketSize, webLlmSize, needleSize, layaSize, nativeSize] = await Promise.all([
     getTransformersCacheSize(),
     getOpfsCacheSize(),
     getMossOpfsCacheSize(),
+    getPocketOpfsCacheSize(),
     getWebLlmCacheSize(),
     getNeedleCacheSize(),
     getLayaCacheSize(),
     NativeAI.listCachedModels().then(res => res.totalSizeBytes).catch(() => 0),
   ])
 
-  return transformersSize + opfsSize + mossSize + webLlmSize + needleSize + layaSize + nativeSize
+  return transformersSize + opfsSize + mossSize + pocketSize + webLlmSize + needleSize + layaSize + nativeSize
 }
 
 async function getTransformersCacheSize(): Promise<number> {
@@ -264,6 +376,7 @@ export async function clearModelCache(): Promise<void> {
     clearTransformersCache(),
     clearOpfsCache(),
     clearMossOpfsCache(),
+    clearPocketOpfsCache(),
     clearWebLlmCache(),
     clearNeedleCache(),
     clearLayaCache(),
@@ -285,6 +398,10 @@ export async function clearSingleModelCache(modelId: string): Promise<void> {
   }
   if (modelId === 'moss-tts-nano') {
     await clearMossOpfsCache()
+    return
+  }
+  if (modelId === 'pocket-tts-local') {
+    await clearPocketOpfsCache()
     return
   }
   if (modelId === 'web-llm') {
@@ -761,6 +878,9 @@ export async function isModelCached(modelId: string): Promise<boolean> {
   if (modelId === 'moss-tts-nano') {
     return isMossModelCached()
   }
+  if (modelId === 'pocket-tts-local') {
+    return isPocketModelCached()
+  }
   if (modelId === 'web-llm') {
     return isWebLlmModelCached()
   }
@@ -854,6 +974,16 @@ export async function getDetailedModelCacheMap(): Promise<ModelCacheStatusMap> {
   }
   catch {
     result['moss-tts-nano'] = { cached: false, sizeBytes: 0 }
+  }
+
+  // 3b. Pocket TTS (OPFS, single active language bundle)
+  try {
+    const pocketCached = await isPocketModelCached()
+    const pocketSize = pocketCached ? await getPocketOpfsCacheSize() : 0
+    result['pocket-tts-local'] = { cached: pocketCached, sizeBytes: pocketSize }
+  }
+  catch {
+    result['pocket-tts-local'] = { cached: false, sizeBytes: 0 }
   }
 
   // 4. WebLLM (Cache Storage API)

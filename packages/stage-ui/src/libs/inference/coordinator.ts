@@ -98,6 +98,10 @@ export const MODEL_VRAM_ESTIMATES: Record<string, number> = {
   // MOSS TTS Nano (fp32 weights + split ONNX graphs + OPFS blobs)
   'moss-tts-nano': 400 * 1024 * 1024, // ~400 MB
 
+  // Pocket TTS (per-language int8 ONNX bundle in OPFS, WASM heap backing —
+  // single active language, ~160MB weights + arena)
+  'pocket-tts-local': 200 * 1024 * 1024, // ~200 MB
+
   // Laya System-1 ModernBERT ONNX — WASM heap backing, freed by worker terminate
   'laya-int8': 500 * 1024 * 1024, // ~500 MB (424MB weights + arena)
   'laya-fp16': 1000 * 1024 * 1024, // ~1 GB (843MB weights + arena)
