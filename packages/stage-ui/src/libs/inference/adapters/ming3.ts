@@ -103,6 +103,99 @@ export function createMing3Adapter(): Ming3Adapter {
 
   const modelStatusId = MODEL_NAMES.MING3
 
+  /**
+   * Compute-thread pool for threaded WASM builds. Direct port of the demo's
+   * page-side spawner: the runtime glue asks the host for workers via a
+   * `fusor-ai-spawn-compute` message (it cannot spawn them itself from inside
+   * the bundled engine worker), the host creates them from the supplied URL,
+   * and the pool is torn down with the engine.
+   */
+  const computePool: { workers: Worker[] } = { workers: [] }
+
+  function terminateComputePool() {
+    for (const w of computePool.workers) {
+      try {
+        w.terminate()
+      }
+      catch {
+        // Already gone; nothing to do.
+      }
+    }
+    computePool.workers = []
+  }
+
+  function spawnComputeWorker(index: number, req: {
+    url: string
+    module: unknown
+    memory: unknown
+    receiver: unknown
+    mainJS: string
+  }): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let ready = false
+      let w: Worker
+      try {
+        w = new Worker(req.url, { type: 'module', name: `ming3-compute-${index}` })
+      }
+      catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)))
+        return
+      }
+      computePool.workers.push(w)
+      w.onmessage = ({ data }: MessageEvent) => {
+        if (data?.type === 'fusor-ai-rayon-ready') {
+          ready = true
+          resolve()
+        }
+        else if (data?.type === 'fusor-ai-rayon-error') {
+          reject(new Error(data.message || 'Compute thread failed to initialize.'))
+        }
+      }
+      w.onerror = (event) => {
+        const message = event instanceof ErrorEvent && event.message ? event.message : 'A compute thread failed.'
+        if (ready)
+          console.warn('[Ming3 Adapter] Compute thread error after ready:', message)
+        else
+          reject(new Error(message))
+      }
+      // SharedArrayBuffer-backed memory and the compiled module are shared by
+      // structured clone (not transferred) so every thread sees the same heap.
+      w.postMessage({
+        type: 'fusor-ai-rayon-init',
+        module: req.module,
+        memory: req.memory,
+        receiver: req.receiver,
+        mainJS: req.mainJS,
+      })
+    })
+  }
+
+  async function handleSpawnCompute(data: {
+    url: string
+    count: number
+    module: unknown
+    memory: unknown
+    receiver: unknown
+    mainJS: string
+    port: MessagePort
+  }): Promise<void> {
+    try {
+      terminateComputePool()
+      const starters = Array.from({ length: data.count }, (_, i) => spawnComputeWorker(i, data))
+      await Promise.all(starters)
+      data.port.postMessage({ ready: true })
+    }
+    catch (error) {
+      terminateComputePool()
+      try {
+        data.port.postMessage({ ready: false, error: error instanceof Error ? error.message : String(error) })
+      }
+      catch {
+        // Port already closed; the loader's fallback path takes over.
+      }
+    }
+  }
+
   function ensureWorker(): Worker {
     if (!worker) {
       worker = new Worker(
@@ -155,7 +248,13 @@ export function createMing3Adapter(): Ming3Adapter {
         break
       }
       case 'warning': {
-        console.warn('[Ming3 Adapter]', data.message)
+        console.warn('[Ming3 Adapter]', data.message ?? data)
+        break
+      }
+      case 'fusor-ai-spawn-compute': {
+        // The runtime glue (inside the engine worker) cannot spawn its own
+        // compute threads from the bundled context — the host does it here.
+        void handleSpawnCompute(data)
         break
       }
       case 'ready': {
@@ -255,6 +354,9 @@ export function createMing3Adapter(): Ming3Adapter {
       worker.terminate()
       worker = null
     }
+    // A fresh engine needs a fresh pool: stale compute threads hold the old
+    // shared memory and would never be reaped otherwise.
+    terminateComputePool()
 
     state = 'loading'
     updateInferenceStatus(modelStatusId, {
@@ -417,6 +519,7 @@ export function createMing3Adapter(): Ming3Adapter {
 
   function terminate() {
     removeInferenceStatus(modelStatusId)
+    terminateComputePool()
     if (worker) {
       worker.terminate()
       worker = null

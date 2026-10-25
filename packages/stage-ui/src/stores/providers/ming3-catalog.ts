@@ -20,6 +20,17 @@ export const MING3_MODEL_DESCRIPTION = '850 MB download · 4-bit LM+VAE, 7-bit f
 
 export const MING3_ENGINE_DIST_BASE = 'https://huggingface.co/spaces/fusorlabs/ming-wasm/resolve/main/engine/dist'
 export const MING3_BUNDLE_BASE = 'https://huggingface.co/fusorlabs/ming-3.0-tts-0.5b-web/resolve/main/'
+/**
+ * Same-origin mirror of the runtime threaded builds (flattened out of the
+ * upstream `engine/dist/` layout so no path segment is named `dist`,
+ * which this repo gitignores as build output).
+ * The threaded glue has relative sub-imports (`./snippets/...`) that cannot
+ * resolve against a Blob base URL, and HF serves them as text/plain — so the
+ * threaded builds must load from hierarchical same-origin URLs. Served from
+ * `apps/stage-web/public/ming3-runtime/` (mirrors the Space layout).
+ * Single-threaded builds stay on the CDN + Blob-import path (proven working).
+ */
+export const MING3_ENGINE_LOCAL_BASE = '/ming3-runtime/'
 
 export type Ming3Preset = 'quality' | 'balanced' | 'fast'
 export const MING3_PRESETS: Ming3Preset[] = ['quality', 'balanced', 'fast']

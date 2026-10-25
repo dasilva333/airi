@@ -11,11 +11,15 @@
 
 import type { Ming3Glue, Ming3Manifest, Ming3Runtime } from './loader'
 
-import { MING3_BUNDLE_BASE, MING3_ENGINE_DIST_BASE } from '../../stores/providers/ming3-catalog'
+import { MING3_BUNDLE_BASE, MING3_ENGINE_DIST_BASE, MING3_ENGINE_LOCAL_BASE } from '../../stores/providers/ming3-catalog'
 import { describe, fetchOk, loadParts, startRuntime } from './loader'
 
 const CACHE_DIR = 'ming-tts-parts'
 const DIST_URL = `${MING3_ENGINE_DIST_BASE}/`
+// Same-origin mirror of the runtime tree for threaded builds (which cannot
+// load from Blob URLs due to relative sub-imports). Absolutized against the
+// worker's own origin so dynamic import() and nested fetches stay same-origin.
+const LOCAL_DIST_URL = new URL(MING3_ENGINE_LOCAL_BASE, globalThis.location.origin).href
 
 function post(message: unknown, transfer?: Transferable[]) {
   if (transfer && transfer.length > 0)
@@ -56,6 +60,7 @@ async function load({ modelUrl, threads, build: requested }: {
   const manifestText = await (await fetchOk(new URL('manifest.json', baseUrl).href)).text()
   const started = await startRuntime({
     distUrl: DIST_URL,
+    localDistUrl: LOCAL_DIST_URL,
     glueName: 'ming_runtime',
     threads: threads ?? 1,
     requested,

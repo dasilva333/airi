@@ -253,6 +253,17 @@ export default defineConfig({
     },
   },
   server: {
+    // Cross-origin isolation: required for threaded WASM (SharedArrayBuffer).
+    // Mirrors the Ming demo Space's custom headers. Local TTS engines fall
+    // back to single-threaded builds without these; keep in sync with the
+    // threaded Ming rollout (see docs/analysis-ming3-tts-viability.md).
+    // NOTICE: COEP blocks cross-origin subresources lacking CORS/CORP
+    // headers — if dev assets break, scope these headers instead of dropping
+    // them silently, or threaded local inference regresses to single-thread.
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
     fs: {
       strict: false,
     },

@@ -9,7 +9,17 @@ This document evaluates the practical feasibility, architectural friction, and i
 
 Unlike Audio8 (4.8/10, "MOSS-grade trench war" with no web runtime), Ming-3.0-tts-0.5B already ships a **working, benchmarked browser runtime**. There is no ONNX graph surgery to reverse-engineer. The friction is architectural fit, not feasibility: it is a **sealed fusor-ai Rust/WASM runtime**, not an `onnxruntime-web` graph, so none of AIRI's unified inference machinery (Eventa protocol, `GpuResourceCoordinator`, `createGpuWorkerHost`, VRAM telemetry) applies. It is 5–10x heavier than Pocket/Kokoro, requires cross-origin isolation for threads, and v0.1 does **not** support voice cloning from a recording — AIRI's core cloning UX.
 
-Field reports (this machine): early run **RTF 1.7 quality / 0.85 fast** (likely 1–2 threads); later OPFS-cached run on `web-threaded-relaxed` · 3 threads · `quality` → **2.40 s audio in 2.4 s · RTF 1.02 · 31 frames · 0 network requests**, model loaded from device in 2.4 s. The 3-thread middle ground sits between the project's 1-thread (~2.1 RTF) and 8-thread (~0.47 RTF) rows — thread count dominates.
+Field reports (this machine): early run **RTF 1.7 quality / 0.85 fast** (thread count not recorded); later OPFS-cached run on `web-threaded-relaxed` · 3 threads · `quality` → **2.40 s audio in 2.4 s · RTF 1.02 · 31 frames · 0 network requests**, model loaded from device in 2.4 s. The 3-thread middle ground sits between the project's 1-thread (~2.1 RTF) and 8-thread (~0.47 RTF) rows — thread count dominates.
+
+### Known-good baselines (anchor here — do not re-derive thread counts by hypothesis)
+
+Three measurement sets exist. Do not mix them, and do not fill their gaps with assumptions:
+
+1. **Demo page, this machine, threaded.** The Space serves COOP/COEP headers, so its runs are threaded unless `?threads=1` is passed. Recorded: quality RTF 1.7, fast RTF 0.85 (exact thread counts not captured); later run `web-threaded-relaxed` · **3 threads** · quality → 2.40 s audio in 2.4 s, RTF 1.02, 31 frames, 0 network requests. The 3-thread figure is the only demo run with a captured build+thread footer.
+2. **Upstream `benchmarks.md`, Apple M4 Pro.** Chrome `web-threaded-relaxed` 8t quality RTF **0.47**; `web-single-relaxed` 1t quality RTF **2.15** (→ 8t/1t speedup 4.57×); native CLI 8t quality 0.28, fast 0.20. Different machine, different sentences — calibrate direction, not absolutes.
+3. **AIRI runs, this machine.** AIRI ships no COOP/COEP headers, so every AIRI run to date is single-threaded by construction (`web-single-relaxed` · 1): quality RTF 4.7–9.6, first audio 5–11 s, 41–77 frames. These numbers cannot be compared against (1) or single-threaded (2) runs without controlling for machine, utterance, and system load.
+
+Open (unknown, measure don't assume): the exact thread count behind the 1.7 demo run; whether 8 threads beats 3–4 on asymmetric performance/efficiency cores (the best observed demo number, 1.02, came from 3 threads); whether any residual remains after threading AIRI (requires the forced-single demo control: `?threads=1&build=web-single-relaxed`, same sentence, same machine).
 
 ---
 

@@ -121,9 +121,17 @@ export function chooseBuild(threads: number, requested?: string): Ming3RuntimeBu
 /**
  * Imports and instantiates `<distUrl>/<build>/<glueName>.js`.
  * `onWarning(message)` hears about a fallback to one thread.
+ *
+ * Threaded builds MUST load from a hierarchical same-origin base
+ * (`localDistUrl`, e.g. the vendored `/ming3-runtime/` tree): the glue has a
+ * static relative sub-import (`./snippets/.../workerHelpers.no-bundler.js`)
+ * that cannot resolve against a Blob base URL, and the CDN serves JS as
+ * text/plain (rejected by dynamic `import()`). Single-threaded builds are
+ * self-contained and keep the CDN + Blob-import path.
  */
-export async function startRuntime({ distUrl, glueName, threads, requested, onWarning }: {
+export async function startRuntime({ distUrl, localDistUrl, glueName, threads, requested, onWarning }: {
   distUrl: string
+  localDistUrl?: string
   glueName: string
   threads: number
   requested?: string
@@ -131,7 +139,7 @@ export async function startRuntime({ distUrl, glueName, threads, requested, onWa
 }): Promise<{ glue: Ming3Glue, build: Ming3RuntimeBuild, threads: number }> {
   const build = chooseBuild(threads, requested)
   try {
-    return { glue: await instantiate(distUrl, glueName, build, threads), build, threads: build.threads ? threads : 1 }
+    return { glue: await instantiate(distUrl, localDistUrl, glueName, build, threads), build, threads: build.threads ? threads : 1 }
   }
   catch (error) {
     // The shared memory or the compute workers could not be set up: one thread still works.
@@ -139,18 +147,23 @@ export async function startRuntime({ distUrl, glueName, threads, requested, onWa
       throw error
     onWarning?.(`threads unavailable (${describe(error)}); running on one thread`)
     const single = chooseBuild(1)
-    return { glue: await instantiate(distUrl, glueName, single, 1), build: single, threads: 1 }
+    return { glue: await instantiate(distUrl, localDistUrl, glueName, single, 1), build: single, threads: 1 }
   }
 }
 
-async function instantiate(distUrl: string, glueName: string, build: Ming3RuntimeBuild, threads: number): Promise<Ming3Glue> {
-  const base = new URL(`${build.name}/`, distUrl).href
+async function instantiate(distUrl: string, localDistUrl: string | undefined, glueName: string, build: Ming3RuntimeBuild, threads: number): Promise<Ming3Glue> {
+  if (build.threads && localDistUrl) {
+    const base = new URL(`${build.name}/`, localDistUrl).href
+    const glue = (await import(/* @vite-ignore */ new URL(`${glueName}.js`, base).href)) as Ming3Glue
+    const moduleOrPath = new URL(`${glueName}_bg.wasm`, base).href
+    await glue.default({ module_or_path: moduleOrPath })
+    await glue.initThreadPool?.(threads)
+    return glue
+  }
   // The HF resolve-cache endpoint serves parts as text/plain, which the
   // module loader rejects with a MIME error even though the body IS valid
-  // JavaScript (verified: the file renders fine when opened directly — only
-  // `import()` enforces the JS MIME requirement). Re-host the fetched source
-  // as a Blob module instead. The glue is self-contained (no relative
-  // sub-imports), so the blob URL is safe to revoke right after import.
+  // JavaScript. Re-host the fetched source as a Blob module instead.
+  const base = new URL(`${build.name}/`, distUrl).href
   const glueUrl = new URL(`${glueName}.js`, base).href
   const glueText = await (await fetchOk(glueUrl)).text()
   const blobUrl = URL.createObjectURL(new Blob([glueText], { type: 'text/javascript' }))
@@ -163,8 +176,6 @@ async function instantiate(distUrl: string, glueName: string, build: Ming3Runtim
   }
   const moduleOrPath = new URL(`${glueName}_bg.wasm`, base).href
   await glue.default({ module_or_path: moduleOrPath })
-  if (build.threads)
-    await glue.initThreadPool?.(threads)
   return glue
 }
 
