@@ -21,7 +21,7 @@ V-HACK is the "hidden devtools" pivot: rather than a standalone app, it is a HAC
 
 **How to reach it**: Settings → Models (VRM selected) → `Avatar Appearance` accordion. The VRM inspector is **docked inline** in the controls rail — no toggle, no fixed overlay, so it can never occlude the preview. The Live2D `LHACK` panel still uses the `lhack` store's toggle + fixed slide-in.
 
-**Presentation note**: the frame, `Nodes` tab, and footer are styled for the light settings surface; the `Lab` and `Deck` tab bodies are still the original dark internals inside a dark inset (pending a follow-up revamp). Keep that split if you restyle further.
+**Presentation note**: the whole docked panel (frame, tabs, Lab, Parts, footer, eraser excepted) is theme-aware (`bg-white/...` light + `dark:` variants) rather than a dark inset. Keep new surfaces theme-aware.
 
 ## 2. Panel Modules (HackerPanel.vue)
 
@@ -37,7 +37,7 @@ Tabs are `Textures | Lab | Parts` (default `Textures`), all rendered inside one 
 `exportVrm()` (:727) is the commit-to-binary pass:
 1. Applies `hiddenNodeUuids` as spleener transforms (mesh primitive unlink / ghost-scale; logs `[VHACK] Surgery Complete`) (:766-817).
 2. Rebuilds the glTF JSON + binary chunk: re-pointing `json.images` to mutated texture indices and rewriting buffer views (`outView.setUint32(16, 0x4E4F534A, true)` = "JSON" chunk magic; `0x004E4942` = "BIN" chunk magic near :940).
-3. Streams a download of `V-HACK_{modelName}.vrm`.
+3. Streams a download named `<base>_VHACK_<YYYYMMDD-HHmm>.vrm`, where `<base>` resolves from VRM meta, the display model/file, the source URL, the active card, or the model id (never the old `Surgical` fallback).
 GLB chunk-header math (offset = `20 + jsonBytes.length`, then 8-byte header + data) is the most brittle part of this system — a mismatch of even one byte corrupts the whole container.
 
 ## 4. State Store (`vhack.ts`)
@@ -52,6 +52,7 @@ GLB chunk-header math (offset = `20 + jsonBytes.length`, then 8-byte header + da
 ## 5. Pitfalls & Failure Modes
 
 - **VRAM leaks on hot-swap**: old Three.js textures/materials must be `.dispose()`d (or leaked GPU memory accumulates) — a known problem class.
+- **Image ≠ part**: a merged/baked VRM can reuse one glTF image across Body SKIN, Bottoms, Hair, and outline materials. The Textures tab shows the owning material names and searches them; never infer a texture's part from its thumbnail. Selecting the Body SKIN atlas and uploading a cardigan is the classic mangled-avatar report.
 - **GLB binary corruption**: chunk offset rewrites are unforgiving (see §3); test the export against @gltf-transform or a VRM validator before shipping changes.
 - **UI stalls**: serializing large binaries on the main thread freezes the viewport — offload to a Web Worker when repacking large models (this was a flagged bloat concern in the doc).
 - **AI settings persistence**: vhack's Gemini keys live in `localStorage`, not the provider store; don't move them into the BYOS-synced state without a migration plan.

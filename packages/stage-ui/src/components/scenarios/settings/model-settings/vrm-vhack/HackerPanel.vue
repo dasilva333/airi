@@ -332,13 +332,21 @@ interface TextureItem {
   url: string
   texture: any
   hint?: string
+  materials: string[]
+}
+
+function prettyMaterialName(name: string) {
+  return name
+    .replace(/\s*\(Instance\)\s*$/i, '')
+    .replace(/\s*\(Outline\)\s*$/i, ' outline')
+    .replace(/^N00_[0-9_]+_/, '')
 }
 const textureList = ref<TextureItem[]>([])
 
 function extractTextures() {
   if (!activeVrm.value)
     return
-  const found = new Map<number | string, { tex: any, type: string, nodeName: string }>()
+  const found = new Map<number | string, { tex: any, type: string, nodeName: string, materials: Set<string> }>()
 
   activeVrm.value.scene.traverse((node: any) => {
     if (node.material) {
@@ -355,9 +363,11 @@ function extractTextures() {
             return
           const idx = getGltfImageIndex(slot.tex)
           const key = idx !== null ? idx : (slot.tex.image?.uuid || slot.tex.image?.src || slot.tex.uuid)
+          const materialName = prettyMaterialName(m.name || node.name || 'Unnamed material')
           if (!found.has(key)) {
-            found.set(key, { tex: slot.tex, type: slot.type, nodeName: node.name })
+            found.set(key, { tex: slot.tex, type: slot.type, nodeName: node.name, materials: new Set() })
           }
+          found.get(key)!.materials.add(materialName)
         })
       })
     }
@@ -371,6 +381,7 @@ function extractTextures() {
       url: getTextureUrl(item.tex) || '',
       texture: item.tex,
       hint: item.nodeName,
+      materials: [...item.materials],
     }
   })
 }
@@ -456,7 +467,9 @@ const filteredTextureList = computed(() => {
   return textureList.value.filter((item) => {
     if (textureTypeFilter.value !== 'All' && item.type !== textureTypeFilter.value)
       return false
-    return !query || item.name.toLowerCase().includes(query)
+    return !query
+      || item.name.toLowerCase().includes(query)
+      || item.materials.some(material => material.toLowerCase().includes(query))
   })
 })
 
@@ -1318,7 +1331,7 @@ onMounted(() => {
           <div class="i-solar:magnifer-linear absolute left-3 top-1/2 shrink-0 translate-y-[-50%] text-neutral-400" />
           <input
             v-model="textureFilter"
-            placeholder="Find a texture..."
+            placeholder="Find a texture or material..."
             class="w-full border border-neutral-200 rounded-xl bg-white py-2 pl-9 pr-3 text-xs text-neutral-800 outline-none dark:border-neutral-700 focus:border-primary-400 dark:bg-neutral-900 dark:text-neutral-100"
           >
         </div>
@@ -1357,6 +1370,9 @@ onMounted(() => {
             <div class="text-[9px] text-neutral-400">
               Shared by {{ selectedTextureSharedMaterials.length }} material{{ selectedTextureSharedMaterials.length === 1 ? '' : 's' }}
             </div>
+            <div class="truncate text-[8px] text-neutral-400" :title="lastSelectedTextureItem.materials.join(', ')">
+              {{ lastSelectedTextureItem.materials.slice(0, 3).join(' · ') }}{{ lastSelectedTextureItem.materials.length > 3 ? ` +${lastSelectedTextureItem.materials.length - 3}` : '' }}
+            </div>
           </div>
           <span class="shrink-0 border border-primary-500/30 rounded-lg bg-white px-2 py-1 text-[10px] text-primary-600 font-semibold dark:bg-neutral-900 dark:text-primary-300">
             Open in Lab
@@ -1374,6 +1390,7 @@ onMounted(() => {
                 ? 'border-primary-500/60 bg-primary-500/5'
                 : 'border-neutral-200/80 bg-white/70 hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900/40 dark:hover:border-neutral-700',
             ]"
+            :title="item.materials.join(', ')"
             @click="selectTexture(item)"
           >
             <div class="texture-checker relative aspect-square w-full overflow-hidden">
@@ -1388,6 +1405,9 @@ onMounted(() => {
             <div class="w-full flex flex-col gap-0.5 border-t border-neutral-200/70 p-2 dark:border-neutral-800">
               <span class="w-full truncate text-[11px] text-neutral-800 font-semibold dark:text-neutral-100">{{ item.name }}</span>
               <span class="text-[9px] text-neutral-400">{{ textureSizeLabel(item) }} · {{ textureFormatLabel(item) }}</span>
+              <span class="w-full truncate text-[8px] text-primary-600/80 dark:text-primary-300/80">
+                {{ item.materials[0] }}{{ item.materials.length > 1 ? ` +${item.materials.length - 1}` : '' }}
+              </span>
             </div>
           </button>
 
@@ -1413,7 +1433,10 @@ onMounted(() => {
                   {{ lastSelectedTextureItem.name }}
                 </div>
                 <div class="text-[10px] text-neutral-400">
-                  {{ textureSizeLabel(lastSelectedTextureItem) }} · Shared by {{ selectedTextureSharedMaterials.length }} material{{ selectedTextureSharedMaterials.length === 1 ? '' : 's' }}
+                  {{ textureSizeLabel(lastSelectedTextureItem) }} · {{ lastSelectedTextureItem.type }} · Shared by {{ selectedTextureSharedMaterials.length }} material{{ selectedTextureSharedMaterials.length === 1 ? '' : 's' }}
+                </div>
+                <div class="truncate text-[9px] text-neutral-400" :title="lastSelectedTextureItem.materials.join(', ')">
+                  Used by {{ lastSelectedTextureItem.materials.slice(0, 3).join(' · ') }}{{ lastSelectedTextureItem.materials.length > 3 ? ` +${lastSelectedTextureItem.materials.length - 3}` : '' }}
                 </div>
               </div>
               <button type="button" class="shrink-0 text-[10px] text-primary-600 font-medium dark:text-primary-300" @click="activeTab = 'texture'">
@@ -1504,6 +1527,12 @@ onMounted(() => {
             </div>
             <p class="px-0.5 text-[9px] text-neutral-400">
               Download the original, edit it, then upload the replacement.
+            </p>
+            <p
+              v-if="lastSelectedTextureItem.type !== 'Main'"
+              class="rounded-lg bg-amber-500/10 p-2 text-[9px] text-amber-700 leading-relaxed dark:text-amber-300"
+            >
+              This is a {{ lastSelectedTextureItem.type }} map. Upload a matching {{ lastSelectedTextureItem.type.toLowerCase() }} texture here; a color atlas belongs on a Main texture.
             </p>
             <input ref="textureUploader" type="file" accept="image/png" class="hidden" @change="handleManualUpload">
 
