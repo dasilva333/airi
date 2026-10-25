@@ -177,3 +177,19 @@ export async function deleteMingDesignVoice(id: string): Promise<void> {
   const store = await getDesignsStore()
   await store.removeItem(id)
 }
+
+export async function saveMingDesignVoice(name: string, designPrompt: string): Promise<MingDesignVoice> {
+  const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(designPrompt))
+  const sha256Hex = Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('')
+  const id = mingDesignIdForPrompt(designPrompt, sha256Hex)
+  const store = await getDesignsStore()
+  const existing = await store.getItem<MingDesignVoice>(id)
+  const record: MingDesignVoice = {
+    id,
+    name: name.trim() || designPrompt.slice(0, 24),
+    createdAt: existing?.createdAt ?? Date.now(),
+    designPrompt,
+  }
+  await store.setItem(id, record)
+  return record
+}

@@ -16,6 +16,7 @@ import { getKokoroAdapter } from '../../../../../../libs/inference/adapters/koko
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useProvidersStore } from '../../../../../../stores/providers'
 import { getMing3AdapterInstance } from '../../../../../../stores/providers/ming3-audio-utils'
+import { saveMingDesignVoice } from '../../../../../../stores/providers/ming3-catalog'
 import { getMossAdapterInstance } from '../../../../../../stores/providers/moss-audio-utils'
 import { getPocketTtsAdapterInstance } from '../../../../../../stores/providers/pocket-audio-utils'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
@@ -44,6 +45,8 @@ function normalizeProviderId(id: string) {
     return 'pocket-tts-local'
   if (id === 'moss')
     return 'moss-nano-local'
+  if (id === 'ming')
+    return 'ming3-local'
   if (id === 'chatterbox')
     return 'airi-audio-server'
   return id
@@ -74,6 +77,61 @@ function resolveInitialSegment(prov: string): EngineSegment {
 }
 
 const activeEngineSegment = ref<EngineSegment>(resolveInitialSegment(selectedProvider.value))
+
+// Ming voice-design pilot: prompt starters, draft description, and global preset.
+// NOTICE: template titles/descriptions stay English — descriptions are inserted
+// verbatim into the model prompt, so localizing them would change synthesis.
+const MING_DESIGN_TEMPLATES = [
+  { id: 'warm', title: 'Warm companion', sub: 'Gentle and conversational', text: 'A warm, conversational voice with a gentle tone, clear pronunciation, and relaxed pacing.' },
+  { id: 'playful', title: 'Playful sidekick', sub: 'Bright and mischievous', text: 'A bright, lively voice with a mischievous tone, expressive intonation, and energetic delivery.' },
+  { id: 'storyteller', title: 'Calm storyteller', sub: 'Mellow and measured', text: 'A mellow, resonant voice with measured pacing, clear articulation, and a soothing delivery.' },
+  { id: 'guide', title: 'Confident guide', sub: 'Clear and assured', text: 'A steady, assured voice with crisp pronunciation, a composed tone, and deliberate pacing.' },
+  { id: 'soft', title: 'Soft-spoken', sub: 'Soft and unhurried', text: 'A soft, intimate voice with gentle articulation, light breathiness, and unhurried delivery.' },
+] as const
+
+type Ming3Preset = 'quality' | 'balanced' | 'fast'
+const MING3_PRESETS: Ming3Preset[] = ['quality', 'balanced', 'fast']
+
+const isMingSelected = computed(() => normalizeProviderId(selectedProvider.value) === 'ming3-local' && activeEngineSegment.value === 'builtin')
+
+const mingInspiration = ref<string>('')
+const mingDesignDescription = ref<string>('')
+
+function onMingInspiration(templateId: string) {
+  mingInspiration.value = templateId
+  const template = MING_DESIGN_TEMPLATES.find(t => t.id === templateId)
+  if (template)
+    mingDesignDescription.value = template.text
+}
+
+function readMingPreset(): Ming3Preset {
+  try {
+    const preset = (providersStore.getProviderInstanceConfig('ming3-local')?.options as any)?.preset
+    return MING3_PRESETS.includes(preset) ? preset : 'quality'
+  }
+  catch {
+    return 'quality'
+  }
+}
+
+const mingPreset = ref<Ming3Preset>(readMingPreset())
+
+function setMingPreset(preset: Ming3Preset) {
+  mingPreset.value = preset
+  try {
+    const options = providersStore.getProviderInstanceConfig('ming3-local')?.options as any
+    if (options)
+      options.preset = preset
+  }
+  catch {
+    // Instance config unavailable — the preset still applies to this session's previews.
+  }
+}
+
+watch(isMingSelected, (ming) => {
+  if (ming && !sampleText.value)
+    sampleText.value = t('onboarding.steps.speech.mingSampleDefault')
+})
 
 // API credentials
 const showApiKey = ref(false)
@@ -496,6 +554,16 @@ const localEngines = [
     desc: 'A lightweight local speech engine.',
     badges: ['🇺🇸 EN', '🇨🇳 ZH'],
   },
+  {
+    id: 'ming',
+    normId: 'ming3-local',
+    name: 'Ming 3.0',
+    icon: 'i-solar:stars-bold-duotone',
+    accent: 'text-violet-500 dark:text-violet-400',
+    tag: 'VOICE DESIGN',
+    desc: 'Design a voice in words, or choose a built-in speaker.',
+    badges: ['🇨🇳 ZH', '🇺🇸 EN', '🇯🇵 JA', '🇰🇷 KO', '🇩🇪 DE', '🇫🇷 FR', '🇪🇸 ES'],
+  },
 ]
 
 const localEngineOptions = computed(() => localEngines.map(engine => ({
@@ -619,6 +687,9 @@ const availableModels = computed(() => {
   }
   if (normId === 'moss-nano-local') {
     return [{ id: 'moss-tts-nano-100m', label: 'Moss-Nano Fast Engine (100M)', labelKey: 'onboarding.steps.speech.availableModels.moss-tts-nano-100m.label' }]
+  }
+  if (normId === 'ming3-local') {
+    return [{ id: 'ming-3.0-tts-0.5b-mix', label: 'Ming 3.0 · 0.5B · Mix' }]
   }
 
   if (providerModels.value.length > 0) {
@@ -1022,16 +1093,32 @@ async function togglePreview(target: 'companion' | 'user' = 'companion') {
     toast.info(t('onboarding.steps.speech.synthesizingValueSVoice', { value: target === 'user' ? userName.value : companionName.value }))
     const targetSpeed = target === 'user' ? userSpeed.value : speed.value
     const targetPitch = target === 'user' ? userPitch.value : pitch.value
-    const audioData = await speechStore.speech(
-      providerInstance as any,
-      modelId,
-      textToSpeak,
-      voiceId,
-      {
-        speed: targetSpeed,
-        pitch: targetPitch,
-      },
-    )
+    // Ming voice-design preview: synthesize the draft description directly so
+    // the user hears what Ming makes of it before anything is saved.
+    const useMingDesignPreview = providerId === 'ming3-local'
+      && target === 'companion'
+      && activeEngineSegment.value === 'builtin'
+      && mingDesignDescription.value.trim().length > 0
+    let audioData: ArrayBuffer
+    if (useMingDesignPreview) {
+      const mingAdapter = await getMing3AdapterInstance()
+      audioData = await mingAdapter.generate(textToSpeak, selectedVoice.value || '', {
+        preset: mingPreset.value,
+        designPrompt: mingDesignDescription.value.trim(),
+      })
+    }
+    else {
+      audioData = await speechStore.speech(
+        providerInstance as any,
+        modelId,
+        textToSpeak,
+        voiceId,
+        {
+          speed: targetSpeed,
+          pitch: targetPitch,
+        },
+      )
+    }
 
     if (!audioData || audioData.byteLength === 0) {
       throw new Error(t('onboarding.steps.speech.emptyAudio'))
@@ -1084,11 +1171,24 @@ onBeforeUnmount(() => {
 })
 
 // 7. Navigation Handlers
-function handleContinue() {
+async function handleContinue() {
+  // A Ming draft description becomes a saved design voice here ("saved when
+  // you continue"); the design id is what later turns resolve as a voice.
+  let voiceId = selectedVoice.value
+  if (isMingSelected.value && mingDesignDescription.value.trim()) {
+    try {
+      const designName = companionName.value ? `${companionName.value}'s voice` : 'My voice'
+      const saved = await saveMingDesignVoice(designName, mingDesignDescription.value.trim())
+      voiceId = saved.id
+    }
+    catch (err) {
+      console.error('[Step Speech] Failed to save Ming design voice:', err)
+    }
+  }
   draftStore.setSpeech({
     provider: normalizeProviderId(selectedProvider.value),
     model: selectedModel.value,
-    voiceId: selectedVoice.value,
+    voiceId,
     pitch: pitch.value,
     rate: speed.value,
   })
@@ -1227,6 +1327,12 @@ function handleContinue() {
                   <h3 :class="['text-sm font-bold text-neutral-900 dark:text-white truncate']">
                     {{ engine.name }}
                   </h3>
+                  <span
+                    v-if="engine.id === 'ming'"
+                    :class="['text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-md border uppercase flex-shrink-0 bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20']"
+                  >
+                    {{ t('onboarding.steps.speech.mingPreview') }}
+                  </span>
                 </div>
                 <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate']">
                   {{ engine.desc }}
@@ -1280,6 +1386,54 @@ function handleContinue() {
                     {{ model.label }}
                   </option>
                 </select>
+              </div>
+              <p
+                v-if="isMingSelected"
+                :class="['text-[11px] text-neutral-500 dark:text-neutral-400']"
+              >
+                {{ t('onboarding.steps.speech.mingModelNote') }}
+              </p>
+
+              <!-- Ming preset segmented control (global provider-level field) -->
+              <div v-if="isMingSelected" :class="['flex flex-col gap-1.5']">
+                <div :class="['grid grid-cols-3 gap-1 rounded-xl bg-neutral-200/50 dark:bg-neutral-800/50 p-1']">
+                  <button
+                    v-for="preset in MING3_PRESETS"
+                    :key="preset"
+                    type="button"
+                    :class="[
+                      'rounded-lg px-2 py-1.5 transition-all cursor-pointer',
+                      mingPreset === preset
+                        ? 'bg-white dark:bg-neutral-900 shadow-sm ring-1 ring-primary-500/40'
+                        : 'hover:bg-white/60 dark:hover:bg-neutral-800/60',
+                    ]"
+                    @click="setMingPreset(preset)"
+                  >
+                    <span :class="['block text-xs font-bold', mingPreset === preset ? 'text-primary-600 dark:text-primary-400' : 'text-neutral-600 dark:text-neutral-300']">
+                      {{ t(`onboarding.steps.speech.mingPreset${preset.charAt(0).toUpperCase()}${preset.slice(1)}`) }}
+                    </span>
+                    <span :class="['block text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5']">
+                      {{ t(`onboarding.steps.speech.mingPreset${preset.charAt(0).toUpperCase()}${preset.slice(1)}Desc`) }}
+                    </span>
+                  </button>
+                </div>
+                <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+                  {{ t('onboarding.steps.speech.mingPresetsApplyAll') }}
+                </p>
+                <div
+                  v-if="isEngineReady"
+                  :class="['flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2']"
+                >
+                  <div :class="['i-solar:check-circle-bold-duotone w-4 h-4 flex-shrink-0 text-emerald-500 mt-0.5']" />
+                  <div>
+                    <p :class="['text-xs font-bold text-emerald-600 dark:text-emerald-400']">
+                      {{ t('onboarding.steps.speech.mingModelReadyTitle') }}
+                    </p>
+                    <p :class="['text-[11px] text-emerald-600/80 dark:text-emerald-400/80']">
+                      {{ t('onboarding.steps.speech.mingModelReadyDesc') }}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <!-- Local Provisioning & Weights Activation Bar -->
@@ -1790,7 +1944,7 @@ function handleContinue() {
                   {{ t('onboarding.steps.speech.voicePreview') }}
                 </h2>
                 <p :class="['text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate']">
-                  {{ t('onboarding.steps.speech.voicePreviewDescription') }}
+                  {{ isMingSelected ? t('onboarding.steps.speech.voicePreviewMingSubtitle') : t('onboarding.steps.speech.voicePreviewDescription') }}
                 </p>
               </div>
             </div>
@@ -2115,8 +2269,47 @@ function handleContinue() {
                 </span>
               </div>
 
+              <!-- Ming voice-design section (replaces voice select + upload + sliders) -->
+              <div v-if="isMingSelected" :class="['flex flex-col gap-1.5']">
+                <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
+                  {{ t('onboarding.steps.speech.voiceInspiration') }}
+                </label>
+                <select
+                  v-model="mingInspiration"
+                  :class="['w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 cursor-pointer shadow-sm']"
+                  @change="onMingInspiration(($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="" disabled>
+                    {{ t('onboarding.steps.speech.inspirationPlaceholder') }}
+                  </option>
+                  <option
+                    v-for="template in MING_DESIGN_TEMPLATES"
+                    :key="template.id"
+                    :value="template.id"
+                  >
+                    {{ template.title }}
+                  </option>
+                </select>
+              </div>
+              <div v-if="isMingSelected" :class="['flex flex-col gap-1.5']">
+                <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
+                  {{ t('onboarding.steps.speech.describeTheVoice') }}
+                </label>
+                <textarea
+                  v-model="mingDesignDescription"
+                  rows="3"
+                  :class="['w-full min-h-[88px] resize-y px-3 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-white/10 text-neutral-900 dark:text-white outline-none focus:border-primary-500 select-text leading-relaxed shadow-inner']"
+                />
+                <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+                  {{ t('onboarding.steps.speech.describeHintOwn') }}
+                </p>
+                <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+                  {{ t('onboarding.steps.speech.describeHintSound') }}
+                </p>
+              </div>
+
               <!-- Timbre Selector with Refresh Voices Button -->
-              <div :class="['flex flex-col gap-1.5']">
+              <div v-if="!isMingSelected" :class="['flex flex-col gap-1.5']">
                 <label :class="['text-xs font-bold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide']">
                   {{ t('onboarding.steps.speech.voiceLabel') }}
                 </label>
@@ -2147,7 +2340,7 @@ function handleContinue() {
 
               <!-- Voice sample upload -->
               <div
-                v-if="supportsVoiceCloning"
+                v-if="supportsVoiceCloning && !isMingSelected"
                 :class="[
                   'flex items-center justify-between gap-3 p-3 rounded-2xl border border-dashed transition-all cursor-pointer select-none',
                   isDraggingAudio
@@ -2223,7 +2416,7 @@ function handleContinue() {
               </div>
 
               <!-- Acoustic Sliders (Speed & Pitch) -->
-              <div :class="['grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1']">
+              <div v-if="!isMingSelected" :class="['grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1']">
                 <div :class="['flex flex-col gap-1.5']">
                   <div :class="['flex items-center justify-between text-xs font-semibold']">
                     <span :class="['text-neutral-600 dark:text-neutral-400']">{{ t('onboarding.steps.speech.speechRateSpeed') }}</span>
@@ -2292,8 +2485,29 @@ function handleContinue() {
                   @click="togglePreview('companion')"
                 >
                   <div :class="[isPlayingCompanion ? 'i-solar:stop-circle-bold w-4 h-4' : 'i-solar:play-circle-bold w-4 h-4']" />
-                  <span>{{ isPlayingCompanion ? t('onboarding.steps.speech.stop') : t('onboarding.steps.speech.playPreviewAction') }}</span>
+                  <span>{{ isPlayingCompanion ? t('onboarding.steps.speech.stop') : (isMingSelected ? t('onboarding.steps.speech.previewVoiceButton') : t('onboarding.steps.speech.playPreviewAction')) }}</span>
                 </button>
+                <div
+                  v-if="isMingSelected"
+                  :class="['flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400']"
+                >
+                  <div :class="['i-solar:info-circle-bold w-4 h-4 flex-shrink-0 text-neutral-400']" />
+                  <span>{{ t('onboarding.steps.speech.previewUsesDescription') }}</span>
+                </div>
+                <div
+                  v-if="isMingSelected"
+                  :class="['flex items-start gap-2 rounded-xl border border-primary-500/30 bg-primary-500/10 dark:bg-primary-950/30 px-3 py-2']"
+                >
+                  <div :class="['i-solar:bookmark-opened-bold-duotone w-4 h-4 flex-shrink-0 text-primary-500 mt-0.5']" />
+                  <div>
+                    <p :class="['text-xs font-bold text-primary-600 dark:text-primary-300']">
+                      {{ t('onboarding.steps.speech.voiceSavedTitle') }}
+                    </p>
+                    <p :class="['text-[11px] text-neutral-500 dark:text-neutral-400']">
+                      {{ t('onboarding.steps.speech.voiceSavedDesc') }}
+                    </p>
+                  </div>
+                </div>
                 <div
                   v-if="isLocalProvider && !isEngineReady"
                   :class="['flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium']"
