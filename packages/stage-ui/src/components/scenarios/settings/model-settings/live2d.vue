@@ -7,13 +7,14 @@ import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, toRef, wat
 import { useI18n } from 'vue-i18n'
 
 import ModelCustomizerSkeleton from './components/ModelCustomizerSkeleton.vue'
+import HackerStudioShell from './hacker-studio/HackerStudioShell.vue'
 
 import { useLive2DMotionMagicSettings, useLive2DStageAmbientMotion } from '../../../../features/motions/live2d'
-import { useLHackStore } from '../../../../stores'
 import { useSettings } from '../../../../stores/settings'
 import { usePositioningStore } from '../../../../stores/settings/positioning'
 import { Section } from '../../../layouts'
 import { ColorPalette } from '../../../widgets'
+import { useLive2dHackerStudioHost } from './hacker-studio/use-live2d-hacker-studio-host'
 
 const props = defineProps<{
   palette: string[]
@@ -31,8 +32,8 @@ const ModelCustomizer = defineAsyncComponent({
 })
 
 const { t } = useI18n()
+const { adapter: live2dHackerAdapter, studio: live2dHackerStudio } = useLive2dHackerStudioHost()
 
-const lhackStore = useLHackStore()
 const settings = useSettings()
 const {
   live2dDisableFocus,
@@ -529,7 +530,23 @@ onUnmounted(() => {
     </div>
   </Section>
 
-  <!-- 2. Scene -->
+  <!-- 2. Avatar Appearance -->
+  <Section
+    title="Avatar Appearance"
+    icon="i-solar:mask-h-bold-duotone"
+    :class="['rounded-xl', 'bg-white/80', 'dark:bg-black/75', 'backdrop-blur-lg']"
+    size="sm"
+    :expand="true"
+  >
+    <div class="min-w-0 w-full flex flex-col gap-2 p-2">
+      <p class="px-1 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+        Replace Live2D atlas pages and fine-tune their appearance.
+      </p>
+      <HackerStudioShell :adapter="live2dHackerAdapter" :studio="live2dHackerStudio" />
+    </div>
+  </Section>
+
+  <!-- 3. Scene -->
   <Section
     title="Scene"
     icon="i-solar:clapperboard-edit-bold-duotone"
@@ -573,7 +590,7 @@ onUnmounted(() => {
     </div>
   </Section>
 
-  <!-- 3. Advanced -->
+  <!-- 4. Advanced -->
   <Section
     title="Advanced"
     icon="i-solar:settings-bold-duotone"
@@ -633,25 +650,6 @@ onUnmounted(() => {
         <Button variant="secondary" @click="$emit('extractColorsFromModel')">
           {{ t('settings.live2d.theme-color-from-model.button-extract.title') }}
         </Button>
-      </div>
-
-      <!-- L-HACK Editor -->
-      <div flex="~ col gap-2">
-        <div class="px-1 text-[10px] text-neutral-400 font-bold tracking-widest uppercase">
-          L-HACK Editor
-        </div>
-        <Button
-          :variant="lhackStore.isHackerModeActive ? 'primary' : 'secondary'"
-          @click="lhackStore.toggleHackerMode"
-        >
-          <template #icon>
-            <div i-solar:mask-h-bold-duotone />
-          </template>
-          L-HACK Dashboard
-        </Button>
-        <p class="mb-2 px-1 text-[10px] text-neutral-400">
-          Open the Live2D Hacker Inspector for surgical drawable and atlas modding.
-        </p>
       </div>
 
       <!-- Technical Utils -->

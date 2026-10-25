@@ -8,7 +8,13 @@
 - VRM adapter: `hacker-studio/adapters/vrm/use-vrm-hacker-adapter.ts`; GLB surgery: `glb-exporter.ts`.
 - Session host: `hacker-studio/use-hacker-studio-host.ts` keeps the adapter/controller alive across Section collapse and settings remounts.
 - Retired: `vrm-vhack/HackerPanel.vue` and `stores/vhack.ts`.
-- Deferred: Live2D/Spine adapters and the Pinia session store; the controller state is serializable, but the live VRM adapter uses a session host singleton because Three textures/originals cannot be serialized. `LHackerPanel.vue` and `lhack.ts` remain until their adapter tranche.
+
+**Phase 2 (Live2D) status (2026-10-25):** implemented end to end for atlas replacement and ZIP export.
+- Live2D adapter: `hacker-studio/adapters/live2d/use-live2d-hacker-adapter.ts`; ZIP rewrite: `live2d-exporter.ts`; baseTexture swap/restore: `live2d-texture.ts`.
+- Mounted through `hacker-studio/use-live2d-hacker-studio-host.ts` in `live2d.vue` after Character Customizations.
+- The legacy `LHackerPanel.vue`, global drawer mount, L-HACK toggle, `lhack.ts`, and dead `__LHACK_LAST_ZIP_BUFFER__` capture are removed.
+- Export requires a source ZIP; bare model URLs show a disabled reason. Uploads are PNG-only for Live2D in this pass.
+- Deferred: Spine, Live2D Parts/drawables, and the Pinia session store; controller state is serializable, while live Three/Pixi handles use session host singletons.
 **Roadmap entry:** [Unified Texture Editor (V-HACK / L-HACK & ModelCustomizer)](content/en/docs/chronicles/roadmap.md)
 **Related:** [design-model-customizer.md](design-model-customizer.md), [AIRI Character Rendering skill](../.agents/skills/airi-character-rendering/SKILL.md)
 
@@ -53,9 +59,9 @@ The UI, state, and export plumbing are what diverged. Hacker Studio converges th
 ### Current split (for context)
 
 - `vrm.vue` creates the VRM adapter/controller through `use-hacker-studio-host.ts` and embeds `hacker-studio/HackerStudioShell.vue` docked in Avatar Appearance.
-- `live2d-lhack/LHackerPanel.vue` is a fixed drawer toggled from `live2d.vue`, mounted globally in `model-settings/index.vue`.
-- `vhack.ts` has been retired; `lhack.ts` still duplicates AI settings/generation state until the Live2D adapter tranche.
-- Live2D's drawable list currently returns `[]` behind a `SCALED BACK` comment; its revert path calls `window.location.reload()`.
+- `live2d.vue` creates the Live2D adapter/controller through a session host and docks the shared shell after Character Customizations.
+- Both `vhack.ts` and `lhack.ts` have been retired; AI provider configuration comes from `useArtistryStore`.
+- Live2D Parts/drawables remain deferred; its new adapter restores baseTextures in place instead of reloading the page.
 
 This document specifies the replacement.
 
@@ -350,7 +356,7 @@ interface HackerSession {
 - Mode is one global session value, not format-specific.
 - Replacements/history persist across tab, texture, and format switches within the session, and are cleared on model change/reset.
 - Prompt text is shell state, preserved across mode switches; no silent rewriting.
-- AI provider configuration comes from `useArtistryStore`. The duplicated `vhack_gemini_*` / `lhack_gemini_*` keys and `vhack.ts` / `lhack.ts` stores are removed once adapters are in place. **No migration and no legacy fallback reads.**
+- AI provider configuration comes from `useArtistryStore`. The duplicated `vhack_gemini_*` / `lhack_gemini_*` keys and `vhack.ts` / `lhack.ts` stores are removed. **No migration and no legacy fallback reads.**
 
 ### 5.5 Exporters
 
@@ -359,10 +365,10 @@ The footer calls `adapter.exportAsset()`; the shell only renders the label and h
 | Adapter | Export contract |
 | :--- | :--- |
 | VRM | Surgical GLB rebuild → `.vrm` |
-| Live2D | Existing JSZip rewrite of `model3.json` texture entries → `.zip`; port `LHackerPanel.exportZip()`, don't rebuild it |
+| Live2D | Implemented: JSZip rewrite of `model3.json` texture entries → `.zip`; requires a source ZIP |
 | Spine | New JSZip rewrite of atlas-page images + `.atlas` metadata → `.zip` |
 
-The Live2D exporter already exists in `LHackerPanel.exportZip()`: it loads `lhackStore.originalZipBuffer`, reads `model3.json.FileReferences.Textures`, overwrites the matching ZIP entries from `mutatedTextures`, and downloads a ZIP. This is a working feature to port, not a capability gap. It requires the source ZIP buffer; models loaded from a bare model URL may not have one.
+The Live2D exporter now lives in `adapters/live2d/live2d-exporter.ts`. It reads `model3.json.FileReferences.Textures`, maps runtime indices across filtered blank slots, overwrites the matching ZIP entries from the mutation registry, and returns a ZIP. It requires the source ZIP buffer; models loaded from a bare model URL may not have one.
 The Spine exporter is new but follows the same ZIP-rewrite pattern: capture the original ZIP, locate the `.atlas` and its page paths, overwrite the page entries, patch page dimensions/PMA in the atlas text when replacement dimensions differ, and download a ZIP. This is feasible for ZIP-sourced models; only a sibling-URL source without an archive has no bundle to rewrite.
 
 Filename pattern: `<base>_HACK_<YYYYMMDD-HHmm>.<ext>`, derived from VRM meta/display model, or the model/ZIP basename for 2D formats.
@@ -413,9 +419,9 @@ Filename pattern: `<base>_HACK_<YYYYMMDD-HHmm>.<ext>`, derived from VRM meta/dis
 - Textures = Pixi atlas pages; owners = drawables/parts that reference them.
 - Apply = replace `baseTexture` and synchronize affected drawables; preserve original texture handles for revert.
 - **Drawable/parts support is currently disabled** (`drawables` returns `[]` under a `SCALED BACK` comment). Implement discovery and opacity/visibility in phase 5; until then, Parts is hidden.
-- Export = the **existing** `LHackerPanel.exportZip()` flow, ported into the adapter: `originalZipBuffer` → `model3.json.FileReferences.Textures` → overwrite ZIP entries from the mutation registry → `JSZip.generateAsync` download. This is functioning today for ZIP-sourced models; it is not a new capability. Keep the ZIP-source requirement and surface a clear disabled reason otherwise.
+- Export = `live2d-exporter.ts`: source ZIP → `model3.json.FileReferences.Textures` → overwrite ZIP entries from the mutation registry → `JSZip.generateAsync`. ZIP-sourced models export; bare model URLs surface a clear disabled reason.
 - Replace the current full-page reload on revert with in-place restoration.
-- Remove the fixed drawer, the purple styling, and the `lhackStore.isHackerModeActive` toggle. Mount the shared section in `live2d.vue`.
+- The fixed drawer, purple styling, and `lhackStore.isHackerModeActive` toggle are removed. The shared section is docked in `live2d.vue`.
 - Atlas page replacement does not carry material semantics; no Material adjustments.
 
 ### 7.3 Spine
@@ -474,7 +480,7 @@ Warnings do not block. Applying is immediate after successful decode.
 
 - New namespace: `hacker-studio` store and session state.
 - New AI/provider preference surface: consume `useArtistryStore`; remove duplicated Gemini key fields from the old stores.
-- **No migration.** Old `vhack_*` and `lhack_*` keys are not read, not dual-written, and will be removed with the old stores. Users start with fresh Hacker Studio settings.
+- **No migration.** Old `vhack_*` and `lhack_*` keys are not read, not dual-written; the old stores and panels are removed. Users start with fresh Hacker Studio settings.
 - Raw model objects stay outside the store; only texture descriptors, replacement URLs, metadata, revisions, and generation status are stored.
 - Session key includes adapter kind + previewed model identity; switching format must not cross-contaminate replacement history.
 - Mode is global session state; prompt is shell state and preserved across mode switches.
@@ -492,9 +498,9 @@ Warnings do not block. Applying is immediate after successful decode.
 Mount points:
 
 - `vrm.vue`: existing Avatar Appearance section → `<HackerStudioSection kind="vrm" />`.
-- `live2d.vue`: new Avatar Appearance section → `<HackerStudioSection kind="live2d" />`; remove drawer/toggle.
+- `live2d.vue`: new Avatar Appearance section → `<HackerStudioShell :adapter=":live2d adapter" :studio=":controller" />`; drawer/toggle removed.
 - `spine.vue`: new Avatar Appearance section after its existing Character/Scene sections.
-- `model-settings/index.vue`: remove the global `LHackerPanel` mount.
+- `model-settings/index.vue`: the global `LHackerPanel` mount is removed.
 
 ---
 
@@ -507,7 +513,7 @@ VRM, Live2D, and Spine are in scope for this initiative, sequenced so the contra
 3. **Live2D adapter** — atlases, Pixi swap/sync, **port the existing ZIP exporter**, in-place revert; dock in `live2d.vue`; remove the drawer/toggle and old purple UI.
 4. **Spine adapter** — atlas-page replacement and a **new ZIP exporter** modeled on the Live2D exporter, including atlas-dimension/PMA handling.
 5. **Parts parity** — VRM (already), Live2D drawables, Spine slots/attachments; enable tabs only when ready.
-6. **Cleanup** — delete `vhack.ts`, `lhack.ts`, old panels, old AI keys, and dead code; update manual/showcase docs.
+6. **Cleanup** — delete `vhack.ts`, `lhack.ts`, old panels, old AI keys, and dead code; update manual/showcase docs. (Done for VRM/Live2D.)
 
 Parts is explicitly phase 5; texture/atlas replacement must be complete for all adapters before it starts.
 
@@ -554,7 +560,7 @@ Parts is explicitly phase 5; texture/atlas replacement must be complete for all 
 ```text
 packages/stage-ui/src/components/scenarios/settings/model-settings/
   vrm.vue                      → Avatar Appearance hosts HackerStudioSection
-  live2d.vue                   → Avatar Appearance hosts HackerStudioSection
+  live2d.vue                   → Avatar Appearance hosts HackerStudioShell + Live2D adapter
   spine.vue                    → Avatar Appearance hosts HackerStudioSection
   index.vue                    → no global LHackerPanel mount
   hacker-studio/

@@ -1255,9 +1255,6 @@ Persisted Three.js scene state — camera rig, model transform, lighting, and sk
 | `vhack_gemini_api_key` | `string` | `stores/vhack.ts` |
 | `vhack_gemini_model` | `string` | `stores/vhack.ts` |
 | `vhack_gemini_res` | `string` | `stores/vhack.ts` |
-| `lhack_gemini_api_key` | `string` | `stores/lhack.ts` |
-| `lhack_gemini_model` | `string` | `stores/lhack.ts` |
-| `lhack_gemini_res` | `string` | `stores/lhack.ts` |
 | `airi_cc_{sha256hash}` | `string` (JSON, cached color data) | `libs/character-media-resolver.ts` |
 | `airi:debug` | `'1'` (string flag) | `stores/providers/helpers.ts` |
 

@@ -19,7 +19,7 @@ function texture(id: number, name: string): HackerTexture {
   }
 }
 
-function fakeAdapter(options: { exportEnabled?: boolean } = {}) {
+function fakeAdapter(options: { exportEnabled?: boolean, exportReason?: string } = {}) {
   const textures = ref([texture(1, 'Tex 1'), texture(2, 'Tex 2')])
   const parts = ref([])
   const applied: { id: number, dataUrl: string, meta: any }[] = []
@@ -30,6 +30,7 @@ function fakeAdapter(options: { exportEnabled?: boolean } = {}) {
     kind: 'vrm',
     identity: 'vrm:avatar-a',
     label: 'VRM',
+    ...(options.exportReason ? { exportUnavailableReason: ref(options.exportReason) } : {}),
     capabilities: {
       textures: true,
       preview: true,
@@ -181,6 +182,12 @@ describe('hacker-studio: adapter controller contract', () => {
 
     const disabled = useHackerStudio(fakeAdapter({ exportEnabled: false }).adapter)
     await expect(disabled.exportAsset()).rejects.toThrow('Export is unavailable')
+  })
+
+  it('surfaces an explicit adapter export reason', async () => {
+    const { adapter } = fakeAdapter({ exportReason: 'Load a ZIP bundle to export a complete model.' })
+    const studio = useHackerStudio(adapter)
+    await expect(studio.exportAsset()).rejects.toThrow('Load a ZIP bundle')
   })
 
   it('resets session state and disposes the adapter', async () => {

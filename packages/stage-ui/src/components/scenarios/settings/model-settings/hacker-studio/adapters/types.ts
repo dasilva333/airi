@@ -1,5 +1,7 @@
 import type { Ref } from 'vue'
 
+import type { SupportedUploadMime } from '../domain/upload-validation'
+
 export type HackerModelKind = 'vrm' | 'live2d' | 'spine'
 export type HackerTextureId = string | number
 
@@ -62,6 +64,12 @@ export interface HackerAdapter {
   readonly textures: Ref<HackerTexture[]>
   readonly parts: Ref<HackerPart[]>
   readonly materialControls?: Ref<HackerMaterialControl[]>
+  /** Singular human-readable noun for texture owners; defaults to “material”. */
+  readonly ownerNoun?: string
+  /** Upload formats accepted by this adapter; defaults to PNG/JPEG/WebP. */
+  readonly acceptedUploadMimes?: SupportedUploadMime[]
+  /** Non-null when export is temporarily unavailable (e.g. no source ZIP). */
+  readonly exportUnavailableReason?: Ref<string | null>
 
   selectTexture?: (id: HackerTextureId) => void
 

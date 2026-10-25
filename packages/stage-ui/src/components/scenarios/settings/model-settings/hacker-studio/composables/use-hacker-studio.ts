@@ -228,6 +228,9 @@ export function useHackerStudio(adapter: HackerAdapter) {
   async function exportAsset() {
     if (adapter.capabilities.export !== 'full-bundle')
       throw new Error('Export is unavailable for this adapter')
+    const reason = adapter.exportUnavailableReason?.value
+    if (reason)
+      throw new Error(reason)
     return adapter.exportAsset()
   }
 

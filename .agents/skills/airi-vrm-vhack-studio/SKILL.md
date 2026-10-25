@@ -1,12 +1,12 @@
 ---
 name: airi-vrm-vhack-studio
 description: >-
-  Modify/debug avatar assets with Hacker Studio: VRM adapter/shell, MToon materials, texture atlases, AI textures, mesh surgery, GLB export. Includes the remaining Live2D L-HACK panel and the model-agnostic adapter contract; expression/motion mapping uses airi-model-customizer.
+  Modify/debug avatar assets with Hacker Studio: VRM adapter/shell, MToon materials, texture atlases, AI textures, mesh surgery, GLB export. Includes the Live2D adapter and the model-agnostic adapter contract; expression/motion mapping uses airi-model-customizer.
 ---
 
 # AIRI Hacker Studio — VRM Adapter & Model-Agnostic Shell
 
-Hacker Studio is the successor to V-HACK: a docked **Avatar Appearance** section that modifies the loaded model in memory, with a model-agnostic shell and format adapters. VRM is the first completed adapter. The unified design is [`docs/design-hacker-studio.md`](docs/design-hacker-studio.md); the original V-HACK doc is historical.
+Hacker Studio is the successor to V-HACK and L-HACK: a docked **Avatar Appearance** section that modifies the loaded model in memory, with a model-agnostic shell and format adapters. VRM and Live2D are completed; Spine is deferred. The unified design is [`docs/design-hacker-studio.md`](docs/design-hacker-studio.md); the original V-HACK doc is historical.
 
 ## 1. Key Code Paths
 
@@ -19,11 +19,11 @@ Hacker Studio is the successor to V-HACK: a docked **Avatar Appearance** section
 | Adapter contract | `.../hacker-studio/adapters/types.ts` |
 | Domain policies | `.../hacker-studio/domain/` |
 | VRM mount | `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm.vue` — creates the VRM adapter/controller and mounts the shell inside `Avatar Appearance`. |
-| Live2D sibling | `packages/stage-ui/src/components/scenarios/settings/model-settings/live2d-lhack/LHackerPanel.vue` — legacy drawer, pending migration to the shared shell. |
-| Test suites | `.../hacker-studio/**/*.test.ts` — 10 suites / 60 tests. |
+| Live2D adapter | `.../hacker-studio/adapters/live2d/`; mounted in `live2d.vue` through `use-live2d-hacker-studio-host.ts`. |
+| Test suites | `.../hacker-studio/**/*.test.ts` — 13 suites / 77 tests. |
 | Design docs | `docs/design-hacker-studio.md` (current), `docs/design-vhack-studio.md` (historical). |
 
-**How to reach it**: Settings → Models (VRM selected) → `Avatar Appearance`. The VRM section is docked; adapter and controller are owned by `vrm.vue`, so collapsing the section does not lose replacement state.
+**How to reach it**: Settings → Models (VRM or Live2D selected) → `Avatar Appearance`. VRM mounts after the model sections; Live2D mounts after Character Customizations. Both are docked; adapter/controller ownership lives above the collapsible section, so collapsing does not lose replacement state.
 
 ## 2. Architecture
 
@@ -32,12 +32,17 @@ vrm.vue
   ├─ useVrmHackerAdapter() ── implements HackerAdapter over Three/GLB
   └─ useHackerStudio(adapter) ── serializable controller state
        └─ HackerStudioShell.vue (props: adapter + studio)
+
+live2d.vue
+  ├─ useLive2dHackerAdapter() ── implements HackerAdapter over Pixi/Cubism
+  └─ useHackerStudio(adapter)
+       └─ HackerStudioShell.vue (same shell)
 ```
 
 - **Shell** owns UI-only state: tabs, filters, AI provider form, eraser overlay.
 - **Controller** owns selection, mode/prompt, per-texture replacement origin/history, preview flags, revisions, upload feedback, and generation status. It never stores Three/Pixi objects.
 - **Adapter** owns live textures, parts, material controls, originals, mutation registry, source buffer, and export.
-- `use-hacker-studio-host.ts` owns the adapter/controller in a detached session scope, so Section collapse and settings remounts preserve them. The host is intentionally a singleton rather than a Pinia store until the format registry lands.
+- `use-hacker-studio-host.ts` (VRM) and `use-live2d-hacker-studio-host.ts` (Live2D) own the adapter/controller in detached session scopes, so Section collapse and settings remounts preserve them. The hosts are intentionally singletons rather than Pinia stores until the format registry lands.
 
 ### Adapter contract
 
@@ -63,11 +68,18 @@ vrm.vue
 
 ## 4. State and Persistence
 
-- There is **no `vhack.ts` store** anymore. The legacy store and `vrm-vhack/HackerPanel.vue` were removed.
-- Controller state is in `vrm.vue` for the lifetime of the settings panel and survives Section collapse/remount.
-- Mode is session-persisted under `hacker-studio-mode`; prompt is controller state and is never rewritten by generation guidance.
-- No migration or fallback reads from the old `vhack_*` keys; AI provider configuration comes from `useArtistryStore`.
-- Raw binaries/Three objects stay out of reactive state. The mutation registry and original images are plain Maps in the adapter.
+- There are **no `vhack.ts`/`lhack.ts` stores** anymore. Both legacy stores and their panels were removed.
+- Controller state lives above the collapsible section in the format host and survives Section collapse/remount. Mode is session-persisted under `hacker-studio-mode`; prompt is never rewritten by generation guidance.
+- No migration or fallback reads from old `vhack_*`/`lhack_*` keys; AI provider configuration comes from `useArtistryStore`.
+- Raw binaries/Three/Pixi objects stay out of reactive state. The mutation registry and original handles are plain Maps in the adapters.
+
+## 4.1 Live2D Adapter Behavior
+
+1. **Textures** — one Pixi atlas page per descriptor (`Atlas N`), with PNG-only uploads and the `atlas page` owner noun.
+2. **Apply** — load `Texture.from(url)`, wait for the baseTexture to become valid, swap it, then repoint drawables still referencing the old baseTexture. Original baseTexture/drawable assignments are captured for restore.
+3. **Restore** — in place; no `window.location.reload()`.
+4. **Export** — requires a source ZIP from the selected File/URL. `live2d-exporter.ts` rewrites pages via `model3.json.FileReferences.Textures`, maps runtime indices across filtered blank slots, and downloads `<name>_HACK_<stamp>.zip`. Bare model URLs show a disabled reason.
+5. **Capabilities** — Parts, materials, and preview gamma are false; the shared shell hides their controls.
 
 ## 5. Surgical Export / Repacker
 
@@ -83,6 +95,11 @@ The synthetic GLB suite covers offsets, alignment, multiple mutations, hidden su
 
 ## 6. Pitfalls
 
+- **Live2D PNG-only**: the shell enforces `acceptedUploadMimes: ['image/png']`; do not silently accept JPEG/WebP ZIP payloads in this pass.
+- **Live2D source ZIP or no export**: export is gated on a real ZIP buffer; never fabricate a partial bundle from sibling URLs.
+- **Blank Live2D texture slots**: the runtime list filters empty `FileReferences.Textures` entries; export maps the filtered index back before rewriting.
+- **Live2D revert**: restore baseTexture/drawable references in place; do not reintroduce the page reload.
+
 - **Image ≠ part**: merged/baked VRMs reuse one image across Body/Bottoms/Hair/outline materials. Surface material owners; never infer a part from a thumbnail.
 - **Color-space hack**: the preview intentionally keeps the legacy NoColorSpace swap and compensates with a preview-only LUT. Do not write the compensated canvas into export mutations.
 - **Generation ownership**: use the controller's revision guard; do not apply a provider result directly to `selectedTexture` after an await.
@@ -97,7 +114,7 @@ The synthetic GLB suite covers offsets, alignment, multiple mutations, hidden su
 - `pnpm exec vitest run packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio`
 - `pnpm exec vitest run packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-fps.browser.test.ts`
 - `node scripts/audit-test-catalog.mjs` (new suites are cataloged; pre-existing uncatalogued suites remain a known warning)
-- Runtime: Settings → Models → Avatar Appearance → upload/generate, Preview/Revert, Parts hide/show, export, re-import.
+- Runtime: Settings → Models → Avatar Appearance → upload/generate, Preview/Revert, Parts hide/show (VRM), export, re-import. For Live2D, verify a ZIP import, atlas replacement, in-place revert, ZIP export, and the disabled reason for a bare model URL.
 
 ### Authoritative Docs
 

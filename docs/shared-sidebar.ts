@@ -143,7 +143,7 @@ export const SHARED_SIDEBAR: SharedSidebarSection[] = [
               { text: 'AI Producer & Roleplay', link: 'manual/ai-producer' },
               { text: 'Dating Sim & Scenarios', link: 'manual/dating-sim' },
               { text: 'Generative Motion & Gestures', link: 'manual/motion-and-gestures' },
-              { text: 'V-HACK Avatar Modding', link: 'manual/vhack-avatar-modding' },
+              { text: 'Hacker Studio Avatar Modding', link: 'manual/vhack-avatar-modding' },
               { text: 'Captions & Subtitles', link: 'manual/captions-and-subtitles' },
               { text: 'Multi-Actor Staging & Outfits', link: 'manual/multi-actor-staging' },
             ],

@@ -19,15 +19,8 @@ export function isMacOSJunk(path: string): boolean {
   return parts.some(p => p === '__MACOSX' || p.startsWith('._') || p === '.DS_Store')
 }
 
-let onZipLoaded: ((data: ArrayBuffer) => void) | null = null
-export function setOnZipLoaded(callback: (data: ArrayBuffer) => void) {
-  onZipLoaded = callback
-}
-
 ZipLoader.zipReader = async (data: Blob, _url: string) => {
-  const buffer = await data.arrayBuffer()
-  onZipLoaded?.(buffer)
-  return JSZip.loadAsync(buffer)
+  return JSZip.loadAsync(await data.arrayBuffer())
 }
 
 ZipLoader.getFilePaths = async (reader: JSZip) => {

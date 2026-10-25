@@ -57,5 +57,6 @@ describe('hacker-studio: export filename characterization', () => {
   it('builds the adapter-compatible filename pattern', () => {
     expect(buildExportFileName({ metaName: 'AvatarSample_A' }, new Date(2026, 9, 25, 9, 20))).toBe('AvatarSample_A_VHACK_20261025-0920.vrm')
     expect(buildExportFileName({}, new Date(2026, 9, 25, 9, 20), 'zip')).toBe('Avatar_VHACK_20261025-0920.zip')
+    expect(buildExportFileName({ metaName: 'Hiyori' }, new Date(2026, 9, 25, 9, 20), 'zip', 'HACK')).toBe('Hiyori_HACK_20261025-0920.zip')
   })
 })

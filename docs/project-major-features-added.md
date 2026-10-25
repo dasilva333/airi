@@ -103,7 +103,7 @@ Standardizes the Live2D experience to match the premium VRM feature set.
 - **Customization & Parity**: Reorganized into Character Customizations, Scene, and Advanced panels. Hold-to-Map interaction for binding expressions to ACT emotion tokens. Compact UI mode. All customization persisted and exported within AiriCard.
 - **Multi-Moc3 Zip Import & Normalization**: Import a single zip file containing multiple `.moc3` files, and the importer automatically splits and normalizes them into separate, individually selectable models. Auto-discovery heals expression files, manifest naming, and motions dictionaries on the fly.
 - **Tactile Interaction**: Interactive hit-zone clicking on Live2D models triggers both audio playback and on-screen captions for the associated sound file. Dynamic Tactile Expression Pooling — clicking specific body zones triggers contextually appropriate expression files from available pools. Global tactile interaction decoupled from VRM orbit camera restrictions.
-- **Live2D Hacker (lhack)**: A specialized panel for real-time model modification. Texture Deck for surgical upload/download of model textures. Surgical Eraser to remove or hide specific model components. Export stability ensures custom tweaks persist across sessions.
+- **Hacker Studio (Live2D)**: The shared Avatar Appearance studio now handles Live2D atlas-page replacement with PNG uploads, preview/revert, the surgical eraser, and ZIP export. Parts/drawables remain deferred; the legacy L-HACK drawer and store are retired.
 - **Self-Healing Imports**: Automatically heals expression files nested inside subdirectories when importing new cards.
 - **Motion Audio Playback**: Motion-associated audio playback for Live2D characters. (✅)
 

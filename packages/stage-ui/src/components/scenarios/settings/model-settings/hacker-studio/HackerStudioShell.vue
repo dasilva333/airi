@@ -52,7 +52,7 @@ const generateInvoke = useElectronEventaInvoke(artistryGenerateHeadless)
 
 const activeTab = ref<'texture' | 'material' | 'tree'>('texture')
 const textureFilter = ref('')
-const textureTypeFilter = ref<'All' | 'Main' | 'Shade'>('All')
+const textureTypeFilter = ref('All')
 const nodeFilter = ref('')
 const selectedPartId = ref<string | null>(null)
 const isDragOver = ref(false)
@@ -94,6 +94,12 @@ const visiblePresets = computed(() => {
   return preferred.length === 4 ? preferred : activePresets.value.slice(0, 4)
 })
 
+const textureKinds = computed(() => [...new Set(adapter.textures.value.map(texture => texture.kind))])
+watch(textureKinds, (kinds) => {
+  if (textureTypeFilter.value !== 'All' && !kinds.includes(textureTypeFilter.value))
+    textureTypeFilter.value = 'All'
+})
+
 const filteredTextures = computed(() => {
   const query = textureFilter.value.trim().toLowerCase()
   return adapter.textures.value.filter((texture) => {
@@ -112,7 +118,20 @@ const filteredParts = computed(() => {
   return adapter.parts.value.filter(part => part.name.toLowerCase().includes(query))
 })
 
-const canExport = computed(() => adapter.capabilities.export === 'full-bundle')
+const ownerNoun = computed(() => adapter.ownerNoun || 'material')
+function ownerNounFor(count: number) {
+  return count === 1 ? ownerNoun.value : `${ownerNoun.value}s`
+}
+const acceptedUploadMimes = computed(() => adapter.acceptedUploadMimes ?? ['image/png', 'image/jpeg', 'image/webp'])
+const acceptedUploadTypes = computed(() => acceptedUploadMimes.value.join(','))
+const uploadFormatHint = computed(() => acceptedUploadMimes.value.length === 1 && acceptedUploadMimes.value[0] === 'image/png'
+  ? 'PNG only'
+  : 'PNG recommended · JPEG/WebP accepted')
+const uploadMimeError = computed(() => acceptedUploadMimes.value.length === 1 && acceptedUploadMimes.value[0] === 'image/png'
+  ? 'Use a PNG image.'
+  : 'Use a PNG, JPEG, or WebP image.')
+const exportDisabledReason = computed(() => adapter.exportUnavailableReason?.value ?? null)
+const canExport = computed(() => adapter.capabilities.export === 'full-bundle' && !exportDisabledReason.value)
 const hasMaterialControls = computed(() => adapter.capabilities.materials && (adapter.materialControls?.value.length ?? 0) > 0)
 
 try {
@@ -276,8 +295,8 @@ interface DecodedUpload {
 
 async function decodeUpload(file: File): Promise<DecodedUpload> {
   const mime = inferImageMime(file)
-  if (!mime)
-    throw new Error('Use a PNG, JPEG, or WebP image.')
+  if (!mime || !acceptedUploadMimes.value.includes(mime))
+    throw new Error(uploadMimeError.value)
   const raw = await readFileAsDataUrl(file)
   const dataUrl = `data:${mime};base64,${raw.split(',')[1]}`
   const image = await loadHtmlImage(dataUrl)
@@ -402,7 +421,7 @@ async function generateReplacement() {
   }
 }
 
-async function exportVrm() {
+async function downloadExport() {
   if (!canExport.value)
     return
   isExporting.value = true
@@ -543,7 +562,7 @@ const selectedMaterialControls = computed(() => adapter.materialControls?.value 
         </div>
         <div class="flex items-center gap-1.5">
           <button
-            v-for="filter in ['All', 'Main', 'Shade'] as const"
+            v-for="filter in ['All', ...textureKinds]"
             :key="filter"
             type="button"
             :class="['rounded-full px-2 py-0.5 text-[10px] font-semibold', textureTypeFilter === filter ? 'bg-primary-600 text-white' : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400']"
@@ -595,7 +614,7 @@ const selectedMaterialControls = computed(() => adapter.materialControls?.value 
               </div>
               <details class="material-owner-details">
                 <summary class="flex cursor-pointer select-none items-center gap-1 text-[10px] text-neutral-400">
-                  <span>{{ textureSize(selectedTexture) }} · Used by {{ selectedTexture.owners.length }} material{{ selectedTexture.owners.length === 1 ? '' : 's' }}</span>
+                  <span>{{ textureSize(selectedTexture) }} · Used by {{ selectedTexture.owners.length }} {{ ownerNounFor(selectedTexture.owners.length) }}</span>
                   <div class="materials-chevron i-solar:alt-arrow-down-bold text-[9px] transition-transform" />
                 </summary>
                 <div class="custom-scrollbar mt-1 max-h-24 overflow-y-auto pr-1">
@@ -713,7 +732,7 @@ const selectedMaterialControls = computed(() => adapter.materialControls?.value 
 
           <div v-if="selectedTexture.owners.length > 1" class="flex items-start gap-1.5 text-[10px] text-amber-600 dark:text-amber-300">
             <div class="i-solar:info-circle-bold mt-0.5 shrink-0" />
-            <span>Shared texture · Changes affect all {{ selectedTexture.owners.length }} materials.</span>
+            <span>Shared texture · Changes affect all {{ selectedTexture.owners.length }} {{ ownerNounFor(selectedTexture.owners.length) }}.</span>
           </div>
 
           <div v-if="isGenerating" class="flex items-start gap-2 border border-primary-500/20 rounded-xl bg-primary-500/5 p-2">
@@ -789,7 +808,7 @@ const selectedMaterialControls = computed(() => adapter.materialControls?.value 
                     Drop your edited texture here
                   </div>
                   <div class="text-[8px] text-neutral-400">
-                    PNG recommended · JPEG/WebP accepted
+                    {{ uploadFormatHint }}
                   </div>
                   <div class="text-[8px] text-neutral-400">
                     Keep the original dimensions and transparent areas.
@@ -800,7 +819,7 @@ const selectedMaterialControls = computed(() => adapter.materialControls?.value 
             <p v-if="uploadError" class="text-[9px] text-rose-600 dark:text-rose-300">
               {{ uploadError }}
             </p>
-            <input ref="textureUploader" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="handleManualUpload">
+            <input ref="textureUploader" type="file" :accept="acceptedUploadTypes" class="hidden" @change="handleManualUpload">
           </div>
 
           <div v-else class="space-y-3">
@@ -951,13 +970,16 @@ const selectedMaterialControls = computed(() => adapter.materialControls?.value 
         <Button variant="secondary" size="sm" class="w-full" @click="resetAll">
           Reset changes
         </Button>
-        <Button variant="primary" size="sm" class="w-full" :disabled="!canExport || isExporting" @click="exportVrm">
+        <Button variant="primary" size="sm" class="w-full" :disabled="!canExport || isExporting" @click="downloadExport">
           <template #icon>
             <div :class="[isExporting ? 'i-solar:spinner-bold animate-spin' : 'i-solar:download-minimalistic-bold']" />
           </template>
           {{ isExporting ? 'Packaging...' : (adapter.kind === 'vrm' ? 'Export modified VRM' : 'Download modified ZIP') }}
         </Button>
       </div>
+      <p v-if="exportDisabledReason" class="px-1 text-[9px] text-amber-600 dark:text-amber-300">
+        {{ exportDisabledReason }}
+      </p>
     </div>
 
     <div v-if="isEraserOpen" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-10">

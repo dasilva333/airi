@@ -42,7 +42,7 @@ import { getLive2DMotionControlModelOffset, useLive2DMotionControl } from '../..
 import { evaluateLive2dBlend } from '../../../utils/blend-math'
 import { parseCycleMotions as parseRawCycleMotions } from '../../../utils/cycle-motions'
 import { destroyLive2dModel } from '../../../utils/destroy'
-import { isMacOSJunk, setOnZipLoaded } from '../../../utils/live2d-zip-loader'
+import { isMacOSJunk } from '../../../utils/live2d-zip-loader'
 import { OPFSCacheV2 } from '../../../utils/opfs-loader'
 import { extractArtMeshColorsFromVTube, listVTubeColorRelatedKeys } from '../../../utils/vtube-artmesh-colors'
 
@@ -92,11 +92,6 @@ const emits = defineEmits<{
   (e: 'error', error: Error): void
   (e: 'hitAreaHover', value: { name: string, x: number, y: number, hovered: boolean } | null): void
 }>()
-
-// Global Model Access for LHacker
-setOnZipLoaded((buffer) => {
-  (window as any).__LHACK_LAST_ZIP_BUFFER__ = buffer
-})
 
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
 

@@ -75,6 +75,7 @@ export function buildExportFileName(
   sources: ModelNameSources,
   now: Date = new Date(),
   extension = 'vrm',
+  label = 'VHACK',
 ): string {
-  return `${resolveModelBaseName(sources)}_VHACK_${exportTimestamp(now)}.${extension}`
+  return `${resolveModelBaseName(sources)}_${label}_${exportTimestamp(now)}.${extension}`
 }

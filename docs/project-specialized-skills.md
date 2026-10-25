@@ -406,8 +406,8 @@ The catalog contains 74 discoverable skills. Desktop chatbox and interaction pip
 
 #### 5.9 `airi-vrm-vhack-studio`
 - **Target Domain**: Hacker Studio VRM adapter/shell & Live VRM Binary Modding Studio.
-- **Key Paths**: `docs/design-hacker-studio.md`, `packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/` (`HackerStudioShell.vue`, `adapters/vrm/`, `composables/use-hacker-studio.ts`, `domain/`, `use-hacker-studio-host.ts`), `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm.vue`.
-- **Content**: Model-agnostic shell/controller, VRM adapter with in-memory Three.js material inspector (`_RimWidth`, `_ShadeShift`), texture atlas replacement with preview gamma, glTF JSON / GLB byte-level repacker, Parts visibility, and AI UV map generation via Artistry. The legacy `vhack.ts` store and `HackerPanel.vue` are retired.
+- **Key Paths**: `docs/design-hacker-studio.md`, `packages/stage-ui/src/components/scenarios/settings/model-settings/hacker-studio/` (`HackerStudioShell.vue`, `adapters/vrm/`, `adapters/live2d/`, `composables/use-hacker-studio.ts`, `domain/`, `use-hacker-studio-host.ts`, `use-live2d-hacker-studio-host.ts`), `vrm.vue`, `live2d.vue`.
+- **Content**: Model-agnostic shell/controller, VRM adapter (MToon controls, texture replacement/gamma, GLB repacker, Parts), and Live2D adapter (Pixi baseTexture swap/restore, JSZip atlas rewrite, PNG-only uploads, ZIP-source export gating). The legacy `vhack.ts`/`lhack.ts` stores and both old panels are retired.
 
 #### 5.10 `airi-memory-ui-pages`
 - **Target Domain**: Memory settings pages and job controls.

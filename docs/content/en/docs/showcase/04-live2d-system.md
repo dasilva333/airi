@@ -2,7 +2,7 @@
 
 ![Live2D System & Expression Curation](/showcase/model-customizer-ai-curation.avif)
 
-The **Live2D Interactive Runtime** brings Cubism models into deep parity with AIRI's 3D VRM embodiment pipeline. Beyond standard rendering, AIRI introduces a custom **Live2D Scripting DSL (Domain-Specific Language)**, an automated multi-model archive normalizer, cross-model tactile hit zones with audio reactions, and L-HACK texture surgical tools.
+The **Live2D Interactive Runtime** brings Cubism models into deep parity with AIRI's 3D VRM embodiment pipeline. Beyond standard rendering, AIRI introduces a custom **Live2D Scripting DSL (Domain-Specific Language)**, an automated multi-model archive normalizer, cross-model tactile hit zones with audio reactions, and shared Hacker Studio texture editing.
 
 ---
 
@@ -21,14 +21,15 @@ The **Live2D Interactive Runtime** brings Cubism models into deep parity with AI
 
 ---
 
-## L-HACK: Real-Time Texture Surgery
+## Hacker Studio: Real-Time Texture Surgery
 
 ![Live2D Texture Surgery](/showcase/model-customizer-vhack-texture-deck.avif)
 
-The **L-HACK (Live2D Hacker)** deck empowers creators to modify 2D models without reopening Cubism Editor:
+The shared **Hacker Studio** section empowers creators to modify Live2D atlas pages without reopening Cubism Editor:
 - **Texture Deck**: Inspect, download, and hot-swap texture atlas sheets in real time.
 - **Surgical Eraser**: Non-destructively mask out unwanted accessory layers, clothing elements, or visual artifacts.
-- **Persistent Card Bundling**: All custom texture swaps and expression mappings serialize directly into the character's `.airi` card for complete portability.
+- **ZIP Export**: Rewrites the replaced atlas pages inside the source Live2D ZIP for a clean, re-importable bundle.
+- **In-Place Revert**: Removes a replacement without reloading the live model.
 
 ---
 
@@ -38,5 +39,5 @@ The **L-HACK (Live2D Hacker)** deck empowers creators to modify 2D models withou
 - **Multi-Moc3 Auto-Splitting**: Normalizes complex archives into clean individual models.
 - **In-Memory Self-Healing**: Resilient handling of malformed manifests and nested paths.
 - **Tactile Body Hit Zones**: Audio feedback and dynamic expression pooling per body region.
-- **L-HACK Surgical Tools**: Live texture atlas swapping and component masking.
+- **Hacker Studio Tools**: Live Live2D atlas swapping, PNG upload, preview/revert, and ZIP export (Parts/drawables deferred).
 - **AiriCard Integration**: Custom Live2D mappings serialize directly into character card exports.
