@@ -5,7 +5,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as ort from 'onnxruntime-web'
 
 vi.mock('onnxruntime-web', () => {
-  class Tensor { type: string; data: unknown; shape: unknown; constructor(type: string, data: unknown, shape: unknown) { this.type = type; this.data = data; this.shape = shape } }
+  class Tensor {
+    type: string
+    data: unknown
+    shape: unknown
+    constructor(type: string, data: unknown, shape: unknown) {
+      this.type = type
+      this.data = data
+      this.shape = shape
+    }
+  }
   const create = vi.fn()
   return {
     InferenceSession: { create },
@@ -19,6 +28,8 @@ describe('getDenoisingSession', () => {
     vi.resetModules()
     vi.clearAllMocks()
     delete (globalThis as { navigator?: unknown }).navigator
+    const mockBytes = new Uint8Array([1, 2, 3, 4])
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(mockBytes))
   })
 
   it('caches and returns same promise on repeated calls', async () => {
@@ -38,7 +49,7 @@ describe('getDenoisingSession', () => {
     const mod = await import('./ddimSolver')
     const res = await mod.getDenoisingSession((m: string) => logs.push(m))
     expect(res).toEqual({ id: 'wasm' })
-    expect(ort.InferenceSession.create as any).toHaveBeenCalledWith(expect.any(String), { executionProviders: ['wasm'] })
+    expect(ort.InferenceSession.create as any).toHaveBeenCalledWith(expect.anything(), { executionProviders: ['wasm'] })
     expect(logs.some(l => l.includes('WASM'))).toBe(true)
   })
 
@@ -49,7 +60,7 @@ describe('getDenoisingSession', () => {
     const mod = await import('./ddimSolver')
     const res = await mod.getDenoisingSession((m: string) => logs.push(m))
     expect(res).toEqual({ id: 'gpu' })
-    expect(ort.InferenceSession.create as any).toHaveBeenCalledWith(expect.any(String), { executionProviders: ['webgpu'] })
+    expect(ort.InferenceSession.create as any).toHaveBeenCalledWith(expect.anything(), { executionProviders: ['webgpu'] })
     expect(logs.some(l => l.includes('WebGPU'))).toBe(true)
   })
 
