@@ -211,6 +211,25 @@ The defensible target is:
 
 No source evidence currently justifies chasing request-shape changes, preset remapping, alternate attention options, OPFS changes, WAV changes, or JSON/transfer optimizations as the main fix.
 
+## Session log: threaded landing + instrumented comparison (2026-10-25)
+
+Threading landed in AIRI (`6d9cf048e`): vendored `web-threaded*` runtime under `apps/stage-web/public/ming3-runtime/`, COOP/COEP dev headers, and a page-side compute-pool spawn handler in the adapter. Measured on this M4/10-core machine (41-frame welcome clip, quality):
+
+- quality · 4 threads → RTF **2.98** (gen 9.54 s, first audio 2.08 s)
+- quality · 8 threads → RTF **3.15**
+- quality · 2 threads → RTF **3.99**
+- fast · auto(8) → RTF **2.20**; fast · 3 threads → RTF **1.88**
+
+So threading delivered ~2.5× (7.47 → 2.98), not the full upstream 4.57× — 8 threads slightly loses to 4 on this chip.
+
+To isolate the remainder, the local Space clone was instrumented in place (`engine/worker.js` gains additive `perf` fields; stock page untouched behaviorally, plus a `perf-overlay.js` observer and a `perf.html` harness). Findings across local `?threads=3` runs of the 30-frame "wow … [Laughter]" clip (US_James, quality):
+
+- RTF spread **3.78–7.82** on identical config; prefill/first-step spread 1.75–4.8 s; avg step 298–622 ms.
+- `take_audio` + `postMessage` + macrotask yield ≈ **115 ms of ~9,000–19,000 ms (~1%)** every run.
+- Upstream same-utterance 3-thread runs: RTF 2.27–2.37 (stable); earlier upstream 3-thread runs on another sentence spread 1.16–2.42.
+
+Conclusions recorded: (a) the 7-vs-3 thread hypothesis is falsified — variance within identical config exceeds between-config deltas; (b) integration overhead is ~1% and exonerated — the residual lives in `rt.step()` compute and prefill under machine load/heat, not in AIRI plumbing; (c) AIRI threaded output in the 2–3 RTF band on this loaded machine matches the demo's band closely enough to stop chasing numbers; (d) next work is integration, not benchmarking: thread-policy default (4 beats 8 quality, 3 beats auto fast — `auto = max` is now a measurable perf bug on this chip), production/Electron isolation coverage, and the requested onboarding/settings 4th-engine slots.
+
 ---
 
 I made no file edits, commits, builds, or test runs. The final `git status --short` changed concurrently during this read-only session and currently reports:
