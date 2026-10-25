@@ -704,7 +704,13 @@ const actingGroupedExpressionTags = computed(() => {
     const key = tag.category || 'other'
     if (!groups.has(key))
       groups.set(key, [])
-    groups.get(key)!.push({ tag: tag.tag, description: tag.description })
+    // Some engines (Ming) report pre-bracketed tags (`[Laughter]`); normalize
+    // to bare names here so pills render `[Laughter]` (not `[[Laughter]]`),
+    // insertion wraps exactly once, and AI context stays clean.
+    const bareTag = tag.tag.startsWith('[') && tag.tag.endsWith(']') && tag.tag.length > 2
+      ? tag.tag.slice(1, -1)
+      : tag.tag
+    groups.get(key)!.push({ tag: bareTag, description: tag.description })
   }
 
   return [...groups.entries()]
@@ -720,8 +726,18 @@ const actingMannerismOptions = computed(() => actingSpeechCapabilities.value?.ma
 async function loadActingSpeechCapabilities(providerId: string) {
   actingSpeechCapabilitiesLoading.value = true
   try {
-    const metadata = providersStore.getProviderMetadata(providerId)
-    const capabilities = await metadata.capabilities.getSpeechCapabilities?.(providersStore.getProviderConfig(providerId))
+    // Studio profiles wrap a real engine: resolve the profile's base provider
+    // so tag helpers reflect the engine that will actually speak (Ming
+    // designs, Pocket/MOSS clones), not the profile wrapper itself.
+    let resolvedId = providerId
+    if (providerId === 'virtual-audio-studio') {
+      const voiceId = selectedSpeechVoiceId.value || defaultSpeechVoiceId.value
+      const profile = speechStore.savedVoiceProfiles.find(p => p.id === voiceId)
+      if (profile?.baseProvider)
+        resolvedId = profile.baseProvider
+    }
+    const metadata = providersStore.getProviderMetadata(resolvedId)
+    const capabilities = await metadata.capabilities.getSpeechCapabilities?.(providersStore.getProviderConfig(resolvedId))
     actingSpeechCapabilities.value = capabilities ?? null
   }
   catch {
@@ -861,6 +877,13 @@ watch(selectedSpeechProvider, async (newProvider, oldProvider) => {
   if (selectedSpeechVoiceId.value && availableVoices.length > 0 && !availableVoices.some(v => v.id === selectedSpeechVoiceId.value) && !speechStore.savedVoiceProfiles.some(p => p.id === selectedSpeechVoiceId.value)) {
     selectedSpeechVoiceId.value = ''
   }
+})
+
+// Reload tag helpers when the voice changes under a studio profile: the
+// effective engine follows the profile's base provider, not the wrapper.
+watch(selectedSpeechVoiceId, (newVoice, oldVoice) => {
+  if (newVoice !== oldVoice && selectedSpeechProvider.value === 'virtual-audio-studio')
+    void loadActingSpeechCapabilities(selectedSpeechProvider.value)
 })
 
 // Reload voices when speech model changes without clobbering voice ID
