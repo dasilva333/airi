@@ -1221,6 +1221,10 @@ steps:
         tag: 超快速
         desc: 轻量的本地语音引擎。
         name: Moss-Nano 本地
+      ming:
+        name: Ming 3.0
+        tag: VOICE DESIGN
+        desc: Design a voice in words, or choose a built-in speaker.
     availableModels:
       english-2026-04:
         label: Pocket TTS 英语（1 亿参数 · CPU）
@@ -1325,6 +1329,7 @@ steps:
       moss: 正在下载 MOSS 权重…
       failed: 下载语音合成权重失败
       engineProgress: 正在下载引擎权重（{progress}%）…
+      ming3: Downloading Ming 3.0 weights...
     companionVoiceProfile:
       personaTitle: '{companionName}的声音角色'
     userVoiceProfile:
@@ -1414,6 +1419,28 @@ steps:
     engineCalibrated: '{provider} 引擎已就绪 · 声音已校准'
     providerSelected: 已选择 {provider}
     createAccountInstruction: 在 {link} 注册账号
+    mingPreview: Preview
+    voicePreviewMingSubtitle: Describe one voice for your companion, then hear it.
+    voiceInspiration: Voice inspiration
+    inspirationPlaceholder: Start with an example…
+    describeTheVoice: Describe the voice
+    describeHintOwn: Examples fill the description. Make it your own.
+    describeHintSound: Describe how they sound, not what they say.
+    previewVoiceButton: Preview voice
+    previewUsesDescription: Preview uses your current description.
+    voiceSavedTitle: This voice will be saved when you continue.
+    voiceSavedDesc: Manage additional voices later in Ming settings.
+    mingPresetQuality: Quality
+    mingPresetQualityDesc: Highest quality, more natural
+    mingPresetBalanced: Balanced
+    mingPresetBalancedDesc: Good quality, efficient
+    mingPresetFast: Fast
+    mingPresetFastDesc: Lowest latency
+    mingPresetsApplyAll: Applies to all Ming voices.
+    mingModelNote: ~850 MB download · Runs locally after setup.
+    mingModelReadyTitle: Model ready on this device
+    mingModelReadyDesc: Ming 3.0 is downloaded and ready to use.
+    mingSampleDefault: Hey, welcome back! I was just thinking about what we could make together today.
   thinking:
     label: 思考节奏
     subtitle: 节奏把控与潜意识旁白

@@ -1373,6 +1373,10 @@ steps:
         tag: ULTRA-FAST
         desc: A lightweight local speech engine.
         name: Moss-Nano Local
+      ming:
+        name: Ming 3.0
+        tag: VOICE DESIGN
+        desc: Design a voice in words, or choose a built-in speaker.
     availableModels:
       english-2026-04:
         label: Pocket TTS English (100M CPU)
@@ -1480,6 +1484,7 @@ steps:
       moss: Downloading MOSS weights...
       failed: Failed to download TTS weights
       engineProgress: Downloading engine weights ({progress}%)…
+      ming3: Downloading Ming 3.0 weights...
     companionVoiceProfile:
       personaTitle: "{companionName}'s Voice Persona"
     userVoiceProfile:
@@ -1572,6 +1577,28 @@ steps:
     providerSelected: '{provider} selected'
     createAccountInstruction: Create an account at {link}
 
+    mingPreview: Preview
+    voicePreviewMingSubtitle: Describe one voice for your companion, then hear it.
+    voiceInspiration: Voice inspiration
+    inspirationPlaceholder: Start with an example…
+    describeTheVoice: Describe the voice
+    describeHintOwn: Examples fill the description. Make it your own.
+    describeHintSound: Describe how they sound, not what they say.
+    previewVoiceButton: Preview voice
+    previewUsesDescription: Preview uses your current description.
+    voiceSavedTitle: This voice will be saved when you continue.
+    voiceSavedDesc: Manage additional voices later in Ming settings.
+    mingPresetQuality: Quality
+    mingPresetQualityDesc: Highest quality, more natural
+    mingPresetBalanced: Balanced
+    mingPresetBalancedDesc: Good quality, efficient
+    mingPresetFast: Fast
+    mingPresetFastDesc: Lowest latency
+    mingPresetsApplyAll: Applies to all Ming voices.
+    mingModelNote: ~850 MB download · Runs locally after setup.
+    mingModelReadyTitle: Model ready on this device
+    mingModelReadyDesc: Ming 3.0 is downloaded and ready to use.
+    mingSampleDefault: Hey, welcome back! I was just thinking about what we could make together today.
   thinking:
     label: Thinking
     subtitle: Pacing & Subconscious Asides
@@ -2323,6 +2350,12 @@ steps:
         เปิดใช้งาน {count} เครื่องมือ · ทุกตัวเลือกเป็นทางเลือก
     greeting: เริ่มง่าย ๆ — ทุกอย่างที่นี่เป็นทางเลือก
 
+    screenSnapshotsPack: Screen Snapshots Pack
+    desktopOnly: Desktop Only
+    screenshotDescription: Lets the companion capture your screen or a specific window with {code} whenever it needs to see what you are looking at. The image goes to the chat model directly or is described by your Vision model first.
+    screenOrAnyWindow: Screen or any window
+    usesVisionSettings: Uses Vision settings
+    takeScreenshotDesktop: take_screenshot (Desktop)
   finale:
     label: Stage Finale
     subtitle: Pre-Flight Readiness & Launch
@@ -2404,6 +2437,7 @@ steps:
       webSearch: Web Search
       filesystem: Filesystem
       motions: 3D Motions
+      screenshots: Screenshots
     summary:
       microphone: '{provider} · Mic Active'
       memoryActive: Memory Active

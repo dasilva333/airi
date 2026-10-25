@@ -1317,6 +1317,10 @@ steps:
         tag: ULTRA-FAST
         desc: A lightweight local speech engine.
         name: Moss-Nano Local
+      ming:
+        name: Ming 3.0
+        tag: VOICE DESIGN
+        desc: Design a voice in words, or choose a built-in speaker.
     availableModels:
       english-2026-04:
         label: Pocket TTS English (100M CPU)
@@ -1426,6 +1430,7 @@ steps:
       moss: Downloading MOSS weights...
       failed: Failed to download TTS weights
       engineProgress: Downloading engine weights ({progress}%)…
+      ming3: Downloading Ming 3.0 weights...
     companionVoiceProfile:
       personaTitle: "{companionName}'s Voice Persona"
     userVoiceProfile:
@@ -1517,6 +1522,28 @@ steps:
     engineCalibrated: '{provider} engine ready · Voice calibrated'
     providerSelected: '{provider} selected'
     createAccountInstruction: Create an account at {link}
+    mingPreview: Preview
+    voicePreviewMingSubtitle: Describe one voice for your companion, then hear it.
+    voiceInspiration: Voice inspiration
+    inspirationPlaceholder: Start with an example…
+    describeTheVoice: Describe the voice
+    describeHintOwn: Examples fill the description. Make it your own.
+    describeHintSound: Describe how they sound, not what they say.
+    previewVoiceButton: Preview voice
+    previewUsesDescription: Preview uses your current description.
+    voiceSavedTitle: This voice will be saved when you continue.
+    voiceSavedDesc: Manage additional voices later in Ming settings.
+    mingPresetQuality: Quality
+    mingPresetQualityDesc: Highest quality, more natural
+    mingPresetBalanced: Balanced
+    mingPresetBalancedDesc: Good quality, efficient
+    mingPresetFast: Fast
+    mingPresetFastDesc: Lowest latency
+    mingPresetsApplyAll: Applies to all Ming voices.
+    mingModelNote: ~850 MB download · Runs locally after setup.
+    mingModelReadyTitle: Model ready on this device
+    mingModelReadyDesc: Ming 3.0 is downloaded and ready to use.
+    mingSampleDefault: Hey, welcome back! I was just thinking about what we could make together today.
   thinking:
     label: 思考節奏
     subtitle: 節奏把控與潛意識旁白
