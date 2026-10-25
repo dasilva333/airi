@@ -990,6 +990,9 @@ function revert() {
       }
     }
   })
+  // Restoring material maps is not enough: the export path reads the mutation
+  // registry, so a reset must drop those entries too.
+  vhackStore.mutatedTextures.clear()
   extractTextures()
   lastGeneratedUrl.value = null
   if (selectedMaterial.value)
@@ -1004,45 +1007,77 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="vhackStore.isHackerModeActive" class="animate-in fade-in slide-in-from-right-4 fixed bottom-4 right-4 top-24 z-50 w-80 flex flex-col overflow-hidden border border-white/10 rounded-2xl bg-black/95 shadow-2xl backdrop-blur-3xl">
-    <!-- Header -->
-    <div class="flex items-center justify-between border-b border-white/10 from-emerald-500/20 to-transparent bg-gradient-to-r p-4 text-[14px]">
-      <div class="flex items-center gap-2 text-white font-black tracking-tighter uppercase">
-        <div i-solar:mask-h-bold-duotone class="text-xl text-emerald-400" />V-HACK Inspector
-      </div>
-      <button class="text-neutral-400 transition hover:text-white" @click="vhackStore.closeHackerMode">
-        <div i-solar:close-circle-bold-duotone />
-      </button>
-    </div>
-
+  <div class="min-w-0 w-full flex flex-col gap-3">
     <!-- Tabs -->
-    <div class="mx-4 mt-4 flex gap-1 rounded-lg bg-white/5 p-1 text-[10px] font-bold tracking-widest uppercase">
-      <button :class="['flex-1 py-2 rounded-md transition', activeTab === 'tree' ? 'bg-emerald-500 text-black' : 'text-neutral-400 hover:bg-white/5']" @click="activeTab = 'tree'">
+    <div class="flex gap-1 rounded-xl bg-neutral-100 p-1 text-[10px] font-bold tracking-widest uppercase dark:bg-neutral-800">
+      <button
+        :class="[
+          'flex-1 py-2 rounded-lg transition-colors',
+          activeTab === 'tree'
+            ? 'bg-white text-primary-600 shadow-sm dark:bg-neutral-900 dark:text-primary-300'
+            : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
+        ]"
+        @click="activeTab = 'tree'"
+      >
         Nodes
       </button>
-      <button :class="['flex-1 py-2 rounded-md transition', activeTab === 'material' ? 'bg-emerald-500 text-black' : 'text-neutral-400 hover:bg-white/5']" @click="activeTab = 'material'">
+      <button
+        :class="[
+          'flex-1 py-2 rounded-lg transition-colors',
+          activeTab === 'material'
+            ? 'bg-white text-primary-600 shadow-sm dark:bg-neutral-900 dark:text-primary-300'
+            : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
+        ]"
+        @click="activeTab = 'material'"
+      >
         Lab
       </button>
-      <button :class="['flex-1 py-2 rounded-md transition', activeTab === 'texture' ? 'bg-emerald-500 text-black' : 'text-neutral-400 hover:bg-white/5']" @click="activeTab = 'texture'">
+      <button
+        :class="[
+          'flex-1 py-2 rounded-lg transition-colors',
+          activeTab === 'texture'
+            ? 'bg-white text-primary-600 shadow-sm dark:bg-neutral-900 dark:text-primary-300'
+            : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
+        ]"
+        @click="activeTab = 'texture'"
+      >
         Deck
       </button>
     </div>
 
     <!-- Content -->
-    <div ref="scrollContainer" class="custom-scrollbar flex-1 overflow-y-auto p-4">
-      <!-- Tree View (no changes) -->
+    <div
+      ref="scrollContainer"
+      :class="[
+        'custom-scrollbar min-h-0 overflow-y-auto',
+        activeTab === 'tree'
+          ? 'max-h-[420px] p-1'
+          : 'max-h-[520px] rounded-xl bg-neutral-950 p-3 text-neutral-100',
+      ]"
+    >
+      <!-- Tree View -->
       <div v-if="activeTab === 'tree'" class="space-y-1">
-        <div v-for="node in nodes" :key="node.uuid" class="group flex cursor-pointer items-center justify-between border border-transparent rounded-lg p-2 text-xs transition hover:border-white/5 hover:bg-white/5" :class="{ 'bg-emerald-500/10 border-emerald-500/30': vhackStore.selectedNodeName === node.name }" @click="selectNode(node)">
+        <div
+          v-for="node in nodes"
+          :key="node.uuid"
+          class="group flex cursor-pointer items-center justify-between border border-transparent rounded-lg p-2 text-xs transition-colors hover:bg-neutral-100 dark:hover:bg-white/5"
+          :class="{ 'border-primary-400/40 bg-primary-500/5': vhackStore.selectedNodeName === node.name }"
+          @click="selectNode(node)"
+        >
           <div class="flex items-center gap-2 truncate">
-            <div :class="[node.type === 'Mesh' ? 'i-solar:box-bold-duotone text-blue-400' : 'i-solar:user-bold-duotone text-purple-400']" />
+            <div :class="[node.type === 'Mesh' ? 'i-solar:box-bold-duotone text-sky-500' : 'i-solar:user-bold-duotone text-purple-500']" />
             <div class="flex flex-col truncate">
-              <span :class="[vhackStore.selectedNodeName === node.name ? 'text-emerald-400 font-bold' : 'text-neutral-300']">{{ node.name }}</span>
-              <span class="text-xs text-neutral-500 font-medium italic opacity-60">({{ node.matName }})</span>
+              <span :class="[vhackStore.selectedNodeName === node.name ? 'text-primary-600 font-semibold dark:text-primary-300' : 'text-neutral-700 dark:text-neutral-300']">{{ node.name }}</span>
+              <span class="text-[11px] text-neutral-400 font-medium italic dark:text-neutral-500">({{ node.matName }})</span>
             </div>
           </div>
-          <button class="rounded p-1 transition hover:bg-white/10" @click.stop="e => toggleVisibility(node, e)">
-            <div :class="[!vhackStore.hiddenNodeUuids.has(node.uuid) ? 'i-solar:eye-bold-duotone text-emerald-400' : 'i-solar:eye-closed-bold-duotone text-red-500']" />
+          <button type="button" class="rounded p-1 transition-colors hover:bg-neutral-200 dark:hover:bg-white/10" @click.stop="e => toggleVisibility(node, e)">
+            <div :class="[!vhackStore.hiddenNodeUuids.has(node.uuid) ? 'i-solar:eye-bold-duotone text-primary-500' : 'i-solar:eye-closed-bold-duotone text-neutral-400']" />
           </button>
+        </div>
+
+        <div v-if="nodes.length === 0" class="px-2 py-6 text-center text-xs text-neutral-400">
+          No visible parts found.
         </div>
       </div>
 
@@ -1383,37 +1418,48 @@ onMounted(() => {
     </div>
 
     <!-- Footer -->
-    <div class="flex flex-col gap-2 border-t border-white/10 bg-black/80 p-4">
-      <div class="flex items-center justify-between px-1 text-[10px] text-neutral-500 font-bold uppercase">
-        <span>Status</span><span :class="activeVrm ? 'text-emerald-500' : 'text-red-500'">{{ activeVrm ? 'CONNECTED' : 'OFFLINE' }}</span>
-      </div>
-
-      <!-- Search Filter (Moved to Footer) -->
-      <div v-if="activeTab === 'tree'" class="relative mb-1">
-        <div i-solar:magnifer-linear class="absolute left-3 top-1/2 shrink-0 translate-y-[-50%] text-neutral-500" />
-        <input
-          v-model="nodeFilter"
-          placeholder="Filter nodes..."
-          class="w-full border border-white/10 rounded-xl bg-white/5 py-2 pl-9 pr-3 text-[10px] text-white outline-none focus:border-emerald-500/50"
+    <div class="flex flex-col gap-2 border-t border-neutral-200/70 pt-3 dark:border-neutral-800">
+      <div v-if="activeTab === 'tree'" class="flex items-center gap-2">
+        <div class="relative min-w-0 flex-1">
+          <div class="i-solar:magnifer-linear absolute left-3 top-1/2 shrink-0 translate-y-[-50%] text-neutral-400" />
+          <input
+            v-model="nodeFilter"
+            placeholder="Find a part..."
+            class="w-full border border-neutral-200 rounded-xl bg-white py-2 pl-9 pr-3 text-xs text-neutral-800 outline-none dark:border-neutral-700 focus:border-primary-400 dark:bg-neutral-900 dark:text-neutral-100"
+          >
+        </div>
+        <button
+          type="button"
+          class="shrink-0 px-1 text-xs text-primary-600 font-medium transition-colors dark:text-primary-300 hover:text-primary-700 disabled:op-50"
+          :disabled="!activeVrm"
+          @click="vhackStore.showAll(nodes)"
         >
+          Show all
+        </button>
+        <button
+          type="button"
+          class="shrink-0 px-1 text-xs text-primary-600 font-medium transition-colors dark:text-primary-300 hover:text-primary-700 disabled:op-50"
+          :disabled="!activeVrm"
+          @click="vhackStore.hideAll(nodes)"
+        >
+          Hide all
+        </button>
       </div>
 
-      <div v-if="activeTab === 'tree'" class="grid grid-cols-2 gap-2">
-        <Button variant="secondary" size="sm" class="h-7 border-emerald-500/20 bg-emerald-500/5 text-[9px] font-black uppercase shadow-emerald-500/5 hover:bg-emerald-500/10" :disabled="!activeVrm" @click="vhackStore.showAll(nodes)">
-          Show All
+      <div class="grid grid-cols-2 gap-2">
+        <Button variant="secondary" size="sm" class="w-full" :disabled="!activeVrm" @click="revert">
+          <template #icon>
+            <div class="i-solar:refresh-bold" />
+          </template>
+          Reset changes
         </Button>
-        <Button variant="secondary" size="sm" class="h-7 border-red-500/20 bg-red-500/5 text-[9px] font-black uppercase shadow-red-500/5 hover:bg-red-500/10" :disabled="!activeVrm" @click="vhackStore.hideAll(nodes)">
-          Hide All
+        <Button variant="primary" size="sm" class="w-full" :disabled="!activeVrm || isExporting" @click="exportVrm">
+          <template #icon>
+            <div :class="[isExporting ? 'i-solar:spinner-bold animate-spin' : 'i-solar:download-minimalistic-bold']" />
+          </template>
+          {{ isExporting ? 'Packaging...' : 'Export modified VRM' }}
         </Button>
       </div>
-
-      <Button variant="primary" size="sm" class="w-full bg-emerald-500 text-xs text-black font-black tracking-widest uppercase shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:bg-emerald-400" :disabled="!activeVrm || isExporting" @click="exportVrm">
-        <div v-if="isExporting" i-solar:spinner-bold class="mr-2 animate-spin" />
-        {{ isExporting ? 'Packaging...' : 'Download Modified VRM' }}
-      </Button>
-      <Button variant="secondary" size="sm" class="w-full border-white/5 bg-white/5 text-[10px] font-bold tracking-widest" :disabled="!activeVrm" @click="revert">
-        REVERT ALL CHANGES
-      </Button>
     </div>
 
     <!-- FOOTER / MODALS -->

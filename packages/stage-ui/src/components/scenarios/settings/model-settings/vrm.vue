@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useModelStore } from '@proj-airi/stage-ui-three'
-import { Button, Callout, Checkbox, FieldRange, SelectTab } from '@proj-airi/ui'
+import { Checkbox, FieldRange, SelectTab } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -8,9 +8,9 @@ import { useI18n } from 'vue-i18n'
 import ModelCustomizerSkeleton from './components/ModelCustomizerSkeleton.vue'
 import ModelSceneSettings from './components/ModelSceneSettings.vue'
 import VRMExpressions from './vrm-expressions.vue'
+import HackerPanel from './vrm-vhack/HackerPanel.vue'
 
 import { usePositioningStore } from '../../../../stores/settings/positioning'
-import { useVHackStore } from '../../../../stores/vhack'
 import { Section } from '../../../layouts'
 
 defineProps<{
@@ -25,7 +25,6 @@ defineEmits<{
 const { t } = useI18n()
 
 const modelStore = useModelStore()
-const vhackStore = useVHackStore()
 const positioningStore = usePositioningStore()
 
 const {
@@ -35,9 +34,9 @@ const {
 } = storeToRefs(modelStore)
 
 const fpsOptions = computed(() => [
-  { value: 0, label: t('settings.vrm.fps.options.unlimited') },
-  { value: 60, label: '60' },
   { value: 30, label: '30' },
+  { value: 60, label: '60' },
+  { value: 0, label: t('settings.vrm.fps.options.unlimited') },
 ])
 
 const mouseTrackingEnabled = computed({
@@ -96,9 +95,9 @@ onMounted(() => {
       :scene-mutation-locked="sceneMutationLocked"
     />
 
-    <!-- === Advanced Tools === -->
+    <!-- === Behavior & performance === -->
     <Section
-      title="Advanced"
+      title="Behavior & performance"
       icon="i-solar:settings-bold-duotone"
       :class="[
         'rounded-xl',
@@ -106,11 +105,11 @@ onMounted(() => {
         'backdrop-blur-lg',
       ]"
       size="sm"
-      :expand="false"
+      :expand="true"
     >
       <div flex="~ col gap-4" p-2 :class="settingsLockClass">
         <!-- Mouse Tracking & Follow Speed -->
-        <div flex="~ col gap-4" class="mb-2 border-b border-neutral-100 pb-4 dark:border-neutral-800">
+        <div flex="~ col gap-4" class="border-b border-neutral-100 pb-4 dark:border-neutral-800">
           <div flex="~ items-center justify-between">
             <div flex="~ col gap-0.5">
               <span class="text-sm text-neutral-600 dark:text-neutral-400">{{ t('settings.vrm.scale-and-position.mouse-tracking') }}</span>
@@ -143,73 +142,33 @@ onMounted(() => {
         </div>
 
         <!-- Frame Rate Limit -->
-        <div :class="['flex', 'items-center', 'justify-between', 'gap-4', 'mb-2', 'border-b', 'border-neutral-100', 'pb-4', 'dark:border-neutral-800']">
-          <div :class="['flex', 'flex-col', 'gap-1']">
-            <span :class="['text-sm', 'text-neutral-600', 'dark:text-neutral-400']">{{ t('settings.vrm.fps.title') }}</span>
-            <span :class="['text-xs', 'text-neutral-500', 'dark:text-neutral-400']">{{ t('settings.vrm.fps.description') }}</span>
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-col gap-0.5">
+            <span class="text-sm text-neutral-600 dark:text-neutral-400">{{ t('settings.vrm.fps.title') }}</span>
+            <span class="text-[10px] text-neutral-400">{{ t('settings.vrm.fps.description') }}</span>
           </div>
-          <SelectTab v-model="maxFps" :options="fpsOptions" size="sm" :class="['w-48', 'shrink-0']" />
+          <SelectTab v-model="maxFps" :options="fpsOptions" size="sm" />
         </div>
+      </div>
+    </Section>
 
-        <div flex="~ col gap-2">
-          <div class="px-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-            V-HACK Editor
-          </div>
-          <Button
-            :variant="vhackStore.isHackerModeActive ? 'primary' : 'secondary'"
-            :disabled="sceneMutationLocked"
-            @click="vhackStore.toggleHackerMode"
-          >
-            <template #icon>
-              <div i-solar:mask-h-bold-duotone />
-            </template>
-            V-HACK Dashboard
-          </Button>
-          <p class="mb-2 px-1 text-[10px] text-neutral-400">
-            Open the Hacker Inspector for real-time mesh and material modding.
-          </p>
-
-          <div class="px-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-            Theme Extraction
-          </div>
-          <Button variant="secondary" :disabled="sceneMutationLocked" @click="$emit('extractColorsFromModel')">
-            <template #icon>
-              <div i-solar:palette-bold-duotone />
-            </template>
-            {{ t('settings.vrm.theme-color-from-model.button-extract.title') }}
-          </Button>
-          <p class="px-1 text-[10px] text-neutral-400">
-            Extract dominant colors from the model texture to set UI theme.
-          </p>
-        </div>
-
-        <div flex="~ col gap-2">
-          <div class="px-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-            Model Information
-          </div>
-          <Callout :label="t('settings.vrm.scale-and-position.model-info-title')">
-            <div class="text-[11px] text-neutral-600 space-y-1 dark:text-neutral-400">
-              <div class="flex justify-between">
-                <span>{{ t('settings.vrm.scale-and-position.model-info-x') }}</span>
-                <span font-mono>{{ modelSize.x.toFixed(4) }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span>{{ t('settings.vrm.scale-and-position.model-info-y') }}</span>
-                <span font-mono>{{ modelSize.y.toFixed(4) }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span>{{ t('settings.vrm.scale-and-position.model-info-z') }}</span>
-                <span font-mono>{{ modelSize.z.toFixed(4) }}</span>
-              </div>
-            </div>
-          </Callout>
-        </div>
-
-        <Callout theme="lime" label="Tips!">
-          <div class="text-[11px] text-neutral-600 leading-relaxed dark:text-neutral-400">
-            {{ t('settings.vrm.scale-and-position.tips') }}
-          </div>
-        </Callout>
+    <!-- === Avatar Appearance (docked V-HACK inspector) === -->
+    <Section
+      title="Avatar Appearance"
+      icon="i-solar:mask-h-bold-duotone"
+      :class="[
+        'rounded-xl',
+        'bg-white/80  dark:bg-black/75',
+        'backdrop-blur-lg',
+      ]"
+      size="sm"
+      :expand="true"
+    >
+      <div class="min-w-0 w-full flex flex-col gap-2 p-2">
+        <p class="px-1 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+          Adjust visible parts, materials, and textures.
+        </p>
+        <HackerPanel />
       </div>
     </Section>
   </div>

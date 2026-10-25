@@ -12,14 +12,16 @@ V-HACK is the "hidden devtools" pivot: rather than a standalone app, it is a HAC
 
 | Surface | Path |
 | :--- | :--- |
-| Main panel (1476 lines) | `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-vhack/HackerPanel.vue` |
+| Main panel | `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-vhack/HackerPanel.vue` |
 | Live2D sibling panel | `./live2d-lhack/LHackerPanel.vue` (same directory parent; parallel lizard-mode UI) |
-| Panel mount point | `packages/stage-ui/src/components/scenarios/settings/model-settings/index.vue` — imports both panels (:13, :17) and the store (:24) |
+| Panel mount point | `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm.vue` — the `Avatar Appearance` section embeds `HackerPanel` directly. The old `model-settings/index.vue` overlay mount was removed. |
 | Tab store | `packages/stage-ui/src/stores/vhack.ts` — `useVHackStore` (132 lines) |
 | Desktop settings route | `packages/stage-pages/src/pages/settings/models/index.vue` |
 | Design doc | `docs/design-vhack-studio.md` |
 
-**How to reach it**: Settings → Models → V-HACK toggle button launches `toggleHackerMode()` and the panel slides in on the right of the Model Settings viewport.
+**How to reach it**: Settings → Models (VRM selected) → `Avatar Appearance` accordion. The VRM inspector is **docked inline** in the controls rail — no toggle, no fixed overlay, so it can never occlude the preview. The Live2D `LHACK` panel still uses the `lhack` store's toggle + fixed slide-in.
+
+**Presentation note**: the frame, `Nodes` tab, and footer are styled for the light settings surface; the `Lab` and `Deck` tab bodies are still the original dark internals inside a dark inset (pending a follow-up revamp). Keep that split if you restyle further.
 
 ## 2. Panel Modules (HackerPanel.vue)
 
@@ -38,10 +40,10 @@ GLB chunk-header math (offset = `20 + jsonBytes.length`, then 8-byte header + da
 
 ## 4. State Store (`vhack.ts`)
 
-- `isHackerModeActive` + `toggleHackerMode()/closeHackerMode()` drive the panel's presence.
+- The VRM panel is always mounted (no presence flag); `isHackerModeActive` / `toggleHackerMode()` / `closeHackerMode()` now only serve the Live2D `LHACK` sibling. `isHackerModeActive` is dead state for VRM and can be retired.
 - `selectedNodeName` / `selectedMaterialName` / `hiddenNodeUuids` — inspector selection & visibility set (Store's Set is rebuilt after mutations so Vue reactivity reflects).
 - `geminiApiKey` / `geminiModel` / `geminiResolution` — AI persist keys into `localStorage` (watch-based write-back at :31-33).
-- `sourceArrayBuffer` — the untouched imported GLB (`setSourceArrayBuffer`, cleared via :90-93 when model reloaded); `mutatedTextures` (Map<index, {data, mimeType}>) tracks every texture swap.
+- `sourceArrayBuffer` — the untouched imported GLB (`setSourceArrayBuffer`, cleared via :90-93 when model reloaded); `mutatedTextures` (Map<index, {data, mimeType}>) tracks every texture swap. `revert()` must clear this map as well as restoring snapshots, or the next export re-applies reset mutations.
 - `registerMutation()`, `resetState()` — registration/reset hooks used by Texture Forge / deck sections.
 
 ## 5. Pitfalls & Failure Modes
@@ -54,7 +56,7 @@ GLB chunk-header math (offset = `20 + jsonBytes.length`, then 8-byte header + da
 ## 6. Verification
 
 - `pnpm -F @proj-airi/stage-ui typecheck`.
-- Runtime smoke: Settings → Models → V-HACK → toggle node visibility, then export and reload the `.vrm` to confirm the surgery round-trips.
+- Runtime smoke: Settings → Models → Avatar Appearance → toggle node visibility, then export and reload the `.vrm` to confirm the surgery round-trips.
 
 ### Authoritative Docs & Cross-Citations
 

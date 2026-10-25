@@ -38,7 +38,6 @@ const VRM = defineAsyncComponent(() => import('./vrm.vue'))
 const Spine = defineAsyncComponent(() => import('./spine.vue'))
 const MMD = defineAsyncComponent(() => import('./mmd.vue'))
 
-const HackerPanel = defineAsyncComponent(() => import('./vrm-vhack/HackerPanel.vue'))
 const LHackerPanel = defineAsyncComponent(() => import('./live2d-lhack/LHackerPanel.vue'))
 
 const router = useRouter()
@@ -339,7 +338,6 @@ function handleOffsetChange(offset: { x: number, y: number }) {
       />
       <VRM
         v-if="stageModelRenderer === 'vrm'"
-        ref="vrmRef"
         :palette="palette"
         :model-id="stageModelSelected"
         @extract-colors-from-model="$emit('extractColorsFromModel')"
@@ -358,7 +356,7 @@ function handleOffsetChange(offset: { x: number, y: number }) {
       />
     </div>
 
-    <HackerPanel v-if="stageModelRenderer === 'vrm'" />
+    <!-- VRM inspector is docked inside vrm.vue; Live2D keeps its slide-in panel. -->
     <LHackerPanel v-if="stageModelRenderer === 'live2d'" />
   </div>
 </template>
