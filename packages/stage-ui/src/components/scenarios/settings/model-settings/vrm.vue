@@ -166,7 +166,7 @@ onMounted(() => {
     >
       <div class="min-w-0 w-full flex flex-col gap-2 p-2">
         <p class="px-1 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
-          Choose a texture, then upload or generate a replacement.
+          Replace textures and fine-tune their appearance.
         </p>
         <HackerPanel />
       </div>

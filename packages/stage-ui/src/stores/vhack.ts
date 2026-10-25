@@ -30,14 +30,14 @@ export const useVHackStore = defineStore('vhack', () => {
   // Texture replacement workspace (panel-local in spirit, store-scoped so the
   // docked panel can unmount when Avatar Appearance collapses without losing
   // preview/revert state). Images are kept in a plain Map, never reactive.
-  interface TextureReplacement { url: string }
+  interface TextureReplacement { url: string, source?: 'upload' | 'generated', fileName?: string }
   const replacementByIndex = shallowRef<Map<number | string, TextureReplacement>>(new Map())
   const previewingKeys = shallowRef<Set<number | string>>(new Set())
   const originalTextureImages = new Map<string, any>()
 
-  function setTextureReplacement(key: number | string, url: string) {
+  function setTextureReplacement(key: number | string, url: string, meta: Pick<TextureReplacement, 'source' | 'fileName'> = {}) {
     const next = new Map(replacementByIndex.value)
-    next.set(key, { url })
+    next.set(key, { url, ...meta })
     replacementByIndex.value = next
   }
 

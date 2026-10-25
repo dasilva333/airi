@@ -25,6 +25,34 @@ const { activeVrm, activeVrmParser } = storeToRefs(modelStore)
 const generateInvoke = useElectronEventaInvoke(artistryGenerateHeadless)
 
 const activeTab = ref<'tree' | 'material' | 'texture'>('texture')
+type LabMode = 'local' | 'prompt'
+const LAB_MODE_STORAGE_KEY = 'vhack_lab_mode'
+function initialLabMode(): LabMode {
+  try {
+    return sessionStorage.getItem(LAB_MODE_STORAGE_KEY) === 'prompt' ? 'prompt' : 'local'
+  }
+  catch {
+    return 'local'
+  }
+}
+const labMode = ref<LabMode>(initialLabMode())
+watch(labMode, (mode) => {
+  try {
+    sessionStorage.setItem(LAB_MODE_STORAGE_KEY, mode)
+  }
+  catch {}
+})
+const ACCENT_ACTION_CLASS = '!border-primary-500/30 !bg-primary-500 !text-white shadow-primary-500/20 shadow-sm hover:!bg-primary-600 active:!bg-primary-700 dark:!bg-primary-600 dark:hover:!bg-primary-500'
+const UV_GUIDANCE = 'Preserve the UV layout, seams, and transparent areas.'
+interface UploadNotice {
+  dimension?: string
+  transparency?: string
+  format?: string
+}
+const uploadNotice = ref<UploadNotice | null>(null)
+const uploadError = ref<string | null>(null)
+const isDragOver = ref(false)
+const generationTargetName = ref<string | null>(null)
 const TOOL_TABS = [
   { id: 'texture', label: 'Textures' },
   { id: 'material', label: 'Lab' },
@@ -462,6 +490,9 @@ const selectedTextureSharedMaterials = computed(() => {
   return sharedMaterialNamesFor(lastSelectedTextureItem.value.texture)
 })
 
+const selectedTextureMaterials = computed<string[]>(() => lastSelectedTextureItem.value?.materials ?? [])
+const selectedTextureMaterialCount = computed(() => selectedTextureMaterials.value.length || selectedTextureSharedMaterials.value.length)
+
 const filteredTextureList = computed(() => {
   const query = textureFilter.value.trim().toLowerCase()
   return textureList.value.filter((item) => {
@@ -485,8 +516,24 @@ const currentPreviewing = computed(() => {
   return key !== null && previewingKeys.value.has(key)
 })
 
-function setReplacement(key: number | string, url: string) {
-  vhackStore.setTextureReplacement?.(key, url)
+watch(currentTextureKey, clearUploadFeedback)
+
+function setReplacement(key: number | string, url: string, meta: { source?: 'upload' | 'generated', fileName?: string } = {}) {
+  vhackStore.setTextureReplacement?.(key, url, meta)
+}
+
+// A texture revision invalidates in-flight generation when a newer upload,
+// eraser bake, or revert lands on the same texture.
+const replacementRevisions = new Map<number | string, number>()
+function bumpReplacementRevision(key: number | string | null): number {
+  if (key === null)
+    return 0
+  const next = (replacementRevisions.get(key) ?? 0) + 1
+  replacementRevisions.set(key, next)
+  return next
+}
+function replacementRevisionOf(key: number | string | null): number {
+  return key === null ? 0 : (replacementRevisions.get(key) ?? 0)
 }
 
 function markPreviewing(key: number | string, value: boolean) {
@@ -551,6 +598,8 @@ function revertCurrentTexture() {
   const key = currentTextureKey.value
   if (key === null)
     return
+  bumpReplacementRevision(key)
+  clearUploadFeedback()
   restoreTextureImages(key)
   if (typeof key === 'number')
     vhackStore.mutatedTextures.delete(key)
@@ -602,9 +651,32 @@ function selectTexture(item: TextureItem) {
 }
 
 // Unified Artistry Generation
+function effectiveGenerationPrompt() {
+  const prompt = aiPrompt.value.trim()
+  if (!prompt)
+    return prompt
+  // Guidance is added to the request only; never rewrite the saved prompt or
+  // append the same clause repeatedly.
+  if (/(uv\s*layout|seams|transparent\s*areas)/i.test(prompt))
+    return prompt
+  return `${prompt}\n\n${UV_GUIDANCE}`
+}
+
 async function generateAndSwap() {
-  if (!selectedTexture.value || !aiPrompt.value)
+  const targetTex = selectedTexture.value
+  if (!targetTex || !aiPrompt.value)
     return
+
+  const replacementKey = textureKeyFor(targetTex)
+  const targetIdx = getGltfImageIndex(targetTex)
+  const generationRevision = bumpReplacementRevision(replacementKey)
+  const generationVrm = activeVrm.value
+  // The visible texture may be gamma-compensated for preview; generation must
+  // start from the raw applied image so the provider does not receive a
+  // double-darkened result.
+  const generationReplacementUrl = currentPreviewing.value ? currentReplacementUrl.value : null
+  clearUploadFeedback()
+  generationTargetName.value = lastSelectedTextureItem.value?.name || targetTex.name || 'selected texture'
 
   vhackStore.isGeneratingTexture = true
   vhackStore.generationProgress = 10
@@ -614,19 +686,21 @@ async function generateAndSwap() {
   aiError.value = null
 
   try {
-    const map = selectedTexture.value
+    const map = targetTex
     if (!map)
       throw new Error('No texture selected')
 
-    // 1. Prepare base64 from current texture
+    // 1. Prepare base64 from the raw current texture
+    const sourceImage = generationReplacementUrl ? await loadHtmlImage(generationReplacementUrl) : map.image
+    const sourceWidth = sourceImage.width || sourceImage.naturalWidth
+    const sourceHeight = sourceImage.height || sourceImage.naturalHeight
     const canvas = document.createElement('canvas')
-    const img = map.image
-    canvas.width = img.width
-    canvas.height = img.height
+    canvas.width = sourceWidth
+    canvas.height = sourceHeight
     const ctx = canvas.getContext('2d')
     if (!ctx)
       throw new Error('Failed to create canvas context')
-    ctx.drawImage(img, 0, 0)
+    ctx.drawImage(sourceImage, 0, 0, sourceWidth, sourceHeight)
     const base64Data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]
 
     // 2. Call Headless Artistry Bridge
@@ -658,7 +732,7 @@ async function generateAndSwap() {
     }
 
     const result = await generateInvoke({
-      prompt: aiPrompt.value,
+      prompt: effectiveGenerationPrompt(),
       provider: artistryStore.activeProvider,
       options,
       globals,
@@ -672,25 +746,29 @@ async function generateAndSwap() {
     }
 
     if (result?.base64) {
+      // A newer upload/eraser/revert on the originating texture, or a model
+      // change, invalidates this result.
+      if (activeVrm.value !== generationVrm || replacementRevisionOf(replacementKey) !== generationRevision) {
+        const message = 'Generation finished after the texture changed; result discarded.'
+        aiError.value = message
+        vhackStore.lastGenerationError = message
+        return
+      }
+
       vhackStore.generationProgress = 90
       vhackStore.generationActionLabel = 'Applying Result'
 
       const newUrl = result.base64.startsWith('data:') ? result.base64 : `data:image/png;base64,${result.base64}`
 
-      // Capture reference to target before swap
-      const targetTex = selectedTexture.value
-      const replacementKey = textureKeyFor(targetTex)
-
       swapTextureByRef(newUrl, targetTex)
       if (replacementKey !== null) {
-        setReplacement(replacementKey, newUrl)
+        setReplacement(replacementKey, newUrl, { source: 'generated' })
         markPreviewing(replacementKey, true)
       }
 
       // Register mutation for surgical persistence
-      const imgIndex = getGltfImageIndex(targetTex)
-      if (imgIndex !== null) {
-        vhackStore.registerMutation(imgIndex, result.base64, 'image/png')
+      if (targetIdx !== null) {
+        vhackStore.registerMutation(targetIdx, newUrl.split(',')[1], 'image/png')
       }
 
       vhackStore.generationProgress = 100
@@ -708,6 +786,7 @@ async function generateAndSwap() {
   finally {
     isGenerating.value = false
     vhackStore.isGeneratingTexture = false
+    generationTargetName.value = null
     setTimeout(() => {
       vhackStore.generationProgress = 0
       vhackStore.generationActionLabel = null
@@ -719,32 +798,151 @@ function triggerManualUpload() {
   textureUploader.value?.click()
 }
 
-async function handleManualUpload(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file || !selectedTexture.value)
-    return
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('Could not read that file.'))
+    reader.readAsDataURL(file)
+  })
+}
 
-  const targetTex = selectedTexture.value
-  const replacementKey = textureKeyFor(targetTex)
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    const url = e.target?.result as string
-    const base64 = url.split(',')[1]
+function loadHtmlImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('Could not decode that image.'))
+    image.src = src
+  })
+}
 
-    // 1. Swap in viewport (Global search)
-    swapTextureByRef(url, targetTex)
-    if (replacementKey !== null) {
-      setReplacement(replacementKey, url)
-      markPreviewing(replacementKey, true)
-    }
-
-    // 2. Register mutation for surgical persistence (Export parity)
-    const imgIndex = getGltfImageIndex(targetTex)
-    if (imgIndex !== null) {
-      vhackStore.registerMutation(imgIndex, base64, 'image/png')
+function imageHasTransparency(image: any): boolean {
+  const width = image?.width || image?.naturalWidth
+  const height = image?.height || image?.naturalHeight
+  if (!width || !height)
+    return false
+  const scale = Math.min(1, 256 / Math.max(width, height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(width * scale))
+  canvas.height = Math.max(1, Math.round(height * scale))
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx)
+    return false
+  try {
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 255)
+        return true
     }
   }
-  reader.readAsDataURL(file)
+  catch {
+    return false
+  }
+  return false
+}
+
+function inferImageMime(file: File): string | null {
+  const type = file.type.toLowerCase()
+  if (['image/png', 'image/jpeg', 'image/webp'].includes(type))
+    return type
+  if (/\.png$/i.test(file.name))
+    return 'image/png'
+  if (/\.jpe?g$/i.test(file.name))
+    return 'image/jpeg'
+  if (/\.webp$/i.test(file.name))
+    return 'image/webp'
+  return null
+}
+
+interface DecodedUpload {
+  dataUrl: string
+  width: number
+  height: number
+  hasAlpha: boolean
+  mime: string
+}
+
+async function decodeUploadFile(file: File): Promise<DecodedUpload> {
+  const mime = inferImageMime(file)
+  if (!mime)
+    throw new Error('Use a PNG, JPEG, or WebP image.')
+  const rawDataUrl = await readFileAsDataUrl(file)
+  const base64 = rawDataUrl.split(',')[1]
+  const dataUrl = `data:${mime};base64,${base64}`
+  const image = await loadHtmlImage(dataUrl)
+  const width = image.naturalWidth || image.width
+  const height = image.naturalHeight || image.height
+  if (!width || !height)
+    throw new Error('That image has no readable dimensions.')
+  return { dataUrl, width, height, hasAlpha: imageHasTransparency(image), mime }
+}
+
+function clearUploadFeedback() {
+  uploadNotice.value = null
+  uploadError.value = null
+}
+
+async function applyUploadFile(file: File) {
+  clearUploadFeedback()
+  const targetTex = selectedTexture.value
+  if (!targetTex)
+    return
+  const replacementKey = textureKeyFor(targetTex)
+
+  try {
+    // Decode and validate before touching the live texture.
+    const decoded = await decodeUploadFile(file)
+    const original = vhackStore.getOriginalTextureImage?.(targetTex.uuid) || targetTex.image
+    const originalWidth = original?.width || original?.naturalWidth
+    const originalHeight = original?.height || original?.naturalHeight
+    const notices: UploadNotice = {}
+
+    if (originalWidth && originalHeight && (originalWidth !== decoded.width || originalHeight !== decoded.height)) {
+      notices.dimension = `Dimensions ${decoded.width}×${decoded.height} differ from the original ${originalWidth}×${originalHeight}; UVs will stretch.`
+    }
+    if (original && imageHasTransparency(original) && !decoded.hasAlpha) {
+      notices.transparency = 'This upload has no transparency, but the original texture does; cut-out areas may fill in.'
+    }
+    if (decoded.mime !== 'image/png') {
+      notices.format = 'PNG is recommended; JPEG and WebP can lose alpha or quality.'
+    }
+    uploadNotice.value = currentTextureKey.value === replacementKey && Object.keys(notices).length ? notices : null
+
+    // Successful decode: this now invalidates any in-flight generation for
+    // this texture and applies immediately.
+    aiError.value = null
+    vhackStore.lastGenerationError = null
+    bumpReplacementRevision(replacementKey)
+    swapTextureByRef(decoded.dataUrl, targetTex)
+    if (replacementKey !== null) {
+      setReplacement(replacementKey, decoded.dataUrl, { source: 'upload', fileName: file.name })
+      markPreviewing(replacementKey, true)
+    }
+    const imgIndex = getGltfImageIndex(targetTex)
+    if (imgIndex !== null) {
+      vhackStore.registerMutation(imgIndex, decoded.dataUrl.split(',')[1], decoded.mime)
+    }
+  }
+  catch (e: any) {
+    if (currentTextureKey.value === replacementKey)
+      uploadError.value = e?.message || 'Could not load that image.'
+  }
+}
+
+async function handleManualUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (file)
+    await applyUploadFile(file)
+}
+
+function handleUploadDrop(event: DragEvent) {
+  isDragOver.value = false
+  const file = event.dataTransfer?.files?.[0]
+  if (file)
+    void applyUploadFile(file)
 }
 
 // The washed-out preview treats sRGB texels as linear before the renderer
@@ -877,8 +1075,13 @@ function swapTextureByRef(url: string, targetRef?: any) {
 
               // PERSISTENCE BAKE: Register this mutation in the store so it survives export
               if (sIdx !== null) {
-                // Determine mime type from URL or default to png
-                const mimeType = url.startsWith('data:image/webp') ? 'image/webp' : 'image/png'
+                // Determine mime type from the data URL (JPEG/WebP uploads must
+                // keep their format when preview is toggled back on).
+                const mimeType = url.startsWith('data:image/webp')
+                  ? 'image/webp'
+                  : url.startsWith('data:image/jpeg')
+                    ? 'image/jpeg'
+                    : 'image/png'
                 // Convert current canvas/image back to base64 if it was modified by the alpha patch
                 const finalDataUrl = (exportImage instanceof HTMLCanvasElement) ? exportImage.toDataURL(mimeType) : url
                 const base64Data = finalDataUrl.split(',')[1]
@@ -983,7 +1186,9 @@ function finalizeEraserBake() {
   swapTextureByRef(cleanedUrl, selectedTexture.value ?? undefined)
   const key = currentTextureKey.value
   if (key !== null) {
-    setReplacement(key, cleanedUrl)
+    const previous = currentReplacement.value
+    bumpReplacementRevision(key)
+    setReplacement(key, cleanedUrl, { source: previous?.source, fileName: previous?.fileName })
     markPreviewing(key, true)
   }
   isEraserOpen.value = false
@@ -1311,6 +1516,9 @@ function revert() {
   // Put back every image mutated by a preview before restoring snapshots.
   restoreAllReplacementImages()
   vhackStore.clearTextureReplacements?.()
+  replacementRevisions.clear()
+  clearUploadFeedback()
+  aiError.value = null
   activeVrm.value.scene.traverse((node: any) => {
     const snap = vhackStore.snapshotMap.get(node.uuid)
     if (snap) {
@@ -1357,6 +1565,8 @@ watch(() => vhackStore.sourceArrayBuffer, () => {
   selectedMaterial.value = null
   selectedMesh.value = null
   vhackStore.selectedNodeName = null
+  replacementRevisions.clear()
+  clearUploadFeedback()
 })
 onMounted(() => {
   if (activeVrm.value)
@@ -1431,7 +1641,7 @@ onMounted(() => {
             <div class="text-[9px] text-neutral-400">
               Shared by {{ selectedTextureSharedMaterials.length }} material{{ selectedTextureSharedMaterials.length === 1 ? '' : 's' }}
             </div>
-            <div class="truncate text-[8px] text-neutral-400" :title="lastSelectedTextureItem.materials.join(', ')">
+            <div class="truncate text-[8px] text-neutral-400" :title="selectedTextureMaterials.join(', ')">
               {{ lastSelectedTextureItem.materials.slice(0, 3).join(' · ') }}{{ lastSelectedTextureItem.materials.length > 3 ? ` +${lastSelectedTextureItem.materials.length - 3}` : '' }}
             </div>
           </div>
@@ -1492,13 +1702,24 @@ onMounted(() => {
               <div class="min-w-0 flex-1">
                 <div class="truncate text-xs text-neutral-800 font-semibold dark:text-neutral-100">
                   {{ lastSelectedTextureItem.name }}
+                  <span class="text-[10px] text-neutral-400 font-normal">· {{ lastSelectedTextureItem.type }} texture</span>
                 </div>
-                <div class="text-[10px] text-neutral-400">
-                  {{ textureSizeLabel(lastSelectedTextureItem) }} · {{ lastSelectedTextureItem.type }} · Shared by {{ selectedTextureSharedMaterials.length }} material{{ selectedTextureSharedMaterials.length === 1 ? '' : 's' }}
-                </div>
-                <div class="truncate text-[9px] text-neutral-400" :title="lastSelectedTextureItem.materials.join(', ')">
-                  Used by {{ lastSelectedTextureItem.materials.slice(0, 3).join(' · ') }}{{ lastSelectedTextureItem.materials.length > 3 ? ` +${lastSelectedTextureItem.materials.length - 3}` : '' }}
-                </div>
+                <details class="material-owner-details">
+                  <summary class="flex cursor-pointer select-none items-center gap-1 text-[10px] text-neutral-400">
+                    <span>{{ textureSizeLabel(lastSelectedTextureItem) }} · Used by {{ selectedTextureMaterialCount }} material{{ selectedTextureMaterialCount === 1 ? '' : 's' }}</span>
+                    <div class="materials-chevron i-solar:alt-arrow-down-bold text-[9px] transition-transform" />
+                  </summary>
+                  <div class="custom-scrollbar mt-1 max-h-24 overflow-y-auto pr-1">
+                    <div
+                      v-for="(material, index) in selectedTextureMaterials"
+                      :key="`${material}-${index}`"
+                      class="truncate text-[9px] text-neutral-500 dark:text-neutral-400"
+                      :title="material"
+                    >
+                      {{ material }}
+                    </div>
+                  </div>
+                </details>
               </div>
               <button type="button" class="shrink-0 text-[10px] text-primary-600 font-medium dark:text-primary-300" @click="activeTab = 'texture'">
                 Change texture
@@ -1509,7 +1730,7 @@ onMounted(() => {
             <div class="grid grid-cols-2 gap-2">
               <div class="flex flex-col gap-1">
                 <div class="flex items-center justify-between px-0.5">
-                  <span class="text-[10px] text-neutral-500 font-semibold dark:text-neutral-400">Current</span>
+                  <span class="text-[10px] text-neutral-500 font-semibold dark:text-neutral-400">Current texture</span>
                 </div>
                 <div class="texture-checker relative aspect-square overflow-hidden border border-neutral-200/80 rounded-xl dark:border-neutral-800">
                   <img v-if="lastSelectedTextureItem.url" :src="lastSelectedTextureItem.url" class="absolute inset-0 h-full w-full object-contain">
@@ -1521,20 +1742,23 @@ onMounted(() => {
 
               <div class="flex flex-col gap-1">
                 <div class="flex items-center justify-between px-0.5">
-                  <span class="text-[10px] text-neutral-500 font-semibold dark:text-neutral-400">Replacement</span>
-                  <button
-                    type="button"
-                    :disabled="!currentReplacementUrl"
-                    :class="[
-                      'flex items-center gap-1 text-[9px] font-medium transition-colors disabled:op-40',
-                      currentPreviewing ? 'text-primary-600 dark:text-primary-300' : 'text-neutral-400',
-                    ]"
-                    :title="currentPreviewing ? 'Hide replacement preview' : 'Preview replacement on the avatar'"
-                    @click="toggleReplacementPreview"
-                  >
-                    <div :class="[currentPreviewing ? 'i-solar:eye-bold' : 'i-solar:eye-closed-bold']" />
-                    Preview
-                  </button>
+                  <span class="text-[10px] text-neutral-500 font-semibold dark:text-neutral-400">Replacement texture</span>
+                  <span class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      :disabled="!currentReplacementUrl"
+                      :class="[
+                        'flex items-center gap-1 text-[9px] font-medium transition-colors disabled:op-40',
+                        currentPreviewing ? 'text-primary-600 dark:text-primary-300' : 'text-neutral-400',
+                      ]"
+                      :title="currentPreviewing ? 'Hide replacement preview' : 'Preview replacement on the avatar'"
+                      @click="toggleReplacementPreview"
+                    >
+                      <div :class="[currentPreviewing ? 'i-solar:eye-bold' : 'i-solar:eye-closed-bold']" />
+                      Preview
+                    </button>
+                    <span class="text-[8px] text-neutral-400">on avatar</span>
+                  </span>
                 </div>
                 <div class="texture-checker relative aspect-square overflow-hidden border border-neutral-200/80 rounded-xl dark:border-neutral-800">
                   <img v-if="currentReplacementUrl" :src="currentReplacementUrl" class="absolute inset-0 h-full w-full object-contain">
@@ -1571,243 +1795,39 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- Download original / upload replacement loop -->
-            <div class="grid grid-cols-2 gap-2">
-              <Button variant="secondary" class="w-full" :disabled="!lastSelectedTextureItem?.url" @click="downloadOriginalTexture">
-                <template #icon>
-                  <div class="i-solar:download-minimalistic-bold" />
-                </template>
-                Download texture
-              </Button>
-              <Button variant="secondary" class="w-full" :disabled="isGenerating" @click="triggerManualUpload">
-                <template #icon>
-                  <div class="i-solar:upload-minimalistic-bold" />
-                </template>
-                Upload PNG
-              </Button>
-            </div>
-            <p class="px-0.5 text-[9px] text-neutral-400">
-              Download the original, edit it, then upload the replacement.
-            </p>
-            <p
-              v-if="lastSelectedTextureItem.type !== 'Main'"
-              class="rounded-lg bg-amber-500/10 p-2 text-[9px] text-amber-700 leading-relaxed dark:text-amber-300"
-            >
-              This is a {{ lastSelectedTextureItem.type }} map. Upload a matching {{ lastSelectedTextureItem.type.toLowerCase() }} texture here; a color atlas belongs on a Main texture.
-            </p>
-            <input ref="textureUploader" type="file" accept="image/png" class="hidden" @change="handleManualUpload">
-
-            <!-- Divider -->
-            <div class="flex items-center gap-2">
-              <div class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
-              <span class="text-[9px] text-neutral-400 font-semibold tracking-wider uppercase">OR GENERATE</span>
-              <div class="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
-            </div>
-
-            <!-- Style presets -->
-            <div class="space-y-1.5">
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-[10px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Style presets</span>
-                <select
-                  v-model="selectedCategory"
-                  class="max-w-[170px] border border-neutral-200 rounded-lg bg-white px-2 py-1 text-[10px] text-neutral-700 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+            <!-- Replacement status (history is per texture; survives selection changes) -->
+            <div v-if="currentReplacement" class="flex items-start gap-2 border border-neutral-200/80 rounded-xl bg-white/70 p-2 dark:border-neutral-800 dark:bg-neutral-900/40">
+              <div :class="[currentReplacement.source === 'generated' ? 'i-solar:magic-stick-3-bold-duotone' : 'i-solar:document-add-bold-duotone', 'mt-0.5 shrink-0 text-sm text-primary-500']" />
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-[10px] text-neutral-700 font-medium dark:text-neutral-200" :title="currentReplacement.source === 'generated' ? 'Generated replacement' : (currentReplacement.fileName || 'Uploaded replacement')">
+                  {{ currentReplacement.source === 'generated' ? 'Generated replacement' : (currentReplacement.fileName || 'Uploaded replacement') }}
+                </div>
+                <div
+                  :class="[
+                    'flex items-center gap-1 text-[9px]',
+                    currentPreviewing ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-400',
+                  ]"
                 >
-                  <option :value="null">
-                    Preset Palette
-                  </option>
-                  <option v-for="group in ARTISTRY_PRESET_GROUPS" :key="group.id" :value="group.id">
-                    {{ group.label }}
-                  </option>
-                </select>
-              </div>
-              <div v-if="activePresets.length" class="grid grid-cols-2 gap-1.5">
-                <button
-                  v-for="preset in visiblePresets"
-                  :key="preset.id"
-                  type="button"
-                  class="flex items-center gap-1.5 border border-neutral-200 rounded-lg bg-white/70 px-2 py-1.5 text-left text-[10px] text-neutral-600 font-medium transition-colors dark:border-neutral-700 hover:border-primary-400 dark:bg-neutral-900/40 hover:bg-primary-500/5 dark:text-neutral-300"
-                  @click="injectPreset(preset.text)"
-                >
-                  <div :class="[preset.icon, 'shrink-0 text-sm text-primary-500']" />
-                  <span class="truncate">{{ preset.label }}</span>
-                </button>
-              </div>
-              <button
-                v-if="activePresets.length > 4"
-                type="button"
-                class="w-full text-right text-[10px] text-primary-600 font-medium dark:text-primary-300"
-                @click="showAllPresets = !showAllPresets"
-              >
-                {{ showAllPresets ? 'Fewer presets...' : 'More presets...' }}
-              </button>
-            </div>
-
-            <!-- Prompt -->
-            <div class="space-y-1">
-              <label class="text-[10px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Describe the replacement</label>
-              <textarea
-                v-model="aiPrompt"
-                maxlength="500"
-                rows="4"
-                placeholder="Midnight navy fabric with delicate gold celestial embroidery. Keep the existing UV layout, seams, and transparent areas."
-                class="w-full resize-none border border-neutral-200 rounded-xl bg-white px-3 py-2 text-[11px] text-neutral-800 leading-relaxed outline-none dark:border-neutral-700 focus:border-primary-400 dark:bg-neutral-900 dark:text-neutral-100"
-              />
-              <div class="flex items-center justify-between text-[9px] text-neutral-400">
-                <span>Presets fill the prompt—you can edit it.</span>
-                <span>{{ aiPrompt.length }}/500</span>
-              </div>
-            </div>
-
-            <!-- Provider -->
-            <div class="flex items-center justify-between text-[10px] text-neutral-400">
-              <span class="flex items-center gap-1">
-                <div class="i-solar:settings-bold-duotone" />
-                Uses your configured image provider
-              </span>
-              <button
-                type="button"
-                class="rounded p-0.5 text-neutral-400 transition-colors hover:text-primary-600 dark:hover:text-primary-300"
-                title="Configure image provider"
-                @click="vhackStore.showAiSettings = !vhackStore.showAiSettings"
-              >
-                <div class="i-solar:settings-bold-duotone text-sm" />
-              </button>
-            </div>
-
-            <!-- AI Settings -->
-            <div v-if="vhackStore.showAiSettings" class="border border-primary-500/20 rounded-xl bg-primary-500/5 p-3 space-y-4">
-              <div class="space-y-2">
-                <div class="px-1 text-[8px] text-primary-600 font-black tracking-widest uppercase dark:text-primary-300">
-                  Network Provider
-                </div>
-                <div class="grid grid-cols-3 gap-1">
-                  <button
-                    v-for="provider in availableProviders"
-                    :key="provider.id"
-                    type="button"
-                    :class="[
-                      artistryStore.activeProvider === provider.id
-                        ? 'bg-primary-600 text-white border-primary-500'
-                        : 'bg-neutral-100 text-neutral-500 border-neutral-200 hover:bg-neutral-200 dark:bg-white/5 dark:text-neutral-400 dark:border-white/5 dark:hover:bg-white/10',
-                      'flex flex-col items-center gap-1 border rounded-lg p-2 text-[8px] font-bold uppercase transition-colors',
-                    ]"
-                    @click="artistryStore.activeProvider = provider.id as any"
-                  >
-                    <div :class="[provider.icon, 'text-sm']" />{{ provider.name }}
-                  </button>
-                </div>
-              </div>
-
-              <div v-if="artistryStore.activeProvider === 'nanobanana'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
-                <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
-                    Model Name
-                  </div>
-                  <select v-model="artistryStore.nanobananaModel" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
-                    <option value="gemini-3.1-flash-image-preview">
-                      Nano Banana 2 (Gemini 3.1 Flash Image)
-                    </option>
-                    <option value="gemini-3-pro-image-preview">
-                      Nano Banana Pro (Gemini 3 Pro Image)
-                    </option>
-                    <option value="gemini-2.5-flash-image">
-                      Nano Banana (Gemini 2.5 Flash Image)
-                    </option>
-                  </select>
-                </div>
-                <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
-                    Default Resolution
-                  </div>
-                  <select v-model="artistryStore.nanobananaResolution" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
-                    <option value="1K">
-                      1,024 x 1,024
-                    </option>
-                    <option value="2K">
-                      2,048 x 2,048
-                    </option>
-                    <option value="4K">
-                      4,096 x 4,096
-                    </option>
-                  </select>
-                </div>
-              </div>
-
-              <div v-else-if="artistryStore.activeProvider === 'replicate'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
-                <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
-                    Model Template
-                  </div>
-                  <select v-model="selectedReplicatePreset" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
-                    <option value="">
-                      Manual Config
-                    </option>
-                    <option v-for="preset in REPLICATE_IMAGEEDIT_PRESETS" :key="preset.id" :value="preset.id">
-                      {{ preset.label }}
-                    </option>
-                  </select>
-                </div>
-                <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
-                    Model ID
-                  </div>
-                  <input v-model="aiReplicateModelId" placeholder="owner/model-name..." class="w-full border border-neutral-200 rounded-md bg-white p-2 text-[10px] text-neutral-800 outline-none dark:border-neutral-700 focus:border-primary-400 dark:bg-neutral-900 dark:text-neutral-100">
-                </div>
-                <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
-                    JSON Parameters
-                  </div>
-                  <textarea v-model="aiReplicateParams" class="h-16 w-full resize-none border border-neutral-200 rounded-md bg-white p-2 text-[8px] text-neutral-800 font-mono outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" />
-                  <div v-pre class="mt-0.5 text-[7px] text-primary-600/60 font-bold uppercase italic">
-                    Hint: Use {{ IMAGE }} and {{ PROMPT }} placeholders
-                  </div>
-                </div>
-              </div>
-
-              <div v-else-if="artistryStore.activeProvider === 'comfyui'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
-                <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
-                    Active Workflow
-                  </div>
-                  <select v-model="artistryStore.comfyuiActiveWorkflow" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
-                    <option value="">
-                      Default Bridge
-                    </option>
-                    <option v-for="workflow in artistryStore.comfyuiSavedWorkflows" :key="workflow.id" :value="workflow.id">
-                      {{ workflow.name }}
-                    </option>
-                  </select>
-                </div>
-                <div class="space-y-1">
-                  <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
-                    JSON Parameters
-                  </div>
-                  <textarea v-model="aiComfyParams" class="h-16 w-full resize-none border border-neutral-200 rounded-md bg-white p-2 text-[8px] text-neutral-800 font-mono outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" />
-                  <div v-pre class="mt-0.5 text-[7px] text-primary-600/60 font-bold uppercase italic">
-                    Hint: Use {{ IMAGE }} and {{ PROMPT }} placeholders
-                  </div>
+                  <div :class="[currentPreviewing ? 'i-solar:check-circle-bold' : 'i-solar:eye-closed-bold']" />
+                  {{ currentPreviewing ? 'Loaded in preview' : 'Saved · preview off' }}
                 </div>
               </div>
             </div>
 
-            <!-- Shared texture note -->
-            <div v-if="selectedTextureSharedMaterials.length > 1" class="flex items-start gap-1.5 text-[10px] text-amber-600 leading-relaxed dark:text-amber-300">
-              <div class="i-solar:info-circle-bold mt-0.5 shrink-0" />
-              <span>Shared texture: changes affect all {{ selectedTextureSharedMaterials.length }} materials.</span>
-            </div>
-
-            <!-- Generate -->
-            <Button variant="primary" class="w-full" :disabled="!aiPrompt || isGenerating" @click="generateAndSwap">
-              <template #icon>
-                <div :class="[isGenerating ? 'i-solar:spinner-bold animate-spin' : 'i-solar:magic-stick-3-bold-duotone']" />
-              </template>
-              {{ isGenerating ? (vhackStore.generationActionLabel || 'Generating...') : 'Generate replacement' }}
-            </Button>
-            <div v-if="isGenerating" class="h-1 w-full overflow-hidden rounded-full bg-primary-500/20">
-              <div class="h-full rounded-full bg-primary-500 transition-all" :style="{ width: `${vhackStore.generationProgress}%` }" />
-            </div>
-            <div v-if="aiError" class="text-[10px] text-rose-600 leading-relaxed dark:text-rose-300">
-              {{ aiError }}
+            <!-- Upload warnings -->
+            <div v-if="uploadNotice" class="space-y-1">
+              <div v-if="uploadNotice.dimension" class="flex items-start gap-1.5 text-[9px] text-amber-600 leading-relaxed dark:text-amber-300">
+                <div class="i-solar:danger-triangle-bold mt-0.5 shrink-0" />
+                <span>{{ uploadNotice.dimension }}</span>
+              </div>
+              <div v-if="uploadNotice.transparency" class="flex items-start gap-1.5 text-[9px] text-amber-600 leading-relaxed dark:text-amber-300">
+                <div class="i-solar:danger-triangle-bold mt-0.5 shrink-0" />
+                <span>{{ uploadNotice.transparency }}</span>
+              </div>
+              <div v-if="uploadNotice.format" class="flex items-start gap-1.5 text-[9px] text-neutral-400 leading-relaxed">
+                <div class="i-solar:info-circle-bold mt-0.5 shrink-0" />
+                <span>{{ uploadNotice.format }}</span>
+              </div>
             </div>
           </template>
 
@@ -1820,7 +1840,7 @@ onMounted(() => {
           <details class="group border-t border-neutral-200/70 pt-3 dark:border-neutral-800">
             <summary class="flex cursor-pointer select-none items-center justify-between text-[10px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
               <span class="flex items-center gap-1.5">
-                <div class="i-solar:atom-bold-duotone text-sm text-primary-500" />
+                <div class="i-solar:tuning-2-bold-duotone text-sm text-primary-500" />
                 Material adjustments
               </span>
               <div class="i-solar:alt-arrow-down-bold transition-transform group-open:rotate-180" />
@@ -1884,6 +1904,335 @@ onMounted(() => {
               </p>
             </div>
           </details>
+
+          <template v-if="lastSelectedTextureItem">
+            <!-- Shared texture warning -->
+            <div v-if="selectedTextureMaterialCount > 1" class="flex items-start gap-1.5 text-[10px] text-amber-600 leading-relaxed dark:text-amber-300">
+              <div class="i-solar:info-circle-bold mt-0.5 shrink-0" />
+              <span>Shared texture · Changes affect all {{ selectedTextureMaterialCount }} materials.</span>
+            </div>
+
+            <!-- Shared generation status (stays visible in Local editing) -->
+            <div v-if="isGenerating" class="flex items-start gap-2 border border-primary-500/20 rounded-xl bg-primary-500/5 p-2">
+              <div class="i-solar:spinner-bold mt-0.5 shrink-0 animate-spin text-primary-500" />
+              <div class="min-w-0 flex-1 space-y-1">
+                <div class="flex items-center justify-between gap-2 text-[9px] text-neutral-500 dark:text-neutral-400">
+                  <span class="truncate">Generating {{ generationTargetName || 'texture' }}…</span>
+                  <span class="shrink-0 font-mono">{{ vhackStore.generationProgress }}%</span>
+                </div>
+                <div class="text-[8px] text-neutral-400">
+                  {{ vhackStore.generationActionLabel || 'Working…' }}
+                </div>
+                <div class="h-1 w-full overflow-hidden rounded-full bg-primary-500/20">
+                  <div class="h-full rounded-full bg-primary-500 transition-all" :style="{ width: `${vhackStore.generationProgress}%` }" />
+                </div>
+              </div>
+            </div>
+            <div v-if="aiError" class="text-[10px] text-rose-600 leading-relaxed dark:text-rose-300">
+              {{ aiError }}
+            </div>
+
+            <!-- Non-Main upload guidance -->
+            <div
+              v-if="lastSelectedTextureItem.type !== 'Main'"
+              class="rounded-lg bg-amber-500/10 p-2 text-[9px] text-amber-700 leading-relaxed dark:text-amber-300"
+            >
+              This is a {{ lastSelectedTextureItem.type }} map. Upload a matching {{ lastSelectedTextureItem.type.toLowerCase() }} texture here; a color atlas belongs on a Main texture.
+            </div>
+
+            <!-- Mode switch, directly above the form it controls -->
+            <div class="grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1 text-[10px] font-semibold dark:bg-neutral-800">
+              <button
+                type="button"
+                :class="[
+                  'flex items-center justify-center gap-1.5 border border-transparent rounded-lg py-2 transition-colors',
+                  labMode === 'local'
+                    ? 'border border-primary-500/30 bg-primary-500/15 text-primary-700 dark:bg-primary-500/20 dark:text-primary-200'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
+                ]"
+                :aria-pressed="labMode === 'local'"
+                @click="labMode = 'local'"
+              >
+                <div class="i-solar:upload-minimalistic-bold" />
+                Local editing
+              </button>
+              <button
+                type="button"
+                :class="[
+                  'flex items-center justify-center gap-1.5 border border-transparent rounded-lg py-2 transition-colors',
+                  labMode === 'prompt'
+                    ? 'border border-primary-500/30 bg-primary-500/15 text-primary-700 dark:bg-primary-500/20 dark:text-primary-200'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
+                ]"
+                :aria-pressed="labMode === 'prompt'"
+                @click="labMode = 'prompt'"
+              >
+                <div class="i-solar:magic-stick-3-bold-duotone" />
+                Promptcraft
+              </button>
+            </div>
+
+            <!-- Local editing -->
+            <div v-if="labMode === 'local'" class="space-y-3">
+              <div class="space-y-1">
+                <div class="text-xs text-neutral-800 font-semibold dark:text-neutral-100">
+                  Edit in your own image editor
+                </div>
+                <p class="text-[10px] text-neutral-500 leading-relaxed dark:text-neutral-400">
+                  Download the texture, make your changes, then upload the edited file.
+                </p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <Button variant="secondary" class="w-full" :disabled="!lastSelectedTextureItem?.url" @click="downloadOriginalTexture">
+                  <template #icon>
+                    <div class="i-solar:download-minimalistic-bold" />
+                  </template>
+                  Download texture
+                </Button>
+                <Button variant="primary" class="w-full" :class="ACCENT_ACTION_CLASS" @click="triggerManualUpload">
+                  <template #icon>
+                    <div class="i-solar:upload-minimalistic-bold" />
+                  </template>
+                  Upload PNG
+                </Button>
+              </div>
+
+              <button
+                type="button"
+                class="w-full border rounded-xl border-dashed p-3 text-left transition-colors"
+                :class="isDragOver ? 'border-primary-500 bg-primary-500/5' : 'border-neutral-300 hover:border-primary-400 dark:border-neutral-700'"
+                title="Drop a PNG, JPEG, or WebP here, or click to choose a file"
+                @click="triggerManualUpload"
+                @dragover.prevent="isDragOver = true"
+                @dragleave.prevent="isDragOver = false"
+                @drop.prevent="handleUploadDrop"
+              >
+                <div class="flex items-center justify-center gap-2">
+                  <div class="i-solar:document-add-bold-duotone text-2xl text-primary-500" />
+                  <div class="space-y-0.5">
+                    <div class="text-[10px] text-neutral-700 font-medium dark:text-neutral-200">
+                      Drop your edited texture here
+                    </div>
+                    <div class="text-[8px] text-neutral-400">
+                      PNG recommended · JPEG/WebP accepted
+                    </div>
+                    <div class="text-[8px] text-neutral-400">
+                      Keep the original dimensions and transparent areas.
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              <p v-if="uploadError" class="text-[9px] text-rose-600 leading-relaxed dark:text-rose-300">
+                {{ uploadError }}
+              </p>
+              <input ref="textureUploader" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="handleManualUpload">
+            </div>
+
+            <!-- Promptcraft -->
+            <div v-else class="space-y-3">
+              <!-- Style presets -->
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[10px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Style presets</span>
+                  <select
+                    v-model="selectedCategory"
+                    class="max-w-[170px] border border-neutral-200 rounded-lg bg-white px-2 py-1 text-[10px] text-neutral-700 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+                  >
+                    <option :value="null">
+                      Preset Palette
+                    </option>
+                    <option v-for="group in ARTISTRY_PRESET_GROUPS" :key="group.id" :value="group.id">
+                      {{ group.label }}
+                    </option>
+                  </select>
+                </div>
+                <div v-if="activePresets.length" class="grid grid-cols-2 gap-1.5">
+                  <button
+                    v-for="preset in visiblePresets"
+                    :key="preset.id"
+                    type="button"
+                    class="flex items-center gap-1.5 border border-neutral-200 rounded-lg bg-white/70 px-2 py-1.5 text-left text-[10px] text-neutral-600 font-medium transition-colors dark:border-neutral-700 hover:border-primary-400 dark:bg-neutral-900/40 hover:bg-primary-500/5 dark:text-neutral-300"
+                    @click="injectPreset(preset.text)"
+                  >
+                    <div :class="[preset.icon, 'shrink-0 text-sm text-primary-500']" />
+                    <span class="truncate">{{ preset.label }}</span>
+                  </button>
+                </div>
+                <button
+                  v-if="activePresets.length > 4"
+                  type="button"
+                  class="w-full text-right text-[10px] text-primary-600 font-medium dark:text-primary-300"
+                  @click="showAllPresets = !showAllPresets"
+                >
+                  {{ showAllPresets ? 'Fewer presets...' : 'More presets...' }}
+                </button>
+              </div>
+
+              <!-- Prompt -->
+              <div class="space-y-1">
+                <label class="text-[10px] text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Describe the replacement</label>
+                <textarea
+                  v-model="aiPrompt"
+                  maxlength="500"
+                  rows="4"
+                  placeholder="Midnight navy fabric with delicate gold celestial embroidery. Keep the existing UV layout, seams, and transparent areas."
+                  class="w-full resize-none border border-neutral-200 rounded-xl bg-white px-3 py-2 text-[11px] text-neutral-800 leading-relaxed outline-none dark:border-neutral-700 focus:border-primary-400 dark:bg-neutral-900 dark:text-neutral-100"
+                />
+                <div class="flex items-center justify-between text-[9px] text-neutral-400">
+                  <span>Presets fill the prompt—you can edit it.</span>
+                  <span>{{ aiPrompt.length }}/500</span>
+                </div>
+                <p class="text-[8px] text-neutral-400">
+                  UV layout, seams, and transparency guidance is added at generation time.
+                </p>
+              </div>
+
+              <!-- Provider -->
+              <div class="flex items-center justify-between text-[10px] text-neutral-400">
+                <span class="flex items-center gap-1">
+                  <div class="i-solar:settings-bold-duotone" />
+                  Uses your configured image provider
+                </span>
+                <button
+                  type="button"
+                  class="rounded p-0.5 text-neutral-400 transition-colors hover:text-primary-600 dark:hover:text-primary-300"
+                  title="Configure image provider"
+                  @click="vhackStore.showAiSettings = !vhackStore.showAiSettings"
+                >
+                  <div class="i-solar:settings-bold-duotone text-sm" />
+                </button>
+              </div>
+
+              <!-- AI Settings -->
+              <div v-if="vhackStore.showAiSettings" class="border border-primary-500/20 rounded-xl bg-primary-500/5 p-3 space-y-4">
+                <div class="space-y-2">
+                  <div class="px-1 text-[8px] text-primary-600 font-black tracking-widest uppercase dark:text-primary-300">
+                    Network Provider
+                  </div>
+                  <div class="grid grid-cols-3 gap-1">
+                    <button
+                      v-for="provider in availableProviders"
+                      :key="provider.id"
+                      type="button"
+                      :class="[
+                        artistryStore.activeProvider === provider.id
+                          ? 'bg-primary-600 text-white border-primary-500'
+                          : 'bg-neutral-100 text-neutral-500 border-neutral-200 hover:bg-neutral-200 dark:bg-white/5 dark:text-neutral-400 dark:border-white/5 dark:hover:bg-white/10',
+                        'flex flex-col items-center gap-1 border rounded-lg p-2 text-[8px] font-bold uppercase transition-colors',
+                      ]"
+                      @click="artistryStore.activeProvider = provider.id as any"
+                    >
+                      <div :class="[provider.icon, 'text-sm']" />{{ provider.name }}
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="artistryStore.activeProvider === 'nanobanana'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
+                  <div class="space-y-1">
+                    <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
+                      Model Name
+                    </div>
+                    <select v-model="artistryStore.nanobananaModel" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
+                      <option value="gemini-3.1-flash-image-preview">
+                        Nano Banana 2 (Gemini 3.1 Flash Image)
+                      </option>
+                      <option value="gemini-3-pro-image-preview">
+                        Nano Banana Pro (Gemini 3 Pro Image)
+                      </option>
+                      <option value="gemini-2.5-flash-image">
+                        Nano Banana (Gemini 2.5 Flash Image)
+                      </option>
+                    </select>
+                  </div>
+                  <div class="space-y-1">
+                    <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
+                      Default Resolution
+                    </div>
+                    <select v-model="artistryStore.nanobananaResolution" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
+                      <option value="1K">
+                        1,024 x 1,024
+                      </option>
+                      <option value="2K">
+                        2,048 x 2,048
+                      </option>
+                      <option value="4K">
+                        4,096 x 4,096
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                <div v-else-if="artistryStore.activeProvider === 'replicate'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
+                  <div class="space-y-1">
+                    <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
+                      Model Template
+                    </div>
+                    <select v-model="selectedReplicatePreset" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
+                      <option value="">
+                        Manual Config
+                      </option>
+                      <option v-for="preset in REPLICATE_IMAGEEDIT_PRESETS" :key="preset.id" :value="preset.id">
+                        {{ preset.label }}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="space-y-1">
+                    <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
+                      Model ID
+                    </div>
+                    <input v-model="aiReplicateModelId" placeholder="owner/model-name..." class="w-full border border-neutral-200 rounded-md bg-white p-2 text-[10px] text-neutral-800 outline-none dark:border-neutral-700 focus:border-primary-400 dark:bg-neutral-900 dark:text-neutral-100">
+                  </div>
+                  <div class="space-y-1">
+                    <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
+                      JSON Parameters
+                    </div>
+                    <textarea v-model="aiReplicateParams" class="h-16 w-full resize-none border border-neutral-200 rounded-md bg-white p-2 text-[8px] text-neutral-800 font-mono outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" />
+                    <div v-pre class="mt-0.5 text-[7px] text-primary-600/60 font-bold uppercase italic">
+                      Hint: Use {{ IMAGE }} and {{ PROMPT }} placeholders
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else-if="artistryStore.activeProvider === 'comfyui'" class="animate-in fade-in slide-in-from-top-1 space-y-3">
+                  <div class="space-y-1">
+                    <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
+                      Active Workflow
+                    </div>
+                    <select v-model="artistryStore.comfyuiActiveWorkflow" class="w-full border border-neutral-200 rounded-md bg-white p-1 text-[8px] text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
+                      <option value="">
+                        Default Bridge
+                      </option>
+                      <option v-for="workflow in artistryStore.comfyuiSavedWorkflows" :key="workflow.id" :value="workflow.id">
+                        {{ workflow.name }}
+                      </option>
+                    </select>
+                  </div>
+                  <div class="space-y-1">
+                    <div class="text-[8px] text-neutral-500 font-bold uppercase dark:text-neutral-400">
+                      JSON Parameters
+                    </div>
+                    <textarea v-model="aiComfyParams" class="h-16 w-full resize-none border border-neutral-200 rounded-md bg-white p-2 text-[8px] text-neutral-800 font-mono outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" />
+                    <div v-pre class="mt-0.5 text-[7px] text-primary-600/60 font-bold uppercase italic">
+                      Hint: Use {{ IMAGE }} and {{ PROMPT }} placeholders
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button variant="primary" class="w-full" :class="ACCENT_ACTION_CLASS" :disabled="!aiPrompt || isGenerating" @click="generateAndSwap">
+                <template #icon>
+                  <div :class="[isGenerating ? 'i-solar:spinner-bold animate-spin' : 'i-solar:magic-stick-3-bold-duotone']" />
+                </template>
+                {{ isGenerating ? (vhackStore.generationActionLabel || 'Generating...') : 'Generate replacement' }}
+              </Button>
+              <div v-if="isGenerating" class="flex items-center justify-between text-[9px] text-neutral-400">
+                <span class="truncate">{{ vhackStore.generationActionLabel || 'Working…' }}</span>
+                <span class="shrink-0 font-mono">{{ vhackStore.generationProgress }}%</span>
+              </div>
+            </div>
+          </template>
         </template>
 
         <div v-else class="flex flex-col items-center gap-2 px-4 py-10 text-center">
@@ -1962,15 +2311,15 @@ onMounted(() => {
           </template>
           Reset changes
         </Button>
-        <Button variant="primary" size="sm" class="w-full" :disabled="!activeVrm || isExporting" @click="exportVrm">
+        <Button variant="primary" size="sm" class="w-full" :class="ACCENT_ACTION_CLASS" :disabled="!activeVrm || isExporting" @click="exportVrm">
           <template #icon>
             <div :class="[isExporting ? 'i-solar:spinner-bold animate-spin' : 'i-solar:download-minimalistic-bold']" />
           </template>
           {{ isExporting ? 'Packaging...' : 'Export modified VRM' }}
         </Button>
       </div>
-      <p class="px-0.5 text-[9px] text-neutral-400">
-        {{ activeTab === 'material' ? 'Replacement previews live on your avatar.' : 'Edits stay in this copy until exported.' }}
+      <p v-if="activeTab !== 'material'" class="px-0.5 text-[9px] text-neutral-400">
+        Edits stay in this copy until exported.
       </p>
     </div>
 
@@ -2028,6 +2377,9 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.material-owner-details > summary { list-style: none; }
+.material-owner-details > summary::-webkit-details-marker { display: none; }
+.material-owner-details[open] .materials-chevron { transform: rotate(180deg); }
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.16); border-radius: 10px; }
 :global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); }
