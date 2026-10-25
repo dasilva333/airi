@@ -1,7 +1,7 @@
 ---
 name: airi-local-inference-engines
 description: >-
-  Load/debug local WebGPU/WASM inference workers: Kokoro, Whisper, WebLLM, Web-RWKV, Moondream, embeddings search worker, Laya System-1, worker protocols, model load queues, GpuResourceCoordinator, VRAM pressure. Provider definitions use airi-provider-core-registry; retrieval semantics use airi-memory-retrieval-engine; decision policy uses airi-jev-decision-engine.
+  Load/debug local WebGPU/WASM inference workers: Whisper STT, WebLLM, Web-RWKV, Moondream VLM, embeddings search worker, Laya System-1, worker protocols, model load queues, GpuResourceCoordinator, VRAM pressure. Local TTS engines use airi-local-tts-engines; provider definitions use airi-provider-core-registry; retrieval semantics use airi-memory-retrieval-engine.
 ---
 
 # AIRI Local Inference Engines (WebGPU & WASM)
@@ -11,7 +11,7 @@ This skill provides comprehensive guidelines and exact code paths for local brow
 ## 1. Overview & Surface Map
 
 AIRI executes local neural models directly in the browser via dedicated Web Worker threads:
-- **Kokoro TTS Worker**: Local neural speech synthesis (`packages/stage-ui/src/workers/kokoro/`).
+- **Local TTS engines (Kokoro, Pocket TTS, MOSS-TTS-Nano, Ming)**: owned end-to-end by [airi-local-tts-engines](../airi-local-tts-engines/SKILL.md) — workers, adapters, voice-clone profiles, per-language bundles, cache eviction. This skill is not their owner; it provides only the shared machinery below.
 - **Whisper STT Worker**: Local speech-to-text inference with Eventa server streaming (`packages/stage-ui/src/libs/workers/worker.ts`, adapter at `packages/stage-ui/src/libs/inference/adapters/whisper.ts`, provider `whisper-local`).
 - **WebLLM Worker**: Local LLM text generation (`packages/stage-ui/src/workers/web-llm/`).
 - **Web-RWKV Worker**: Local RWKV-7 RNN model execution (`packages/stage-ui/src/workers/web-rwkv/`).
@@ -20,7 +20,7 @@ AIRI executes local neural models directly in the browser via dedicated Web Work
 - **Laya System-1 Worker**: Local non-autoregressive decision engine behind the `laya-local` System-1 provider (`packages/stage-ui/src/workers/laya/worker.ts`: ModernBERT ONNX via `onnxruntime-web`, `tozp/laya-onnx` int8 424MB / fp16 843MB, WASM/WebGPU EPs, Cache Storage `laya-cache`). The standard-pattern citizen: `createGpuWorkerHost` + `runOnGpu` + VRAM estimates (see adapter below).
 - **Apple Core AI Bridge**: Hardware-accelerated speculative dialogue and on-device vision via Apple Neural Engine (ANE) and Metal (`NativeAI` bridge).
 
-> **Ownership boundary:** this skill owns worker model loading, VRAM allocation, device fallback, and load serialization — including the embedding worker and the Laya worker. Ranking, memory layers, candidate fusion, and query analysis belong to `airi-memory-retrieval-engine`; triage/rerank policy and the OpenRouter Decisions path belong to `airi-jev-decision-engine`; prefix formatting and embedding cache invalidation live at the worker boundary per `docs/design-embedding-provider-support.md` §7–§8.
+> **Ownership boundary:** this skill owns worker model loading, VRAM allocation, device fallback, and load serialization — including the embedding worker and the Laya worker. Local TTS engines are expressly excluded; see airi-local-tts-engines. Ranking, memory layers, candidate fusion, and query analysis belong to `airi-memory-retrieval-engine`; triage/rerank policy and the OpenRouter Decisions path belong to `airi-jev-decision-engine`; prefix formatting and embedding cache invalidation live at the worker boundary per `docs/design-embedding-provider-support.md` §7–§8.
 
 VRAM budget accounting, WebGPU hardware feature detection, memory pressure telemetry, and worker load queues are coordinated by `GpuResourceCoordinator`.
 
@@ -34,7 +34,6 @@ VRAM budget accounting, WebGPU hardware feature detection, memory pressure telem
 - `packages/stage-ui/src/libs/inference/adapters/` — Thin UI adapters bridging Pinia stores to underlying Web Workers (e.g. `whisper.ts`, `blip.ts`, `web-llm.ts`).
 
 ### Local Worker Locations
-- `packages/stage-ui/src/workers/kokoro/` — Kokoro WASM/WebGPU TTS worker implementation.
 - `packages/stage-ui/src/libs/workers/worker.ts` — Eventa WebGPU/WASM Whisper STT worker.
 - `packages/stage-ui/src/workers/web-llm/` — WebLLM (TVM WebGPU) worker implementation.
 - `packages/stage-ui/src/workers/web-rwkv/` — Web-RWKV WebGPU worker implementation.
@@ -107,11 +106,10 @@ In Electron or multi-tab web, each BrowserWindow or tab possesses an isolated V8
 - [docs/proposal-toggle4-rework-and-rwkv-harness.md](docs/proposal-toggle4-rework-and-rwkv-harness.md) — Toggle4 rework and RWKV harness proposal.
 - [docs/project-rwkv-kimi.md](docs/project-rwkv-kimi.md) — RWKV Kimi project.
 - [docs/project-rwkv-cleanroom-harness-plan.md](docs/project-rwkv-cleanroom-harness-plan.md) — RWKV cleanroom harness plan.
-- [docs/proposal-moss-tts-nano-provider-unified-webgpu.md](docs/proposal-moss-tts-nano-provider-unified-webgpu.md) — MOSS TTS nano provider unified WebGPU proposal.
-- [docs/research-moss-tts-nano-report.md](docs/research-moss-tts-nano-report.md) — MOSS TTS nano research report.
 - [docs/design-vram-eviction-and-standby-hibernation.md](docs/design-vram-eviction-and-standby-hibernation.md) — VRAM eviction, LRU pressure reclamation, and multi-tier standby hibernation specification.
 - [docs/design-embedding-provider-support.md](docs/design-embedding-provider-support.md) — Embedding backend migration: provider taxonomy, EmbeddingGemma 2 q4 baseline, prefix catalog, BGE-mark checklist.
 
 ## Related Skills & References
 
-- **Key Documents**: [[design-local-whisper-stt]], [[proposal-built-in-llm-webgpu]], [[design-web-rwkv-quantization-architecture]], [[design-attention-ecology-screen-watching]], [[proposal-toggle4-rework-and-rwkv-harness]], [[project-rwkv-kimi]], [[project-rwkv-cleanroom-harness-plan]], [[proposal-moss-tts-nano-provider-unified-webgpu]], [[research-moss-tts-nano-report]], [[design-vram-eviction-and-standby-hibernation]], [[design-embedding-provider-support]]
+- **Key Documents**: [[design-local-whisper-stt]], [[proposal-built-in-llm-webgpu]], [[design-web-rwkv-quantization-architecture]], [[design-attention-ecology-screen-watching]], [[proposal-toggle4-rework-and-rwkv-harness]], [[project-rwkv-kimi]], [[project-rwkv-cleanroom-harness-plan]], [[design-vram-eviction-and-standby-hibernation]], [[design-embedding-provider-support]]
+- **TTS engines live next door**: [[airi-local-tts-engines]] owns Kokoro, Pocket TTS, MOSS-TTS-Nano, and Ming workers, adapters, voice profiles, and cache eviction — including the MOSS proposal/research docs.

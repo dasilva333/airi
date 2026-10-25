@@ -18,7 +18,7 @@ import {
 } from '@proj-airi/stage-ui/stores/providers/ming3-catalog'
 import { isRelaxedSimdSupported } from '@proj-airi/stage-ui/workers/ming3/loader'
 import { Button, Input, Select } from '@proj-airi/ui'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
@@ -124,11 +124,10 @@ const SAMPLE_TEXTS = [
 
 const isTesting = ref(false)
 const audioUrl = ref('')
+const audioEl = ref<HTMLAudioElement | null>(null)
 const testStats = ref<{ firstAudioMs: number | null, generationMs: number, rtf: number, frames: number, stopped: boolean } | null>(null)
 const elapsedMs = ref(0)
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
-let playbackCtx: AudioContext | null = null
-let playbackCursor = 0
 
 // ---------------------------------------------------------------------------
 // Compatibility probe (no headers anywhere in the app today, so this guides
@@ -470,13 +469,30 @@ const displayFrames = computed(() => {
 
 function registerOptionWatchers() {
   watch(sampleKey, (id) => {
-    if (id)
+  // The shared Select is a free-text combobox: on blur it commits whatever
+  // text is in the box — including the placeholder itself — so only exact
+  // known ids may act. Anything else is rejected back to the placeholder.
+    if (!id)
+      return
+    if (SAMPLE_TEXTS.some(s => s.id === id)) {
       onSampleSelect(id)
+    }
+    else {
+      sampleKey.value = ''
+    }
   })
 
   watch(expressionKey, (tag) => {
-    if (tag)
+  // Same free-text guard as above: only the 14 canonical tags act.
+  // Anything else (placeholder text, casing variants, typed noise) is dropped.
+    if (!tag)
+      return
+    if (MING3_EXPRESSION_TAGS.some(t => t.tag === tag)) {
       insertExpression(tag)
+    }
+    else {
+      expressionKey.value = ''
+    }
   })
 
   watch(threads, () => {
@@ -539,39 +555,7 @@ function openSelectedInEditor() {
   }
 }
 
-// --- Streaming playback + test run ----------------------------------------
-function startPlayback() {
-  stopPlayback()
-  const Ctx = window.AudioContext || (window as any).webkitAudioContext
-  playbackCtx = new Ctx({ sampleRate: 44100 })
-  playbackCursor = playbackCtx.currentTime + 0.05
-}
-
-function scheduleChunk(samples: Float32Array<ArrayBuffer>) {
-  if (!playbackCtx)
-    return
-  try {
-    const buffer = playbackCtx.createBuffer(1, samples.length, 44100)
-    buffer.copyToChannel(samples, 0)
-    const source = playbackCtx.createBufferSource()
-    source.buffer = buffer
-    source.connect(playbackCtx.destination)
-    playbackCursor = Math.max(playbackCursor, playbackCtx.currentTime + 0.02)
-    source.start(playbackCursor)
-    playbackCursor += buffer.duration
-  }
-  catch (err) {
-    console.warn('[Ming3 Playground] Chunk scheduling failed:', err)
-  }
-}
-
-function stopPlayback() {
-  if (playbackCtx) {
-    playbackCtx.close().catch(() => {})
-    playbackCtx = null
-  }
-}
-
+// --- Test run (no live playback: the finished clip plays once generation completes) ---
 async function handleTestVoice(designPrompt?: string) {
   if (isTesting.value)
     return
@@ -591,7 +575,6 @@ async function handleTestVoice(designPrompt?: string) {
   elapsedTimer = setInterval(() => {
     elapsedMs.value = performance.now() - t0
   }, 100)
-  startPlayback()
   try {
     const adapter = await getMing3AdapterInstance()
     if (adapter.state !== 'ready') {
@@ -610,7 +593,6 @@ async function handleTestVoice(designPrompt?: string) {
     const wav = await adapter.generate(text, voiceId, {
       preset: preset.value,
       threads: threads.value === 'auto' ? 'auto' : Number(threads.value),
-      onAudioChunk: scheduleChunk,
       ...(designPrompt ? { designPrompt } : {}),
     })
     if (audioUrl.value)
@@ -620,6 +602,13 @@ async function handleTestVoice(designPrompt?: string) {
     testStats.value = stats
       ? { firstAudioMs: stats.firstAudioMs, generationMs: stats.generationMs, rtf: stats.rtf, frames: stats.frames, stopped: stats.stopped }
       : null
+    // Play only the finished clip — never live while the engine is still
+    // synthesizing. Browser autoplay policy may reject long after the click,
+    // in which case the user presses play manually.
+    if (testStats.value && !testStats.value.stopped) {
+      await nextTick()
+      await audioEl.value?.play().catch(() => {})
+    }
   }
   catch (err) {
     if ((err as Error)?.name !== 'AbortError') {
@@ -664,7 +653,7 @@ async function handleStop() {
   catch {
     // Engine not initialized — nothing to stop.
   }
-  stopPlayback()
+  audioEl.value?.pause()
 }
 
 const waveformBars = Array.from({ length: 56 }, (_, i) => {
@@ -702,7 +691,7 @@ onMounted(async () => {
 onUnmounted(() => {
   if (elapsedTimer)
     clearInterval(elapsedTimer)
-  stopPlayback()
+  audioEl.value?.pause()
   if (audioUrl.value)
     URL.revokeObjectURL(audioUrl.value)
 })
@@ -1127,7 +1116,7 @@ onUnmounted(() => {
                   :style="{ height: `${h}px` }"
                 />
               </div>
-              <audio :src="audioUrl" controls class="w-full" />
+              <audio ref="audioEl" :src="audioUrl" controls class="w-full" />
             </div>
             <p v-else class="m-0 py-4 text-center text-xs text-neutral-400">
               {{ t('settings.pages.providers.provider.ming3-local.playground.previewEmpty') }}

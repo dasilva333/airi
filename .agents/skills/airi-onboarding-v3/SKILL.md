@@ -112,3 +112,22 @@ Directory: `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/`
 3. **Sliding Breadcrumb Stepper**: Header navigation displays a maximum 5-item sliding window around the active step, preventing horizontal scrollbars and layout shifts.
 4. **Quick Start (60s)**: Always maintain the fast path in `quick-start.vue` so users who desire instant setup can start talking to an avatar immediately without navigating all 18 modular chapters.
 5. **Portal Target**: Every portaled overlay inside onboarding (`PopoverPortal`, `TooltipPortal`, `DialogPortal`, `<Teleport>`) must target `#onboarding-v3-root` instead of `body`. Web-stage hosts the wizard inside a `z-[9999]` overlay, so body-level portals at `z-50` render behind it and appear broken; Electron has no such wrapper, which is why the bug is web-only.
+
+---
+
+## 5. Speech Step & Local TTS Integration (`step-speech.vue`)
+
+The speech step is where local TTS engines meet first-run setup. Local-engine specifics (workers, adapters, voice stores) live in [airi-local-tts-engines](../airi-local-tts-engines/SKILL.md); this section is the onboarding-side contract a new local engine must satisfy. File: `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/steps/step-speech.vue` (~2700 lines).
+
+Engine segments: `resolveInitialSegment(normalizeProviderId(id))` maps each provider to `builtin` (local engines), `server` (`airi-audio-server`), or `cloud` (everything else).
+
+**Checklist for wiring a new local TTS engine (all in `step-speech.vue` unless noted):**
+
+1. **Short-id aliases** (`normalizeProviderId`): only needed if the engine wants a short id (`kokoro`→`kokoro-local`, `pocket`→`pocket-tts-local`, `moss`→`moss-nano-local`, `chatterbox`→`airi-audio-server`). Engines addressable by full provider id need no alias.
+2. **Recognition lists**: add the provider id to the `builtin` segment list, `isLocalProvider`, and `INTERNAL_PROVIDERS` (keeps it out of the cloud-provider list).
+3. **Engine readiness + download** (`checkEngineReadiness`, `activateAndDownloadEngine`): one branch each calling `adapter.loadModel(...)` with an `onProgress` handler mapping to `downloadProgress`/`downloadStatusText` plus a `downloadStatusKey` i18n entry (`onboarding.steps.speech.download.*` in `packages/i18n/src/locales/en/onboarding.yaml`). Test playback reuses the normal speech path — no per-engine test harness needed.
+4. **Static voice fallbacks** (`availableVoices`): hardcode the engine's built-in voices; dynamic `providerVoices` from the speech store win whenever loaded.
+5. **Draft fields** (`stores/useOnboardingV3Draft.ts`): `ttsProvider`, `ttsModel`, `ttsVoiceId`, `ttsRate`, `ttsPitch`. `isLocalZeroShot` gates companion-voice auto-matching — only engines with upload-based voice cloning belong in that list.
+6. **Hero cards are recommendations, not availability**: `localEngines` cards (Pocket/Kokoro/MOSS with `id`/`normId`/name/icon/accent/tag/badges + `onboarding.steps.speech.localEngines.<id>.{name,tag,desc}` i18n) control what onboarding *suggests*. An unvalidated engine stays fully working when selected (recognition lists + engine branches above) but gets no hero card.
+
+**Do not**: duplicate the adapter/worker/voice-store internals here (they belong to airi-local-tts-engines), add a hero card for an engine whose in-app settings page is still experimental, or bypass the draft store when persisting selections.

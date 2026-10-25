@@ -145,7 +145,22 @@ export async function startRuntime({ distUrl, glueName, threads, requested, onWa
 
 async function instantiate(distUrl: string, glueName: string, build: Ming3RuntimeBuild, threads: number): Promise<Ming3Glue> {
   const base = new URL(`${build.name}/`, distUrl).href
-  const glue = (await import(/* @vite-ignore */ `${base}${glueName}.js`)) as Ming3Glue
+  // The HF resolve-cache endpoint serves parts as text/plain, which the
+  // module loader rejects with a MIME error even though the body IS valid
+  // JavaScript (verified: the file renders fine when opened directly — only
+  // `import()` enforces the JS MIME requirement). Re-host the fetched source
+  // as a Blob module instead. The glue is self-contained (no relative
+  // sub-imports), so the blob URL is safe to revoke right after import.
+  const glueUrl = new URL(`${glueName}.js`, base).href
+  const glueText = await (await fetchOk(glueUrl)).text()
+  const blobUrl = URL.createObjectURL(new Blob([glueText], { type: 'text/javascript' }))
+  let glue: Ming3Glue
+  try {
+    glue = (await import(/* @vite-ignore */ blobUrl)) as Ming3Glue
+  }
+  finally {
+    URL.revokeObjectURL(blobUrl)
+  }
   const moduleOrPath = new URL(`${glueName}_bg.wasm`, base).href
   await glue.default({ module_or_path: moduleOrPath })
   if (build.threads)

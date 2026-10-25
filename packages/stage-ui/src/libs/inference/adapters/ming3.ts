@@ -106,7 +106,7 @@ export function createMing3Adapter(): Ming3Adapter {
   function ensureWorker(): Worker {
     if (!worker) {
       worker = new Worker(
-        new URL('../../workers/ming3/worker.ts', import.meta.url),
+        new URL('../../../workers/ming3/worker.ts', import.meta.url),
         { type: 'module' },
       )
       worker.addEventListener('message', onWorkerMessage)
@@ -280,7 +280,11 @@ export function createMing3Adapter(): Ming3Adapter {
         resolve: (info) => {
           options?.signal?.removeEventListener('abort', onAbort)
           state = 'ready'
-          lastLoadParams = { model, threads: info.threads }
+          // Compare requested-vs-requested on the next call: storing the
+          // actual (possibly fallen-back) thread count here would never match
+          // a fresh requested value and would force a full runtime re-init on
+          // every synthesis. Actual threads remain available via activeThreads.
+          lastLoadParams = { model, threads }
           updateInferenceStatus(modelStatusId, { state: 'ready', device: 'wasm' })
           // Single active bundle in OPFS: evict parts that do not belong to
           // the just-loaded manifest (mix vs future profiles).

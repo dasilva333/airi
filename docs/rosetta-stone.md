@@ -207,10 +207,16 @@ interface ProviderMetadata {
 - **WebGPU detection**: `packages/stage-shared/src/webgpu/detect.ts`.
 - **Workers vs Adapters**: Worker implementations live in **`packages/stage-ui/src/workers/`** (`kokoro`, `web-llm`, `web-rwkv`, `vad`, `blip`, `moondream`, `attention-guard`, `background-removal`, `moss`, `pocket-tts`); thin **`adapters/`** in `libs/inference/` bridge workers → provider contract. **Exception**: `whisper` worker is at `libs/workers/worker.ts`, not under `workers/`.
 
-### Local TTS Reference (Kokoro)
-- **Worker**: `packages/stage-ui/src/workers/kokoro/worker.ts`
-- **Adapter**: `packages/stage-ui/src/libs/inference/adapters/kokoro.ts` — uses load queue, GPU coordinator, device-loss promotion.
-- **Provider page**: `packages/stage-pages/src/pages/settings/providers/speech/kokoro-local.vue`
+### Local TTS References (owned by airi-local-tts-engines)
+- **Kokoro worker**: `packages/stage-ui/src/workers/kokoro/worker.ts`
+- **Kokoro adapter**: `packages/stage-ui/src/libs/inference/adapters/kokoro.ts` — uses load queue, GPU coordinator, device-loss promotion.
+- **Pocket TTS worker**: `packages/stage-ui/src/workers/pocket-tts/` (`pocket_model_store.ts` → OPFS `pocket-tts-browser-model-store/{langFolder}/`, `pocket_onnx_engine.ts`)
+- **Pocket TTS adapter + conditioning**: `packages/stage-ui/src/libs/inference/adapters/pocket-tts.ts`, `packages/stage-ui/src/stores/providers/pocket-audio-utils.ts`
+- **MOSS-TTS-Nano worker**: `packages/stage-ui/src/workers/moss/browser_onnx_runtime.js` (WASM-only onnxruntime-web) + `packages/stage-ui/src/stores/providers/moss-audio-utils.ts`
+- **Ming 3.0 worker**: `packages/stage-ui/src/workers/ming3/` (`worker.ts` load/generate/stop, `loader.ts` build picker + OPFS + BLAKE3, CDN glue via Blob import)
+- **Ming 3.0 adapter + catalog**: `packages/stage-ui/src/libs/inference/adapters/ming3.ts`, `packages/stage-ui/src/stores/providers/ming3-catalog.ts`
+- **Provider pages**: `packages/stage-pages/src/pages/settings/providers/speech/{kokoro-local,pocket-tts-local,moss-nano-local,ming3-local}.vue`
+- **Voice-profile stores** (localforage): `pocket-voice-profiles-metadata` + `pocket-voice-profiles-blobs`, `moss-voice-profiles-metadata` + `voice-profile-blobs`, `ming-design-voices-metadata` (no blob store — text-only designs)
 
 ### Local VLM Reference (Moondream2)
 - **Worker**: `packages/stage-ui/src/workers/moondream/worker.ts`
@@ -300,8 +306,12 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 | **Voice profiles** | `settings/speech/voice-profiles` (localStorage) — `VoiceProfile[]` with effects (pitch, rate, volume, equalizer, ASMR, radio, robot, reverb, spatial) and UST (universal speech transformer) config |
 | **UST processing** | Packaged within the provider fetch flow — strips asterisks, mutes narrative brackets, replaces tildes, strips emojis before text reaches TTS |
 | **Audio Studio** | [`feat-audio-studio.md`](./feat-audio-studio.md) — full spec for the voice profile management UI |
-| **Kokoro worker** | `packages/stage-ui/src/workers/kokoro/worker.ts` — reference local TTS implementation |
+| **Kokoro worker** | `packages/stage-ui/src/workers/kokoro/worker.ts` — local TTS implementation (see airi-local-tts-engines; reference for load-queue pattern) |
 | **Kokoro adapter** | `packages/stage-ui/src/libs/inference/adapters/kokoro.ts` — load queue, GPU coordinator, device-loss promotion, WAV encoding |
+| **Pocket TTS worker** | `packages/stage-ui/src/workers/pocket-tts/` — per-language OPFS bundles, gated-voice safetensors (see airi-local-tts-engines) |
+| **MOSS worker** | `packages/stage-ui/src/workers/moss/browser_onnx_runtime.js` — WASM-only onnxruntime-web, `prompt_audio_codes` voice cloning |
+| **Ming worker** | `packages/stage-ui/src/workers/ming3/` — fusor-ai compiled WASM, single-threaded-first, CDN glue via Blob import |
+| **TTS model cache** | `cache-utils.ts` per-engine trio + `evictOther*` single-active-slot eviction; `ModelCacheManager.vue` one row per provider id |
 | **Whisper worker** | `packages/stage-ui/src/libs/workers/worker.ts` — reference local STT implementation (note: lives under `libs/workers/`, NOT `workers/`) |
 | **Whisper adapter** | `packages/stage-ui/src/libs/inference/adapters/whisper.ts` |
 | **Audio Studio UST proposal** | [`proposal-higgs-audio-v3-tts-integration.md`](./proposal-higgs-audio-v3-tts-integration.md) |
