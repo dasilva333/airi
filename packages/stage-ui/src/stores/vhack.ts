@@ -126,11 +126,14 @@ export const useVHackStore = defineStore('vhack', () => {
     hiddenNodeUuids.value = new Set(hiddenNodeUuids.value)
   }
 
-  function setSourceArrayBuffer(buffer: ArrayBuffer) {
+  function setSourceArrayBuffer(buffer: ArrayBuffer, options: { resetMutations?: boolean } = {}) {
     sourceArrayBuffer.value = buffer
-    // Reset mutations when a new model is loaded
-    mutatedTextures.value.clear()
-    clearTextureReplacements()
+    // Reset mutations when a new model is loaded. Export loads the source buffer
+    // lazily too, so it must opt out or it would clear the edits it is exporting.
+    if (options.resetMutations !== false) {
+      mutatedTextures.value.clear()
+      clearTextureReplacements()
+    }
   }
 
   function registerMutation(index: number, data: string, mimeType: string) {

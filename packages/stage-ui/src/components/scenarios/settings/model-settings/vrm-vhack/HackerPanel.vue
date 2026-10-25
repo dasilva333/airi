@@ -984,12 +984,12 @@ async function exportVrm() {
 
   if (!vhackStore.sourceArrayBuffer) {
     if (settingsStore.stageModelSelectedFile) {
-      vhackStore.setSourceArrayBuffer(await settingsStore.stageModelSelectedFile.arrayBuffer())
+      vhackStore.setSourceArrayBuffer(await settingsStore.stageModelSelectedFile.arrayBuffer(), { resetMutations: false })
     }
     else if (settingsStore.stageModelSelectedUrl) {
       try {
         const res = await fetch(settingsStore.stageModelSelectedUrl)
-        vhackStore.setSourceArrayBuffer(await res.arrayBuffer())
+        vhackStore.setSourceArrayBuffer(await res.arrayBuffer(), { resetMutations: false })
       }
       catch (e) {
         console.warn('[VHack] Failed to fetch source ArrayBuffer on demand:', e)
@@ -1088,8 +1088,9 @@ async function exportVrm() {
         const bytes = new Uint8Array(binaryString.length)
         for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i)
         mutations.push({ offset: bv.byteOffset, oldLen: bv.byteLength, newData: bytes })
-        // Update JSON with new length
+        // Update JSON with new length and format so the rebuilt GLB stays valid
         bv.byteLength = bytes.length
+        img.mimeType = val.mimeType || img.mimeType || 'image/png'
       }
     })
 
@@ -1157,6 +1158,10 @@ async function exportVrm() {
     }
 
     const finalBinLen = newBinParts.reduce((acc, curr) => acc + curr.length, 0)
+    // The buffer's declared length must follow the rebuilt BIN chunk, otherwise
+    // strict glTF/VRM loaders may ignore the patched texture bytes.
+    if (gltf.buffers?.[0])
+      gltf.buffers[0].byteLength = finalBinLen
     const finalTotalLen = 12 + 8 + jsonBytes.length + 8 + finalBinLen
 
     // Assembly
