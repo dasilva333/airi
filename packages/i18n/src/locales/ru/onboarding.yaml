@@ -43,11 +43,11 @@ steps:
       comebackLead: Если вы захотите вернуться к этому позже, просто
       desktopInstruction: щелкните правой кнопкой мыши по значку AIRI в системном трее
         и выберите Мастер компаньона.
-      desktopAlternative: Или откройте Настройки → Мастер персонажа → Мастер компаньона.
+      desktopAlternative: Or open Settings → Guided Tours → Companion Wizard.
       webInstruction: нажмите на значок шестеренки в правом верхнем углу, чтобы
         открыть Настройки, затем перейдите в Мастер персонажа → Мастер
         компаньона.
-      webSettingsPath: Настройки → Мастер персонажа → Мастер компаньона
+      webSettingsPath: Settings → Guided Tours → Companion Wizard
       close: Закрыть
     quickStartButton: Quick start
     quickStartDuration: ≈ 1 min
@@ -2786,6 +2786,7 @@ quickStart:
     selectCompanion: Please select a starter companion
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
+  ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
 onboarding:
   steps:
     appearance:

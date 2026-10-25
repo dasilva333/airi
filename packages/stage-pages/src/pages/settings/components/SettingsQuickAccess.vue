@@ -189,7 +189,7 @@ const row1Items = computed<QuickAccessItem[]>(() => [
   },
   {
     id: 'character-wizard',
-    title: 'Character Wizard',
+    title: 'Guided Tours',
     icon: 'i-solar:magic-stick-3-bold-duotone',
     to: '/settings/airi-card/guided',
     hasModal: true,
@@ -643,7 +643,7 @@ function navigate(target: string | QuickAccessItem) {
       </div>
     </Teleport>
 
-    <!-- Character Wizard Selection Modal -->
+    <!-- Guided Tours Selection Modal -->
     <Teleport to="body">
       <div
         v-if="isCharacterWizardModalOpen"
@@ -668,7 +668,7 @@ function navigate(target: string | QuickAccessItem) {
               </div>
               <div>
                 <h3 class="text-base text-neutral-900 font-bold dark:text-white">
-                  Character Wizards
+                  Guided Tours
                 </h3>
                 <p class="text-xs text-neutral-500 dark:text-neutral-400">
                   Select a workflow to create or import your companion character

@@ -44,10 +44,10 @@ steps:
       comebackLead: Nếu bạn muốn quay lại sau, chỉ cần
       desktopInstruction: nhấp chuột phải vào biểu tượng khay hệ thống AIRI và chọn
         Trình hướng dẫn đồng hành.
-      desktopAlternative: Hoặc mở Cài đặt → Trình hướng dẫn nhân vật → Trình hướng dẫn đồng hành.
+      desktopAlternative: Or open Settings → Guided Tours → Companion Wizard.
       webInstruction: nhấn vào biểu tượng bánh răng ở góc trên bên phải để mở Cài đặt,
         sau đó đi tới Trình hướng dẫn nhân vật → Trình hướng dẫn đồng hành.
-      webSettingsPath: Cài đặt → Trình hướng dẫn nhân vật → Trình hướng dẫn đồng hành
+      webSettingsPath: Settings → Guided Tours → Companion Wizard
       close: Đóng
     quickStartButton: Quick start
     quickStartDuration: ≈ 1 min
@@ -2787,6 +2787,7 @@ quickStart:
     selectCompanion: Please select a starter companion
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
+  ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
 onboarding:
   steps:
     appearance:

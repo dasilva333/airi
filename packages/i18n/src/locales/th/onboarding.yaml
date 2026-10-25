@@ -43,10 +43,10 @@ steps:
       closeToTray: Close to Tray
       comebackLead: If you want to come back to this later, just
       desktopInstruction: right-click the AIRI system tray icon and click Companion Wizard.
-      desktopAlternative: Or open Settings → Character Wizard → Companion Wizard.
+      desktopAlternative: Or open Settings → Guided Tours → Companion Wizard.
       webInstruction: tap the cog icon in the top-right to open Settings, then go
-        Character Wizard → Companion Wizard.
-      webSettingsPath: Settings → Character Wizard → Companion Wizard
+        Guided Tours → Companion Wizard.
+      webSettingsPath: Settings → Guided Tours → Companion Wizard
       close: Close
     quickStartButton: Quick start
     quickStartDuration: ≈ 1 min
@@ -2772,6 +2772,7 @@ quickStart:
     selectCompanion: Please select a starter companion
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
+  ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
 onboarding:
   steps:
     appearance:

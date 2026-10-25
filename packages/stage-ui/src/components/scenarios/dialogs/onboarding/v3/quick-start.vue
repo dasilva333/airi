@@ -56,6 +56,9 @@ interface StarterCompanion {
   defaultKokoroVoice: string
   defaultPocketVoice: string
   defaultMossVoice?: string
+  defaultMingVoice: string
+  /** Locale block override when the YAML key differs from the companion id (ReLU lives under `default`). */
+  i18nKey?: string
 
   tagKey?: string
   personalityKey?: string
@@ -77,6 +80,8 @@ const starterCompanions: StarterCompanion[] = [
     defaultKokoroVoice: 'af_bella',
     defaultPocketVoice: 'airi_relu',
     defaultMossVoice: 'airi_relu',
+    defaultMingVoice: 'US_Emma',
+    i18nKey: 'default',
   },
   {
     id: 'aria',
@@ -93,6 +98,7 @@ const starterCompanions: StarterCompanion[] = [
     defaultKokoroVoice: 'af_sarah',
     defaultPocketVoice: 'airi_aria',
     defaultMossVoice: 'airi_aria',
+    defaultMingVoice: 'US_Stella',
   },
   {
     id: 'lupin',
@@ -109,6 +115,7 @@ const starterCompanions: StarterCompanion[] = [
     defaultKokoroVoice: 'af_nicole',
     defaultPocketVoice: 'airi_lupin',
     defaultMossVoice: 'airi_lupin',
+    defaultMingVoice: 'US_James',
   },
 ]
 
@@ -125,7 +132,7 @@ const activeCompanion = computed(() => {
 })
 
 // Dynamic Greeting Reactivity: updates whenever userName changes
-const localizedGreeting = computed(() => t(`onboarding.quickStart.starterCompanions.${activeCompanion.value.id}.greeting`, { name: userName.value?.trim() || t('onboarding.quickStart.greetingDefaultName') }))
+const localizedGreeting = computed(() => t(`onboarding.quickStart.starterCompanions.${activeCompanion.value.i18nKey ?? activeCompanion.value.id}.greeting`, { name: userName.value?.trim() || t('onboarding.quickStart.greetingDefaultName') }))
 
 // Companion name freedom: defaults to ReLU, follows selection until user types custom name
 const isCompanionNameManuallyEdited = ref(
@@ -157,6 +164,8 @@ function getCompanionVoice(c: StarterCompanion, engine: string): string {
     return c.defaultPocketVoice
   if (norm === 'moss-nano-local')
     return c.defaultMossVoice || c.defaultPocketVoice
+  if (norm === 'ming3-local')
+    return c.defaultMingVoice
   return c.defaultKokoroVoice
 }
 
@@ -489,7 +498,7 @@ const ttsEngine = computed({
 
 const cloudSpeechProviders = computed(() => {
   const allMap = providersStore.allProvidersMetadata || {}
-  const internalIds = ['speech-noop', 'virtual-audio-studio', 'kokoro', 'pocket', 'moss', 'kokoro-local', 'pocket-tts-local', 'moss-nano-local']
+  const internalIds = ['speech-noop', 'virtual-audio-studio', 'kokoro', 'pocket', 'moss', 'kokoro-local', 'pocket-tts-local', 'moss-nano-local', 'ming3-local', 'ming']
   return Object.values(allMap)
     .filter((p: any) => p.category === 'speech' && !internalIds.includes(p.id))
     .map((p: any) => ({
@@ -518,6 +527,9 @@ const availableTtsModels = computed(() => {
   }
   if (normId === 'moss-nano-local') {
     return [{ id: 'moss-tts-nano-100m', label: 'Moss-Nano Fast Engine (100M)', labelKey: 'onboarding.quickStart.availableTtsModels.moss-tts-nano-100m.label' }]
+  }
+  if (normId === 'ming3-local') {
+    return [{ id: 'ming-3.0-tts-0.5b-mix', label: 'Ming 3.0 (0.5B · Pilot)' }]
   }
 
   const pModels = providersStore.getModelsForProvider(normId) || []
@@ -562,6 +574,15 @@ const availableTtsVoices = computed(() => {
       ...STARTER_VOICE_CATALOG.map(v => ({ id: v.id, label: `★ ${v.name}` })),
       { id: 'Trump', label: 'EN Trump', labelKey: 'onboarding.quickStart.availableTtsVoices.trump.label' },
       { id: 'LJS', label: 'EN LJS', labelKey: 'onboarding.quickStart.availableTtsVoices.ljs.label' },
+    ]
+  }
+  if (normId === 'ming3-local') {
+    return [
+      { id: 'US_Emma', label: 'US Emma (Female · US)' },
+      { id: 'US_James', label: 'US James (Male · US)' },
+      { id: 'US_Stella', label: 'US Stella (Female · US)' },
+      { id: 'UK_George', label: 'UK George (Male · UK)' },
+      { id: 'UK_Charlotte', label: 'UK Charlotte (Female · UK)' },
     ]
   }
 
@@ -1489,6 +1510,9 @@ function continueAnywayIntoStage() {
                 </option>
                 <option value="moss-nano-local">
                   {{ t('onboarding.quickStart.mossNanoLocalUltraFast') }}
+                </option>
+                <option value="ming3-local">
+                  {{ t('onboarding.quickStart.ming3LocalPilot') }}
                 </option>
               </optgroup>
               <optgroup v-if="cloudSpeechProviders.length > 0" :label="t('onboarding.steps.vision.tabs.custom')">

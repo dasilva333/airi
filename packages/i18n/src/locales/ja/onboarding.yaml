@@ -38,9 +38,9 @@ steps:
       closeToTray: トレイに格納
       comebackLead: 後でこの設定に戻りたい場合は、
       desktopInstruction: AIRIのシステムトレイアイコンを右クリックし、「コンパニオンウィザード」をクリックしてください。
-      desktopAlternative: または、設定 → キャラクターウィザード → コンパニオンウィザードを開きます。
+      desktopAlternative: Or open Settings → Guided Tours → Companion Wizard.
       webInstruction: 右上の歯車アイコンをタップして設定を開き、 キャラクターウィザード → コンパニオンウィザードへ進んでください。
-      webSettingsPath: 設定 → キャラクターウィザード → コンパニオンウィザード
+      webSettingsPath: Settings → Guided Tours → Companion Wizard
       close: 閉じる
     quickStartButton: Quick start
     quickStartDuration: ≈ 1 min
@@ -2704,6 +2704,7 @@ quickStart:
     selectCompanion: Please select a starter companion
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
+  ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
 onboarding:
   steps:
     appearance:

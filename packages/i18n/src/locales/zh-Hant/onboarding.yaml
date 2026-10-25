@@ -38,9 +38,9 @@ steps:
       closeToTray: 最小化至系統匣
       comebackLead: 如果你想稍後再返回設定，只需
       desktopInstruction: 右鍵點擊 AIRI 系統匣圖示並點擊「伴侶精靈」。
-      desktopAlternative: 或開啟 設定 → 角色精靈 → 伴侶精靈。
+      desktopAlternative: Or open Settings → Guided Tours → Companion Wizard.
       webInstruction: 點擊右上角的齒輪圖示開啟設定，然後前往 角色精靈 → 伴侶精靈。
-      webSettingsPath: 設定 → 角色精靈 → 伴侶精靈
+      webSettingsPath: Settings → Guided Tours → Companion Wizard
       close: 關閉
     quickStartButton: Quick start
     quickStartDuration: ≈ 1 min
@@ -2697,6 +2697,7 @@ quickStart:
     selectCompanion: Please select a starter companion
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
+  ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
 onboarding:
   steps:
     appearance:

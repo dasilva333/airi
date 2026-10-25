@@ -39,9 +39,9 @@ steps:
       closeToTray: 트레이로 최소화
       comebackLead: 나중에 다시 설정하려면,
       desktopInstruction: AIRI 시스템 트레이 아이콘을 마우스 오른쪽 버튼으로 클릭하고 컴패니언 마법사를 클릭하세요.
-      desktopAlternative: 또는 설정 → 캐릭터 마법사 → 컴패니언 마법사를 여세요.
+      desktopAlternative: Or open Settings → Guided Tours → Companion Wizard.
       webInstruction: 오른쪽 상단의 톱니바퀴 아이콘을 눌러 설정을 연 다음, 캐릭터 마법사 → 컴패니언 마법사로 이동하세요.
-      webSettingsPath: 설정 → 캐릭터 마법사 → 컴패니언 마법사
+      webSettingsPath: Settings → Guided Tours → Companion Wizard
       close: 닫기
     quickStartButton: Quick start
     quickStartDuration: ≈ 1 min
@@ -2710,6 +2710,7 @@ quickStart:
     selectCompanion: Please select a starter companion
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
+  ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
 onboarding:
   steps:
     appearance:

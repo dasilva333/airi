@@ -200,7 +200,7 @@ function confirmCloseToTray() {
               {{ t('onboarding.steps.welcome.dialog.desktopInstruction', 'right-click the AIRI system tray icon and click Companion Wizard.') }}
             </template>
             <template v-else>
-              {{ t('onboarding.steps.welcome.dialog.webInstruction', 'tap the cog icon in the top-right to open Settings, then go Character Wizard → Companion Wizard.') }}
+              {{ t('onboarding.steps.welcome.dialog.webInstruction', 'tap the cog icon in the top-right to open Settings, then go Guided Tours → Companion Wizard.') }}
             </template>
           </p>
           <div v-if="isDesktop" :class="['mt-3 rounded-xl border border-primary-500/30 bg-primary-500/10 dark:bg-primary-950/30 px-3.5 py-2 text-xs font-semibold text-primary-600 dark:text-primary-300 flex items-center justify-center gap-2']">
@@ -209,10 +209,10 @@ function confirmCloseToTray() {
           </div>
           <div v-else :class="['mt-3 rounded-xl border border-primary-500/30 bg-primary-500/10 dark:bg-primary-950/30 px-3.5 py-2 text-xs font-semibold text-primary-600 dark:text-primary-300 flex items-center justify-center gap-2']">
             <div :class="['i-solar:settings-bold-duotone h-4 w-4']" />
-            <span>{{ t('onboarding.steps.welcome.dialog.webSettingsPath', 'Settings → Character Wizard → Companion Wizard') }}</span>
+            <span>{{ t('onboarding.steps.welcome.dialog.webSettingsPath', 'Settings → Guided Tours → Companion Wizard') }}</span>
           </div>
           <p v-if="isDesktop" :class="['mt-2 text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed']">
-            {{ t('onboarding.steps.welcome.dialog.desktopAlternative', 'Or open Settings → Character Wizard → Companion Wizard.') }}
+            {{ t('onboarding.steps.welcome.dialog.desktopAlternative', 'Or open Settings → Guided Tours → Companion Wizard.') }}
           </p>
         </div>
 

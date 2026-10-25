@@ -46,11 +46,11 @@ steps:
       comebackLead: Si vous souhaitez y revenir plus tard, il vous suffit de
       desktopInstruction: faire un clic droit sur l'icône de la barre d'état système
         d'AIRI et de cliquer sur Assistant de compagnon.
-      desktopAlternative: Ou ouvrez Paramètres → Assistant de personnage → Assistant de compagnon.
+      desktopAlternative: Or open Settings → Guided Tours → Companion Wizard.
       webInstruction: appuyez sur l'icône d'engrenage en haut à droite pour ouvrir les
         Paramètres, puis accédez à Assistant de personnage → Assistant de
         compagnon.
-      webSettingsPath: Paramètres → Assistant de personnage → Assistant de compagnon
+      webSettingsPath: Settings → Guided Tours → Companion Wizard
       close: Fermer
     quickStartButton: Quick start
     quickStartDuration: ≈ 1 min
@@ -2798,6 +2798,7 @@ quickStart:
     selectCompanion: Please select a starter companion
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
+  ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
 onboarding:
   steps:
     appearance:

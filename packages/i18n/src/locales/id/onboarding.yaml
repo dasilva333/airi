@@ -43,10 +43,10 @@ steps:
       closeToTray: Tutup ke Baki Sistem
       comebackLead: Jika Anda ingin kembali lagi nanti, cukup
       desktopInstruction: klik kanan ikon baki sistem AIRI dan klik Panduan Pendamping.
-      desktopAlternative: Atau buka Pengaturan → Panduan Karakter → Panduan Pendamping.
+      desktopAlternative: Or open Settings → Guided Tours → Companion Wizard.
       webInstruction: ketuk ikon roda gigi di kanan atas untuk membuka Pengaturan,
         lalu buka Panduan Karakter → Panduan Pendamping.
-      webSettingsPath: Pengaturan → Panduan Karakter → Panduan Pendamping
+      webSettingsPath: Settings → Guided Tours → Companion Wizard
       close: Tutup
     quickStartButton: Quick start
     quickStartDuration: ≈ 1 min
@@ -2776,6 +2776,7 @@ quickStart:
     selectCompanion: Please select a starter companion
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
+  ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
 onboarding:
   steps:
     appearance:

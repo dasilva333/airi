@@ -38,9 +38,9 @@ steps:
       closeToTray: 最小化到托盘
       comebackLead: 如果你想稍后再返回设置，只需
       desktopInstruction: 右键点击 AIRI 系统托盘图标并点击“伴侣向导”。
-      desktopAlternative: 或打开 设置 → 角色向导 → 伴侣向导。
+      desktopAlternative: Or open Settings → Guided Tours → Companion Wizard.
       webInstruction: 点击右上角的齿轮图标打开设置，然后前往 角色向导 → 伴侣向导。
-      webSettingsPath: 设置 → 角色向导 → 伴侣向导
+      webSettingsPath: Settings → Guided Tours → Companion Wizard
       close: 关闭
     quickStartButton: 极速启动
     quickStartDuration: 约 1 分钟
@@ -2518,6 +2518,7 @@ quickStart:
     selectCompanion: Please select a starter companion
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
+  ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
 onboarding:
   steps:
     appearance:

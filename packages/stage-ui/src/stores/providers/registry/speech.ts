@@ -299,6 +299,8 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
       description: 'Native AI - Local text-to-speech using Kokoro-82M',
       icon: 'i-lobe-icons:speaker',
       requiresCredentials: false,
+      deployment: 'local',
+      pricing: 'free',
 
       defaultOptions: () => {
         const model = getDefaultKokoroModel(getCachedWebGPUCapabilities())
@@ -454,6 +456,8 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
       description: 'Native AI - Local text-to-speech with voice cloning (0.1B Nano)',
       icon: 'i-solar:speaker-bold-duotone',
       requiresCredentials: false,
+      deployment: 'local',
+      pricing: 'free',
       defaultOptions: () => ({
         model: 'moss-tts-nano-100m',
         voiceId: '',
@@ -672,6 +676,8 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
       description: 'Native AI - Low-latency CPU text-to-speech & voice cloning (0.1B Multilingual)',
       icon: 'i-solar:speaker-minimalistic-bold-duotone',
       requiresCredentials: false,
+      deployment: 'local',
+      pricing: 'free',
       defaultOptions: () => ({
         model: 'english_2026-04',
         language: 'english',
