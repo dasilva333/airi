@@ -4,8 +4,12 @@ import { computed } from 'vue'
 
 import { CUSTOMIZER_CATALOG } from '../constants'
 
-interface StripButton {
+// Carries label/icon through the filter untouched so the output feeds
+// useControlStripButtonPresentation directly (ControlStripButtonLike).
+export interface StripButton {
   id: string
+  label: string
+  icon: string
   enabled: boolean
 }
 
@@ -20,9 +24,8 @@ const desktopOnlyById: Map<string, boolean> = new Map(
   CUSTOMIZER_CATALOG.flatMap(g => g.items).map(i => [i.id, !!i.desktopOnly]),
 )
 
-// Verbatim extraction of button-visibility + badge state from ControlStrip.vue.
-// Icon/title/short-label `if`-chains stay in the strip for P1 (constants extraction
-// by the parallel agent); this module owns only enabled-filtering + dot classes.
+// Enabled-filtering + dot classes. The filter preserves the full button objects
+// so the output feeds useControlStripButtonPresentation directly.
 export function useControlStripButtons(options: UseControlStripButtonsOptions) {
   const { mode, buttons, isSandboxAllowed, powerState } = options
 
