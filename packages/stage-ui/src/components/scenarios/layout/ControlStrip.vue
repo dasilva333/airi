@@ -11,11 +11,11 @@ import SelfiesPopover from './popovers/SelfiesPopover.vue'
 
 import { useControlStripAction } from '../../../composables/use-control-strip-action'
 import { useControlStripButtonPresentation } from '../../../composables/use-control-strip-button-presentation'
+import { useControlStripButtons } from '../../../composables/use-control-strip-buttons'
 import { installMateSpeechDevtoolsHook, useControlStripCaptionRelay } from '../../../composables/use-control-strip-caption-relay'
 import { useControlStripDrag } from '../../../composables/use-control-strip-drag'
 import { useControlStripGeometry } from '../../../composables/use-control-strip-geometry'
 import { useControlStripSelfie } from '../../../composables/use-control-strip-selfie'
-import { CUSTOMIZER_CATALOG } from '../../../constants'
 import { useBackgroundStore } from '../../../stores/background'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useLiveSessionStore } from '../../../stores/modules/live-session'
@@ -51,21 +51,22 @@ const isSandboxAllowed = computed(() => {
   return Boolean(tools && (tools.includes('bash') || tools.includes('mcp_bash')))
 })
 
-// Filter for active buttons
-const activeButtons = computed(() => {
-  const isMobile = props.mode === 'mobile'
-  const allCatalog = CUSTOMIZER_CATALOG.flatMap(g => g.items)
-  const desktopOnlyMap = new Map(allCatalog.map(i => [i.id, !!i.desktopOnly]))
+// Persistent dragging position, defaults to top-right layout bounds
+const position = useLocalStorageManualReset<{ x: number, y: number }>('settings/control-strip/position', { x: 20, y: 150 })
 
-  return buttons.value.filter((btn) => {
-    if (!btn.enabled)
-      return false
-    if (isMobile && desktopOnlyMap.get(btn.id))
-      return false
-    if (btn.id === 'workspace' && !isSandboxAllowed.value)
-      return false
-    return true
-  })
+const settingsAudioDeviceStore = useSettingsAudioDevice()
+const { enabled: micEnabled } = storeToRefs(settingsAudioDeviceStore)
+
+const liveSessionStore = useLiveSessionStore()
+const { powerState } = storeToRefs(liveSessionStore)
+
+// Enabled-filtered buttons (drops desktop-only controls on mobile, and workspace
+// when the active card has no sandbox tool) plus their presentation descriptors.
+const { activeButtons } = useControlStripButtons({
+  mode: toRef(props, 'mode'),
+  buttons,
+  isSandboxAllowed,
+  powerState,
 })
 
 // One descriptor per button (icon, colour, tooltip, hover label, status dot).
@@ -101,15 +102,6 @@ const { presentation: buttonPresentation } = useControlStripButtonPresentation({
     chatboxActiveBackgroundId: chatboxActiveBackgroundId.value,
   }),
 })
-
-// Persistent dragging position, defaults to top-right layout bounds
-const position = useLocalStorageManualReset<{ x: number, y: number }>('settings/control-strip/position', { x: 20, y: 150 })
-
-const settingsAudioDeviceStore = useSettingsAudioDevice()
-const { enabled: micEnabled } = storeToRefs(settingsAudioDeviceStore)
-
-const liveSessionStore = useLiveSessionStore()
-const { powerState } = storeToRefs(liveSessionStore)
 
 const controlsIslandStore = useSettingsControlsIsland()
 const { fadeOnHoverEnabled, alwaysOnTop } = storeToRefs(controlsIslandStore)
