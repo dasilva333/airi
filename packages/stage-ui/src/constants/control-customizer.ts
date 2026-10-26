@@ -138,7 +138,6 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         type: 'toggle',
         defaultOnStrip: true,
         binding: 'chatOpen',
-        desktopOnly: true,
       },
       {
         id: 'mic',

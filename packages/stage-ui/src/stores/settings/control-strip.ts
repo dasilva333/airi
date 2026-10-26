@@ -45,6 +45,7 @@ export const DEFAULT_BUTTONS: ControlStripButton[] = [
 ]
 
 export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
+  { id: 'chat', enabled: true, label: 'Chat Toggle', icon: 'i-solar:chat-line-linear' },
   { id: 'viewport-cycle-modes', enabled: true, label: 'Cycle Viewport Modes', icon: 'i-solar:cursor-linear' },
   { id: 'head-tethered-caption', enabled: true, label: 'Head-Tethered Caption', icon: 'i-solar:chat-round-line-linear' },
   { id: 'actor-motion-playground', enabled: true, label: 'Motion', icon: 'i-solar:walking-round-linear' },
@@ -92,8 +93,17 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
   const stageEnabled = useLocalStorageManualReset<boolean>('settings/stage-enabled', true)
   const stageDisabled = ref(false)
   const stageMateEnabled = useLocalStorageManualReset<boolean>('settings/stage-mate-enabled', false)
-  const chatOpen = useLocalStorageManualReset<boolean>('settings/chat-open', false)
+  const chatOpen = useLocalStorageManualReset<boolean>('settings/chat-open', !isStageTamagotchi())
   const captionOpen = useLocalStorageManualReset<boolean>('settings/caption-open', false)
+
+  // Web default: chat is open by default on web/mobile stages.
+  // Existing web sessions that had the legacy 'false' default are initialized to true once.
+  if (!isStageTamagotchi() && typeof localStorage !== 'undefined') {
+    if (localStorage.getItem('settings/control-strip/web-chat-defaulted') !== 'true') {
+      chatOpen.value = true
+      localStorage.setItem('settings/control-strip/web-chat-defaulted', 'true')
+    }
+  }
   const workspaceOpen = useLocalStorageManualReset<boolean>('settings/control-strip/workspace-open', false)
   const backgroundTint = useLocalStorageManualReset<string>('settings/control-strip/background-tint', '#171717')
   const collapsed = useLocalStorageManualReset<boolean>('settings/control-strip/collapsed', false)
@@ -135,11 +145,20 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
     // On mobile/web, drop any legacy 'gemini-session' button slot. It used to
     // migrate into 'stage-atmosphere', but Stage Theme is deprecated on
     // mobile (consolidated into Quick Settings > Appearance), so there is
-    // nothing to migrate it into.
+    // nothing to migrate it into. Also ensure 'chat' is present on the strip.
     if (!isStageTamagotchi()) {
       const geminiIdx = existing.findIndex(btn => btn.id === 'gemini-session')
       if (geminiIdx !== -1) {
         existing.splice(geminiIdx, 1)
+        changed = true
+      }
+      if (!existing.some(btn => btn.id === 'chat')) {
+        existing.unshift({
+          id: 'chat',
+          enabled: true,
+          label: 'Chat Toggle',
+          icon: 'i-solar:chat-line-linear',
+        })
         changed = true
       }
     }

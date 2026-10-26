@@ -62,7 +62,7 @@ const positioningStore = usePositioningStore()
 const settingsStore = useSettings()
 const controlStripStore = useSettingsControlStrip()
 const { stageModelSelected, stageModelRenderer } = storeToRefs(settingsStore)
-const { dockedEdge, workspaceOpen } = storeToRefs(controlStripStore)
+const { dockedEdge, workspaceOpen, chatOpen } = storeToRefs(controlStripStore)
 
 const computedScale = computed(() => {
   const key = stageModelSelected.value || 'global'
@@ -298,7 +298,7 @@ onUnmounted(() => {
         <ControlStrip mode="mobile" class="z-45" />
 
         <InteractiveArea
-          v-if="!isPortraitMobile"
+          v-if="!isPortraitMobile && chatOpen"
           :class="[
             'absolute h-[85dvh] max-w-[500px] min-w-[30%] flex flex-1 flex-col transition-all duration-300 ease-out z-10',
             dockedEdge === 'left' ? 'right-6' : 'left-6',
@@ -306,7 +306,7 @@ onUnmounted(() => {
         />
         <!-- In-Page Floating Generative Widgets Layer -->
         <FloatingWidgetsLayer />
-        <MobileWhisperSheet v-if="isPortraitMobile" @settings-open="handleSettingsOpen" />
+        <MobileWhisperSheet v-if="isPortraitMobile && chatOpen" @settings-open="handleSettingsOpen" />
         <MobileWorkspaceSheet v-if="workspaceOpen" @close="workspaceOpen = false" />
         <VoiceCreatorModal
           v-model="voiceEditorOpen"

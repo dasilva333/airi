@@ -53,7 +53,7 @@ const positionCursor = useMouse()
 const settingsStore = useSettings()
 const controlStripStore = useSettingsControlStrip()
 const { stageModelSelected, lastReloadReason } = storeToRefs(settingsStore)
-const { dockedEdge, workspaceOpen } = storeToRefs(controlStripStore)
+const { dockedEdge, workspaceOpen, chatOpen } = storeToRefs(controlStripStore)
 const positioningStore = usePositioningStore()
 
 const scale = computed(() => {
@@ -300,7 +300,7 @@ onUnmounted(() => {
           </div>
         </div>
         <InteractiveArea
-          v-if="!isPortraitMobile"
+          v-if="!isPortraitMobile && chatOpen"
           :class="[
             'h-[85dvh] absolute z-10 flex flex-1 flex-col max-w-[500px] min-w-[30%] transition-all duration-300 ease-out',
             dockedEdge === 'left' ? 'right-6' : 'left-6',
@@ -310,7 +310,7 @@ onUnmounted(() => {
         <FloatingWidgetsLayer />
         <!-- Edge-Docked Control Strip with 14px Notch Anchor -->
         <ControlStrip mode="mobile" class="z-45" />
-        <MobileWhisperSheet v-if="isPortraitMobile" @settings-open="handleSettingsOpen" />
+        <MobileWhisperSheet v-if="isPortraitMobile && chatOpen" @settings-open="handleSettingsOpen" />
         <MobileWorkspaceSheet v-if="workspaceOpen" @close="workspaceOpen = false" />
         <VoiceCreatorModal
           v-model="voiceEditorOpen"

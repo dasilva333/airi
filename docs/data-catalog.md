@@ -880,7 +880,8 @@ interface StoredCustomVrmAnimation {
 | `settings/privacy/remote-sync-enabled` | `boolean` | `false` | `stores/settings/general.ts` |
 | `settings/websocket/secure-enabled` | `boolean` | `false` | `stores/settings/general.ts` |
 | `settings/stage-enabled` | `boolean` | `true` | `stores/settings/control-strip.ts` |
-| `settings/chat-open` | `boolean` | `false` | `stores/settings/control-strip.ts` |
+| `settings/chat-open` | `boolean` | `false` (desktop) / `true` (web) | `stores/settings/control-strip.ts` |
+| `settings/control-strip/web-chat-defaulted` | `string` | `'true'` | `stores/settings/control-strip.ts` |
 | `settings/caption-open` | `boolean` | `false` | `stores/settings/control-strip.ts` |
 | `settings/allow-visible-on-all-workspaces` | `boolean` | `true` | `stores/settings/controls-island.ts` |
 | `settings/always-on-top` | `boolean` | `true` | `stores/settings/controls-island.ts` |
