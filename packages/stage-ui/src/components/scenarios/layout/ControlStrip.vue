@@ -4,13 +4,14 @@ import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useTheme } from '@proj-airi/ui'
 import { onClickOutside, useBroadcastChannel } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, toRef, watch } from 'vue'
 // Ported stores & states for Popovers
 
 import SelfiesPopover from './popovers/SelfiesPopover.vue'
 
 import { useControlStripAction } from '../../../composables/use-control-strip-action'
 import { useControlStripButtonPresentation } from '../../../composables/use-control-strip-button-presentation'
+import { useControlStripGeometry } from '../../../composables/use-control-strip-geometry'
 import { useControlStripSelfie } from '../../../composables/use-control-strip-selfie'
 import { CUSTOMIZER_CATALOG } from '../../../constants'
 import { useBackgroundStore } from '../../../stores/background'
@@ -41,62 +42,7 @@ const controlStripStore = useSettingsControlStrip()
 const { orientation, buttons, stageEnabled, stageMateEnabled, chatOpen, captionOpen, backgroundTint, collapsed, dockedEdge, selfieIncludeBg } = storeToRefs(controlStripStore)
 const isHoveredHandle = ref(false)
 
-const autoHideMode = computed(() => dockedEdge.value !== null)
-
 const activePopover = ref<string | null>(null)
-
-// Auto-hide Tab hover states
-const hoverExpanded = ref(false)
-const hoverTimer = ref<NodeJS.Timeout | null>(null)
-
-const isFullyExpanded = computed(() => {
-  if (autoHideMode.value) {
-    return !collapsed.value || hoverExpanded.value || activePopover.value !== null
-  }
-  return !collapsed.value
-})
-
-function onContainerMouseEnter() {
-  if (autoHideMode.value && collapsed.value) {
-    if (hoverTimer.value) {
-      clearTimeout(hoverTimer.value)
-      hoverTimer.value = null
-    }
-    hoverExpanded.value = true
-  }
-}
-
-function onContainerMouseLeave() {
-  if (autoHideMode.value && collapsed.value) {
-    if (hoverTimer.value)
-      clearTimeout(hoverTimer.value)
-    hoverTimer.value = setTimeout(() => {
-      hoverExpanded.value = false
-    }, 400)
-  }
-}
-
-const autoHideTabClasses = computed(() => {
-  if (!autoHideMode.value || isFullyExpanded.value) {
-    return ''
-  }
-  const edge = dockedEdge.value
-  const base = 'transition-transform duration-300 ease-out'
-
-  if (edge === 'left') {
-    return `${base} rounded-r-full rounded-l-none border-l-0 -translate-x-[calc(100%-14px)]`
-  }
-  if (edge === 'right') {
-    return `${base} rounded-l-full rounded-r-none border-r-0 translate-x-[calc(100%-14px)]`
-  }
-  if (edge === 'top') {
-    return `${base} rounded-b-full rounded-t-none border-t-0 -translate-y-[calc(100%-14px)]`
-  }
-  if (edge === 'bottom') {
-    return `${base} rounded-t-full rounded-b-none border-b-0 translate-y-[calc(100%-14px)]`
-  }
-  return ''
-})
 
 const isSandboxAllowed = computed(() => {
   const tools = cardStore.activeCard?.extensions?.airi?.generation?.known?.allowedTools
@@ -209,6 +155,30 @@ const popoverRef = ref<HTMLElement | null>(null)
 
 const isElectron = computed(() => typeof window !== 'undefined' && !!(window as any).electron)
 
+// Shell geometry: auto-hide tab state, hover expansion, popover placement, strip
+// length and container positioning. `activePopover` stays owned here — the
+// Electron window-bounds contract depends on it.
+const {
+  autoHideMode,
+  isFullyExpanded,
+  onContainerMouseEnter,
+  onContainerMouseLeave,
+  handleContainerClick,
+  autoHideTabClasses,
+  popoverPlacement,
+  containerStyle,
+} = useControlStripGeometry({
+  mode: toRef(props, 'mode'),
+  orientation,
+  dockedEdge,
+  collapsed,
+  activePopover,
+  activeButtons,
+  backgroundTint,
+  isElectron,
+  position,
+})
+
 let lastDispatchedStance: string | null = null
 watch(gunslingerStance, async (stance) => {
   if (stance === lastDispatchedStance)
@@ -290,91 +260,6 @@ function openPresetPopover(btnId: string) {
     }
   }
 }
-
-const popoverPlacement = computed(() => {
-  if (props.mode === 'mobile') {
-    return dockedEdge.value === 'left' ? 'right' : 'left'
-  }
-  if (typeof window === 'undefined')
-    return 'bottom'
-
-  const screenX = window.screenX || 0
-  const screenY = window.screenY || 0
-  const screenWidth = window.screen?.width || window.innerWidth
-  const screenHeight = window.screen?.height || window.innerHeight
-
-  if (orientation.value === 'vertical') {
-    return screenX < screenWidth / 2 ? 'right' : 'left'
-  }
-  else {
-    return screenY < screenHeight / 2 ? 'bottom' : 'top'
-  }
-})
-
-const stripLength = computed(() => {
-  if (!isFullyExpanded.value) {
-    return 52
-  }
-  const N = activeButtons.value.length
-  return N === 0 ? 52 : 52 + 44 * N
-})
-
-const containerStyle = computed(() => {
-  if (props.mode === 'mobile') {
-    const styles: Record<string, string> = {
-      top: '50%',
-      transform: 'translateY(-50%)',
-    }
-    if (dockedEdge.value === 'left') {
-      styles.left = '0px'
-    }
-    else {
-      styles.right = '0px'
-    }
-    return styles
-  }
-  if (isElectron.value) {
-    const styles: Record<string, string> = {
-      backgroundColor: backgroundTint.value || '',
-      opacity: '0.85',
-    }
-    if (activePopover.value) {
-      if (orientation.value === 'vertical') {
-        const windowHeight = Math.max(500, stripLength.value)
-        styles.top = `${(windowHeight - stripLength.value) / 2}px`
-        if (popoverPlacement.value === 'right') {
-          styles.left = '0px'
-        }
-        else {
-          styles.left = '276px'
-        }
-      }
-      else {
-        const windowWidth = Math.max(500, stripLength.value)
-        styles.left = `${(windowWidth - stripLength.value) / 2}px`
-        if (popoverPlacement.value === 'bottom') {
-          styles.top = '0px'
-        }
-        else {
-          styles.top = '452px'
-        }
-      }
-    }
-    else {
-      styles.left = '0px'
-      styles.top = '0px'
-    }
-    return styles
-  }
-  else {
-    return {
-      top: `${position.value.y}px`,
-      right: `${position.value.x}px`,
-      backgroundColor: backgroundTint.value || '',
-      opacity: '0.85',
-    }
-  }
-})
 
 watch(activePopover, (newVal) => {
   if (typeof window !== 'undefined') {
@@ -558,12 +443,6 @@ function handleRightClick(e: MouseEvent) {
   e.preventDefault()
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('control-strip:open-customizer'))
-  }
-}
-
-function handleContainerClick() {
-  if (autoHideMode.value && !isFullyExpanded.value) {
-    collapsed.value = false
   }
 }
 
