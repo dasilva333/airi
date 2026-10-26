@@ -161,7 +161,16 @@ export const layeredMemory = {
     return this.lastIndexState
   },
 
-  async persist(force = false) {
+  /**
+   * Persist the worker's in-memory index to IndexedDB.
+   *
+   * `watermark` overrides the snapshot header's coverage frontier. The
+   * background backfill walks oldest→newest and supplies an explicit frontier
+   * per checkpoint: the worker's own `trackIndexedTurnTime` is a max-of-batch
+   * value, so indexing a hot set first would leap the watermark over the
+   * older gap that has not been embedded yet.
+   */
+  async persist(force = false, options?: { watermark?: number }) {
     if (!force && (isPersisting || Date.now() - lastPersistAt < MIN_PERSIST_INTERVAL_MS))
       return
 
@@ -178,7 +187,7 @@ export const layeredMemory = {
 
       isPersisting = true
       try {
-        const snapshot = await searchWorker.persist()
+        const snapshot = await searchWorker.persist(options?.watermark)
         await indexStorage.setItem('snapshot', snapshot)
         lastPersistAt = Date.now()
         // Keep the exposed watermark current with what was just written so
@@ -1070,7 +1079,14 @@ export const layeredMemory = {
     return sliced
   },
 
-  async indexDocuments(documents: any[]) {
+  /**
+   * Embed + index a slice of documents.
+   *
+   * `persist: false` lets the caller own the snapshot cadence. The background
+   * backfill uses it to checkpoint every N docs instead of serializing a
+   * multi-MB snapshot after every index batch.
+   */
+  async indexDocuments(documents: any[], options?: { persist?: boolean }) {
     if (!documents || documents.length === 0)
       return
 
@@ -1078,7 +1094,8 @@ export const layeredMemory = {
       isIndexing = true
       try {
         await searchWorker.index(documents)
-        await this.persist()
+        if (options?.persist !== false)
+          await this.persist()
       }
       finally {
         isIndexing = false

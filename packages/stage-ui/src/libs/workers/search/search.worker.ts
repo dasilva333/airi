@@ -677,6 +677,14 @@ globalThis.addEventListener('message', async (e) => {
       }
 
       case 'persist': {
+        // NOTICE: `watermark` is an explicit coverage frontier from the
+        // background backfill. The worker's own tracker is a max-over-batch
+        // value, which is only equivalent when the pass is strictly
+        // oldest→newest with no hot-set detour.
+        const override = payload?.watermark
+        if (typeof override === 'number' && Number.isFinite(override))
+          lastIndexedTurnAt = override
+
         // NOTICE: persist documents with 4-decimal-place quantized embeddings
         // to cut JSON snapshot size in half while preserving vectors across reboots.
         const snapshot: SearchSnapshot = {

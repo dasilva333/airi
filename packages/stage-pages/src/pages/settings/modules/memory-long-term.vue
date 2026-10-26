@@ -34,6 +34,7 @@ const {
   lastSearchMode,
   isRebuildingVectorIndex,
   vectorIndexProgress,
+  backgroundIndexProgress,
 } = storeToRefs(textJournalStore)
 
 const activeTab = ref<'records' | 'graph'>('records')
@@ -385,6 +386,51 @@ watch(characterOptions, (options) => {
           v-if="isRebuildingVectorIndex && vectorIndexProgress?.percent !== undefined"
           :progress="vectorIndexProgress.percent"
         />
+      </div>
+
+      <!-- Background Index Progress Banner — resumable, checkpointed pass -->
+      <div
+        v-if="backgroundIndexProgress && backgroundIndexProgress.phase !== 'idle'"
+        class="mt-4 flex flex-col gap-2 border rounded-2xl p-4 transition-all"
+        :class="[
+          backgroundIndexProgress.phase === 'error'
+            ? 'border-rose-500/30 bg-rose-500/5 text-rose-700 dark:text-rose-300'
+            : backgroundIndexProgress.phase === 'deferred'
+              ? 'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300'
+              : backgroundIndexProgress.phase === 'completed'
+                ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300'
+                : 'border-primary-500/30 bg-primary-500/5 text-primary-700 dark:text-primary-300',
+        ]"
+      >
+        <div class="flex items-center justify-between text-xs">
+          <span class="flex items-center gap-2 font-medium">
+            <div
+              :class="[
+                backgroundIndexProgress.phase === 'completed'
+                  ? 'i-solar:check-circle-bold-duotone text-base text-emerald-500'
+                  : backgroundIndexProgress.phase === 'error'
+                    ? 'i-solar:danger-triangle-bold-duotone text-base text-rose-500'
+                    : backgroundIndexProgress.phase === 'deferred'
+                      ? 'i-solar:pause-circle-bold-duotone text-base text-amber-500'
+                      : 'i-solar:loading-bold animate-spin text-base',
+              ]"
+            />
+            {{ backgroundIndexProgress.message }}
+          </span>
+          <span
+            v-if="backgroundIndexProgress.phase !== 'completed' && backgroundIndexProgress.total > 0"
+            class="font-bold"
+          >
+            {{ backgroundIndexProgress.indexed }}/{{ backgroundIndexProgress.total }}
+          </span>
+        </div>
+        <Progress
+          v-if="backgroundIndexProgress.phase !== 'completed' && backgroundIndexProgress.total > 0"
+          :progress="backgroundIndexProgress.percent"
+        />
+        <span class="text-[10px] text-neutral-500 dark:text-neutral-400">
+          Progress is checkpointed to the search snapshot, so an interrupted pass resumes from the last checkpoint instead of re-embedding everything.
+        </span>
       </div>
     </section>
 

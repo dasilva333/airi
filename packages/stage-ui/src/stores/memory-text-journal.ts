@@ -36,6 +36,46 @@ export interface VectorIndexRebuildProgress {
   message?: string
 }
 
+/**
+ * Background (non-destructive) index pass. Distinct from the explicit rebuild:
+ * this one is resumable, walks oldest → newest, and checkpoints the coverage
+ * frontier so a crash costs at most one checkpoint window.
+ */
+export interface BackgroundIndexProgress {
+  phase: 'idle' | 'hot-set' | 'backfill' | 'delta' | 'checkpoint' | 'completed' | 'deferred' | 'error'
+  indexed: number
+  total: number
+  /** Persisted coverage frontier: every doc at or below this time is embedded. */
+  cursor: number
+  percent: number
+  message: string
+  startedAt: number
+  updatedAt: number
+}
+
+/**
+ * Batch size for the background pass. Sized so the worker lock is held for a
+ * few seconds at most on CPU-fp32: a 2s-debounced preflight search queues
+ * behind one batch, never behind the whole corpus.
+ */
+const BACKGROUND_INDEX_BATCH_DOCS = 25
+const BACKGROUND_INDEX_CHECKPOINT_DOCS = 250
+/**
+ * Active-session turns embedded before the cold backfill. Small on purpose:
+ * this is the "the conversation in front of me works now" set, not a second
+ * full pass.
+ */
+const BACKGROUND_INDEX_HOT_SET_DOCS = 150
+
+function* chunkArray<T>(items: T[], size: number): Generator<T[]> {
+  for (let i = 0; i < items.length; i += size)
+    yield items.slice(i, i + size)
+}
+
+function yieldToMainThread(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 0))
+}
+
 function normalizeEntry(entry: TextJournalEntry): TextJournalEntry {
   return {
     id: String(entry.id),
@@ -238,6 +278,8 @@ export const useTextJournalStore = defineStore('text-journal', () => {
   const vectorIndexProgress = ref<VectorIndexRebuildProgress | null>(null)
   const vectorIndexError = ref<string | null>(null)
   const lastVectorIndexRebuiltAt = ref<number | null>(null)
+  const backgroundIndexProgress = ref<BackgroundIndexProgress | null>(null)
+  const lastBackgroundIndexCompletedAt = ref<number | null>(null)
   let vectorIndexAbortController: AbortController | null = null
 
   async function backgroundIndexAll() {
@@ -257,6 +299,16 @@ export const useTextJournalStore = defineStore('text-journal', () => {
         // the next load/index call retries once pressure clears.
         if (shouldDegradeBackgroundWork()) {
           console.warn('[TextJournal:Index] Deferred background indexing under memory pressure.')
+          backgroundIndexProgress.value = {
+            phase: 'deferred',
+            indexed: 0,
+            total: 0,
+            cursor: layeredMemory.lastIndexState?.lastIndexedTurnAt ?? 0,
+            percent: 0,
+            message: 'Background indexing deferred under memory pressure; retrying on the next pass.',
+            startedAt: Date.now(),
+            updatedAt: Date.now(),
+          }
           return
         }
         const userId = getCurrentUserId()
@@ -407,31 +459,194 @@ export const useTextJournalStore = defineStore('text-journal', () => {
 
         console.info(`[TextJournal:Index] Indexing counts for ${cardId} in universe ${currentUniverseId}: LTMM=${ltmm.length}, STMM=${stmm.length}, Raw=${raw.length}, Echoes=${echoes.length}, Lifetime=${lifetime.length}`)
 
-        // NOTICE: cap on total indexed docs per cycle matching worker memory budget.
+        // NOTICE: cap on total indexed docs per cycle matching worker memory
+        // budget. Keep the cap recency-based (newest survive), then re-order the
+        // survivors by coverage time below.
         const MAX_TOTAL_DOCS = 12000
-        const allDocs = [...ltmm, ...stmm, ...raw, ...echoes, ...lifetime]
+        const cappedDocs = [...ltmm, ...stmm, ...raw, ...echoes, ...lifetime]
           .sort((a: any, b: any) => docIndexTime(b) - docIndexTime(a))
           .slice(0, MAX_TOTAL_DOCS)
 
-        const watermark = layeredMemory.lastIndexState?.lastIndexedTurnAt
-          ?? (typeof localStorage !== 'undefined' ? Number(localStorage.getItem(LAST_INDEXED_TURN_KEY) || 0) : 0)
+        // NOTICE: coverage-frontier ordering. The persisted watermark means
+        // "every document at or below this time is embedded", so the pass must
+        // walk oldest → newest and advance the frontier monotonically. Ordering
+        // by recency (as this used to) lets the first checkpoint leap over the
+        // uncovered older tail, and the delta filter then hides that gap forever.
+        const orderedDocs = cappedDocs.sort((a: any, b: any) => docIndexTime(a) - docIndexTime(b))
 
-        if (watermark > 0 && !layeredMemory.lastIndexState?.stale) {
-          // NOTICE: fail open — a doc with no parseable time (0) is indexed,
-          // never silently dropped. Only strictly-older docs skip.
-          const deltaDocs = allDocs.filter((d: any) => {
-            const time = docIndexTime(d)
-            return time === 0 || time > watermark
-          })
-          if (deltaDocs.length === 0) {
-            console.info(`[TextJournal:Index] Index is up-to-date with watermark ${watermark}; skipping indexing.`)
-            return
+        const rawWatermark = layeredMemory.lastIndexState?.lastIndexedTurnAt
+          ?? (typeof localStorage !== 'undefined' ? Number(localStorage.getItem(LAST_INDEXED_TURN_KEY) || 0) : 0)
+        // NOTICE: a corrupted/legacy value must degrade to "backfill", never to
+        // "every doc fails `time > NaN`, so the index is up to date".
+        const watermark = Number.isFinite(rawWatermark) ? rawWatermark : 0
+        // A stale snapshot has had its vectors stripped by the worker, so no
+        // stored coverage can be trusted — rebuild it from zero.
+        const isStale = layeredMemory.lastIndexState?.stale === true
+        const isBackfill = isStale || watermark <= 0
+
+        // NOTICE: fail open — a doc with no parseable time (0) is indexed,
+        // never silently dropped. Only strictly-older docs skip.
+        const pendingDocs = isBackfill
+          ? orderedDocs
+          : orderedDocs.filter((doc: any) => {
+              const time = docIndexTime(doc)
+              return time === 0 || time > watermark
+            })
+
+        const startedAt = Date.now()
+        let indexed = 0
+        let frontier = isBackfill ? 0 : watermark
+        let lastCheckpointAt = 0
+        const total = pendingDocs.length
+
+        const publish = (
+          phase: BackgroundIndexProgress['phase'],
+          message: string,
+        ) => {
+          backgroundIndexProgress.value = {
+            phase,
+            indexed,
+            total,
+            cursor: frontier,
+            percent: total > 0 ? Math.min(100, Math.round((indexed / total) * 100)) : 100,
+            message,
+            startedAt,
+            updatedAt: Date.now(),
           }
-          console.info(`[TextJournal:Index] Watermark ${watermark}: indexing ${deltaDocs.length} new/updated document(s).`)
-          await layeredMemory.indexDocuments(deltaDocs)
         }
-        else {
-          await layeredMemory.indexDocuments(allDocs)
+
+        // NOTICE: force=true is required — the 30s throttle would silently skip
+        // a checkpoint and let a crash degrade into a full re-embed.
+        const checkpoint = async () => {
+          // Durable telemetry: this is the line that proves a resumed pass
+          // picked up the previous frontier instead of starting over.
+          console.info('[Telemetry:TextJournal:BackgroundIndex:Checkpoint]', {
+            indexed,
+            total,
+            frontier,
+            elapsedMs: Date.now() - startedAt,
+          })
+          await layeredMemory.persist(true, { watermark: frontier })
+        }
+
+        if (pendingDocs.length === 0) {
+          console.info(`[TextJournal:Index] Index is up-to-date with watermark ${watermark}; skipping indexing.`)
+          backgroundIndexProgress.value = {
+            phase: 'completed',
+            indexed: 0,
+            total: 0,
+            cursor: watermark,
+            percent: 100,
+            message: 'Vector index is up to date.',
+            startedAt,
+            updatedAt: Date.now(),
+          }
+          lastBackgroundIndexCompletedAt.value = Date.now()
+          return
+        }
+
+        // Hot set (cold snapshot only): embed the active session's turns first
+        // so the conversation in front of the user is searchable in seconds.
+        // The frontier deliberately does NOT advance for these — they sit above
+        // the uncovered tail, and the worker's max-of-batch tracker would strand
+        // everything older if it were allowed to persist their timestamps.
+        const hotSet = isBackfill && activeSessionId
+          ? pendingDocs
+              .filter((d: any) => d.source === `chat:${activeSessionId}`)
+              .slice(-BACKGROUND_INDEX_HOT_SET_DOCS)
+          : []
+        const hotIds = new Set(hotSet.map((d: any) => d.id))
+        const backfillDocs = hotSet.length > 0
+          ? pendingDocs.filter((d: any) => !hotIds.has(d.id))
+          : pendingDocs
+
+        console.info(`[TextJournal:Index] Watermark ${watermark} (backfill=${isBackfill}): ${total} document(s) to embed, hot set ${hotSet.length}.`)
+
+        try {
+          if (hotSet.length > 0) {
+            publish('hot-set', `Indexing the active conversation first (${hotSet.length} turn chunk${hotSet.length === 1 ? '' : 's'})...`)
+            for (const batch of chunkArray(hotSet, BACKGROUND_INDEX_BATCH_DOCS)) {
+              await layeredMemory.indexDocuments(batch, { persist: false })
+              indexed += batch.length
+              publish('hot-set', `Active conversation indexed: ${indexed}/${total} documents...`)
+              await yieldToMainThread()
+            }
+            // Crash safety without moving the coverage frontier.
+            await checkpoint()
+          }
+
+          const mode = isBackfill ? 'backfill' : 'delta'
+          for (const batch of chunkArray(backfillDocs, BACKGROUND_INDEX_BATCH_DOCS)) {
+            await layeredMemory.indexDocuments(batch, { persist: false })
+
+            // Ascending walk: the newest document in the batch is a valid
+            // frontier because every older document has already been sent.
+            const batchFrontier = docIndexTime(batch[batch.length - 1])
+            if (batchFrontier > frontier)
+              frontier = batchFrontier
+            indexed += batch.length
+
+            publish(
+              mode,
+              mode === 'backfill'
+                ? `Rebuilding vector index: ${indexed}/${total} documents...`
+                : `Updating vector index: ${indexed}/${total} document(s)...`,
+            )
+
+            if (indexed - lastCheckpointAt >= BACKGROUND_INDEX_CHECKPOINT_DOCS) {
+              publish('checkpoint', `Checkpoint: persisting ${indexed}/${total} documents...`)
+              await checkpoint()
+              lastCheckpointAt = indexed
+            }
+
+            // Hand the worker lock back between batches so a 2s-debounced
+            // preflight search never queues behind thousands of embeddings.
+            await yieldToMainThread()
+          }
+
+          // Every pending document is embedded now, including the hot set that
+          // sat above the walking frontier. Publish the true frontier last so a
+          // subsequent pass takes the cheap delta path.
+          for (const doc of pendingDocs) {
+            const time = docIndexTime(doc)
+            if (time > frontier)
+              frontier = time
+          }
+
+          publish('checkpoint', `Persisting vector index snapshot (${indexed}/${total} documents)...`)
+          await checkpoint()
+
+          indexed = total
+          publish('completed', `Vector index up to date: ${total} document(s) embedded.`)
+          lastBackgroundIndexCompletedAt.value = Date.now()
+          console.info('[Telemetry:TextJournal:BackgroundIndex:Complete]', {
+            total,
+            hotSet: hotSet.length,
+            watermark: frontier,
+            durationMs: Date.now() - startedAt,
+          })
+        }
+        catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          console.error('[TextJournal:Index] Background indexing failed:', err)
+          backgroundIndexProgress.value = {
+            phase: 'error',
+            indexed,
+            total,
+            cursor: frontier,
+            percent: total > 0 ? Math.round((indexed / total) * 100) : 0,
+            message: `Background indexing stopped at ${indexed}/${total}: ${message}`,
+            startedAt,
+            updatedAt: Date.now(),
+          }
+          // Best-effort checkpoint so the next pass resumes where this one
+          // stopped instead of restarting from the old watermark.
+          try {
+            await checkpoint()
+          }
+          catch (persistErr) {
+            console.error('[TextJournal:Index] Failed to persist indexing checkpoint:', persistErr)
+          }
         }
       }
       finally {
@@ -670,7 +885,11 @@ export const useTextJournalStore = defineStore('text-journal', () => {
       for (let i = 0; i < totalDocs; i += batchSize) {
         signal.throwIfAborted()
         const batch = allDocs.slice(i, i + batchSize)
-        await layeredMemory.indexDocuments(batch)
+        // NOTICE: no per-batch persist. The rebuild walks newest → oldest, so
+        // the worker's max-of-batch watermark would claim coverage of an older
+        // tail it has not reached yet; an interrupted rebuild must leave the
+        // previous frontier intact. The single forced persist below owns it.
+        await layeredMemory.indexDocuments(batch, { persist: false })
         indexedSoFar = Math.min(totalDocs, i + batch.length)
 
         vectorIndexProgress.value = {
@@ -1330,6 +1549,8 @@ ${input.instructions ? `\nAdditional Instructions: ${input.instructions}\n` : ''
     vectorIndexProgress,
     vectorIndexError,
     lastVectorIndexRebuiltAt,
+    backgroundIndexProgress,
+    lastBackgroundIndexCompletedAt,
     persist,
     createJournalMoment,
     lastSearchTriage,

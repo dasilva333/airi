@@ -46,7 +46,8 @@ export interface SearchBackend {
     vector?: number[],
   ) => Promise<any>
   remove: (id: string) => Promise<any>
-  persist: () => Promise<any>
+  /** `watermark` overrides the persisted coverage frontier (see layeredMemory.persist). */
+  persist: (watermark?: number) => Promise<any>
 }
 
 type SearchRpcOp = 'init' | 'index' | 'search' | 'remove' | 'persist'
@@ -174,7 +175,7 @@ export function createChannelSearchClient(channel: BroadcastChannel): SearchBack
     search: (query: string, limit?: number, characterId?: string, temporalHooks?: any[], signal?: AbortSignal, vector?: number[]) =>
       rpc('search', [query, limit, characterId, temporalHooks, vector], signal),
     remove: (id: string) => rpc('remove', [id]),
-    persist: () => rpc('persist', []),
+    persist: (watermark?: number) => rpc('persist', [watermark]),
   }
 }
 
