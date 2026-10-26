@@ -10,6 +10,7 @@ import { computed, ref, watch } from 'vue'
 import SelfiesPopover from './popovers/SelfiesPopover.vue'
 
 import { useControlStripAction } from '../../../composables/use-control-strip-action'
+import { useControlStripButtonPresentation } from '../../../composables/use-control-strip-button-presentation'
 import { useControlStripSelfie } from '../../../composables/use-control-strip-selfie'
 import { CUSTOMIZER_CATALOG } from '../../../constants'
 import { useBackgroundStore } from '../../../stores/background'
@@ -37,7 +38,7 @@ const { gunslingerStance } = storeToRefs(stageModelSettings)
 console.log('[ControlStrip.vue] Setup loaded with Selfie feature support')
 const { themeMode, isDark } = useTheme()
 const controlStripStore = useSettingsControlStrip()
-const { orientation, buttons, stageEnabled, stageMateEnabled, chatOpen, captionOpen, backgroundTint, stageMode, collapsed, dockedEdge, selfieIncludeBg } = storeToRefs(controlStripStore)
+const { orientation, buttons, stageEnabled, stageMateEnabled, chatOpen, captionOpen, backgroundTint, collapsed, dockedEdge, selfieIncludeBg } = storeToRefs(controlStripStore)
 const isHoveredHandle = ref(false)
 
 const autoHideMode = computed(() => dockedEdge.value !== null)
@@ -117,6 +118,40 @@ const activeButtons = computed(() => {
       return false
     return true
   })
+})
+
+// One descriptor per button (icon, colour, tooltip, hover label, status dot).
+// Replaces four if-chains and 21 inline badge branches; see
+// constants/control-strip-labels.ts for the resolvers and their parity tests.
+const { presentation: buttonPresentation } = useControlStripButtonPresentation({
+  buttons: activeButtons,
+  context: () => ({
+    themeMode: themeMode.value,
+    isDark: isDark.value,
+    stageTamagotchi: isStageTamagotchi(),
+    workspaceOpen: controlStripStore.workspaceOpen,
+    stageDisabled: controlStripStore.stageDisabled,
+    stageEnabled: stageEnabled.value,
+    stageMateEnabled: stageMateEnabled.value,
+    chatOpen: chatOpen.value,
+    captionOpen: captionOpen.value,
+    interactionMode: settingsStore.controlStripInteractionMode,
+    stageMode: controlStripStore.stageMode,
+    captionDocking: settingsStore.captionDocking ?? 'none',
+    captionLayoutMode: settingsStore.captionLayoutMode,
+    captionFollowStagePosition: settingsStore.captionFollowStagePosition,
+    captionFollowStageVisibility: settingsStore.captionFollowStageVisibility,
+    headTetheredCaptionEnabled: settingsStore.headTetheredCaptionEnabled,
+    micEnabled: micEnabled.value,
+    powerState: powerState.value,
+    fadeOnHoverEnabled: fadeOnHoverEnabled.value,
+    alwaysOnTop: alwaysOnTop.value,
+    gunslingerStance: stageModelSettings.gunslingerStance,
+    activeAtmosphereId: activeAtmosphereId.value,
+    activeBackgroundId: activeBackgroundId.value,
+    chatboxActiveAtmosphereId: chatboxActiveAtmosphereId.value,
+    chatboxActiveBackgroundId: chatboxActiveBackgroundId.value,
+  }),
 })
 
 // Persistent dragging position, defaults to top-right layout bounds
@@ -352,22 +387,6 @@ watch(activePopover, (newVal) => {
   }
 })
 
-const geminiDotClasses = computed(() => {
-  if (powerState.value === 'busy') {
-    return 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] animate-pulse'
-  }
-  if (powerState.value === 'active') {
-    return 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.7)]'
-  }
-  if (powerState.value === 'connecting') {
-    return 'bg-sky-400 animate-pulse'
-  }
-  if (powerState.value === 'ambient') {
-    return 'bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]'
-  }
-  return 'bg-neutral-400/50'
-})
-
 // Dragging states
 const isDragging = ref(false)
 let isMouseDown = false
@@ -553,199 +572,6 @@ function toggleOrientation() {
     return
   controlStripStore.toggleOrientation()
 }
-
-function getButtonIcon(btnId: string, defaultIcon: string): string {
-  if (btnId === 'actor-gunslinger') {
-    return 'i-ph:crosshair-bold'
-  }
-  if (btnId === 'viewport-cycle-modes') {
-    return 'i-solar:cursor-bold-duotone'
-  }
-  if (btnId === 'theme-mode') {
-    if (themeMode.value === 'auto')
-      return 'i-solar:laptop-minimalistic-linear'
-    return isDark.value ? 'i-solar:moon-linear' : 'i-solar:sun-linear'
-  }
-  if (btnId === 'caption-docking') {
-    return settingsStore.captionDocking === 'top' ? 'i-solar:align-top-line-duotone' : 'i-solar:align-bottom-line-duotone'
-  }
-  if (btnId === 'caption-layout-mode') {
-    return settingsStore.captionLayoutMode === 'multi' ? 'i-solar:layers-linear' : 'i-solar:window-frame-linear'
-  }
-  if (btnId === 'stage-atmosphere') {
-    return 'i-solar:magic-stick-3-bold-duotone'
-  }
-  return defaultIcon
-}
-
-function getButtonIconColor(btnId: string): string {
-  if (btnId === 'actor-gunslinger') {
-    const stance = stageModelSettings.gunslingerStance
-    if (stance === 'cat')
-      return 'text-pink-400 dark:text-pink-300'
-    if (stance === 'blk')
-      return 'text-emerald-400 dark:text-emerald-300'
-    if (stance === 'gray')
-      return 'text-cyan-400 dark:text-cyan-300'
-    return 'text-neutral-500 opacity-50'
-  }
-  if (btnId === 'viewport-cycle-modes') {
-    const mode = settingsStore.controlStripInteractionMode
-    if (mode === 'tactile')
-      return 'text-rose-500 dark:text-rose-400'
-    if (mode === 'drag')
-      return 'text-orange-500 dark:text-orange-400'
-    if (mode === 'positioning')
-      return 'text-emerald-500 dark:text-emerald-400'
-    if (mode === 'orbit')
-      return 'text-indigo-500 dark:text-indigo-400'
-  }
-  if (btnId === 'stage-atmosphere') {
-    const hasStageActive = activeAtmosphereId.value !== 'none' || activeBackgroundId.value !== 'none'
-    const hasChatboxActive = isStageTamagotchi() && (chatboxActiveAtmosphereId.value !== 'none' || chatboxActiveBackgroundId.value !== 'none')
-    if (hasStageActive || hasChatboxActive) {
-      return 'text-amber-500 dark:text-amber-400'
-    }
-    return 'text-neutral-500 opacity-50'
-  }
-  if (btnId === 'workspace') {
-    return controlStripStore.workspaceOpen ? 'text-primary-500 dark:text-primary-400' : 'text-neutral-500 opacity-70'
-  }
-  return ''
-}
-
-function getButtonTitle(btnId: string, defaultLabel: string): string {
-  if (btnId === 'actor-gunslinger') {
-    const stance = stageModelSettings.gunslingerStance
-    const stanceLabels: Record<string, string> = {
-      off: 'Disabled (Safe)',
-      cat: 'Cat Gun (Rapid Spray)',
-      blk: 'M1911 Black (.45 ACP)',
-      gray: 'M1911 Silver (Steel Custom)',
-    }
-    return `Gunslinger Stance: ${stanceLabels[stance] || 'Disabled'}`
-  }
-  if (btnId === 'viewport-cycle-modes') {
-    const mode = settingsStore.controlStripInteractionMode
-    const modeLabels: Record<string, string> = {
-      tactile: 'Tactile (Rose)',
-      drag: 'Drag (Orange)',
-      positioning: 'Positioning (Emerald)',
-      orbit: 'Orbit (Indigo)',
-    }
-    return `Cycle Viewport Modes: ${modeLabels[mode] || 'Tactile'}`
-  }
-  if (btnId === 'chat') {
-    return `Chat Toggle: ${chatOpen.value ? 'Open (Green)' : 'Closed (Red)'}`
-  }
-  if (btnId === 'stage') {
-    if (controlStripStore.stageDisabled) {
-      return 'Actor Stage: Disabled (--disable-webgl-stage)'
-    }
-    return `Actor Stage: ${stageEnabled.value ? 'Visible (Green)' : 'Hidden (Red)'}`
-  }
-  if (btnId === 'stage-mate') {
-    return `Stage Mate: ${stageMateEnabled.value ? 'Active (Green)' : 'Disabled (Red)'}`
-  }
-  if (btnId === 'mic') {
-    return `Microphone: ${micEnabled.value ? 'Active (Green)' : 'Muted (Red)'}`
-  }
-  if (btnId === 'caption') {
-    return `Captions: ${captionOpen.value ? 'Active (Green)' : 'Disabled (Red)'}`
-  }
-  if (btnId === 'gemini-session') {
-    const stateLabels: Record<string, string> = {
-      off: 'Disconnected (Gray)',
-      connecting: 'Connecting (Sky Blue)',
-      active: 'Listening / Idle (Red)',
-      busy: 'Transmitting / Speaking (Purple)',
-      ambient: 'Witness Mode Active (Amber)',
-    }
-    return `Speech Session: ${stateLabels[powerState.value] || 'Disconnected (Gray)'}`
-  }
-  if (btnId === 'caption-docking') {
-    const labels: Record<string, string> = {
-      none: 'Caption Docking: NONE',
-      bottom: 'Caption Docking: BOTTOM',
-      top: 'Caption Docking: TOP',
-      head: 'Caption Docking: HEAD',
-    }
-    return labels[settingsStore.captionDocking ?? 'none'] ?? 'Caption Docking: NONE'
-  }
-  if (btnId === 'caption-layout-mode') {
-    return `Caption Layout: ${settingsStore.captionLayoutMode === 'multi' ? 'Multi-line History (Indigo)' : 'Standard Bubble (Teal)'}`
-  }
-  if (btnId === 'caption-sync-position') {
-    return `Caption Sync Position: ${settingsStore.captionFollowStagePosition ? 'ON (Green)' : 'OFF (Red)'}`
-  }
-  if (btnId === 'caption-sync-visibility') {
-    return `Caption Sync Visibility: ${settingsStore.captionFollowStageVisibility ? 'ON (Green)' : 'OFF (Red)'}`
-  }
-  if (btnId === 'head-tethered-caption') {
-    return `Head-Tethered Caption: ${settingsStore.headTetheredCaptionEnabled ? 'ON (Green)' : 'OFF (Red)'}`
-  }
-  if (btnId === 'stage-atmosphere') {
-    if (isStageTamagotchi()) {
-      return `Theme & Atmosphere (Stage: ${activeAtmosphereId.value}, Chat: ${chatboxActiveAtmosphereId.value})`
-    }
-    return `Stage Theme & Atmosphere (${activeAtmosphereId.value}, ${activeBackgroundId.value !== 'none' ? 'Wallpaper' : 'No Wallpaper'})`
-  }
-  return defaultLabel
-}
-
-function getShortLabel(btnId: string): string {
-  const map: Record<string, string> = {
-    'stage-atmosphere': 'Theme',
-    'chat': 'Chat',
-    'mic': 'Mic',
-    'stage': 'Stage',
-    'stage-mate': 'Mate',
-    'caption': 'CC',
-    'gemini-session': 'Live',
-    'settings': 'Set',
-    'layout': 'Edit',
-    'viewport-auto-hide': 'Hide',
-    'always-on-top': 'Pin',
-    'viewport-tactile': 'Touch',
-    'viewport-drag': 'Drag',
-    'viewport-positioning': 'Pos',
-    'viewport-orbit': 'Orbit',
-    'viewport-cycle-modes': settingsStore.controlStripInteractionMode === 'tactile'
-      ? 'Tact'
-      : settingsStore.controlStripInteractionMode === 'drag'
-        ? 'Drag'
-        : settingsStore.controlStripInteractionMode === 'positioning'
-          ? 'Pos'
-          : settingsStore.controlStripInteractionMode === 'orbit' ? 'Orbt' : 'Modes',
-    'viewport-reset-coordinates': 'Reset',
-    'actor-characters': 'Char',
-    'actor-avatars': 'Avtr',
-    'actor-wardrobe': 'Wear',
-    'actor-motions': 'Move',
-    'actor-motion-playground': 'Move',
-    'actor-all-emotions': 'Mood',
-    'actor-vfx': 'VFX',
-    'actor-selfies': 'Self',
-    'actor-macaron': 'Snack',
-    'workspace': 'Work',
-    'theme-mode': 'Color',
-    'caption-docking': settingsStore.captionDocking === 'none'
-      ? 'None'
-      : settingsStore.captionDocking === 'bottom'
-        ? 'Bot'
-        : settingsStore.captionDocking === 'top'
-          ? 'Top'
-          : settingsStore.captionDocking === 'head' ? 'Head' : 'Dock',
-    'caption-layout-mode': 'Rows',
-    'caption-sync-position': 'Pos↔',
-    'caption-sync-visibility': 'Vis↔',
-    'head-tethered-caption': 'HeadCC',
-    'caption-theme-mode': 'Theme',
-    'caption-opacity': 'Opac',
-    'exit-app': 'Quit',
-  }
-  return map[btnId] || btnId.substring(0, 4)
-}
 </script>
 
 <template>
@@ -830,7 +656,7 @@ function getShortLabel(btnId: string): string {
       ]"
     >
       <button
-        v-for="btn in activeButtons"
+        v-for="btn in buttonPresentation"
         :key="btn.id"
         :class="[
           'relative flex items-center justify-center overflow-hidden',
@@ -840,7 +666,7 @@ function getShortLabel(btnId: string): string {
           btn.id === 'stage' && controlStripStore.stageDisabled ? 'opacity-40 grayscale cursor-not-allowed' : '',
           activePopover === btn.id ? 'ring-2 ring-primary-500 ring-offset-2 ring-offset-transparent dark:ring-primary-400 bg-primary-500/15' : '',
         ]"
-        :title="getButtonTitle(btn.id, btn.label)"
+        :title="btn.title"
         @mouseenter="hoveredButtonId = btn.id"
         @mouseleave="hoveredButtonId = null"
         @click="handleAction(btn.id)"
@@ -849,8 +675,8 @@ function getShortLabel(btnId: string): string {
         <!-- Icon fades out on hover -->
         <span
           :class="[
-            getButtonIcon(btn.id, btn.icon),
-            getButtonIconColor(btn.id),
+            btn.icon,
+            btn.iconColor,
             'text-lg absolute transition-all duration-200 ease-in-out',
             hoveredButtonId === btn.id ? 'opacity-0 scale-75' : 'opacity-100 scale-100',
           ]"
@@ -863,208 +689,11 @@ function getShortLabel(btnId: string): string {
             hoveredButtonId === btn.id ? 'opacity-100 scale-100' : 'opacity-0 scale-75',
           ]"
         >
-          {{ getShortLabel(btn.id) }}
+          {{ btn.shortLabel }}
         </span>
 
-        <!-- Status dot badge for Stage (Actor Stage) -->
-        <span
-          v-if="btn.id === 'stage'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            controlStripStore.stageDisabled ? 'bg-neutral-400 dark:bg-neutral-600' : stageEnabled ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for Stage Mate -->
-        <span
-          v-if="btn.id === 'stage-mate'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            stageMateEnabled ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for Chat (Chat Toggle) -->
-        <span
-          v-if="btn.id === 'chat'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            chatOpen ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for Microphone (Microphone Toggle) -->
-        <span
-          v-if="btn.id === 'mic'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            micEnabled ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for Captions (CC Toggle) -->
-        <span
-          v-if="btn.id === 'caption'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            captionOpen ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for Stage Atmosphere / Theme -->
-        <span
-          v-if="btn.id === 'stage-atmosphere'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            (activeAtmosphereId !== 'none' || activeBackgroundId !== 'none' || (isStageTamagotchi() && (chatboxActiveAtmosphereId !== 'none' || chatboxActiveBackgroundId !== 'none')))
-              ? 'bg-amber-400 dark:bg-amber-300'
-              : 'bg-neutral-400 opacity-50',
-          ]"
-        />
-
-        <!-- Status dot badge for Gemini Session (Sparkle Toggle) -->
-        <span
-          v-if="btn.id === 'gemini-session'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-all duration-300',
-            geminiDotClasses,
-          ]"
-        />
-
-        <!-- Status dot badge for Auto-Hide toggle -->
-        <span
-          v-if="btn.id === 'viewport-auto-hide'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            fadeOnHoverEnabled ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for Always-on-Top toggle -->
-        <span
-          v-if="btn.id === 'always-on-top'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            alwaysOnTop ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for Tactile Mode -->
-        <span
-          v-if="btn.id === 'viewport-tactile'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            stageMode === 'tactileMode' ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for Drag Mode -->
-        <span
-          v-if="btn.id === 'viewport-drag'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            stageMode === 'dragMode' ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for Positioning Mode -->
-        <span
-          v-if="btn.id === 'viewport-positioning'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            stageMode === 'positionMode' ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for Orbit Mode -->
-        <span
-          v-if="btn.id === 'viewport-orbit'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            stageMode === 'orbitMode' ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for caption-sync-position -->
-        <span
-          v-if="btn.id === 'caption-sync-position'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            settingsStore.captionFollowStagePosition ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for caption-sync-visibility -->
-        <span
-          v-if="btn.id === 'caption-sync-visibility'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            settingsStore.captionFollowStageVisibility ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for head-tethered-caption -->
-        <span
-          v-if="btn.id === 'head-tethered-caption'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            settingsStore.headTetheredCaptionEnabled ? 'bg-green-500' : 'bg-red-500',
-          ]"
-        />
-
-        <!-- Status dot badge for theme-mode -->
-        <span
-          v-if="btn.id === 'theme-mode'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            themeMode === 'auto' ? 'bg-cyan-500' : isDark ? 'bg-green-500' : 'bg-amber-500',
-          ]"
-        />
-
-        <!-- Status dot badge for caption-docking -->
-        <span
-          v-if="btn.id === 'caption-docking'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-all duration-200',
-            settingsStore.captionDocking === 'none' ? 'bg-neutral-400 shadow-[0_0_6px_rgba(163,163,163,0.5)]' : '',
-            settingsStore.captionDocking === 'bottom' ? 'bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.5)]' : '',
-            settingsStore.captionDocking === 'top' ? 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.5)]' : '',
-            settingsStore.captionDocking === 'head' ? 'bg-fuchsia-400 shadow-[0_0_6px_rgba(232,121,249,0.5)]' : '',
-          ]"
-        />
-
-        <!-- Status dot badge for viewport-cycle-modes -->
-        <span
-          v-if="btn.id === 'viewport-cycle-modes'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-all duration-200',
-            settingsStore.controlStripInteractionMode === 'tactile' ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.5)]' : '',
-            settingsStore.controlStripInteractionMode === 'drag' ? 'bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.5)]' : '',
-            settingsStore.controlStripInteractionMode === 'positioning' ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : '',
-            settingsStore.controlStripInteractionMode === 'orbit' ? 'bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.5)]' : '',
-          ]"
-        />
-
-        <!-- Status dot badge for actor-gunslinger -->
-        <span
-          v-if="btn.id === 'actor-gunslinger'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-all duration-200',
-            stageModelSettings.gunslingerStance === 'off' ? 'bg-neutral-500/40' : '',
-            stageModelSettings.gunslingerStance === 'cat' ? 'bg-pink-400 shadow-[0_0_6px_rgba(244,114,182,0.6)]' : '',
-            stageModelSettings.gunslingerStance === 'blk' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]' : '',
-            stageModelSettings.gunslingerStance === 'gray' ? 'bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]' : '',
-          ]"
-        />
-
-        <!-- Status dot badge for caption-layout-mode -->
-        <span
-          v-if="btn.id === 'caption-layout-mode'"
-          :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            settingsStore.captionLayoutMode === 'multi' ? 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.5)]' : 'bg-teal-400 shadow-[0_0_6px_rgba(45,212,191,0.5)]',
-          ]"
-        />
+        <!-- Status dot: single descriptor-driven badge (was 21 inline branches) -->
+        <span v-if="btn.dot" :class="btn.dot" />
       </button>
     </div>
 
