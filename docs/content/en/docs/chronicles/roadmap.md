@@ -102,9 +102,19 @@ This document tracks all active pending items, architectural roadmaps, and featu
 *Reference: [design-live2d-dsl-interpreter-spec.md](../../../../../design-live2d-dsl-interpreter-spec.md)*
 *   **DSL Virtual Machine Runtime Integration**: Connect the 24KB verified interpreter harness (`scripts/tests/live2d-dsl-harness/test-dsl-interpreter.ts`) to `packages/stage-ui/src/stores/dating-sim.ts` and Live2D stage manager.
 
+### Persistent Recurrent State Memory (MemT 1.0 & RWKV State Cartridges)
+*References: [proposal-memt-recurrent-state-memory.md](../../../../../proposal-memt-recurrent-state-memory.md) | [design-rwkv-persona-foundry-and-state-cartridges.md](../../../../../design-rwkv-persona-foundry-and-state-cartridges.md)*
+*   **Context-Purged Persistent Recall**: Research MemT 1.0's explicit internal memory state updates as an alternative/companion to RWKV-7's forward-pass $h_0$ state cartridges.
+*   **Zero-Prompt Episodic Anchoring**: Compress multi-turn conversational facts into internal latent state tensors rather than appending unbounded history into LLM prompt contexts, eliminating KV cache bloat across long-running companion sessions.
+
 ---
 
 ## Speech & Audio Systems
+
+### Bark 3 Ultra-Lightweight Local ASR Engine
+*Reference: [proposal-bark3-transcription-engine.md](../../../../../proposal-bark3-transcription-engine.md)*
+*   **Fast Sub-Second Local Transcription**: Replace slow, resource-heavy Whisper in-browser/desktop inference with Bark 3 (163 MB base checkpoint), achieving SOTA word error rates and ~1-second turnaround.
+*   **Model Variants & Provider Wiring**: Add `bark3-local` provider (`base-163m`, `plus`, and `pro-1.25g`) under `hearingStore`, connecting directly to VAD buffer for instant conversational ingestion and pre-transcription attachment handling.
 
 ### Future Modalities (Audio & Video)
 *Reference: [project-future-modalities-support.md](../../../../../project-future-modalities-support.md)*
@@ -142,11 +152,17 @@ This document tracks all active pending items, architectural roadmaps, and featu
     *   **Spine 2D**: Map emoji anchors to skeletal animation tracks and skin states via `spineStore`.
 *   **Inline Popover Binding & Direct Dispatch**: Interactive in-popover search and reassignment sheet saving directly into `displayModel.emotionMappings[emotionKey]` with auto-reset decay timers back to neutral.
 
-### Dynamic Item & Scene Manifestation (TRELLIS & Fire3D)
+### Dynamic Item & Scene Manifestation (TRELLIS, Hi3D 1.0, Fire3D & PURE)
 *Reference: [proposal-trellis-dynamic-item-manifestation.md](../../../../../proposal-trellis-dynamic-item-manifestation.md)*
-*   **Tier 1: Actor Item Manifestation (TRELLIS)**: Implement LLM tool calls (`create_stage_item`, `list_stage_items`, `equip_stage_item`), ComfyUI TRELLIS 3D websocket pipeline (.glb mesh output), and skeletal bone socket mounting for personal accessories.
-*   **Tier 2: Environment Scene Decomposition (Fire3D)**: Implement `decompose_stage_scene` tool, converting photos, video clips, or background art into simulation-ready 3D scenes with up to 16 separate, editable mesh objects with physics colliders in under 1 minute on a single GPU.
-*   **Prompt-to-Character Expansion**: Use TRELLIS/3D pipeline as the foundational base for generating fully rigged, auto-injected 3D characters directly from natural language prompts.
+*   **Tier 1: Actor Item Manifestation (TRELLIS & Hi3D 1.0)**: Implement LLM tool calls (`create_stage_item`, `list_stage_items`, `equip_stage_item`). Fast interactive accessories via ComfyUI TRELLIS; high-detail complex props and personal accessories via open-source Hi3D 1.0 (7.74 GB weights, consumer GPU compatible) with skeletal bone socket mounting.
+*   **Tier 2: Environment Scene Decomposition & Reconstruction (Fire3D & PURE)**: Implement `decompose_stage_scene` tool, converting photos and ComfyUI background art into simulation-ready 3D scenes (up to 16 editable mesh objects with physics colliders in under 1 minute via Fire3D) and casual video captures into 3D environments (via PURE 13.2 GB depth/motion reconstruction without 3D training datasets).
+*   **Prompt-to-Character Expansion**: Use TRELLIS/Hi3D/3D pipeline as the foundational base for generating fully rigged, auto-injected 3D characters directly from natural language prompts.
+
+### Multi-Task Vision Consolidation via WeVisOne-VL
+*Reference: [proposal-wevisone-vl-multitask-vision.md](../../../../../proposal-wevisone-vl-multitask-vision.md)*
+*   **Unified Vision Subsystem**: Consolidate disparate visual tasks (IS-Net background removal, Moondream2 screen watching, PP-OCRv6 HUD reading, spatial pointing) into Tencent's Apache 2.0 WeVisOne-VL (2B / 4B).
+*   **Sub-Pixel Alpha Matting**: Extract sticker cutouts and card avatars with hair-strand alpha transparency, outperforming dedicated anime cutout models.
+*   **Screen Perception & Spatial Gaze**: Power Screen Watcher with fine OCR and referring expression coordinates, enabling companions to point at or gaze toward on-screen UI elements.
 
 ### Universal Multi-Skeleton Animation & Text-to-Motion (Unimate & FlowMDM)
 *Reference: [design-text-to-motion.md](../../../../../design-text-to-motion.md)*
