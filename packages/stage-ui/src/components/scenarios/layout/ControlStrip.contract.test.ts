@@ -40,6 +40,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import { CUSTOMIZER_CATALOG } from '../../../constants/control-customizer'
+import { CONTROL_STRIP_DOT_IDS } from '../../../constants/control-strip-labels'
 import { DEFAULT_BUTTONS, DEFAULT_MOBILE_BUTTONS } from '../../../stores/settings/control-strip'
 
 const LAYOUT_DIR = fileURLToPath(new URL('.', import.meta.url))
@@ -83,6 +84,14 @@ function matchAll(text: string, pattern: RegExp): string[] {
   return [...text.matchAll(pattern)].map(match => match[1])
 }
 
+function sliceBetween(source: string, startMarker: string, endMarker: string): string {
+  const start = source.indexOf(startMarker)
+  if (start === -1)
+    return ''
+  const end = source.indexOf(endMarker, start)
+  return end === -1 ? source.slice(start) : source.slice(start, end)
+}
+
 const sources = collectVueSources(LAYOUT_DIR)
 const shellSource = readFileSync(SHELL, 'utf8')
 const shellScript = scriptOf(shellSource)
@@ -105,6 +114,17 @@ const STRIP_COMPOSABLE_SOURCES = readdirSync(COMPOSABLES_DIR)
   }))
 
 const OWNERSHIP_SOURCES = [...sources, ...STRIP_COMPOSABLE_SOURCES]
+
+/**
+ * Button ids that currently render a status dot in the template. Retires itself
+ * once P5 collapses the 21 badge branches into one descriptor-driven span.
+ */
+const TEMPLATE_DOT_IDS = unique(
+  matchAll(
+    sliceBetween(shellTemplate, '<!-- Status dot badge', '<!-- POPOVERS -->'),
+    /btn\.id === '([^']+)'/g,
+  ),
+)
 
 /** Popovers the strip can render, per the template's `v-if` branches. */
 const RENDERED_POPOVERS = unique(
@@ -208,6 +228,13 @@ describe('control strip: button affordances', () => {
         .filter(id => !ROUTABLE_POPOVERS.includes(id) && !dispatchCases.has(id) && !hostHandled.has(id)),
     )
     expect(dead, `default-enabled buttons with no handler: ${dead.join(', ')}`).toEqual([])
+  })
+
+  it.skipIf(TEMPLATE_DOT_IDS.length === 0)('renders a status dot for exactly the ids the presentation layer describes', () => {
+    // Pairs the template's inline badge branches with `CONTROL_STRIP_DOT_IDS`,
+    // so dropping a badge (or adding one without a resolver) fails here. Skips
+    // itself once P5 replaces the branches with a single descriptor-driven span.
+    expect(TEMPLATE_DOT_IDS).toEqual([...CONTROL_STRIP_DOT_IDS].sort())
   })
 })
 
