@@ -21,10 +21,12 @@ import type { Component } from 'vue'
 import AtmospherePopover from './AtmospherePopover.vue'
 import AvatarsPopover from './AvatarsPopover.vue'
 import CharactersPopover from './CharactersPopover.vue'
+import ChatPresetPopover from './ChatPresetPopover.vue'
 import EmotionsPopover from './EmotionsPopover.vue'
 import MacaronPopover from './MacaronPopover.vue'
 import MotionsPopover from './MotionsPopover.vue'
 import MotionStudioPopover from './MotionStudioPopover.vue'
+import StagePresetPopover from './StagePresetPopover.vue'
 import VfxPopover from './VfxPopover.vue'
 import VoiceSwitchPopover from './VoiceSwitchPopover.vue'
 import WardrobePopover from './WardrobePopover.vue'
@@ -38,6 +40,8 @@ export const STRIP_POPOVER_COMPONENTS: Record<string, Component> = {
   'actor-motions': MotionsPopover,
   'actor-vfx': VfxPopover,
   'actor-wardrobe': WardrobePopover,
+  'chat-preset': ChatPresetPopover,
   'gemini-voice': VoiceSwitchPopover,
   'stage-atmosphere': AtmospherePopover,
+  'stage-preset': StagePresetPopover,
 }
