@@ -31,6 +31,24 @@ export const SEARCH_CHANNEL_NAME = 'airi:inference:search'
 const PING_TIMEOUT_MS = 150
 
 /**
+ * Which execution provider actually loaded the embedder. `wasm` means the
+ * fp32 CPU fallback (WebGPU unavailable or failed) — the slow path that pins
+ * cores, and the one the index telemetry must surface.
+ */
+export interface EmbedderStatus {
+  device: 'webgpu' | 'wasm'
+  dtype: string
+  modelId: string
+}
+
+export interface SearchIndexStatus {
+  embedder: EmbedderStatus | null
+  documents: number
+  vectors: number
+  lastIndexedTurnAt?: number
+}
+
+/**
  * Backend shape consumed by `layeredMemory`. Mirrors the `searchWorker`
  * export of `search/index.ts` so the swap is one object.
  */
@@ -48,9 +66,11 @@ export interface SearchBackend {
   remove: (id: string) => Promise<any>
   /** `watermark` overrides the persisted coverage frontier (see layeredMemory.persist). */
   persist: (watermark?: number) => Promise<any>
+  /** Read-only snapshot of live worker state; never triggers a model load. */
+  status: () => Promise<SearchIndexStatus | null>
 }
 
-type SearchRpcOp = 'init' | 'index' | 'search' | 'remove' | 'persist'
+type SearchRpcOp = 'init' | 'index' | 'search' | 'remove' | 'persist' | 'status'
 
 export type SearchChannelMessage
   = | { type: 'ping', senderId: string }
@@ -176,6 +196,7 @@ export function createChannelSearchClient(channel: BroadcastChannel): SearchBack
       rpc('search', [query, limit, characterId, temporalHooks, vector], signal),
     remove: (id: string) => rpc('remove', [id]),
     persist: (watermark?: number) => rpc('persist', [watermark]),
+    status: () => rpc('status', []),
   }
 }
 

@@ -79,6 +79,8 @@ function makeLeaderBackend(): SearchBackend & { calls: unknown[][] } {
       return Promise.resolve(2)
     if (op === 'persist')
       return Promise.resolve({ documents: [] })
+    if (op === 'status')
+      return Promise.resolve({ embedder: null, documents: 3, vectors: 2 })
     return Promise.resolve({ type: 'removed', existed: true })
   }
   return {
@@ -88,6 +90,7 @@ function makeLeaderBackend(): SearchBackend & { calls: unknown[][] } {
     search: record('search'),
     remove: record('remove'),
     persist: record('persist'),
+    status: record('status'),
   }
 }
 
@@ -131,6 +134,26 @@ describe('search-channel', () => {
     expect(res.queryVector).toEqual([0.1])
     // Leader saw the forwarded args (signal stripped); executed exactly once.
     expect(leaderBackend.calls).toEqual([['search', 'query', 5, 'char-1', [{ text: 't' }], undefined]])
+    FakeBroadcastChannel.reset()
+  })
+
+  it('proxies the read-only status probe to the leader', async () => {
+    FakeBroadcastChannel.reset()
+    const leaderBackend = makeLeaderBackend()
+    await resolveSearchBackend({
+      createLeaderBackend: () => leaderBackend,
+      openChannel: () => new FakeBroadcastChannel(SEARCH_CHANNEL_NAME) as unknown as BroadcastChannel,
+      isLeader: true,
+    })
+    const client = await resolveSearchBackend({
+      createLeaderBackend: () => { throw new Error('client must not host a worker') },
+      openChannel: () => new FakeBroadcastChannel(SEARCH_CHANNEL_NAME) as unknown as BroadcastChannel,
+      isLeader: false,
+    })
+
+    const status = await client.status()
+    expect(status).toEqual({ embedder: null, documents: 3, vectors: 2 })
+    expect(leaderBackend.calls).toEqual([['status']])
     FakeBroadcastChannel.reset()
   })
 

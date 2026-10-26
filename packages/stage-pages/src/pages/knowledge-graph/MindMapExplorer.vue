@@ -46,6 +46,9 @@ async function loadData() {
 
   await entityLedgerStore.loadLedger(activeCardId.value)
   await shortTermStore.load()
+  // Hydrates the row's vector-index telemetry (and kicks the resumable
+  // background pass if the persisted snapshot is behind).
+  await textJournalStore.load()
 
   calculateTimeBounds()
   emit('ready')

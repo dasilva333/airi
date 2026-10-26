@@ -41,9 +41,19 @@ export interface SearchIndexSnapshotHeader {
    * means "unknown", and callers must treat it as 0 (re-index everything).
    */
   lastIndexedTurnAt?: number
+  /**
+   * Persisted document/vector counts for the index telemetry surface. Optional
+   * so snapshots written before the counts existed stay readable; absent means
+   * "unknown", not zero documents.
+   */
+  documentCount?: number
+  vectorCount?: number
 }
 
-export function buildSnapshotHeader(lastIndexedTurnAt?: number): SearchIndexSnapshotHeader {
+export function buildSnapshotHeader(
+  lastIndexedTurnAt?: number,
+  counts?: { documents?: number, vectors?: number },
+): SearchIndexSnapshotHeader {
   return {
     schemaVersion: SEARCH_INDEX_SCHEMA_VERSION,
     embeddingModel: EMBEDDING_MODEL_ID,
@@ -52,6 +62,8 @@ export function buildSnapshotHeader(lastIndexedTurnAt?: number): SearchIndexSnap
     taskPrefixVersion: TASK_PREFIX_VERSION,
     indexedAt: Date.now(),
     lastIndexedTurnAt: lastIndexedTurnAt ?? 0,
+    documentCount: counts?.documents ?? 0,
+    vectorCount: counts?.vectors ?? 0,
   }
 }
 

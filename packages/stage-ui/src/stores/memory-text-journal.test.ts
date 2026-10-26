@@ -25,6 +25,7 @@ vi.mock('../libs/search/layered-memory', () => ({
     init: vi.fn(async () => ({ stale: false, reason: null })),
     indexDocuments: vi.fn(async () => undefined),
     persist: vi.fn(async () => undefined),
+    fetchStatus: vi.fn(async () => null),
     lastIndexState: { stale: false, lastIndexedTurnAt: 0 },
     search: vi.fn(async () => []),
   },

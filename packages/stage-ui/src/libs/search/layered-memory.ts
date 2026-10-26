@@ -1,4 +1,5 @@
 import type { ChatGroundingMetadata } from '../../types/chat'
+import type { EmbedderStatus, SearchIndexStatus } from '../workers/search/search-channel'
 import type { ClaimRecord, EntityLedger, SourceRecord } from './entity-ledger'
 import type { HybridSearchResult, MemoryLayer, SearchDocumentMeta } from './hybrid-scorer'
 import type { TriageDecision } from './query-analyzer'
@@ -26,6 +27,10 @@ const indexStorage = createStorage({
 export const LAST_INDEXED_TURN_KEY = 'airi:search:last-indexed-turn'
 
 function asWatermark(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function asCount(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
@@ -129,12 +134,19 @@ export interface SearchIndexState {
   stale: boolean
   reason?: string
   lastIndexedTurnAt?: number
+  /** Documents held by the worker, restored from the persisted snapshot. */
+  documentCount?: number
+  /** Documents with a usable embedding (dimension-matched). */
+  vectorCount?: number
+  /** When the persisted snapshot was written. */
+  indexedAt?: number
 }
 
 export const layeredMemory = {
   lastTriage: null as TriageDecision | null,
   lastSearchMode: 'baseline' as 'pass11' | 'baseline',
   lastIndexState: null as SearchIndexState | null,
+  lastEmbedderStatus: null as EmbedderStatus | null,
 
   get isIndexing(): boolean {
     return isIndexing
@@ -156,9 +168,29 @@ export const layeredMemory = {
       stale: res?.stale === true,
       reason: res?.reason,
       lastIndexedTurnAt: asWatermark(res?.lastIndexedTurnAt),
+      documentCount: asCount(res?.documentCount),
+      vectorCount: asCount(res?.vectorCount),
+      indexedAt: asCount(res?.indexedAt),
     }
     mirrorLastIndexedTurnAt(this.lastIndexState.lastIndexedTurnAt)
     return this.lastIndexState
+  },
+
+  /**
+   * Live worker state, for the index telemetry surface. Read-only: it never
+   * triggers a model load, so opening the dashboard on a WASM machine cannot
+   * force the 1 GB fp32 fallback into memory.
+   */
+  async fetchStatus(): Promise<SearchIndexStatus | null> {
+    try {
+      const status = await searchWorker.status()
+      this.lastEmbedderStatus = status?.embedder ?? null
+      return status ?? null
+    }
+    catch (err) {
+      console.warn('[LayeredMemory] index status probe failed:', err)
+      return null
+    }
   },
 
   /**
@@ -192,9 +224,23 @@ export const layeredMemory = {
         lastPersistAt = Date.now()
         // Keep the exposed watermark current with what was just written so
         // delta checks observe persisted (not merely indexed) progress.
-        const watermark = asWatermark((snapshot as { header?: { lastIndexedTurnAt?: unknown } } | null)?.header?.lastIndexedTurnAt)
-        if (this.lastIndexState)
+        const header = (snapshot as {
+          header?: {
+            lastIndexedTurnAt?: unknown
+            documentCount?: unknown
+            vectorCount?: unknown
+            indexedAt?: unknown
+          }
+        } | null)?.header
+        const watermark = asWatermark(header?.lastIndexedTurnAt)
+        if (this.lastIndexState) {
           this.lastIndexState.lastIndexedTurnAt = watermark
+          // Counts come from the snapshot that was just written, so the
+          // telemetry surface reflects durable state, not in-flight batches.
+          this.lastIndexState.documentCount = asCount(header?.documentCount) ?? this.lastIndexState.documentCount
+          this.lastIndexState.vectorCount = asCount(header?.vectorCount) ?? this.lastIndexState.vectorCount
+          this.lastIndexState.indexedAt = asCount(header?.indexedAt) ?? this.lastIndexState.indexedAt
+        }
         mirrorLastIndexedTurnAt(watermark)
       }
       finally {

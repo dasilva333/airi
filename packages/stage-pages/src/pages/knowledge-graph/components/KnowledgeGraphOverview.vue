@@ -4,7 +4,7 @@ import type { EntityType } from '@proj-airi/stage-ui/libs/search/entity-ledger'
 import { useEntityLedgerStore } from '@proj-airi/stage-ui/stores/entity-ledger'
 import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-journal'
 import { Button, Progress } from '@proj-airi/ui'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const props = withDefaults(
@@ -69,6 +69,72 @@ const filteredClaims = computed(() => {
     || c.predicate.toLowerCase().includes(q)
     || c.object.toLowerCase().includes(q),
   )
+})
+
+// --- Vector search index telemetry -------------------------------------------
+// Counts come from the last persisted snapshot header, so this reflects what a
+// restart would hydrate — not an optimistic in-memory estimate.
+const vectorStats = computed(() => textJournalStore.vectorIndexStats)
+
+const vectorPassActive = computed(() => {
+  if (textJournalStore.isRebuildingVectorIndex)
+    return true
+  const phase = textJournalStore.backgroundIndexProgress?.phase
+  return phase === 'hot-set' || phase === 'backfill' || phase === 'delta' || phase === 'checkpoint'
+})
+
+const vectorPassPercent = computed(() => {
+  if (textJournalStore.isRebuildingVectorIndex)
+    return textJournalStore.vectorIndexProgress?.percent ?? 0
+  return textJournalStore.backgroundIndexProgress?.percent ?? 0
+})
+
+const vectorPassLabel = computed(() => {
+  if (textJournalStore.isRebuildingVectorIndex)
+    return textJournalStore.vectorIndexProgress?.message || 'Rebuilding vector search index...'
+  return textJournalStore.backgroundIndexProgress?.message || ''
+})
+
+type VectorIndexTone = 'ready' | 'indexing' | 'stale' | 'partial' | 'empty'
+
+const vectorIndexState = computed<{ label: string, tone: VectorIndexTone }>(() => {
+  if (vectorPassActive.value)
+    return { label: 'Indexing', tone: 'indexing' }
+  if (vectorStats.value.stale)
+    return { label: 'Stale', tone: 'stale' }
+  if (vectorStats.value.documents === 0)
+    return { label: 'Empty', tone: 'empty' }
+  if (vectorStats.value.vectors < vectorStats.value.documents)
+    return { label: 'Partial', tone: 'partial' }
+  return { label: 'Ready', tone: 'ready' }
+})
+
+const vectorCoverageLabel = computed(() => {
+  const at = vectorStats.value.coverageAt
+  if (!at)
+    return 'Not covered'
+  return new Date(at).toLocaleDateString([], { year: 'numeric', month: 'short', day: '2-digit' })
+})
+
+// Which execution provider actually loaded the embedder. `wasm` is the fp32
+// CPU fallback — same model, same vectors, far heavier.
+const embedderRuntime = computed(() => textJournalStore.embedderRuntime)
+
+const embedderLabel = computed(() => {
+  const embedder = embedderRuntime.value
+  if (!embedder)
+    return 'Embedder idle'
+  const model = embedder.modelId.includes('embeddinggemma')
+    ? 'EmbeddingGemma 2'
+    : embedder.modelId.split('/').pop() || embedder.modelId
+  const device = embedder.device === 'webgpu' ? 'WebGPU' : 'CPU'
+  return `${model} · ${device} ${embedder.dtype}`
+})
+
+onMounted(() => {
+  // The store may already be loaded (chat window); probe again so the chip
+  // reflects a model that was loaded by earlier chat turns.
+  void textJournalStore.refreshEmbedderRuntime()
 })
 </script>
 
@@ -139,6 +205,83 @@ const filteredClaims = computed(() => {
               @click="emit('clear')"
             />
           </div>
+        </div>
+
+        <!-- Vector Search Index Telemetry -->
+        <div class="flex flex-col gap-3 border border-neutral-100 rounded-2xl bg-neutral-50/60 p-4 dark:border-neutral-800 dark:bg-neutral-950/30">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="i-solar:database-bold-duotone text-base text-emerald-500" />
+              <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Vector Search Index</span>
+              <span
+                class="border rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase"
+                :class="[
+                  vectorIndexState.tone === 'ready'
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+                    : vectorIndexState.tone === 'indexing'
+                      ? 'border-primary-500/30 bg-primary-500/10 text-primary-600 dark:text-primary-300'
+                      : vectorIndexState.tone === 'stale'
+                        ? 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300'
+                        : vectorIndexState.tone === 'partial'
+                          ? 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300'
+                          : 'border-neutral-300/60 bg-neutral-500/10 text-neutral-500 dark:border-neutral-700 dark:text-neutral-400',
+                ]"
+              >
+                {{ vectorIndexState.label }}
+              </span>
+              <span
+                class="border rounded-full px-2 py-0.5 text-[10px] font-mono"
+                :class="[
+                  embedderRuntime
+                    ? embedderRuntime.device === 'wasm'
+                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300'
+                      : 'border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-300'
+                    : 'border-neutral-300/60 bg-neutral-500/10 text-neutral-500 dark:border-neutral-700 dark:text-neutral-400',
+                ]"
+                :title="embedderRuntime?.modelId ?? 'The embedding model loads on first use.'"
+              >
+                {{ embedderLabel }}
+              </span>
+            </div>
+            <span v-if="vectorStats.indexedAt" class="text-[10px] text-neutral-400 font-mono">
+              Snapshot {{ formatTimestamp(vectorStats.indexedAt) }}
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <span class="block text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Documents</span>
+              <span class="text-lg text-neutral-800 font-bold dark:text-neutral-100">{{ vectorStats.documents.toLocaleString() }}</span>
+            </div>
+            <div>
+              <span class="block text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Embedded Vectors</span>
+              <span class="text-lg text-neutral-800 font-bold dark:text-neutral-100">{{ vectorStats.vectors.toLocaleString() }}</span>
+            </div>
+            <div>
+              <span class="block text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Coverage Through</span>
+              <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ vectorCoverageLabel }}</span>
+            </div>
+          </div>
+
+          <!-- Explicit rebuilds render their own banner below; this bar covers
+               the resumable background pass so the two never double up. -->
+          <div v-if="vectorPassActive && !textJournalStore.isRebuildingVectorIndex" class="flex flex-col gap-1.5">
+            <div class="flex items-center justify-between text-[10px] text-neutral-500 dark:text-neutral-400">
+              <span>{{ vectorPassLabel }}</span>
+              <span class="font-bold">{{ vectorPassPercent }}%</span>
+            </div>
+            <Progress :progress="vectorPassPercent" />
+          </div>
+
+          <span v-if="vectorStats.stale" class="text-[10px] text-rose-600 dark:text-rose-300">
+            Snapshot geometry is incompatible with the active embedding model; run Rebuild Vector Search Index.
+          </span>
+          <span v-else-if="embedderRuntime?.device === 'wasm'" class="text-[10px] text-amber-600 dark:text-amber-300">
+            WebGPU is unavailable or failed to initialise, so embeddings run on the CPU in fp32. This is the heavy path — expect pegged cores while indexing and slower retrieval.
+          </span>
+          <span v-else-if="!vectorPassActive && vectorStats.documents > vectorStats.vectors" class="text-[10px] text-amber-600 dark:text-amber-300">
+            {{ (vectorStats.documents - vectorStats.vectors).toLocaleString() }} document(s) still have no embedding; the background pass fills them oldest-first.
+          </span>
         </div>
 
         <!-- Universe & Ingestion Breakdown Sub-banner -->

@@ -15,8 +15,28 @@ import { useTextJournalStore } from './memory-text-journal'
 
 const h = vi.hoisted(() => ({
   indexDocuments: vi.fn(async () => undefined),
-  persist: vi.fn(async () => undefined),
-  lastIndexState: { stale: false, lastIndexedTurnAt: 0 } as { stale: boolean, lastIndexedTurnAt: number },
+  // Mimic the worker: every persist writes counts into the exposed state.
+  persist: vi.fn(async () => {
+    h.lastIndexState = {
+      ...h.lastIndexState,
+      documentCount: 42,
+      vectorCount: 40,
+      indexedAt: 1_700_000_000_000,
+    }
+  }),
+  fetchStatus: vi.fn(async () => ({
+    embedder: { device: 'wasm' as const, dtype: 'fp32', modelId: 'onnx-community/embeddinggemma-2-ONNX' },
+    documents: 42,
+    vectors: 40,
+    lastIndexedTurnAt: 3000,
+  })),
+  lastIndexState: { stale: false, lastIndexedTurnAt: 0 } as {
+    stale: boolean
+    lastIndexedTurnAt: number
+    documentCount?: number
+    vectorCount?: number
+    indexedAt?: number
+  },
 }))
 
 vi.mock('../libs/search/layered-memory', () => ({
@@ -25,6 +45,7 @@ vi.mock('../libs/search/layered-memory', () => ({
     init: vi.fn(async () => h.lastIndexState),
     indexDocuments: h.indexDocuments,
     persist: h.persist,
+    fetchStatus: h.fetchStatus,
     get lastIndexState() {
       return h.lastIndexState
     },
@@ -152,6 +173,15 @@ describe('text journal background index pass', () => {
 
     expect(store.backgroundIndexProgress?.phase).toBe('completed')
     expect(store.backgroundIndexProgress?.cursor).toBe(3000)
+    // Telemetry mirrors the persisted header, not an in-flight estimate.
+    expect(store.vectorIndexStats).toMatchObject({
+      documents: 42,
+      vectors: 40,
+      indexedAt: 1_700_000_000_000,
+    })
+    // The provider probe runs after the first embedded batch, so the
+    // dashboard can distinguish GPU from the fp32 CPU fallback.
+    expect(store.embedderRuntime).toMatchObject({ device: 'wasm', dtype: 'fp32' })
   })
 
   it('checkpoints a monotonic coverage frontier, and only publishes the true max at the end', async () => {

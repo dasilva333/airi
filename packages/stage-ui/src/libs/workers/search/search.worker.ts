@@ -1,4 +1,5 @@
 import type { SearchIndexSnapshotHeader } from '../../search/embedding-format'
+import type { EmbedderStatus } from './search-channel'
 
 import { AutoConfig, AutoModel, AutoTokenizer, env } from '@huggingface/transformers'
 
@@ -61,6 +62,9 @@ interface SearchSnapshot {
 
 let embedderModel: any = null
 let embedderTokenizer: any = null
+// Which provider actually loaded the weights. Null until the first embed or
+// model load, and cleared by the idle-TTL unload.
+let activeEmbedder: EmbedderStatus | null = null
 let documents = new Map<string, SearchDocument>()
 // High-watermark of indexed turn time. Restored from the snapshot header on
 // init, advanced on every index batch, stamped into the header on persist.
@@ -195,6 +199,7 @@ async function loadEmbedderStack(device: 'webgpu' | 'wasm') {
   // NOTICE: winning device/dtype visibility — a silent WebGPU→WASM fallback
   // loads >1 GB of fp32 weights instead of the 175 MB q4 backbone. This line
   // is the only in-app signal of which path actually stuck.
+  activeEmbedder = { device, dtype, modelId: EMBEDDING_MODEL_ID }
   console.info('[Telemetry:SearchWorker:embedder-loaded]', {
     modelId: EMBEDDING_MODEL_ID,
     device,
@@ -543,11 +548,22 @@ globalThis.addEventListener('message', async (e) => {
         lastIndexedTurnAt = typeof restoredWatermark === 'number' && Number.isFinite(restoredWatermark)
           ? restoredWatermark
           : undefined
+        // Counts describe what the worker actually holds, not what the header
+        // claimed: a stripped snapshot reports 0 vectors even if the file said
+        // otherwise, which is exactly the "index exists but search is lexical"
+        // state the telemetry surface must expose.
+        let restoredVectors = 0
+        for (const doc of documents.values()) {
+          if (doc.embedding?.length)
+            restoredVectors++
+        }
         console.log('[Telemetry:SearchWorker:init]', {
           hasSnapshot: !!payload?.snapshot,
           snapshotDocCount: normalizedSnapshot?.documents?.length ?? 0,
           compatible,
           workerDocumentsCount: documents.size,
+          vectorCount: restoredVectors,
+          indexedAt: normalizedSnapshot?.header?.indexedAt,
           lastIndexedTurnAt,
         })
         globalThis.postMessage({
@@ -556,6 +572,9 @@ globalThis.addEventListener('message', async (e) => {
           stale: !compatible,
           reason: compatible ? undefined : 'incompatible-or-missing snapshot header',
           lastIndexedTurnAt,
+          documentCount: documents.size,
+          vectorCount: restoredVectors,
+          indexedAt: normalizedSnapshot?.header?.indexedAt,
         })
         break
       }
@@ -687,17 +706,23 @@ globalThis.addEventListener('message', async (e) => {
 
         // NOTICE: persist documents with 4-decimal-place quantized embeddings
         // to cut JSON snapshot size in half while preserving vectors across reboots.
+        let vectorCount = 0
+        const persistedDocuments = [...documents.values()].map((doc) => {
+          const { tokens, tokenFreqs, embedding, ...persistedDoc } = doc
+          if (!embedding?.length)
+            return persistedDoc
+          vectorCount++
+          const quantized = new Array<number>(embedding.length)
+          for (let i = 0; i < embedding.length; i++)
+            quantized[i] = Math.round((embedding[i] as number) * 10000) / 10000
+          return { ...persistedDoc, embedding: quantized }
+        })
         const snapshot: SearchSnapshot = {
-          header: buildSnapshotHeader(lastIndexedTurnAt),
-          documents: [...documents.values()].map((doc) => {
-            const { tokens, tokenFreqs, embedding, ...persistedDoc } = doc
-            if (!embedding?.length)
-              return persistedDoc
-            const quantized = new Array<number>(embedding.length)
-            for (let i = 0; i < embedding.length; i++)
-              quantized[i] = Math.round((embedding[i] as number) * 10000) / 10000
-            return { ...persistedDoc, embedding: quantized }
+          header: buildSnapshotHeader(lastIndexedTurnAt, {
+            documents: documents.size,
+            vectors: vectorCount,
           }),
+          documents: persistedDocuments,
         }
 
         globalThis.postMessage({ id, type: 'snapshot', snapshot })
@@ -727,10 +752,32 @@ globalThis.addEventListener('message', async (e) => {
           embedderModel = null
         }
         embedderTokenizer = null
+        activeEmbedder = null
         console.info('[Telemetry:SearchWorker:unload]', {
           workerDocumentsCount: documents.size,
         })
         globalThis.postMessage({ id, type: 'unloaded' })
+        break
+      }
+
+      case 'status': {
+        // Read-only: deliberately does NOT call getEmbedder(), so opening the
+        // telemetry surface cannot force a 1 GB fp32 load on a WASM machine.
+        let vectorCount = 0
+        for (const doc of documents.values()) {
+          if (doc.embedding?.length)
+            vectorCount++
+        }
+        globalThis.postMessage({
+          id,
+          type: 'status',
+          status: {
+            embedder: activeEmbedder,
+            documents: documents.size,
+            vectors: vectorCount,
+            lastIndexedTurnAt,
+          },
+        })
         break
       }
     }

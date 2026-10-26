@@ -47,6 +47,19 @@ describe('buildSnapshotHeader', () => {
     expect(header.indexedAt).toBeGreaterThanOrEqual(before)
     expect(header.indexedAt).toBeLessThanOrEqual(after)
   })
+
+  it('persists document and vector counts for the telemetry surface', () => {
+    const header = buildSnapshotHeader(1234, { documents: 2122, vectors: 1775 })
+    expect(header.lastIndexedTurnAt).toBe(1234)
+    expect(header.documentCount).toBe(2122)
+    expect(header.vectorCount).toBe(1775)
+  })
+
+  it('defaults counts to zero when the caller has none', () => {
+    const header = buildSnapshotHeader()
+    expect(header.documentCount).toBe(0)
+    expect(header.vectorCount).toBe(0)
+  })
 })
 
 describe('isSnapshotCompatible', () => {

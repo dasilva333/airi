@@ -45,6 +45,9 @@ function createWorkerClient(worker: Worker): WorkerClient {
         case 'indexed':
           promise.resolve(count)
           break
+        case 'status':
+          promise.resolve((e as MessageEvent).data.status)
+          break
         default:
           promise.resolve((e as MessageEvent).data)
       }
@@ -90,6 +93,7 @@ function createWorkerClient(worker: Worker): WorkerClient {
       call('search', { query, limit, characterId, temporalHooks, vector }, signal),
     remove: (id: string) => call('remove', { id }),
     persist: (watermark?: number) => call('persist', { watermark }),
+    status: () => call('status'),
     loadModel: () => call('load-model'),
     unload: async () => {
       const res = await call('unload')
@@ -213,6 +217,7 @@ const leaderBackend: SearchBackend = {
   },
   remove: (id: string) => leaderCall(rpc => rpc.remove(id)),
   persist: (watermark?: number) => leaderCall(rpc => rpc.persist(watermark)),
+  status: () => leaderCall(rpc => rpc.status()),
 }
 
 let backendPromise: Promise<SearchBackend> | null = null
@@ -234,4 +239,5 @@ export const searchWorker: SearchBackend = {
     backend().then(b => b.search(query, limit, characterId, temporalHooks, signal, vector)),
   remove: (id: string) => backend().then(b => b.remove(id)),
   persist: (watermark?: number) => backend().then(b => b.persist(watermark)),
+  status: () => backend().then(b => b.status()),
 }

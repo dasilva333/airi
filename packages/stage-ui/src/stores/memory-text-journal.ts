@@ -1,3 +1,4 @@
+import type { EmbedderStatus } from '../libs/workers/search/search-channel'
 import type { ChatGroundingMetadata, ChatStreamEvent } from '../types/chat'
 import type { TextJournalEntry, TextJournalEntrySource } from '../types/text-journal'
 
@@ -51,6 +52,18 @@ export interface BackgroundIndexProgress {
   message: string
   startedAt: number
   updatedAt: number
+}
+
+/**
+ * Durable vector-index telemetry. Counts come from the last persisted
+ * snapshot header, so they describe what a restart would actually load.
+ */
+export interface VectorIndexStats {
+  documents: number
+  vectors: number
+  coverageAt: number
+  indexedAt: number
+  stale: boolean
 }
 
 /**
@@ -192,6 +205,9 @@ export const useTextJournalStore = defineStore('text-journal', () => {
       // Initialize layered memory index
       try {
         await layeredMemory.init()
+        refreshVectorIndexStats()
+        // Worker state, not persisted state: which provider is loaded now.
+        void refreshEmbedderRuntime()
       }
       catch (err) {
         console.warn('text_journal: layeredMemory.init skipped or failed:', err)
@@ -280,7 +296,42 @@ export const useTextJournalStore = defineStore('text-journal', () => {
   const lastVectorIndexRebuiltAt = ref<number | null>(null)
   const backgroundIndexProgress = ref<BackgroundIndexProgress | null>(null)
   const lastBackgroundIndexCompletedAt = ref<number | null>(null)
+  const vectorIndexStats = ref<VectorIndexStats>({
+    documents: 0,
+    vectors: 0,
+    coverageAt: 0,
+    indexedAt: 0,
+    stale: false,
+  })
+  // Which provider actually loaded the embedder (null until the first embed).
+  const embedderRuntime = ref<EmbedderStatus | null>(null)
   let vectorIndexAbortController: AbortController | null = null
+
+  /**
+   * layeredMemory is a plain object, so the worker's index state cannot drive
+   * Vue reactivity directly. Mirror it into a ref at every durable boundary
+   * (init, checkpoint, rebuild persist) instead of polling.
+   */
+  function refreshVectorIndexStats() {
+    const state = layeredMemory.lastIndexState
+    vectorIndexStats.value = {
+      documents: state?.documentCount ?? 0,
+      vectors: state?.vectorCount ?? 0,
+      coverageAt: state?.lastIndexedTurnAt ?? 0,
+      indexedAt: state?.indexedAt ?? 0,
+      stale: state?.stale === true,
+    }
+  }
+
+  /**
+   * Probe the live worker for its loaded execution provider. Cheap and
+   * side-effect free (the worker's `status` op never loads the model), so the
+   * dashboard can show "WebGPU q4" vs the fp32 CPU fallback.
+   */
+  async function refreshEmbedderRuntime() {
+    const status = await layeredMemory.fetchStatus()
+    embedderRuntime.value = status?.embedder ?? null
+  }
 
   async function backgroundIndexAll() {
     if (isRebuildingVectorIndex.value) {
@@ -527,6 +578,7 @@ export const useTextJournalStore = defineStore('text-journal', () => {
             elapsedMs: Date.now() - startedAt,
           })
           await layeredMemory.persist(true, { watermark: frontier })
+          refreshVectorIndexStats()
         }
 
         if (pendingDocs.length === 0) {
@@ -562,12 +614,23 @@ export const useTextJournalStore = defineStore('text-journal', () => {
 
         console.info(`[TextJournal:Index] Watermark ${watermark} (backfill=${isBackfill}): ${total} document(s) to embed, hot set ${hotSet.length}.`)
 
+        // The provider is only known once the first batch has loaded the
+        // embedder, so probe right after it instead of at pass start.
+        let embedderProbed = false
+        const probeEmbedderOnce = () => {
+          if (embedderProbed)
+            return
+          embedderProbed = true
+          void refreshEmbedderRuntime()
+        }
+
         try {
           if (hotSet.length > 0) {
             publish('hot-set', `Indexing the active conversation first (${hotSet.length} turn chunk${hotSet.length === 1 ? '' : 's'})...`)
             for (const batch of chunkArray(hotSet, BACKGROUND_INDEX_BATCH_DOCS)) {
               await layeredMemory.indexDocuments(batch, { persist: false })
               indexed += batch.length
+              probeEmbedderOnce()
               publish('hot-set', `Active conversation indexed: ${indexed}/${total} documents...`)
               await yieldToMainThread()
             }
@@ -585,6 +648,7 @@ export const useTextJournalStore = defineStore('text-journal', () => {
             if (batchFrontier > frontier)
               frontier = batchFrontier
             indexed += batch.length
+            probeEmbedderOnce()
 
             publish(
               mode,
@@ -912,6 +976,8 @@ export const useTextJournalStore = defineStore('text-journal', () => {
         message: 'Persisting vector index snapshot to IndexedDB...',
       }
       await layeredMemory.persist(true)
+      refreshVectorIndexStats()
+      void refreshEmbedderRuntime()
 
       lastVectorIndexRebuiltAt.value = Date.now()
       vectorIndexProgress.value = {
@@ -1182,6 +1248,11 @@ export const useTextJournalStore = defineStore('text-journal', () => {
           systemOneStore,
           signal: input.signal,
         })
+
+        // The first search is what loads the embedder; latch the provider once
+        // so the dashboard chip is populated without polling.
+        if (!embedderRuntime.value)
+          void refreshEmbedderRuntime()
 
         console.log('[Telemetry:TextJournal:searchEntries:LayeredResults]', {
           query,
@@ -1551,6 +1622,10 @@ ${input.instructions ? `\nAdditional Instructions: ${input.instructions}\n` : ''
     lastVectorIndexRebuiltAt,
     backgroundIndexProgress,
     lastBackgroundIndexCompletedAt,
+    vectorIndexStats,
+    refreshVectorIndexStats,
+    embedderRuntime,
+    refreshEmbedderRuntime,
     persist,
     createJournalMoment,
     lastSearchTriage,
