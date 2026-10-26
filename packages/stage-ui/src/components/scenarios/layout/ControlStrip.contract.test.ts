@@ -352,34 +352,26 @@ describe('control strip: cross-window contract', () => {
 })
 
 // ── 5. Eager bootstrap ratchet ─────────────────────────────────────────────
-// The shell's setup currently instantiates the entire state layer whether or
-// not a popover is ever opened. This ratchet makes the P2/P3 progress
-// measurable and blocks *new* eager work from slipping in.
+// Post-decomposition, the expensive stores (speech, providers, display-models,
+// dating-sim, text-to-motion, …) live in their popovers. What remains in the
+// shell is audited in docs/design-control-strip-mount-bootstraps.md — every
+// entry below either feeds first paint or owns an exactly-once channel.
+// Adding one must be a deliberate, reviewed decision against that bar.
 
 describe('control strip: eager bootstrap ratchet', () => {
-  // Frozen at the state observed before decomposition. Removing entries is the
-  // goal; adding one must be a deliberate, reviewed decision.
+  // NOTE: `useElectronEventaInvoke` must NOT appear here. Its only shell use
+  // is a dynamic `await import()` inside the gunslinger watcher, so it carries
+  // no static dependency — an earlier revision of this list included it by
+  // regex accident. See the audit doc's correction note.
   const FROZEN_STATE_BOOTSTRAPS = [
     'useAiriCardStore',
     'useBackgroundStore',
-    'useCustomVrmAnimationsStore',
-    'useDatingSimStore',
-    'useDisplayModelsStore',
-    'useElectronEventaInvoke',
-    'useLive2d',
     'useLiveSessionStore',
-    'useMmd',
-    'useModelStore',
-    'useProvidersStore',
     'useSettings',
     'useSettingsAudioDevice',
     'useSettingsControlStrip',
     'useSettingsControlsIsland',
     'useSettingsStageModel',
-    'useSpeechStore',
-    'useSpine',
-    'useSyncEngineStore',
-    'useTextToMotionStore',
   ]
 
   /**
