@@ -41,11 +41,13 @@ export const DEFAULT_BUTTONS: ControlStripButton[] = [
   { id: 'workspace', enabled: true, label: 'Workspace', icon: 'i-solar:code-square-linear' },
   { id: 'actor-all-emotions', enabled: true, label: 'All Emotions', icon: 'i-solar:emoji-funny-square-linear' },
   { id: 'actor-vfx', enabled: true, label: 'VFX & Auras', icon: 'i-solar:fire-linear' },
+  { id: 'actor-motion-playground', enabled: true, label: 'Motion', icon: 'i-solar:walking-round-linear' },
 ]
 
 export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
   { id: 'viewport-cycle-modes', enabled: true, label: 'Cycle Viewport Modes', icon: 'i-solar:cursor-linear' },
   { id: 'head-tethered-caption', enabled: true, label: 'Head-Tethered Caption', icon: 'i-solar:chat-round-line-linear' },
+  { id: 'actor-motion-playground', enabled: true, label: 'Motion', icon: 'i-solar:walking-round-linear' },
   { id: 'actor-motions', enabled: true, label: 'Motions', icon: 'i-solar:running-2-linear' },
   { id: 'actor-all-emotions', enabled: true, label: 'All Emotions', icon: 'i-solar:emoji-funny-square-linear' },
   { id: 'actor-vfx', enabled: true, label: 'VFX & Auras', icon: 'i-solar:fire-linear' },

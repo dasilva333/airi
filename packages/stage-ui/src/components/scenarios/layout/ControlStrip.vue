@@ -1000,6 +1000,70 @@ const availableMotions = computed(() => {
   return list
 })
 
+const motionsFilterTab = ref<'all' | 'gen'>('all')
+
+const showGenMotionTab = computed(() => {
+  const renderer = settingsStore.stageModelRenderer
+  return renderer === 'vrm' || renderer === 'mmd'
+})
+
+const genMotionsCount = computed(() => {
+  if (settingsStore.stageModelRenderer === 'vrm') {
+    return availableMotions.value.filter(m => m.key && m.key.startsWith('custom-vrma:')).length
+  }
+  if (settingsStore.stageModelRenderer === 'mmd') {
+    const stockMmd = [
+      'brushoff_nice_and_tidy.vmd',
+      'circulation.vmd',
+      'crossed_arms_look_around_confident.vmd',
+      'fixing_hair_or_wig.vmd',
+      'getting_item_out_of_bra.vmd',
+      'hat_flip.vmd',
+      'impatient_foot_tapping.vmd',
+      'shy.vmd',
+      'skittish_mermay.vmd',
+      'smelling_something_in_the_air.vmd',
+      'something_in_the_sky.vmd',
+      'stretching.vmd',
+      'swaying_arms_and_hips.vmd',
+      'tracker.vmd',
+    ]
+    return availableMotions.value.filter(m => m.key && !stockMmd.includes(m.key)).length
+  }
+  return 0
+})
+
+const filteredMotions = computed(() => {
+  if (motionsFilterTab.value === 'all' || !showGenMotionTab.value) {
+    return availableMotions.value
+  }
+
+  if (settingsStore.stageModelRenderer === 'vrm') {
+    return availableMotions.value.filter(m => m.key && m.key.startsWith('custom-vrma:'))
+  }
+  if (settingsStore.stageModelRenderer === 'mmd') {
+    const stockMmd = [
+      'brushoff_nice_and_tidy.vmd',
+      'circulation.vmd',
+      'crossed_arms_look_around_confident.vmd',
+      'fixing_hair_or_wig.vmd',
+      'getting_item_out_of_bra.vmd',
+      'hat_flip.vmd',
+      'impatient_foot_tapping.vmd',
+      'shy.vmd',
+      'skittish_mermay.vmd',
+      'smelling_something_in_the_air.vmd',
+      'something_in_the_sky.vmd',
+      'stretching.vmd',
+      'swaying_arms_and_hips.vmd',
+      'tracker.vmd',
+    ]
+    return availableMotions.value.filter(m => m.key && !stockMmd.includes(m.key))
+  }
+
+  return availableMotions.value
+})
+
 // Membership in the idle cycle set (persisted on the card) — the multi-select
 // replacement for the old "now playing" highlight. Tapping a row toggles it;
 // the play end-cap auditions without touching the set.
@@ -2619,20 +2683,60 @@ function getShortLabel(btnId: string): string {
         <!-- MOTIONS POPOVER -->
         <div v-if="activePopover === 'actor-motions'" class="flex flex-col gap-2">
           <div class="flex items-center justify-between border-b border-neutral-200 pb-2 dark:border-neutral-800">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5">
               <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">Motions</span>
-              <span class="rounded-full bg-primary-500/10 px-2 py-0.5 text-[10px] text-primary-600 font-bold font-mono dark:text-primary-400">
+              <span class="rounded-full bg-primary-500/10 px-1.5 py-0.5 text-[10px] text-primary-600 font-bold font-mono dark:text-primary-400">
                 {{ idleCycleCount }} in cycle
               </span>
             </div>
-            <button class="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300" @click="activePopover = null">
-              <span class="i-solar:close-circle-outline text-lg" />
-            </button>
+
+            <div class="flex items-center gap-1.5">
+              <!-- All | Gen Toggle (vrm and mmd only) -->
+              <div
+                v-if="showGenMotionTab"
+                class="flex items-center gap-0.5 border border-neutral-200/70 rounded-lg bg-neutral-100 p-0.5 dark:border-neutral-700/60 dark:bg-neutral-800/80"
+              >
+                <button
+                  type="button"
+                  :class="[
+                    'px-2 py-0.5 text-[10px] font-semibold rounded-md transition-all cursor-pointer',
+                    motionsFilterTab === 'all'
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 shadow-xs'
+                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+                  ]"
+                  @click="motionsFilterTab = 'all'"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  :class="[
+                    'px-2 py-0.5 text-[10px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1',
+                    motionsFilterTab === 'gen'
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 shadow-xs'
+                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+                  ]"
+                  @click="motionsFilterTab = 'gen'"
+                >
+                  <span>Gen</span>
+                  <span
+                    v-if="genMotionsCount > 0"
+                    class="rounded-full bg-primary-500/15 px-1 py-0.2 text-[8px] text-primary-600 font-bold dark:text-primary-400"
+                  >
+                    {{ genMotionsCount }}
+                  </span>
+                </button>
+              </div>
+
+              <button class="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300" @click="activePopover = null">
+                <span class="i-solar:close-circle-outline text-lg" />
+              </button>
+            </div>
           </div>
 
           <div class="max-h-48 flex flex-col gap-1.5 overflow-y-auto py-1 scrollbar-thin">
             <div
-              v-for="motion in availableMotions"
+              v-for="motion in filteredMotions"
               :key="motion.key"
               :class="[
                 'w-full flex items-center gap-1 border rounded-xl p-1 text-left text-xs transition-all duration-200',
@@ -2665,11 +2769,13 @@ function getShortLabel(btnId: string): string {
             </div>
 
             <div
-              v-if="availableMotions.length <= 1"
+              v-if="filteredMotions.length === 0"
               class="flex flex-col items-center justify-center py-6 text-center opacity-40"
             >
               <span class="i-solar:magic-stick-3-bold-duotone text-2xl" />
-              <span class="mt-1 text-[10px]">No motions available</span>
+              <span class="mt-1 text-[10px]">
+                {{ motionsFilterTab === 'gen' ? 'No generated or uploaded motions' : 'No motions available' }}
+              </span>
             </div>
           </div>
         </div>

@@ -314,6 +314,14 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         defaultOnStrip: false,
       },
       {
+        id: 'actor-motion-playground',
+        label: 'Motion Playground',
+        description: 'Direct your avatar with text-to-motion diffusion and quick moves.',
+        icon: 'i-solar:walking-round-linear',
+        type: 'menu',
+        defaultOnStrip: true,
+      },
+      {
         id: 'actor-all-emotions',
         label: 'All Emotions',
         description: 'Full list of model emotions/expressions to preview or toggle.',

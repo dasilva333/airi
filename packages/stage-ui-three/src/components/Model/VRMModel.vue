@@ -462,6 +462,15 @@ async function playTransientAnimation(key: string) {
   if (!vrm.value || !vrmAnimationMixer)
     return
 
+  if (key === '__STOP__' || key === 'stop' || !key) {
+    if (currentAction) {
+      currentAction.fadeOut(0.3)
+      currentAction = null
+      playBaseAnimation()
+    }
+    return
+  }
+
   const url = customVrmAnimationsStore.resolveAnimationUrl(key)
   if (!url)
     return
