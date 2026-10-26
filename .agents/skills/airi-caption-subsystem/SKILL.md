@@ -128,7 +128,7 @@ Wiring: `use-control-strip-action.ts` handles `head-tethered-caption`, `caption-
 
 ## 6. Known Drift / Documentation Warnings
 
-- `docs/design-captions-widget-system.md` spec mentions **`captionThemeMode`** (`light|dark|system`) with a caption-background-theme cycler — no corresponding field exists in `stores/settings/captions.ts` and no `caption-theme-mode` case in either `use-control-strip-action.ts` or `control-strip-labels.ts` handlers. If you're asked to implement this, it's a real gap, not a rename.
+- `docs/design-captions-widget-system.md` spec mentions **`captionThemeMode`** (`light|dark|system`) with a caption-background-theme cycler — no corresponding *settings field* exists in `stores/settings/captions.ts`. Note the action id **does** exist and is not a gap: `use-control-strip-action.ts` has `case 'caption-theme-mode'` (cycles the theme without the toast that `theme-mode` shows) and `control-strip-labels.ts` carries a `'caption-theme-mode': 'Theme'` short label. What is missing is the persisted per-caption theme value, not the button plumbing.
 - `docs/design-head-tethered-captions.md` pre-specifies Spine/VRM/MMD tethered adapters that **do not exist yet**; treat its platform table as plan-of-record, not inventory.
 - Some older skills/docs still name the caption settings `settingsStore.captionFollowStage…` nested fields; flattened barrel refs in `settings/index.ts` are current.
 

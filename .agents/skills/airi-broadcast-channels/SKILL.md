@@ -13,7 +13,7 @@ Multi-window AIRI (Electron chat + stage + caption + widgets, or web split panes
 | Channel | Publisher | Subscriber(s) | Payload |
 | :--- | :--- | :--- | :--- |
 | `airi-control-strip-actions` | `use-control-strip-action.ts` :17 (Control Strip buttons dispatch) | `ControlStripHost.vue`, `customizer.vue`, `apps/stage-tamagotchi/.../pages/index.vue` | string action id |
-| `airi-caption-overlay` | `use-speech-caption-player.ts` :20, `ControlStripHost.vue` :100, `HeadTetheredCaption.vue`, `CaptionPanel.vue`, `DatingSimOverlay.vue` | Caption window (`pages/notice/caption.vue`), all caption flags | `CaptionChannelEvent` {segment, isActive} |
+| `airi-caption-overlay` | `use-speech-caption-player.ts` :20, `ControlStripHost.vue` :100, `HeadTetheredCaption.vue`, `CaptionPanel.vue`, `DatingSimOverlay.vue` | Caption window (`pages/notice/caption.vue`); strip-side **single owner** is `use-control-strip-caption-relay.ts` (never a popover — the contract suite fails if a `.vue` popover opens a channel) | `CaptionChannelEvent` {segment, isActive} |
 | `airi-chat-input-bridge` | `DatingSimOverlay.vue` :16 | Chat composer (subscribed in chat store) | input text string |
 | `airi-chat-stream` | Chat store session | `ControlStripHost.vue` :104 | raw session updates |
 | `airi-chat-present` | `ControlStripHost.vue` :149 | Desktop chat window | `PresentEvent` |
