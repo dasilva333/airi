@@ -98,7 +98,9 @@ function toggleAvatarFavorite(modelId: string) {
   }
 }
 
-const avatarApplyMode = ref<'preview' | 'apply'>('preview')
+// NOTICE: persisted (not a plain ref) so the Preview/Apply choice survives
+// popover close — the shell previously held it for the whole session.
+const avatarApplyMode = useLocalStorageManualReset<'preview' | 'apply'>('settings/control-strip/avatar-apply-mode', 'preview')
 
 function selectAvatar(modelId: string) {
   settingsStore.stageModelSelected = modelId
