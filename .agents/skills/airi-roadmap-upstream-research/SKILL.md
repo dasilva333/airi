@@ -106,6 +106,10 @@ Maintain an active rolling monitor of high-impact upstream PRs during scheduled 
   - **Author**: `@RUI-debug769` | **State**: Open (68 comments)
   - **Focus**: Self-contained identity continuity metrics package (`@proj-airi/memory-eval`) using Wasserstein-1 distance, GMM BIC bimodality for split-persona detection, and fixed-point operator convergence.
   - **Monitoring Objective**: Track maintainer decisions regarding package location (`packages/` vs `evals/`), benchmark harness independence, and evaluate portability for our Eight Pillars memory evaluation.
+- **PR #3121: `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image`**
+  - **Author**: `@CatakikiFish` | **State**: Open (10 comments)
+  - **Focus**: Pure Chromium canvas WebP-to-PNG decoder via Eventa contract (`shared/eventa/webp-decoder.ts`). Companion tool to `computer_use` squatted in fork capability packs (`docs/design-capability-packs.md`).
+  - **Monitoring Objective**: Monitor where upstream lands upon closure and evaluate final decoder implementation for porting.
 
 ## Upstream Radar vs. Cherry-Pick Triage SOP
 

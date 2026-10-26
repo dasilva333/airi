@@ -92,6 +92,11 @@ const WATCHED_UPSTREAM_PRS = [
     title: 'fix(stage-shared): parse Electron punctuation accelerators',
     focus: 'Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback',
   },
+  {
+    number: 3121,
+    title: 'fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image',
+    focus: 'Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.',
+  },
 ]
 
 const WATCHED_7N1M4_ITEMS = [

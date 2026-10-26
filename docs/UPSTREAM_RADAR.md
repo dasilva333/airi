@@ -27,11 +27,225 @@
 | [#2932](https://github.com/moeru-ai/airi/pull/2932) | `fix(tamagotchi): await setupBaseWindowElectronInvokes in widgets RPC setup` | `@bitxwolf` | `Open` (25 comments) | 🟢 **Desktop Stability** | **Ported & Typechecked in Fork (#2932)** via commit `9e12e1f35` in `apps/stage-tamagotchi/src/main/windows/widgets/rpc/index.electron.ts`. |
 | [#3054](https://github.com/moeru-ai/airi/pull/3054) / [#3058](https://github.com/moeru-ai/airi/pull/3058) | `feat(core-agent,stage-ui): now speech formula, math, chem correctly` | `@nekomeowww` | `Merged` | 🟢 **Acoustic Intelligence** | **Planned for Fork UST** in [`docs/blueprint-tts-universal-speech-transformer.md`](./blueprint-tts-universal-speech-transformer.md) as optional toggles (Currency default ON; Math/Chem default OFF). |
 | [#3060](https://github.com/moeru-ai/airi/pull/3060) | `feat(stage-tamagotchi): rework the floating chat dock and its styles` | `@chiba233` | `Open` (3 comments) | 🟢 **Visual & Desktop Ergonomics** | **Incorporated into Blueprint** in [`docs/design-native-glass-and-generative-tool-cards.md`](./design-native-glass-and-generative-tool-cards.md) (Pillar IV: dynamic backdrop gating, edge resizing). |
+| [#3121](https://github.com/moeru-ai/airi/pull/3121) | `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` | `@CatakikiFish` | `Open` (10 comments) | 🟢 **MCP & Capability Packs** (Screenshot Ingestion) | Upstream decoding WebP screenshots via Chromium OffscreenCanvas over Eventa contract. **Directive**: Companion tool squatted in fork capability packs (`docs/design-capability-packs.md`); monitor where upstream lands upon closure and evaluate final decoder implementation for porting. |
 
 ---
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-10-26] Upstream Delta: `74ddd90c..36926521` (4 commits, 117 files, 16 update(s))
+
+### 🎯 Executive Highlights
+#### Upstream Trajectory & Key Highlights
+- **Settings Search Architecture (#3112, commit `999da4b0b`)**: Upstream shipped a comprehensive in-app search subsystem across `stage-pages` and `stage-ui`, powered by a 1,652-line Vite indexing plugin (`virtual:settings-search-providers`) and per-module `.search.ts` providers. Also added UI search components (`settings-search-field.vue`, `settings-search-results.vue`, `use-settings-search.ts`).
+- **Extension-Hosted Kits in Plugin SDK (#2687, commit `369265215`)**: Merged massive architectural PR (+4,410 lines) establishing the `KitProviderRegistry` and typed contracts (`defineKitContract`) for Extension-hosted Kits and host lifecycle management.
+- **OTA Updater Pipeline via ergosphere-it (#3126)**: Upstream opened PR #3126 replacing `electron-updater` with an `ergosphere-it` launcher and Cloudflare R2 binary feed for zero-install dev/nightly/beta OTA updates.
+- **Provider Connection Failure Indicators (#3115)**: Added prominent status feedback on settings home surfacing providers that failed health checks, with inline Edit/Dismiss controls.
+
+#### 💬 Discussion & Community Buzz
+- **#3121: `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image`** (10 comments in 9h): High discussion velocity surrounding Chromium-based canvas decoding via Eventa contract instead of pulling in native image dependencies like `sharp`.
+- **#3126: `feat(stage-tamagotchi): update with ergosphere-it`** (6 comments in 35m): Rapid maintainer feedback on launcher integration, S3/R2 update feeds, and macOS/Linux update gating.
+- **#3117: `feat(provider-inference): add Runcrate provider`** (4 comments): Provider integration discussion for the Runcrate inference platform.
+- **#3125: `fix(stage-ui): persist the active Character card id`** (3 comments): Community bug fix and test suite for preserving active character card across restarts.
+- **#2916: `fix(core-agent): exclude nested reasoning from streamed speech`** (+1 new comment, 3 total): Discussion on preventing streaming speech cursor regression when models output nested `<think>` tags.
+
+#### 🍒 Cherry-Pick Candidates
+- **PR #3125: `fix(stage-ui): persist the active Character card id`**: Highly recommended bug fix. Ensures device-local active character card selection survives app restarts via `airi-card-active-id` persistence in `src/stores/modules/airi-card.ts`.
+- **PR #2916: `fix(core-agent): exclude nested reasoning from streamed speech`**: Recommended acoustic guard. Prevents nested `<think>` reasoning chunks from rewinding the streaming audio cursor and leaking thought tokens to TTS audio synthesis.
+- **PR #3114 (commit `383c25ee4`): `fix(stage-pages): unblock settings home navigation`**: Small bug fix removing obsolete animation callback guard in `packages/stage-pages/src/pages/settings/index.vue` that blocked settings home navigation when page transitions were enabled.
+- **PR #3121: `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image`**: Pure Chromium canvas WebP-to-PNG decoder pattern via Eventa contract (`shared/eventa/webp-decoder.ts`), avoiding heavy native C++ binaries. Worth referencing if expanding fork computer-use image ingestion.
+- **PR #3115: `feat(stage-ui,stage-pages): show providers that failed their last check`**: Useful UI polish for showing failed provider health status cards with direct Edit navigation on settings home.
+
+#### ⚠️ Divergence / Collision Warnings
+- **Ergosphere-it Over-The-Air Updater (PR #3126)**: **PERMANENT AUTO-REJECT (Rule 11)**. Upstream replaces standard distribution with a hosted OTA binary launcher connected to Cloudflare R2 (`release-updates.airi.build`). Our fork is strictly local-first and offline-first with user-directed release packaging; background auto-updaters and external launchers are forbidden.
+- **Hosted Kit Registration / Plugin SDK (PR #2687 / commit `369265215`)**: **ARCHITECTURAL DIVERGENCE**. Upstream's `plugin-sdk` runs an in-process extension host model. Our fork uses a secure MCP stdio architecture (`apps/stage-tamagotchi/src/main/services/mcp`) and isolated Generative UI sandboxes. Do not port in-process kit registration.
+- **Kirie Settings Search (PR #3113 / commit `22b182fe0`)**: Scoped to upstream's experimental Kirie scenario (`apps/stage-tamagotchi-kirie`); not present or utilized in this fork.
+- **Unified Data Backup & Restore (PR #3059)**: Upstream is adding JSON/ZIP file export/import in `stage-ui`. Our fork uses Bring Your Own Storage (BYOS: S3/R2/Google Drive backup) and local unstorage/localforage persistence. Avoid colliding with our existing BYOS outbox pipelines.
+
+### 📋 Upstream Commits
+- `369265215` feat(plugin-sdk): add hosted Kit registration (#2687) [#2687](https://github.com/moeru-ai/airi/pull/2687) _(leafyy, 2026-10-26)_
+- `383c25ee4` fix(stage-pages): unblock settings home navigation (#3114) [#3114](https://github.com/moeru-ai/airi/pull/3114) _(蓝莓🫐, 2026-10-26)_
+- `22b182fe0` feat(stage-tamagotchi-kirie): add settings search (#3113) [#3113](https://github.com/moeru-ai/airi/pull/3113) _(蓝莓🫐, 2026-10-26)_
+- `999da4b0b` feat(stage-pages,stage-ui): search settings, their rows, and runtime items (#3112) [#3112](https://github.com/moeru-ai/airi/pull/3112) _(蓝莓🫐, 2026-10-26)_
+
+### 🔬 Subsystem Breakdown
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 2 file(s) (+10/-0)
+- `apps/stage-pocket/vite.config.ts` *(+5/-0)*
+- `apps/stage-web/vite.config.ts` *(+5/-0)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 31 file(s) (+518/-136)
+- `apps/stage-tamagotchi-kirie/kirie.config.ts` *(+5/-0)*
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/composables/use-restore-scroll.ts` *(+14/-16)*
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/layouts/settings.vue` *(+17/-14)*
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/pages/settings/connection/server-channel-qr-card.vue` *(+2/-0)*
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/pages/settings/index.vue` *(+28/-26)*
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/pages/settings/models/index.search.ts` *(+2/-0)*
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/pages/settings/modules/mcp.search.ts` *(+21/-0)*
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/pages/settings/modules/mcp.vue` *(+2/-0)*
+- `apps/stage-tamagotchi/electron.vite.config.ts` *(+5/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/README.md` *(+4/-1)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/activation-planner-consumer/README.md` *(+1/-1)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/activation-planner-consumer/activation-planner-consumer.mjs` *(+1/-1)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/activation-planner-provider/README.md` *(+1/-1)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/activation-planner-provider/activation-planner-provider.mjs` *(+11/-3)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/hosted-kit-provider/README.md` *(+7/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/hosted-kit-provider/extension.airi.json` *(+21/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/hosted-kit-provider/hosted-kit-provider.mjs` *(+19/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/index.test.ts` *(+70/-8)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/kits/gamelet/index.ts` *(+1/-18)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/kits/index.test.ts` *(+97/-8)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/kits/index.ts` *(+81/-17)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/kits/widget/index.ts` *(+1/-18)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/connection/server-channel-qr-card.vue` *(+2/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/data/index.search.ts` *(+2/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/index.vue` *(+21/-4)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/models/index.search.ts` *(+2/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/modules/home-assistant.browser.test.ts` *(+9/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/modules/home-assistant.search.ts` *(+35/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/modules/home-assistant.vue` *(+13/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/modules/mcp.search.ts` *(+21/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/modules/mcp.vue` *(+2/-0)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 3 file(s) (+278/-4)
+- `docs/ai/adr/2026-09-22-hosted-kit-registration.md` *(+204/-0)*
+- `docs/ai/context/ui-components.md` *(+27/-0)*
+- `packages/plugin-sdk/README.md` *(+47/-4)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 2 file(s) (+8/-0)
+- `packages/i18n/src/locales/en/settings.yaml` *(+4/-0)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+4/-0)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 39 file(s) (+4729/-113)
+- `packages/plugin-sdk/src/extension/disposable.test.ts` *(+90/-0)*
+- `packages/plugin-sdk/src/extension/disposable.ts` *(+19/-12)*
+- `packages/plugin-sdk/src/extension/index.test.ts` *(+2/-1)*
+- `packages/plugin-sdk/src/extension/shared.ts` *(+18/-6)*
+- `packages/plugin-sdk/src/kit/contract.test.ts` *(+169/-0)*
+- `packages/plugin-sdk/src/kit/contract.ts` *(+364/-0)*
+- `packages/plugin-sdk/src/kit/exact-semantic-version.test.ts` *(+23/-0)*
+- `packages/plugin-sdk/src/kit/exact-semantic-version.ts` *(+13/-0)*
+- `packages/plugin-sdk/src/kit/exposure-policy-options.ts` *(+73/-0)*
+- `packages/plugin-sdk/src/kit/exposure-policy.ts` *(+19/-0)*
+- `packages/plugin-sdk/src/kit/index.ts` *(+36/-13)*
+- `packages/plugin-sdk/src/plugin-host/api.ts` *(+7/-0)*
+- `packages/plugin-sdk/src/plugin-host/core.test.ts` *(+893/-2)*
+- `packages/plugin-sdk/src/plugin-host/core.ts` *(+207/-63)*
+- `packages/plugin-sdk/src/plugin-host/hosted-kits.test.ts` *(+868/-0)*
+- `packages/plugin-sdk/src/plugin-host/hosted-kits.ts` *(+920/-0)*
+- `packages/plugin-sdk/src/plugin-host/runtimes/node/cleanup-context.ts` *(+31/-0)*
+- `packages/plugin-sdk/src/plugin-host/shared/host-sources.ts` *(+18/-0)*
+- `packages/plugin-sdk/src/plugin-host/shared/index.ts` *(+1/-0)*
+- `packages/plugin-sdk/src/plugin-host/shared/kits.ts` *(+35/-1)*
+- `packages/plugin-sdk/src/plugin-host/shared/types.ts` *(+16/-8)*
+- `packages/plugin-sdk/src/plugin-host/testdata/test-hosted-kit-provider-entrypoint.ts` *(+22/-0)*
+- `packages/provider-inference/src/types.ts` *(+6/-0)*
+- `packages/stage-shared/src/settings-search/index.ts` *(+120/-0)*
+- `packages/stage-ui/src/components/layouts/link-group.story.vue` *(+47/-0)*
+- `packages/stage-ui/src/components/layouts/section.vue` *(+1/-0)*
+- `packages/stage-ui/src/components/menu/radio-card-many-select.vue` *(+6/-0)*
+- `packages/stage-ui/src/components/menu/voice-card-many-select.vue` *(+6/-0)*
+- `packages/stage-ui/src/components/modules/stickers.vue` *(+3/-4)*
+- `packages/stage-ui/src/components/scenarios/providers/provider-advanced-settings.vue` *(+1/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/index.ts` *(+2/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/panel.vue` *(+2/-2)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/runtime.ts` *(+6/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/settings-search-field.story.vue` *(+18/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/settings-search-field.vue` *(+50/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/settings-search-results.vue` *(+158/-0)*
+- `packages/stage-ui/src/composables/use-settings-search.ts` *(+443/-0)*
+- `packages/stage-ui/src/libs/providers/providers/official/index.ts` *(+4/-1)*
+- `packages/stage-ui/src/stores/modules/stickers.ts` *(+12/-0)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 1 file(s) (+3/-0)
+- `packages/stage-layouts/src/layouts/settings.vue` *(+3/-0)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 38 file(s) (+2515/-42)
+- `packages/stage-pages/README.md` *(+28/-0)*
+- `packages/stage-pages/src/components/settings-experimental-features.vue` *(+3/-0)*
+- `packages/stage-pages/src/pages/settings/airi-card/index.search.ts` *(+16/-0)*
+- `packages/stage-pages/src/pages/settings/data/components/downloaded-models-section.vue` *(+4/-17)*
+- `packages/stage-pages/src/pages/settings/data/downloaded-models.ts` *(+33/-0)*
+- `packages/stage-pages/src/pages/settings/data/index.search.ts` *(+15/-0)*
+- `packages/stage-pages/src/pages/settings/index.vue` *(+21/-19)*
+- `packages/stage-pages/src/pages/settings/models/index.search.ts` *(+17/-0)*
+- `packages/stage-pages/src/pages/settings/modules/consciousness.search.ts` *(+11/-0)*
+- `packages/stage-pages/src/pages/settings/modules/consciousness.vue` *(+4/-0)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/transcriber.search.ts` *(+17/-0)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/transcriber.vue` *(+4/-0)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/wake-words.search.ts` *(+16/-0)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/wake-words.vue` *(+3/-1)*
+- `packages/stage-pages/src/pages/settings/modules/memory-long-term-memories.search.ts` *(+25/-0)*
+- `packages/stage-pages/src/pages/settings/modules/memory-long-term-memories.vue` *(+3/-0)*
+- `packages/stage-pages/src/pages/settings/modules/memory-long-term-recipes.search.ts` *(+15/-0)*
+- `packages/stage-pages/src/pages/settings/modules/memory-long-term-recipes.vue` *(+3/-0)*
+- `packages/stage-pages/src/pages/settings/modules/module-model-search.ts` *(+147/-0)*
+- `packages/stage-pages/src/pages/settings/modules/speech.search.ts` *(+21/-0)*
+- `packages/stage-pages/src/pages/settings/modules/speech.vue` *(+16/-0)*
+- `packages/stage-pages/src/pages/settings/modules/stickers.search.ts` *(+12/-0)*
+- `packages/stage-pages/src/pages/settings/modules/tool-cards.search.ts` *(+15/-0)*
+- `packages/stage-pages/src/pages/settings/modules/tool-cards.vue` *(+3/-0)*
+- `packages/stage-pages/src/pages/settings/modules/vision.search.ts` *(+11/-0)*
+- `packages/stage-pages/src/pages/settings/modules/vision.vue` *(+4/-0)*
+- `packages/stage-pages/src/pages/settings/providers/artistry/comfyui.search.ts` *(+15/-0)*
+- `packages/stage-pages/src/pages/settings/providers/artistry/comfyui.vue` *(+3/-1)*
+- `packages/stage-pages/src/pages/settings/scene/index.search.ts` *(+26/-0)*
+- `packages/stage-pages/src/pages/settings/scene/index.vue` *(+4/-4)*
+- `packages/stage-pages/src/pages/settings/system/experimental.search.ts` *(+15/-0)*
+- `packages/stage-pages/src/settings-search-providers.ts` *(+16/-0)*
+- `packages/stage-pages/src/vite/settings-search-providers.d.ts` *(+7/-0)*
+- `packages/stage-pages/src/vite/settings-search.ts` *(+1652/-0)*
+- `packages/ui/src/components/layouts/index.ts` *(+2/-0)*
+- `packages/ui/src/components/layouts/link-group-context.ts` *(+16/-0)*
+- `packages/ui/src/components/layouts/link-group-item.vue` *(+167/-0)*
+- `packages/ui/src/components/layouts/link-group.vue` *(+125/-0)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 1 file(s) (+1/-0)
+- `packages/stage-shared/package.json` *(+1/-0)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (9)
+- [PR] [#3115](https://github.com/moeru-ai/airi/pull/3115) `feat(stage-ui,stage-pages): show providers that failed their last check` by **@chiba233** *(2 comments)*
+- [PR] [#3126](https://github.com/moeru-ai/airi/pull/3126) `feat(stage-tamagotchi): update with ergosphere-it, and publish each push to a dev channel` by **@nekomeowww** *(6 comments)*
+- [PR] [#3125](https://github.com/moeru-ai/airi/pull/3125) `fix(stage-ui): persist the active Character card id` by **@futures-learner** *(3 comments)*
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` by **@CatakikiFish** *(10 comments)*
+- [PR] [#3117](https://github.com/moeru-ai/airi/pull/3117) `feat(provider-inference): add Runcrate provider` by **@heydryft** *(4 comments)*
+- [PR] [#3116](https://github.com/moeru-ai/airi/pull/3116) `chore(i18n): update translations` by **@github-actions** *(2 comments)*
+- [PR] [#3114](https://github.com/moeru-ai/airi/pull/3114) `fix(stage-pages): unblock settings home navigation` by **@chiba233** *(2 comments)*
+- [PR] [#3113](https://github.com/moeru-ai/airi/pull/3113) `feat(stage-tamagotchi-kirie): add settings search` by **@chiba233** *(2 comments)*
+- [PR] [#3112](https://github.com/moeru-ai/airi/pull/3112) `feat(stage-pages,stage-ui): search settings, their rows, and runtime items` by **@chiba233** *(2 comments)*
+
+#### 🔄 Status & Lifecycle Changes (3)
+- [PR] [#3059](https://github.com/moeru-ai/airi/pull/3059) `feat(stage-ui): add data export and import controls` — `Draft` ➔ `Ready`
+- [PR] [#2687](https://github.com/moeru-ai/airi/pull/2687) `feat(plugin-sdk): add hosted Kit registration` — `OPEN` ➔ `MERGED`
+- [PR] [#3098](https://github.com/moeru-ai/airi/pull/3098) `Add a one-click deploy button for Railyard` — `OPEN` ➔ `CLOSED`
+
+#### 💬 Discussion Activity (4)
+- [PR] [#2916](https://github.com/moeru-ai/airi/pull/2916) `fix(core-agent): exclude nested reasoning from streamed speech` — *+1 comments (2 ➔ 3 total)*
+- [PR] [#3105](https://github.com/moeru-ai/airi/pull/3105) `docs(cloud-client): use VITE_CLOUD_URL in the README example` — *+2 comments (2 ➔ 4 total)*
+- [PR] [#3059](https://github.com/moeru-ai/airi/pull/3059) `feat(stage-ui): add data export and import controls` — *+1 comments (1 ➔ 2 total)*
+- [PR] [#3098](https://github.com/moeru-ai/airi/pull/3098) `Add a one-click deploy button for Railyard` — *+1 comments (2 ➔ 3 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [OPEN] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(120 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+
+---
 ## [2026-10-25] Upstream Delta: `f1b81967..74ddd90c` (2 commits, 44 files, 10 update(s))
 
 ### 🎯 Executive Highlights
