@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { VoiceEditorPayload } from '@proj-airi/stage-ui/types/voice-editor'
+
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { CharacterContextDialog, ChatSessionModal, StageBackgroundDialogPicker } from '@proj-airi/stage-ui/components'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores'
@@ -32,6 +34,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'openStagingSettings'): void
   (e: 'openVoiceSettings'): void
+  (e: 'openVoiceEditor', payload: VoiceEditorPayload): void
   (e: 'openMemorySettings'): void
   (e: 'openCardSettings'): void
   (e: 'openSettings'): void
@@ -307,6 +310,7 @@ function handleOpenProviderSettings() {
               v-else-if="currentView === 'voice'"
               key="voice"
               @open-voice-settings="handleOpenVoiceSettings"
+              @open-voice-editor="emit('openVoiceEditor', $event)"
             />
           </Transition>
         </div>

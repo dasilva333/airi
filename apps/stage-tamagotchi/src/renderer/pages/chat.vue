@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { LatestTurnUsage } from '@proj-airi/stage-ui/stores/modules/live-session'
 import type { PacingMetrics } from '@proj-airi/stage-ui/types'
+import type { VoiceEditorPayload } from '@proj-airi/stage-ui/types/voice-editor'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { ChatOptionsPopover, ChatWorkspacePopover } from '@proj-airi/stage-layouts'
 import { resolveAtmosphereComponent } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
-import { ChatBrainPopover, ChatSessionModal } from '@proj-airi/stage-ui/components'
+import { ChatBrainPopover, ChatSessionModal, VoiceCreatorModal } from '@proj-airi/stage-ui/components'
 import { DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
@@ -113,6 +114,19 @@ function handleOpenStagingSettings() {
   }).catch((err: any) => {
     console.error('Failed to open Staging settings:', err)
   })
+}
+
+const voiceEditorOpen = ref(false)
+const pendingVoiceEditor = ref<VoiceEditorPayload | null>(null)
+
+function handleOpenVoiceEditor(payload: VoiceEditorPayload) {
+  pendingVoiceEditor.value = payload
+  voiceEditorOpen.value = true
+}
+
+function handleVoiceEditorSave(payload: { baseProvider: string, baseModel: string, baseVoice: string }) {
+  pendingVoiceEditor.value?.onSave(payload)
+  pendingVoiceEditor.value = null
 }
 
 function handleOpenVoiceSettings() {
@@ -1461,6 +1475,7 @@ function selectSurface(surface: typeof activeSurface.value) {
             :on-apply-chat-preset="handleApplyChatPreset"
             @open-staging-settings="handleOpenStagingSettings"
             @open-voice-settings="handleOpenVoiceSettings"
+            @open-voice-editor="handleOpenVoiceEditor"
             @open-memory-settings="handleOpenMemorySettings"
             @open-card-settings="handleOpenCharacterConfig"
             @search-memories="handleSearchMemories"
@@ -1644,6 +1659,15 @@ function selectSurface(surface: typeof activeSurface.value) {
     </div>
     <!-- Full Timeline Management Modal -->
     <ChatSessionModal v-model="showManageModal" />
+
+    <VoiceCreatorModal
+      v-model="voiceEditorOpen"
+      :character-name="pendingVoiceEditor?.characterName"
+      :initial-provider="pendingVoiceEditor?.initial.provider"
+      :initial-model="pendingVoiceEditor?.initial.model"
+      :initial-voice="pendingVoiceEditor?.initial.voice"
+      @save="handleVoiceEditorSave"
+    />
   </div>
 </template>
 

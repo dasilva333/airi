@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import type { DisplayModel } from '@proj-airi/stage-ui/stores/display-models'
 
+import VoiceCreatorModal from '@proj-airi/stage-ui/components/scenarios/dialogs/VoiceCreatorModal.vue'
+
 import { ModelSelectorDialog } from '@proj-airi/stage-ui/components/scenarios/dialogs/model-selector'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { Select } from '@proj-airi/ui/components/form'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-import VoiceCreatorModal from '../VoiceCreatorModal.vue'
 
 const props = defineProps<{
   speechProviderOptions: { value: string, label: string }[]

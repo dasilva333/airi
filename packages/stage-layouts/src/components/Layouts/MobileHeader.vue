@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { VoiceEditorPayload } from '@proj-airi/stage-ui/types/voice-editor'
+
 import { estimateTokens } from '@proj-airi/stage-shared'
 import { BrainModelPicker } from '@proj-airi/stage-ui/components'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
@@ -8,6 +10,10 @@ import { computed, ref } from 'vue'
 import ControlStripEditorSheet from './ControlStripEditorSheet.vue'
 import MobileHeaderLink from './MobileHeaderLink.vue'
 import MobileUtilityPopover from './MobileUtilityPopover.vue'
+
+const emit = defineEmits<{
+  (e: 'openVoiceEditor', payload: VoiceEditorPayload): void
+}>()
 
 const chatSessionStore = useChatSessionStore()
 const { messages } = storeToRefs(chatSessionStore)
@@ -93,7 +99,7 @@ const tokenBarColorClass = computed(() => {
         <ControlStripEditorSheet v-model="customizerSheetOpen" />
 
         <!-- 3. Quick Settings (Popover with Cog trigger) -->
-        <MobileUtilityPopover />
+        <MobileUtilityPopover @open-voice-editor="emit('openVoiceEditor', $event)" />
       </div>
     </div>
 

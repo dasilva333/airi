@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { VoiceEditorPayload } from '@proj-airi/stage-ui/types/voice-editor'
+
 import { CharacterAvatar } from '@proj-airi/stage-ui/components'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
@@ -7,6 +9,7 @@ import { computed, onUnmounted, ref } from 'vue'
 
 const emit = defineEmits<{
   (e: 'openVoiceSettings'): void
+  (e: 'openVoiceEditor', payload: VoiceEditorPayload): void
 }>()
 
 const airiCardStore = useAiriCardStore()
@@ -148,6 +151,15 @@ const cardDefaultVoiceId = computed(() => {
   return activeCard.value?.extensions?.airi?.modules?.speech?.voice_id || activeSpeechVoiceId.value || ''
 })
 
+const cardSpeechConfig = computed(() => {
+  const speech = activeCard.value?.extensions?.airi?.modules?.speech as { provider?: string, model?: string, voice_id?: string } | undefined
+  return {
+    provider: speech?.provider || '',
+    model: speech?.model || '',
+    voice: cardDefaultVoiceId.value,
+  }
+})
+
 const cardDefaultVoiceName = computed(() => {
   if (!cardDefaultVoiceId.value)
     return 'Default voice'
@@ -213,7 +225,7 @@ function getActorPreviewUrl(actor: { id: string, speech?: { voice_id?: string } 
 }
 
 // --- CARD EXTENSION UPDATES ---
-function handleSetCardDefaultVoice(voiceId: string) {
+function writeCardSpeech(voice: { baseProvider: string, baseModel: string, baseVoice: string }) {
   if (!activeCardId.value || !activeCard.value)
     return
   const extensions = JSON.parse(JSON.stringify(activeCard.value.extensions || {}))
@@ -231,7 +243,9 @@ function handleSetCardDefaultVoice(voiceId: string) {
       volume: 1,
     }
   }
-  extensions.airi.modules.speech.voice_id = voiceId
+  extensions.airi.modules.speech.provider = voice.baseProvider
+  extensions.airi.modules.speech.model = voice.baseModel
+  extensions.airi.modules.speech.voice_id = voice.baseVoice
 
   airiCardStore.updateCard(activeCardId.value, {
     ...activeCard.value,
@@ -239,7 +253,16 @@ function handleSetCardDefaultVoice(voiceId: string) {
   } as any)
 }
 
-function handleSelectActorVoice(actorId: string, voiceId: string) {
+function openCardVoiceEditor() {
+  emit('openVoiceEditor', {
+    scope: 'card-default',
+    initial: { ...cardSpeechConfig.value },
+    characterName: activeCharacterName.value,
+    onSave: voice => writeCardSpeech(voice),
+  })
+}
+
+function writeActorSpeech(actorId: string, voice: { baseProvider: string, baseModel: string, baseVoice: string } | null) {
   if (!activeCardId.value || !activeCard.value)
     return
   const extensions = JSON.parse(JSON.stringify(activeCard.value.extensions || {}))
@@ -254,8 +277,10 @@ function handleSelectActorVoice(actorId: string, voiceId: string) {
     extensions.airi.visual_assets[actorId].speech = {}
   }
 
-  if (voiceId) {
-    extensions.airi.visual_assets[actorId].speech.voice_id = voiceId
+  if (voice) {
+    extensions.airi.visual_assets[actorId].speech.provider = voice.baseProvider
+    extensions.airi.visual_assets[actorId].speech.model = voice.baseModel
+    extensions.airi.visual_assets[actorId].speech.voice_id = voice.baseVoice
   }
   else {
     delete extensions.airi.visual_assets[actorId].speech.voice_id
@@ -268,6 +293,34 @@ function handleSelectActorVoice(actorId: string, voiceId: string) {
     ...activeCard.value,
     extensions,
   } as any)
+}
+
+function handleSelectActorVoice(actorId: string, voiceId: string) {
+  if (voiceId) {
+    const actor = actorConcepts.value.find(a => a.id === actorId)
+    writeActorSpeech(actorId, {
+      baseProvider: actor?.speech?.provider || cardSpeechConfig.value.provider,
+      baseModel: actor?.speech?.model || cardSpeechConfig.value.model,
+      baseVoice: voiceId,
+    })
+    return
+  }
+  writeActorSpeech(actorId, null)
+}
+
+function openActorVoiceEditor(actorId: string) {
+  const actor = actorConcepts.value.find(a => a.id === actorId)
+  emit('openVoiceEditor', {
+    scope: 'actor',
+    actorId,
+    initial: {
+      provider: actor?.speech?.provider || cardSpeechConfig.value.provider,
+      model: actor?.speech?.model || cardSpeechConfig.value.model,
+      voice: actor?.speech?.voice_id || '',
+    },
+    characterName: actor?.name || activeCharacterName.value,
+    onSave: voice => writeActorSpeech(actorId, voice),
+  })
 }
 </script>
 
@@ -400,19 +453,15 @@ function handleSelectActorVoice(actorId: string, voiceId: string) {
             />
           </button>
 
-          <!-- Voice Selector Dropdown -->
-          <select
-            :value="cardDefaultVoiceId"
-            class="max-w-[125px] cursor-pointer truncate border border-neutral-200 rounded-lg bg-white px-2 py-1 text-xs text-neutral-800 outline-none dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
-            @change="handleSetCardDefaultVoice(($event.target as HTMLSelectElement).value)"
+          <!-- Voice Editor Button -->
+          <button
+            type="button"
+            title="Edit voice"
+            class="cursor-pointer rounded-lg p-1.5 text-neutral-500 transition hover:bg-neutral-200/60 dark:text-neutral-400 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+            @click="openCardVoiceEditor"
           >
-            <option value="">
-              System Default
-            </option>
-            <option v-for="opt in voiceOptions" :key="opt.id" :value="opt.id">
-              {{ opt.name }}
-            </option>
-          </select>
+            <div class="i-solar:pen-bold-duotone size-5" />
+          </button>
         </div>
       </div>
     </div>
@@ -457,18 +506,14 @@ function handleSelectActorVoice(actorId: string, voiceId: string) {
             />
           </button>
 
-          <select
-            :value="cardDefaultVoiceId"
-            class="max-w-[125px] cursor-pointer truncate border border-neutral-200 rounded-lg bg-white px-2 py-1 text-xs text-neutral-800 outline-none dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
-            @change="handleSetCardDefaultVoice(($event.target as HTMLSelectElement).value)"
+          <button
+            type="button"
+            title="Edit voice"
+            class="cursor-pointer rounded-lg p-1.5 text-neutral-500 transition hover:bg-neutral-200/60 dark:text-neutral-400 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+            @click="openCardVoiceEditor"
           >
-            <option value="">
-              System Default
-            </option>
-            <option v-for="opt in voiceOptions" :key="opt.id" :value="opt.id">
-              {{ opt.name }}
-            </option>
-          </select>
+            <div class="i-solar:pen-bold-duotone size-5" />
+          </button>
         </div>
       </div>
 
@@ -516,18 +561,14 @@ function handleSelectActorVoice(actorId: string, voiceId: string) {
               />
             </button>
 
-            <select
-              :value="actor.speech?.voice_id || ''"
-              class="max-w-[125px] cursor-pointer truncate border border-neutral-200 rounded-lg bg-white px-2 py-1 text-xs text-neutral-800 outline-none dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
-              @change="handleSelectActorVoice(actor.id, ($event.target as HTMLSelectElement).value)"
+            <button
+              type="button"
+              title="Edit voice"
+              class="cursor-pointer rounded-lg p-1.5 text-neutral-500 transition hover:bg-neutral-200/60 dark:text-neutral-400 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+              @click="openActorVoiceEditor(actor.id)"
             >
-              <option value="">
-                Uses Default
-              </option>
-              <option v-for="opt in voiceOptions" :key="opt.id" :value="opt.id">
-                {{ opt.name }}
-              </option>
-            </select>
+              <div class="i-solar:pen-bold-duotone size-5" />
+            </button>
 
             <!-- Reset to default button or link icon -->
             <button

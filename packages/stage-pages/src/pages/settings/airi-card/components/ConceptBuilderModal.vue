@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import VoiceCreatorModal from '@proj-airi/stage-ui/components/scenarios/dialogs/VoiceCreatorModal.vue'
+
 import { StageBackgroundDialogPicker } from '@proj-airi/stage-ui/components/scenarios/dialogs/stage-background-picker'
 import { useIdleAnimations } from '@proj-airi/stage-ui/composables'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
@@ -20,7 +22,6 @@ import {
 import { computed, ref, watch } from 'vue'
 
 import ImageTagExtractorModal from './ImageTagExtractorModal.vue'
-import VoiceCreatorModal from './VoiceCreatorModal.vue'
 
 interface ConceptData {
   description: string

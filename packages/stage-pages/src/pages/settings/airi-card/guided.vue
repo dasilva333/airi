@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import VoiceCreatorModal from '@proj-airi/stage-ui/components/scenarios/dialogs/VoiceCreatorModal.vue'
+
 import { BrainModelPicker } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { ModelSelectorDialog } from '@proj-airi/stage-ui/components/scenarios/dialogs/model-selector'
 import { useAnimaDexWizardStore } from '@proj-airi/stage-ui/stores/animadex-wizard'
@@ -20,7 +22,6 @@ import { toast } from 'vue-sonner'
 
 import AutoVoiceConfigModal from './components/AutoVoiceConfigModal.vue'
 import CustomCharacterModal from './components/CustomCharacterModal.vue'
-import VoiceCreatorModal from './components/VoiceCreatorModal.vue'
 
 // LocalStorage persistent state for hiding the wizard welcome banner
 const showWelcomeBanner = useLocalStorage('airi:animadex-wizard:welcome-banner-visible', true)

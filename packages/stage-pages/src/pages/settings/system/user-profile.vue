@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import VoiceCreatorModal from '@proj-airi/stage-ui/components/scenarios/dialogs/VoiceCreatorModal.vue'
+
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useSettingsUserProfile } from '@proj-airi/stage-ui/stores/settings/user-profile'
 import { Button, Select } from '@proj-airi/ui'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-
-import VoiceCreatorModal from '../airi-card/components/VoiceCreatorModal.vue'
 
 const router = useRouter()
 const userProfileStore = useSettingsUserProfile()

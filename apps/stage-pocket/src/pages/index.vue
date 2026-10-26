@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { VoiceInputBinding } from '@proj-airi/stage-ui/libs/audio'
+import type { VoiceEditorPayload } from '@proj-airi/stage-ui/types/voice-editor'
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 
 import InteractiveArea from '@proj-airi/stage-layouts/components/Layouts/InteractiveArea.vue'
@@ -11,7 +12,7 @@ import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&u
 import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds/index'
 import { useBackgroundThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
 import { useBackgroundStore } from '@proj-airi/stage-layouts/stores/background'
-import { ControlStrip, FloatingWidgetsLayer } from '@proj-airi/stage-ui/components'
+import { ControlStrip, FloatingWidgetsLayer, VoiceCreatorModal } from '@proj-airi/stage-ui/components'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
 import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-recorder'
 import { createVoiceInputBinding } from '@proj-airi/stage-ui/libs/audio'
@@ -37,6 +38,19 @@ const paused = ref(false)
 
 function handleSettingsOpen(open: boolean) {
   paused.value = open
+}
+
+const voiceEditorOpen = ref(false)
+const pendingVoiceEditor = ref<VoiceEditorPayload | null>(null)
+
+function handleOpenVoiceEditor(payload: VoiceEditorPayload) {
+  pendingVoiceEditor.value = payload
+  voiceEditorOpen.value = true
+}
+
+function handleVoiceEditorSave(payload: { baseProvider: string, baseModel: string, baseVoice: string }) {
+  pendingVoiceEditor.value?.onSave(payload)
+  pendingVoiceEditor.value = null
 }
 
 const positionCursor = useMouse()
@@ -262,7 +276,7 @@ onUnmounted(() => {
     <div class="relative z-2 h-100dvh w-100vw flex flex-col overflow-hidden py-safe">
       <!-- header -->
       <div class="relative z-50 w-full">
-        <MobileHeader class="w-full" />
+        <MobileHeader class="w-full" @open-voice-editor="handleOpenVoiceEditor" />
       </div>
 
       <!-- page -->
@@ -294,6 +308,14 @@ onUnmounted(() => {
         <FloatingWidgetsLayer />
         <MobileWhisperSheet v-if="isPortraitMobile" @settings-open="handleSettingsOpen" />
         <MobileWorkspaceSheet v-if="workspaceOpen" @close="workspaceOpen = false" />
+        <VoiceCreatorModal
+          v-model="voiceEditorOpen"
+          :character-name="pendingVoiceEditor?.characterName"
+          :initial-provider="pendingVoiceEditor?.initial.provider"
+          :initial-model="pendingVoiceEditor?.initial.model"
+          :initial-voice="pendingVoiceEditor?.initial.voice"
+          @save="handleVoiceEditorSave"
+        />
       </div>
     </div>
   </BackgroundProvider>

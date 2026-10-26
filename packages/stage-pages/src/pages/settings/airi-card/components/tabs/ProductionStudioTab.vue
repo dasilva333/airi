@@ -2,6 +2,8 @@
 import type { DisplayModel } from '@proj-airi/stage-ui/stores/display-models'
 import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
 
+import VoiceCreatorModal from '@proj-airi/stage-ui/components/scenarios/dialogs/VoiceCreatorModal.vue'
+
 import { ModelSelectorDialog } from '@proj-airi/stage-ui/components/scenarios/dialogs/model-selector'
 import { StageBackgroundDialogPicker } from '@proj-airi/stage-ui/components/scenarios/dialogs/stage-background-picker'
 import { useAnimaDexWizardStore } from '@proj-airi/stage-ui/stores/animadex-wizard'
@@ -15,7 +17,6 @@ import { computed, onMounted, ref } from 'vue'
 
 import AutoVoiceConfigModal from '../AutoVoiceConfigModal.vue'
 import ConceptBuilderModal from '../ConceptBuilderModal.vue'
-import VoiceCreatorModal from '../VoiceCreatorModal.vue'
 
 const props = defineProps<{
   cardId: string
