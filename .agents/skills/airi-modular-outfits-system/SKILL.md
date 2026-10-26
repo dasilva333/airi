@@ -21,6 +21,10 @@ Character outfits represent distinct visual costume variants (e.g. casual wear, 
 - `packages/stage-ui/src/types/card.schema.ts` — `AiriOutfit` Valibot schema definition (`id`, `name`, `description`, `displayModelId`, `visual_assets`).
 - `packages/stage-ui/src/stores/modules/airi-card.ts` — `useAiriCardStore`. Manages active character card and outfit switching actions.
 
+### Stage UI Popover & Outfit Selection
+- `packages/stage-ui/src/components/scenarios/layout/popovers/WardrobePopover.vue` — (`actor-wardrobe`) Stage popover container for active outfit selection.
+- `packages/stage-ui/src/components/scenarios/layout/OutfitSlotList.vue` — Slot list UI for browsing and toggling character costume variants on-stage.
+
 ### 3D Mesh Wardrobe & Stage-Mate Parity
 - `packages/stage-ui/src/components/scenarios/settings/model-settings/ModelCustomizer.vue` — Outfits tab (Wardrobe Builder) and `WardrobeMeshTreeNode.vue`.
 - `packages/stage-ui-three/src/components/Model/VRMModel.vue` — `buildMeshHierarchy` (multi-primitive submesh discovery and `userData.cleanName` tagging).

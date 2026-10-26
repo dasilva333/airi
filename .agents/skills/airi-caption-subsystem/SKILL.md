@@ -122,13 +122,13 @@ Captions come from **inline `Text` + `Language` fields on `model3.json` `FileRef
 | `caption-opacity` | 0/20/50/80 opacity tier | cycler | off | YES |
 | `caption-layout-mode` | `single` (active sentence) ↔ `multi` (dialog block) | cycler | off | YES |
 
-Wiring: `use-control-strip-action.ts` handles `head-tethered-caption`, `caption-docking` (DOCK_CYCLE `['none','bottom','top','head']`, :105-111), `caption-sync-position`, `caption-sync-visibility`, `caption-layout-mode`, and `caption` (binds to `controlStripStore.captionOpen` via binding `captionOpen`); `ControlStrip.vue` maps icon/active-label/short-label states in `getButtonIcon` / `getActiveCaptionButtonIcon` / `getShortLabel` (:~1230-1360) and adds status-dot branches at :1519/1609.
+Wiring: `use-control-strip-action.ts` handles `head-tethered-caption`, `caption-docking` (DOCK_CYCLE `['none','bottom','top','head']`), `caption-sync-position`, `caption-sync-visibility`, `caption-layout-mode`, and `caption` (binds to `controlStripStore.captionOpen` via binding `captionOpen`). Button presentation states (dynamic icons, active labels, hover short labels, and status dots) are resolved via `packages/stage-ui/src/constants/control-strip-labels.ts` (`resolveControlStripIcon`, `resolveControlStripShortLabel`, `resolveControlStripDot`) and `use-control-strip-button-presentation.ts`. Cross-window speech-segment relay from `airi-caption-overlay` to Stage-Mate IPC is owned by `use-control-strip-caption-relay.ts`.
 
 ---
 
 ## 6. Known Drift / Documentation Warnings
 
-- `docs/design-captions-widget-system.md` spec mentions **`captionThemeMode`** (`light|dark|system`) with a caption-background-theme cycler — no corresponding field exists in `stores/settings/captions.ts` and no `caption-theme-mode` case in either `use-control-strip-action.ts` or `ControlStrip.vue` handlers (only icon/label branches, :1233/:1359). If you're asked to implement this, it's a real gap, not a rename.
+- `docs/design-captions-widget-system.md` spec mentions **`captionThemeMode`** (`light|dark|system`) with a caption-background-theme cycler — no corresponding field exists in `stores/settings/captions.ts` and no `caption-theme-mode` case in either `use-control-strip-action.ts` or `control-strip-labels.ts` handlers. If you're asked to implement this, it's a real gap, not a rename.
 - `docs/design-head-tethered-captions.md` pre-specifies Spine/VRM/MMD tethered adapters that **do not exist yet**; treat its platform table as plan-of-record, not inventory.
 - Some older skills/docs still name the caption settings `settingsStore.captionFollowStage…` nested fields; flattened barrel refs in `settings/index.ts` are current.
 

@@ -16,7 +16,7 @@ Covers the primary character card management surface in settings (`packages/stag
 - **Card Card Item**: `packages/stage-pages/src/pages/settings/airi-card/components/CardListItem.vue`
   - Responsibilities: Flip card animation (Front: 1:1 portrait + name overlay + active badge; Back: description, version, consciousness/voice modules; Bottom: toolbar with edit, export JSON/PNG, selfie, activate, delete).
 - **Avatar & Thumbnail Component**: `packages/stage-ui/src/components/misc/CharacterAvatar.vue`
-  - Used in `CardListItem.vue` and `ControlStrip.vue`.
+  - Used in `CardListItem.vue` and `CharactersPopover.vue` (`packages/stage-ui/src/components/scenarios/layout/popovers/CharactersPopover.vue` for the Control Strip character-card picker).
   - Resolves avatar image according to strict priority chain without blocking the UI thread.
 - **Media Resolver Library**: `packages/stage-ui/src/libs/character-media-resolver.ts`
   - Provides `getLatestSelfie(cardId)`, `extractModelIcon(displayModelId)`, and `extractComplementaryColors(imageUrl)`.

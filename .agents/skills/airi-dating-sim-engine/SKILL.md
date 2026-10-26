@@ -11,6 +11,7 @@ Amagami-inspired game layer on top of the Actor Stage. Intimacy/tension/action p
 ## Surface Map
 
 - **Overlay UI (choices / subtitles / HUD)**: `packages/stage-ui/src/components/scenes/DatingSimOverlay.vue`
+- **Control Strip Presets Popover**: `packages/stage-ui/src/components/scenarios/layout/popovers/MacaronPopover.vue` (`actor-macaron` — stage quick-menu for mood, tension, action points, and storyline preset selection)
 - **Preset picker (storyline selection)**: `packages/stage-ui/src/components/scenes/StorySelectorModal.vue`
 - **Stage integration (motion / expression triggers)**: `packages/stage-ui/src/components/scenes/RendererStage.vue`
 - **Settings page**: `packages/stage-pages/src/pages/settings/dating-sim.vue`
