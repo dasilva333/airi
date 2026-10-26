@@ -7,6 +7,7 @@
  * quick-motion preset cache and its blob URLs.
  */
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
+import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 
@@ -17,15 +18,81 @@ import helloGlyph from '../../../../assets/motions/hello.avif'
 import StripPopover from '../StripPopover.vue'
 
 import { useControlStripSettingsRoute } from '../../../../composables/use-control-strip-settings-route'
+import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
+import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { useTextToMotionStore } from '../../../../stores/modules/text-to-motion'
 import { useSettings } from '../../../../stores/settings'
 
 const emit = defineEmits<{ close: [] }>()
 
 const settingsStore = useSettings()
+const cardStore = useAiriCardStore()
+const displayModelsStore = useDisplayModelsStore()
+const { activeCardId } = storeToRefs(cardStore)
 const { openSettingsRoute } = useControlStripSettingsRoute()
 const modelStore = useModelStore()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
+
+const currentModelFormatLabel = computed(() => {
+  if (settingsStore.stageModelRenderer === 'vrm')
+    return 'VRM'
+  if (settingsStore.stageModelRenderer === 'live2d')
+    return 'Live2D'
+  if (settingsStore.stageModelRenderer === 'spine')
+    return 'Spine'
+  if (settingsStore.stageModelRenderer === 'mmd')
+    return 'MMD'
+  if (settingsStore.stageModelRenderer === 'disabled')
+    return 'Disabled'
+
+  if (settingsStore.stageModelSelectedDisplayModel?.format) {
+    const fmt = settingsStore.stageModelSelectedDisplayModel.format
+    if (fmt === DisplayModelFormat.VRM)
+      return 'VRM'
+    if (fmt === DisplayModelFormat.Live2dZip || fmt === DisplayModelFormat.Live2dDirectory)
+      return 'Live2D'
+    if (fmt === DisplayModelFormat.SpineZip)
+      return 'Spine'
+    if (fmt === DisplayModelFormat.PMXZip || fmt === DisplayModelFormat.PMXDirectory || fmt === DisplayModelFormat.PMD)
+      return 'MMD'
+  }
+
+  if (activeCardId.value) {
+    const modelId = cardStore.getCardDisplayModelId(activeCardId.value)
+    if (modelId) {
+      const model = displayModelsStore.displayModels.find(m => m.id === modelId)
+      if (model?.format === DisplayModelFormat.VRM)
+        return 'VRM'
+      if (model?.format === DisplayModelFormat.Live2dZip || model?.format === DisplayModelFormat.Live2dDirectory)
+        return 'Live2D'
+      if (model?.format === DisplayModelFormat.SpineZip)
+        return 'Spine'
+      if (model?.format === DisplayModelFormat.PMXZip || model?.format === DisplayModelFormat.PMXDirectory || model?.format === DisplayModelFormat.PMD)
+        return 'MMD'
+    }
+  }
+
+  return null
+})
+
+const isVrmModel = computed(() => {
+  if (settingsStore.stageModelRenderer)
+    return settingsStore.stageModelRenderer === 'vrm'
+
+  if (settingsStore.stageModelSelectedDisplayModel?.format)
+    return settingsStore.stageModelSelectedDisplayModel.format === DisplayModelFormat.VRM
+
+  if (activeCardId.value) {
+    const modelId = cardStore.getCardDisplayModelId(activeCardId.value)
+    if (modelId) {
+      const model = displayModelsStore.displayModels.find(m => m.id === modelId)
+      if (model)
+        return model.format === DisplayModelFormat.VRM
+    }
+  }
+
+  return false
+})
 
 // ── Motion Studio (FlowMDM Text-to-Motion Create & Library) ───────────────
 const textToMotionStore = useTextToMotionStore()
@@ -89,7 +156,7 @@ const quickMotions = [
 ]
 
 async function handleTriggerQuickMotion(qm: typeof quickMotions[number]) {
-  if (isGeneratingMotionPlayground.value)
+  if (!isVrmModel.value || isGeneratingMotionPlayground.value)
     return
 
   motionPlaygroundPrompt.value = qm.prompt
@@ -153,6 +220,9 @@ async function handleTriggerQuickMotion(qm: typeof quickMotions[number]) {
 }
 
 async function handleGenerateAndPlay() {
+  if (!isVrmModel.value)
+    return
+
   const prompt = motionPlaygroundPrompt.value.trim()
   if (!prompt) {
     toast.error('Please describe a motion.')
@@ -257,7 +327,7 @@ interface LibraryMotionItem {
 const libraryMotions = computed<LibraryMotionItem[]>(() => {
   const list: LibraryMotionItem[] = []
 
-  if (settingsStore.stageModelRenderer === 'vrm') {
+  if (isVrmModel.value) {
     const stockKeys = [
       'agent007',
       'aiCatDance',
@@ -353,320 +423,372 @@ function getLibraryMotionGlyph(item: LibraryMotionItem): string | undefined {
       </div>
     </template>
 
-    <!-- Top Segmented Tabs: Create | Library -->
-    <div class="grid grid-cols-2 border border-neutral-200/80 rounded-xl bg-neutral-100/90 p-1 dark:border-neutral-800 dark:bg-neutral-950/70">
+    <!-- Amber Notice: Non-VRM Model -->
+    <div
+      v-if="!isVrmModel"
+      :class="[
+        'flex flex-col items-center justify-center gap-3 p-5 my-1 text-center rounded-2xl',
+        'border border-amber-500/30 bg-amber-500/10 dark:border-amber-500/25 dark:bg-amber-500/10',
+      ]"
+    >
+      <div
+        :class="[
+          'flex items-center justify-center size-12 rounded-2xl',
+          'bg-amber-500/20 text-amber-600 dark:text-amber-400',
+        ]"
+      >
+        <span class="i-solar:danger-triangle-bold-duotone text-2xl" />
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <h4 class="text-sm text-amber-900 font-bold dark:text-amber-200">
+          Only Compatible with VRM
+        </h4>
+        <p class="max-w-[240px] text-xs text-amber-700/90 leading-relaxed dark:text-amber-300/80">
+          Motion Studio and 3D kinetic generation are only supported for 3D VRM humanoid avatars.
+        </p>
+      </div>
+
+      <div
+        v-if="currentModelFormatLabel"
+        :class="[
+          'mt-0.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium',
+          'bg-amber-500/15 text-amber-800 border border-amber-500/20 dark:text-amber-300',
+        ]"
+      >
+        <span>Active model:</span>
+        <span class="font-bold uppercase">{{ currentModelFormatLabel }}</span>
+      </div>
+
       <button
         type="button"
         :class="[
-          'py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer',
-          motionActiveTab === 'create'
-            ? 'bg-primary-500 text-white shadow-xs'
-            : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100',
+          'mt-1 w-full py-2 px-3 rounded-xl text-xs font-semibold cursor-pointer transition-all active:scale-98',
+          'bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 border border-amber-500/30 dark:text-amber-200',
         ]"
-        @click="motionActiveTab = 'create'"
+        @click="openSettingsRoute('/settings/stage')"
       >
-        Create
-      </button>
-      <button
-        type="button"
-        :class="[
-          'py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer',
-          motionActiveTab === 'library'
-            ? 'bg-primary-500 text-white shadow-xs'
-            : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100',
-        ]"
-        @click="motionActiveTab = 'library'"
-      >
-        Library
+        Switch Avatar in Stage Settings
       </button>
     </div>
 
-    <!-- TAB 1: CREATE -->
-    <div v-if="motionActiveTab === 'create'" class="flex flex-col gap-3">
-      <!-- Quick motions section -->
-      <div class="flex flex-col gap-1.5">
-        <span class="text-[11px] text-neutral-600 font-bold dark:text-neutral-400">
-          Quick motions
-        </span>
-        <div class="grid grid-cols-2 gap-2">
+    <!-- VRM Motion Studio Content -->
+    <template v-else>
+      <!-- Top Segmented Tabs: Create | Library -->
+      <div class="grid grid-cols-2 border border-neutral-200/80 rounded-xl bg-neutral-100/90 p-1 dark:border-neutral-800 dark:bg-neutral-950/70">
+        <button
+          type="button"
+          :class="[
+            'py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer',
+            motionActiveTab === 'create'
+              ? 'bg-primary-500 text-white shadow-xs'
+              : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100',
+          ]"
+          @click="motionActiveTab = 'create'"
+        >
+          Create
+        </button>
+        <button
+          type="button"
+          :class="[
+            'py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer',
+            motionActiveTab === 'library'
+              ? 'bg-primary-500 text-white shadow-xs'
+              : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100',
+          ]"
+          @click="motionActiveTab = 'library'"
+        >
+          Library
+        </button>
+      </div>
+
+      <!-- TAB 1: CREATE -->
+      <div v-if="motionActiveTab === 'create'" class="flex flex-col gap-3">
+        <!-- Quick motions section -->
+        <div class="flex flex-col gap-1.5">
+          <span class="text-[11px] text-neutral-600 font-bold dark:text-neutral-400">
+            Quick motions
+          </span>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              v-for="qm in quickMotions"
+              :key="qm.id"
+              type="button"
+              :disabled="isGeneratingMotionPlayground"
+              :class="[
+                'group flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all cursor-pointer active:scale-98',
+                'bg-neutral-50/70 hover:bg-neutral-100/90 dark:bg-neutral-800/40 dark:hover:bg-neutral-800/80',
+                'border-neutral-200/70 hover:border-primary-500/60 dark:border-neutral-800 dark:hover:border-primary-500/50',
+                isGeneratingMotionPlayground ? 'opacity-50 cursor-not-allowed' : '',
+              ]"
+              @click="handleTriggerQuickMotion(qm)"
+            >
+              <div class="h-9 w-9 flex shrink-0 items-center justify-center transition-transform group-hover:scale-105">
+                <img :src="qm.glyph" :alt="qm.title" class="pointer-events-none max-h-full max-w-full select-none object-contain">
+              </div>
+              <span class="text-xs text-neutral-800 font-semibold leading-snug dark:text-neutral-200">
+                {{ qm.title }}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Describe a motion section -->
+        <div class="flex flex-col gap-1.5">
+          <span class="text-[11px] text-neutral-600 font-bold dark:text-neutral-400">
+            Describe a motion
+          </span>
+          <div class="relative">
+            <textarea
+              v-model="motionPlaygroundPrompt"
+              :disabled="isGeneratingMotionPlayground"
+              rows="2"
+              maxlength="200"
+              placeholder="Take two small steps sideways, then wave with your right hand."
+              :class="[
+                'w-full resize-none rounded-xl p-2.5 pb-6 text-xs transition-colors',
+                'bg-neutral-100/80 dark:bg-neutral-950/60 border border-neutral-300 dark:border-neutral-800',
+                'text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600',
+                'focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500',
+              ]"
+              @keydown.enter.prevent="handleGenerateAndPlay"
+            />
+            <span class="absolute bottom-2 right-2 text-[10px] text-neutral-400 font-mono">
+              {{ motionPlaygroundPrompt.length }}/200
+            </span>
+          </div>
+        </div>
+
+        <!-- Duration Selector -->
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-neutral-600 font-medium dark:text-neutral-400">Duration</span>
+          <div class="flex items-center gap-1 border border-neutral-200 rounded-lg bg-neutral-100 p-0.5 dark:border-neutral-800 dark:bg-neutral-950">
+            <button
+              v-for="dur in (['4s', '6s', '8s'] as const)"
+              :key="dur"
+              type="button"
+              :class="[
+                'px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer',
+                motionPlaygroundDuration === dur
+                  ? 'bg-primary-500 text-white shadow-xs font-semibold'
+                  : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200',
+              ]"
+              @click="motionPlaygroundDuration = dur"
+            >
+              {{ dur }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Primary CTA Button -->
+        <div class="flex flex-col gap-1">
           <button
-            v-for="qm in quickMotions"
-            :key="qm.id"
             type="button"
-            :disabled="isGeneratingMotionPlayground"
+            :disabled="isGeneratingMotionPlayground || !motionPlaygroundPrompt.trim()"
             :class="[
-              'group flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all cursor-pointer active:scale-98',
-              'bg-neutral-50/70 hover:bg-neutral-100/90 dark:bg-neutral-800/40 dark:hover:bg-neutral-800/80',
-              'border-neutral-200/70 hover:border-primary-500/60 dark:border-neutral-800 dark:hover:border-primary-500/50',
-              isGeneratingMotionPlayground ? 'opacity-50 cursor-not-allowed' : '',
+              'w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-xs transition-all shadow-md cursor-pointer',
+              isGeneratingMotionPlayground || !motionPlaygroundPrompt.trim()
+                ? 'bg-primary-500/50 text-white/70 cursor-not-allowed shadow-none'
+                : 'bg-primary-500 hover:bg-primary-600 text-white shadow-primary-500/25 active:scale-[0.99]',
             ]"
-            @click="handleTriggerQuickMotion(qm)"
+            @click="handleGenerateAndPlay"
           >
-            <div class="h-9 w-9 flex shrink-0 items-center justify-center transition-transform group-hover:scale-105">
-              <img :src="qm.glyph" :alt="qm.title" class="pointer-events-none max-h-full max-w-full select-none object-contain">
-            </div>
-            <span class="text-xs text-neutral-800 font-semibold leading-snug dark:text-neutral-200">
-              {{ qm.title }}
+            <span
+              v-if="isGeneratingMotionPlayground"
+              class="i-solar:restart-linear animate-spin text-base"
+            />
+            <span
+              v-else
+              class="i-solar:walking-round-linear text-base"
+            />
+            <span>
+              {{ isGeneratingMotionPlayground ? (motionPlaygroundStatusMessage || 'Generating...') : 'Generate & play' }}
             </span>
           </button>
+          <p class="text-center text-[10px] text-neutral-400 dark:text-neutral-500">
+            Try freely. Save only what you like.
+          </p>
         </div>
       </div>
 
-      <!-- Describe a motion section -->
-      <div class="flex flex-col gap-1.5">
-        <span class="text-[11px] text-neutral-600 font-bold dark:text-neutral-400">
-          Describe a motion
-        </span>
-        <div class="relative">
-          <textarea
-            v-model="motionPlaygroundPrompt"
-            :disabled="isGeneratingMotionPlayground"
-            rows="2"
-            maxlength="200"
-            placeholder="Take two small steps sideways, then wave with your right hand."
+      <!-- TAB 2: LIBRARY -->
+      <div v-if="motionActiveTab === 'library'" class="flex flex-col gap-2.5">
+        <!-- Search bar -->
+        <div class="relative flex items-center">
+          <span class="i-solar:magnifer-linear absolute left-2.5 text-sm text-neutral-400" />
+          <input
+            v-model="motionSearchQuery"
+            type="text"
+            placeholder="Search motions..."
             :class="[
-              'w-full resize-none rounded-xl p-2.5 pb-6 text-xs transition-colors',
+              'w-full pl-8 pr-3 py-1.5 text-xs rounded-xl transition-colors',
               'bg-neutral-100/80 dark:bg-neutral-950/60 border border-neutral-300 dark:border-neutral-800',
               'text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600',
               'focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500',
             ]"
-            @keydown.enter.prevent="handleGenerateAndPlay"
-          />
-          <span class="absolute bottom-2 right-2 text-[10px] text-neutral-400 font-mono">
-            {{ motionPlaygroundPrompt.length }}/200
-          </span>
+          >
         </div>
-      </div>
 
-      <!-- Duration Selector -->
-      <div class="flex items-center justify-between">
-        <span class="text-xs text-neutral-600 font-medium dark:text-neutral-400">Duration</span>
-        <div class="flex items-center gap-1 border border-neutral-200 rounded-lg bg-neutral-100 p-0.5 dark:border-neutral-800 dark:bg-neutral-950">
+        <!-- Filter pills: All | Built-in | Saved | Uploaded -->
+        <div class="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
           <button
-            v-for="dur in (['4s', '6s', '8s'] as const)"
-            :key="dur"
+            v-for="flt in ([{ id: 'all', label: 'All' }, { id: 'builtin', label: 'Built-in' }, { id: 'saved', label: 'Saved' }, { id: 'uploaded', label: 'Uploaded' }] as const)"
+            :key="flt.id"
             type="button"
             :class="[
-              'px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer',
-              motionPlaygroundDuration === dur
-                ? 'bg-primary-500 text-white shadow-xs font-semibold'
-                : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200',
+              'px-2.5 py-1 text-[11px] font-semibold rounded-full transition-all shrink-0 cursor-pointer',
+              libraryFilter === flt.id
+                ? 'bg-primary-500 text-white shadow-xs'
+                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700',
             ]"
-            @click="motionPlaygroundDuration = dur"
+            @click="libraryFilter = flt.id"
           >
-            {{ dur }}
+            {{ flt.label }}
           </button>
         </div>
-      </div>
 
-      <!-- Primary CTA Button -->
-      <div class="flex flex-col gap-1">
-        <button
-          type="button"
-          :disabled="isGeneratingMotionPlayground || !motionPlaygroundPrompt.trim()"
-          :class="[
-            'w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-semibold text-xs transition-all shadow-md cursor-pointer',
-            isGeneratingMotionPlayground || !motionPlaygroundPrompt.trim()
-              ? 'bg-primary-500/50 text-white/70 cursor-not-allowed shadow-none'
-              : 'bg-primary-500 hover:bg-primary-600 text-white shadow-primary-500/25 active:scale-[0.99]',
-          ]"
-          @click="handleGenerateAndPlay"
-        >
-          <span
-            v-if="isGeneratingMotionPlayground"
-            class="i-solar:restart-linear animate-spin text-base"
-          />
-          <span
-            v-else
-            class="i-solar:walking-round-linear text-base"
-          />
-          <span>
-            {{ isGeneratingMotionPlayground ? (motionPlaygroundStatusMessage || 'Generating...') : 'Generate & play' }}
-          </span>
-        </button>
-        <p class="text-center text-[10px] text-neutral-400 dark:text-neutral-500">
-          Try freely. Save only what you like.
-        </p>
-      </div>
-    </div>
-
-    <!-- TAB 2: LIBRARY -->
-    <div v-if="motionActiveTab === 'library'" class="flex flex-col gap-2.5">
-      <!-- Search bar -->
-      <div class="relative flex items-center">
-        <span class="i-solar:magnifer-linear absolute left-2.5 text-sm text-neutral-400" />
-        <input
-          v-model="motionSearchQuery"
-          type="text"
-          placeholder="Search motions..."
-          :class="[
-            'w-full pl-8 pr-3 py-1.5 text-xs rounded-xl transition-colors',
-            'bg-neutral-100/80 dark:bg-neutral-950/60 border border-neutral-300 dark:border-neutral-800',
-            'text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-600',
-            'focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500',
-          ]"
-        >
-      </div>
-
-      <!-- Filter pills: All | Built-in | Saved | Uploaded -->
-      <div class="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
-        <button
-          v-for="flt in ([{ id: 'all', label: 'All' }, { id: 'builtin', label: 'Built-in' }, { id: 'saved', label: 'Saved' }, { id: 'uploaded', label: 'Uploaded' }] as const)"
-          :key="flt.id"
-          type="button"
-          :class="[
-            'px-2.5 py-1 text-[11px] font-semibold rounded-full transition-all shrink-0 cursor-pointer',
-            libraryFilter === flt.id
-              ? 'bg-primary-500 text-white shadow-xs'
-              : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700',
-          ]"
-          @click="libraryFilter = flt.id"
-        >
-          {{ flt.label }}
-        </button>
-      </div>
-
-      <!-- Motion Item List -->
-      <div class="max-h-52 flex flex-col gap-1.5 overflow-y-auto py-0.5 scrollbar-thin">
-        <div
-          v-for="item in libraryMotions"
-          :key="item.key"
-          :class="[
-            'flex items-center justify-between p-2 rounded-xl border text-xs transition-all',
-            currentlyPlayingMotionKey === item.key
-              ? 'border-primary-500/80 bg-primary-500/10 text-primary-900 dark:text-primary-100 ring-1 ring-primary-500/50'
-              : 'border-neutral-200/70 bg-neutral-50/50 hover:bg-neutral-100/70 dark:border-neutral-800/80 dark:bg-neutral-950/40 dark:hover:bg-neutral-800/50 text-neutral-800 dark:text-neutral-200',
-          ]"
-        >
-          <div class="min-w-0 flex flex-1 items-center gap-2.5">
-            <img
-              v-if="getLibraryMotionGlyph(item)"
-              :src="getLibraryMotionGlyph(item)"
-              class="pointer-events-none size-5 shrink-0 select-none object-contain opacity-80"
-            >
-            <span
-              v-else
-              class="i-solar:walking-round-linear shrink-0 text-base text-neutral-400 dark:text-neutral-500"
-            />
-            <div class="min-w-0 flex-1">
-              <h5 class="truncate text-xs text-neutral-900 font-semibold dark:text-neutral-100">
-                {{ item.label }}
-              </h5>
-              <p class="text-[10px] text-neutral-400 capitalize">
-                {{ item.source === 'builtin' ? 'Built-in' : item.source === 'saved' ? 'Saved' : 'Uploaded' }} • {{ item.duration }}
-              </p>
+        <!-- Motion Item List -->
+        <div class="max-h-52 flex flex-col gap-1.5 overflow-y-auto py-0.5 scrollbar-thin">
+          <div
+            v-for="item in libraryMotions"
+            :key="item.key"
+            :class="[
+              'flex items-center justify-between p-2 rounded-xl border text-xs transition-all',
+              currentlyPlayingMotionKey === item.key
+                ? 'border-primary-500/80 bg-primary-500/10 text-primary-900 dark:text-primary-100 ring-1 ring-primary-500/50'
+                : 'border-neutral-200/70 bg-neutral-50/50 hover:bg-neutral-100/70 dark:border-neutral-800/80 dark:bg-neutral-950/40 dark:hover:bg-neutral-800/50 text-neutral-800 dark:text-neutral-200',
+            ]"
+          >
+            <div class="min-w-0 flex flex-1 items-center gap-2.5">
+              <img
+                v-if="getLibraryMotionGlyph(item)"
+                :src="getLibraryMotionGlyph(item)"
+                class="pointer-events-none size-5 shrink-0 select-none object-contain opacity-80"
+              >
+              <span
+                v-else
+                class="i-solar:walking-round-linear shrink-0 text-base text-neutral-400 dark:text-neutral-500"
+              />
+              <div class="min-w-0 flex-1">
+                <h5 class="truncate text-xs text-neutral-900 font-semibold dark:text-neutral-100">
+                  {{ item.label }}
+                </h5>
+                <p class="text-[10px] text-neutral-400 capitalize">
+                  {{ item.source === 'builtin' ? 'Built-in' : item.source === 'saved' ? 'Saved' : 'Uploaded' }} • {{ item.duration }}
+                </p>
+              </div>
             </div>
+
+            <button
+              type="button"
+              :class="[
+                'flex shrink-0 items-center justify-center p-1.5 rounded-lg transition-all cursor-pointer',
+                currentlyPlayingMotionKey === item.key
+                  ? 'bg-primary-500 text-white shadow-xs'
+                  : 'text-neutral-400 hover:bg-neutral-200/80 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200',
+              ]"
+              @click="handlePlayLibraryMotion(item)"
+            >
+              <span
+                :class="currentlyPlayingMotionKey === item.key ? 'i-solar:stop-bold size-3.5' : 'i-solar:play-bold size-3.5'"
+              />
+            </button>
           </div>
 
+          <!-- Empty state -->
+          <div
+            v-if="libraryMotions.length === 0"
+            class="flex flex-col items-center justify-center py-6 text-center opacity-40"
+          >
+            <span class="i-solar:magic-stick-3-bold-duotone text-2xl" />
+            <span class="mt-1 text-[10px]">No motions found</span>
+          </div>
+        </div>
+
+        <!-- Manage motions link -->
+        <button
+          type="button"
+          class="inline-flex cursor-pointer items-center justify-center gap-1 text-[11px] text-neutral-500 font-medium transition-colors hover:text-primary-500"
+          @click="openSettingsRoute('/settings/airi-card')"
+        >
+          <span>Manage motions</span>
+          <span class="i-solar:arrow-right-up-linear text-xs" />
+        </button>
+      </div>
+
+      <!-- LAST RESULT CARD (Rendered on both tabs if available) -->
+      <div
+        v-if="lastMotionResult"
+        class="flex flex-col gap-2 border border-neutral-200/80 rounded-xl bg-neutral-50/80 p-2.5 dark:border-neutral-800 dark:bg-neutral-950/60"
+      >
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+            Last Result
+          </span>
+          <span
+            :class="[
+              'px-2 py-0.2 rounded-full text-[9px] font-bold border',
+              lastMotionResult.isSaved
+                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : 'border-neutral-300 dark:border-neutral-700 text-neutral-500',
+            ]"
+          >
+            {{ lastMotionResult.isSaved ? 'Saved' : 'Unsaved' }}
+          </span>
+        </div>
+
+        <div class="min-w-0">
+          <h4 class="truncate text-xs text-neutral-900 font-bold dark:text-neutral-100">
+            {{ lastMotionResult.title }}
+          </h4>
+          <p class="text-[10px] text-neutral-400">
+            {{ lastMotionResult.duration }}
+          </p>
+        </div>
+
+        <!-- Action buttons: Replay, Edit prompt, Save to library -->
+        <div class="flex items-center gap-1.5 pt-0.5">
           <button
             type="button"
-            :class="[
-              'flex shrink-0 items-center justify-center p-1.5 rounded-lg transition-all cursor-pointer',
-              currentlyPlayingMotionKey === item.key
-                ? 'bg-primary-500 text-white shadow-xs'
-                : 'text-neutral-400 hover:bg-neutral-200/80 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200',
-            ]"
-            @click="handlePlayLibraryMotion(item)"
+            class="shadow-2xs flex flex-1 cursor-pointer items-center justify-center gap-1 border border-neutral-300 rounded-lg bg-white py-1.5 text-xs text-neutral-700 font-semibold transition active:scale-98 dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-700"
+            @click="handleReplayLastMotion"
           >
-            <span
-              :class="currentlyPlayingMotionKey === item.key ? 'i-solar:stop-bold size-3.5' : 'i-solar:play-bold size-3.5'"
-            />
+            <span class="i-solar:play-bold text-xs" />
+            <span>Replay</span>
+          </button>
+
+          <button
+            type="button"
+            class="shadow-2xs flex flex-1 cursor-pointer items-center justify-center gap-1 border border-neutral-300 rounded-lg bg-white py-1.5 text-xs text-neutral-700 font-semibold transition active:scale-98 dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-700"
+            @click="handleEditPrompt"
+          >
+            <span class="i-solar:pen-linear text-xs" />
+            <span>Edit prompt</span>
+          </button>
+
+          <button
+            v-if="!lastMotionResult.isSaved"
+            type="button"
+            class="shadow-2xs flex flex-1 cursor-pointer items-center justify-center gap-1 border border-neutral-300 rounded-lg bg-white py-1.5 text-xs text-neutral-700 font-semibold transition active:scale-98 dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-700"
+            @click="handleSaveToLibrary"
+          >
+            <span class="i-solar:bookmark-linear text-xs" />
+            <span>Save to library</span>
           </button>
         </div>
-
-        <!-- Empty state -->
-        <div
-          v-if="libraryMotions.length === 0"
-          class="flex flex-col items-center justify-center py-6 text-center opacity-40"
-        >
-          <span class="i-solar:magic-stick-3-bold-duotone text-2xl" />
-          <span class="mt-1 text-[10px]">No motions found</span>
-        </div>
       </div>
 
-      <!-- Manage motions link -->
-      <button
-        type="button"
-        class="inline-flex cursor-pointer items-center justify-center gap-1 text-[11px] text-neutral-500 font-medium transition-colors hover:text-primary-500"
-        @click="openSettingsRoute('/settings/airi-card')"
-      >
-        <span>Manage motions</span>
-        <span class="i-solar:arrow-right-up-linear text-xs" />
-      </button>
-    </div>
-
-    <!-- LAST RESULT CARD (Rendered on both tabs if available) -->
-    <div
-      v-if="lastMotionResult"
-      class="flex flex-col gap-2 border border-neutral-200/80 rounded-xl bg-neutral-50/80 p-2.5 dark:border-neutral-800 dark:bg-neutral-950/60"
-    >
-      <div class="flex items-center justify-between">
-        <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-          Last Result
-        </span>
-        <span
-          :class="[
-            'px-2 py-0.2 rounded-full text-[9px] font-bold border',
-            lastMotionResult.isSaved
-              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-              : 'border-neutral-300 dark:border-neutral-700 text-neutral-500',
-          ]"
-        >
-          {{ lastMotionResult.isSaved ? 'Saved' : 'Unsaved' }}
-        </span>
-      </div>
-
-      <div class="min-w-0">
-        <h4 class="truncate text-xs text-neutral-900 font-bold dark:text-neutral-100">
-          {{ lastMotionResult.title }}
-        </h4>
-        <p class="text-[10px] text-neutral-400">
-          {{ lastMotionResult.duration }}
-        </p>
-      </div>
-
-      <!-- Action buttons: Replay, Edit prompt, Save to library -->
-      <div class="flex items-center gap-1.5 pt-0.5">
+      <!-- ALWAYS ACCESSIBLE BOTTOM FOOTER: STOP MOTION -->
+      <div class="border-t border-neutral-200/60 pt-1 dark:border-neutral-800/80">
         <button
           type="button"
-          class="shadow-2xs flex flex-1 cursor-pointer items-center justify-center gap-1 border border-neutral-300 rounded-lg bg-white py-1.5 text-xs text-neutral-700 font-semibold transition active:scale-98 dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-700"
-          @click="handleReplayLastMotion"
+          class="w-full flex cursor-pointer items-center justify-center gap-2 py-1.5 text-xs text-neutral-600 font-semibold transition-colors dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+          @click="handleStopMotion"
         >
-          <span class="i-solar:play-bold text-xs" />
-          <span>Replay</span>
-        </button>
-
-        <button
-          type="button"
-          class="shadow-2xs flex flex-1 cursor-pointer items-center justify-center gap-1 border border-neutral-300 rounded-lg bg-white py-1.5 text-xs text-neutral-700 font-semibold transition active:scale-98 dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-700"
-          @click="handleEditPrompt"
-        >
-          <span class="i-solar:pen-linear text-xs" />
-          <span>Edit prompt</span>
-        </button>
-
-        <button
-          v-if="!lastMotionResult.isSaved"
-          type="button"
-          class="shadow-2xs flex flex-1 cursor-pointer items-center justify-center gap-1 border border-neutral-300 rounded-lg bg-white py-1.5 text-xs text-neutral-700 font-semibold transition active:scale-98 dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-700"
-          @click="handleSaveToLibrary"
-        >
-          <span class="i-solar:bookmark-linear text-xs" />
-          <span>Save to library</span>
+          <span class="i-solar:stop-bold size-3.5" />
+          <span>Stop motion</span>
         </button>
       </div>
-    </div>
-
-    <!-- ALWAYS ACCESSIBLE BOTTOM FOOTER: STOP MOTION -->
-    <div class="border-t border-neutral-200/60 pt-1 dark:border-neutral-800/80">
-      <button
-        type="button"
-        class="w-full flex cursor-pointer items-center justify-center gap-2 py-1.5 text-xs text-neutral-600 font-semibold transition-colors dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
-        @click="handleStopMotion"
-      >
-        <span class="i-solar:stop-bold size-3.5" />
-        <span>Stop motion</span>
-      </button>
-    </div>
+    </template>
   </StripPopover>
 </template>
