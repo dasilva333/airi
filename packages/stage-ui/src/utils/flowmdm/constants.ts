@@ -1,3 +1,8 @@
+// Baked HumanML3D normalization statistics (263 dimensions):
+// Root (4) + RIC local pos (63) + 6D rotations (126) + velocities (66) + foot contacts (4) = 263.
+// Provenance:
+//   Std.npy  SHA256: 9ab54e6df74dce0f9d4c5f850beba51a1897f06782f52ff4a79a432b9f61e8f5
+//   Mean.npy SHA256: 940b370f6494a1fa92db80a128c9079c97a498062489cd48c62554531ba58013
 export const hmlMean: number[] = [
   -5.651060291711474e-6,
   -2.405505074420944e-5,
@@ -332,6 +337,11 @@ export const hmlStd: number[] = [
   0.12223455309867859,
   0.12223455309867859,
   0.12223455309867859,
+  0.2996912896633148,
+  0.2996912896633148,
+  0.2996912896633148,
+  0.2996912896633148,
+  0.2996912896633148,
   0.2996912896633148,
   0.2996912896633148,
   0.2996912896633148,
@@ -1628,8 +1638,8 @@ export const NODE_BONES: NodeBone[] = [
   { node: 13, parent: 12, hml: null }, // J_rightHand
   { node: 14, parent: 0, hml: [1, 4], restDir: [0, -1, 0] }, // J_leftUpperLeg
   { node: 15, parent: 14, hml: [4, 7], restDir: [0, -1, 0] }, // J_leftLowerLeg
-  { node: 16, parent: 15, hml: null }, // J_leftFoot
+  { node: 16, parent: 15, hml: [7, 10], restDir: [0, 0, 1] }, // J_leftFoot
   { node: 17, parent: 0, hml: [2, 5], restDir: [0, -1, 0] }, // J_rightUpperLeg
   { node: 18, parent: 17, hml: [5, 8], restDir: [0, -1, 0] }, // J_rightLowerLeg
-  { node: 19, parent: 18, hml: null }, // J_rightFoot
+  { node: 19, parent: 18, hml: [8, 11], restDir: [0, 0, 1] }, // J_rightFoot
 ]

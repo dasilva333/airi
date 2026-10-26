@@ -1,7 +1,7 @@
-import type { Quat, Vec3 } from './math'
+import type { Quat, Vec3 } from './retargeting'
 
 import { hmlMean, hmlStd, jointToNodeMap, NODE_BONES, refNodes } from './constants'
-import { normalizeVec3, quatInvert, quatMultiply, quatNormalize, shortestArcQuaternion } from './math'
+import { applyBipedContactIK, LEFT_LEG_CHAIN, localFromWorld, RIGHT_LEG_CHAIN, solveFrameDelta, solveParentSwing, sub } from './retargeting'
 
 export function exportFlowMDMToVRMA(motionDataNormalized: Float32Array, seqLen: number = 60, onLog?: (msg: string) => void): Uint8Array {
   onLog?.('De-normalizing HumanML3D motion features...')
@@ -76,30 +76,128 @@ export function exportFlowMDMToVRMA(motionDataNormalized: Float32Array, seqLen: 
     worldPos.push(track)
   }
 
-  // 4. Per-node bone rotations derived from POSITIONS
+  // 4. Per-node bone rotations derived from POSITIONS with calibrated frame recovery
   const localQuats: Record<number, Quat[]> = {}
   for (const bone of NODE_BONES) localQuats[bone.node] = []
 
+  let prevPelvisDelta: Quat | undefined
+  let prevSpineDelta: Quat | undefined
+  let prevChestDelta: Quat | undefined
+  let prevUpperChestDelta: Quat | undefined
+
+  const prevWorldQ: Record<number, Quat> = {}
+  const prevLocalQ: Record<number, Quat> = {}
+
   for (let t = 0; t < seqLen; t++) {
-    const worldQ: Record<number, Quat> = { 0: rootRotations[t] }
+    // 4.1 Calibrated Pelvis Frame (Node 0)
+    // Primary: longitudinal axis (joint 3 spine - joint 0 pelvis)
+    // Secondary: lateral axis (joint 1 left hip - joint 2 right hip)
+    const pelvisResult = solveFrameDelta({
+      primaryWorld: sub(worldPos[3][t], worldPos[0][t]),
+      secondaryWorld: sub(worldPos[1][t], worldPos[2][t]),
+      restPrimary: [0, 1, 0],
+      restSecondary: [1, 0, 0],
+      previousDelta: prevPelvisDelta,
+    })
+    prevPelvisDelta = pelvisResult.rotation
+    rootRotations[t] = pelvisResult.rotation
+    const worldQ: Record<number, Quat> = { 0: pelvisResult.rotation }
+
+    // 4.2 Calibrated Torso Frames
+    // Node 1: Spine (outgoing segment [3, 6], lateral hip span reference)
+    const spineResult = solveFrameDelta({
+      primaryWorld: sub(worldPos[6][t], worldPos[3][t]),
+      secondaryWorld: sub(worldPos[1][t], worldPos[2][t]),
+      restPrimary: [0, 1, 0],
+      restSecondary: [1, 0, 0],
+      previousDelta: prevSpineDelta,
+    })
+    prevSpineDelta = spineResult.rotation
+    worldQ[1] = spineResult.rotation
+
+    // Node 2: Chest (outgoing segment [6, 9], shoulder span reference [13, 14])
+    const shoulderSpan = sub(worldPos[13][t], worldPos[14][t])
+    const chestResult = solveFrameDelta({
+      primaryWorld: sub(worldPos[9][t], worldPos[6][t]),
+      secondaryWorld: shoulderSpan,
+      restPrimary: [0, 1, 0],
+      restSecondary: [1, 0, 0],
+      previousDelta: prevChestDelta,
+    })
+    prevChestDelta = chestResult.rotation
+    worldQ[2] = chestResult.rotation
+
+    // Node 3: UpperChest (outgoing segment [9, 12], shoulder span reference)
+    const upperChestResult = solveFrameDelta({
+      primaryWorld: sub(worldPos[12][t], worldPos[9][t]),
+      secondaryWorld: shoulderSpan,
+      restPrimary: [0, 1, 0],
+      restSecondary: [1, 0, 0],
+      previousDelta: prevUpperChestDelta,
+    })
+    prevUpperChestDelta = upperChestResult.rotation
+    worldQ[3] = upperChestResult.rotation
+
+    // 4.3 Neck & Head
+    // Node 4: Neck (outgoing segment [12, 15] neck -> head)
+    worldQ[4] = solveParentSwing(
+      worldQ[3],
+      [0, 1, 0],
+      sub(worldPos[15][t], worldPos[12][t]),
+      prevWorldQ[4],
+    )
+
+    // Node 5: Head (inherits neck orientation)
+    worldQ[5] = worldQ[4]
+
+    // 4.4 Limbs & Articulated Feet (Nodes 6 to 19)
     for (const bone of NODE_BONES) {
+      if (bone.node <= 5)
+        continue // Handled above in torso/head chain
+
       let world: Quat
       if (bone.hml && bone.restDir) {
         const a = worldPos[bone.hml[0]][t]
         const b = worldPos[bone.hml[1]][t]
-        world = shortestArcQuaternion(
+        world = solveParentSwing(
+          worldQ[bone.parent],
           bone.restDir,
-          normalizeVec3([b[0] - a[0], b[1] - a[1], b[2] - a[2]]),
+          sub(b, a),
+          prevWorldQ[bone.node],
         )
       }
       else {
         world = worldQ[bone.parent]
       }
       worldQ[bone.node] = world
-      localQuats[bone.node].push(
-        quatNormalize(quatMultiply(quatInvert(worldQ[bone.parent]), world)),
-      )
     }
+
+    // 4.5 Local rotations with hemisphere continuity
+    for (const bone of NODE_BONES) {
+      const parentWorld = worldQ[bone.parent]
+      const currentWorld = worldQ[bone.node]
+      const local = localFromWorld(parentWorld, currentWorld, prevLocalQ[bone.node])
+      prevLocalQ[bone.node] = local
+      prevWorldQ[bone.node] = currentWorld
+      localQuats[bone.node].push(local)
+    }
+  }
+
+  // 4.6 Contact-aware Leg IK & Foot Planting (Pass 2)
+  onLog?.('Applying contact-aware leg IK and foot planting...')
+  const bipedIK = applyBipedContactIK({
+    seqLen,
+    fps,
+    motionData,
+    worldPos,
+    rootRotations,
+    rootTranslations,
+    localQuats,
+    leftChain: LEFT_LEG_CHAIN,
+    rightChain: RIGHT_LEG_CHAIN,
+  })
+  if (bipedIK.leftContactsActive > 0 || bipedIK.rightContactsActive > 0) {
+    onLog?.(`Foot contact IK stabilized: ${bipedIK.leftContactsActive} left / ${bipedIK.rightContactsActive} right frames.`)
   }
 
   const animatedJointIndices = Object.keys(jointToNodeMap).map(Number)

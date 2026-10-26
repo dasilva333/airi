@@ -21,7 +21,7 @@ describe('flowmdm constants', () => {
 
   it('hmlMean and hmlStd have known lengths', () => {
     expect(hmlMean.length).toBe(263)
-    expect(hmlStd.length).toBe(258)
+    expect(hmlStd.length).toBe(263)
   })
 
   it('alphasCumprod is nonempty and decreasing-ish', () => {
