@@ -11,6 +11,7 @@ import SelfiesPopover from './popovers/SelfiesPopover.vue'
 
 import { useControlStripAction } from '../../../composables/use-control-strip-action'
 import { useControlStripButtonPresentation } from '../../../composables/use-control-strip-button-presentation'
+import { useControlStripDrag } from '../../../composables/use-control-strip-drag'
 import { useControlStripGeometry } from '../../../composables/use-control-strip-geometry'
 import { useControlStripSelfie } from '../../../composables/use-control-strip-selfie'
 import { CUSTOMIZER_CATALOG } from '../../../constants'
@@ -272,154 +273,17 @@ watch(activePopover, (newVal) => {
   }
 })
 
-// Dragging states
-const isDragging = ref(false)
-let isMouseDown = false
-let startMouseX = 0
-let startMouseY = 0
-let startPosX = 0
-let startPosY = 0
-let dragDistance = 0
-let isTouchEventState = false
-let startTouchScreenX = 0
-let startTouchScreenY = 0
-let startWindowBounds: { x: number, y: number, width: number, height: number } | null = null
-
-async function onDragStart(e: MouseEvent | TouchEvent) {
-  if (props.mode === 'mobile') {
-    collapsed.value = !collapsed.value
-    return
-  }
-
-  if ('button' in e && e.button !== 0)
-    return
-
-  isMouseDown = true
-  dragDistance = 0
-  isTouchEventState = 'touches' in e
-
-  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-
-  startMouseX = clientX
-  startMouseY = clientY
-  startPosX = position.value.x
-  startPosY = position.value.y
-
-  if (isTouchEventState && isElectron.value) {
-    const touch = (e as TouchEvent).touches[0]
-    startTouchScreenX = touch.screenX
-    startTouchScreenY = touch.screenY
-    try {
-      startWindowBounds = await (window as any).electron.ipcRenderer.invoke('eventa:invoke:electron:window:get-bounds')
-    }
-    catch (err) {
-      console.error('Failed to get bounds for touch drag:', err)
-      startWindowBounds = null
-    }
-  }
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('mousemove', onDragging)
-    window.addEventListener('mouseup', onDragEnd)
-    window.addEventListener('touchmove', onDragging, { passive: false })
-    window.addEventListener('touchend', onDragEnd)
-  }
-}
-
-async function onDragging(e: MouseEvent | TouchEvent) {
-  if (!isMouseDown)
-    return
-
-  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-
-  const diffX = clientX - startMouseX
-  const diffY = clientY - startMouseY
-  dragDistance = Math.sqrt(diffX * diffX + diffY * diffY)
-
-  if (dragDistance >= 4) {
-    isDragging.value = true
-  }
-
-  if (isElectron.value) {
-    if (isTouchEventState) {
-      if (dragDistance >= 4 && startWindowBounds) {
-        const touch = (e as TouchEvent).touches[0]
-        const deltaX = touch.screenX - startTouchScreenX
-        const deltaY = touch.screenY - startTouchScreenY
-        try {
-          await (window as any).electron.ipcRenderer.invoke('eventa:invoke:electron:window:set-bounds', [{
-            x: Math.round(startWindowBounds.x + deltaX),
-            y: Math.round(startWindowBounds.y + deltaY),
-            width: startWindowBounds.width,
-            height: startWindowBounds.height,
-          }])
-        }
-        catch (err) {
-          console.error('Failed to set bounds on touch drag:', err)
-        }
-      }
-    }
-    else {
-      if (dragDistance >= 4) {
-        cleanupDragListeners()
-        isMouseDown = false
-        isDragging.value = false
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('control-strip:drag-start'))
-        }
-      }
-    }
-  }
-  else {
-    if (isDragging.value) {
-      const deltaX = startMouseX - clientX
-      const deltaY = startMouseY - clientY
-      position.value.x = Math.max(10, Math.min(window.innerWidth - 72, startPosX + deltaX))
-      position.value.y = Math.max(10, Math.min(window.innerHeight - 300, startPosY + deltaY))
-    }
-  }
-}
-
-let clickTimer: NodeJS.Timeout | null = null
-
-function handlePerpendicularClick() {
-  if (clickTimer) {
-    clearTimeout(clickTimer)
-    clickTimer = null
-    toggleOrientation()
-  }
-  else {
-    clickTimer = setTimeout(() => {
-      clickTimer = null
-      collapsed.value = !collapsed.value
-    }, 250)
-  }
-}
-
-function onDragEnd() {
-  const wasDown = isMouseDown
-  const wasDragging = isDragging.value
-  cleanupDragListeners()
-  isMouseDown = false
-  isDragging.value = false
-  isTouchEventState = false
-  startWindowBounds = null
-
-  if (wasDown && !wasDragging) {
-    handlePerpendicularClick()
-  }
-}
-
-function cleanupDragListeners() {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('mousemove', onDragging)
-    window.removeEventListener('mouseup', onDragEnd)
-    window.removeEventListener('touchmove', onDragging)
-    window.removeEventListener('touchend', onDragEnd)
-  }
-}
+// Drag / perpendicular-click session. Electron mouse drag is delegated to the host
+// through `control-strip:drag-start`; touch keeps direct set-bounds.
+// `onDragging` / `onDragEnd` stay internal: they are bound to window listeners
+// inside the composable, not to template handlers.
+const { isDragging, onDragStart } = useControlStripDrag({
+  mode: toRef(props, 'mode'),
+  collapsed,
+  position,
+  isElectron,
+  toggleOrientation,
+})
 
 function handleAction(actionId: string) {
   console.info(`[Control Strip] Button clicked: "${actionId}".`)
