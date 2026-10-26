@@ -126,10 +126,22 @@ const TEMPLATE_DOT_IDS = unique(
   ),
 )
 
-/** Popovers the strip can render, per the template's `v-if` branches. */
-const RENDERED_POPOVERS = unique(
+/**
+ * Control Strip popovers exist in two forms while the cutover is in flight:
+ * extracted components listed in `popovers/registry.ts`, and inline `v-if`
+ * branches still living in the shell. Both count as "rendered" here.
+ */
+const REGISTRY_SOURCE = readFileSync(join(LAYOUT_DIR, 'popovers', 'registry.ts'), 'utf8')
+const REGISTRY_POPOVER_KEYS = matchAll(REGISTRY_SOURCE, /'([a-z0-9-]+)':/g)
+const REGISTRY_POPOVERS = unique(REGISTRY_POPOVER_KEYS)
+
+/** Popovers still rendered by an inline `v-if` branch. */
+const TEMPLATE_POPOVERS = unique(
   sources.flatMap(entry => matchAll(templateOf(entry.source), /v-if="activePopover === '([^']+)'"/g)),
 )
+
+/** Popovers the strip can render, by either mechanism. */
+const RENDERED_POPOVERS = unique([...TEMPLATE_POPOVERS, ...REGISTRY_POPOVERS])
 
 /** Popovers the shell declares in its `menuButtons` array. */
 const MENU_POPOVERS = unique(
@@ -176,12 +188,22 @@ describe('control strip: popover registry', () => {
     expect(missing, `popovers routed but never rendered: ${missing.join(', ')}`).toEqual([])
   })
 
-  it('renders each popover exactly once', () => {
-    const duplicates = RENDERED_POPOVERS.filter((id) => {
+  it('renders each popover exactly once, by either mechanism', () => {
+    const templateDuplicates = TEMPLATE_POPOVERS.filter((id) => {
       const pattern = new RegExp(`v-if="activePopover === '${id}'"`, 'g')
       return (shellTemplate.match(pattern) ?? []).length > 1
     })
-    expect(duplicates, `popovers with duplicate template branches: ${duplicates.join(', ')}`).toEqual([])
+    const registryDuplicates = REGISTRY_POPOVER_KEYS.filter(
+      (id, index) => REGISTRY_POPOVER_KEYS.indexOf(id) !== index,
+    )
+    expect(templateDuplicates, `duplicate template branches: ${templateDuplicates.join(', ')}`).toEqual([])
+    expect(unique(registryDuplicates), `duplicate registry entries: ${unique(registryDuplicates).join(', ')}`).toEqual([])
+  })
+
+  it('never renders the same popover from both the registry and an inline branch', () => {
+    // Both forms coexisting for one id would mount two components for one click.
+    const both = REGISTRY_POPOVERS.filter(id => TEMPLATE_POPOVERS.includes(id))
+    expect(both, `popovers rendered twice (registry + template): ${both.join(', ')}`).toEqual([])
   })
 
   it('classifies every popover as a catalog control or a known window chooser', () => {
