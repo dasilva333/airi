@@ -19,17 +19,23 @@
 import type { Component } from 'vue'
 
 import AtmospherePopover from './AtmospherePopover.vue'
+import AvatarsPopover from './AvatarsPopover.vue'
+import CharactersPopover from './CharactersPopover.vue'
 import EmotionsPopover from './EmotionsPopover.vue'
 import MacaronPopover from './MacaronPopover.vue'
 import MotionsPopover from './MotionsPopover.vue'
 import VfxPopover from './VfxPopover.vue'
+import VoiceSwitchPopover from './VoiceSwitchPopover.vue'
 import WardrobePopover from './WardrobePopover.vue'
 
 export const STRIP_POPOVER_COMPONENTS: Record<string, Component> = {
   'actor-all-emotions': EmotionsPopover,
+  'actor-avatars': AvatarsPopover,
+  'actor-characters': CharactersPopover,
   'actor-macaron': MacaronPopover,
   'actor-motions': MotionsPopover,
   'actor-vfx': VfxPopover,
   'actor-wardrobe': WardrobePopover,
+  'gemini-voice': VoiceSwitchPopover,
   'stage-atmosphere': AtmospherePopover,
 }
