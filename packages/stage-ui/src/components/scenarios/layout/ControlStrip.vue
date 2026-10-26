@@ -2,7 +2,7 @@
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useTheme } from '@proj-airi/ui'
-import { onClickOutside, useBroadcastChannel } from '@vueuse/core'
+import { onClickOutside } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, ref, toRef, watch } from 'vue'
 // Ported stores & states for Popovers
@@ -11,6 +11,7 @@ import SelfiesPopover from './popovers/SelfiesPopover.vue'
 
 import { useControlStripAction } from '../../../composables/use-control-strip-action'
 import { useControlStripButtonPresentation } from '../../../composables/use-control-strip-button-presentation'
+import { installMateSpeechDevtoolsHook, useControlStripCaptionRelay } from '../../../composables/use-control-strip-caption-relay'
 import { useControlStripDrag } from '../../../composables/use-control-strip-drag'
 import { useControlStripGeometry } from '../../../composables/use-control-strip-geometry'
 import { useControlStripSelfie } from '../../../composables/use-control-strip-selfie'
@@ -201,44 +202,10 @@ watch(gunslingerStance, async (stance) => {
   }
 }, { immediate: true })
 
-interface CaptionSegment { text: string, color: string, actorId: string, isActive?: boolean }
-type CaptionChannelEvent
-  = | { type: 'caption-speaker', text: string }
-    | { type: 'caption-assistant', segments: CaptionSegment[] }
-
-const { data: captionChannelData } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({ name: 'airi-caption-overlay' })
-watch(captionChannelData, async (event) => {
-  if (!isElectron.value || !event)
-    return
-  try {
-    const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
-    const { electronStageMateSendCaption } = await import('@proj-airi/stage-shared')
-    const sendCaption = useElectronEventaInvoke(electronStageMateSendCaption)
-
-    if (event.type === 'caption-assistant') {
-      const active = event.segments?.find(s => s.isActive)
-      if (active && active.text?.trim()) {
-        await sendCaption({
-          text: active.text,
-          isActive: true,
-          speaker: active.actorId || 'assistant',
-        })
-      }
-    }
-  }
-  catch (err) {
-    console.warn('Failed to relay caption to Stage-Mate:', err)
-  }
-})
-
-if (typeof window !== 'undefined') {
-  (window as any).__AIRI_DEVTOOLS_MATE_SPEECH__ = async (text: string) => {
-    const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
-    const { electronStageMateSendCaption } = await import('@proj-airi/stage-shared')
-    const sendCaption = useElectronEventaInvoke(electronStageMateSendCaption)
-    return await sendCaption({ text, isActive: true, speaker: 'AIRI' })
-  }
-}
+// Single-owner relay for `airi-caption-overlay` -> Stage-Mate. The devtools hook
+// ships with it so the two cannot drift apart.
+useControlStripCaptionRelay({ isElectron })
+installMateSpeechDevtoolsHook()
 
 onClickOutside(popoverRef, (event) => {
   const target = event.target as HTMLElement
