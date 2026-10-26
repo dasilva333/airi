@@ -15,6 +15,7 @@ interface StoredCustomVrmAnimation {
   importedAt: number
   name: string
   originalFileName: string
+  source?: 'uploaded' | 'saved'
 }
 
 export interface CustomVrmAnimation {
@@ -23,6 +24,7 @@ export interface CustomVrmAnimation {
   originalFileName: string
   importedAt: number
   url: string
+  source?: 'uploaded' | 'saved'
 }
 
 function fileNameToLabel(fileName: string) {
@@ -77,6 +79,7 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
       originalFileName: stored.originalFileName,
       importedAt: stored.importedAt,
       url,
+      source: stored.source ?? (stored.originalFileName.startsWith('flowmdm_') ? 'saved' : 'uploaded'),
     }
   }
 
@@ -118,18 +121,20 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
     loadPromise = undefined
   }
 
-  async function addCustomAnimation(file: File) {
+  async function addCustomAnimation(file: File, options?: { source?: 'uploaded' | 'saved' }) {
     await loadCustomAnimations()
 
     const name = fileNameToLabel(file.name)
     const existingEntry = Object.entries(customAnimations.value).find(([_, anim]) => anim.originalFileName === file.name || anim.name === name)
     const id = existingEntry ? existingEntry[0].replace(CUSTOM_VRMA_KEY_PREFIX, '') : (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
+    const source = options?.source ?? (file.name.startsWith('flowmdm_') ? 'saved' : 'uploaded')
     const stored: StoredCustomVrmAnimation = {
       file,
       importedAt: Date.now(),
       name,
       originalFileName: file.name,
+      source,
     }
 
     await localforage.setItem(getStorageKey(id), stored)
@@ -166,6 +171,9 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
   function resolveAnimationUrl(key: string | null | undefined) {
     if (!key)
       return animations.idleLoop
+
+    if (key.startsWith('blob:') || key.startsWith('data:') || key.startsWith('http:') || key.startsWith('https:'))
+      return key
 
     if (key in customAnimations.value)
       return customAnimations.value[key].url
