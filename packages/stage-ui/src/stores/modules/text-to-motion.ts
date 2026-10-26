@@ -205,6 +205,9 @@ export const useTextToMotionStore = defineStore('text-to-motion', () => {
     },
   ): Promise<MotionGenerationResult> {
     const format = options?.format || 'vrma'
+    if (format !== 'vrma') {
+      throw new Error(`Unsupported motion export format "${format}". Currently only "vrma" is supported.`)
+    }
     const log = options?.onLog || (() => {})
     const engine = options?.engine ?? mode.value
 
@@ -242,6 +245,10 @@ export const useTextToMotionStore = defineStore('text-to-motion', () => {
           isDownloading: percentage < 100,
         }
       })
+
+      if (!session) {
+        throw new Error('FlowMDM denoiser session could not be initialized.')
+      }
 
       downloadProgress.value = {
         percentage: 50,
@@ -282,7 +289,7 @@ export const useTextToMotionStore = defineStore('text-to-motion', () => {
 
       return {
         buffer,
-        fileName: `${cleanName}_${Date.now()}.${format === 'motion_json' ? 'json' : format}`,
+        fileName: `${cleanName}_${Date.now()}.${format}`,
         format,
       }
     }
@@ -320,7 +327,7 @@ export const useTextToMotionStore = defineStore('text-to-motion', () => {
     log('Compiling motion spec to VRMA binary buffer...')
     const buffer = new Uint8Array(buildVRMA(spec))
 
-    const fileName = `${spec.name || 'motion'}_${Date.now()}.${format === 'motion_json' ? 'json' : format}`
+    const fileName = `${spec.name || 'motion'}_${Date.now()}.${format}`
     log(`Procedural motion generated: ${fileName}`)
 
     return {

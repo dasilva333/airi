@@ -97,9 +97,8 @@ export async function getClipEmbedding(prompt: string, onLog?: (msg: string) => 
     return text_embeds.data as Float32Array
   }
   catch (err: any) {
-    onLog?.(`[WARN] CLIP load/encode failed: ${err.message || String(err)}. Using zero baseline embedding fallback...`)
-    const fallback = new Float32Array(512)
-    fallback.fill(0.1)
-    return fallback
+    const message = err?.message || String(err)
+    onLog?.(`[ERROR] CLIP load/encode failed: ${message}`)
+    throw new Error(`CLIP text encoder failed to produce embedding: ${message}`)
   }
 }

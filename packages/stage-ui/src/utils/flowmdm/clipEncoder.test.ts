@@ -24,15 +24,12 @@ describe('getClipEmbedding', () => {
     expect(onLog).toHaveBeenCalled()
   })
 
-  it('falls back to zero baseline on failure', async () => {
+  it('throws descriptive error on failure rather than returning dummy embedding', async () => {
     const transformers = await import('@huggingface/transformers')
-    vi.mocked(transformers.AutoTokenizer.from_pretrained).mockRejectedValueOnce(new Error('boom'))
+    vi.mocked(transformers.AutoTokenizer.from_pretrained).mockRejectedValueOnce(new Error('network timeout'))
     const { getClipEmbedding } = await import('./clipEncoder')
     const onLog = vi.fn()
-    const result = await getClipEmbedding('x', onLog)
-    expect(result).toBeInstanceOf(Float32Array)
-    expect(result.length).toBe(512)
-    expect(result[0]).toBeCloseTo(0.1)
-    expect(onLog).toHaveBeenCalledWith(expect.stringContaining('CLIP load/encode failed'))
+    await expect(getClipEmbedding('x', onLog)).rejects.toThrow('CLIP text encoder failed to produce embedding: network timeout')
+    expect(onLog).toHaveBeenCalledWith(expect.stringContaining('[ERROR] CLIP load/encode failed: network timeout'))
   })
 })

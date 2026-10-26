@@ -106,22 +106,39 @@ describe('getDenoisingSession', () => {
 })
 
 describe('runDdimLoop', () => {
-  it('fallback path when session null', async () => {
+  it('throws explicit error when session is null', async () => {
     const mod = await import('./ddimSolver')
-    const logs: string[] = []
-    const out = await mod.runDdimLoop(null, new Float32Array(263), 2, (m: string) => logs.push(m))
-    expect(out).toBeInstanceOf(Float32Array)
-    expect(out.length).toBe(2 * 263)
-    expect(logs.some(l => l.includes('Denoising loop finished'))).toBe(true)
-  }, 30000)
+    await expect(mod.runDdimLoop(null, new Float32Array(512), 2)).rejects.toThrow(
+      'FlowMDM denoiser session is unavailable; motion was not generated.',
+    )
+  })
 
-  it('session path runs denoising', async () => {
-    const session = { run: vi.fn().mockResolvedValue({ denoised_motion: { data: new Float32Array(2 * 263).fill(0.5) } }) } as unknown as InferenceSession
+  it('commits clean predXStart directly on final step to avoid algebraic cancellation', async () => {
+    let callCount = 0
+    const finalPrediction = new Float32Array(2 * 263).fill(42.0)
+    const intermediatePrediction = new Float32Array(2 * 263).fill(1.0)
+
+    const session = {
+      run: vi.fn().mockImplementation(async () => {
+        callCount++
+        return {
+          denoised_motion: {
+            data: callCount === 50 ? finalPrediction : intermediatePrediction,
+          },
+        }
+      }),
+    } as unknown as InferenceSession
+
     const mod = await import('./ddimSolver')
     const clip = new Float32Array(512)
     const out = await mod.runDdimLoop(session, clip, 2)
+
+    expect(session.run).toHaveBeenCalledTimes(50)
     expect(out).toBeInstanceOf(Float32Array)
     expect(out.length).toBe(2 * 263)
-    expect(session.run).toHaveBeenCalled()
+    // Every single value should exactly equal the clean prediction committed on step 50
+    for (let i = 0; i < out.length; i++) {
+      expect(out[i]).toBe(42.0)
+    }
   }, 30000)
 })

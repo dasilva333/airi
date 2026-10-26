@@ -38,7 +38,7 @@ export function exportFlowMDMToVRMA(motionDataNormalized: Float32Array, seqLen: 
     }
     const yaw = 2.0 * ang
     rootYaws.push(yaw)
-    rootRotations.push([0.0, Math.sin(ang), 0.0, Math.cos(ang)])
+    rootRotations.push([0.0, -Math.sin(ang), 0.0, Math.cos(ang)])
 
     if (t > 0) {
       const vx = motionData[prevFrameStart + 1]
@@ -129,11 +129,17 @@ export function exportFlowMDMToVRMA(motionDataNormalized: Float32Array, seqLen: 
   }
 
   const rootRotOffset = offset
+  let prevRootQ: Quat | null = null
   for (let i = 0; i < seqLen; i++) {
-    binView.setFloat32(offset + 0, rootRotations[i][0], true)
-    binView.setFloat32(offset + 4, rootRotations[i][1], true)
-    binView.setFloat32(offset + 8, rootRotations[i][2], true)
-    binView.setFloat32(offset + 12, rootRotations[i][3], true)
+    let q = rootRotations[i]
+    if (prevRootQ && (q[0] * prevRootQ[0] + q[1] * prevRootQ[1] + q[2] * prevRootQ[2] + q[3] * prevRootQ[3]) < 0) {
+      q = [-q[0], -q[1], -q[2], -q[3]]
+    }
+    prevRootQ = q
+    binView.setFloat32(offset + 0, q[0], true)
+    binView.setFloat32(offset + 4, q[1], true)
+    binView.setFloat32(offset + 8, q[2], true)
+    binView.setFloat32(offset + 12, q[3], true)
     offset += 16
   }
 

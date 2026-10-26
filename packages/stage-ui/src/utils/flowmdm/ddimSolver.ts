@@ -213,6 +213,9 @@ export async function runDdimLoop(
   seqLen: number = 60,
   onLog?: (msg: string) => void,
 ): Promise<Float32Array> {
+  if (!session)
+    throw new Error('FlowMDM denoiser session is unavailable; motion was not generated.')
+
   const inputDim = 263
 
   // Initialize x from standard normal distribution N(0, 1)
@@ -234,22 +237,29 @@ export async function runDdimLoop(
     const tVal = timesteps[step]
     const sVal = (step === numSteps - 1) ? 0 : timesteps[step + 1]
 
-    if (session) {
-      const motionTensor = new ort.Tensor('float32', x, [1, inputDim, 1, seqLen])
-      const timestepTensor = new ort.Tensor('int64', new BigInt64Array([BigInt(tVal)]), [1])
-      const clipTensor = new ort.Tensor('float32', clipEmbedding, [1, 512])
-      const scaleTensor = new ort.Tensor('float32', new Float32Array([2.5]), [1])
+    const motionTensor = new ort.Tensor('float32', x, [1, inputDim, 1, seqLen])
+    const timestepTensor = new ort.Tensor('int64', new BigInt64Array([BigInt(tVal)]), [1])
+    const clipTensor = new ort.Tensor('float32', clipEmbedding, [1, 512])
+    const scaleTensor = new ort.Tensor('float32', new Float32Array([2.5]), [1])
 
-      const feeds: Record<string, ort.Tensor> = {
-        noisy_motion: motionTensor,
-        timestep: timestepTensor,
-        clip_embedding: clipTensor,
-        guidance_scale: scaleTensor,
-      }
+    const feeds: Record<string, ort.Tensor> = {
+      noisy_motion: motionTensor,
+      timestep: timestepTensor,
+      clip_embedding: clipTensor,
+      guidance_scale: scaleTensor,
+    }
 
-      const results = await session.run(feeds)
-      const predXStart = results.denoised_motion.data as Float32Array
+    const results = await session.run(feeds)
+    const predXStart = results.denoised_motion.data as Float32Array
 
+    // On the final step (step === numSteps - 1), tVal = 0 and sVal = 0.
+    // Standard DDIM update equation collapses algebraically to x_s === x_t,
+    // which incorrectly keeps the noise rather than committing the clean sample.
+    // Directly commit predXStart as the terminal reconstruction.
+    if (step === numSteps - 1) {
+      x.set(predXStart)
+    }
+    else {
       // DDIM Update step equation:
       // eps_t = (x_t - sqrt(alpha_t) * x_0) / sqrt(1 - alpha_t)
       // x_s = sqrt(alpha_s) * x_0 + sqrt(1 - alpha_s) * eps_t
@@ -267,10 +277,6 @@ export async function runDdimLoop(
         const eps = (xt - sqrtAlphaT * x0) / sqrtOneMinusAlphaT
         x[i] = sqrtAlphaS * x0 + sqrtOneMinusAlphaS * eps
       }
-    }
-    else {
-      // Fallback generator step when session is unavailable
-      await new Promise(resolve => setTimeout(resolve, 5))
     }
 
     if ((step + 1) % 10 === 0 || step === numSteps - 1) {
