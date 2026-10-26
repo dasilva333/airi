@@ -46,15 +46,19 @@ const headerClass = computed(() => [
 
 <template>
   <div :class="bodyClass">
-    <div :class="headerClass">
-      <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">{{ title }}</span>
-      <button
-        class="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
-        @click="emit('close')"
-      >
-        <span class="i-solar:close-circle-outline text-lg" />
-      </button>
-    </div>
+    <!-- Popovers whose header carries extra controls (counters, filter tabs,
+         platform-conditional titles) replace this row wholesale. -->
+    <slot name="header">
+      <div :class="headerClass">
+        <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">{{ title }}</span>
+        <button
+          class="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+          @click="emit('close')"
+        >
+          <span class="i-solar:close-circle-outline text-lg" />
+        </button>
+      </div>
+    </slot>
 
     <slot />
   </div>

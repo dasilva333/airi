@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { isStageTamagotchi, normalizeSearchText } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
-import { useLive2d } from '@proj-airi/stage-ui-live2d'
-import { useMmd } from '@proj-airi/stage-ui-mmd/stores/mmd'
-import { useSpine } from '@proj-airi/stage-ui-spine'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { useTheme } from '@proj-airi/ui'
 import { onClickOutside, useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, ref, toRef, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 // Ported stores & states for Popovers
@@ -18,9 +15,11 @@ import celebrateGlyph from '../../../assets/motions/celebrate.avif'
 import gracefulBowGlyph from '../../../assets/motions/graceful_bow.avif'
 import helloGlyph from '../../../assets/motions/hello.avif'
 import CharacterAvatar from '../../misc/CharacterAvatar.vue'
+import SelfiesPopover from './popovers/SelfiesPopover.vue'
 
 import { useControlStripAction } from '../../../composables/use-control-strip-action'
-import { ATMOSPHERE_PRESETS, CUSTOMIZER_CATALOG } from '../../../constants'
+import { useControlStripSelfie } from '../../../composables/use-control-strip-selfie'
+import { CUSTOMIZER_CATALOG } from '../../../constants'
 import { useBackgroundStore } from '../../../stores/background'
 import { useDatingSimStore } from '../../../stores/dating-sim'
 import { useDisplayModelsStore } from '../../../stores/display-models'
@@ -526,11 +525,7 @@ function handleEditActiveCard() {
 }
 
 const modelStore = useModelStore()
-const vrmIdleAnimation = toRef(modelStore as any, 'vrmIdleAnimation')
 
-const live2dStore = useLive2d()
-const mmdStore = useMmd()
-const spineStore = useSpine()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 
 // ── Motion Studio (FlowMDM Text-to-Motion Create & Library) ───────────────
@@ -844,115 +839,35 @@ const backgroundStore = useBackgroundStore()
 const {
   activeAtmosphereId,
   activeBackgroundId,
-  availableBackgrounds,
   chatboxActiveAtmosphereId,
   chatboxActiveBackgroundId,
 } = storeToRefs(backgroundStore)
 
-const themeTarget = ref<'stage' | 'chatbox'>('stage')
-
-const effectiveThemeAtmosphereId = computed(() => {
-  return themeTarget.value === 'stage'
-    ? activeAtmosphereId.value
-    : chatboxActiveAtmosphereId.value
-})
-
-const effectiveThemeBackgroundId = computed(() => {
-  return themeTarget.value === 'stage'
-    ? activeBackgroundId.value
-    : chatboxActiveBackgroundId.value
-})
-
-function handleSetAtmosphere(presetId: any) {
-  if (themeTarget.value === 'stage') {
-    backgroundStore.setActiveAtmosphere(presetId)
-  }
-  else {
-    backgroundStore.setChatboxActiveAtmosphere(presetId)
-  }
-}
-
-function handleSetBackground(bgId: string) {
-  if (themeTarget.value === 'stage') {
-    backgroundStore.setActiveBackground(bgId)
-  }
-  else {
-    backgroundStore.setChatboxActiveBackground(bgId)
-  }
-}
-
-const miniBackgrounds = computed(() => {
-  return availableBackgrounds.value.slice(0, 5).map(bg => ({
-    ...bg,
-    resolvedUrl: bg.url || backgroundStore.getBackgroundUrl(bg.id) || '',
-  }))
-})
-
-// Selfies popover state & actions
-const selfies = computed(() => {
-  if (!activeCardId.value)
-    return []
-  return backgroundStore.getCharacterJournalEntries(activeCardId.value)
-    .filter(e => e.type === 'selfie')
-})
-
-const selfieCountdown = ref<number | null>(null)
-const { post: postCapture } = useBroadcastChannel<{ characterId: string, includeBg: boolean, channelId?: string }, { characterId: string, includeBg: boolean, channelId?: string }>({ name: 'airi:stage-capture' })
-
-function triggerSelfie() {
-  if (!activeCardId.value) {
-    console.warn('[ControlStrip] Cannot trigger selfie: no activeCardId')
-    return
-  }
-  if (selfieCountdown.value !== null)
-    return
-
-  console.log('[ControlStrip] Starting selfie countdown for character:', activeCardId.value)
-  selfieCountdown.value = 3
-  const interval = setInterval(() => {
-    if (selfieCountdown.value === null) {
-      clearInterval(interval)
+// Selfie capture + viewfinder channel ownership stays in the shell: exactly one
+// listener per app, and the viewfinder contract is driven by `activePopover`.
+const { selfies, selfieCountdown, triggerSelfie, selectSelfieBackground } = useControlStripSelfie({
+  activeCardId,
+  activePopover,
+  selfieIncludeBg,
+  getCharacterSelfies: characterId => backgroundStore.getCharacterJournalEntries(characterId),
+  updateCardBackground: (characterId, bgId) => {
+    const card = activeCard.value
+    if (!card)
       return
-    }
-    selfieCountdown.value--
-    console.log('[ControlStrip] Selfie countdown:', selfieCountdown.value)
-    if (selfieCountdown.value === 0) {
-      clearInterval(interval)
-      selfieCountdown.value = null
-      // Wait for the UI/viewfinder overlay to fully hide before triggering capture
-      setTimeout(() => {
-        console.log('[ControlStrip] Broadcast stage capture request for character:', activeCardId.value, 'includeBg:', selfieIncludeBg.value)
-        postCapture({ characterId: activeCardId.value, includeBg: selfieIncludeBg.value })
-      }, 500)
-    }
-  }, 1000)
-}
-
-function selectSelfieBackground(bgId: string) {
-  if (activeCard.value && activeCardId.value) {
-    cardStore.updateCard(activeCardId.value, {
+    cardStore.updateCard(characterId, {
       extensions: {
-        ...activeCard.value.extensions,
+        ...card.extensions,
         airi: {
-          ...activeCard.value.extensions.airi,
+          ...card.extensions.airi,
           modules: {
-            ...activeCard.value.extensions.airi.modules,
+            ...card.extensions.airi.modules,
             activeBackgroundId: bgId,
           },
         },
       },
     } as any)
-  }
-}
-
-const { post: postViewfinderState } = useBroadcastChannel<{ active: boolean, countdown: number | null }, { active: boolean, countdown: number | null }>({ name: 'airi:stage-selfie-viewfinder' })
-
-watch([activePopover, selfieCountdown], ([popover, countdown]) => {
-  postViewfinderState({
-    active: popover === 'actor-selfies',
-    countdown,
-  })
-}, { immediate: true })
+  },
+})
 
 const hoveredButtonId = ref<string | null>(null)
 const popoverRef = ref<HTMLElement | null>(null)
@@ -1197,241 +1112,6 @@ watch(activePopover, (newVal) => {
     }))
   }
 })
-
-const availableMotions = computed(() => {
-  const list = []
-
-  // Prepend None option
-  list.push({
-    key: '',
-    label: 'None',
-  })
-
-  if (settingsStore.stageModelRenderer === 'vrm') {
-    list.push(...customVrmAnimationsStore.animationKeys.map(key => ({
-      key,
-      label: customVrmAnimationsStore.animationLabelByKey[key] || key,
-    })))
-  }
-  else if (settingsStore.stageModelRenderer === 'live2d') {
-    list.push(...(live2dStore.availableMotions || []).map(motion => ({
-      key: `${motion.motionName}:${motion.motionIndex}`,
-      label: `${motion.motionName} (${motion.motionIndex})`,
-      raw: motion,
-    })))
-  }
-  else if (settingsStore.stageModelRenderer === 'mmd') {
-    list.push(...(mmdStore.availableMotions || []).map(motion => ({
-      key: motion,
-      label: motion,
-    })))
-  }
-  else if (settingsStore.stageModelRenderer === 'spine') {
-    list.push(...(spineStore.availableAnimations || []).map(animation => ({
-      key: animation.name,
-      label: animation.name,
-    })))
-  }
-
-  return list
-})
-
-const motionsFilterTab = ref<'all' | 'gen'>('all')
-
-const showGenMotionTab = computed(() => {
-  const renderer = settingsStore.stageModelRenderer
-  return renderer === 'vrm' || renderer === 'mmd'
-})
-
-const genMotionsCount = computed(() => {
-  if (settingsStore.stageModelRenderer === 'vrm') {
-    return availableMotions.value.filter(m => m.key && m.key.startsWith('custom-vrma:')).length
-  }
-  if (settingsStore.stageModelRenderer === 'mmd') {
-    const stockMmd = [
-      'brushoff_nice_and_tidy.vmd',
-      'circulation.vmd',
-      'crossed_arms_look_around_confident.vmd',
-      'fixing_hair_or_wig.vmd',
-      'getting_item_out_of_bra.vmd',
-      'hat_flip.vmd',
-      'impatient_foot_tapping.vmd',
-      'shy.vmd',
-      'skittish_mermay.vmd',
-      'smelling_something_in_the_air.vmd',
-      'something_in_the_sky.vmd',
-      'stretching.vmd',
-      'swaying_arms_and_hips.vmd',
-      'tracker.vmd',
-    ]
-    return availableMotions.value.filter(m => m.key && !stockMmd.includes(m.key)).length
-  }
-  return 0
-})
-
-const filteredMotions = computed(() => {
-  if (motionsFilterTab.value === 'all' || !showGenMotionTab.value) {
-    return availableMotions.value
-  }
-
-  if (settingsStore.stageModelRenderer === 'vrm') {
-    return availableMotions.value.filter(m => m.key && m.key.startsWith('custom-vrma:'))
-  }
-  if (settingsStore.stageModelRenderer === 'mmd') {
-    const stockMmd = [
-      'brushoff_nice_and_tidy.vmd',
-      'circulation.vmd',
-      'crossed_arms_look_around_confident.vmd',
-      'fixing_hair_or_wig.vmd',
-      'getting_item_out_of_bra.vmd',
-      'hat_flip.vmd',
-      'impatient_foot_tapping.vmd',
-      'shy.vmd',
-      'skittish_mermay.vmd',
-      'smelling_something_in_the_air.vmd',
-      'something_in_the_sky.vmd',
-      'stretching.vmd',
-      'swaying_arms_and_hips.vmd',
-      'tracker.vmd',
-    ]
-    return availableMotions.value.filter(m => m.key && !stockMmd.includes(m.key))
-  }
-
-  return availableMotions.value
-})
-
-// Membership in the idle cycle set (persisted on the card) — the multi-select
-// replacement for the old "now playing" highlight. Tapping a row toggles it;
-// the play end-cap auditions without touching the set.
-function isMotionInCycle(motion: any): boolean {
-  if (!motion.key)
-    return idleCycleCount.value === 0
-  const set = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
-  return set.includes(motion.key)
-}
-
-const idleCycleCount = computed(() => {
-  const set = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
-  return availableMotions.value.filter(m => m.key && set.includes(m.key)).length
-})
-
-function toggleMotionInCycle(motion: any) {
-  if (!activeCardId.value || !activeCard.value)
-    return
-  if (!motion.key) {
-    // None: clear the set through the existing per-renderer reset path.
-    playMotion(motion)
-    return
-  }
-  const current = activeCard.value.extensions.airi.acting?.idleAnimations || []
-  const next = current.includes(motion.key)
-    ? current.filter(key => key !== motion.key)
-    : [...current, motion.key]
-  cardStore.updateCard(activeCardId.value, {
-    extensions: {
-      ...activeCard.value.extensions,
-      airi: {
-        ...activeCard.value.extensions.airi,
-        acting: {
-          ...activeCard.value.extensions.airi.acting,
-          idleAnimations: next,
-        },
-      },
-    },
-  })
-}
-
-function playMotion(motion: any) {
-  if (motion.key === '') {
-    if (settingsStore.stageModelRenderer === 'vrm') {
-      vrmIdleAnimation.value = ''
-      if (activeCardId.value && activeCard.value) {
-        const current = activeCard.value.extensions.airi.acting?.idleAnimations || []
-        const next = current.filter(key => key.includes(':'))
-        cardStore.updateCard(activeCardId.value, {
-          extensions: {
-            ...activeCard.value.extensions,
-            airi: {
-              ...activeCard.value.extensions.airi,
-              acting: {
-                ...activeCard.value.extensions.airi.acting,
-                idleAnimations: next,
-              },
-            },
-          },
-        })
-      }
-    }
-    else if (settingsStore.stageModelRenderer === 'live2d') {
-      const modelId = activeCardId.value || 'global'
-      localStorage.removeItem(`live2d-${modelId}-selected-motion`)
-      localStorage.removeItem(`live2d-${modelId}-selected-motion-name`)
-      localStorage.removeItem(`live2d-${modelId}-selected-motion-group`)
-      localStorage.removeItem(`live2d-${modelId}-selected-motion-index`)
-      live2dStore.currentMotion = { group: 'Idle', index: 0 }
-    }
-    else if (settingsStore.stageModelRenderer === 'mmd') {
-      mmdStore.currentMotion = ''
-      if (activeCardId.value && activeCard.value) {
-        const current = activeCard.value.extensions.airi.acting?.idleAnimations || []
-        const next = current.filter(key => !key.startsWith('mmd:'))
-        cardStore.updateCard(activeCardId.value, {
-          extensions: {
-            ...activeCard.value.extensions,
-            airi: {
-              ...activeCard.value.extensions.airi,
-              acting: {
-                ...activeCard.value.extensions.airi.acting,
-                idleAnimations: next,
-              },
-            },
-          },
-        })
-      }
-    }
-    else if (settingsStore.stageModelRenderer === 'spine') {
-      spineStore.currentAnimation = { ...spineStore.currentAnimation, name: '' }
-      if (activeCardId.value && activeCard.value) {
-        const current = activeCard.value.extensions.airi.acting?.idleAnimations || []
-        const next = current.filter(key => !key.startsWith('spine:'))
-        cardStore.updateCard(activeCardId.value, {
-          extensions: {
-            ...activeCard.value.extensions,
-            airi: {
-              ...activeCard.value.extensions.airi,
-              acting: {
-                ...activeCard.value.extensions.airi.acting,
-                idleAnimations: next,
-              },
-            },
-          },
-        })
-      }
-    }
-    return
-  }
-
-  if (settingsStore.stageModelRenderer === 'vrm') {
-    vrmIdleAnimation.value = motion.key
-  }
-  else if (settingsStore.stageModelRenderer === 'live2d') {
-    live2dStore.currentMotion = {
-      group: motion.raw.motionName,
-      index: motion.raw.motionIndex,
-    }
-    const modelId = activeCardId.value || 'global'
-    localStorage.setItem(`live2d-${modelId}-selected-motion`, motion.raw.displayPath)
-    localStorage.setItem(`live2d-${modelId}-selected-motion-name`, motion.raw.name)
-    localStorage.setItem(`live2d-${modelId}-selected-motion-group`, motion.raw.group)
-    localStorage.setItem(`live2d-${modelId}-selected-motion-index`, motion.raw.index != null ? String(motion.raw.index) : '0')
-  }
-  else if (settingsStore.stageModelRenderer === 'mmd') {
-    mmdStore.currentMotion = motion.key
-  }
-  else if (settingsStore.stageModelRenderer === 'spine') {
-    spineStore.currentAnimation = { ...spineStore.currentAnimation, name: motion.key }
-  }
-}
 
 function handleViewGallery() {
   if (activeCardId.value) {
@@ -3250,106 +2930,6 @@ function getShortLabel(btnId: string): string {
           </div>
         </div>
 
-        <!-- MOTIONS POPOVER -->
-        <div v-if="activePopover === 'actor-motions'" class="flex flex-col gap-2">
-          <div class="flex items-center justify-between border-b border-neutral-200 pb-2 dark:border-neutral-800">
-            <div class="flex items-center gap-1.5">
-              <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">Motions</span>
-              <span class="rounded-full bg-primary-500/10 px-1.5 py-0.5 text-[10px] text-primary-600 font-bold font-mono dark:text-primary-400">
-                {{ idleCycleCount }} in cycle
-              </span>
-            </div>
-
-            <div class="flex items-center gap-1.5">
-              <!-- All | Gen Toggle (vrm and mmd only) -->
-              <div
-                v-if="showGenMotionTab"
-                class="flex items-center gap-0.5 border border-neutral-200/70 rounded-lg bg-neutral-100 p-0.5 dark:border-neutral-700/60 dark:bg-neutral-800/80"
-              >
-                <button
-                  type="button"
-                  :class="[
-                    'px-2 py-0.5 text-[10px] font-semibold rounded-md transition-all cursor-pointer',
-                    motionsFilterTab === 'all'
-                      ? 'bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 shadow-xs'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-                  ]"
-                  @click="motionsFilterTab = 'all'"
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  :class="[
-                    'px-2 py-0.5 text-[10px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1',
-                    motionsFilterTab === 'gen'
-                      ? 'bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 shadow-xs'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-                  ]"
-                  @click="motionsFilterTab = 'gen'"
-                >
-                  <span>Gen</span>
-                  <span
-                    v-if="genMotionsCount > 0"
-                    class="rounded-full bg-primary-500/15 px-1 py-0.2 text-[8px] text-primary-600 font-bold dark:text-primary-400"
-                  >
-                    {{ genMotionsCount }}
-                  </span>
-                </button>
-              </div>
-
-              <button class="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300" @click="activePopover = null">
-                <span class="i-solar:close-circle-outline text-lg" />
-              </button>
-            </div>
-          </div>
-
-          <div class="max-h-48 flex flex-col gap-1.5 overflow-y-auto py-1 scrollbar-thin">
-            <div
-              v-for="motion in filteredMotions"
-              :key="motion.key"
-              :class="[
-                'w-full flex items-center gap-1 border rounded-xl p-1 text-left text-xs transition-all duration-200',
-                isMotionInCycle(motion)
-                  ? 'bg-amber-500/20 border-amber-400/50 text-amber-600 dark:text-amber-300 font-semibold'
-                  : 'bg-neutral-50/50 dark:bg-neutral-800/40 border-neutral-200/50 dark:border-neutral-800/20 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50',
-              ]"
-            >
-              <button
-                type="button"
-                class="min-w-0 flex flex-1 cursor-pointer items-center justify-between rounded-lg px-2 py-1.5"
-                :title="motion.key ? 'Toggle in idle cycle' : 'Clear idle cycle'"
-                @click="toggleMotionInCycle(motion)"
-              >
-                <span class="mr-2 truncate font-medium">{{ motion.label }}</span>
-                <span
-                  v-if="isMotionInCycle(motion)"
-                  class="i-solar:check-circle-bold flex-shrink-0 text-sm text-amber-500"
-                />
-              </button>
-              <button
-                v-if="motion.key"
-                type="button"
-                class="flex shrink-0 cursor-pointer items-center justify-center rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-200/70 hover:text-neutral-700 dark:hover:bg-neutral-700 dark:hover:text-neutral-200"
-                title="Play once"
-                @click.stop="playMotion(motion)"
-              >
-                <span class="i-solar:play-bold size-4" />
-              </button>
-            </div>
-
-            <div
-              v-if="filteredMotions.length === 0"
-              class="flex flex-col items-center justify-center py-6 text-center opacity-40"
-            >
-              <span class="i-solar:magic-stick-3-bold-duotone text-2xl" />
-              <span class="mt-1 text-[10px]">
-                {{ motionsFilterTab === 'gen' ? 'No generated or uploaded motions' : 'No motions available' }}
-              </span>
-            </div>
-          </div>
-        </div>
-
         <!-- AVATARS POPOVER -->
         <div v-if="activePopover === 'actor-avatars'" class="flex flex-col gap-2">
           <div class="flex items-center justify-between border-b border-neutral-200 pb-1.5 dark:border-neutral-800">
@@ -3520,206 +3100,17 @@ function getShortLabel(btnId: string): string {
           </div>
         </div>
 
-        <!-- SELFIES POPOVER -->
-        <div v-if="activePopover === 'actor-selfies'" class="flex flex-col gap-2">
-          <div class="flex items-center justify-between border-b border-neutral-200 pb-1.5 dark:border-neutral-800">
-            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">Selfies</span>
-            <button class="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300" @click="activePopover = null">
-              <span class="i-solar:close-circle-outline text-lg" />
-            </button>
-          </div>
-
-          <!-- Take Selfie Button & Countdown Overlay -->
-          <div class="relative flex flex-col gap-1.5">
-            <button
-              class="w-full flex cursor-pointer items-center justify-center gap-1.5 border border-primary-500/25 rounded-xl bg-primary-500/20 py-2 text-center text-xs text-primary-600 font-semibold transition-all disabled:cursor-not-allowed hover:bg-primary-500/30 dark:text-primary-300 disabled:opacity-50"
-              :disabled="selfieCountdown !== null"
-              @click="triggerSelfie"
-            >
-              <span class="i-solar:camera-bold text-sm" />
-              <span>{{ selfieCountdown !== null ? `Capturing in ${selfieCountdown}...` : 'Take Selfie' }}</span>
-            </button>
-            <label class="flex cursor-pointer select-none items-center justify-between rounded-lg bg-neutral-100/50 p-1.5 text-[10px] text-neutral-500 dark:bg-neutral-800/50 hover:bg-neutral-200/40 dark:text-neutral-400 dark:hover:bg-neutral-800/80">
-              <span class="font-medium">Include Stage Background</span>
-              <input
-                v-model="selfieIncludeBg"
-                type="checkbox"
-                class="border-neutral-300/80 rounded text-primary-600 dark:border-neutral-700/80 dark:bg-neutral-800 focus:ring-primary-500"
-              >
-            </label>
-          </div>
-
-          <!-- Selfies Gallery (3-column grid) -->
-          <div class="max-h-48 overflow-y-auto py-1 scrollbar-thin">
-            <div v-if="selfies.length > 0" class="grid grid-cols-3 gap-1">
-              <div
-                v-for="selfie in selfies"
-                :key="selfie.id"
-                :class="[
-                  'group relative aspect-square border rounded-xl overflow-hidden cursor-pointer bg-neutral-200/10 dark:bg-neutral-800/10 transition-all duration-200',
-                  activeCard?.extensions?.airi?.modules?.activeBackgroundId === selfie.id
-                    ? 'border-sky-500 ring-2 ring-sky-500/40'
-                    : 'border-neutral-200/40 dark:border-neutral-800/40 hover:ring-2 hover:ring-sky-500/50',
-                ]"
-                @click="selectSelfieBackground(selfie.id)"
-              >
-                <img
-                  v-if="selfie.url"
-                  :src="selfie.url"
-                  class="h-full w-full object-cover"
-                >
-                <div v-else class="h-full w-full flex items-center justify-center bg-neutral-500/10 text-neutral-400">
-                  <span class="i-solar:camera-broken text-lg" />
-                </div>
-
-                <!-- Hover Date/Time banner -->
-                <div class="absolute bottom-0 left-0 right-0 truncate bg-black/60 px-1 py-0.5 text-center text-[8px] text-white opacity-0 transition-opacity group-hover:opacity-100">
-                  {{ selfie.title }}
-                </div>
-
-                <!-- Set Background Top-Right Overlay Button -->
-                <button
-                  class="absolute right-1 top-1 h-5 w-5 flex items-center justify-center rounded-full bg-black/45 text-white transition-all duration-150 hover:scale-105 hover:bg-black/70"
-                  title="Set as stage background"
-                  @click.stop="selectSelfieBackground(selfie.id)"
-                >
-                  <span class="i-solar:gallery-bold text-xs" />
-                </button>
-              </div>
-            </div>
-            <div v-else class="flex flex-col items-center justify-center py-8 text-center opacity-40">
-              <span class="i-solar:camera-bold-duotone text-2xl" />
-              <span class="mt-2 text-[10px]">No selfies captured yet.</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- STAGE / CHATBOX ATMOSPHERE & THEME POPOVER -->
-        <div v-if="activePopover === 'stage-atmosphere'" class="flex flex-col gap-2.5">
-          <div class="flex items-center justify-between border-b border-neutral-200 pb-1.5 dark:border-neutral-800">
-            <div class="flex items-center gap-1.5">
-              <span class="i-solar:magic-stick-3-bold-duotone text-sm text-amber-500" />
-              <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">
-                {{ isStageTamagotchi() ? 'Theme & Atmosphere' : 'Stage Theme' }}
-              </span>
-            </div>
-            <button class="cursor-pointer text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300" @click="activePopover = null">
-              <span class="i-solar:close-circle-outline text-lg" />
-            </button>
-          </div>
-
-          <!-- Target Surface Segmented Switcher (Desktop only: Stage vs Chatbox) -->
-          <div v-if="isStageTamagotchi()" class="grid grid-cols-2 gap-1 rounded-xl bg-neutral-200/50 p-1 dark:bg-neutral-800/50">
-            <button
-              :class="[
-                'flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer',
-                themeTarget === 'stage'
-                  ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 shadow-sm'
-                  : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300',
-              ]"
-              @click="themeTarget = 'stage'"
-            >
-              <span class="i-solar:clapperboard-play-bold-duotone text-xs text-amber-500" />
-              <span>Stage</span>
-            </button>
-            <button
-              :class="[
-                'flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer',
-                themeTarget === 'chatbox'
-                  ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 shadow-sm'
-                  : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300',
-              ]"
-              @click="themeTarget = 'chatbox'"
-            >
-              <span class="i-solar:chat-line-bold text-xs text-amber-500" />
-              <span>Chatbox</span>
-            </button>
-          </div>
-
-          <!-- Section 1: Animated Atmosphere Particles -->
-          <div class="flex flex-col gap-1.5">
-            <div class="flex items-center justify-between">
-              <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Animated Atmosphere</span>
-              <span v-if="isStageTamagotchi()" class="text-[9px] text-amber-600 font-medium dark:text-amber-400">
-                Target: {{ themeTarget === 'stage' ? 'Stage' : 'Chatbox' }}
-              </span>
-            </div>
-            <div class="grid grid-cols-2 gap-1.5">
-              <button
-                v-for="preset in ATMOSPHERE_PRESETS"
-                :key="preset.id"
-                :class="[
-                  'flex items-center gap-1.5 px-2 py-1.5 rounded-xl border text-left transition-all duration-150 cursor-pointer text-xs',
-                  effectiveThemeAtmosphereId === preset.id
-                    ? 'border-amber-400/80 bg-amber-500/15 text-amber-600 dark:text-amber-300 font-semibold ring-1 ring-amber-400/40'
-                    : 'border-neutral-200/60 dark:border-neutral-800/80 bg-neutral-200/20 dark:bg-neutral-800/40 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/70',
-                ]"
-                @click="handleSetAtmosphere(preset.id as any)"
-              >
-                <span :class="[preset.icon, 'text-sm shrink-0', effectiveThemeAtmosphereId === preset.id ? 'text-amber-500' : 'text-neutral-400']" />
-                <span class="truncate text-[11px]">{{ preset.name }}</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Section 2: Quick Wallpaper (Up to 6 options) -->
-          <div class="flex flex-col gap-1.5">
-            <div class="flex items-center justify-between">
-              <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Wallpaper</span>
-              <button
-                class="flex cursor-pointer items-center gap-0.5 text-[10px] text-amber-500 font-medium hover:text-amber-400"
-                @click="activePopover = null; router.push('/settings/scene')"
-              >
-                <span>All Scenes</span>
-                <span class="i-solar:arrow-right-linear text-[10px]" />
-              </button>
-            </div>
-            <div class="grid grid-cols-3 gap-1.5">
-              <!-- Tile 1: None (Clean / Transparent) -->
-              <button
-                :class="[
-                  'group relative aspect-video rounded-xl border overflow-hidden flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all duration-150',
-                  effectiveThemeBackgroundId === 'none'
-                    ? 'border-amber-400/80 ring-2 ring-amber-400/40 bg-amber-500/10'
-                    : 'border-neutral-200/60 dark:border-neutral-800/80 bg-neutral-200/30 dark:bg-neutral-800/40 hover:bg-neutral-200/50',
-                ]"
-                title="None (Clean Stencil Only)"
-                @click="handleSetBackground('none')"
-              >
-                <span class="i-solar:eye-closed-linear text-sm text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300" />
-                <span class="text-[9px] text-neutral-500 font-medium">None</span>
-              </button>
-
-              <!-- Tiles 2-6: Up to 5 recent backgrounds -->
-              <button
-                v-for="bg in miniBackgrounds"
-                :key="bg.id"
-                :class="[
-                  'group relative aspect-video rounded-xl border overflow-hidden cursor-pointer transition-all duration-150',
-                  effectiveThemeBackgroundId === bg.id
-                    ? 'border-amber-400/80 ring-2 ring-amber-400/40'
-                    : 'border-neutral-200/60 dark:border-neutral-800/80 hover:ring-1 hover:ring-amber-400/40',
-                ]"
-                :title="bg.title"
-                @click="handleSetBackground(bg.id)"
-              >
-                <img
-                  v-if="bg.resolvedUrl"
-                  :src="bg.resolvedUrl"
-                  :alt="bg.title"
-                  class="h-full w-full object-cover"
-                  loading="lazy"
-                >
-                <div v-else class="h-full w-full flex items-center justify-center bg-neutral-200 text-[9px] text-neutral-400 dark:bg-neutral-800">
-                  <span class="i-solar:gallery-linear text-sm" />
-                </div>
-                <div class="absolute inset-x-0 bottom-0 truncate from-black/80 via-black/40 to-transparent bg-gradient-to-t p-1 text-center text-[8px] text-white opacity-0 transition-opacity group-hover:opacity-100">
-                  {{ bg.title }}
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
+        <!-- Selfies stays shell-rendered: it needs the capture channel, which must
+             stay single-owner. The cast covers useControlStripSelfie typing its
+             provider as `{ type: string }`, dropping id/url/title. -->
+        <SelfiesPopover
+          v-if="activePopover === 'actor-selfies'"
+          :selfies="selfies as any"
+          :countdown="selfieCountdown"
+          @take-selfie="triggerSelfie"
+          @select-background="selectSelfieBackground"
+          @close="activePopover = null"
+        />
       </div>
     </Transition>
   </div>
