@@ -59,7 +59,7 @@ Concept-to-file-path index for rapid context retrieval. Use this to find where a
 
 | Concept | Path |
 | :--- | :--- |
-| **Control Strip (Main Window)** | `apps/stage-tamagotchi/src/main/windows/main/index.ts` (Electron) | `packages/stage-ui/src/components/scenarios/layout/ControlStrip.vue` (UI) |
+| **Control Strip (Main Window)** | `apps/stage-tamagotchi/src/main/windows/main/index.ts` (Electron) | `packages/stage-ui/src/components/scenarios/layout/ControlStrip.vue` (Shell) \| `packages/stage-ui/src/components/scenarios/layout/popovers/` (Domain Popovers) \| `packages/stage-ui/src/composables/use-control-strip-*.ts` (Composables) |
 | **Actor Stage (Floating Island)** | `apps/stage-tamagotchi/src/main/windows/stage/index.ts` (Electron) | `packages/stage-ui/src/components/scenes/RendererStage.vue` (UI) |
 | **Chatbox Window** | `apps/stage-tamagotchi/src/main/windows/chat/index.ts` (Electron) | `apps/stage-tamagotchi/src/renderer/pages/chat.vue` (UI) \| `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` (Host) |
 | **Chat Options Popover** | `packages/stage-layouts/src/components/Layouts/ChatOptionsPopover.vue` — Hierarchical 4-root menu (`capabilities`, `tools`, `injections`, `appearance`), live particle atmosphere previews, embedded theme/accent widget. |

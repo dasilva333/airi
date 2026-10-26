@@ -169,7 +169,45 @@ To implement this revamp, the following files will be refactored:
 4. **Settings Page integration:**
    - [NEW] `packages/stage-pages/src/pages/settings/layout/ControlStripEditor.vue` — The layout configuration editor.
 
+---
+
+## 🧩 Monolith Decomposition Phases (P1, P2, P3)
+
+As the Control Strip expanded to support 13 distinct interactive popovers across generative motions, model switching, personas, and atmosphere, `ControlStrip.vue` ballooned to ~3.8K lines with 20 eager store instantiations. The component is decomposed into modular layers governed by `ControlStrip.contract.test.ts`:
+
+- [x] **Phase 1 (P1) - Shell Composables Extraction**:
+  - Extracted shared infrastructure and mechanics into focused composables:
+    - `use-control-strip-buttons.ts`: computes `activeButtons` (desktopOnly pruning on mobile, sandbox gating) and `geminiDotClasses`.
+    - `use-control-strip-geometry.ts`: handles `autoHideMode`, hover-collapse timers, `containerStyle`, tab classes, `stripLength`, and `popoverPlacement`.
+    - `use-control-strip-drag.ts`: manages pointer/touch drag gestures, magnetic edge snapping, and double-click orientation toggle.
+    - `use-control-strip-caption-relay.ts`: single-owner listener for `airi-caption-overlay` -> Stage-Mate IPC relay (`electronStageMateSendCaption`).
+    - `use-control-strip-selfie.ts`: manages `airi:stage-capture` and `airi:stage-selfie-viewfinder` broadcast channels, countdown timer, and background sync.
+
+- [x] **Phase 2 (P2) - Popover Subcomponents Extraction**:
+  - Extracted 13 domain popovers from inline templates into `packages/stage-ui/src/components/scenarios/layout/popovers/*.vue`:
+    - `MotionPlaygroundPopover.vue` (`actor-motion-playground`)
+    - `MotionsPopover.vue` (`actor-motions`)
+    - `AvatarsPopover.vue` (`actor-avatars`)
+    - `CharactersPopover.vue` (`actor-characters`)
+    - `GeminiVoicePopover.vue` (`gemini-voice`)
+    - `AtmospherePopover.vue` (`stage-atmosphere`)
+    - `SelfiesPopover.vue` (`actor-selfies`)
+    - `WardrobePopover.vue` (`actor-wardrobe`)
+    - `EmotionsPopover.vue` (`actor-all-emotions`)
+    - `VfxPopover.vue` (`actor-vfx`)
+    - `MacaronPopover.vue` (`actor-macaron`)
+    - `StagePresetPopover.vue` (`stage-preset`)
+    - `ChatPresetPopover.vue` (`chat-preset`)
+  - Enforced single-owner broadcast channel contract rule: popovers never own or open broadcast channels directly.
+
+- [x] **Phase 3 (P3) - Lazy Store Decoupling & Ratchet Protection**:
+  - Slender shell setup: `ControlStrip.vue` setup only instantiates shell settings (`useSettingsControlStrip`, `useSettingsControlsIsland`, `useSettings`), leaving domain stores to initialize only when their respective popover mounts.
+  - Ratchet testing: `ControlStrip.contract.test.ts` validates that no eager store instantiations regress into the shell setup and preserves button routing integrity.
+
 ## Relevant Skills
 
 - [[airi-controlstrip-customizer]]
 - [[airi-stage-ui-surfaces]]
+- [[airi-broadcast-channels]]
+- [[airi-generative-motion-vrma]]
+- [[airi-code-testing-hygiene]]

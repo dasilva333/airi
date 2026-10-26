@@ -10,7 +10,9 @@ Guidelines and exact code paths for AIRI's stage overlay surfaces. The **Control
 
 ## 1. Surface Map
 
-- **Control Strip pill** — `packages/stage-ui/src/components/scenarios/layout/ControlStrip.vue` (`mode?: 'desktop' | 'mobile'`, default `'desktop'`, lines 30-33). Exported via `packages/stage-ui/src/components/scenarios/layout/index.ts`.
+- **Control Strip Shell** — `packages/stage-ui/src/components/scenarios/layout/ControlStrip.vue` (`mode?: 'desktop' | 'mobile'`, default `'desktop'`). Slender container component coordinating docking, orientation, dragging, and popover mounting. Exported via `packages/stage-ui/src/components/scenarios/layout/index.ts`.
+- **Control Strip Popovers** — `packages/stage-ui/src/components/scenarios/layout/popovers/*.vue`. Domain popovers extracted from the shell (`MotionPlaygroundPopover.vue`, `AvatarsPopover.vue`, `CharactersPopover.vue`, `GeminiVoicePopover.vue`, `AtmospherePopover.vue`, `SelfiesPopover.vue`, `WardrobePopover.vue`, `EmotionsPopover.vue`, `VfxPopover.vue`, `MacaronPopover.vue`, `StagePresetPopover.vue`, `ChatPresetPopover.vue`).
+- **Control Strip Composables** — `packages/stage-ui/src/composables/use-control-strip-*.ts` (`buttons`, `geometry`, `drag`, `caption-relay`, `selfie`, `action`).
 - **ControlStripHost / WidgetStage** — `packages/stage-ui/src/components/scenes/ControlStripHost.vue` (~1491 lines). The comms-hub "host" (audio pipeline, lip-sync, broadcast channels, speech runtime) that wraps `RendererStage` and, **on Electron only**, overlays the strip: `v-if="isElectron"` at `ControlStripHost.vue:1487-1489`. Exported as `WidgetStage` from `packages/stage-ui/src/components/scenes/index.ts:1` (the historical `Stage.vue` was split per `docs/project-control-strip-rfc.md`).
 - **RendererStage** — `packages/stage-ui/src/components/scenes/RendererStage.vue` — pure avatar/background renderer.
 - **Desktop stage window** — `apps/stage-tamagotchi/src/renderer/pages/index.vue` (~1000+ lines) renders `WidgetStage` (:937) and owns window-level behavior: transparency/click-through, hover-expand debounce, event bus listeners, and strip-state sync to main.
@@ -64,6 +66,41 @@ Web/pocket never mount the strip inside `WidgetStage` (the `isElectron` guard is
 - **Sizing** — `stripLength = 52 + 44 * activeButtons.length` (ControlStrip.vue, `stripLength` computed); `applySizePreset` dispatches `control-strip:apply-size-preset` with monitor/alignment detail (ControlStrip.vue:~623-636).
 - **Multi-Monitor Display Discovery & Placement** — Desktop stage (`actor.vue`) discovers active displays via `useElectronAllDisplays()` from `@proj-airi/electron-vueuse` and forwards them to `RendererStage.vue` and `HeadTetheredRadialMenu.vue`. The radial menu's `monitor` wedge activates when `monitorCount > 1` or `displays.length > 1`, generating dynamic wedge subtitles with display resolution, orientation, and Primary tags.
 - **Stage Pausing & Render Throttling** — `<WidgetStage :paused="stagePaused">` (`index.vue`) receives `stagePaused` from `useStageWindowLifecycleStore()`. Forwarded through `ControlStripHost.vue` to `RendererStage.vue`, this freezes animation and render loops across Three.js VRM, Live2D, Spine, and MMD when the window is hidden, minimized, or the screen is locked/suspended. See `airi-desktop-lifecycle-power-throttling`.
+
+### 2.6 Decomposed Architecture & Contract Test Invariants
+
+To keep `ControlStrip.vue` manageable, avoid cross-domain coupling, and prevent eager store instantiation on boot, the strip is decomposed into a lightweight shell, domain composables, and scoped popover components.
+
+#### Topology & Responsibilities
+- **Shell Component** (`packages/stage-ui/src/components/scenarios/layout/ControlStrip.vue`): ~250–350 lines. Coordinates layout, edge docking, drag events, and dynamic popover mounting. Setup is restricted to shell-level settings (`useSettingsControlStrip`, `useSettingsControlsIsland`, `useSettings`).
+- **Domain Composables** (`packages/stage-ui/src/composables/use-control-strip-*.ts`):
+  - `use-control-strip-buttons.ts`: computes `activeButtons` (filters mobile `desktopOnly` and sandbox gating) and `geminiDotClasses`.
+  - `use-control-strip-geometry.ts`: owns `autoHideMode`, hover-collapse timers (`HOVER_COLLAPSE_DELAY_MS = 400`), `containerStyle`, tab classes, `stripLength`, and `popoverPlacement`.
+  - `use-control-strip-drag.ts`: handles drag interactions, magnetic edge snapping, and perpendicular click double-click orientation toggle.
+  - `use-control-strip-caption-relay.ts`: single-owner listener for `airi-caption-overlay` -> Stage-Mate IPC relay (`electronStageMateSendCaption`).
+  - `use-control-strip-selfie.ts`: manages `airi:stage-capture` and `airi:stage-selfie-viewfinder` broadcast channels, countdown timer, and background updates.
+  - `use-control-strip-action.ts`: centralized action dispatcher table.
+- **Domain Popovers** (`packages/stage-ui/src/components/scenarios/layout/popovers/*.vue`):
+  Each domain panel is an independent SFC that imports only its required stores:
+  - `MotionPlaygroundPopover.vue` (`actor-motion-playground` — FlowMDM WebGPU text-to-motion studio, quick presets, replay, library save)
+  - `MotionsPopover.vue` (`actor-motions` — built-in and saved animation list & playback)
+  - `AvatarsPopover.vue` (`actor-avatars` — VRM, Live2D, Spine, MMD model list & switcher)
+  - `CharactersPopover.vue` (`actor-characters` — character card picker & active persona)
+  - `GeminiVoicePopover.vue` (`gemini-voice` — voice selector, pitch/rate, preview test)
+  - `AtmospherePopover.vue` (`stage-atmosphere` — scene backgrounds, tint color, atmospheric particles)
+  - `SelfiesPopover.vue` (`actor-selfies` — countdown trigger & selfie gallery)
+  - `WardrobePopover.vue` (`actor-wardrobe` — outfit slot manager & manifestations)
+  - `EmotionsPopover.vue` (`actor-all-emotions` — facial expression matrix)
+  - `VfxPopover.vue` (`actor-vfx` — stage visual effects preview grid)
+  - `MacaronPopover.vue` (`actor-macaron` — dating sim state, storyline choices)
+  - `StagePresetPopover.vue` (`stage-preset` — stage window alignment & multi-monitor sizing)
+  - `ChatPresetPopover.vue` (`chat-preset` — chatbox window alignment & layout presets)
+
+#### Contract Test Invariants (`ControlStrip.contract.test.ts`)
+Run `pnpm -F @proj-airi/stage-ui test run src/components/scenarios/layout/ControlStrip.contract.test.ts` to enforce the golden-master contracts:
+1. **Single-Owner Broadcast Channel Rule**: Popovers must NEVER instantiate or open a `BroadcastChannel` directly. Broadcast channels (`airi-caption-overlay`, `airi-control-strip-actions`, `airi:stage-capture`, `airi:stage-selfie-viewfinder`) must be owned solely by the shell or dedicated composables (`useControlStripCaptionRelay`, `useControlStripSelfie`). A popover opening its own channel duplicates listeners in every window rendering it (causing duplicate caption events or multiple selfie captures).
+2. **Eager Bootstrap Ratchet**: The shell setup must not eagerly instantiate stores required only by individual popovers. Moving popovers into dedicated SFCs isolates store initialization (`useCustomVrmAnimationsStore`, `useDisplayModelsStore`, `useDatingSimStore`, etc.) so they are loaded on-demand when the popover opens.
+3. **Popover Registry Integrity**: Every popover rendered must have a matching routable trigger, and every routed ID must render exactly once and map to a catalog control or known window chooser.
 
 ## 3. Web / Pocket Integration (`mode="mobile"`)
 
