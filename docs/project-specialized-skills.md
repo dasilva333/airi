@@ -54,7 +54,7 @@ The five groups below organize navigation. Historical “Phase” labels do not 
 
 ## 3. Domain skill catalog
 
-The catalog contains 74 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
+The catalog contains 75 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
 
 ### 🟢 Phase 1: Core Plumbing & Infrastructure
 
@@ -196,6 +196,11 @@ The catalog contains 74 discoverable skills. Desktop chatbox and interaction pip
 - **Target Domain**: Local neural TTS engines end-to-end — Kokoro, Pocket TTS, MOSS-TTS-Nano, Ming browser workers, adapters, voice-clone/design profiles, per-language bundles, cache eviction.
 - **Key Paths**: `packages/stage-ui/src/workers/{kokoro,pocket-tts,moss,ming3}/`, `packages/stage-ui/src/libs/inference/adapters/{kokoro,pocket-tts,ming3}.ts`, `packages/stage-ui/src/stores/providers/{moss,pocket,ming3}-audio-utils.ts`, `packages/stage-ui/src/stores/providers/registry/speech.ts`, `packages/stage-ui/src/stores/providers/ming3-catalog.ts`, `packages/stage-ui/src/libs/inference/cache-utils.ts` (per-engine trio + `evictOther*` single-slot), `packages/stage-ui/src/components/scenarios/settings/ModelCacheManager.vue`, `packages/stage-pages/src/pages/settings/providers/speech/`, `docs/analysis-ming3-tts-viability.md`, `docs/analysis-pocket-tts-viability.md`, `docs/research-moss-tts-nano-report.md`.
 - **Content**: Engine-by-engine worker/adapter contracts, voice-profile persistence (content-hash ids, conditioned-artifact caching in metadata, no blob store for text-only designs), per-language bundle layouts, single-active-variant eviction rules, per-engine input sanitizers (strip vs preserve brackets), UST/tag interplay, settings search ranking, onboarding recognition lists. Generic worker machinery stays in airi-local-inference-engines; synthesis intents in airi-speech-runtime; UST/transforms in airi-audio-pipeline.
+
+#### 2.18 `airi-stage-radial-menu`
+- **Target Domain**: Stage Radial Menu — right-click in-scene circular quick-action wheel, head/torso spatial tethering across 4 avatar engines, polar slice geometry, SVG annular paths, 3D parallax tilt, nested sub-wheels (size, snap, mode, layers, monitor), auto-scaling, and Web Audio feedback.
+- **Key Paths**: `packages/stage-ui/src/components/scenes/HeadTetheredRadialMenu.vue`, `packages/stage-ui/src/components/scenes/RendererStage.vue`, `packages/stage-shared/src/utils/radial-geometry.ts`, `apps/stage-tamagotchi/src/renderer/pages/actor.vue`, `docs/design-stage-radial-menu.md`.
+- **Content**: Pure nested radial pie menu hierarchy (Root 5/6 wedges → Size, Snap compass, Interaction Mode, Layers, Monitor), 60 FPS head-tracking `requestAnimationFrame` loop, torso offset clamping, 4-runtime avatar anchor matrix (VRM/MMD/Spine bone projection vs Live2D viewport-centering fallback), 3D perspective parallax tilt (`computeParallaxTilt`), compact viewport auto-scaling (`menuScale`), magnetic cursor slice snapping via `atan2`, drag-conflict suppression (`dist <= 8`), and Web Audio oscillator sound effects. Peer skills: `airi-stage-ui-surfaces`, `airi-character-rendering`.
 
 ---
 

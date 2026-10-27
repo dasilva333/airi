@@ -62,6 +62,7 @@ const emits = defineEmits<{
   (e: 'animationPlayStatus', status: { duration: number, url: string }): void
   (e: 'applyPreset', preset: 'mini' | 'medium' | 'large' | 'full'): void
   (e: 'applyAlignment', alignment: string): void
+  (e: 'applyFraming', preset: 'full' | 'bust' | 'face'): void
   (e: 'hideStage'): void
   (e: 'selectMonitor', monitorId: number): void
   (e: 'update:showBackground', val: boolean): void
@@ -586,6 +587,7 @@ defineExpose({
       @update:show-model="(val) => emits('update:showModel', val)"
       @apply-preset="(preset) => emits('applyPreset', preset)"
       @apply-alignment="(alignment) => emits('applyAlignment', alignment)"
+      @apply-framing="(preset) => emits('applyFraming', preset)"
       @hide-stage="() => emits('hideStage')"
       @select-monitor="(id) => emits('selectMonitor', id)"
     />

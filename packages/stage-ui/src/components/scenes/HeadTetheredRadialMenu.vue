@@ -5,11 +5,15 @@ import {
   computePolarLayout,
   describeAnnularSector,
   getHoveredSliceIndex,
+  isStageTamagotchi,
 } from '@proj-airi/stage-shared'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import { useControlStripAction } from '../../composables/use-control-strip-action'
+import { useSettings } from '../../stores/settings'
 import { useSettingsControlStrip } from '../../stores/settings/control-strip'
+import { usePositioningStore } from '../../stores/settings/positioning'
 
 export interface HeadPoseData {
   screenX: number
@@ -21,10 +25,19 @@ export interface HeadPoseData {
 }
 
 interface RadialWedgeDef {
-  id: 'size' | 'align' | 'mode' | 'layers' | 'hide' | 'monitor'
+  id: 'size' | 'framing' | 'align' | 'mode' | 'layers' | 'hide' | 'monitor'
   icon: string
   label: string
   color: string
+}
+
+interface FramingPresetDef {
+  id: 'full' | 'bust' | 'face'
+  label: string
+  sub: string
+  icon: string
+  scale: number
+  y: number
 }
 
 interface ModeSliceDef {
@@ -75,12 +88,13 @@ const emit = defineEmits<{
   (e: 'update:showModel', val: boolean): void
   (e: 'apply-preset', preset: 'mini' | 'medium' | 'large' | 'full'): void
   (e: 'apply-alignment', alignment: string): void
+  (e: 'apply-framing', preset: 'full' | 'bust' | 'face'): void
   (e: 'hide-stage'): void
   (e: 'select-monitor', monitorId: number): void
 }>()
 
 const isOpen = ref(false)
-const subMenuMode = ref<'none' | 'size' | 'align' | 'mode' | 'layers' | 'monitor'>('none')
+const subMenuMode = ref<'none' | 'size' | 'framing' | 'align' | 'mode' | 'layers' | 'monitor'>('none')
 const hoveredIndex = ref<number | null>(null)
 const mouseRelX = ref(0)
 const mouseRelY = ref(0)
@@ -90,26 +104,47 @@ const containerBounds = ref<{ width: number, height: number }>({ width: 450, hei
 const stageOverlayRef = ref<HTMLDivElement | null>(null)
 
 const controlStripStore = useSettingsControlStrip()
+const positioningStore = usePositioningStore()
+const settingsStore = useSettings()
 const { dispatchAction } = useControlStripAction()
 
 // ── Definitions for Root and Sub-Radial Wheels ────────────────────────────────
 
-// 1. Root Menu: 6 Core Slices (or 5 when single display)
+// 1. Root Menu: 7 Core Slices (dynamically filtered by platform)
 const MAIN_WEDGES: RadialWedgeDef[] = [
-  { id: 'size', icon: 'i-solar:maximize-square-2-linear', label: 'Size', color: '#38BDF8' }, // Sky Blue
+  { id: 'size', icon: 'i-solar:maximize-square-2-linear', label: 'Size', color: '#38BDF8' }, // Sky Blue (desktop window only)
+  { id: 'framing', icon: 'i-ph:camera', label: 'Shot', color: '#06B6D4' }, // Cyan (camera/model framing)
   { id: 'align', icon: 'i-ph:corners-out', label: 'Snap', color: '#A855F7' }, // Purple
   { id: 'mode', icon: 'i-ph:hand-pointing', label: 'Mode', color: '#10B981' }, // Emerald
   { id: 'layers', icon: 'i-ph:stack', label: 'Layers', color: '#EC4899' }, // Pink
   { id: 'hide', icon: 'i-ph:eye-slash', label: 'Hide', color: '#EF4444' }, // Red
-  { id: 'monitor', icon: 'i-ph:desktop', label: 'Monitor', color: '#F59E0B' }, // Amber (multi-display only)
+  { id: 'monitor', icon: 'i-ph:desktop', label: 'Monitor', color: '#F59E0B' }, // Amber (multi-display desktop only)
 ]
 
 const activeMainWedges = computed(() => {
-  if (props.monitorCount > 1 || (props.displays && props.displays.length > 1))
-    return MAIN_WEDGES
-  // When single monitor, do not show monitor slice (redundant)
-  return MAIN_WEDGES.filter(w => w.id !== 'monitor')
+  const isDesktop = isStageTamagotchi()
+  return MAIN_WEDGES.filter((w) => {
+    // Hide window 'size' preset on web/pocket stage since browser viewports cannot resize OS windows
+    if (w.id === 'size' && !isDesktop)
+      return false
+
+    // Monitor routing only makes sense on multi-display desktop
+    if (w.id === 'monitor') {
+      if (!isDesktop)
+        return false
+      return props.monitorCount > 1 || (props.displays && props.displays.length > 1)
+    }
+
+    return true
+  })
 })
+
+// Framing Presets (Calibrated for VRM: Full Body, Waist Up, Close-Up Face Shot)
+const FRAMING_PRESETS: FramingPresetDef[] = [
+  { id: 'full', label: 'Full', sub: 'Full Body', icon: 'i-ph:person-simple', scale: 2.5, y: 20 }, // 0° (Top) - pulls camera back & raises model to frame head-to-shoes
+  { id: 'bust', label: 'Bust', sub: 'Waist Up', icon: 'i-ph:user', scale: 1.0, y: -15 }, // 120° (Right) - verified perfect
+  { id: 'face', label: 'Face', sub: 'Close-Up', icon: 'i-ph:sparkle', scale: 0.7, y: -18 }, // 240° (Left) - tight shoulders-up crop with face centered
+]
 
 // 2. Mode Presets: 4 Radial Slices (90° each)
 const MODE_SLICES = computed<ModeSliceDef[]>(() => [
@@ -204,6 +239,8 @@ const menuScale = computed(() => {
 const currentSliceCount = computed(() => {
   if (subMenuMode.value === 'size')
     return SIZE_PRESETS.length
+  if (subMenuMode.value === 'framing')
+    return FRAMING_PRESETS.length
   if (subMenuMode.value === 'align')
     return ALIGN_SLICES.length
   if (subMenuMode.value === 'mode')
@@ -418,6 +455,10 @@ function onSliceClick(idx: number) {
       subMenuMode.value = 'size'
       hoveredIndex.value = null
     }
+    else if (wedge.id === 'framing') {
+      subMenuMode.value = 'framing'
+      hoveredIndex.value = null
+    }
     else if (wedge.id === 'align') {
       subMenuMode.value = 'align'
       hoveredIndex.value = null
@@ -449,6 +490,28 @@ function onSliceClick(idx: number) {
     const preset = SIZE_PRESETS[idx]
     if (preset) {
       emit('apply-preset', preset.id)
+      closeMenu()
+    }
+  }
+  else if (subMenuMode.value === 'framing') {
+    const preset = FRAMING_PRESETS[idx]
+    if (preset) {
+      if (props.stageModelRenderer === 'vrm') {
+        const modelId = settingsStore.stageModelSelected
+        if (modelId) {
+          const current = positioningStore.getPosition(modelId)
+          positioningStore.setPosition(modelId, {
+            ...current,
+            x: 0,
+            y: preset.y,
+            scale: preset.scale,
+          })
+        }
+      }
+      else {
+        toast.info('Framing presets are currently calibrated for VRM models.')
+      }
+      emit('apply-framing', preset.id)
       closeMenu()
     }
   }
@@ -624,6 +687,29 @@ function getSectorPath(startAngle: number, endAngle: number, innerR = INNER_RADI
             <div :class="[p.icon, 'text-2xl']" />
             <span class="mt-0.5 text-[11px] font-bold">{{ p.label }}</span>
             <span class="text-[8px] text-neutral-400 font-mono">{{ p.sub }}</span>
+          </div>
+        </template>
+
+        <!-- ── LEVEL 2: FRAMING PRESETS RADIAL WHEEL (3 Slices) ──────────── -->
+        <template v-else-if="subMenuMode === 'framing'">
+          <div
+            v-for="(f, idx) in FRAMING_PRESETS"
+            :key="f.id"
+            :class="[
+              'pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
+              'flex flex-col items-center justify-center select-none',
+              'transition-all duration-150',
+              hoveredIndex === idx
+                ? 'scale-115 text-white drop-shadow-[0_2px_10px_rgba(6,182,212,0.7)]'
+                : 'text-neutral-300 opacity-80',
+            ]"
+            :style="{
+              transform: `translate(calc(-50% + ${currentPolarLayouts[idx]?.x || 0}px), calc(-50% + ${currentPolarLayouts[idx]?.y || 0}px)) scale(${hoveredIndex === idx ? 1.15 : 1})`,
+            }"
+          >
+            <div :class="[f.icon, 'text-2xl text-cyan-400']" />
+            <span class="mt-0.5 text-[11px] font-bold">{{ f.label }}</span>
+            <span class="text-[8px] text-neutral-400 font-mono">{{ f.sub }}</span>
           </div>
         </template>
 
