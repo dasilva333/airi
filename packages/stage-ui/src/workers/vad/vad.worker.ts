@@ -17,7 +17,7 @@ import type {
   WorkerInboundMessage,
 } from '../../libs/inference/protocol'
 
-import { AutoModel, env, Tensor } from '@huggingface/transformers'
+import { AutoModel, env, PretrainedConfig, Tensor } from '@huggingface/transformers'
 
 import { classifyError, isRecoverable } from '../../libs/inference/protocol'
 
@@ -160,7 +160,7 @@ async function loadModel(request: LoadModelRequest): Promise<void> {
 
     model = await AutoModel.from_pretrained(MODEL_ID, {
       device,
-      config: { model_type: 'custom' } as any,
+      config: new PretrainedConfig({ model_type: 'custom' }),
       dtype: 'fp32', // Use full precision for Silero VAD stability
       progress_callback: (progress: any) => {
         sendProgress(requestId, progress?.progress ?? -1, progress?.status)

@@ -125,8 +125,10 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
   async function stopStreamingTranscription(abort?: boolean, disposeProviderId?: string) {
     const session = streamingSession.value
-    if (!session)
+    if (!session) {
+      hearingStore.isTranscribing = false
       return
+    }
 
     // Special handling for Web Speech API
     if (session.providerId === 'browser-web-speech-api') {
@@ -155,6 +157,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         clearTimeout(session.idleTimer)
 
       streamingSession.value = undefined
+      hearingStore.isTranscribing = false
 
       if (session.result?.mode === 'stream') {
         try {
@@ -162,8 +165,10 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
           return text
         }
         catch (err) {
-          error.value = errorMessage(err)
-          console.error('Error getting transcription result:', error.value)
+          if (!abort) {
+            error.value = errorMessage(err)
+            console.error('Error getting transcription result:', error.value)
+          }
         }
       }
 
@@ -254,11 +259,11 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
     // NOTICE: We check isTranscribing here but allow re-entry when there's an
     // existing session to restart (the restart logic below handles teardown).
-    // Previously this guard permanently blocked re-entry because
-    // stopStreamingTranscription did not reset isTranscribing.
+    // If isTranscribing was left true with no active streaming session (e.g. from
+    // an unexpected error or abort), self-heal by resetting the stale flag.
     if (hearingStore.isTranscribing && !streamingSession.value) {
-      console.warn('[Hearing Pipeline] Transcription already in progress (no session to restart), skipping')
-      return
+      console.warn('[Hearing Pipeline] Stale isTranscribing flag detected with no active session, resetting')
+      hearingStore.isTranscribing = false
     }
 
     error.value = undefined
@@ -514,6 +519,8 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
               }
             }
             catch (err) {
+              if (err instanceof DOMException && err.name === 'AbortError')
+                return
               console.error('Error reading text stream:', err)
             }
           })()
