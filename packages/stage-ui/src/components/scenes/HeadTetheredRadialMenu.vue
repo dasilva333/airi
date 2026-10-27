@@ -496,20 +496,50 @@ function onSliceClick(idx: number) {
   else if (subMenuMode.value === 'framing') {
     const preset = FRAMING_PRESETS[idx]
     if (preset) {
+      const modelId = settingsStore.stageModelSelected || 'global'
       if (props.stageModelRenderer === 'vrm') {
-        const modelId = settingsStore.stageModelSelected
-        if (modelId) {
-          const current = positioningStore.getPosition(modelId)
-          positioningStore.setPosition(modelId, {
-            ...current,
-            x: 0,
-            y: preset.y,
-            scale: preset.scale,
-          })
+        const current = positioningStore.getPosition(modelId)
+        positioningStore.setPosition(modelId, {
+          ...current,
+          x: 0,
+          y: preset.y,
+          scale: preset.scale,
+        })
+      }
+      else if (props.stageModelRenderer === 'live2d') {
+        const h = containerBounds.value.height || 600
+        let targetScale = 1.0
+        let targetY = 0
+
+        // Live2D framing presets:
+        // - 'full': fits 95% of model within stage height (head to toe).
+        // - 'bust': zooms in ~1.65x and shifts down ~35% of stage height to frame waist-up.
+        // - 'face': tight shoulders-up crop ~2.8x zoom, face centered and shoulders anchoring bottom.
+        switch (preset.id) {
+          case 'full':
+            targetScale = 1.0
+            targetY = 0
+            break
+          case 'bust':
+            targetScale = 1.65
+            targetY = Math.round(h * 0.35)
+            break
+          case 'face':
+            targetScale = 2.8
+            targetY = Math.round(h * 0.78)
+            break
         }
+
+        const current = positioningStore.getPosition(modelId)
+        positioningStore.setPosition(modelId, {
+          ...current,
+          x: 0,
+          y: targetY,
+          scale: targetScale,
+        })
       }
       else {
-        toast.info('Framing presets are currently calibrated for VRM models.')
+        toast.info('Framing presets are currently calibrated for VRM and Live2D models.')
       }
       emit('apply-framing', preset.id)
       closeMenu()

@@ -76,7 +76,7 @@ Every sub-menu is a first-class radial pie wheel. There are no rectangular drop-
 | Slice | Label | Icon | Color | Scope | Action |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **1** | **Size** | `i-solar:maximize-square-2-linear` | Sky Blue (`#38BDF8`) | Desktop Only | Opens Level 2 Window Size Presets Wheel |
-| **2** | **Shot** | `i-ph:camera` | Cyan (`#06B6D4`) | Universal | Opens Level 2 Framing Presets Wheel (VRM) |
+| **2** | **Shot** | `i-ph:camera` | Cyan (`#06B6D4`) | Universal | Opens Level 2 Framing Presets Wheel (VRM & Live2D) |
 | **3** | **Snap** | `i-ph:corners-out` | Purple (`#A855F7`) | Universal | Opens Level 2 Snap & Alignment Compass |
 | **4** | **Mode** | `i-ph:hand-pointing` | Emerald (`#10B981`) | Universal | Opens Level 2 Interaction Mode Wheel |
 | **5** | **Layers** | `i-ph:stack` | Pink (`#EC4899`) | Universal | Opens Level 2 Layer Visibility Wheel |
@@ -92,11 +92,17 @@ Every sub-menu is a first-class radial pie wheel. There are no rectangular drop-
 - **Left ($270^\circ$)**: `Full` (Workarea display bounds)
 - **Action**: Emits `apply-preset` $\to$ `actor.vue` calls `electronApplySizePreset({ target: 'actor', preset })`.
 
-#### B. Framing Presets Wheel (3 Slices @ $120^\circ$ each, VRM Calibrated)
-- **Top ($0^\circ$)**: `Full` (`scale: 2.5`, `y: 20`) — Full body shot pulling the camera back and lifting model to frame head-to-shoes.
-- **Bottom-Right ($120^\circ$)**: `Bust` (`scale: 1.0`, `y: -15`) — Upper body / waist up (verified optical framing).
-- **Bottom-Left ($240^\circ$)**: `Face` (`scale: 0.7`, `y: -18`) — Tight close-up face shot; shoulders anchor lower viewport and lower body overflows below stage (matching Stage-Mate's `Face Mode`).
-- **Action**: Updates `usePositioningStore` for the active VRM model ID. On non-VRM models, notifies user with toast feedback without mutating positioning.
+#### B. Framing Presets Wheel (3 Slices @ $120^\circ$ each, VRM & Live2D Calibrated)
+- **Top ($0^\circ$)**: `Full` — Full body shot head-to-shoes:
+  - VRM: `scale: 2.5`, `y: 20` (pulls camera back & lifts model in 3D units).
+  - Live2D: `scale: 1.0`, `y: 0` (fits 95% model height in viewport, centered).
+- **Bottom-Right ($120^\circ$)**: `Bust` — Upper body / waist up:
+  - VRM: `scale: 1.0`, `y: -15` (verified perfect optical framing).
+  - Live2D: `scale: 1.65`, `y: Math.round(H * 0.35)` (zooms in 1.65x, moves waist near bottom with eyes at upper-third).
+- **Bottom-Left ($240^\circ$)**: `Face` — Tight close-up face shot; shoulders anchor lower viewport and lower body overflows below stage (matching Stage-Mate's `Face Mode`):
+  - VRM: `scale: 0.7`, `y: -18`.
+  - Live2D: `scale: 2.8`, `y: Math.round(H * 0.78)` (prominent close-up face, collarbones/shoulders anchor bottom).
+- **Action**: Updates `usePositioningStore` for the active model ID. On other models (Spine/MMD), notifies user with toast feedback without mutating positioning.
 
 #### C. Snap & Alignment Compass Wheel (8 Slices @ $45^\circ$ + Center Hub)
 - **8 Directions**: `Top` ($0^\circ$), `Top-Right` ($45^\circ$), `Right` ($90^\circ$), `Bottom-Right` ($135^\circ$), `Bottom` ($180^\circ$), `Bottom-Left` ($225^\circ$), `Left` ($270^\circ$), `Top-Left` ($315^\circ$).
