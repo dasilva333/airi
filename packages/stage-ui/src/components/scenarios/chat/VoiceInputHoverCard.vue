@@ -7,6 +7,7 @@ import { Checkbox } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 
 import { useAudioAnalyzer } from '../../../composables/audio/audio-analyzer'
 import { useAudioContext } from '../../../stores/audio'
@@ -41,19 +42,73 @@ const sttProviderLabel = computed(() => {
   return metadata?.localizedName || metadata?.name || id
 })
 
-// Microphone end-cap: device presence, independent of the STT state above.
-const hasMicrophone = computed(() => audioInputs.value.length > 0)
-
 const audioDeviceStore = useSettingsAudioDevice()
 const {
   audioInputs,
   selectedAudioInput,
   selectedAudioInputLabel,
+  permissionStatus,
+  isPermissionGranted,
+  isPermissionDenied,
   stream,
 } = storeToRefs(audioDeviceStore)
 
 const hasMultipleMics = computed(() => audioInputs.value.length > 1)
 
+// Microphone state:
+// 'ready'       - permission is granted and mic is present
+// 'blocked'     - permission is denied / blocked by the user or system
+// 'need-access' - permission has not yet been granted (prompt state)
+// 'no-mic'      - no microphone hardware found
+const micStatus = computed<'ready' | 'blocked' | 'need-access' | 'no-mic'>(() => {
+  if (audioInputs.value.length === 0)
+    return 'no-mic'
+  if (isPermissionDenied.value || permissionStatus.value === 'denied')
+    return 'blocked'
+  if (isPermissionGranted.value || permissionStatus.value === 'granted')
+    return 'ready'
+  return 'need-access'
+})
+
+const micStatusText = computed(() => {
+  switch (micStatus.value) {
+    case 'ready':
+      return 'Ready'
+    case 'blocked':
+      return 'Blocked'
+    case 'need-access':
+      return 'Need access'
+    case 'no-mic':
+      return 'No mic'
+  }
+})
+
+const micStatusBadgeClass = computed(() => {
+  switch (micStatus.value) {
+    case 'ready':
+      return 'bg-emerald-500/15 text-emerald-300'
+    case 'need-access':
+      return 'bg-amber-500/15 text-amber-300'
+    case 'blocked':
+    case 'no-mic':
+      return 'bg-red-500/15 text-red-300'
+  }
+})
+
+const micStatusTitle = computed(() => {
+  switch (micStatus.value) {
+    case 'ready':
+      return 'Microphone available'
+    case 'blocked':
+      return 'Microphone permission blocked — allow access in site settings'
+    case 'need-access':
+      return 'Microphone permission required — click to allow'
+    case 'no-mic':
+      return 'No microphone found'
+  }
+})
+
+// Keep micStatus aligned with actual readiness
 function selectMode(mode: 'voice-message' | 'dictation') {
   voiceInputMode.value = mode
   if (view.value !== 'main')
@@ -61,8 +116,20 @@ function selectMode(mode: 'voice-message' | 'dictation') {
 }
 
 async function handleDeviceRow() {
+  if (micStatus.value === 'blocked') {
+    toast.error('Microphone access is blocked in browser settings. Please allow microphone permission and reload.')
+    return
+  }
   if (hasMultipleMics.value) {
     view.value = 'devices'
+    return
+  }
+  await audioDeviceStore.askPermission()
+}
+
+async function handleRequestPermission() {
+  if (micStatus.value === 'blocked') {
+    toast.error('Microphone access is blocked in browser settings. Please allow microphone permission and reload.')
     return
   }
   await audioDeviceStore.askPermission()
@@ -232,15 +299,17 @@ function deviceDisplayLabel(device: MediaDeviceInfo, index: number) {
 
       <button
         type="button"
-        title="Request microphone access"
+        :title="micStatus === 'blocked' ? 'Microphone access blocked — allow permission in site settings' : 'Request microphone access'"
         :class="[
           'w-full flex items-center gap-2',
           'px-4 pb-3 pt-2 text-left text-[15px]',
           'transition-colors hover:bg-white/5',
         ]"
-        @click="audioDeviceStore.askPermission()"
+        @click="handleRequestPermission"
       >
-        <span class="min-w-0 flex-1 truncate">Request microphone access</span>
+        <span class="min-w-0 flex-1 truncate">
+          {{ micStatus === 'blocked' ? 'Microphone blocked in browser' : 'Request microphone access' }}
+        </span>
         <div class="i-solar:alt-arrow-right-linear size-4 shrink-0 text-neutral-400" />
       </button>
     </template>
@@ -334,32 +403,35 @@ function deviceDisplayLabel(device: MediaDeviceInfo, index: number) {
       >
         <span>Microphone</span>
         <span
-          :title="hasMicrophone ? 'Microphone available' : 'No microphone found — check permission'"
+          :title="micStatusTitle"
           :class="[
             'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase',
-            hasMicrophone
-              ? 'bg-emerald-500/15 text-emerald-300'
-              : 'bg-red-500/15 text-red-300',
+            micStatusBadgeClass,
           ]"
         >
-          {{ hasMicrophone ? 'Ready' : 'No mic' }}
+          {{ micStatusText }}
         </span>
       </div>
 
       <button
         type="button"
-        :title="hasMultipleMics ? 'Select microphone' : 'Refresh microphone list'"
+        :title="micStatus === 'blocked' ? 'Microphone access blocked in browser settings' : (hasMultipleMics ? 'Select microphone' : 'Refresh microphone list')"
         :class="[
           'w-full flex items-center gap-2',
           'px-4 py-1.5 text-left',
         ]"
         @click="handleDeviceRow"
       >
-        <span class="min-w-0 flex-1 truncate text-[15px] text-neutral-100">
-          {{ selectedAudioInputLabel }}
+        <span
+          :class="[
+            'min-w-0 flex-1 truncate text-[15px]',
+            micStatus === 'blocked' ? 'text-red-300/80 hover:text-red-200' : 'text-neutral-100',
+          ]"
+        >
+          {{ micStatus === 'blocked' ? 'Microphone access blocked' : selectedAudioInputLabel }}
         </span>
         <div
-          v-if="hasMultipleMics"
+          v-if="hasMultipleMics && micStatus !== 'blocked'"
           class="i-solar:alt-arrow-right-linear size-4 shrink-0 text-neutral-400"
         />
       </button>

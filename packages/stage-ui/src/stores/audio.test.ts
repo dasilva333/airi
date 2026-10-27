@@ -10,15 +10,22 @@ const mockEnsurePermissions = vi.fn().mockResolvedValue(true)
 const mockStart = vi.fn()
 const mockStop = vi.fn()
 const mockStream = ref<unknown>(null)
+const mockMicPermission = ref<PermissionState | undefined>(undefined)
 
 vi.mock('@vueuse/core', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
   return {
     ...actual,
+    usePermission: vi.fn((desc) => {
+      if (desc === 'microphone' || (typeof desc === 'object' && desc?.name === 'microphone'))
+        return mockMicPermission
+      return ref(undefined)
+    }),
     useDevicesList: () => ({
       audioInputs: mockAudioInputs,
       audioOutputs: mockAudioOutputs,
       devices: ref([]),
+      permissionGranted: ref(false),
       ensurePermissions: mockEnsurePermissions,
     }),
     useUserMedia: () => ({
@@ -45,6 +52,7 @@ describe('audio store', () => {
     mockAudioInputs.value = []
     mockAudioOutputs.value = []
     mockEnsurePermissions.mockClear()
+    mockMicPermission.value = undefined
     localStorage.clear()
   })
 
@@ -327,5 +335,43 @@ describe('audio store', () => {
     dev.selectedAudioInput.value = ''
     await dev.askPermission()
     expect(dev.selectedAudioInput.value).toBe('')
+  })
+
+  it('reports permissionStatus as denied and isPermissionDenied as true when micPermission is denied', () => {
+    mockMicPermission.value = 'denied'
+    mockAudioInputs.value = [{ deviceId: '', label: '' }]
+    const dev = useAudioDevice(false)
+    expect(dev.permissionStatus.value).toBe('denied')
+    expect(dev.isPermissionDenied.value).toBe(true)
+    expect(dev.isPermissionGranted.value).toBe(false)
+  })
+
+  it('reports permissionStatus as granted when device labels are present', () => {
+    mockMicPermission.value = undefined
+    mockAudioInputs.value = [{ deviceId: 'mic-1', label: 'Built-in Microphone' }]
+    const dev = useAudioDevice(false)
+    expect(dev.permissionStatus.value).toBe('granted')
+    expect(dev.isPermissionGranted.value).toBe(true)
+    expect(dev.isPermissionDenied.value).toBe(false)
+  })
+
+  it('reports permissionStatus as denied when ensurePermissions returns false', async () => {
+    mockEnsurePermissions.mockResolvedValueOnce(false)
+    mockAudioInputs.value = [{ deviceId: '', label: '' }]
+    const dev = useAudioDevice(false)
+    const result = await dev.askPermission()
+    expect(result).toBe(false)
+    expect(dev.permissionStatus.value).toBe('denied')
+    expect(dev.isPermissionDenied.value).toBe(true)
+    expect(dev.isPermissionGranted.value).toBe(false)
+  })
+
+  it('reports permissionStatus as prompt when devices lack labels and permission is unprompted', () => {
+    mockMicPermission.value = 'prompt'
+    mockAudioInputs.value = [{ deviceId: '', label: '' }]
+    const dev = useAudioDevice(false)
+    expect(dev.permissionStatus.value).toBe('prompt')
+    expect(dev.isPermissionGranted.value).toBe(false)
+    expect(dev.isPermissionDenied.value).toBe(false)
   })
 })

@@ -13,6 +13,9 @@ export const useSettingsAudioDevice = defineStore('settings-audio-devices', () =
     selectedAudioInputLabel,
     selectedAudioOutput: selectedAudioOutputNonPersist,
     selectedAudioOutputLabel,
+    permissionStatus,
+    isPermissionGranted,
+    isPermissionDenied,
     startStream,
     stopStream,
     stream,
@@ -108,6 +111,9 @@ export const useSettingsAudioDevice = defineStore('settings-audio-devices', () =
     selectedAudioOutput: selectedAudioOutputPersist,
     selectedAudioOutputLabel,
     enabled: selectedAudioInputEnabledPersist,
+    permissionStatus,
+    isPermissionGranted,
+    isPermissionDenied,
 
     stream,
 

@@ -1,5 +1,5 @@
 import { debug } from '@proj-airi/stage-shared'
-import { useDevicesList, useUserMedia } from '@vueuse/core'
+import { useDevicesList, usePermission, useUserMedia } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 
@@ -124,6 +124,33 @@ export function useAudioDevice(requestPermission: boolean = false) {
   const audioInputs = computed(() => devices.audioInputs.value)
   const audioOutputs = computed(() => devices.audioOutputs.value)
 
+  const micPermission = usePermission('microphone')
+  const permissionDenied = ref(false)
+
+  // NOTICE: Track permission dynamically; when the user unblocks the mic in site settings,
+  // the 'change' event fires on PermissionStatus and clears permissionDenied.
+  watch(micPermission, (status) => {
+    if (status === 'granted')
+      permissionDenied.value = false
+    else if (status === 'denied')
+      permissionDenied.value = true
+  })
+
+  // Permission tri-state: 'granted' | 'denied' | 'prompt'
+  // Browsers strip device labels when media permissions are withheld; non-empty labels indicate granted access.
+  const permissionStatus = computed<'granted' | 'denied' | 'prompt'>(() => {
+    if (micPermission.value === 'denied' || permissionDenied.value)
+      return 'denied'
+    if (micPermission.value === 'granted' || devices.permissionGranted?.value)
+      return 'granted'
+    if (audioInputs.value.some(d => Boolean(d.label)))
+      return 'granted'
+    return 'prompt'
+  })
+
+  const isPermissionGranted = computed(() => permissionStatus.value === 'granted')
+  const isPermissionDenied = computed(() => permissionStatus.value === 'denied')
+
   const selectedAudioInput = ref<string>('')
   const selectedAudioOutput = ref<string>('')
 
@@ -190,18 +217,27 @@ export function useAudioDevice(requestPermission: boolean = false) {
     }
   }, { immediate: true })
 
-  function askPermission() {
-    return devices.ensurePermissions()
-      .then(() => nextTick())
-      .then(() => {
+  async function askPermission() {
+    try {
+      const granted = await devices.ensurePermissions()
+      await nextTick()
+      if (granted) {
+        permissionDenied.value = false
         if (audioInputs.value.length > 0 && !selectedAudioInput.value) {
           selectedAudioInput.value = findBestDevice(audioInputs.value)
         }
-      })
-      .catch((error) => {
-        console.error('Error ensuring permissions:', error)
-        throw error // Re-throw so callers can handle the error
-      })
+        return true
+      }
+      else {
+        permissionDenied.value = true
+        return false
+      }
+    }
+    catch (error) {
+      permissionDenied.value = true
+      console.error('Error ensuring permissions:', error)
+      throw error // Re-throw so callers can handle the error
+    }
   }
 
   return {
@@ -213,6 +249,9 @@ export function useAudioDevice(requestPermission: boolean = false) {
     selectedAudioOutputLabel,
     stream,
     deviceConstraints,
+    permissionStatus,
+    isPermissionGranted,
+    isPermissionDenied,
 
     askPermission,
     startStream,
