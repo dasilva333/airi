@@ -549,12 +549,6 @@ onMounted(() => {
   transition: all 0.25s ease-out;
 }
 
-::highlight(spoken-highlight) {
-  color: var(--active-highlight-color, #38bdf8) !important;
-  font-weight: 700;
-  text-shadow: 0 0 8px var(--active-highlight-color, rgba(56, 189, 248, 0.4));
-}
-
 .markdown-content :deep(img) {
   max-width: 100%;
   height: auto;
@@ -565,5 +559,21 @@ onMounted(() => {
   .markdown-content :deep(img) {
     max-height: 50vh;
   }
+}
+</style>
+
+<!--
+  Unscoped on purpose: Vue compiles scoped ::highlight() to
+  [data-v-x]::highlight(), which can never match v-html-injected text
+  (runtime HTML carries no scope attributes). The Highlights registry is
+  document-global, so a global rule is the correct shape here. The
+  --active-highlight-color var is set inline on the bubble container and
+  inherits normally regardless of scoping.
+-->
+<style>
+::highlight(spoken-highlight) {
+  color: var(--active-highlight-color, #38bdf8) !important;
+  font-weight: 700;
+  text-shadow: 0 0 8px var(--active-highlight-color, rgba(56, 189, 248, 0.4));
 }
 </style>
