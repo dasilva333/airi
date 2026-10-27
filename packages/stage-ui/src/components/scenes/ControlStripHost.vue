@@ -21,6 +21,7 @@ import { useBroadcastChannel, useEventListener } from '@vueuse/core'
 import { generateSpeech } from '@xsai/generate-speech'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import ControlStrip from '../scenarios/layout/ControlStrip.vue'
 import RendererStage from './RendererStage.vue'
@@ -45,6 +46,8 @@ import { useConsciousnessStore } from '../../stores/modules/consciousness'
 import { useDiscordStore } from '../../stores/modules/discord'
 import { useSpeechStore } from '../../stores/modules/speech'
 import { useSystemOneStore } from '../../stores/modules/system-one'
+import { useTextToMotionStore } from '../../stores/modules/text-to-motion'
+import { slugifyMotionCue } from '../../stores/modules/tools/motion'
 import { useProvidersStore } from '../../stores/providers'
 import { useSettings } from '../../stores/settings'
 import { useSettingsControlStrip } from '../../stores/settings/control-strip'
@@ -105,6 +108,99 @@ const live2dStore = useLive2d()
 const vrmStore = useModelStore()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 const viewUpdateCleanups: Array<() => void> = []
+
+// ACT-first motion generation: coalesce concurrent misses for the same cue
+// so a repeated `motion="jumping jacks"` while generation is in flight
+// attaches to one job instead of burning duplicate diffusion passes.
+const actMotionInflight = new Map<string, Promise<void>>()
+
+/**
+ * Fire-and-forget synthesis for an unmatched ACT motion cue.
+ * Gate: card must allowlist `generate_motion` (Kinetic pack) — same rule as
+ * the `generate_motion` tool. Cache: slugified cue id reuses the saved
+ * `custom-vrma:` library entry, so the second identical cue plays instantly.
+ */
+function generateActMotionInBackground(rawCue: string, durationSeconds?: number) {
+  if (stageModelRenderer.value !== 'vrm') {
+    debug('[Stage] ACT auto-gen skipped: stage renderer is not vrm:', stageModelRenderer.value)
+    return
+  }
+  const allowed = activeCard.value?.extensions?.airi?.generation?.known?.allowedTools
+  if (!allowed?.includes('generate_motion')) {
+    console.warn('[Stage] ACT auto-gen skipped: card does not allowlist generate_motion. Check the card Tools tab (Kinetic pack).')
+    return
+  }
+  const slug = slugifyMotionCue(rawCue)
+  if (!slug) {
+    debug('[Stage] ACT auto-gen skipped: empty slug for cue:', rawCue)
+    return
+  }
+  // `motion="stop"` is the stage stop sentinel, not a generatable motion.
+  if (slug === 'stop' || slug === '__stop__') {
+    vrmStore.triggerMotion('__STOP__')
+    return
+  }
+  const existing = customVrmAnimationsStore.animationOptions.find(opt =>
+    opt.value === slug
+    || opt.label === slug
+    || opt.value === `custom-vrma:${slug}`,
+  )
+  if (existing) {
+    debug('[Stage] ACT auto-gen cache hit (no regen):', { cue: rawCue, slug })
+    return
+  }
+  if (actMotionInflight.has(slug)) {
+    debug('[Stage] ACT auto-gen already in flight:', { cue: rawCue, slug })
+    return
+  }
+
+  const job = (async () => {
+    try {
+      await customVrmAnimationsStore.loadCustomAnimations()
+      const cached = customVrmAnimationsStore.animationOptions.find(opt =>
+        opt.value === slug
+        || opt.label === slug
+        || opt.value === `custom-vrma:${slug}`,
+      )
+      if (cached) {
+        debug('[Stage] ACT auto-gen cache hit after load (no regen):', { cue: rawCue, slug })
+        vrmStore.triggerMotion(cached.value)
+        return
+      }
+      debug('[Stage] ACT auto-generating motion:', { cue: rawCue, slug })
+      toast.info(`Generating motion "${slug.replace(/_/g, ' ')}"…`)
+      const textToMotionStore = useTextToMotionStore()
+      const outputLength = durationSeconds && durationSeconds > 0
+        ? Math.min(Math.round(durationSeconds * 20), 196)
+        : undefined
+      const result = await textToMotionStore.generateMotion(rawCue.trim(), { format: 'vrma', outputLength })
+      if (!result?.buffer) {
+        console.warn('[Stage] ACT auto-gen failed: empty motion buffer for cue:', rawCue)
+        return
+      }
+      // Play immediately via blob URL (same pattern as the Motion Studio
+      // playground) so there is no library-index race, then save for reuse.
+      const blob = new Blob([result.buffer.buffer as ArrayBuffer], { type: 'model/gltf-binary' })
+      const blobUrl = URL.createObjectURL(blob)
+      vrmStore.triggerMotion(blobUrl)
+      result.fileName = `${slug}.vrma`
+      const key = await textToMotionStore.saveResultToLibrary(
+        result,
+        file => customVrmAnimationsStore.addCustomAnimation(file),
+      )
+      debug('[Stage] ACT auto-generated motion ready:', { cue: rawCue, slug, key })
+      toast.success(`Motion "${slug.replace(/_/g, ' ')}" playing on stage!`)
+    }
+    catch (err) {
+      console.error('[Stage] ACT auto-generate motion failed:', { cue: rawCue, err })
+      toast.error(`Motion generation failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+    finally {
+      actMotionInflight.delete(slug)
+    }
+  })()
+  actMotionInflight.set(slug, job)
+}
 
 // Caption + Presentation broadcast channels
 interface CaptionSegment { text: string, color: string, actorId: string, isActive?: boolean }
@@ -305,10 +401,11 @@ const emotionsQueue = createQueue<EmotionPayload>({
           // NOTICE: Unmatched kinetic/motion cues (e.g. LLM-hallucinated motions like "wiggle ears", "presses paw to glass", "tilt head thoughtfully")
           // must NEVER fall through to vrmStore.triggerEmotion — treating them as facial morphs causes ThreeScene warnings
           // and prematurely clears active expression reset timeouts.
-          // FUTURE / ROADMAP: Candidate for deterministic dynamic motion generation via FlowMDM (packages/stage-ui/src/utils/flowmdm)
-          // and our Text-to-Motion pipeline (useTextToMotionStore / airi-generative-motion-vrma). When the LLM emits dynamic action
-          // cues ahead of our pre-baked library, FlowMDM diffusion or procedural keyframing could synthesize and inject the VRMA on the fly.
-          debug('[Stage] Unmatched VRM motion cue skipped (not an expression):', emotionName)
+          // ACT-first generation: when the card allowlists `generate_motion`, synthesize the
+          // missing cue via the Text-to-Motion pipeline and play it on arrival (late trigger
+          // while speech continues). Repeat cues hit the saved library entry by slugified id.
+          debug('[Stage] Unmatched VRM motion cue, attempting ACT-first generation:', emotionName)
+          generateActMotionInBackground(emotionName, ctx.data.duration)
         }
         else {
           vrmStore.triggerEmotion(emotionName, ctx.data.intensity)
