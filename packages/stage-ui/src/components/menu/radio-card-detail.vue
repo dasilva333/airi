@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Input, TransitionVertical } from '@proj-airi/ui'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   id: string
   name: string
   value: string
@@ -17,6 +17,9 @@ withDefaults(defineProps<{
   pricing?: 'free' | 'paid'
   deployment?: 'local' | 'cloud'
   beginnerRecommended?: boolean
+  downloadBytes?: number
+  vramBytes?: number
+  sizeLabel?: string
 }>(), {
   deprecated: false,
   showExpandCollapse: true,
@@ -27,6 +30,34 @@ withDefaults(defineProps<{
 })
 
 const modelValue = defineModel<string>({ required: true })
+
+// Human-readable download size (e.g. "~75 MB", "~1 GB"). Prefers an
+// explicit sizeLabel, falls back to downloadBytes when provided.
+const formattedSize = computed(() => {
+  if (props.sizeLabel)
+    return props.sizeLabel
+  if (props.downloadBytes == null)
+    return ''
+  const mb = props.downloadBytes / (1024 * 1024)
+  if (mb >= 1024)
+    return `~${(mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 1)} GB`
+  return `~${Math.round(mb)} MB`
+})
+
+const sizeTitle = computed(() => {
+  if (props.sizeLabel)
+    return props.sizeLabel
+  if (props.downloadBytes == null)
+    return ''
+  const formatBytes = (bytes: number) => {
+    const mb = bytes / (1024 * 1024)
+    return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`
+  }
+  const parts = [`Download: ${formatBytes(props.downloadBytes)}`]
+  if (props.vramBytes != null)
+    parts.push(`VRAM: ${formatBytes(props.vramBytes)}`)
+  return parts.join(' · ')
+})
 
 // Track if description is expanded
 const isExpanded = ref(false)
@@ -40,7 +71,7 @@ function toggleExpansion() {
 <template>
   <label
     :key="id"
-    class="form_radio-card-detail relative flex cursor-pointer items-start rounded-xl p-3 pr-[20px]"
+    class="form_radio-card-detail relative flex cursor-pointer items-start rounded-xl p-2.5 pr-3"
     transition="all duration-200 ease-in-out"
     border="2 solid"
     :class="[
@@ -80,10 +111,10 @@ function toggleExpansion() {
         />
       </div>
     </div>
-    <div class="w-full flex flex-col gap-2">
+    <div class="w-full flex flex-col gap-1.5">
       <div class="flex items-center">
         <span
-          class="line-clamp-1 font-normal"
+          class="line-clamp-1 font-medium"
           :class="[
             modelValue === value
               ? 'text-neutral-700 dark:text-neutral-300'
@@ -144,7 +175,21 @@ function toggleExpansion() {
       </div>
 
       <!-- Business Metadata Badges -->
-      <div v-if="pricing || deployment || beginnerRecommended" class="mt-1 flex flex-wrap gap-1.5">
+      <div v-if="pricing || deployment || beginnerRecommended || formattedSize" class="mt-0.5 flex flex-wrap gap-1">
+        <template v-if="formattedSize">
+          <div
+            :class="[
+              'flex flex-row items-center gap-0.5',
+              'rounded-lg bg-neutral-500/10 px-1.5 py-0.5',
+              'text-[10px] font-semibold text-neutral-600',
+              'dark:bg-neutral-500/20 dark:text-neutral-400',
+            ]"
+            :title="sizeTitle"
+          >
+            <div i-solar:download-bold-duotone class="text-[10px]" />
+            <span>{{ formattedSize }}</span>
+          </div>
+        </template>
         <template v-if="pricing === 'free'">
           <div
             :class="[

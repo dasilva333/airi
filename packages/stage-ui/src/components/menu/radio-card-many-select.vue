@@ -13,6 +13,9 @@ interface Item {
   pricing?: 'free' | 'paid'
   deployment?: 'local' | 'cloud'
   beginnerRecommended?: boolean
+  downloadBytes?: number
+  vramBytes?: number
+  sizeLabel?: string
 }
 
 interface Props {
@@ -74,7 +77,8 @@ const filteredItems = computed(() => {
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(item =>
-      item.name.toLowerCase().includes(query)
+      item.id.toLowerCase().includes(query)
+      || item.name.toLowerCase().includes(query)
       || (item.description && item.description.toLowerCase().includes(query)),
     )
   }
@@ -147,7 +151,7 @@ function updateCustomValue(value: string) {
         <!-- Responsive grid container -->
         <div
           :class="[
-            'grid gap-4 mb-2',
+            'grid gap-2.5 mb-2',
             isListExpanded
               ? 'grid-cols-1 md:grid-cols-[repeat(var(--cols),minmax(0,1fr))] snap-y snap-proximity'
               : 'grid-flow-col auto-cols-[calc((100%-(var(--cols)-1)*1rem)/var(--cols))] overflow-x-auto scrollbar-none snap-x snap-proximity',
@@ -181,6 +185,9 @@ function updateCustomValue(value: string) {
             :pricing="item.pricing"
             :deployment="item.deployment"
             :beginner-recommended="item.beginnerRecommended"
+            :download-bytes="item.downloadBytes"
+            :vram-bytes="item.vramBytes"
+            :size-label="item.sizeLabel"
             name="radio-card-detail-many-select"
             class="snap-start"
             @update:custom-input-value="updateCustomValue($event)"
