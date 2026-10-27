@@ -74,6 +74,24 @@ export const useHearingStore = defineStore('hearing-store', () => {
   const voiceInputMode = useLocalStorageManualReset<'dictation' | 'voice-message'>('settings/hearing/voice-input-mode', 'dictation')
   const vadThreshold = useLocalStorageManualReset<number>('settings/hearing/vad-threshold', 0.6)
   const isTranscribing = ref(false)
+  // Ephemeral cross-surface voice draft: page-level ambient loops (web/pocket
+  // stage) park transcripts here when auto-send is off; the active composer
+  // claims them into its input. Plain ref (not persisted): a reload kills any
+  // live capture, so a carried draft would be stale.
+  const pendingVoiceDraft = ref('')
+  function appendVoiceDraft(text: string) {
+    const addition = text.trim()
+    if (!addition)
+      return
+    pendingVoiceDraft.value = pendingVoiceDraft.value ? `${pendingVoiceDraft.value} ${addition}` : addition
+  }
+  // Atomic claim: returns the draft and clears it so a second mounted composer
+  // can't append the same utterance twice.
+  function takeVoiceDraft() {
+    const text = pendingVoiceDraft.value
+    pendingVoiceDraft.value = ''
+    return text
+  }
   const speechProviderSettings = useLocalStorageManualReset<Record<string, { deviceId: string, sampleRate: number }>>('settings/hearing/speech-provider-settings', {
     'app-local-audio-speech': { deviceId: 'default', sampleRate: 16000 },
   })
@@ -147,6 +165,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
     micOwner.reset()
     voiceInputMode.reset()
     vadThreshold.reset()
+    pendingVoiceDraft.value = ''
   }
 
   async function transcription(
@@ -308,6 +327,9 @@ export const useHearingStore = defineStore('hearing-store', () => {
     voiceInputMode,
     vadThreshold,
     isTranscribing,
+    pendingVoiceDraft,
+    appendVoiceDraft,
+    takeVoiceDraft,
 
     supportsModelListing,
     providerModels,

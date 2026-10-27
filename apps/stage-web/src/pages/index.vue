@@ -27,6 +27,7 @@ import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positio
 import { breakpointsTailwind, useBreakpoints, useMediaQuery, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 const paused = ref(false)
 const componentStateStage = ref<'pending' | 'loading' | 'mounted'>('pending')
@@ -121,7 +122,7 @@ watch([activeChatProvider, activeChatModel], async () => {
 const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
 
 const hearingStore = useHearingStore()
-const { vadThreshold, micOwner } = storeToRefs(hearingStore)
+const { vadThreshold, micOwner, autoSendEnabled } = storeToRefs(hearingStore)
 
 const {
   init: initVAD,
@@ -156,6 +157,14 @@ async function startAudioInteraction(binding: VoiceInputBinding) {
 
       if (currentBinding !== binding)
         return
+
+      // NOTICE: Honor "send when recording stops" — off parks the transcript
+      // in the composer draft instead of ingesting (mirrors desktop stage).
+      if (!autoSendEnabled.value) {
+        toast.info(`🎤 Added to chat input: ${text}`, { id: 'transcription-feedback' })
+        hearingStore.appendVoiceDraft(text)
+        return
+      }
 
       try {
         const provider = await providersStore.getProviderInstance(activeChatProvider.value)

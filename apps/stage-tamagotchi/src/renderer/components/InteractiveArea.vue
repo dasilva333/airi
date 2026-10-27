@@ -337,22 +337,46 @@ async function stopDictationRecording() {
   }
 }
 
+let dictationBaseline = ''
+let dictationCommittedFinal = ''
+let dictationCurrentInterim = ''
+
+function resetDictationBuffers(baseline = '') {
+  dictationBaseline = baseline
+  dictationCommittedFinal = ''
+  dictationCurrentInterim = ''
+}
+
+function updateDictationDraft() {
+  messageInput.value = appendDraftText(appendDraftText(dictationBaseline, dictationCommittedFinal), dictationCurrentInterim)
+}
+
 async function startDictationListening() {
   if (!shouldUseStreamInput.value || !stream.value)
     return
   try {
+    resetDictationBuffers(messageInput.value.trim())
+
     await transcribeForMediaStream(stream.value, {
+      onInterim: (interim) => {
+        dictationCurrentInterim = interim.trim()
+        updateDictationDraft()
+      },
       onSentenceEnd: (delta) => {
         if (delta && delta.trim()) {
-          const currentText = messageInput.value.trim()
-          messageInput.value = currentText ? `${currentText} ${delta}` : delta
+          dictationCommittedFinal = appendDraftText(dictationCommittedFinal, delta.trim())
+          dictationCurrentInterim = ''
+          updateDictationDraft()
         }
       },
       onSpeechEnd: async (text) => {
-        if (!text || !text.trim())
-          return
-        if (!messageInput.value.includes(text.trim()))
-          messageInput.value = appendDraftText(messageInput.value, text)
+        dictationCurrentInterim = ''
+        if (text && text.trim()) {
+          const trimmed = text.trim()
+          if (!dictationCommittedFinal.includes(trimmed))
+            dictationCommittedFinal = appendDraftText(dictationCommittedFinal, trimmed)
+        }
+        updateDictationDraft()
         if (autoSendEnabled.value)
           await handleSend()
       },
@@ -372,6 +396,7 @@ async function stopDictationListening() {
     return
   try {
     await stopStreamingTranscription(true)
+    resetDictationBuffers('')
   }
   finally {
     isListening.value = false
@@ -970,6 +995,7 @@ async function handleSend() {
   // optimistic clear without deleting draft from localStorage immediately
   isOptimisticClearing = true
   messageInput.value = ''
+  resetDictationBuffers('')
   attachments.value = []
   clearPreFlightGrounding()
   producerSuggestion.value = null

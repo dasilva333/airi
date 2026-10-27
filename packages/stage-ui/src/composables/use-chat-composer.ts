@@ -3,7 +3,7 @@ import type { ChatProvider } from '@xsai-ext/providers/utils'
 import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 
 import { storeToRefs } from 'pinia'
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, isRef, nextTick, onUnmounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { useVAD } from '../stores/ai/models/vad'
@@ -81,7 +81,8 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   // ownership plus the shared `enabled` flag; every release drops both.
   // Last actor wins — releasing never restores a previous owner.
   function claimMicAuthority() {
-    micOwner.value = 'composer'
+    if (micOwner)
+      micOwner.value = 'composer'
     if (!enabled.value)
       enabled.value = true
   }
@@ -89,7 +90,8 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   function releaseMicAuthority() {
     if (enabled.value)
       enabled.value = false
-    micOwner.value = null
+    if (micOwner)
+      micOwner.value = null
   }
 
   // The hearing pipeline has a single transcription slot shared across
@@ -153,6 +155,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
             tools: options.tools,
           })
           messageInput.value = ''
+          resetDictationBuffers('')
           pendingAutoSendText.value = ''
         }
         catch (err) {
@@ -409,6 +412,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     const audioAttachmentsToSend = attachmentsToSend.filter(att => att.type === 'audio')
 
     messageInput.value = ''
+    resetDictationBuffers('')
     attachments.value = []
 
     options.onSendStart?.()
@@ -487,6 +491,20 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   }
 
   // Listening Loop
+  let dictationBaseline = ''
+  let dictationCommittedFinal = ''
+  let dictationCurrentInterim = ''
+
+  function resetDictationBuffers(baseline = '') {
+    dictationBaseline = baseline
+    dictationCommittedFinal = ''
+    dictationCurrentInterim = ''
+  }
+
+  function updateDictationDraft() {
+    messageInput.value = appendDraftText(appendDraftText(dictationBaseline, dictationCommittedFinal), dictationCurrentInterim)
+  }
+
   async function startListening() {
     autoSendDispatched = false
     try {
@@ -519,11 +537,18 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
         return
       }
       try {
+        resetDictationBuffers(messageInput.value.trim())
+
         await transcribeForMediaStream(stream.value, {
+          onInterim: (interim) => {
+            dictationCurrentInterim = interim.trim()
+            updateDictationDraft()
+          },
           onSentenceEnd: (delta) => {
             if (delta && delta.trim()) {
-              const currentText = messageInput.value.trim()
-              messageInput.value = currentText ? `${currentText} ${delta}` : delta
+              dictationCommittedFinal = appendDraftText(dictationCommittedFinal, delta.trim())
+              dictationCurrentInterim = ''
+              updateDictationDraft()
               if (autoSendEnabled.value) {
                 debouncedAutoSend(delta)
               }
@@ -533,6 +558,15 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
             }
           },
           onSpeechEnd: (text) => {
+            dictationCurrentInterim = ''
+            if (text && text.trim()) {
+              const trimmed = text.trim()
+              if (!dictationCommittedFinal.includes(trimmed)) {
+                dictationCommittedFinal = appendDraftText(dictationCommittedFinal, trimmed)
+              }
+            }
+            updateDictationDraft()
+
             if (!text || !text.trim())
               return
             const alreadyDispatched = autoSendDispatched
@@ -543,8 +577,6 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
             // With auto-send off the transcript stays in the input for the user to edit and send.
             // Providers without sentence deltas only deliver the final text here.
             if (!autoSendEnabled.value) {
-              if (!messageInput.value.includes(text.trim()))
-                messageInput.value = appendDraftText(messageInput.value, text)
               return
             }
             void (async () => {
@@ -559,6 +591,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
                 })
                 if (messageInput.value.trim() === text.trim()) {
                   messageInput.value = ''
+                  resetDictationBuffers('')
                 }
               }
               catch (err) {
@@ -604,6 +637,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
       }
       await stopStreamingTranscription(true)
       isListening.value = false
+      resetDictationBuffers('')
     }
     catch (err) {
       isListening.value = false
@@ -793,7 +827,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     }
     // An explicit composer tap owns the capture (owner === 'composer') and
     // drives it directly — never double-start from here.
-    if (micOwner.value === 'composer')
+    if (micOwner?.value === 'composer')
       return
     if (stream.value) {
       await startListening()
@@ -801,7 +835,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   })
 
   watch(stream, async (val) => {
-    if (micOwner.value === 'composer')
+    if (micOwner?.value === 'composer')
       return
     if (val && enabled.value && !isListening.value) {
       await startListening()
@@ -816,6 +850,26 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
       clearPendingAutoSend()
     }
   })
+
+  // Page-level ambient loops (web/pocket stage) park transcripts here when
+  // auto-send is off. Claim them into this composer's input; the atomic take
+  // keeps a second mounted composer from appending the same utterance twice.
+  // The isRef normalization reads through real Pinia's auto-unwrapped setup
+  // refs as well as the plain-object test mock (where storeToRefs double-wraps).
+  function claimVoiceDraft() {
+    const text = hearingStore.takeVoiceDraft()
+    if (text && text.trim())
+      messageInput.value = appendDraftText(messageInput.value, text)
+  }
+  watch(() => {
+    const draft = hearingStore.pendingVoiceDraft as unknown
+    return isRef(draft) ? (draft.value as string) : (draft as string)
+  }, (draft) => {
+    if (draft && draft.trim())
+      claimVoiceDraft()
+  })
+  // Composer mounted after the draft landed (e.g. chat opened later).
+  claimVoiceDraft()
 
   onUnmounted(() => {
     if (autoSendTimeout) {

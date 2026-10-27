@@ -194,14 +194,30 @@ async function startSTTTest() {
       return
     }
 
+    let committedTestText = ''
+    let interimTestText = ''
+    const updateStreamingDisplay = () => {
+      testStreamingText.value = [committedTestText, interimTestText].filter(Boolean).join(' ')
+    }
+
     const result = streamWebSpeechAPITranscription(stream.value, {
       language: language.value,
       continuous: continuous.value,
       interimResults: interimResults.value,
       abortSignal: abortController.signal,
+      onInterim: (interim) => {
+        if (interim && interim.trim()) {
+          interimTestText = interim.trim()
+          updateStreamingDisplay()
+          testStatusMessage.value = 'Transcribing... (streaming)'
+          isTranscribing.value = true
+        }
+      },
       onSentenceEnd: (delta) => {
         if (delta && delta.trim()) {
-          testStreamingText.value += `${delta} `
+          committedTestText = committedTestText ? `${committedTestText} ${delta.trim()}` : delta.trim()
+          interimTestText = ''
+          updateStreamingDisplay()
           testStatusMessage.value = 'Transcribing... (streaming)'
           isTranscribing.value = true
           console.info('Web Speech API test received sentence:', delta)

@@ -40,6 +40,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     providerId?: string
     callbacks?: {
       onSentenceEnd?: (delta: string) => void
+      onInterim?: (interim: string) => void
       onSpeechEnd?: (text: string) => void
     }
   }>()
@@ -230,6 +231,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     providerId?: string
     model?: string
     onSentenceEnd?: (delta: string) => void
+    onInterim?: (interim: string) => void
     onSpeechEnd?: (text: string) => void
     onError?: (error: string) => void
   }) {
@@ -242,7 +244,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
       supportsStreamInput: isStreamSupported,
       hasStream: !!stream,
       providerId,
-      hasCallbacks: !!(options?.onSentenceEnd || options?.onSpeechEnd),
+      hasCallbacks: !!(options?.onSentenceEnd || options?.onInterim || options?.onSpeechEnd),
     })
 
     if (!isStreamSupported) {
@@ -363,7 +365,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
           // For Web Speech API, if callbacks are provided and different, we need to restart
           // because recognition instance callbacks are set once and can't be changed
           // However, if no new callbacks are provided, we can just reuse the session
-          const hasNewCallbacks = !!(options?.onSentenceEnd || options?.onSpeechEnd)
+          const hasNewCallbacks = !!(options?.onSentenceEnd || options?.onInterim || options?.onSpeechEnd)
 
           if (hasNewCallbacks) {
             // We need to restart to use new callbacks, but only if they're actually different
@@ -453,6 +455,12 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
               id: 'transcription-feedback',
             })
           },
+          onInterim: (interim) => {
+            if (abortController.signal.aborted)
+              return
+            bumpIdle()
+            options?.onInterim?.(interim)
+          },
           onSpeechEnd: (text) => {
             if (abortController.signal.aborted)
               return
@@ -481,6 +489,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
           providerId,
           callbacks: {
             onSentenceEnd: options?.onSentenceEnd,
+            onInterim: options?.onInterim,
             onSpeechEnd: options?.onSpeechEnd,
           },
         } as any // Type assertion needed because recognition is extra

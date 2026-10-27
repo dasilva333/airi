@@ -112,13 +112,10 @@ export function createWebSpeechAPIProvider(): TranscriptionProviderWithExtraOpti
               }
             }
 
-            // Emit final or interim results as deltas
+            // Emit final results as deltas
             if (finalTranscript) {
               fullText += finalTranscript
               textStreamCtrl?.enqueue(finalTranscript)
-            }
-            else if (interimTranscript) {
-              textStreamCtrl?.enqueue(interimTranscript)
             }
           }
 
@@ -166,11 +163,13 @@ export function streamWebSpeechAPITranscription(
   _mediaStream: MediaStream,
   options?: WebSpeechAPIExtraOptions & {
     onSentenceEnd?: (delta: string) => void
+    onInterim?: (interim: string) => void
     onSpeechEnd?: (text: string) => void
   },
 ): StreamTranscriptionResult & { recognition?: any } {
   const deferredText = createDeferred<string>()
   let fullText = ''
+  let lastInterim = ''
   let textStreamCtrl: ReadableStreamDefaultController<string> | undefined
   let fullStreamCtrl: ReadableStreamDefaultController<StreamTranscriptionDelta> | undefined
   let recognitionInstance: any = null
@@ -250,6 +249,7 @@ export function streamWebSpeechAPITranscription(
     // Emit final results when we have them
     if (finalTranscript.trim()) {
       const trimmedTranscript = finalTranscript.trim()
+      lastInterim = ''
       fullText = `${fullText}${trimmedTranscript} `
       const delta: StreamTranscriptionDelta = {
         type: 'transcript.text.delta',
@@ -260,17 +260,12 @@ export function streamWebSpeechAPITranscription(
       options?.onSentenceEnd?.(trimmedTranscript)
       console.info('Web Speech API transcribed (final):', trimmedTranscript)
     }
-    else if (interimTranscript.trim()) {
-      // On iOS WKWebView and mobile WebKit, results stream almost exclusively as interim until pause
+
+    if (interimTranscript.trim()) {
       const trimmedInterim = interimTranscript.trim()
-      const delta: StreamTranscriptionDelta = {
-        type: 'transcript.text.delta',
-        delta: trimmedInterim,
-      }
-      fullStreamCtrl?.enqueue(delta)
-      textStreamCtrl?.enqueue(trimmedInterim)
-      options?.onSentenceEnd?.(trimmedInterim)
-      console.info('Web Speech API transcribed (interim stream):', trimmedInterim)
+      lastInterim = trimmedInterim
+      options?.onInterim?.(trimmedInterim)
+      console.debug('Web Speech API transcribed (interim stream):', trimmedInterim)
     }
   }
 
@@ -309,7 +304,8 @@ export function streamWebSpeechAPITranscription(
     textStreamCtrl?.error(error)
     deferredText.reject(error)
     deferredText.isRejected = true
-    options?.onSpeechEnd?.(fullText)
+    const finalText = fullText.trim() || lastInterim.trim()
+    options?.onSpeechEnd?.(finalText)
   }
 
   recognition.onend = () => {
@@ -352,6 +348,8 @@ export function streamWebSpeechAPITranscription(
         return
       }
 
+      const finalText = fullText.trim() || lastInterim.trim()
+
       const doneDelta: StreamTranscriptionDelta = {
         type: 'transcript.text.done',
         delta: '',
@@ -360,10 +358,10 @@ export function streamWebSpeechAPITranscription(
       fullStreamCtrl?.close()
       textStreamCtrl?.close()
       if (!deferredText.isResolved && !deferredText.isRejected) {
-        deferredText.resolve(fullText)
+        deferredText.resolve(finalText)
         deferredText.isResolved = true
       }
-      options?.onSpeechEnd?.(fullText)
+      options?.onSpeechEnd?.(finalText)
     }
   }
 

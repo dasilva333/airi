@@ -27,6 +27,7 @@ import { breakpointsTailwind, useBreakpoints, useMediaQuery, useMouse } from '@v
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 
 defineOptions({
   name: 'IndexScenePage',
@@ -134,7 +135,7 @@ const { activeProvider: activeChatProvider, activeModel: activeChatModel } = sto
 const chatStore = useChatOrchestratorStore()
 
 const hearingStore = useHearingStore()
-const { vadThreshold, micOwner } = storeToRefs(hearingStore)
+const { vadThreshold, micOwner, autoSendEnabled } = storeToRefs(hearingStore)
 
 const {
   init: initVAD,
@@ -153,6 +154,14 @@ let currentBinding: VoiceInputBinding | undefined
 async function sendVoiceInputTextToChat(text: string | undefined) {
   if (!text || !text.trim())
     return
+
+  // NOTICE: Honor "send when recording stops" — off parks the transcript
+  // in the composer draft instead of ingesting (mirrors desktop stage).
+  if (!autoSendEnabled.value) {
+    toast.info(`🎤 Added to chat input: ${text}`, { id: 'transcription-feedback' })
+    hearingStore.appendVoiceDraft(text)
+    return
+  }
 
   try {
     const provider = await providersStore.getProviderInstance(activeChatProvider.value)
