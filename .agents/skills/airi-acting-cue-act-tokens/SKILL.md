@@ -65,7 +65,7 @@ When history is replayed as inference context, `chat.ts` prefers `rawContent || 
 2. **Categorization** — `response-categoriser.ts` `createStreamingCategorizer` splits speech vs reasoning; markers are excluded from the speech category so TTS never speaks them.
 3. **Chat hooks** — token events flow through the module-level hooks bus ([streaming and hooks](../airi-interaction-pipelines/references/streaming-hooks.md)); the Stage-side speech pipeline's `onTokenSpecial` hook is the canonical consumer for locally streamed messages (see the mods-server NOTICE below).
 4. **Host dispatch** — `ControlStripHost.vue`: `processMarkers()` (:414-421) regexes `<\|(?:ACT|DELAY|ACTOR)...(?:\|>|>)` and enqueues via `playSpecialToken` (:407-410) into the special-token queue (`useSpecialTokenQueue`, :387-395) with `emotion` / `delay` / `actor` handler events.
-5. **Renderer execution** — the emotion/actor handlers trigger `vrmStore.triggerEmotion/triggerMotion` and `live2dStore.triggerEmotion/triggerMotion` (:~240-320), falling back through expression mappings → emotion-motion name map → motionMappings ground-truth lookup. Those mappings are authored in the Model Customizer (`airi-model-customizer`) — that is the sense in which the customizer "is built to support" ACT tokens. The host also synthesizes its own cue for caption/emotion display (`processMarkers(<|ACT:{"emotion":"..."}|>)`, :465).
+5. **Renderer execution** — the emotion/actor handlers trigger `vrmStore.triggerEmotion/triggerMotion` and `live2dStore.triggerEmotion/triggerMotion` (:~240-320), falling back through expression mappings → emotion-motion name map → motionMappings ground-truth lookup. Those mappings are authored in the Model Customizer (`airi-model-customizer`) — that is the sense in which the customizer "is built to support" ACT tokens. **Unmatched VRM motion cues are NOT dropped**: when the card allowlists `generate_motion`, `generateActMotionInBackground()` synthesizes the cue via the Text-to-Motion pipeline (ACT-first synthesis, `airi-generative-motion-vrma` §4.4) and plays it on arrival; repeat cues hit the saved library entry. The host also synthesizes its own cue for caption/emotion display (`processMarkers(<|ACT:{"emotion":"..."}|>)`, :465).
 6. **Stage-local TTS enforcement** — the cue tokens are skipped by the STT/speech lane; caption displays the line (speech category only).
 
 **Double-execution trap** (NOTICE at :~421-430): externally injected messages (mods-server/context bridge) re-run `processMarkers`, but local chatOrchestrator messages were **already** processed token-by-token through the speech pipeline's `onTokenSpecial`. The `stage-tamagotchi` / `stage-web` message flags exist solely to prevent every ACT/DELAY/ACTOR token executing twice.
@@ -76,7 +76,7 @@ When history is replayed as inference context, `chat.ts` prefers `rawContent || 
 | --- | --- | --- |
 | ACT instruction authoring | Acting tab + Field AI Generator (actingModelExpression) | live |
 | Playground / preset emission | Rehearsal Room `chat_rehearsal.vue` (presets :361-367, mixed :442-449, ACTOR prepend :292, strip preview :319) | live |
-| Execution + renderer mapping | `ControlStripHost.vue` queue dispatch; Model Customizer mappings | live |
+| Execution + renderer mapping | `ControlStripHost.vue` queue dispatch; Model Customizer mappings; ACT-first auto-gen on motion miss | live |
 | Storage twin keys | `rawContent` / `content` (§3) | live |
 | Discord outbound | `stripMarkers` on reply; tool-slice rendering via `formatToolSlices` (see `airi-tool-registry-builtin-tools` §5) | live |
 | Onboarding V2 **Advanced-Lab acting step** | planned step under `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/` (wire via `gate.ts` contract + `draft-store.ts` draft-store isolation; see `airi-onboarding-v2`) | **planned** — a new wizard step exposing ACT/expressions configuration; keep its output validated against the parser whitelist before insertion |
@@ -86,7 +86,7 @@ When history is replayed as inference context, `chat.ts` prefers `rawContent || 
 1. **Raw-history drift** — stripping tokens from replayed `rawContent` (or migrating records that lost it) makes the model silently stop emitting cues. See §3.
 2. **Legacy-close mismatch** — parser whitelist and `stripMarkers` must move together (§1).
 3. **Double-execution** — re-processing a full message broadcast that the streaming pipeline already tokenized (§4 step 6 NOTICE).
-4. **Expression-name drift** — teaching text and Customizer mapping namespaces must agree; mismatches no-op with no error.
+4. **Expression-name drift** — teaching text and Customizer mapping namespaces must agree; unmatched *emotion* names no-op with no error. Unmatched *motion* cues instead attempt ACT-first synthesis when the card allowlists `generate_motion` (otherwise skipped with a console warning); `motion="stop"` maps to the `__STOP__` sentinel, never to generation. Repeat free-text cues reuse the slugified library id (`jumping jacks` → `jumping_jacks`), so the second identical cue plays instantly with no regen.
 5. **Format mixing with TTS tags** — square-bracket speech tags / mood tags / Dynamic Caption FX are sibling TTS systems authored in the same Acting tab; do not confuse them with ACT marker syntax.
 6. **Gemini Live mode** — native-PCM output suppresses text-literal forwarding (`_geminiLiteralHandled`); ACT cues typed mid-call may never reach the host TTS/cue chain. See `airi-gemini-live-api`.
 
@@ -130,7 +130,8 @@ Verify these cases with the existing parser/categorizer tests and `packages/stag
 - `packages/stage-ui/src/stores/modules/airi-card.ts` (:1372-1384) — acting prompt assembly.
 - `packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabActing.vue` + `FieldAiGeneratorModal.vue` — authoring UI and the two official format templates.
 - `packages/stage-ui/src/types/chat.ts` (:25-48) — `rawContent`/`content` contract; `chat.ts` (:1113-1117, :1648-1656).
-- `packages/stage-ui/src/components/scenes/ControlStripHost.vue` (:387-421, :465) — cue dispatch.
+- `packages/stage-ui/src/components/scenes/ControlStripHost.vue` (:387-421, :465) — cue dispatch; `generateActMotionInBackground()` (~:116-171) owns the ACT-first synthesis gate/cache/playback.
+- `packages/stage-ui/src/stores/modules/tools/motion.ts` — shared web-safe `generate_motion` + `slugifyMotionCue`; `packages/stage-ui/src/tools/web.ts` wires it into web/pocket-parity `webTools`.
 - `apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue` — playground.
 - `docs/design-journal-actor-token-sync.md` + `docs/design-actor-token-sync-postmortem.md` — ACTOR-token sync diagnostics journal and its validated code-trace review (generation/playback clock skew, text-swallowing, single-flight gaps).
 - Peer skills: `airi-prompt-builder-engine`, `airi-character-rendering`, `airi-model-customizer`, `airi-interaction-pipelines`, `airi-onboarding-v2`, `airi-tool-registry-builtin-tools`.

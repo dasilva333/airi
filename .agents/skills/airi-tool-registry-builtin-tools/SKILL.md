@@ -67,7 +67,18 @@ Card gating happens in two stages: at the **LLM dispatch gateway** (`llmStore.fi
   - MCP meta-tools (`mcp_list_tools`, `mcp_call_tool`) pass if `mcp`, `web_search`, or `filesystem` is present.
   - Inside `builtin/mcp.ts`, `filterToolsForCard` dynamically filters the discovered tools list and blocks invocations to unpermitted servers (e.g. only web search tools are returned if only `web_search` is checked).
 
-See `airi-llm-dispatch-gateway` §2/§4 and `airi-card-editor-wizard` for authoring in the card schema.
+### 3.1 Hosted Server-Side Tools & Brain Preset Handshake
+Modern API providers (OpenRouter, DeepSeek, OpenCode Go, Anthropic) support **hosted server-side tools** (`openrouter:web_search`, `web_search_20260209`). These do not execute client-side via `@xsai` tool loops; they execute remotely on provider infrastructure and return results/citations directly.
+
+AIRI handles these via a **Two-Way Handshake** between the Character Card and the Brain Preset:
+- **Permission Gate (Character Card)**: `allowedTools` in `CardCreationTabTools.vue` defines *permission* (`'web_search'`). Keeps character cards portable across any machine/model.
+- **Capability Engine (Brain Preset)**: `BrainModelPicker.vue` / `BrainModelFavoriteModal.vue` defines *how* the active brain executes it (`serverWebSearch: true` or custom `options`).
+- **Gateway Dispatch (`llm.ts`)**:
+  - `web_search` permitted + brain provides hosted search: gateway injects provider server tool (`openrouter:web_search` / `web_search_20260209`).
+  - `web_search` permitted + brain lacks hosted search (Ollama, local model, Apple Core AI): gateway falls back to local `open-websearch` MCP tool (free DuckDuckGo scraping).
+  - `web_search` unpermitted: all web search tools omitted (persona safety preserved).
+
+See `docs/design-brain-presets-and-hosted-server-tools.md`, `airi-llm-dispatch-gateway` §2/§4, and `airi-card-editor-wizard`.
 
 ## 4. Availability Matrix (audited 2026-08)
 

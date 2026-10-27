@@ -177,6 +177,15 @@ graph TD
     M --> N
 ```
 
+### 3.1 ACT-First Motion Synthesis (cue → generate → play)
+
+The reverse direction of the tool flow, live in `ControlStripHost.vue` (`generateActMotionInBackground()`): when a VRM `motion` ACT cue misses the animation library, the stage synthesizes it on the fly instead of dropping it.
+
+- **Gate**: same `generate_motion` allowlist (Kinetic pack) as the tool — no new state. VRM renderer only.
+- **Cache**: free-text cues slugify to library ids (`jumping jacks` → `jumping_jacks`); a present entry plays immediately and repeat cues never regenerate. In-flight duplicates coalesce to one job.
+- **Playback**: the fresh buffer plays instantly via blob URL (no library-index race), then saves as `{slug}.vrma` for reuse; cue `duration` sizes the clip (`duration×20` frames, capped 196). `motion="stop"` maps to the `__STOP__` sentinel, never to generation.
+- **Net effect**: tool writes once (`generate_motion` → library), ACT cues own the reuse — the model generates a motion, then performs it by name in later turns with zero regeneration cost.
+
 ---
 
 ## 4. Multi-Avatar Target Format Decoders

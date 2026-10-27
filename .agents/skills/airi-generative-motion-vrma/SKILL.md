@@ -59,7 +59,14 @@ Clicking a card calls `setMode()`; the store default keeps procedural unless exp
 - Actions: generate against the store, download the `.vrma`, or save to the custom animations library; also cross-links to the Modules page (:94 `to="/settings/modules/text-to-motion"`).
 
 ### 4.3 The `generate_motion` Built-in Tool
-`apps/stage-tamagotchi/src/renderer/stores/tools/builtin/generate-motion.ts` — exported by `generateMotionTools()` (:116). The LLM invokes it during chat with a natural-language motion description; the handler resolves the active engine from the same store settings (:95-96), generates, then saves into the custom-animation library for playback. This is the live, production path (the "world's-first badge" leans on this).
+Shared implementation `packages/stage-ui/src/stores/modules/tools/motion.ts` (`createMotionTool()`, `slugifyMotionCue()`, `executeGenerateMotion()`) — desktop re-exports via `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/generate-motion.ts`, web/pocket-parity via `packages/stage-ui/src/tools/web.ts` (`webTools`). The LLM invokes it during chat with a natural-language motion description; the handler resolves the active engine from the same store settings, generates, then saves into the custom-animation library for playback. Card-gated by `allowedTools.includes('generate_motion')` (Kinetic pack). This is the live, production path (the "world's-first badge" leans on this).
+
+### 4.4 ACT-First Motion Synthesis (motion cue → generate → play)
+The reverse direction: `ControlStripHost.vue` `generateActMotionInBackground()` fires when a VRM `motion` ACT cue misses the animation library. Same `generate_motion` allowlist gate — no new state; turning the pack on buys the full package. Behavior contract:
+- **Slug cache**: free text maps to a library id (`jumping jacks` → `jumping_jacks`); a present entry plays immediately, a second identical cue never regenerates. A poisoned clip is replaced via `overwrite:true` or a fresh id.
+- **In-flight dedupe**: concurrent identical cues coalesce to one generation job.
+- **Instant playback**: plays the fresh buffer via blob URL on arrival (no library-index race), then saves `{slug}.vrma` for reuse; cue `duration` sizes the clip (`duration×20` frames, capped 196).
+- **`motion="stop"`** maps to the `__STOP__` sentinel, never to generation. VRM only — Live2D/MMD/Spine cues skip with a log. Toasts (`Generating motion…` / `playing on stage!` / `failed:`) make each state visible without DevTools.
 
 ## 5. Output Playback & Rehearsal
 
@@ -85,6 +92,7 @@ The shipped `flow_mdm.onnx` was produced and verified by committed Python toolin
 - **WebGPU unavailability**: `getDenoisingSession()` falls back with a WASM warning — DDIM in WASM is slow; expect tens of seconds not 2–3s. Check `navigator.gpu` before promising FlowMDM to the user.
 - **Model bundling rule**: `flow_mdm.onnx` + CLIP weights are never shipped in installers; treat unfixed-bundle reminders as a correctness issue.
 - **Procedural-path provider coupling**: the procedural engine uses the *active consciousness* provider/model, not a dedicated override (the design doc's §2.2 override dropdowns are unshipped); if the chat model can't do structured output, procedural motion fails.
+- **ACT-first scope**: auto-gen only fires on *library-miss motion cues* on a VRM renderer with the Kinetic pack on. It never re-synthesizes a cached slug, never generates for the `stop` sentinel, and a corrupt first clip stays corrupt until overwritten — test reuse with a fresh id to isolate poisoning.
 - **HumanML3D denormalization**: `vrmaExporter.ts` must apply `hmlMean`/`hmlStd` from `constants.ts`; a skipped denorm produces near-zero poses ("frozen T-pose").
 
 ## 8. Cross-Citations (Pull Before Broad Changes)
@@ -102,6 +110,7 @@ The shipped `flow_mdm.onnx` was produced and verified by committed Python toolin
 
 - **Typecheck**: `pnpm -F @proj-airi/stage-ui typecheck` (store + flowmdm utils) and `pnpm -F @proj-airi/stage-ui-three typecheck` (playback side).
 - **Sandbox test**: use the desktop Rehearsal Room (`chat_rehearsal.vue`) to call `generateMotion()` end-to-end and watch the saved `.vrma` land in `useCustomVrmAnimationsStore`.
+- **ACT-first test**: emit a novel `motion="..."` cue with the Kinetic pack on — expect `Generating motion…` toast, motion playing late over speech, then instant replay on a repeat cue. A repeat that still generates means the slug lookup missed (check label/key matching); motion with no toast at all means the gate blocked it (renderer or allowlist).
 - **Re-export parity gate**: `python scripts/motion-export/test_onnx_parity.py` must pass before any `flow_mdm.onnx` replacement is published.
 
 ## Related Skills & References
