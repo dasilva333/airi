@@ -507,6 +507,13 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
 
   async function startListening() {
     autoSendDispatched = false
+    // Single-shot session: tap-to-talk on. These sessions end themselves
+    // (provider continuous=false) and go cold; gate off stays hot. Deliberately
+    // not gated on mic owner: the landscape ChatArea mic IS the ambient master
+    // switch (owner 'ambient'), and the gate contract is "every activation is
+    // one utterance". Snapshot at start so a mid-session toggle can't strand
+    // a self-ending session marked hot (or vice versa).
+    const singleShot = tapToTalk.value
     try {
       if (!hearingConfigured.value) {
         const isWebSpeechAvailable = typeof window !== 'undefined'
@@ -540,6 +547,15 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
         resetDictationBuffers(messageInput.value.trim())
 
         await transcribeForMediaStream(stream.value, {
+          // Tap-to-talk: single utterance then cold. Scoped to Web Speech —
+          // its provider ends recognition itself after the final instead of
+          // hot-restarting, and onSpeechEnd below reflects the cold state.
+          // Gate off (or ambient) defers to the stored provider config /
+          // default so the mic stays hot. Other streaming transports must not
+          // receive the unknown key, so the spread is provider-gated.
+          ...(singleShot && hearingStore.activeTranscriptionProvider === 'browser-web-speech-api'
+            ? { providerOptions: { continuous: false } }
+            : {}),
           onInterim: (interim) => {
             dictationCurrentInterim = interim.trim()
             updateDictationDraft()
@@ -557,7 +573,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
               }
             }
           },
-          onSpeechEnd: (text) => {
+          onSpeechEnd: async (text) => {
             dictationCurrentInterim = ''
             if (text && text.trim()) {
               const trimmed = text.trim()
@@ -572,6 +588,20 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
             const alreadyDispatched = autoSendDispatched
             autoSendDispatched = false
             clearPendingAutoSend()
+            // Tap-to-talk: the utterance is done — reflect the cold mic even
+            // when the provider ended itself (Web Speech non-continuous)
+            // rather than VAD. Manual stops never reach here (the pipeline
+            // swallows onSpeechEnd once aborted), and teardown-first ordering
+            // keeps a re-tap from interleaving: everything before the ingest
+            // kick below is synchronous. No-op when already stopped.
+            // NOTE: iOS WebKit forces continuous=false at the provider, so a
+            // gate-off session can still self-end there with no teardown —
+            // stale-hot until the next tap. Platform limitation, not gate logic.
+            if (singleShot) {
+              continuousSession.value = false
+              await stopListening()
+              releaseMicAuthority()
+            }
             if (alreadyDispatched)
               return
             // With auto-send off the transcript stays in the input for the user to edit and send.

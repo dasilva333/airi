@@ -135,7 +135,7 @@ const { activeProvider: activeChatProvider, activeModel: activeChatModel } = sto
 const chatStore = useChatOrchestratorStore()
 
 const hearingStore = useHearingStore()
-const { vadThreshold, micOwner, autoSendEnabled } = storeToRefs(hearingStore)
+const { vadThreshold, micOwner, autoSendEnabled, tapToTalk } = storeToRefs(hearingStore)
 
 const {
   init: initVAD,
@@ -178,11 +178,24 @@ async function sendVoiceInputTextToChat(text: string | undefined) {
 async function startAudioInteraction(binding: VoiceInputBinding) {
   currentBinding = binding
   if (binding.mode === 'stream') {
+    // Tap-to-talk: single utterance then cold. Scoped to Web Speech (its
+    // provider ends itself after the final); gate off defers to the default
+    // hot-restart. Deltas are already ingested/drafted per-sentence above, so
+    // onSpeechEnd only reflects the cold mic — never sends.
+    const singleShot = tapToTalk.value && hearingStore.activeTranscriptionProvider === 'browser-web-speech-api'
     await transcribeForMediaStream(binding.stream, {
+      ...(singleShot ? { providerOptions: { continuous: false } } : {}),
       onSentenceEnd: (delta) => {
         if (currentBinding === binding) {
           void sendVoiceInputTextToChat(delta)
         }
+      },
+      onSpeechEnd: () => {
+        if (currentBinding !== binding || !singleShot)
+          return
+        // Provider ended itself after the final — mute the mic. Clearing
+        // enabled drops the binding, which tears down VAD + streaming.
+        settingsAudioDeviceStore.enabled = false
       },
     })
     return
@@ -240,6 +253,11 @@ async function handleSpeechEnd() {
   }
 
   stopRecord()
+  // Tap-to-talk: first utterance ends the capture, mute the mic. Clearing
+  // enabled drops the binding, which tears down VAD + recording.
+  if (tapToTalk.value) {
+    settingsAudioDeviceStore.enabled = false
+  }
 }
 
 async function stopAudioInteraction() {

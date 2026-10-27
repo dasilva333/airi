@@ -426,7 +426,7 @@ const {
 const { supportsStreamInput } = storeToRefs(hearingPipeline)
 const chatStore = useChatOrchestratorStore()
 const hearingStore = useHearingStore()
-const { hearingDetectionMode, vadThreshold, micOwner } = storeToRefs(hearingStore)
+const { hearingDetectionMode, vadThreshold, micOwner, tapToTalk } = storeToRefs(hearingStore)
 
 const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
 
@@ -488,6 +488,12 @@ async function handleSpeechEnd() {
     return
   }
   stopRecord()
+  // Tap-to-talk (VAD mode only — manual mode has no utterance boundary):
+  // first utterance ends the capture, mute the mic. Clearing enabled drops
+  // the binding, which tears down VAD + recording.
+  if (tapToTalk.value) {
+    settingsAudioDeviceStore.enabled = false
+  }
 }
 
 let currentBinding: VoiceInputBinding | undefined
@@ -503,7 +509,12 @@ async function startAudioInteraction(binding: VoiceInputBinding) {
         hasStream: !!binding.stream,
       })
 
+      // Tap-to-talk: single utterance then cold. Scoped to Web Speech (its
+      // provider ends itself after the final); gate off defers to the default
+      // hot-restart.
+      const singleShot = tapToTalk.value && hearingStore.activeTranscriptionProvider === 'browser-web-speech-api'
       await transcribeForMediaStream(binding.stream, {
+        ...(singleShot ? { providerOptions: { continuous: false } } : {}),
         onSentenceEnd: (delta) => {
           if (currentBinding !== binding)
             return
@@ -522,6 +533,14 @@ async function startAudioInteraction(binding: VoiceInputBinding) {
           }
 
           postCaption({ type: 'caption-speaker', text })
+
+          // Tap-to-talk: the provider ended itself after the final — mute the
+          // mic. Clearing enabled drops the binding, which tears down VAD +
+          // streaming. Runs before the ingest/draft below; neither needs the
+          // master switch. No-op when the user already stopped manually.
+          if (singleShot) {
+            settingsAudioDeviceStore.enabled = false
+          }
 
           void (async () => {
             try {

@@ -1,7 +1,7 @@
 import { createTestingPinia } from '@pinia/testing'
 import { setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 
 import { useChatOrchestratorStore } from '../stores/chat'
 import { useChatSessionStore } from '../stores/chat/session-store'
@@ -53,36 +53,55 @@ vi.mock('../stores/modules/consciousness', () => ({
   }),
 }))
 
-const mockHearingConfigured = ref(true)
+// Reactive hearing mock: useHearingStore() returns the shared reactive state
+// itself shaped like a real Pinia setup store (ref-valued properties), so the
+// composable's storeToRefs unwraps refs correctly instead of double-wrapping
+// a plain object. Reset per-test in beforeEach below.
+const hearingMockState = reactive({
+  configured: ref(true),
+  autoSendEnabled: ref(false),
+  autoSendDelay: ref(1000),
+  voiceInputMode: ref('dictation'),
+  isTranscribing: ref(false),
+  tapToTalk: ref(true),
+  vadThreshold: ref(0.6),
+  micOwner: ref<string | null>('composer'),
+  activeTranscriptionProvider: ref('browser-web-speech-api'),
+  pendingVoiceDraft: ref(''),
+})
+const mockTakeVoiceDraft = vi.fn(() => {
+  const text = hearingMockState.pendingVoiceDraft
+  hearingMockState.pendingVoiceDraft = ''
+  return text
+})
+Object.assign(hearingMockState, { takeVoiceDraft: mockTakeVoiceDraft })
 const mockSupportsStreamInput = ref(true)
 const mockStream = ref<any>({ id: 'test-stream' })
 const mockEnabled = ref(true)
-const mockMicOwner = ref<string | null>('composer')
 const mockTranscribeForMediaStream = vi.fn()
 const mockStopStreamingTranscription = vi.fn()
 
-vi.mock('../stores/modules/hearing', () => {
-  const pendingVoiceDraft = ref('')
-  return {
-    useHearingStore: () => ({
-      configured: mockHearingConfigured,
-      autoSendEnabled: ref(false),
-      autoSendDelay: ref(1000),
-      micOwner: mockMicOwner,
-      pendingVoiceDraft,
-      takeVoiceDraft: vi.fn(() => {
-        const text = pendingVoiceDraft.value
-        pendingVoiceDraft.value = ''
-        return text
-      }),
-    }),
-    useHearingSpeechInputPipeline: () => ({
-      supportsStreamInput: mockSupportsStreamInput,
-      transcribeForMediaStream: mockTranscribeForMediaStream,
-      stopStreamingTranscription: mockStopStreamingTranscription,
-    }),
-  }
-})
+function resetHearingMock() {
+  hearingMockState.configured = true
+  hearingMockState.autoSendEnabled = false
+  hearingMockState.autoSendDelay = 1000
+  hearingMockState.voiceInputMode = 'dictation'
+  hearingMockState.isTranscribing = false
+  hearingMockState.tapToTalk = true
+  hearingMockState.vadThreshold = 0.6
+  hearingMockState.micOwner = 'composer'
+  hearingMockState.activeTranscriptionProvider = 'browser-web-speech-api'
+  hearingMockState.pendingVoiceDraft = ''
+}
+
+vi.mock('../stores/modules/hearing', () => ({
+  useHearingStore: () => hearingMockState,
+  useHearingSpeechInputPipeline: () => ({
+    supportsStreamInput: mockSupportsStreamInput,
+    transcribeForMediaStream: mockTranscribeForMediaStream,
+    stopStreamingTranscription: mockStopStreamingTranscription,
+  }),
+}))
 
 vi.mock('../stores/settings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../stores/settings')>()
@@ -103,11 +122,10 @@ describe('use-chat-composer: parity with desktop send & stop controls', () => {
   beforeEach(() => {
     pinia = createTestingPinia({ createSpy: vi.fn, stubActions: false })
     setActivePinia(pinia)
-    mockHearingConfigured.value = true
+    resetHearingMock()
     mockSupportsStreamInput.value = true
     mockStream.value = { id: 'test-stream' }
     mockEnabled.value = true
-    mockMicOwner.value = 'composer'
     mockTranscribeForMediaStream.mockReset()
     mockStopStreamingTranscription.mockReset()
   })
@@ -131,24 +149,111 @@ describe('use-chat-composer: parity with desktop send & stop controls', () => {
     expect(composer.messageInput.value).toBe('')
 
     const hearingStore = useHearingStore()
-    hearingStore.pendingVoiceDraft.value = 'hello from stage mic'
+    hearingStore.pendingVoiceDraft = 'hello from stage mic'
     await nextTick()
 
     expect(composer.messageInput.value).toBe('hello from stage mic')
-    expect(hearingStore.pendingVoiceDraft.value).toBe('')
+    expect(hearingStore.pendingVoiceDraft).toBe('')
   })
 
   it('claims a pre-existing voice draft on mount (chat opened after dictation)', async () => {
     const { useHearingStore } = await import('../stores/modules/hearing')
 
     const hearingStore = useHearingStore()
-    hearingStore.pendingVoiceDraft.value = 'draft before mount'
+    hearingStore.pendingVoiceDraft = 'draft before mount'
     // Synchronous mount-claim runs in setup, before any watcher flush, so no
     // previously created composer can steal it.
     const composer = useChatComposer()
 
     expect(composer.messageInput.value).toBe('draft before mount')
-    expect(hearingStore.pendingVoiceDraft.value).toBe('')
+    expect(hearingStore.pendingVoiceDraft).toBe('')
+  })
+
+  // ROOT CAUSE:
+  // The Web Speech provider hot-restarts recognition after every final
+  // (continuous=true default), so tap-to-talk could never mute the mic on
+  // speech end — muting depended entirely on the VAD side-channel.
+  //
+  // FIXED BY: Passing continuous:false for tap-to-talk single-shot sessions
+  // so the provider ends itself after the final, plus cold-mic teardown in
+  // onSpeechEnd. Gate off defers to the provider default (stays hot).
+  it('requests non-continuous recognition for tap-to-talk single-shot sessions', async () => {
+    let capturedOptions: any = {}
+    mockTranscribeForMediaStream.mockImplementation(async (_stream: any, options: any) => {
+      capturedOptions = options
+    })
+
+    const composer = useChatComposer()
+    await composer.startListening()
+
+    expect(mockTranscribeForMediaStream).toHaveBeenCalled()
+    expect(composer.isListening.value).toBe(true)
+    expect(capturedOptions.providerOptions).toEqual({ continuous: false })
+  })
+
+  it('leaves recognition continuous when tap-to-talk is off', async () => {
+    hearingMockState.tapToTalk = false
+    let capturedOptions: any = {}
+    mockTranscribeForMediaStream.mockImplementation(async (_stream: any, options: any) => {
+      capturedOptions = options
+    })
+
+    const composer = useChatComposer()
+    await composer.startListening()
+
+    expect(mockTranscribeForMediaStream).toHaveBeenCalled()
+    expect(capturedOptions.providerOptions).toBeUndefined()
+  })
+
+  // ROOT CAUSE:
+  // The landscape ChatArea mic toggles the ambient master switch
+  // (micOwner='ambient'), not a composer tap — so an owner-gated single-shot
+  // never fired and the provider hot-restarted forever with tap-to-talk on.
+  //
+  // FIXED BY: Basing single-shot on tapToTalk alone. Every activation with the
+  // gate on is one utterance, regardless of owner.
+  it('treats the ambient master-switch tap as single-shot when tap-to-talk is on', async () => {
+    hearingMockState.micOwner = null
+    let capturedOptions: any = {}
+    mockTranscribeForMediaStream.mockImplementation(async (_stream: any, options: any) => {
+      capturedOptions = options
+    })
+
+    const composer = useChatComposer()
+    await composer.startListening()
+
+    expect(capturedOptions.providerOptions).toEqual({ continuous: false })
+
+    await capturedOptions.onSpeechEnd('ambient final')
+    expect(composer.messageInput.value).toBe('ambient final')
+    expect(composer.isListening.value).toBe(false)
+    expect(mockStopStreamingTranscription).toHaveBeenCalled()
+  })
+
+  // ROOT CAUSE:
+  // When a single-shot session ends itself (provider onend without restart),
+  // the composer still showed hot (isListening stuck true, mic authority held)
+  // because teardown only ran through the VAD path.
+  //
+  // FIXED BY: Cold-mic teardown (stopListening + releaseMicAuthority) in
+  // onSpeechEnd for single-shot sessions, before the send/draft handling.
+  it('goes cold when a single-shot session ends itself', async () => {
+    let capturedOptions: any = {}
+    mockTranscribeForMediaStream.mockImplementation(async (_stream: any, options: any) => {
+      capturedOptions = options
+    })
+
+    const composer = useChatComposer()
+    await composer.startListening()
+    expect(composer.isListening.value).toBe(true)
+
+    // Provider ends itself after the final (non-continuous onend). Auto-send
+    // is off in the mock, so the transcript parks in the input.
+    await capturedOptions.onSpeechEnd('final words')
+
+    expect(composer.messageInput.value).toBe('final words')
+    expect(composer.isListening.value).toBe(false)
+    expect(mockStopStreamingTranscription).toHaveBeenCalled()
   })
 
   // ROOT CAUSE:

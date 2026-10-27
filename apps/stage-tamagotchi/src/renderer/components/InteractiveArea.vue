@@ -354,10 +354,22 @@ function updateDictationDraft() {
 async function startDictationListening() {
   if (!shouldUseStreamInput.value || !stream.value)
     return
+  // Single-shot session: tap-to-talk on. These sessions end themselves
+  // (provider continuous=false) and go cold; gate off stays hot. Deliberately
+  // not gated on mic owner — the gate contract is "every activation is one
+  // utterance". Snapshot at start so a mid-session toggle can't strand a
+  // self-ending session marked hot (or vice versa).
+  const singleShot = tapToTalk.value
   try {
     resetDictationBuffers(messageInput.value.trim())
 
     await transcribeForMediaStream(stream.value, {
+      // Tap-to-talk: single utterance then cold. Scoped to Web Speech —
+      // gate off (or ambient) defers to the stored provider config / default.
+      // Other streaming transports must not receive the unknown key.
+      ...(singleShot && hearingStore.activeTranscriptionProvider === 'browser-web-speech-api'
+        ? { providerOptions: { continuous: false } }
+        : {}),
       onInterim: (interim) => {
         dictationCurrentInterim = interim.trim()
         updateDictationDraft()
@@ -377,6 +389,17 @@ async function startDictationListening() {
             dictationCommittedFinal = appendDraftText(dictationCommittedFinal, trimmed)
         }
         updateDictationDraft()
+        // Tap-to-talk: the utterance is done — reflect the cold mic even when
+        // the provider ended itself (Web Speech non-continuous) rather than
+        // VAD. Manual stops never reach here (aborted sessions are swallowed
+        // by the pipeline). Teardown runs before the send below so a re-tap
+        // can't interleave; messageInput is already updated, so the send is
+        // unaffected. No-op when already stopped.
+        if (singleShot) {
+          continuousSession.value = false
+          await stopDictationListening()
+          releaseMicAuthority()
+        }
         if (autoSendEnabled.value)
           await handleSend()
       },

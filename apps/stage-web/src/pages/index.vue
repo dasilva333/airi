@@ -122,7 +122,7 @@ watch([activeChatProvider, activeChatModel], async () => {
 const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
 
 const hearingStore = useHearingStore()
-const { vadThreshold, micOwner, autoSendEnabled } = storeToRefs(hearingStore)
+const { vadThreshold, micOwner, autoSendEnabled, tapToTalk } = storeToRefs(hearingStore)
 
 const {
   init: initVAD,
@@ -217,6 +217,12 @@ async function handleSpeechEnd() {
   }
 
   stopRecord()
+  // Tap-to-talk (VAD mode only — manual mode has no utterance boundary):
+  // first utterance ends the capture, mute the mic. Clearing enabled drops
+  // the binding, which tears down VAD + recording.
+  if (tapToTalk.value) {
+    settingsAudioDeviceStore.enabled = false
+  }
 }
 
 async function stopAudioInteraction() {
