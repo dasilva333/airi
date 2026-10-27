@@ -11,6 +11,10 @@
 > - `packages/stage-ui/src/stores/artistry.ts` (ComfyUI & Headless Art Generation Failures)
 > **Key Upstream References**:
 > - Upstream PR [#3115](https://github.com/moeru-ai/airi/pull/3115): `feat(stage-ui,stage-pages): show providers that failed their last check` *(Author: `@chiba233`)*
+> - Upstream PR [#3131](https://github.com/moeru-ai/airi/pull/3131): `fix(stage-ui): show only providers in use under needs attention` *(Author: `@chiba233`)*
+> - Upstream PR [#3134](https://github.com/moeru-ai/airi/pull/3134): `feat(stage-ui,stage-pages): list the remaining needs-attention cases` *(Author: `@chiba233`)*
+> - Upstream PR [#3139](https://github.com/moeru-ai/airi/pull/3139): `fix(stage-ui,stage-pages,stage-tamagotchi): open needs-attention items at the setting to change` *(Author: `@chiba233`)*
+> - Upstream PR [#3136](https://github.com/moeru-ai/airi/pull/3136): `chore(stage-ui,stage-pages): use the settings search field on the AIRI card page` *(Author: `@chiba233`)*
 > - Upstream Issue [#3092](https://github.com/moeru-ai/airi/issues/3092): Settings home attention card proposals
 > **Related Fork Skills & Specs**:
 > - [`airi-ui-design-conventions`](../.agents/skills/airi-ui-design-conventions/SKILL.md) & [`airi-byos-cloud-sync`](../.agents/skills/airi-byos-cloud-sync/SKILL.md)
@@ -34,6 +38,27 @@ This approach suffers from fundamental design and technical flaws:
 1. **Noisy Heuristics & False Positives**: Upstream relies on proactive startup pings against every configured provider. In local-first ecosystems, users frequently leave local daemons (Ollama, LM Studio, ComfyUI, Voicevox) closed until needed. Proactive pinging marks these healthy, optional providers as "BROKEN" and nags the user with red alert cards on every app launch.
 2. **Visual Clutter & Disrupted Symmetry**: Injecting dynamic cards into the top of the settings hub displaces the clean navigation grid, pushes standard configuration categories off-screen, and turns the settings window into an intimidating dashboard of errors.
 3. **Tunnel Vision (Provider-Only)**: Real user frustrations rarely stem from un-pinged API accounts; they stem from **silent failures in active workflows** (e.g. why didn't my nap-chat send? why didn't my cloud sync reconcile? why did my ComfyUI prompt fail?).
+
+### 1.1 Upstream's Course Correction: PRs #3115 ➔ #3131 ➔ #3134 ➔ #3139
+Following community and fork feedback, upstream author `@chiba233` (蓝莓🫐) recognized these failure modes and progressively aligned with our architectural critiques across four rapid iterations:
+
+1. **Filtering to In-Use Providers Only (PR #3131)**:
+   - *Problem*: PR #3115 pinged every configured account on startup, flooding the UI with red warnings for unused or dormant local servers (Ollama, LM Studio, Voicevox).
+   - *Correction*: Scoped the check strictly to providers actively referenced by active character cards or hearing modules (`packages/stage-ui/src/stores/providers/provider.ts`). Dormant providers are ignored.
+2. **Expanding to Operational Blind Spots (PR #3134)**:
+   - *Problem*: API connectivity checks alone miss the most aggravating user failures—active character pipelines silently stalling with zero explanation.
+   - *Correction*: Expanded diagnostics to functional dependencies:
+     - **Missing Character Voice/Model**: Characters bound to usable speech providers but lacking a voice or model selection (which previously caused unhandled `createOutput` exceptions, silently forcing text-only replies).
+     - **Missing Transcriber in Always-On Hearing**: Microphone listening continuously without an active STT provider configured.
+     - **Unusable / Removed Module Providers**: Characters referencing deleted provider instances.
+     - **Developer Diagnostics Panel**: Added `/devtools/needs-attention` to inspect, simulate, and test all diagnostic states.
+3. **Precision Deep-Linking with Highlight Reveal (PR #3139)**:
+   - *Problem*: Clicking "Edit" dumped the user on the general settings root or module tab, forcing them to hunt for the offending control.
+   - *Correction*: Passing query parameters (`?section=modules&setting=...`) to auto-scroll the exact input field into view and apply a visual highlight focus animation.
+4. **Card Page Search Parity (PR #3136)**:
+   - Integrated settings search field into the AIRI card page for consistent navigation.
+
+While upstream continues to render these alerts as large banner blocks on the Settings Home grid, their revised detection logic and deep-linking reveal mechanism perfectly complement our **Unified Attention Store & Header Popover** architecture.
 
 ### The Solution: A Unified Attention Ledger & Header Popover
 Instead of polluting the settings navigation grid, this proposal establishes:
@@ -131,6 +156,10 @@ flowchart TD
 | **`cloud-sync`** | Expired bucket token or 403 Access Denied on sync attempt | `error` | Navigates to `Settings > Cloud Sync` |
 | **`friends-mesh`** | Outbound nap-chat message queued > 15m without peer ack | `info` | Opens peer debug inspector or retries handshake |
 | **`friends-mesh`** | Incoming pairing request from unknown local device | `info` | Opens Pairing authorization prompt |
+| **`modules`** | Active character has configured speech provider but missing model or voice (PR #3134) | `warning` | Deep-links to character editor with speech row highlighted (PR #3139) |
+| **`modules`** | Always-on microphone listening, but no transcription provider configured (PR #3134) | `warning` | Deep-links to Hearing module with transcriber row highlighted (PR #3139) |
+| **`modules`** | Character card or module references a removed or unusable provider (PR #3134) | `error` | Deep-links to module configuration with provider row highlighted (PR #3139) |
+| **`providers`** | In-use provider failed its latest health check or connection verification (PR #3131) | `error` | Deep-links to provider page with basic section highlighted (PR #3139) |
 | **`providers`** | Active chat turn or TTS synthesis failed with 401 (Auth) or 402 (Credits) | `error` | Navigates to `Settings > Providers > [Account]` |
 | **`artistry`** | ComfyUI prompt failed due to missing model checkpoint or CUDA OOM | `warning` | Opens Artistry error drawer with error trace |
 | **`memory`** | Lifetime memory distillation worker exceeded token budget or halted | `warning` | Navigates to `Settings > Memory > Lifetime` |
@@ -210,6 +239,7 @@ export type AttentionDomain
   = | 'cloud-sync'
     | 'friends-mesh'
     | 'providers'
+    | 'modules'
     | 'artistry'
     | 'memory'
     | 'os-permissions'
@@ -229,6 +259,8 @@ export interface AttentionItem {
   action?: {
     label: string
     route?: string
+    /** Precision deep-link setting identifier to auto-scroll into view and highlight (PR #3139) */
+    settingTarget?: string
     handler?: () => Promise<void> | void
   }
   /** Source metadata for deduplication and self-clearing */
@@ -262,3 +294,7 @@ export interface AttentionItem {
 - [ ] Wire `artistry.ts`: report ComfyUI execution aborts.
 - [ ] Wire `composables/audio/device.ts` & `web-speech-api`: report browser microphone permission denial (`NotAllowedError`) with Permissions API self-healing listener.
 - [ ] Wire `electron-screen-capture` & `system-preferences.ts`: report macOS Screen Recording, Accessibility, and desktop Microphone/Camera permission denials with direct System Settings actions and restart prompts.
+
+### Phase 4: Precision Deep-Linking & Diagnostics Simulation
+- [ ] Implement highlight reveal helper (`useSettingsReveal` or query param handler) to auto-scroll to `settingTarget` with focus animation (PR #3139).
+- [ ] Port the developer simulation harness (`/devtools/needs-attention`) for testing, simulating, and verifying all attention ledger states in development (PR #3134).

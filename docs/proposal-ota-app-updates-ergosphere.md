@@ -9,6 +9,15 @@
 > - `packages/stage-pages/src/pages/settings/about.vue` & `packages/stage-ui/` (Update Channel Selection & Status Presentation)
 > **Key Upstream References**:
 > - Upstream PR [#3126](https://github.com/moeru-ai/airi/pull/3126): `feat(stage-tamagotchi): update with ergosphere-it, and publish each push to a dev channel` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3130](https://github.com/moeru-ai/airi/pull/3130): `fix(ci): check out the root package.json for the update plan` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3132](https://github.com/moeru-ai/airi/pull/3132): `chore(stage-tamagotchi): update @ergosphere-it/electron to 0.0.10, and trust a new update key` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3133](https://github.com/moeru-ai/airi/pull/3133): `ci(stage-tamagotchi): skip the disk cleanup when publishing the bundle` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3135](https://github.com/moeru-ai/airi/pull/3135): `chore(stage-tamagotchi): update @ergosphere-it/electron to 0.0.11` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3137](https://github.com/moeru-ai/airi/pull/3137): `fix(stage-tamagotchi): give electron-updater a version range that electron-builder reads` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3142](https://github.com/moeru-ai/airi/pull/3142): `fix(stage-tamagotchi): show the size and the rate of an update download` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3145](https://github.com/moeru-ai/airi/pull/3145): `fix(stage-tamagotchi): apply the next update after a reload, and report health after a page reload` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3149](https://github.com/moeru-ai/airi/pull/3149): `fix(stage-tamagotchi): keep renderer chunk names when only the commit changes` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3150](https://github.com/moeru-ai/airi/pull/3150): `ci(stage-tamagotchi): check that two builds give the same bundle` *(Author: `@nekomeowww`)*
 > - Ergosphere-it Engine: [`https://github.com/moeru-ai/ergosphere-it`](https://github.com/moeru-ai/ergosphere-it)
 > - Upstream Commit `a9b3f6cb95`: Integrated launcher, R2 update feed, and SeaweedFS OTA testing harness
 > **Related Fork Skills & Specs**:
@@ -96,7 +105,7 @@ The launcher is a minimal, dependency-free script with three responsibilities:
    }
    ```
 
-### 3.2 Health Check & Fail-Safe Auto-Rollback
+### 3.2 Health Check, Reload Resilience & Application Lifecycle (PR #3145)
 A primary danger of OTA updates is shipping a fatal startup crash that bricks the application. The `ergosphere-it` architecture prevents this with a strict health contract:
 - The launcher starts a 10-second watchdog timer upon launching a new bundle.
 - The bundle's main process must explicitly invoke `injeca.start()` and report:
@@ -104,6 +113,9 @@ A primary danger of OTA updates is shipping a fatal startup crash that bricks th
   updaterService.reportHealthy()
   ```
 - If the app terminates abruptly before reporting health, or exceeds the timeout, the launcher marks that bundle ID as `quarantined`, clears it from `active-bundle.json`, and boots the previous version or embedded fallback.
+- **Page Reload vs Process Restart Lifecycle (PR #3145)**: Desktop users frequently trigger `Command+R` / `F5` to reload renderer windows, or invoke hot reload during debugging. If a downloaded update is pending staged application:
+  1. The launcher hooks window reload events to seamlessly swap in the staged bundle upon reload rather than forcing a full application quit.
+  2. The health watchdog is re-armed and re-verified after renderer page reloads, ensuring reload crashes trigger fail-safe fallback to the embedded runtime rather than leaving the desktop frozen in an inconsistent state.
 
 ### 3.3 Channel Architecture (`ergo.config.ts`)
 Channels allow fine-grained release separation:
@@ -115,6 +127,37 @@ Channels allow fine-grained release separation:
 | **`stable`** | Release tags (`vX.Y.Z`) | `X.Y.Z` | general community |
 
 The channel can be switched at runtime in the Settings > About page, persisted in `userData`, or overridden via the `AIRI_UPDATE_CHANNEL` environment variable.
+
+### 3.4 Real-Time Download Telemetry & UI Presentation (PR #3142)
+To avoid opaque background downloads that leave users wondering why network bandwidth is active:
+- The updater service computes rolling download rate (in KB/s or MB/s) and tracks `bytesDownloaded` against `totalBytes`.
+- Streams progress over Eventa IPC (`updater:download-progress`) to the renderer settings page (`settings/about.vue`) and optional Control Strip indicator.
+- When transfer finishes, UI switches to a lightweight `[ Reload to Apply ]` badge.
+
+### 3.5 Deterministic Build Splitting & Differential CDN Caching (PR #3149, PR #3150)
+Because Cloudflare R2 serves OTA bundles to distributed desktop clients, cache efficiency is critical. Every commit naturally modifies build metadata (`~build/git`, `~build/time` via `unplugin-info`). If embedded directly into main renderer bundles, every single commit changes the chunk hash of the entire renderer application, forcing clients to redownload 15 MB every update.
+- **Dedicated Build-Info Chunk (PR #3149)**: In `apps/stage-tamagotchi/electron.vite.config.ts`, `unplugin-info` modules are isolated into a fixed-name unhashed chunk:
+  ```ts
+  const buildInfoChunkName = 'build-info'
+  output: {
+    codeSplitting: {
+      groups: [{ name: buildInfoChunkName, test: /^\0~build\// }],
+    },
+    chunkFileNames: chunk => chunk.name === buildInfoChunkName ? `assets/${buildInfoChunkName}.js` : 'assets/[name]-[hash].js',
+  }
+  ```
+- **Layout Region Normalization**: Normalizes virtual layout comment prefixes (`vite-plugin-vue-layouts`) across differing build paths so chunk hashes remain 100% stable regardless of checkout directory.
+- **CI Reproducibility Assertion (PR #3150)**: Validates that consecutive CI builds produce bit-for-bit identical bundle hashes when source code is unchanged.
+
+### 3.6 Dual-Mode Fallback & Semver Syntax Alignment (PR #3137)
+When native Node C++ addons bump (e.g. `@proj-airi/electron-native-backdrop`), Ergosphere delegates to full binary installers managed by `electron-updater`:
+- Ensures semver version range expressions in update manifests conform strictly to what `electron-builder` and `electron-updater` can parse.
+- Prevents version range mismatch errors where the updater aborts due to semver syntax rejection.
+
+### 3.7 CI Release Planning & Monorepo Root Resolution (PR #3130, PR #3133)
+Automated release workflows (`.github/workflows/release-tamagotchi.yml` and `.github/scripts/plan-tamagotchi-updates.ts`):
+- Checks out and inspects the root `package.json` to properly determine monorepo version increments across dependent workspaces.
+- Skips redundant disk cleanup passes during artifact uploads to accelerate GitHub Actions release turnaround.
 
 ---
 
@@ -163,19 +206,22 @@ Instead of relying on upstream's servers (`release-updates.airi.build`), `dasilv
 ## 6. Phased Implementation Roadmap
 
 ### Phase 1: Toolchain & Launcher Scaffolding
-- [ ] Add `@moeru-ai/ergosphere-it` or vendor the core launcher shim into `apps/stage-tamagotchi/src/launcher/`.
-- [ ] Configure `apps/stage-tamagotchi/ergo.config.ts` with channel definitions and placeholder Ed25519 public key.
-- [ ] Update `electron.vite.config.ts` to output both the minimal launcher and the full application bundle.
+- [ ] Add `@moeru-ai/ergosphere-it` (v0.0.11+) or vendor the core launcher shim into `apps/stage-tamagotchi/src/launcher/`.
+- [ ] Configure `apps/stage-tamagotchi/ergo.config.ts` with channel definitions and Ed25519 public key.
+- [ ] Update `electron.vite.config.ts` to output both minimal launcher and full application bundle, isolating `unplugin-info` to a dedicated `assets/build-info.js` chunk (PR #3149).
 
 ### Phase 2: Main Process & Health Integration
 - [ ] Wire `auto-updater.ts` service to communicate with `ergosphere-it` client.
-- [ ] Implement `injeca.start()` health confirmation in `apps/stage-tamagotchi/src/main/index.ts`.
+- [ ] Implement `injeca.start()` health confirmation in `apps/stage-tamagotchi/src/main/index.ts` with reload-resilient health re-registration (PR #3145).
+- [ ] Add dual-engine version range parsing for seamless fallback to `electron-updater` binary installers when native modules change (PR #3137).
 - [ ] Implement local SeaweedFS / S3 mock test harness (`scripts/update-test`) to verify bundle extraction, dynamic load, and fail-safe rollback locally on macOS and Windows.
 
 ### Phase 3: GitHub Actions Release Automation
-- [ ] Add `.github/scripts/plan-tamagotchi-updates.ts` to determine whether a commit produces an OTA bundle or a full installer.
+- [ ] Add `.github/scripts/plan-tamagotchi-updates.ts` with root `package.json` resolution (PR #3130) to determine whether a commit produces an OTA bundle or a full installer.
+- [ ] Add CI reproducibility check asserting identical bundle hashes across clean builds (PR #3150).
 - [ ] Configure GitHub Actions workflow to sign bundles and publish to Cloudflare R2 on push to `main` (dev lane) and release tags (stable).
 
 ### Phase 4: UI & Channel Controls
 - [ ] Update `packages/stage-pages/src/pages/settings/about.vue` to display currently running bundle version and allow switching update channels (`stable` vs `dev`).
-- [ ] Provide user notifications for pending restarts when updates finish downloading.
+- [ ] Implement real-time download telemetry UI showing download rate (MB/s) and byte progress (PR #3142).
+- [ ] Provide user notifications for pending restarts/reloads when updates finish downloading.
