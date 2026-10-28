@@ -18,6 +18,13 @@
 > - Upstream PR [#3145](https://github.com/moeru-ai/airi/pull/3145): `fix(stage-tamagotchi): apply the next update after a reload, and report health after a page reload` *(Author: `@nekomeowww`)*
 > - Upstream PR [#3149](https://github.com/moeru-ai/airi/pull/3149): `fix(stage-tamagotchi): keep renderer chunk names when only the commit changes` *(Author: `@nekomeowww`)*
 > - Upstream PR [#3150](https://github.com/moeru-ai/airi/pull/3150): `ci(stage-tamagotchi): check that two builds give the same bundle` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3157](https://github.com/moeru-ai/airi/pull/3157): `feat(stage-web,stage-ui): check for a new PWA build on a timer, and keep the update prompt until the user answers` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3165](https://github.com/moeru-ai/airi/pull/3165): `fix(stage-tamagotchi): keep four update channels and report health after the stage loads` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3166](https://github.com/moeru-ai/airi/pull/3166): `ci(stage-tamagotchi): route releases through canary and register installers` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3177](https://github.com/moeru-ai/airi/pull/3177): `feat(stage-tamagotchi): show the version as badges on the about page` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3179](https://github.com/moeru-ai/airi/pull/3179): `ci(stage-tamagotchi): version dev and nightly builds as prereleases and register their installers` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3187](https://github.com/moeru-ai/airi/pull/3187): `fix(stage-tamagotchi): write the updater log in the user data directory` *(Author: `@nekomeowww`)*
+> - Upstream PR [#3188](https://github.com/moeru-ai/airi/pull/3188): `feat(stage-tamagotchi): build AppImage and pacman packages for Linux` *(Author: `@nekomeowww`)*
 > - Ergosphere-it Engine: [`https://github.com/moeru-ai/ergosphere-it`](https://github.com/moeru-ai/ergosphere-it)
 > - Upstream Commit `a9b3f6cb95`: Integrated launcher, R2 update feed, and SeaweedFS OTA testing harness
 > **Related Fork Skills & Specs**:
@@ -159,6 +166,18 @@ Automated release workflows (`.github/workflows/release-tamagotchi.yml` and `.gi
 - Checks out and inspects the root `package.json` to properly determine monorepo version increments across dependent workspaces.
 - Skips redundant disk cleanup passes during artifact uploads to accelerate GitHub Actions release turnaround.
 
+### 3.8 The Four-Channel Matrix & Release Pipeline (PR #3165, PR #3166, PR #3179)
+Upstream evolved Ergosphere into a formal four-channel update lifecycle:
+1. **`stable`**: Production releases tagged `vX.Y.Z` for general users.
+2. **`canary`**: Automated staging gate (`PR #3166`) where release candidates are validated with full installer registration before promoting to stable.
+3. **`dev`**: High-velocity branch updates triggered by pushes to `main`, versioned as prereleases (`PR #3179`) to prevent premature overwrites.
+4. **`nightly`**: Automated periodic integration snapshots with registered standalone installers (`PR #3179`).
+- **Post-Stage Health Confirmation (`PR #3165`)**: Rather than reporting health immediately upon launcher start, the application now delays health reporting until after the character stage window finishes loading and rendering successfully. This guards against fatal visual runtime crashes during initial asset instantiation.
+
+### 3.9 Sandboxed Log Storage & Version Badges (PR #3177, PR #3187)
+- **User Data Log Isolation (`PR #3187`)**: The updater service writes `updater.log` strictly inside the user data directory (`app.getPath('userData')/logs/`), eliminating write permission failures on Windows (`Program Files`) and Linux (`/opt/`).
+- **Channel Version Badges (`PR #3177`)**: The About page in Settings exposes clean semantic channel badges (`stable`, `canary`, `dev`, `nightly`) indicating active channel track and current build commit hash.
+
 ---
 
 ## 4. Fork-Specific Feasibility & Roadblocks Evaluation
@@ -193,7 +212,10 @@ Instead of relying on upstream's servers (`release-updates.airi.build`), `dasilv
       latest.json
       bundle-0.12.0-dev.412.3692652.tar.gz
       bundle-0.12.0-dev.412.3692652.tar.gz.sig
-    beta/
+    canary/
+      latest.json
+      ...
+    nightly/
       latest.json
       ...
     stable/
