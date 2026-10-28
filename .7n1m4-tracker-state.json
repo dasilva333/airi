@@ -1,6 +1,6 @@
 {
-  "last_inspected_sha": "52f99542a2bc161af67de0d3ce5372fc317cd517",
-  "last_run_timestamp": "2026-10-25T15:10:06.116Z",
+  "last_inspected_sha": "c516650af5bb8d7333a9cd20b258dedbf019c038",
+  "last_run_timestamp": "2026-10-28T15:24:44.558Z",
   "remote": "7n1m4",
   "branch": "main",
   "tracked_prs": {
@@ -49,8 +49,8 @@
       "state": "OPEN",
       "isDraft": false,
       "author": "7n1m4",
-      "commentsCount": 17,
-      "updatedAt": "2026-10-24T16:01:58Z",
+      "commentsCount": 22,
+      "updatedAt": "2026-10-28T15:23:55Z",
       "url": "https://github.com/anlmalabs/airi/issues/1",
       "type": "Issue"
     },
@@ -179,8 +179,8 @@
       "state": "OPEN",
       "isDraft": false,
       "author": "anlmabot",
-      "commentsCount": 27,
-      "updatedAt": "2026-10-24T09:27:15Z",
+      "commentsCount": 90,
+      "updatedAt": "2026-10-28T14:16:46Z",
       "url": "https://github.com/anlmalabs/airi/issues/17",
       "type": "Issue"
     },
@@ -203,6 +203,36 @@
       "updatedAt": "2026-10-21T11:24:34Z",
       "url": "https://github.com/anlmalabs/airi/issues/10",
       "type": "Issue"
+    },
+    "PR:21": {
+      "title": "feat(stage-ui): adopt peers repo + store (Phase 6 PR 2)",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-10-27T13:42:43Z",
+      "url": "https://github.com/anlmalabs/airi/pull/21",
+      "type": "PR"
+    },
+    "PR:23": {
+      "title": "feat(transport): align seam with upstream + port embassy-inbox/MessagingFriends",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-10-28T14:15:20Z",
+      "url": "https://github.com/anlmalabs/airi/pull/23",
+      "type": "PR"
+    },
+    "PR:22": {
+      "title": "feat(stage-ui): unify nap-chat substrate onto upstream design",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-10-27T21:27:19Z",
+      "url": "https://github.com/anlmalabs/airi/pull/22",
+      "type": "PR"
     }
   },
   "history": [
@@ -245,10 +275,36 @@
       "commits_count": 0,
       "files_count": 0,
       "pr_changes_count": 1
+    },
+    {
+      "date": "2026-10-27T15:10:47.366Z",
+      "from_sha": "52f99542a2bc161af67de0d3ce5372fc317cd517",
+      "to_sha": "59f1d77ffcc3535c383d5e0ad6a0babcadb1419d",
+      "commits_count": 3,
+      "files_count": 20,
+      "pr_changes_count": 3
+    },
+    {
+      "date": "2026-10-28T15:10:51.469Z",
+      "from_sha": "59f1d77ffcc3535c383d5e0ad6a0babcadb1419d",
+      "to_sha": "c516650af5bb8d7333a9cd20b258dedbf019c038",
+      "commits_count": 2,
+      "files_count": 37,
+      "pr_changes_count": 4
+    },
+    {
+      "date": "2026-10-28T15:24:44.568Z",
+      "from_sha": "c516650af5bb8d7333a9cd20b258dedbf019c038",
+      "to_sha": "c516650af5bb8d7333a9cd20b258dedbf019c038",
+      "commits_count": 0,
+      "files_count": 0,
+      "pr_changes_count": 1
     }
   ],
   "acknowledged_mentions": [
     "https://github.com/anlmalabs/airi/issues/1#issuecomment-6313736629",
-    "https://github.com/anlmalabs/airi/issues/1#issuecomment-6382505252"
+    "https://github.com/anlmalabs/airi/issues/1#issuecomment-6382505252",
+    "https://github.com/anlmalabs/airi/issues/1#issuecomment-6442783645",
+    "https://github.com/anlmalabs/airi/issues/1#issuecomment-6453934222"
   ]
 }
