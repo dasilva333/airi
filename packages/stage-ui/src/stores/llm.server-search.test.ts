@@ -165,6 +165,26 @@ describe('applyTwoWayServerWebSearchHandshake', () => {
     expect((result![0] as any).function?.name).toBe('web_search')
   })
 
+  it('injects OpenRouter hosted web search when provider has no id but baseURL is openrouter.ai', () => {
+    setActiveCardWithTools(['web_search'])
+
+    // ChatProvider created via createOpenRouter does not carry an id property
+    const chatProvider = {} as unknown as ChatProvider
+    const chatConfig = { baseURL: 'https://openrouter.ai/api/v1' }
+
+    const result = applyTwoWayServerWebSearchHandshake(
+      [mockLocalMcpSearchTool],
+      chatConfig,
+      chatProvider,
+      'deepseek/deepseek-v4-flash',
+      undefined,
+    )
+
+    expect(result).toHaveLength(1)
+    expect((result![0] as any).name).toBe('openrouter:web_search')
+    expect((result![0] as any).function?.name).toBe('openrouter:web_search')
+  })
+
   it('does NOT inject server search tool when serverWebSearch is false', () => {
     setActiveCardWithTools(['web_search'])
 

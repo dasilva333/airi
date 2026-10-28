@@ -1848,7 +1848,7 @@ Format your output as a raw thought log.`
         }
 
         const activeFavorite = favorites.value.find(
-          f => (f.provider === effectiveProviderId && f.model === effectiveModel)
+          f => ((f.provider === effectiveProviderId || (f.provider && effectiveProviderId && f.provider.replace(/[-_]ai$/, '') === effectiveProviderId.replace(/[-_]ai$/, ''))) && f.model === effectiveModel)
             || (f.model === effectiveModel && f.serverWebSearch !== undefined),
         )
 

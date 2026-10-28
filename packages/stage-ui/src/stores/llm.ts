@@ -305,6 +305,7 @@ function isServerWebSearchEnabled(
   model: string,
   chatProvider: ChatProvider,
   options?: StreamOptions,
+  chatConfig?: { baseURL?: string | URL, apiKey?: string },
 ): boolean {
   if (typeof options?.serverWebSearch === 'boolean')
     return options.serverWebSearch
@@ -312,17 +313,33 @@ function isServerWebSearchEnabled(
   if (typeof options?.requestOverrides?.serverWebSearch === 'boolean')
     return Boolean(options.requestOverrides.serverWebSearch)
 
+  const baseURL = String(chatConfig?.baseURL || '').toLowerCase()
+  const providerId = (
+    ((chatProvider as any)?.id || (chatProvider as any)?.providerId || '')
+    || (baseURL.includes('openrouter') ? 'openrouter-ai' : '')
+    || (baseURL.includes('opencode') ? 'opencode-go' : '')
+    || (baseURL.includes('deepseek') ? 'deepseek' : '')
+  ).toLowerCase()
+
   // Check active favorite preset in localStorage matching provider and model
   try {
     const favoritesRaw = typeof localStorage !== 'undefined' ? localStorage.getItem('airi:chat-model-favorites') : null
     if (favoritesRaw) {
       const favorites = JSON.parse(favoritesRaw)
       if (Array.isArray(favorites)) {
-        const providerId = ((chatProvider as any)?.id || '').toLowerCase()
-        const matched = favorites.find(
-          (f: any) => (f.model === model && (!providerId || (f.provider || '').toLowerCase().includes(providerId)))
-            || (f.model === model && f.serverWebSearch !== undefined),
-        )
+        const matched = favorites.find((f: any) => {
+          if (!f || f.model !== model)
+            return false
+          if (typeof f.serverWebSearch === 'boolean')
+            return true
+          if (!providerId)
+            return true
+          const favProvider = String(f.provider || '').toLowerCase()
+          return favProvider === providerId
+            || favProvider.replace(/[-_]ai$/, '') === providerId.replace(/[-_]ai$/, '')
+            || favProvider.includes(providerId)
+            || providerId.includes(favProvider)
+        })
         if (matched && typeof matched.serverWebSearch === 'boolean') {
           return matched.serverWebSearch
         }
@@ -336,16 +353,49 @@ function isServerWebSearchEnabled(
   // Check provider configuration options
   try {
     const providersStore = useProvidersStore()
-    const providerId = (chatProvider as any)?.id
-    if (providerId) {
-      const config = providersStore.getProviderConfig(providerId)
-      if ((config?.options as any)?.serverWebSearch === true) {
-        return true
+    const keysToCheck = [
+      providerId,
+      providerId.replace(/[-_]ai$/, ''),
+      providerId.includes('openrouter') ? 'openrouter-ai' : '',
+      providerId.includes('openrouter') ? 'openrouter' : '',
+      providerId.includes('opencode') ? 'opencode-go' : '',
+      providerId.includes('deepseek') ? 'deepseek' : '',
+    ].filter(Boolean)
+
+    for (const key of keysToCheck) {
+      const config = providersStore.getProviderConfig(key) as any
+      if (typeof config?.serverWebSearch === 'boolean') {
+        return config.serverWebSearch
+      }
+      if (typeof config?.options?.serverWebSearch === 'boolean') {
+        return config.options.serverWebSearch
+      }
+
+      const instances = providersStore.listInstances?.(key) || []
+      for (const inst of instances) {
+        if (typeof inst?.options?.serverWebSearch === 'boolean') {
+          return inst.options.serverWebSearch
+        }
+        if (typeof (inst as any)?.serverWebSearch === 'boolean') {
+          return (inst as any).serverWebSearch
+        }
       }
     }
   }
   catch {
     // Ignore store error
+  }
+
+  // Fallback: If not explicitly set to false, check whether the provider supports hosted web search
+  const isSupportedProvider = baseURL.includes('openrouter')
+    || baseURL.includes('opencode')
+    || baseURL.includes('deepseek')
+    || providerId.includes('openrouter')
+    || providerId.includes('opencode')
+    || providerId.includes('deepseek')
+
+  if (isSupportedProvider) {
+    return true
   }
 
   return false
@@ -358,7 +408,12 @@ function resolveServerSearchTool(
   options?: StreamOptions,
 ): Tool | undefined {
   const baseURL = String(chatConfig.baseURL || '').toLowerCase()
-  const providerId = ((chatProvider as any)?.id || '').toLowerCase()
+  const providerId = (
+    ((chatProvider as any)?.id || (chatProvider as any)?.providerId || '')
+    || (baseURL.includes('openrouter') ? 'openrouter-ai' : '')
+    || (baseURL.includes('opencode') ? 'opencode-go' : '')
+    || (baseURL.includes('deepseek') ? 'deepseek' : '')
+  ).toLowerCase()
 
   const defaultSearchParameters = {
     type: 'object',
@@ -430,7 +485,7 @@ function resolveServerSearchTool(
       },
     } as unknown as Tool
   }
-  if (providerId.includes('openrouter') || baseURL.includes('openrouter.ai')) {
+  if (providerId.includes('openrouter') || baseURL.includes('openrouter')) {
     return {
       name: 'openrouter:web_search',
       type: 'function',
@@ -559,7 +614,7 @@ export function applyTwoWayServerWebSearchHandshake(
     return budgetedTools
   }
 
-  if (!isServerWebSearchEnabled(model, chatProvider, options)) {
+  if (!isServerWebSearchEnabled(model, chatProvider, options, chatConfig)) {
     return budgetedTools
   }
 
@@ -601,14 +656,16 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
   const settingsChat = useSettingsChat()
   let processedMessages = combineSystemMessagesIfNeeded(messages, chatConfig, settingsChat)
 
-  if (tools?.some(t => ((t as any).function?.name || (t as any).name)?.includes('web_search'))) {
+  const searchTool = tools?.find(t => ((t as any).function?.name || (t as any).name)?.includes('web_search'))
+  if (searchTool) {
+    const toolName = (searchTool as any).function?.name || (searchTool as any).name || 'web_search'
     const lastMsg = processedMessages[processedMessages.length - 1]
     if (lastMsg && (lastMsg as any).role !== 'tool') {
       processedMessages = [
         ...processedMessages,
         {
           role: 'system',
-          content: '[TOOL DIRECTIVE: Internet web search is enabled via the "web_search" function. When web search is requested, needed for real-time information or current events, or referenced in dialogue, invoke the "web_search" tool. Never roleplay, simulate, or announce calling the tool in text without executing the tool call.]',
+          content: `[TOOL DIRECTIVE: Internet web search is enabled via "${toolName}" (or "web_search"). When web search is requested, needed for real-time information or current events, or referenced in dialogue, execute the web search tool to ground your response. Never simulate or announce searching in text without executing the tool.]`,
         } as Message,
       ]
     }
@@ -766,14 +823,16 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
   const settingsChat = useSettingsChat()
   let processedMessages = combineSystemMessagesIfNeeded(messages, chatConfig, settingsChat)
 
-  if (tools?.some(t => ((t as any).function?.name || (t as any).name)?.includes('web_search'))) {
+  const searchTool = tools?.find(t => ((t as any).function?.name || (t as any).name)?.includes('web_search'))
+  if (searchTool) {
+    const toolName = (searchTool as any).function?.name || (searchTool as any).name || 'web_search'
     const lastMsg = processedMessages[processedMessages.length - 1]
     if (lastMsg && (lastMsg as any).role !== 'tool') {
       processedMessages = [
         ...processedMessages,
         {
           role: 'system',
-          content: '[TOOL DIRECTIVE: Internet web search is enabled via the "web_search" function. When web search is requested, needed for real-time information or current events, or referenced in dialogue, invoke the "web_search" tool. Never roleplay, simulate, or announce calling the tool in text without executing the tool call.]',
+          content: `[TOOL DIRECTIVE: Internet web search is enabled via "${toolName}" (or "web_search"). When web search is requested, needed for real-time information or current events, or referenced in dialogue, execute the web search tool to ground your response. Never simulate or announce searching in text without executing the tool.]`,
         } as Message,
       ]
     }
