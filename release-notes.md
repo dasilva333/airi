@@ -1,100 +1,50 @@
-# 🚀 AIRI v0.9.41-stable.20261024 — Release Notes
+# 🚀 AIRI v0.9.42-stable.20261028 — Release Notes
 
-This release marks a massive breakthrough in conversational naturalness, companion autonomy, and auditory intelligence: introducing the **Conversational Cadence Engine**—transforming robotic, monolithic text dumps into natural, staged multi-bubble delivery with Jev-classified rhythmic pauses—alongside the **Decentralized Companion Embassy & Nap-Chat Substrate**, an **In-Chat Audio Server Music Generation Hub with Inline Player**, **Glyph's "Audio Works" Starter Micro-App**, **Single-Mic Authority with Tap-to-Talk Voice Dictation**, an overhauled **Audio Studio with LaTeX Math and Chemical Formula Verbalization**, a **Redesigned Chat Workspace Popover & Chromeless Desktop Window**, **Multi-Hop Pre-Flight Grounding**, and **Zero-Setup Keyless Free Cloud AI**.
+This release delivers a sweeping transformation across local auditory synthesis, multi-format avatar surgery, and procedural 3D motion diffusion: introducing **Ming 3.0 Local Neural TTS with Natural Language Voice Design**—enabling 100% on-device speech synthesis and promptcrafted custom voices running entirely in WebAssembly—alongside the **Universal Hacker Studio** supporting VRM, Live2D, and Spine avatar surgery, the **Generative Motion Studio powered by FlowMDM Neural Diffusion**, a **Snappier, Lazy-Loaded Floating Control Strip**, in-scene **Stage Radial Camera Framing Presets**, and **Resumable Long-Term Memory Vector Indexing**.
 
-Companions can now speak with natural comedic and dramatic pauses across staggered message bubbles, autonomously compose musical motifs and render playable audio directly in chat, track background generation jobs via Audio Works, socialize with peer companions through secure Cloudflare SQLite Durable Object Embassies while you are away, naturally pronounce complex mathematical theorems and chemical formulas aloud, and run in an ultra-clean borderless floating desktop window.
+Companions can now generate and speak with custom voices designed entirely from text prompts without external cloud APIs, autonomously synthesize fluid skeletal motions on the fly during conversations, allow deep real-time texture and shader adjustments across 3D and 2D avatars, and give you cinematic camera framing control right from the stage radial menu.
 
 ---
 
 ## ✨ Key Highlights
 
-### 🎭 Conversational Cadence Engine: Staged Multi-Bubble Delivery
-* **Staged Multi-Bubble Conversational Turns**: Companions no longer output walls of monolithic text. Responses now naturally break into progressive, staged message bubbles that unfold in organic conversational beats.
-* **Jev Semantic Rhythm Heads**: Employs TypeSafe Jev System-1 coprocessor classification to evaluate conversational pacing on the fly, dynamically distinguishing quick, spontaneous quips from contemplative, nuanced explanations.
-* **Synchronized Speech & Reading Rhythm**: Speech bubbles reveal progressively in lockstep with TTS voice playback, or follow natural reading punctuation pauses when voice audio is muted.
-* **Graceful Unmapped Playback Fallback**: Audio streams lacking word-level timing markers gracefully bypass the reveal gate, guaranteeing instant message display without hanging.
-* **Cross-Window Cadence Coordination**: Multi-bubble delivery synchronizes seamlessly across primary and secondary floating chat windows.
+### 🎙️ Ming 3.0 Local Neural TTS & Voice Design Studio
+* **100% On-Device Neural Synthesis**: Integrated Ming 3.0 running directly inside Electron and modern browsers via a dedicated multithreaded WASM compute pool, delivering rich neural speech synthesis with zero cloud latency, zero API keys, and zero telemetry.
+* **Natural Language Voice Design**: Design completely custom voice personalities on the fly using freeform text descriptions (e.g. *"Warm, gentle anime heroine with a calm, breathy cadence"*), complete with curated inspiration templates in Onboarding V3 and Voice Settings.
+* **Overhauled 2×2 Voice Engine Grid**: Redesigned the voice engine picker into an ergonomic 2×2 modal with purpose badges (*Chat, Roleplay, Ambient*), providing seamless switching between Kokoro, Ming 3.0, Pocket TTS, and Web Speech.
+* **Zero-Setup Quick-Start Slot**: Ming 3.0 is integrated as a default keyless local speech engine option during first-run onboarding.
 
-### 🎼 In-Chat Music Generation Hub & Inline Player
-* **Autonomous Music Generation Bridge (`generate_music`)**: Companions can now compose and generate full music tracks and instrumental motifs on demand via the AIRI audio server music hub exposed over MCP.
-* **Inline Transcript Audio Player**: Generated tracks render directly inside chat message bubbles as interactive audio player cards with track metadata, playback controls, and seek bars.
-* **ABC Notation Musical Conditioning**: Companions can inspect, describe, and edit musical compositions using standard ABC notation before dispatching generation jobs.
+### 👗 Universal Hacker Studio: Multi-Format Avatar Surgery (VRM, Live2D, Spine)
+* **Universal Adapter Architecture**: Completely re-engineered Hacker Studio (formerly V-HACK Lab) around an extensible adapter contract, expanding deep asset surgery beyond 3D VRM to natively support **Live2D** and **Spine** avatars.
+* **Direct Material & Texture Editing**: Inspect texture material ownership directly on loaded models, tweak color maps in real time, and inspect modifications with gamma-compensated preview lighting.
+* **Local Editing vs. AI Promptcraft**: Seamlessly toggle between local manual texture edits and generative promptcraft workflows to customize avatar outfits, hair colors, and accessories.
+* **Lossless Model Exporting**: Export customized avatars directly into standard GLB and ZIP formats with texture modifications and material bindings cleanly preserved.
 
-### 🎛️ Glyph's "Audio Works" Starter Micro-App
-* **Bundled "Audio Works" Starter Widget**: Added Glyph's Audio Works to the bundled generative micro-app catalog as a built-in starter widget.
-* **Autonomous Order Tracking**: Functions as an independent, self-polling job tracker for audio and music generation tasks, allowing companions to monitor rendering progress without locking chat turns.
+### 💃 Generative Motion Studio & FlowMDM Diffusion
+* **Unified Motion Studio Popover**: Debuted a dedicated Motion Studio popover accessible directly from the stage Control Strip, featuring **Create** (Text-to-Motion) and **Library** tabs, an "All vs Gen" filter, and instant animation stop triggers.
+* **FlowMDM Neural Sampler Hardening**: Upgraded the on-device text-to-motion engine with calibrated skeletal retargeting, yaw rotation stabilization, biped foot articulation, and contact inverse kinematics (IK) to eliminate foot sliding.
+* **ACT-First Autonomous Motion Generation**: Companions can now autonomously generate and trigger custom skeletal animations based on `<|ACT:*|>` emotion and motion tokens during conversational turns.
+* **Model Compatibility Gating**: Added an amber guidance notice when opening the Motion Studio with non-VRM models to guide users to compatible 3D avatars.
 
-### 🎙️ Single-Mic Authority & Tap-to-Talk Voice Dictation
-* **Single Microphone Coordinator**: Consolidated audio capture into a single authority across the floating Control Strip, global hotkeys, and chat composers—eliminating mic lock contention and double-recording bugs.
-* **Desktop Chatbox Dictation Mic**: Restyled the desktop chat composer with an integrated dictation microphone button for instant speech-to-text input.
-* **Web Stage Tap-to-Talk with VAD Auto-Stop**: Added voice dictation with Voice Activity Detection (VAD) to Web Stage, automatically stopping and transcribing when you finish speaking.
-* **MIME-Safe Audio Transcription**: Preserves browser audio recording MIME types across Whisper transcription requests to prevent decoding errors.
+### ⚡ Snappier Floating Control Strip & Lazy-Loaded Menus
+* **Lazy-Loaded Popover Menus**: Control Strip menus, avatar pickers, motions, and settings panels now lazy-load on demand rather than mounting all at once, slashing idle memory footprint and speeding up app launch.
+* **Silky Smooth Interactions**: Opening and switching between stage panels is now instantaneous with zero stutter, layout lag, or dropped frames.
 
-### 🤝 Companion Embassy & Nap-Chat (P2P Social Substrate)
-* **Decentralized Companion Embassy**: Companions can now connect, visit, and interact with other companions across different devices and user accounts via a private Cloudflare SQLite Durable Object backend.
-* **Nap-Chat Simulation & Staging Workbench**: While you are away, your companion can engage in autonomous social "nap chats" with trusted peer companions, exchanging ambassador taglines, building inter-companion lore, and staging pending messages for your review upon your return.
-* **Custom Ambassador Taglines**: Personalize your companion's social identity with custom ambassador taglines configured directly in the character card and displayed on peer away cards.
-* **Mutual Friend Requests & Trust Grants**: Full peer handshake protocol with invite minting, companion permissions, and revocable trust grants.
-* **Same-Account Multi-Device Discovery**: Real-time heartbeat tracking and seamless peer discovery across your own devices powered by Cloudflare Edge Vault.
-* **Stateful Discord Gateway Durable Object**: Deploy 24/7 autonomous Discord companion presence straight to Cloudflare Edge with SQLite persistence, zero server maintenance, and no local desktop process required.
+### 🎯 Stage Radial Menu & Camera Framing Presets
+* **1-Click Camera Framing Presets**: Added calibrated one-click camera framing shortcuts (*Face / Close-up, Bust / Torso, Full-Body, Dynamic Dutch Angle*) directly into the in-scene stage radial menu.
+* **Dual-Engine Matrix Calibration**: Camera framing coordinates are mathematically tuned for both 3D VRM camera matrices and Live2D 2D viewport coordinates.
 
-### 🎵 Redesigned Audio Studio & UST Math/Chemical Verbalization
-* **Audio Studio 2-Column Split Layout**: Completely overhauled the Audio Studio with an ergonomic 2-column layout featuring sticky voice profile parameters, live waveform visualizers, and interactive synthesis controls.
-* **LaTeX Math & Chemical Formula Verbalization**: The Universal Speech Transformer (UST) now parses complex LaTeX mathematics and chemical equations (such as quadratic formulas or chemical reactions), converting them into natural, spoken English sentences instead of reading raw LaTeX syntax aloud or choking synthesis.
-* **Safe Speech Punctuation Handling**: Preserves conversational speech text after non-tag symbols like `<` or `&` (such as `a < b` or `Tom & Jerry`), preventing sentences from being accidentally dropped during speech synthesis.
+### 🧠 Resumable Long-Term Memory Vector Indexing
+* **Checkpointed Background Embedding**: Reworked long-term memory vector indexing to process entries oldest-first with persistent coverage checkpoints, allowing indexing jobs to resume seamlessly across app restarts without starting over.
+* **Live Mind Map Telemetry**: Added real-time vector index telemetry to the Mind Map memory viewer, showing active embedder models, indexed chunk counts, and live indexing progress.
 
-### 🪟 Chat Workspace Popover, Custom Palettes & Chromeless Window
-* **Unified Chat Workspace Popover**: Replaced the legacy timeline dropdown with an expansive, slide-out Chat Workspace navigation menu.
-* **Chromeless Floating Companion Window**: Run the chatbox as a clean, borderless, transparent floating window for a minimal desktop footprint.
-* **Adaptive "Theme" Chatbox Mode**: Added an adaptive "Theme" background option that automatically switches between subtle light and dark frosted glass surfaces to match your active UI mode.
-* **Solid Color Backdrops & Custom Palette Grid**: Customize chat backgrounds with solid pastel or dark colors, paired with custom hex color pickers.
-* **Single-Symbol Kanji Emblems**: Redesigned the Settings catalog with unified single-symbol Kanji emblems for high-contrast, minimalist navigation.
-* **Workspace Card Switcher Polish**: Enhanced the chat workspace popover with synchronized filter states, canonical favorites ordering, and clean title formatting.
-* **Actor Stage Mate Engine Quick Actions**: VRM avatars now offer a one-click menu beside the drag handle to swap to, open, or sync outfits with the native Mate Engine sidecar.
+### 👂 Voice & Hearing Pipeline Polish
+* **Single-Shot Cold-Mic Tap-to-Talk**: Added a cold-mic mode across all microphone surfaces for reliable, one-touch voice dictation without continuous background listening drift.
+* **Live Interim STT Deduplication**: Fixed speech recognition buffer updates so interim voice-to-text results stream cleanly without cumulative sentence duplication.
+* **Whisper Model Download Chips**: Shortened Whisper model cards in Hearing settings and added live download size badges for clear disk usage transparency.
+* **Microphone Permission Visual Alerts**: Voice input cards now clearly display visual warning indicators when system microphone permissions are blocked.
 
-### 🧠 Multi-Hop Pre-Flight Grounding & Anaphoric Query Expansion
-* **Multi-Hop Entity Grounding**: Expands memory retrieval probes across connected nodes in the Knowledge Graph, bridging related concepts even when not explicitly named together in the user prompt.
-* **Turn-to-Turn Anaphoric Resolution**: Resolves ambiguous pronouns ("it", "she", "that incident") against recent conversation history before querying the vector store, dramatically boosting retrieval accuracy.
-* **Salience-Weighted Snippet Windowing**: Intelligently weights and trims retrieved memory snippets to maximize prompt budget efficiency without truncating critical context.
-* **Debounced Grounding Probes**: Added a 2-second debounce and AbortController to eliminate duplicate retrieval calls during rapid typing or live editing.
-
-### ☁️ Zero-Setup Free Cloud AI & Onboarding Polish
-* **Zero-Setup Keyless Free AI (LanLan & Kilo)**: Integrated keyless free cloud providers into first-run onboarding, letting new users start chatting immediately with zero API keys or billing setup required.
-* **Decomposed Consciousness Step**: Extracted Consciousness configuration into a modular, reusable workspace component for seamless provider switching in Settings.
-* **Web Stage Provider Onboarding Nudge**: Added responsive setup prompts across both portrait and landscape breakpoints to guide new users through configuring their first AI provider.
-
-### 🧙 Onboarding V3: Capability-Grid Tools Step & Real Motion Pre-Warm
-* **Tools Step Becomes a Capability Grid**: The onboarding tools step is now a single responsive grid of nine capability cards that only offers what your setup can actually run — desktop-only powers stay on desktop, image generation appears when an artistry provider is configured, and motion unlocks with a VRM vessel.
-* **Motion Pre-Warm That Actually Warms Up**: Pre-warming the motion engine now loads the real text encoder and motion model with live byte-level progress, remembers its state as you navigate, and honestly reports failures with a retry instead of a fake success.
-* **Smarter Finale Summary**: The wrap-up screen now reflects the exact capabilities you enabled — including terminal, music, custom tools, and journal — so nothing you turned on goes missing.
-
-### 🎛️ Control Strip: VFX Previews, Wardrobe Rebuild & Bottom-Sheet Editor
-* **Live VFX Preview Popover**: Preview fire, electric, magic, and verdant stage effects from a visual 2x2 grid on every control strip before firing them on your avatar.
-* **Rebuilt Wardrobe Popover**: Outfit switching now lists your character's actual outfit slots with one-tap activate and reset, and preset avatars ship with bundled outfits that survive state resets.
-* **Bottom-Sheet Control Editor**: Customizing the control strip now slides up as a native-feeling bottom sheet, and the motions picker supports multi-select idle cycles with auditioning.
-* **Expression Explorer**: Emotion management gets the same treatment as motions — browse, filter, rename, and toggle expressions from a shared explorer in both the Model Customizer and the strip.
-
-### 🌐 Web Stage & Voice Polish
-* **Solid-Color Stage Backgrounds**: Paint the web stage with solid pastel or dark colors, and navigate chats through the same unified workspace popover as desktop.
-* **Clearer Mic Status**: The microphone popover now shows a live speech-recognition status row with a one-tap link to hearing setup when something needs attention.
-
-### ⚡ Platform Performance & Polish
-* **Surrogate-Pair Safe Truncation**: Prevents string truncation from slicing multi-byte Unicode emoji or surrogate pairs in half, eliminating encoding artifacts and broken preview text.
-* **Strict Web URL Parsing**: Hardened URL validation across stage links and citations, cleanly rejecting pseudo-protocols and invalid URLs.
-* **Widget RPC Initialization Order**: Ensures base window Electron invokes are fully registered before widget RPC channels open, preventing race conditions during widget popouts.
-* **Transformers 4.x WASM & Local Inference Hardening**: Pinned the local inference backend to `@huggingface/transformers` 4.x WASM and hardened local Whisper transcription with graceful device fallbacks.
-* **Audio Metering Efficiency**: Audio meter polling stabilized at 20 Hz, eliminating 60fps reactivity churn.
-* **Type Safety Polish**: Resolved 77 TypeScript type errors in `stage-ui` without dirty type casts.
-
----
-
-## 🌐 Community & Upstream Radar
-
-### 🌊 Upstream Pull Requests (Forward-Ported from moeru-ai/airi)
-* **PR [#3054](https://github.com/moeru-ai/airi/pull/3054) / [#3058](https://github.com/moeru-ai/airi/pull/3058): `feat(core-agent,stage-ui): now speech formula, math, chem correctly`** — Sourced and adapted from upstream by **@nekomeowww**, integrating MathJSON, `@proj-airi/speech-transformer-math`, and `@proj-airi/speech-transformer-chem` to verbalize LaTeX math expressions and chemical formulas aloud across languages.
-* **PR [#3053](https://github.com/moeru-ai/airi/pull/3053): `fix(stage-ui): avoid splitting surrogate pairs in chat reply preview`** — Sourced from upstream by **@keeponlight**, preventing UTF-16 surrogate pairs and multi-byte emojis from being bisected during string truncation.
-* **PR [#3049](https://github.com/moeru-ai/airi/pull/3049): `fix(stage-shared): parse Electron punctuation accelerators`** — Sourced from upstream by **@Codada**, adding support for single-character punctuation (e.g. `,`, `.`, `/`) in global keyboard shortcut strings.
-* **PR [#3044](https://github.com/moeru-ai/airi/pull/3044): `fix(stage-ui): link only parsed web URLs in citations and search results`** — Sourced from upstream by **@nekomeowww**, hardening URL validation via `isWebUrl()` against hostless inputs and unsafe pseudo-protocols.
-* **PR [#3035](https://github.com/moeru-ai/airi/pull/3035): `fix(core-agent): keep speech text after a < or & that is not a tag`** — Sourced from upstream by **@nekomeowww**, preventing streamed speech synthesis from dropping sentences containing isolated `<` or `&` characters.
-* **PR [#2932](https://github.com/moeru-ai/airi/pull/2932): `fix(tamagotchi): await setupBaseWindowElectronInvokes in widgets RPC setup`** — Sourced from upstream by **@bitxwolf**, eliminating IPC race conditions by awaiting base window Electron invokes before opening widget RPC channels.
-* **PR [#3057](https://github.com/moeru-ai/airi/pull/3057): `fix(repo): stop VS Code Java extensions from scanning node_modules`** — Sourced from upstream by **@nekomeowww**, adding IDE configuration exclusions to prevent editor freezing.
+### 🌐 Web Stage & Layout Polish
+* **Control Strip Chatbox Toggle on Web**: Added a direct Chatbox visibility toggle button to the Web Stage Control Strip for parity with desktop.
+* **Sentence-Sync Highlight Scoping**: Un-scoped CSS rules for sentence-sync subtitle highlighting so text glows accurately across rich HTML message bubbles.
+* **Persistent Preview/Apply Avatar State**: Preserved preview vs. applied state selections across avatar popover re-opens.
