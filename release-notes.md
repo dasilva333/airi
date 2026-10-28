@@ -1,12 +1,18 @@
 # 🚀 AIRI v0.9.42-stable.20261028 — Release Notes
 
-This release delivers a sweeping transformation across local auditory synthesis, multi-format avatar surgery, and procedural 3D motion diffusion: introducing **Ming 3.0 Local Neural TTS with Natural Language Voice Design**—enabling 100% on-device speech synthesis and promptcrafted custom voices running entirely in WebAssembly—alongside the **Universal Hacker Studio** supporting VRM, Live2D, and Spine avatar surgery, the **Generative Motion Studio powered by FlowMDM Neural Diffusion**, a **Snappier, Lazy-Loaded Floating Control Strip**, in-scene **Stage Radial Camera Framing Presets**, and **Resumable Long-Term Memory Vector Indexing**.
+This release delivers a sweeping transformation across local auditory synthesis, multi-format avatar surgery, procedural 3D motion diffusion, and live internet grounding: introducing **Ming 3.0 Local Neural TTS with Natural Language Voice Design**—enabling 100% on-device speech synthesis and promptcrafted custom voices running entirely in WebAssembly—alongside **Hosted Server-Side Web Search & Real-Time Grounding** across OpenRouter and DeepSeek, the **Universal Hacker Studio** supporting VRM, Live2D, and Spine avatar surgery, the **Generative Motion Studio powered by FlowMDM Neural Diffusion**, a **Snappier, Lazy-Loaded Floating Control Strip**, in-scene **Stage Radial Camera Framing Presets**, and **Resumable Long-Term Memory Vector Indexing**.
 
-Companions can now generate and speak with custom voices designed entirely from text prompts without external cloud APIs, autonomously synthesize fluid skeletal motions on the fly during conversations, allow deep real-time texture and shader adjustments across 3D and 2D avatars, and give you cinematic camera framing control right from the stage radial menu.
+Companions can now generate and speak with custom voices designed entirely from text prompts without external cloud APIs, autonomously synthesize fluid skeletal motions on the fly during conversations, search the live web in real time for breaking news and grounded sources, allow deep real-time texture and shader adjustments across 3D and 2D avatars, and give you cinematic camera framing control right from the stage radial menu.
 
 ---
 
 ## ✨ Key Highlights
+
+### 🔍 Hosted Server-Side Web Search & Real-Time Grounding
+* **Native Cloud Provider Search (OpenRouter & DeepSeek)**: Companions can now autonomously search the live web in real time directly over provider GPU infrastructure (OpenRouter `openrouter:web_search` and DeepSeek / OpenCode Go hosted search), allowing characters to pull down breaking news, look up current facts, and answer time-sensitive questions without requiring local search engines, complex MCP setups, or external API keys.
+* **Character ACL Two-Way Handshake**: Automatically resolves provider-hosted search capabilities against Character Card permissions (`web_search`), ensuring characters only access the live web when authorized while gracefully stripping redundant local search tools to prevent tool bloat.
+* **Prompt Prefix-Cache Alignment**: Grounding directives are positioned at the dynamic message tail rather than contaminating the system prompt, preserving 100% KV cache hits on static persona prefixes across chat turns, automated heartbeats, and suggestion loops.
+* **Source Citations & Transparent Grounding**: Search results stream directly into conversation turns with inline source citations (`url_citation`), keeping your companion's answers grounded and verifiable.
 
 ### 🎙️ Ming 3.0 Local Neural TTS & Voice Design Studio
 * **100% On-Device Neural Synthesis**: Integrated Ming 3.0 running directly inside Electron and modern browsers via a dedicated multithreaded WASM compute pool, delivering rich neural speech synthesis with zero cloud latency, zero API keys, and zero telemetry.
@@ -48,3 +54,11 @@ Companions can now generate and speak with custom voices designed entirely from 
 * **Control Strip Chatbox Toggle on Web**: Added a direct Chatbox visibility toggle button to the Web Stage Control Strip for parity with desktop.
 * **Sentence-Sync Highlight Scoping**: Un-scoped CSS rules for sentence-sync subtitle highlighting so text glows accurately across rich HTML message bubbles.
 * **Persistent Preview/Apply Avatar State**: Preserved preview vs. applied state selections across avatar popover re-opens.
+
+---
+
+## 🌐 Community & Upstream Radar
+
+### 🌊 Upstream Pull Requests (Forward-Ported from moeru-ai/airi)
+* **PR [#3156](https://github.com/moeru-ai/airi/pull/3156): `feat(stage-ui): add DeepSeek web search provider`** — Sourced and adapted from upstream by **@jim139129**, providing the core provider integration and schemas for hosted server-side search dispatch.
+* **PR [#3191](https://github.com/moeru-ai/airi/pull/3191) & [#3194](https://github.com/moeru-ai/airi/pull/3194): `refactor(ui): move hand-made tints to chromatic colours and add range thumb fallbacks`** — Sourced and adapted from upstream by **@nekomeowww**, migrating manual OKLCH tints to UnoCSS chromatic theme tokens (`theme('colors.primary.*')`) across stage transitions, background waves, and slider controls.
