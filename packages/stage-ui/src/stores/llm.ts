@@ -8,10 +8,13 @@ import { streamText } from '@xsai/stream-text'
 import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 
+import { resolveOpenCodeSessionId } from '../libs/providers/providers/opencode-go'
 import { DEFAULT_MAX_TOOL_STEPS, withToolStepBudget } from '../libs/providers/tool-call-budget'
 import { withToolResultImageSupport } from '../libs/providers/tool-result-images'
 import { sanitizeTools } from '../libs/providers/tool-schema'
+import { tryGetMcpToolBridge } from './mcp-tool-bridge'
 import { useAiriCardStore } from './modules/airi-card'
+import { useProvidersStore } from './providers'
 import { useSettingsChat } from './settings/chat'
 
 export type StreamEvent
@@ -37,6 +40,7 @@ export interface StreamOptions {
   contextWidth?: number
   vision?: boolean
   maxSteps?: number
+  serverWebSearch?: boolean
   requestOverrides?: Record<string, unknown>
 }
 
@@ -51,6 +55,7 @@ function sanitizeRequestOverrides(overrides?: Record<string, unknown>) {
     'onEvent',
     'abortSignal',
     'maxSteps',
+    'serverWebSearch',
   ])
 
   return Object.fromEntries(
@@ -296,14 +301,287 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
   })
 }
 
+function isServerWebSearchEnabled(
+  model: string,
+  chatProvider: ChatProvider,
+  options?: StreamOptions,
+): boolean {
+  if (typeof options?.serverWebSearch === 'boolean')
+    return options.serverWebSearch
+
+  if (typeof options?.requestOverrides?.serverWebSearch === 'boolean')
+    return Boolean(options.requestOverrides.serverWebSearch)
+
+  // Check active favorite preset in localStorage matching provider and model
+  try {
+    const favoritesRaw = typeof localStorage !== 'undefined' ? localStorage.getItem('airi:chat-model-favorites') : null
+    if (favoritesRaw) {
+      const favorites = JSON.parse(favoritesRaw)
+      if (Array.isArray(favorites)) {
+        const providerId = ((chatProvider as any)?.id || '').toLowerCase()
+        const matched = favorites.find(
+          (f: any) => (f.model === model && (!providerId || (f.provider || '').toLowerCase().includes(providerId)))
+            || (f.model === model && f.serverWebSearch !== undefined),
+        )
+        if (matched && typeof matched.serverWebSearch === 'boolean') {
+          return matched.serverWebSearch
+        }
+      }
+    }
+  }
+  catch {
+    // Ignore storage lookup error
+  }
+
+  // Check provider configuration options
+  try {
+    const providersStore = useProvidersStore()
+    const providerId = (chatProvider as any)?.id
+    if (providerId) {
+      const config = providersStore.getProviderConfig(providerId)
+      if ((config?.options as any)?.serverWebSearch === true) {
+        return true
+      }
+    }
+  }
+  catch {
+    // Ignore store error
+  }
+
+  return false
+}
+
+function resolveServerSearchTool(
+  chatConfig: { baseURL?: string | URL, apiKey?: string },
+  chatProvider: ChatProvider,
+  model?: string,
+  options?: StreamOptions,
+): Tool | undefined {
+  const baseURL = String(chatConfig.baseURL || '').toLowerCase()
+  const providerId = ((chatProvider as any)?.id || '').toLowerCase()
+
+  const defaultSearchParameters = {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: 'The search query to look up on the web',
+      },
+    },
+    required: ['query'],
+  }
+
+  const defaultExecute = async (args: any) => {
+    const query = args?.query || args?.q || (typeof args === 'string' ? args : JSON.stringify(args))
+    try {
+      const bridge = tryGetMcpToolBridge()
+      if (bridge) {
+        const rawTools = await bridge.listTools()
+        const searchTool = rawTools.find(t => t.name.includes('websearch') || t.name.includes('search'))
+        if (searchTool) {
+          const res = await bridge.callTool({
+            name: searchTool.name,
+            arguments: { query },
+          })
+          if (res?.content) {
+            return res.content.map((c: any) => c.text || JSON.stringify(c)).join('\n')
+          }
+          return typeof res === 'string' ? res : JSON.stringify(res)
+        }
+      }
+    }
+    catch {}
+    return `No search results found for query: "${query}".`
+  }
+
+  if (providerId.includes('deepseek') || baseURL.includes('deepseek.com')) {
+    return {
+      name: 'web_search',
+      type: 'function',
+      function: {
+        name: 'web_search',
+        description: 'Search the web for up-to-date information, news, and real-time knowledge.',
+        parameters: defaultSearchParameters,
+      },
+      execute: async (args: any) => {
+        const query = args?.query || args?.q || (typeof args === 'string' ? args : JSON.stringify(args))
+        const apiKey = chatConfig.apiKey
+        if (apiKey) {
+          try {
+            const searchUrl = 'https://api.deepseek.com/v1/tools/search'
+            const res = await fetch(searchUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ query }),
+            })
+            if (res.ok) {
+              const data = await res.json()
+              if (data?.results || data?.content) {
+                return JSON.stringify(data.results || data.content)
+              }
+            }
+          }
+          catch {}
+        }
+        return await defaultExecute(args)
+      },
+    } as unknown as Tool
+  }
+  if (providerId.includes('openrouter') || baseURL.includes('openrouter.ai')) {
+    return {
+      name: 'openrouter:web_search',
+      type: 'function',
+      function: {
+        name: 'openrouter:web_search',
+        description: 'Search the web using OpenRouter hosted search engine.',
+        parameters: defaultSearchParameters,
+      },
+      execute: defaultExecute,
+    } as unknown as Tool
+  }
+  if (providerId.includes('opencode') || baseURL.includes('opencode.ai')) {
+    return {
+      name: 'web_search',
+      type: 'function',
+      function: {
+        name: 'web_search',
+        description: 'Search the web for real-time information and current events.',
+        parameters: defaultSearchParameters,
+      },
+      execute: async (args: any) => {
+        const query = args?.query || args?.q || (typeof args === 'string' ? args : JSON.stringify(args))
+        const apiKey = chatConfig.apiKey
+        if (apiKey) {
+          try {
+            const rawBase = String(chatConfig.baseURL || 'https://opencode.ai/zen/go/v1/')
+            const messagesUrl = `${rawBase.replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, '')}/messages`
+            const sessionId = (typeof window !== 'undefined' && window.localStorage?.getItem('opencode_session_id'))
+              || (typeof localStorage !== 'undefined' && localStorage?.getItem('opencode_session_id'))
+              || resolveOpenCodeSessionId()
+
+            const res = await fetch(messagesUrl, {
+              method: 'POST',
+              headers: {
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+                'x-opencode-session': sessionId,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: model || 'deepseek-v4.1-flash',
+                // NOTICE: Anthropic Messages endpoint specification strictly requires `max_tokens`
+                // (omitting it returns HTTP 400 Bad Request: {"model":"..."}). To avoid any artificial
+                // bottleneck, we default to the unconstrained maximum output window (64000) unless user configured one.
+                max_tokens: options?.max_tokens || 64000,
+                messages: [
+                  {
+                    role: 'user',
+                    content: `Search the web and provide detailed current information for: ${query}`,
+                  },
+                ],
+                tools: [
+                  {
+                    type: 'web_search_20260209',
+                    name: 'web_search',
+                  },
+                ],
+              }),
+            })
+
+            if (res.ok) {
+              const data = await res.json()
+              const contentBlocks = Array.isArray(data.content) ? data.content : []
+
+              const textBlocks = contentBlocks
+                .filter((c: any) => c.type === 'text' && typeof c.text === 'string' && c.text.trim())
+                .map((c: any) => c.text.trim())
+
+              // In multi-hop search turns, the final text block is the synthesized grounded answer
+              const finalAnswer = textBlocks.length > 1
+                ? textBlocks.slice(1).join('\n\n')
+                : (textBlocks[0] || '')
+
+              const citations: string[] = []
+              for (const block of contentBlocks) {
+                if (block.type === 'web_search_tool_result' && Array.isArray(block.content)) {
+                  for (const item of block.content) {
+                    if (item.url && item.title) {
+                      citations.push(`- [${item.title}](${item.url})`)
+                    }
+                  }
+                }
+              }
+
+              if (finalAnswer) {
+                if (citations.length > 0 && !finalAnswer.includes('http')) {
+                  return `${finalAnswer}\n\nSources:\n${citations.slice(0, 5).join('\n')}`
+                }
+                return finalAnswer
+              }
+
+              if (citations.length > 0) {
+                return `Search results:\n${citations.join('\n')}`
+              }
+            }
+            else {
+              console.warn('[llmStore] OpenCode hosted search HTTP error:', res.status, await res.text().catch(() => ''))
+            }
+          }
+          catch (err) {
+            console.warn('[llmStore] OpenCode hosted search request error:', err)
+          }
+        }
+
+        return await defaultExecute(args)
+      },
+    } as unknown as Tool
+  }
+  return undefined
+}
+
+export function applyTwoWayServerWebSearchHandshake(
+  budgetedTools: Tool[] | undefined,
+  chatConfig: { baseURL?: string | URL, apiKey?: string },
+  chatProvider: ChatProvider,
+  model: string,
+  options?: StreamOptions,
+): Tool[] | undefined {
+  const cardStore = useAiriCardStore()
+  const activeCard = cardStore.activeCard
+  const allowedTools = activeCard?.extensions?.airi?.generation?.known?.allowedTools
+  const isWebSearchAllowed = Boolean(allowedTools?.includes('web_search') || allowedTools?.includes('mcp_web_search'))
+
+  if (!isWebSearchAllowed) {
+    // Character ACL denies web search; preserve boundaries
+    return budgetedTools
+  }
+
+  if (!isServerWebSearchEnabled(model, chatProvider, options)) {
+    return budgetedTools
+  }
+
+  const serverSearchTool = resolveServerSearchTool(chatConfig, chatProvider, model, options)
+  if (!serverSearchTool) {
+    return budgetedTools
+  }
+
+  // Strip client-side / local MCP web search tools to avoid duplicate / competing definitions
+  const nonSearchTools = (budgetedTools || []).filter((t: any) => {
+    const name = (t.function?.name || t.name || '').toLowerCase()
+    return !name.includes('websearch') && !name.includes('web_search') && !name.includes('search_web')
+  })
+
+  debug('[llmStore] Two-Way Handshake: Injected server-side web search tool', serverSearchTool)
+  return [...nonSearchTools, serverSearchTool]
+}
+
 async function streamFrom(model: string, chatProvider: ChatProvider, messages: Message[], options?: StreamOptions) {
   const headers = options?.headers
   const chatConfig = getChatConfig(model, chatProvider)
 
-  const settingsChat = useSettingsChat()
-  const processedMessages = combineSystemMessagesIfNeeded(messages, chatConfig, settingsChat)
-  const sanitized = sanitizeMessages(processedMessages as unknown[], { vision: options?.vision })
-  const requestOverrides = sanitizeRequestOverrides(options?.requestOverrides)
   const resolveTools = async () => {
     const tools = typeof options?.tools === 'function'
       ? await options.tools()
@@ -317,7 +595,27 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
   if (sanitizedTools && sanitizedTools.length > 0) {
     debug('[llmStore] Resolved system tools before filtering:', sanitizedTools.map((t: any) => t.function?.name || t.name))
   }
-  const { tools, maxSteps } = withToolStepBudget(filterToolsByAllowedTools(sanitizedTools), options?.maxSteps ?? DEFAULT_MAX_TOOL_STEPS)
+  const { tools: budgetedTools, maxSteps } = withToolStepBudget(filterToolsByAllowedTools(sanitizedTools), options?.maxSteps ?? DEFAULT_MAX_TOOL_STEPS)
+  const tools = applyTwoWayServerWebSearchHandshake(budgetedTools, chatConfig, chatProvider, model, options)
+
+  const settingsChat = useSettingsChat()
+  let processedMessages = combineSystemMessagesIfNeeded(messages, chatConfig, settingsChat)
+
+  if (tools?.some(t => ((t as any).function?.name || (t as any).name)?.includes('web_search'))) {
+    const lastMsg = processedMessages[processedMessages.length - 1]
+    if (lastMsg && (lastMsg as any).role !== 'tool') {
+      processedMessages = [
+        ...processedMessages,
+        {
+          role: 'system',
+          content: '[TOOL DIRECTIVE: Internet web search is enabled via the "web_search" function. When web search is requested, needed for real-time information or current events, or referenced in dialogue, invoke the "web_search" tool. Never roleplay, simulate, or announce calling the tool in text without executing the tool call.]',
+        } as Message,
+      ]
+    }
+  }
+
+  const sanitized = sanitizeMessages(processedMessages as unknown[], { vision: options?.vision })
+  const requestOverrides = sanitizeRequestOverrides(options?.requestOverrides)
 
   if (tools && tools.length > 0) {
     debug('Calling LLM with tools', tools.map((t: any) => t.function?.name || t.name))
@@ -449,11 +747,6 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
 async function generateFrom(model: string, chatProvider: ChatProvider, messages: Message[], options?: StreamOptions) {
   const headers = options?.headers
   const chatConfig = getChatConfig(model, chatProvider)
-  const settingsChat = useSettingsChat()
-  const processedMessages = combineSystemMessagesIfNeeded(messages, chatConfig, settingsChat)
-  const sanitized = sanitizeMessages(processedMessages as unknown[], { vision: options?.vision })
-  const requestOverrides = sanitizeRequestOverrides(options?.requestOverrides)
-
   const resolveTools = async () => {
     const tools = typeof options?.tools === 'function'
       ? await options.tools()
@@ -467,7 +760,27 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
   if (sanitizedTools && sanitizedTools.length > 0) {
     debug('[llmStore] Resolved system tools before filtering:', sanitizedTools.map((t: any) => t.function?.name || t.name))
   }
-  const { tools, maxSteps } = withToolStepBudget(filterToolsByAllowedTools(sanitizedTools), options?.maxSteps ?? DEFAULT_MAX_TOOL_STEPS)
+  const { tools: budgetedTools, maxSteps } = withToolStepBudget(filterToolsByAllowedTools(sanitizedTools), options?.maxSteps ?? DEFAULT_MAX_TOOL_STEPS)
+  const tools = applyTwoWayServerWebSearchHandshake(budgetedTools, chatConfig, chatProvider, model, options)
+
+  const settingsChat = useSettingsChat()
+  let processedMessages = combineSystemMessagesIfNeeded(messages, chatConfig, settingsChat)
+
+  if (tools?.some(t => ((t as any).function?.name || (t as any).name)?.includes('web_search'))) {
+    const lastMsg = processedMessages[processedMessages.length - 1]
+    if (lastMsg && (lastMsg as any).role !== 'tool') {
+      processedMessages = [
+        ...processedMessages,
+        {
+          role: 'system',
+          content: '[TOOL DIRECTIVE: Internet web search is enabled via the "web_search" function. When web search is requested, needed for real-time information or current events, or referenced in dialogue, invoke the "web_search" tool. Never roleplay, simulate, or announce calling the tool in text without executing the tool call.]',
+        } as Message,
+      ]
+    }
+  }
+
+  const sanitized = sanitizeMessages(processedMessages as unknown[], { vision: options?.vision })
+  const requestOverrides = sanitizeRequestOverrides(options?.requestOverrides)
 
   if (tools && tools.length > 0) {
     debug('Calling LLM with tools', tools.map((t: any) => t.function?.name || t.name))

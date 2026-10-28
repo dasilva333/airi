@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { FieldCheckbox } from '@proj-airi/ui'
 import { computed, ref, watch } from 'vue'
 
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
@@ -9,6 +10,7 @@ export interface FavoriteModel {
   name: string
   provider: string
   model: string
+  serverWebSearch?: boolean
   options?: Record<string, unknown>
 }
 
@@ -19,7 +21,14 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'save', payload: { id?: string, name: string, provider: string, model: string, options?: Record<string, unknown> }): void
+  (e: 'save', payload: {
+    id?: string
+    name: string
+    provider: string
+    model: string
+    serverWebSearch?: boolean
+    options?: Record<string, unknown>
+  }): void
 }>()
 
 const consciousnessStore = useConsciousnessStore()
@@ -29,6 +38,7 @@ const providersStore = useProvidersStore()
 const label = ref('')
 const provider = ref('')
 const model = ref('')
+const serverWebSearch = ref(false)
 const optionsJson = ref('{}')
 const showExampleDropdown = ref(false)
 
@@ -92,12 +102,14 @@ watch(() => [props.open, props.favorite], ([isOpen]) => {
       label.value = props.favorite.name || ''
       provider.value = props.favorite.provider || ''
       model.value = props.favorite.model || ''
+      serverWebSearch.value = props.favorite.serverWebSearch ?? false
       optionsJson.value = props.favorite.options ? JSON.stringify(props.favorite.options, null, 2) : '{\n  \n}'
     }
     else {
       label.value = ''
       provider.value = configuredProviderOptions.value[0]?.value || ''
       model.value = ''
+      serverWebSearch.value = false
       optionsJson.value = '{\n  \n}'
     }
   }
@@ -208,6 +220,32 @@ const PRESET_GROUPS: { group: string, items: PresetItem[] }[] = [
       },
     ],
   },
+  {
+    group: 'HOSTED TOOLS',
+    items: [
+      {
+        title: 'OpenRouter Web Search',
+        subtitle: 'tools: openrouter:web_search',
+        payload: {
+          tools: [{ type: 'openrouter:web_search' }],
+        },
+      },
+      {
+        title: 'OpenRouter Web Fetch',
+        subtitle: 'tools: openrouter:web_fetch',
+        payload: {
+          tools: [{ type: 'openrouter:web_fetch' }],
+        },
+      },
+      {
+        title: 'Anthropic / OpenCode Web Search',
+        subtitle: 'tools: web_search_20260209',
+        payload: {
+          tools: [{ type: 'web_search_20260209', name: 'web_search' }],
+        },
+      },
+    ],
+  },
 ]
 
 function insertPreset(payload: Record<string, unknown>) {
@@ -239,6 +277,7 @@ function handleSave() {
     name: displayName,
     provider: provider.value,
     model: modelId,
+    serverWebSearch: serverWebSearch.value,
     options: parsedJson.value && Object.keys(parsedJson.value).length > 0 ? parsedJson.value : undefined,
   })
   emit('close')
@@ -425,6 +464,15 @@ function handleSave() {
                   <div v-if="!isManualModel" class="i-solar:alt-arrow-down-linear pointer-events-none absolute right-3 top-1/2 size-3.5 text-neutral-400 -translate-y-1/2 dark:text-neutral-500" />
                 </div>
               </div>
+            </div>
+
+            <!-- Hosted Server-Side Web Search Toggle -->
+            <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/70 p-3 transition-colors dark:border-neutral-800/80 dark:bg-neutral-800/30">
+              <FieldCheckbox
+                v-model="serverWebSearch"
+                label="Enable Hosted Web Search"
+                description="Permits this brain preset to execute server-side web grounding directly on provider GPU infrastructure (OpenRouter / DeepSeek). Gated by character permissions."
+              />
             </div>
 
             <!-- Request Options · JSON Section -->

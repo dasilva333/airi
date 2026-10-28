@@ -261,7 +261,14 @@ function openEditModal(fav: FavoriteModel) {
   showModal.value = true
 }
 
-function handleSaveFavoriteFromModal(payload: { id?: string, name: string, provider: string, model: string, options?: Record<string, unknown> }) {
+function handleSaveFavoriteFromModal(payload: {
+  id?: string
+  name: string
+  provider: string
+  model: string
+  serverWebSearch?: boolean
+  options?: Record<string, unknown>
+}) {
   if (payload.id) {
     // Update existing favorite
     const idx = favorites.value.findIndex(f => f.id === payload.id)
@@ -271,6 +278,7 @@ function handleSaveFavoriteFromModal(payload: { id?: string, name: string, provi
         name: payload.name,
         provider: payload.provider,
         model: payload.model,
+        serverWebSearch: payload.serverWebSearch,
         options: payload.options,
       }
     }
@@ -282,6 +290,7 @@ function handleSaveFavoriteFromModal(payload: { id?: string, name: string, provi
       name: payload.name,
       provider: payload.provider,
       model: payload.model,
+      serverWebSearch: payload.serverWebSearch,
       options: payload.options,
     })
   }

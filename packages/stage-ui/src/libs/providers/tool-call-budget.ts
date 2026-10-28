@@ -32,7 +32,7 @@ export function withToolStepBudget(tools: Tool[] | undefined, maxToolSteps: numb
             return toolStepLimitMessage(limit)
           rounds.add(round)
         }
-        return tool.execute(input, options)
+        return tool.execute ? tool.execute(input, options) : undefined
       },
     })),
   }

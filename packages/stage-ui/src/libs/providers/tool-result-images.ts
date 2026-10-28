@@ -66,11 +66,31 @@ type FetchLike = (input: any, init?: any) => Promise<Response>
 export function withToolResultImageSupport(baseFetch?: (input: any, init: any) => Promise<Response>): FetchLike {
   return async (input, init) => {
     const body = init?.body
-    if (typeof body === 'string' && body.includes('"role":"tool"') && body.includes('image_url')) {
+    if (typeof body === 'string') {
       try {
+        let modified = false
         const parsed = JSON.parse(body)
-        if (Array.isArray(parsed.messages)) {
-          parsed.messages = moveToolResultImagesToMessages(parsed.messages)
+
+        if (body.includes('"role":"tool"') && body.includes('image_url')) {
+          if (Array.isArray(parsed.messages)) {
+            parsed.messages = moveToolResultImagesToMessages(parsed.messages)
+            modified = true
+          }
+        }
+
+        // Restore provider-specific wire format for server tools when required by the gateway
+        if (Array.isArray(parsed.tools)) {
+          for (let i = 0; i < parsed.tools.length; i++) {
+            const tool = parsed.tools[i]
+            const name = tool.function?.name || tool.name
+            if (name === 'openrouter:web_search') {
+              parsed.tools[i] = { type: 'openrouter:web_search' }
+              modified = true
+            }
+          }
+        }
+
+        if (modified) {
           init = { ...init, body: JSON.stringify(parsed) }
         }
       }

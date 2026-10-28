@@ -3,6 +3,7 @@ import type { WebSocketEventInputs } from '@proj-airi/server-sdk'
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { CommonContentPart, Message, ToolMessage } from '@xsai/shared-chat'
 
+import type { FavoriteModel } from '../components/scenarios/chat/BrainModelFavoriteModal.vue'
 import type { ChatAssistantMessage, ChatGroundingHit, ChatGroundingMetadata, ChatSlices, ChatStreamEventContext } from '../types/chat'
 import type { PacingMetrics } from '../types/pacing'
 import type { GroundingMessage } from './chat/grounding-assembler'
@@ -11,7 +12,7 @@ import type { StreamEvent, StreamOptions } from './llm'
 
 import { debug, healMozibake, isStageTamagotchi } from '@proj-airi/stage-shared'
 import { createQueue } from '@proj-airi/stream-kit'
-import { useBroadcastChannel } from '@vueuse/core'
+import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, reactive, ref, toRaw, unref, watch } from 'vue'
@@ -191,6 +192,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   const artistryAutonomousStore = useAutonomousArtistryStore()
   const eventLogStore = useEventLogStore()
   const settingsChat = useSettingsChat()
+  const favorites = useLocalStorage<FavoriteModel[]>('airi:chat-model-favorites', [])
   const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
   const { activeCard, activeCardId } = storeToRefs(airiCardStore)
   const { trackFirstMessage } = useAnalytics()
@@ -1845,6 +1847,11 @@ Format your output as a raw thought log.`
           }
         }
 
+        const activeFavorite = favorites.value.find(
+          f => (f.provider === effectiveProviderId && f.model === effectiveModel)
+            || (f.model === effectiveModel && f.serverWebSearch !== undefined),
+        )
+
         await llmStore.stream(effectiveModel, effectiveProvider, newMessages as Message[], {
           headers,
           tools: effectiveTools,
@@ -1856,7 +1863,9 @@ Format your output as a raw thought log.`
           // NOTICE: maxToolSteps is edited on the Tools tab, not with the sampling override,
           // so it is read even when `generation.enabled` is off (like allowedTools).
           maxSteps: generationConfig?.known?.maxToolSteps,
+          serverWebSearch: activeFavorite?.serverWebSearch,
           requestOverrides: {
+            ...activeFavorite?.options,
             ...(isVlmTurn ? visionStore.activeAdvanced : {}),
             ...(generationConfig?.enabled ? generationConfig.advanced : {}),
           },

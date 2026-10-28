@@ -49,7 +49,7 @@ const filtered = computed(() => {
 const options = computed(() => filtered.value.map(m => ({ value: m.id, label: m.name || m.id })))
 
 // Favorites local storage sync
-const favorites = useLocalStorage<Array<{ id: string, name: string, provider: string, model: string }>>('airi:chat-model-favorites', [])
+const favorites = useLocalStorage<Array<{ id: string, name: string, provider: string, model: string, serverWebSearch?: boolean }>>('airi:chat-model-favorites', [])
 
 function handleSaveAndActivate() {
   if (!model.value)
