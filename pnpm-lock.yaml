@@ -33,6 +33,9 @@ catalogs:
     '@electron/notarize':
       specifier: ^3.1.1
       version: 3.1.1
+    '@ergosphere-it/electron':
+      specifier: ^0.0.16
+      version: 0.0.16
     '@google/genai':
       specifier: ^1.47.0
       version: 1.47.0
@@ -90,6 +93,9 @@ catalogs:
     '@types/hast':
       specifier: ^3.0.4
       version: 3.0.4
+    '@types/semver':
+      specifier: ^7.5.8
+      version: 7.8.0
     '@types/splitpanes':
       specifier: ^2.2.6
       version: 2.2.6
@@ -243,6 +249,9 @@ catalogs:
     remark-rehype:
       specifier: ^11.1.2
       version: 11.1.2
+    semver:
+      specifier: ^7.7.1
+      version: 7.8.5
     splitpanes:
       specifier: ^4.0.4
       version: 4.0.4
@@ -718,6 +727,18 @@ importers:
         specifier: ^3.107.2
         version: 3.114.17(@cloudflare/workers-types@4.20260702.1)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
 
+  apps/stage-edge-updates:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20250204.0
+        version: 4.20260702.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      wrangler:
+        specifier: ^3.107.2
+        version: 3.114.17(@cloudflare/workers-types@4.20260702.1)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+
   apps/stage-mate:
     dependencies:
       '@types/ws':
@@ -1091,6 +1112,9 @@ importers:
       '@discordjs/voice':
         specifier: ^0.19.0
         version: 0.19.0(bufferutil@4.1.0)(opusscript@0.1.1)(utf-8-validate@5.0.10)
+      '@ergosphere-it/electron':
+        specifier: 'catalog:'
+        version: 0.0.16(electron-updater@6.8.3)(electron-vite@5.0.0(vite@6.2.7(@types/node@24.10.14)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)))(electron@40.8.0)(typescript@5.9.3)(vite@6.2.7(@types/node@24.10.14)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
       '@guiiai/logg':
         specifier: 'catalog:'
         version: 1.2.11
@@ -1301,6 +1325,9 @@ importers:
       replicate:
         specifier: ^1.0.1
         version: 1.4.0
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
       systeminformation:
         specifier: ^5.23.5
         version: 5.31.5
@@ -1452,6 +1479,9 @@ importers:
       '@types/nprogress':
         specifier: ^0.2.3
         version: 0.2.3
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.8.0
       '@types/splitpanes':
         specifier: 'catalog:'
         version: 2.2.6
@@ -4738,6 +4768,38 @@ packages:
   '@emnapi/wasi-threads@1.1.0':
     resolution: {integrity: sha512-WI0DdZ8xFSbgMjR1sFsKABJ/C5OnRrjT06JXbZKexJGrDuPTzZdDYfFlsgcCXCyf+suG5QU2e/y1Wo2V/OapLQ==}
 
+  '@ergosphere-it/client@0.0.16':
+    resolution: {integrity: sha512-juS6AR/9Cq9Mm0KqLnaVlY7o6msCjm5/NGfP3vMAbiscSDQ7HeSh5CM5bMs+tiG0bWYQ7XLq+5vZHg4n0HJQPw==}
+    engines: {node: '>=24'}
+
+  '@ergosphere-it/electron@0.0.16':
+    resolution: {integrity: sha512-YH3bQ2PgQlzO+ksZqoq/T9mnv/adWez9HKkdwuyVdELqz6gN1NbZu2UXb2bUfV0036fF5DYMKWhzdlkRvMXqnA==}
+    engines: {node: '>=24'}
+    hasBin: true
+    peerDependencies:
+      electron: '>=38'
+      electron-sparkle-updater: ^0.5.3
+      electron-updater: ^6.8.9
+      electron-vite: ^6.0.0
+      vite: ~6.2.5
+    peerDependenciesMeta:
+      electron-sparkle-updater:
+        optional: true
+      electron-updater:
+        optional: true
+      electron-vite:
+        optional: true
+      vite:
+        optional: true
+
+  '@ergosphere-it/protocol@0.0.16':
+    resolution: {integrity: sha512-lVky31oAO72tatheHKy0upekYDxfdSQjhnhADDCXFrb/zUNiKBVjJswXDiqKiNVaN4xdRRtaqf9EiHyYkzLlLg==}
+    engines: {node: '>=24'}
+
+  '@ergosphere-it/publish@0.0.16':
+    resolution: {integrity: sha512-ToA3lApk/RN9o1i6bMNoI0zqkc7LYqHe/MiUNNThOYZywCwofQumUf25yt/vQIYPOT3OB2ChmKb+u6SnR2XXnw==}
+    engines: {node: '>=24'}
+
   '@es-joy/jsdoccomment@0.84.0':
     resolution: {integrity: sha512-0xew1CxOam0gV5OMjh2KjFQZsKL2bByX1+q4j3E73MpYIdyUxcZb/xQct9ccUb+ve5KGUYbCUxyPnYB7RbuP+w==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
@@ -5514,6 +5576,9 @@ packages:
 
   '@guiiai/logg@1.2.11':
     resolution: {integrity: sha512-OE4tpTa3NCw/A0YC6TcRD09fLeatpyQ22625syiW7amygCAnHpswIjQRMDLkZnxFTHvleKomBpaXyIsk0qDk3g==}
+
+  '@henrygd/queue@1.2.0':
+    resolution: {integrity: sha512-jW/BLSTpcvExDhqJGxtIPgGr2O0IFF8XUNDwEbfCfhrXT8a4xztQ9Lv6U/vbYzYC0xVWn+3zv6YnLUh3bEFUKA==}
 
   '@histoire/app@1.0.0-beta.1':
     resolution: {integrity: sha512-6HoGrFFGIMkY+YGvvKaQYE83Y02IRNqWgqCSTctAMRErhz1gZVdRdl747pjEud8d4YMZ4nUjhJOm6fVXY7yG4w==}
@@ -6356,6 +6421,9 @@ packages:
 
   '@moeru/std@0.1.0-beta.17':
     resolution: {integrity: sha512-GyLDCKHiqXyO60Wn0+Hc7Tfo/GJQA3pV5FZGkzGhvJM7LQPZDB0tksuJV92LuRF1lG8x78B+8UfVFhVf8xXVfg==}
+
+  '@moeru/std@0.1.0-beta.20':
+    resolution: {integrity: sha512-09Nunc5dLT0+oAaLV18nIGHLkQO3LOUGOpGcQ2VIFTqWybJojT9geawhTVtuclYcJtIApgIt+3BLWI1K9dYpFw==}
 
   '@moeru/three-mmd@0.1.0-beta.3':
     resolution: {integrity: sha512-31rmU0YnUdfSDyPTsnk8OFjo/zAkS2BfaOyu4y0F0bt7Kz4IKrWkotngv+DcxECexFWSsyOqr0Fcmyubz9VvYA==}
@@ -8263,6 +8331,9 @@ packages:
   '@types/retry@0.12.0':
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
 
+  '@types/semver@7.8.0':
+    resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
+
   '@types/shimmer@1.2.0':
     resolution: {integrity: sha512-UE7oxhQLLd9gub6JKIAhDq06T0F6FnztwMNRvYgjeQSBeMc1ZG/tA47EwfduvkuQS8apbkM/lpLpWsaCeYsXVg==}
 
@@ -9789,6 +9860,11 @@ packages:
   caniuse-lite@1.0.30001761:
     resolution: {integrity: sha512-JF9ptu1vP2coz98+5051jZ4PwQgd2ni8A+gYSN7EA7dPKIMf0pDlSUxhdmVOaV3/fYK5uWBkgSXJaRLr4+3A6g==}
 
+  canonicalize@5.1.0:
+    resolution: {integrity: sha512-bab9+WefZljqQ8jT0qRwVmTyzAUU63K97QIQD3agynIBrb6sa5M2eAy8Hv8K3p4V9+ONVYZKtGYl4Dg+/5Gumw==}
+    engines: {node: '>=22'}
+    hasBin: true
+
   canvas@3.2.1:
     resolution: {integrity: sha512-ej1sPFR5+0YWtaVp6S1N1FVz69TQCqmrkGeRvQxZeAB1nAIcjNTHVwrZtYtWFFBmQsF40/uDLehsW5KuYC99mg==}
     engines: {node: ^18.12.0 || >= 20.9.0}
@@ -10793,6 +10869,9 @@ packages:
 
   es-toolkit@1.44.0:
     resolution: {integrity: sha512-6penXeZalaV88MM3cGkFZZfOoLGWshWWfdy0tWw/RlVVyhvMaWSBTOvXNeiW3e5FwdS5ePW0LGEu17zT139ktg==}
+
+  es-toolkit@1.53.0:
+    resolution: {integrity: sha512-3+AYXp9fmJ/UhHBMYj2/U+RaUouMD90SzoItyDOB2Za7W6dB7fQApFGnZPl2MF6K8/Tv1koh1JyirSx/kju6Pw==}
 
   es6-error@4.1.1:
     resolution: {integrity: sha512-Um/+FxMr9CISWh0bi5Zv0iOD+4cFh5qLeks1qhAopKVAJw3drgKbKySikp7wGhDL0HPeaja0P5ULZrxLkniUVg==}
@@ -14179,6 +14258,10 @@ packages:
     resolution: {integrity: sha512-aIsdMFbNEjA10KRRTWuEn52zX8kkB5ByrWOoyZg/WFrsMLqGbypTf0y2M7DdltoKkl+FYzl3g/SXJLvVZ54eXw==}
     engines: {node: '>=20'}
 
+  s3mini@1.0.3:
+    resolution: {integrity: sha512-BTwXpSRMApk+djyN2FS1ZzYWrMr9cCrasAdgQQIlr0sC2xCKF4cD/XsSkH8iSeLLwkjAadmPq1zp5w92T+S+6Q==}
+    engines: {node: '>=20'}
+
   sade@1.8.1:
     resolution: {integrity: sha512-xal3CZX1Xlo/k4ApwCFrHVACi9fBqJ7V+mwhBsuf/1IOKbBy098Fex+Wa/5QMubw09pSZ/u8EY8PWgevJsXp1A==}
     engines: {node: '>=6'}
@@ -15461,6 +15544,14 @@ packages:
       typescript:
         optional: true
 
+  valibot@1.5.0:
+    resolution: {integrity: sha512-nil6AkP2TChWL43Z5uJ6GTxX01CUA+g8LWUM+N/rB9NBbkUMaUsi9PUNzlUPgoKASgmx9f7eGOYpJ04/fSa6FQ==}
+    peerDependencies:
+      typescript: '>=5'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   validate-npm-package-name@5.0.1:
     resolution: {integrity: sha512-OljLrQ9SQdOUqTaQxqL5dEfZWrXExyyWsozYlAWFawPVNuD83igl7uJD2RTkNMbniIYgt8l81eCJGIdQF7avLQ==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
@@ -16295,7 +16386,7 @@ snapshots:
       cjs-module-lexer: 1.4.3
       fflate: 0.8.2
       lru-cache: 11.2.6
-      semver: 7.7.4
+      semver: 7.8.5
       typescript: 5.6.1-rc
       validate-npm-package-name: 5.0.1
 
@@ -17774,6 +17865,47 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@ergosphere-it/client@0.0.16(typescript@5.9.3)':
+    dependencies:
+      '@ergosphere-it/protocol': 0.0.16(typescript@5.9.3)
+      '@henrygd/queue': 1.2.0
+      '@moeru/std': 0.1.0-beta.20
+      es-toolkit: 1.53.0
+      valibot: 1.5.0(typescript@5.9.3)
+    transitivePeerDependencies:
+      - typescript
+
+  '@ergosphere-it/electron@0.0.16(electron-updater@6.8.3)(electron-vite@5.0.0(vite@6.2.7(@types/node@24.10.14)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)))(electron@40.8.0)(typescript@5.9.3)(vite@6.2.7(@types/node@24.10.14)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))':
+    dependencies:
+      '@ergosphere-it/client': 0.0.16(typescript@5.9.3)
+      '@ergosphere-it/protocol': 0.0.16(typescript@5.9.3)
+      '@ergosphere-it/publish': 0.0.16(typescript@5.9.3)
+      '@henrygd/queue': 1.2.0
+      '@moeru/std': 0.1.0-beta.20
+      electron: 40.8.0
+      s3mini: 1.0.3
+      valibot: 1.5.0(typescript@5.9.3)
+    optionalDependencies:
+      electron-updater: 6.8.3
+      electron-vite: 5.0.0(vite@6.2.7(@types/node@24.10.14)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      vite: 6.2.7(@types/node@24.10.14)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+    transitivePeerDependencies:
+      - typescript
+
+  '@ergosphere-it/protocol@0.0.16(typescript@5.9.3)':
+    dependencies:
+      canonicalize: 5.1.0
+      valibot: 1.5.0(typescript@5.9.3)
+    transitivePeerDependencies:
+      - typescript
+
+  '@ergosphere-it/publish@0.0.16(typescript@5.9.3)':
+    dependencies:
+      '@ergosphere-it/protocol': 0.0.16(typescript@5.9.3)
+      es-toolkit: 1.53.0
+    transitivePeerDependencies:
+      - typescript
+
   '@es-joy/jsdoccomment@0.84.0':
     dependencies:
       '@types/estree': 1.0.8
@@ -18278,6 +18410,8 @@ snapshots:
     dependencies:
       error-stack-parser: 2.1.4
       pathe: 2.0.3
+
+  '@henrygd/queue@1.2.0': {}
 
   '@histoire/app@1.0.0-beta.1(vite@6.2.7(@types/node@24.10.14)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.1))':
     dependencies:
@@ -19078,7 +19212,7 @@ snapshots:
       nopt: 5.0.0
       npmlog: 5.0.1
       rimraf: 3.0.2
-      semver: 7.7.4
+      semver: 7.8.5
       tar: 6.2.1
     transitivePeerDependencies:
       - encoding
@@ -19188,6 +19322,8 @@ snapshots:
       hono: 4.11.3
 
   '@moeru/std@0.1.0-beta.17': {}
+
+  '@moeru/std@0.1.0-beta.20': {}
 
   '@moeru/three-mmd@0.1.0-beta.3(@types/three@0.183.1)(three@0.184.0)':
     dependencies:
@@ -19361,7 +19497,7 @@ snapshots:
       pkg-types: 2.3.0
       rc9: 2.1.2
       scule: 1.3.0
-      semver: 7.7.4
+      semver: 7.8.5
       tinyglobby: 0.2.15
       ufo: 1.6.3
       unctx: 2.5.0
@@ -19555,7 +19691,7 @@ snapshots:
       '@types/shimmer': 1.2.0
       import-in-the-middle: 1.15.0
       require-in-the-middle: 7.5.2
-      semver: 7.7.4
+      semver: 7.8.5
       shimmer: 1.2.1
     transitivePeerDependencies:
       - supports-color
@@ -20914,6 +21050,8 @@ snapshots:
 
   '@types/retry@0.12.0': {}
 
+  '@types/semver@7.8.0': {}
+
   '@types/shimmer@1.2.0': {}
 
   '@types/slice-ansi@4.0.0': {}
@@ -21119,7 +21257,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.56.1
       debug: 4.4.3
       minimatch: 10.2.4
-      semver: 7.7.4
+      semver: 7.8.5
       tinyglobby: 0.2.15
       ts-api-utils: 2.4.0(typescript@5.9.3)
       typescript: 5.9.3
@@ -22915,7 +23053,7 @@ snapshots:
       escalade: 3.2.0
       jsonc-parser: 3.3.1
       package-manager-detector: 1.6.0
-      semver: 7.7.4
+      semver: 7.8.5
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       yaml: 2.8.2
@@ -23008,6 +23146,8 @@ snapshots:
       three: 0.184.0
 
   caniuse-lite@1.0.30001761: {}
+
+  canonicalize@5.1.0: {}
 
   canvas@3.2.1:
     dependencies:
@@ -23855,6 +23995,8 @@ snapshots:
 
   es-toolkit@1.44.0: {}
 
+  es-toolkit@1.53.0: {}
+
   es6-error@4.1.1: {}
 
   esbuild-register@3.6.0(esbuild@0.25.12):
@@ -24041,7 +24183,7 @@ snapshots:
     dependencies:
       empathic: 2.0.0
       module-replacements: 2.10.1
-      semver: 7.7.4
+      semver: 7.8.5
 
   eslint-plugin-es-x@7.8.0(eslint@9.39.3(jiti@2.6.1)):
     dependencies:
@@ -24068,7 +24210,7 @@ snapshots:
       html-entities: 2.6.0
       object-deep-merge: 2.0.0
       parse-imports-exports: 0.2.4
-      semver: 7.7.4
+      semver: 7.8.5
       spdx-expression-parse: 4.0.0
       to-valid-identifier: 1.0.0
     transitivePeerDependencies:
@@ -24099,7 +24241,7 @@ snapshots:
       globals: 15.15.0
       globrex: 0.1.2
       ignore: 5.3.2
-      semver: 7.7.4
+      semver: 7.8.5
       ts-declaration-location: 1.0.7(typescript@5.9.3)
     transitivePeerDependencies:
       - typescript
@@ -24197,7 +24339,7 @@ snapshots:
       pluralize: 8.0.0
       regexp-tree: 0.1.27
       regjsparser: 0.13.0
-      semver: 7.7.4
+      semver: 7.8.5
       strip-indent: 4.1.1
 
   eslint-plugin-unused-imports@4.4.1(@typescript-eslint/eslint-plugin@8.56.1(@typescript-eslint/parser@8.56.1(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.3(jiti@2.6.1)):
@@ -24213,7 +24355,7 @@ snapshots:
       natural-compare: 1.4.0
       nth-check: 2.1.1
       postcss-selector-parser: 7.1.1
-      semver: 7.7.4
+      semver: 7.8.5
       vue-eslint-parser: 10.4.0(eslint@9.39.3(jiti@2.6.1))
       xml-name-validator: 4.0.0
     optionalDependencies:
@@ -26751,7 +26893,7 @@ snapshots:
       make-fetch-happen: 13.0.1
       nopt: 7.2.1
       proc-log: 4.2.0
-      semver: 7.7.4
+      semver: 7.8.5
       tar: 6.2.1
       which: 4.0.0
     transitivePeerDependencies:
@@ -28043,6 +28185,8 @@ snapshots:
 
   s3mini@0.9.1: {}
 
+  s3mini@1.0.3: {}
+
   sade@1.8.1:
     dependencies:
       mri: 1.2.0
@@ -28147,7 +28291,7 @@ snapshots:
     dependencies:
       color: 4.2.3
       detect-libc: 2.1.2
-      semver: 7.7.4
+      semver: 7.8.5
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.33.5
       '@img/sharp-darwin-x64': 0.33.5
@@ -28174,7 +28318,7 @@ snapshots:
     dependencies:
       '@img/colour': 1.0.0
       detect-libc: 2.1.2
-      semver: 7.7.4
+      semver: 7.8.5
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.34.5
       '@img/sharp-darwin-x64': 0.34.5
@@ -28290,7 +28434,7 @@ snapshots:
 
   simple-update-notifier@2.0.0:
     dependencies:
-      semver: 7.7.4
+      semver: 7.8.5
 
   sirv@3.0.2:
     dependencies:
@@ -29518,6 +29662,10 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
+  valibot@1.5.0(typescript@5.9.3):
+    optionalDependencies:
+      typescript: 5.9.3
+
   validate-npm-package-name@5.0.1: {}
 
   vary@1.1.2: {}
@@ -29939,7 +30087,7 @@ snapshots:
       eslint-visitor-keys: 5.0.0
       espree: 11.1.0
       esquery: 1.7.0
-      semver: 7.7.4
+      semver: 7.8.5
     transitivePeerDependencies:
       - supports-color
 

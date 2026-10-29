@@ -10,7 +10,7 @@
     "url": "https://github.com/moeru-ai"
   },
   "homepage": "https://airi.moeru.ai/docs/",
-  "main": "./out/main/index.js",
+  "main": "./out/launcher/index.mjs",
   "scripts": {
     "lint": "eslint --cache .",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "@discordjs/voice": "^0.19.0",
+    "@ergosphere-it/electron": "catalog:",
     "@guiiai/logg": "catalog:",
     "@moeru/eventa": "catalog:",
     "@moeru/std": "catalog:",
@@ -108,6 +109,7 @@
     "reka-ui": "^2.8.2",
     "remark-parse": "^11.0.0",
     "replicate": "^1.0.1",
+    "semver": "catalog:",
     "systeminformation": "^5.23.5",
     "three": "^0.184.0",
     "tsc-rs": "catalog:",
@@ -160,6 +162,7 @@
     "@types/audioworklet": "catalog:",
     "@types/culori": "^4.0.1",
     "@types/nprogress": "^0.2.3",
+    "@types/semver": "catalog:",
     "@types/splitpanes": "catalog:",
     "@types/three": "^0.183.1",
     "@vitejs/plugin-vue": "^6.0.4",

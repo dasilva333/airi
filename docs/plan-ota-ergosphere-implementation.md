@@ -39,29 +39,30 @@
 - [ ] Configure `.github/workflows/release-tamagotchi.yml` to sign and publish bundles to R2 on push to `main` (dev lane) and release tags (stable).
 
 ### Subsystem 1: Launcher, Configuration Core & MPA Bundling
-- [ ] Add `@ergosphere-it/electron` (v0.0.11+) to `apps/stage-tamagotchi/package.json` and set `main: "out/launcher/index.mjs"`.
-- [ ] Configure `apps/stage-tamagotchi/ergo.config.ts`:
+- [x] Add `@ergosphere-it/electron` (v0.0.16) and `semver` to `apps/stage-tamagotchi/package.json` and set `main: "out/launcher/index.mjs"`.
+- [x] Configure `apps/stage-tamagotchi/ergo.config.ts`:
   - Set `feedUrl` to `https://airi-updates.r1ch4rd.workers.dev`.
-  - Add the live Ed25519 public key.
+  - Add the live Ed25519 public key (`ssh-ed25519 AAAAC3...`).
   - Configure channels (`stable`, `canary`, `dev`, `nightly`).
-- [ ] Implement `apps/stage-tamagotchi/src/launcher/index.ts`:
-  - Verify active bundle signature against `ergo.config.ts`.
-  - Fallback to embedded `app.asar` when bundle is absent or corrupt.
-  - Render fallback `splash.html` immediately during bootloader initialization.
-- [ ] Update `apps/stage-tamagotchi/electron.vite.config.ts`:
-  - Dual build output: launcher (`out/launcher/index.mjs`) + main bundle.
+- [x] Implement `apps/stage-tamagotchi/src/launcher/index.ts` with package manager bypass (Flatpak / Nix) and top-level await launcher bootstrap.
+- [x] Implement `apps/stage-tamagotchi/src/shared/update-channels.ts` and pass test suite (`update-channels.test.ts`).
+- [x] Update `apps/stage-tamagotchi/electron.vite.config.ts`:
+  - Dual build output: launcher (`out/launcher/index.mjs`) + full application bundle (`out/bundle/`).
   - Isolate `unplugin-info` to fixed-name unhashed chunk `assets/build-info.js` to preserve CDN chunk caching across commits (PR #3149).
-  - Package all MPA entry points (`main`, `splash`, `beat-sync`, `sticker`) into `out/renderer/` for the bundle tarball.
-- [ ] Verify `tsconfig.json` paths and compilation boundaries in `stage-tamagotchi`.
+  - Package all MPA entry points (`main`, `splash`, `beat-sync`, `sticker`) into `out/bundle/renderer/` for the bundle tarball.
+  - Add Rollup bridge plugin ensuring seamless build execution under `electron-vite 5.0.0`.
+  - Normalize virtual layouts region comments across differing build directories.
+- [x] Verify typecheck (`typecheck:node` and `typecheck:web`) and compile output (`out/bundle.json`, `out/launcher/index.mjs`).
+- [x] Smoke-tested preview launch under launcher (`pnpm -F @proj-airi/stage-tamagotchi run start`).
 
 ### Subsystem 2: Main Process Services, Splash Milestone Relay & IPC
 - [ ] Implement `apps/stage-tamagotchi/src/main/services/electron/auto-updater.ts` using the consolidated upstream reference.
 - [ ] Implement mock updater `apps/stage-tamagotchi/src/main/services/electron/mock-auto-updater.ts` and test suite `auto-updater.test.ts`.
 - [ ] Define Eventa contracts in `apps/stage-tamagotchi/src/shared/eventa/index.ts` for download progress (`updater:download-progress`), channel switching, and restart triggers.
-- [ ] Implement `apps/stage-tamagotchi/src/shared/update-channels.ts` & unit tests.
 - [ ] Wire `updaterService.reportHealthy()` into `electronSplashDismiss` in `apps/stage-tamagotchi/src/main/index.ts`:
   - Ensure health is only confirmed once all startup milestones (`core-services`, `sync-engine`, `character-card`, `stage-actor`) report `'ready'`.
   - Re-arm watchdog and handle window reloads (`Cmd+R` / `F5`) gracefully without false crash loops.
+- [ ] Update `apps/stage-tamagotchi/src/main/libs/electron/location.ts` to resolve bundle paths using `activeBundle.pageUrl()` when running under Ergosphere.
 - [ ] Add dual-engine version range parsing for seamless fallback to `electron-updater` binary installers when native modules change (PR #3137).
 - [ ] Ensure `updater.log` writes strictly inside `app.getPath('userData')/logs/` (PR #3187).
 
@@ -80,8 +81,10 @@
 
 ---
 
-## 3. Immediate Next Steps (Phase 1 Kickoff)
+## 3. Immediate Next Steps (Subsystem 2 Execution)
 
-1. Add `@ergosphere-it/electron` dependency to `apps/stage-tamagotchi/package.json`.
-2. Commit `apps/stage-tamagotchi/ergo.config.ts` wired to `https://airi-updates.r1ch4rd.workers.dev`.
-3. Scaffold `apps/stage-tamagotchi/src/launcher/index.ts` and configure `electron.vite.config.ts` for dual-target launcher + MPA bundle compilation.
+1. Implement `apps/stage-tamagotchi/src/main/services/electron/auto-updater.ts` wrapping `@ergosphere-it/electron/main`.
+2. Port mock updater `mock-auto-updater.ts` and Vitest suite `auto-updater.test.ts`.
+3. Add typed Eventa contracts in `src/shared/eventa/index.ts`.
+4. Update `src/main/libs/electron/location.ts` for `activeBundle.pageUrl()` support.
+5. Wire `updaterService.reportHealthy()` into `electronSplashDismiss` milestone completion in `src/main/index.ts`.

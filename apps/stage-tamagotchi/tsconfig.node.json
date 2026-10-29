@@ -14,6 +14,7 @@
       "vite/client",
       "electron-vite/node",
       "unplugin-info/client",
+      "@ergosphere-it/electron/virtual",
       "node"
     ],
     "allowJs": true,
@@ -25,6 +26,8 @@
     "../../uno.config.ts",
     "uno.config.ts",
     "electron.vite.config.ts",
+
+    "src/launcher/**/*.ts",
 
     "src/main/**/*.ts",
     "src/main/**/*.d.ts",

@@ -39,6 +39,7 @@ catalog:
   '@electric-sql/pglite': ^0.3.15
   '@electron-toolkit/preload': ^3.0.2
   '@electron/notarize': ^3.1.1
+  '@ergosphere-it/electron': ^0.0.16
   '@google/genai': ^1.47.0
   '@guiiai/logg': ^1.2.11
   '@histoire/plugin-vue': 1.0.0-beta.1
@@ -58,6 +59,7 @@ catalog:
   '@types/d3-selection': ^3.0.11
   '@types/d3-zoom': ^3.0.8
   '@types/hast': ^3.0.4
+  '@types/semver': ^7.5.8
   '@types/splitpanes': ^2.2.6
   '@types/three': ^0.183.1
   '@types/unist': ^3.0.3
@@ -117,6 +119,7 @@ catalog:
   remark-breaks: ^4.0.0
   remark-parse: ^11.0.0
   remark-rehype: ^11.1.2
+  semver: ^7.7.1
   splitpanes: ^4.0.4
   standard-version: ^9.5.0
   std-env: ^4.0.0-rc.1
