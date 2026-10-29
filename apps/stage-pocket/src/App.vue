@@ -40,6 +40,9 @@ const colors = computed(() => {
 
 watch(settings.language, () => {
   i18n.locale.value = settings.language.value
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = settings.language.value || 'en'
+  }
 })
 
 watch([settings.themeColorsHue, settings.themeColorsChromaMultiplier], ([hue, multiplier]) => {

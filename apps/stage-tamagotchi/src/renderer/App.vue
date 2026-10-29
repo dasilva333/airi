@@ -213,6 +213,9 @@ if (context.value) {
 
 watch(language, () => {
   i18n.locale.value = language.value
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = language.value || 'en'
+  }
   if (context.value) {
     setLocale(language.value)
   }
