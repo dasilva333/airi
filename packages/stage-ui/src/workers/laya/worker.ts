@@ -10,6 +10,7 @@ import { LAYA_CACHE_NAME } from '../../libs/inference/cache-utils'
 import { layaDecideEvent, layaLoadEvent, layaUnloadEvent } from '../../libs/inference/contract'
 import {
   evictStaleLayaEntries,
+  LAYA_MAX_SEQ_LEN,
   LAYA_MODEL_SPECS,
   LAYA_TOKENIZER_REPO,
   LAYA_TOKENIZER_REVISION,
@@ -171,7 +172,7 @@ defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => 
   const sepId = tokenizer.sep_token_id ?? 50282
   const maskId = tokenizer.mask_token_id ?? 50284
   const padId = tokenizer.pad_token_id ?? 50283
-  const maxLen = 512
+  const maxLen = LAYA_MAX_SEQ_LEN
   const headMaxLen = 192
 
   const encodeText = (txt: string): number[] => {
@@ -202,8 +203,10 @@ defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => 
     }
     seq.push(sepId)
     const room = Math.max(0, maxLen - seq.length - 1)
-    const st = encodeText(scrub(serializeState(req.state))).slice(0, room)
-    seq.push(...st, sepId)
+    const stateIds = encodeText(scrub(serializeState(req.state)))
+    if (stateIds.length > room)
+      console.warn(`[Laya worker] State truncated from ${stateIds.length} to ${room} tokens (max sequence ${maxLen}).`)
+    seq.push(...stateIds.slice(0, room), sepId)
     return { q, ids: seq.slice(0, maxLen), markers: markers.filter(m => m < maxLen), qtype: QTYPES[q.t] ?? 0 }
   })
 

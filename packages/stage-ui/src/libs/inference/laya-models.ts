@@ -50,6 +50,21 @@ export const LAYA_MODEL_SPECS: Record<LayaPrecision, LayaModelSpec> = {
   },
 }
 
+/**
+ * Longest sequence the worker feeds the encoder, in tokens (question head plus
+ * state).
+ *
+ * NOTICE: the checkpoint's `config.json` ships `laya.max_len = 512`, but that is
+ * only the trained default; the ModernBERT encoder has `max_position_embeddings
+ * = 8192` and the exported graphs take dynamic lengths, so 8192 is the hard
+ * ceiling. Anything longer is truncated by the worker, which is why callers that
+ * can exceed it (Jev takes up to 32K) must route or trim before asking Laya.
+ * Cost grows steeply with length (about 22 s for 2.8k tokens on desktop CPU),
+ * but sequences are only padded to the longest one in the batch, so short
+ * inputs stay cheap.
+ */
+export const LAYA_MAX_SEQ_LEN = 8192
+
 /** Tokenizer repository; identical tokenizer files to the original checkpoint. */
 export const LAYA_TOKENIZER_REPO = 'onnx-community/laya-ONNX'
 export const LAYA_TOKENIZER_REVISION = '42e2a6e3b3708c8ff5f61f4aa75c314b1449199b'
