@@ -1,16 +1,11 @@
+import type { UpdateChannel } from '@proj-airi/electron-eventa/electron-updater'
+
 import semver from 'semver'
 
-/**
- * The update channels of the ergosphere-it release store.
- *
- * - `stable`: releases.
- * - `canary`: prereleases, before they become releases.
- * - `nightly`: the build of each day.
- * - `dev`: the build of each push to main.
- */
-export const updateChannels = ['stable', 'canary', 'nightly', 'dev'] as const
+import { updateChannels } from '@proj-airi/electron-eventa/electron-updater'
 
-export type UpdateChannel = typeof updateChannels[number]
+export { updateChannels }
+export type { UpdateChannel }
 
 /**
  * Returns the channel that a version comes from. With no channel chosen by the user,

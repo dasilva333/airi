@@ -14,7 +14,6 @@ export { useElectronMouseInWindow } from './composables/use-electron-mouse-in-wi
 export { useElectronRelativeMouse } from './composables/use-electron-relative-mouse'
 export { useElectronWindowBounds } from './composables/use-electron-window-bounds'
 export { useElectronWindowResize, useElectronWindowResizeStateEvent } from './composables/use-electron-window-resize'
-
 export {
   createRendererLoop,
   isRendererUnavailable,
@@ -23,3 +22,17 @@ export {
   useLoop,
 } from './main'
 export type { LoopOptions } from './main'
+
+export type {
+  AutoUpdaterError,
+  AutoUpdaterProgress,
+  AutoUpdaterRollback,
+  AutoUpdaterState,
+  AutoUpdaterStatus,
+  UpdateChannel,
+} from '@proj-airi/electron-eventa/electron-updater'
+export {
+  autoUpdater,
+  electronAutoUpdaterStateChanged,
+  updateChannels,
+} from '@proj-airi/electron-eventa/electron-updater'

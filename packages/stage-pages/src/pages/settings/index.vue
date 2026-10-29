@@ -24,7 +24,7 @@ const showAbout = ref(false)
 const buildInfo = useBuildInfo()
 const aboutLinks = [
   { label: 'Documentation', href: 'https://dasilva333.github.io/airi/en/docs/overview/', icon: 'i-solar:document-add-outline' },
-  { label: 'Web Stage', href: 'https://dasilva333.github.io/airi/web-stage/', icon: 'i-solar:globe-outline' },
+  { label: 'Web Stage', href: 'https://dasilva333.github.io/airi/web-stage/', icon: 'i-solar:global-outline' },
   { label: 'GitHub', href: 'https://github.com/dasilva333/airi', icon: 'i-simple-icons:github' },
 ]
 

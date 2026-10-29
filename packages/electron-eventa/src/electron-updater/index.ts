@@ -12,6 +12,9 @@ export type AutoUpdaterStatus
     | 'downloaded'
     | 'error'
 
+export const updateChannels = ['stable', 'canary', 'dev', 'nightly'] as const
+export type UpdateChannel = typeof updateChannels[number]
+
 export interface AutoUpdaterProgress {
   percent: number
   bytesPerSecond: number
