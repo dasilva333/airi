@@ -1,6 +1,6 @@
 {
-  "last_inspected_sha": "c516650af5bb8d7333a9cd20b258dedbf019c038",
-  "last_run_timestamp": "2026-10-28T15:24:44.558Z",
+  "last_inspected_sha": "a639f80ab7b498ee7a3611218852163bac1fa18d",
+  "last_run_timestamp": "2026-10-29T15:12:59.117Z",
   "remote": "7n1m4",
   "branch": "main",
   "tracked_prs": {
@@ -49,8 +49,8 @@
       "state": "OPEN",
       "isDraft": false,
       "author": "7n1m4",
-      "commentsCount": 22,
-      "updatedAt": "2026-10-28T15:23:55Z",
+      "commentsCount": 26,
+      "updatedAt": "2026-10-28T18:34:41Z",
       "url": "https://github.com/anlmalabs/airi/issues/1",
       "type": "Issue"
     },
@@ -179,8 +179,8 @@
       "state": "OPEN",
       "isDraft": false,
       "author": "anlmabot",
-      "commentsCount": 90,
-      "updatedAt": "2026-10-28T14:16:46Z",
+      "commentsCount": 108,
+      "updatedAt": "2026-10-28T18:40:27Z",
       "url": "https://github.com/anlmalabs/airi/issues/17",
       "type": "Issue"
     },
@@ -233,6 +233,26 @@
       "updatedAt": "2026-10-27T21:27:19Z",
       "url": "https://github.com/anlmalabs/airi/pull/22",
       "type": "PR"
+    },
+    "PR:25": {
+      "title": "feat: upstream contract alignment — peers, cadence, cloudflare, stickers, sandbox, perf/tracer, compaction",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-10-28T18:38:07Z",
+      "url": "https://github.com/anlmalabs/airi/pull/25",
+      "type": "PR"
+    },
+    "Issue:24": {
+      "title": "Devlog: Align fork with upstream for painless porting",
+      "state": "OPEN",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 4,
+      "updatedAt": "2026-10-28T17:23:10Z",
+      "url": "https://github.com/anlmalabs/airi/issues/24",
+      "type": "Issue"
     }
   },
   "history": [
@@ -299,6 +319,14 @@
       "commits_count": 0,
       "files_count": 0,
       "pr_changes_count": 1
+    },
+    {
+      "date": "2026-10-29T15:12:59.117Z",
+      "from_sha": "c516650af5bb8d7333a9cd20b258dedbf019c038",
+      "to_sha": "a639f80ab7b498ee7a3611218852163bac1fa18d",
+      "commits_count": 1,
+      "files_count": 56,
+      "pr_changes_count": 4
     }
   ],
   "acknowledged_mentions": [
