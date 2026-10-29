@@ -502,6 +502,7 @@ Section 3 of `CardCreationTabProactivity.vue` is segmented into two operational 
 3.  **M3 — Subconscious & Vibe Island**: RWKV-7 streaming state, constrained-decoding judgments, logit-biased animation enums, reward token injection, Control Island indicators.
 4.  **M4 — Dual Push/Pull & Character Card Revamp**: Custom interest keywords, busy pipe deferral & batching, rolling log store sensor payload injection, and `CardCreationTabProactivity.vue` UI overhaul.
 5.  **M5 — Learning & Sleep**: Feedback-trained salience classifier, sleep-cycle consolidation, sensitivity preview.
+6.  **M6 — Multimodal System-1 & Spatial ROI Cropping** *(See [`design-multimodal-system-one-vision.md`](./design-multimodal-system-one-vision.md))*: Direct pixel-to-decision gating via OpenRouter/Jev 1.14 (`typesafe/jev-1.14`), temporal contact sheet compositing ($2 \times 2$ canvas) for state-transition triage, and **[HIGH PRIORITY]** surgical high-res ROI cropping via `box` + `noul` questions to eliminate downscaled font blur and cut cloud VLM tokens by 70–80%. Future extensions include spatial eye gaze tracking and desktop callout overlays.
 
 ---
 

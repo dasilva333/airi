@@ -424,7 +424,102 @@ export async function autoMatchCharacterFromArtworkWithJev(
 
 ---
 
-## 7. Provider Interface & The Laya Boundary
+## 7. Spatial Grounding & The 'box' Type
+
+Jev 1.14 introduces the `box` question type, enabling discrete spatial object localization within an image alongside standard categorical/probability heads.
+
+### 7.1 Mechanics & Mandatory `noul` Presence Pairing
+The `box` type outputs resolution-independent decimal coordinates normalized between `0.0` and `1.0`:
+```json
+"answers": {
+  "error_boundary": {
+    "type": "box",
+    "box": {
+      "top": 0.42,
+      "bottom": 0.68,
+      "left": 0.12,
+      "right": 0.58
+    },
+    "confidence": 0.91
+  }
+}
+```
+
+> [!WARNING]
+> **Mandatory Pairing Rule**: TypeSafe notes that the `box` classifier **always emits coordinates**, even when the target object is absent from the image. In AIRI, a `box` question **must always be paired with a companion `noul` presence gate**:
+> ```typescript
+> questions: {
+>   has_compiler_error: {
+>     type: 'noul',
+>     instructions: 'Is a compiler error, exception, or terminal stack trace visible on screen?',
+>   },
+>   error_box: {
+>     type: 'box',
+>     instructions: 'Locate the bounding box around the primary error or failure message.',
+>   },
+> }
+> ```
+> Application code only parses and acts upon `error_box.box` when `has_compiler_error.noul >= 0.80`.
+
+---
+
+### 7.2 [HIGH PRIORITY] Surgical High-Res ROI Cropping (Screen Watching Initiative)
+
+**The Problem:** When promoting a screen event to the primary character LLM (e.g., Claude 3.5 Sonnet, GPT-4o, Gemini 2.0 Flash), attaching an entire 4K or 1080p desktop screenshot has two major flaws:
+1. **Severe Token Drain**: A full-res desktop frame consumes 1,600+ vision tokens per promotion.
+2. **Font Blur & Unreadability**: Automated downscaling in cloud VLMs frequently renders small terminal code, variable names, and line numbers illegible.
+
+**The Solution:**
+When Jev triggers promotion, AIRI uses the normalized coordinates to extract a crisp, 1:1 pixel **Region-of-Interest (ROI) crop** directly from the native desktop capture:
+
+```typescript
+export function cropRegionOfInterest(
+  fullNativeDataUrl: string,
+  box: { top: number, bottom: number, left: number, right: number },
+  paddingPx = 24,
+): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const x = Math.max(0, Math.floor(box.left * img.width) - paddingPx)
+      const y = Math.max(0, Math.floor(box.top * img.height) - paddingPx)
+      const w = Math.min(img.width - x, Math.ceil((box.right - box.left) * img.width) + paddingPx * 2)
+      const h = Math.min(img.height - y, Math.ceil((box.bottom - box.top) * img.height) + paddingPx * 2)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, x, y, w, h, 0, 0, w, h)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.src = fullNativeDataUrl
+  })
+}
+```
+
+**Benefits:**
+- **70–80% Token Reduction**: Transmits a compact $\sim 450 \times 250$ crop rather than a giant desktop canvas.
+- **100% Font Legibility**: The primary LLM sees exact, uncompressed pixels for stack traces, line numbers, and syntax errors.
+- **Immediate Context Injection**: The crop is attached directly to the companion's dialogue prompt turn.
+
+---
+
+### 7.3 [FUTURE EXTENSIONS] Exploratory Spatial Capabilities
+
+Beyond ROI cropping, the `box` coordinates unlock several ambient physical interactions:
+
+1. **Spatial Eye Gaze & Head Tracking (Avatar Attention)**:
+   - Live2D and VRM avatar runtimes track `lookAt` target coordinates.
+   - Using the box midpoint $x_c = \frac{\text{left} + \text{right}}{2}$, $y_c = \frac{\text{top} + \text{bottom}}{2}$, the companion turns its head and shifts its gaze directly toward where the event or error occurred on the user's monitor, delivering lifelike physical presence.
+2. **Floating Desktop Overlay Highlights (Vibe Island / Stage-Mate)**:
+   - When the companion speaks (*"Looks like line 42 threw a TypeError"*), the Electron transparent stage overlay or Vibe Island indicator paints an ephemeral, animated outline box around the exact desktop coordinates for 3 seconds.
+3. **AnimaDex Wizard Automated Face / Portrait Extraction**:
+   - When users drop full-body illustrations or group wallpapers into the wizard, a `face_crop: { type: 'box' }` query extracts and centers the square avatar portrait automatically, eliminating manual crop adjustments.
+
+---
+
+## 8. Provider Interface & The Laya Boundary
 
 Local Laya (`tozp/laya-onnx`) is an on-device ModernBERT sequence classifier that does not support image tensors. The interface must remain strongly typed while gracefully degrading.
 
@@ -466,7 +561,7 @@ export interface System1Provider {
 
 ---
 
-## 8. Performance & Resource Impact Comparison
+## 9. Performance & Resource Impact Comparison
 
 | Metric | Current Pipeline (Moondream2 + Jev) | Multimodal Jev Pipeline | Delta |
 | :--- | :--- | :--- | :--- |
@@ -475,17 +570,24 @@ export interface System1Provider {
 | **Pipeline Latency (Stage 2)** | 1,200 ms – 1,800 ms | 100 ms – 150 ms | **~10x faster** |
 | **Background Battery Drain** | High (Periodic GPU shader dispatch) | Negligible (Only pHash + CLIP) | **Substantial reduction** |
 | **OCR Failure Rate in Games/Video** | High (WASM OCR yields empty text) | Zero (Evaluates visual pixels) | **Robust visual triage** |
+| **VLM Promotion Cloud Cost** | High (1,600+ tokens per full 4K desktop frame) | Minimal (~300 tokens for surgical ROI crop) | **~75% reduction** |
 
 ---
 
-## 9. Rollout Plan & Milestones
+## 10. Rollout Plan & Milestones
 
 1. **Phase 1 (Preparation & Specification)**: Complete this architecture document and keep `packages/stage-ui/src/stores/modules/system-one.ts` clean of speculative code.
-2. **Phase 2 (Upstream OpenRouter Availability)**: Monitor OpenRouter release channels for decisions multimodal parameters on `typesafe/` models.
-3. **Phase 3 (Provider & Store Adapter Wiring)**:
+2. **Phase 2 (Upstream OpenRouter Availability)**: Target `typesafe/jev-1.14` decisions multimodal parameters on OpenRouter `/api/alpha/decisions`.
+3. **Phase 3 (Screen Watching & Surgical ROI Cropping) [HIGH PRIORITY]**:
    - Add `images` parameter to `openrouter-ai` provider adapter.
    - Add `supportsVision` capability check in `useSystemOneStore`.
    - Update `orchestrator.ts` to skip Moondream provisioning when an active vision-capable System-1 provider is configured.
+   - Compose temporal contact sheets ($2 \times 2$ canvas) for state-transition triage.
+   - **[HIGH PRIORITY]** Implement `box` + `noul` query pairing in `orchestrator.ts` and slice crisp, 1:1 pixel high-res ROI crops for the primary LLM turn, eliminating font downscaling blur and slashing vision tokens by 70–80%.
 4. **Phase 4 (AnimaDex Integration)**:
    - Hook `autoMatchCharacterFromArtworkWithJev` into `guided.vue` Step 1 $\rightarrow$ Step 2 transition.
    - Add automated voice preview playback upon selection.
+5. **Phase 5 (Spatial Presence & Overlay Explorations) [FUTURE EXTENSION]**:
+   - Hook normalized `box` centers into Live2D/VRM `lookAt` spatial head and eye gaze tracking.
+   - Render 3-second animated outline highlights on desktop overlay or Vibe Island.
+   - Add automated avatar face cropping in AnimaDex character creation modal.
