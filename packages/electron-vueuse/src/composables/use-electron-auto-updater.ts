@@ -17,10 +17,15 @@ export function useElectronAutoUpdater() {
   const checkForUpdates = useElectronEventaInvoke(autoUpdater.checkForUpdates, context.value)
   const downloadUpdate = useElectronEventaInvoke(autoUpdater.downloadUpdate, context.value)
   const quitAndInstall = useElectronEventaInvoke(autoUpdater.quitAndInstall, context.value)
+  const getChannel = useElectronEventaInvoke(autoUpdater.getChannel, context.value)
+  const setChannel = useElectronEventaInvoke(autoUpdater.setChannel, context.value)
+  const applyUpdate = useElectronEventaInvoke(autoUpdater.applyUpdate, context.value)
+  const dismissRollback = useElectronEventaInvoke(autoUpdater.dismissRollback, context.value)
 
   const isBusy = computed(() => ['checking', 'downloading'].includes(state.value.status))
   const canDownload = computed(() => state.value.status === 'available')
   const canRestartToUpdate = computed(() => state.value.status === 'downloaded')
+  const channel = computed(() => state.value.channel)
 
   onMounted(async () => {
     try {
@@ -46,9 +51,14 @@ export function useElectronAutoUpdater() {
     isBusy,
     canDownload,
     canRestartToUpdate,
+    channel,
 
     checkForUpdates,
     downloadUpdate,
     quitAndInstall,
+    applyUpdate,
+    getChannel,
+    setChannel,
+    dismissRollback,
   }
 }

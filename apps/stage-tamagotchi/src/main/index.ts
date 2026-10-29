@@ -466,7 +466,7 @@ app.whenReady().then(async () => {
   })
 
   injeca.invoke({
-    dependsOn: { mainWindow, tray, serverChannel, pluginHost, mcpStdioManager, onboardingWindow: onboardingWindowManager, appConfig, i18n, captionWindow, stageWindow, splashWindow, chatWindow, customizerWindow, beatSync },
+    dependsOn: { mainWindow, autoUpdater, tray, serverChannel, pluginHost, mcpStdioManager, onboardingWindow: onboardingWindowManager, appConfig, i18n, captionWindow, stageWindow, splashWindow, chatWindow, customizerWindow, beatSync },
     callback: (deps) => {
       createServerChannelService({ serverChannel: deps.serverChannel })
       createMcpServersService({ context, manager: deps.mcpStdioManager })
@@ -1137,6 +1137,10 @@ app.whenReady().then(async () => {
         splashDismissed = true
         if (backstopTimer)
           clearTimeout(backstopTimer)
+
+        // Disarm Ergosphere launcher 60s health watchdog
+        deps.autoUpdater.reportHealthy()
+
         if (!deps.mainWindow.isDestroyed())
           deps.mainWindow.show()
         // NOTICE: Only reveal the stage when the user intends it visible.
@@ -1156,6 +1160,10 @@ app.whenReady().then(async () => {
           return
         console.warn('[@proj-airi/stage-tamagotchi] [Main] Splash did not dismiss in time, forcing coordinated reveal.')
         splashDismissed = true
+
+        // Disarm Ergosphere launcher 60s health watchdog on forced reveal
+        deps.autoUpdater.reportHealthy()
+
         if (!deps.mainWindow.isDestroyed())
           deps.mainWindow.show()
         if (getStageVisibleState())

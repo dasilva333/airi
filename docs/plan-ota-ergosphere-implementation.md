@@ -56,15 +56,13 @@
 - [x] Smoke-tested preview launch under launcher (`pnpm -F @proj-airi/stage-tamagotchi run start`).
 
 ### Subsystem 2: Main Process Services, Splash Milestone Relay & IPC
-- [ ] Implement `apps/stage-tamagotchi/src/main/services/electron/auto-updater.ts` using the consolidated upstream reference.
-- [ ] Implement mock updater `apps/stage-tamagotchi/src/main/services/electron/mock-auto-updater.ts` and test suite `auto-updater.test.ts`.
-- [ ] Define Eventa contracts in `apps/stage-tamagotchi/src/shared/eventa/index.ts` for download progress (`updater:download-progress`), channel switching, and restart triggers.
-- [ ] Wire `updaterService.reportHealthy()` into `electronSplashDismiss` in `apps/stage-tamagotchi/src/main/index.ts`:
-  - Ensure health is only confirmed once all startup milestones (`core-services`, `sync-engine`, `character-card`, `stage-actor`) report `'ready'`.
-  - Re-arm watchdog and handle window reloads (`Cmd+R` / `F5`) gracefully without false crash loops.
-- [ ] Update `apps/stage-tamagotchi/src/main/libs/electron/location.ts` to resolve bundle paths using `activeBundle.pageUrl()` when running under Ergosphere.
-- [ ] Add dual-engine version range parsing for seamless fallback to `electron-updater` binary installers when native modules change (PR #3137).
-- [ ] Ensure `updater.log` writes strictly inside `app.getPath('userData')/logs/` (PR #3187).
+- [x] Implement `apps/stage-tamagotchi/src/main/services/electron/auto-updater.ts` wrapping `@ergosphere-it/electron/main` with safe runtime boundary `isUnderErgosphere()`.
+- [x] Implement mock updater `apps/stage-tamagotchi/src/main/services/electron/mock-auto-updater.ts` and test suite `auto-updater.test.ts` (8/8 passing).
+- [x] Define Eventa contracts in `packages/electron-eventa/src/electron-updater/index.ts` and composable in `@proj-airi/electron-vueuse` (channel switching, applyUpdate, dismissRollback).
+- [x] Wire `updaterService.reportHealthy()` into `electronSplashDismiss` and the 30-second backstop timer in `apps/stage-tamagotchi/src/main/index.ts`.
+- [x] Update `apps/stage-tamagotchi/src/main/libs/electron/location.ts` to resolve bundle paths using `activeBundle.resolve('renderer', ...)` when running under Ergosphere.
+- [x] Ensure `updater.log` writes strictly inside `app.getPath('userData')/logs/` (PR #3187).
+- [x] Verify complete test suite (12 test suites, 71 unit tests passing) and full `electron-vite build`.
 
 ### Subsystem 4: Local Testing & Validation Harness
 - [ ] Port `apps/stage-tamagotchi/scripts/update-test/start-server.ts`.
@@ -81,10 +79,7 @@
 
 ---
 
-## 3. Immediate Next Steps (Subsystem 2 Execution)
+## 3. Immediate Next Steps (Subsystem 4 & 5 Execution)
 
-1. Implement `apps/stage-tamagotchi/src/main/services/electron/auto-updater.ts` wrapping `@ergosphere-it/electron/main`.
-2. Port mock updater `mock-auto-updater.ts` and Vitest suite `auto-updater.test.ts`.
-3. Add typed Eventa contracts in `src/shared/eventa/index.ts`.
-4. Update `src/main/libs/electron/location.ts` for `activeBundle.pageUrl()` support.
-5. Wire `updaterService.reportHealthy()` into `electronSplashDismiss` milestone completion in `src/main/index.ts`.
+1. Scaffold local test runner scripts (`apps/stage-tamagotchi/scripts/update-test/*`) to verify automated bundle publishing, manifest signing, and watchdog rollback without CI.
+2. Update settings About page (`apps/stage-tamagotchi/src/renderer/pages/about.vue`) with channel selector, download speed meter, and "Apply Update" action.

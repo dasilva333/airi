@@ -1,71 +1,109 @@
+import type { AutoUpdaterProgress, AutoUpdaterState } from '@proj-airi/electron-eventa/electron-updater'
+
 import { EventEmitter } from 'node:events'
 
 import { app } from 'electron'
 
 export class MockAutoUpdater extends EventEmitter {
   autoDownload = false
+  channel = 'canary'
+  healthy = false
+  state: AutoUpdaterState = { status: 'idle', channel: 'canary' }
 
-  async checkForUpdates() {
-    this.emit('checking-for-update')
-
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1500))
-
-    // Simulate update available
-    // We can toggle this based on some logic if needed, but for now let's assume update is always available in mock
-    const updateInfo = {
-      version: '9.9.9-mock',
-      files: [],
-      path: 'mock-path',
-      sha512: 'mock-sha',
-      releaseDate: new Date().toISOString(),
-      releaseNotes: '## Mock Update\n\nThis is a simulated update for testing purposes.\n\n- Feature A\n- Bugfix B',
-    }
-
-    this.emit('update-available', updateInfo)
-
-    // In real updater, if autoDownload is true, it starts downloading.
-    // We'll respect that if we were fully mocking, but typically we trigger download manually in this app.
-    return { updateInfo }
+  reportHealthy() {
+    this.healthy = true
+    this.emit('healthy')
   }
 
-  async downloadUpdate() {
-    // Simulate download progress
-    const total = 100 * 1024 * 1024 // 100MB
+  delayHealthCheck(seconds: number) {
+    this.emit('health-delayed', seconds)
+  }
+
+  async checkForUpdates(): Promise<void> {
+    this.state = { status: 'checking', channel: this.channel }
+    this.emit('status', this.state)
+
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 800))
+
+    const releaseId = Date.now()
+    this.state = {
+      status: 'available',
+      channel: this.channel,
+      info: {
+        version: '0.9.99-mock',
+        files: [],
+        releaseDate: new Date(releaseId).toISOString(),
+        releaseId,
+        requires: 'reload',
+        releaseNotes: '## Mock Update\n\n- Ergosphere OTA mock simulation\n- Fast reload-in-place verification',
+      },
+    }
+    this.emit('status', this.state)
+  }
+
+  async downloadUpdate(): Promise<void> {
+    const total = 50 * 1024 * 1024 // 50MB
     let transferred = 0
-    const speed = 5 * 1024 * 1024 // 5MB/s simulation
+    const speed = 10 * 1024 * 1024 // 10MB/s
 
     const interval = setInterval(() => {
-      transferred += speed / 10 // Update every 100ms
+      transferred += speed / 5
       if (transferred > total)
         transferred = total
 
-      const progress = {
+      const percent = (transferred / total) * 100
+      const progress: AutoUpdaterProgress = {
         total,
         transferred,
-        percent: (transferred / total) * 100,
+        percent,
         bytesPerSecond: speed,
       }
 
-      this.emit('download-progress', progress)
+      this.state = {
+        status: 'downloading',
+        channel: this.channel,
+        progress,
+        info: this.state.info,
+      }
+      this.emit('status', this.state)
 
       if (transferred >= total) {
         clearInterval(interval)
-        this.emit('update-downloaded', {
-          version: '9.9.9-mock',
-          files: [],
-          path: 'mock-path',
-          sha512: 'mock-sha',
-          releaseDate: new Date().toISOString(),
-          releaseNotes: '## Mock Update\n\nThis is a simulated update for testing purposes.\n\n- Feature A\n- Bugfix B',
-        })
+        this.state = {
+          status: 'downloaded',
+          channel: this.channel,
+          info: this.state.info,
+        }
+        this.emit('status', this.state)
       }
     }, 100)
   }
 
-  async quitAndInstall() {
+  async applyUpdate(): Promise<void> {
     // eslint-disable-next-line no-console
-    console.log('[MockAutoUpdater] quitAndInstall called. Quitting app...')
-    app.quit()
+    console.log('[MockAutoUpdater] applyUpdate called. Simulating update application...')
+    if (this.state.info?.requires === 'restart') {
+      app.quit()
+    }
+    else {
+      this.state = { status: 'idle', channel: this.channel }
+      this.emit('status', this.state)
+    }
+  }
+
+  async quitAndInstall(): Promise<void> {
+    return this.applyUpdate()
+  }
+
+  async setChannel(newChannel: string): Promise<void> {
+    this.channel = newChannel
+    this.state = { ...this.state, channel: newChannel }
+    this.emit('status', this.state)
+  }
+
+  async dismissRollback(): Promise<void> {
+    this.state = { status: 'idle', channel: this.channel }
+    this.emit('status', this.state)
   }
 }

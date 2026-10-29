@@ -1,11 +1,19 @@
 import type { BrowserWindow, LoadFileOptions, LoadURLOptions } from 'electron'
 
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { env } from 'node:process'
 
 import { is } from '@electron-toolkit/utils'
+import { activeBundle } from '@ergosphere-it/electron/main'
 
 let electronMainDirname: string = ''
+
+/**
+ * Checks whether the current process is running inside an Ergosphere launcher runtime.
+ */
+export function isUnderErgosphere(): boolean {
+  return typeof (globalThis as any)[Symbol.for('ergosphere-it.runtime')] !== 'undefined'
+}
 
 export function setElectronMainDirname(dirname: string) {
   electronMainDirname = dirname
@@ -28,9 +36,31 @@ export function baseUrl(parentOfIndexHtml: string, filename?: string) {
     url.pathname = paths.join('/')
     return { url: url.toString() }
   }
-  else {
-    return { file: join(parentOfIndexHtml, filename ?? 'index.html') }
+
+  if (isUnderErgosphere()) {
+    try {
+      return { file: activeBundle.resolve('renderer', filename ?? 'index.html') }
+    }
+    catch (error) {
+      console.warn('[Location] Failed to resolve path from activeBundle, falling back to static path:', error)
+    }
   }
+
+  return { file: join(parentOfIndexHtml, filename ?? 'index.html') }
+}
+
+export function getPreloadPath(customPreloadName?: string): string {
+  if (isUnderErgosphere()) {
+    try {
+      return customPreloadName ? activeBundle.preloadOf(customPreloadName) : activeBundle.preload
+    }
+    catch (error) {
+      console.warn('[Location] Failed to resolve preload from activeBundle, falling back to static path:', error)
+    }
+  }
+
+  const basePreload = customPreloadName ? `${customPreloadName}.cjs` : 'index.cjs'
+  return resolve(getElectronMainDirname(), '..', 'preload', basePreload)
 }
 
 export async function load(window: BrowserWindow, url: string | { url: string, options?: LoadURLOptions } | { file: string, options?: LoadFileOptions }) {

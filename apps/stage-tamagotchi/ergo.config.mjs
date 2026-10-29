@@ -1,14 +1,31 @@
+// @ts-check
 import { readFileSync } from 'node:fs'
 import { env } from 'node:process'
 
+import semver from 'semver'
+
 import { defineConfig } from '@ergosphere-it/electron/config'
 
-// Node loads this file with type stripping, which resolves only full file names.
-import { channelOfVersion } from './src/shared/update-channels.ts'
+/**
+ * Returns the channel that a version comes from.
+ *
+ * @param {string} version
+ * @returns {'stable' | 'canary' | 'nightly' | 'dev'}
+ */
+function channelOfVersion(version) {
+  const prerelease = semver.parse(version)?.prerelease ?? []
+  const name = String(prerelease[0] ?? '').toLowerCase()
+  if (name === 'dev' || name === 'nightly')
+    return name
+  if (prerelease.length > 0)
+    return 'canary'
+
+  return 'stable'
+}
 
 // CI names each build in `ERGOSPHERE_IT_VERSION`, for example `0.13.1-nightly.12.13eef81`. The build uses the same name.
-const version = env.ERGOSPHERE_IT_VERSION
-  || (JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }).version
+const packageJson = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+const version = env.ERGOSPHERE_IT_VERSION || packageJson.version
 
 export default defineConfig({
   // The app can switch to another channel at run time, see `src/main/services/electron/auto-updater.ts`.
