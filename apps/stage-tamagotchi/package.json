@@ -34,7 +34,9 @@
     "rename-artifacts": "mkdir -p bundle && tsx scripts/rename-artifacts.ts",
     "merge-latest-mac": "tsx scripts/merge-latest-mac.ts",
     "artifacts-metadata": "tsx scripts/artifacts-metadata.ts",
-    "smoke:linux-window-render": "NODE_OPTIONS='--experimental-websocket' tsx scripts/linux-window-render-smoke.ts"
+    "smoke:linux-window-render": "NODE_OPTIONS='--experimental-websocket' tsx scripts/linux-window-render-smoke.ts",
+    "ota:test": "vitest run scripts/update-test/auto-updater.integration.test.ts",
+    "ota:publish": "tsx scripts/ota-publish.ts"
   },
   "dependencies": {
     "@discordjs/voice": "^0.19.0",
