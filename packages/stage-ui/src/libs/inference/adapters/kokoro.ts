@@ -225,7 +225,7 @@ export function createKokoroAdapter(): KokoroAdapter {
         const info = await consumeLoadStream(stream, (progress) => {
           updateInferenceStatus(modelStatusId, { progress })
           options?.onProgress?.(progress)
-        }).catch((error) => {
+        }).catch((error: unknown) => {
           // Normalize caller-driven aborts to InferenceAbortError so the outer
           // catch (and callers) see name === 'AbortError'.
           if (options?.signal?.aborted)
@@ -253,7 +253,7 @@ export function createKokoroAdapter(): KokoroAdapter {
           throw new Error('Kokoro worker did not return voice metadata')
         return voices
       })
-    }), { quantization, device: effectiveDevice }).catch((error) => {
+    }), { quantization, device: effectiveDevice }).catch((error: unknown) => {
       // Don't route AbortError through handleWorkerError — cancellation is
       // not a worker failure and shouldn't trigger restart logic.
       if ((error as Error)?.name === 'AbortError')
@@ -354,7 +354,7 @@ export function createKokoroAdapter(): KokoroAdapter {
       host.setPhase('ready')
       host.recordSuccess()
       return encodeWav(concatFloat32(chunks), samplingRate)
-    }), { text: text.slice(0, 50), voice }).catch((error) => {
+    }), { text: text.slice(0, 50), voice }).catch((error: unknown) => {
       // notReadyError, an empty-audio result, and caller cancellation
       // (AbortError) are request-level and must not tear the worker down or
       // trigger restart logic — mirrors loadModel's guard above.

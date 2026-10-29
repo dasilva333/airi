@@ -56,7 +56,7 @@ export const usePerfTracerBridgeStore = defineStore('perfTracerBridge', () => {
   function startForwarding() {
     if (unsubscribe)
       return
-    unsubscribe = defaultPerfTracer.subscribeSafe((event) => {
+    unsubscribe = defaultPerfTracer.subscribeSafe((event: TraceEvent) => {
       if (!FORWARDED_TRACERS.has(event.tracerId))
         return
       if (event.meta?.[RELAY_META_KEY])

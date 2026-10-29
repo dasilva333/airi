@@ -100,7 +100,7 @@ export function createLocalVisionAdapter(): LocalVisionAdapter {
           info = await consumeLoadStream(stream, (progress) => {
             updateInferenceStatus(MODEL_NAMES.BLIP, { progress })
             onProgress?.(progress)
-          }).catch((error) => {
+          }).catch((error: unknown) => {
             if (options?.signal?.aborted)
               throw new InferenceAbortError(typeof options.signal.reason === 'string' ? options.signal.reason : undefined)
             throw error
@@ -122,7 +122,7 @@ export function createLocalVisionAdapter(): LocalVisionAdapter {
         updateInferenceStatus(MODEL_NAMES.BLIP, { state: 'ready', device: info.device as any })
         host.recordSuccess()
       })
-    }).catch((error) => {
+    }).catch((error: unknown) => {
       if ((error as Error)?.name === 'AbortError')
         throw error
       host.handleWorkerError(error instanceof Error ? error : new Error(String(error)))
@@ -171,7 +171,7 @@ export function createLocalVisionAdapter(): LocalVisionAdapter {
       host.setPhase('ready')
       host.recordSuccess()
       return result.text
-    })).catch((error) => {
+    })).catch((error: unknown) => {
       if (error === notReadyError || (error as Error)?.name === 'AbortError')
         throw error
       host.handleWorkerError(error instanceof Error ? error : new Error(String(error)))

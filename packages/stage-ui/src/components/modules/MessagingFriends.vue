@@ -602,6 +602,13 @@ const pendingMessages = computed<PendingMessageRow[]>(() => {
 
 const pendingMessagesCount = computed(() => pendingMessages.value.length)
 
+// NOTICE: the transport summary must reflect observed state only.
+const transportStatusSummary = computed(() => {
+  const edge = isEmbassyOnline.value ? 'Cloudflare Edge connected' : 'Cloudflare Edge standby'
+  const mesh = 'libp2p local mesh available in the desktop app'
+  return `Transport: ${edge} · ${mesh} · Inbox queue: ${embassyInboxStore.stagedOutbound.length}`
+})
+
 function extractProse(raw: string): string {
   return raw
     .replace(/<\|ACT:[^|]*\|>/g, ' ')
@@ -2113,7 +2120,7 @@ const surfaceCardClass = computed(() => [
               <!-- Accordion Diagnostic Link -->
               <button
                 :class="['flex', 'w-full', 'items-center', 'justify-between', 'pt-1', 'text-[11px]', 'text-neutral-500', 'hover:text-neutral-700', 'dark:hover:text-neutral-300', 'focus-visible:ring-2', 'focus-visible:ring-primary-500']"
-                @click="toast.info('Transport: Cloudflare Edge connected · libp2p LAN standby · Inbox queue: 0')"
+                @click="toast.info(transportStatusSummary)"
               >
                 <span>Activity & connection details</span>
                 <div class="i-solar:alt-arrow-down-linear text-xs" />

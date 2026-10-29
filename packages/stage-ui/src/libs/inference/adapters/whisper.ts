@@ -189,7 +189,7 @@ export function createWhisperAdapter(workerUrl?: string | URL): WhisperAdapter {
             // no extras; transcribe progress rides the extras on the contract item).
             emit({ type: 'progress', payload: { ...progress } })
             onProgress?.(progress)
-          }).catch((error) => {
+          }).catch((error: unknown) => {
             // Normalize caller-driven aborts to InferenceAbortError so the outer
             // catch (and callers) see name === 'AbortError'.
             if (options?.signal?.aborted)
@@ -222,7 +222,7 @@ export function createWhisperAdapter(workerUrl?: string | URL): WhisperAdapter {
           void evictOtherWhisperModels(loadedModel)
         }
       })
-    }).catch((error) => {
+    }).catch((error: unknown) => {
       // Don't route AbortError through handleWorkerError — cancellation is
       // not a worker failure and shouldn't trigger restart logic.
       if ((error as Error)?.name === 'AbortError')
@@ -338,7 +338,7 @@ export function createWhisperAdapter(workerUrl?: string | URL): WhisperAdapter {
       host.setPhase('ready')
       host.recordSuccess()
       return output
-    }), { language: input.language }).catch((error) => {
+    }), { language: input.language }).catch((error: unknown) => {
       // Only an inactivity timeout restarts the worker (presumed wedged). Caller
       // aborts and other transcribe failures leave the adapter in 'error' for the
       // next load(), matching whisper's pre-existing recovery model.

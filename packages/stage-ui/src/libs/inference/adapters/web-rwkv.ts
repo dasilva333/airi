@@ -192,7 +192,7 @@ export function createWebRwkvAdapter(): WebRwkvAdapter {
         await consumeLoadStream(stream, (progress) => {
           updateInferenceStatus(MODEL_NAMES.WEB_RWKV, { progress })
           options?.onProgress?.(progress)
-        }).catch((error) => {
+        }).catch((error: unknown) => {
           if (options?.signal?.aborted)
             throw new InferenceAbortError(typeof options.signal.reason === 'string' ? options.signal.reason : undefined)
           throw error
@@ -214,7 +214,7 @@ export function createWebRwkvAdapter(): WebRwkvAdapter {
         updateInferenceStatus(MODEL_NAMES.WEB_RWKV, { state: 'ready', device: 'webgpu' })
         host.recordSuccess()
       })
-    })).catch((error) => {
+    })).catch((error: unknown) => {
       if ((error as Error)?.name === 'AbortError')
         throw error
       host.handleWorkerError(error instanceof Error ? error : new Error(String(error)))
@@ -307,7 +307,7 @@ export function createWebRwkvAdapter(): WebRwkvAdapter {
       console.info('[web-rwkv] inference done', { chars: text.length })
       host.recordSuccess()
       return text
-    }), { promptChars: request.prompt.length }).catch((error) => {
+    }), { promptChars: request.prompt.length }).catch((error: unknown) => {
       // notReadyError and caller cancellation are request-level — don't tear the
       // worker down or trigger restart logic.
       if (error === notReadyError || (error as Error)?.name === 'AbortError')

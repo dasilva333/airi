@@ -111,7 +111,7 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
           info = await consumeLoadStream(stream, (progress) => {
             updateInferenceStatus(MODEL_NAMES.ATTENTION_GUARD, { progress })
             options?.onProgress?.(progress)
-          }).catch((error) => {
+          }).catch((error: unknown) => {
             if (options?.signal?.aborted)
               throw new InferenceAbortError(typeof options.signal.reason === 'string' ? options.signal.reason : undefined)
             throw error
@@ -132,7 +132,7 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
         updateInferenceStatus(MODEL_NAMES.ATTENTION_GUARD, { state: 'ready', device: info.device as any })
         host.recordSuccess()
       })
-    }).catch((error) => {
+    }).catch((error: unknown) => {
       if ((error as Error)?.name === 'AbortError')
         throw error
       host.handleWorkerError(error instanceof Error ? error : new Error(String(error)))
@@ -199,7 +199,7 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
       host.setPhase('ready')
       host.recordSuccess()
       return result
-    })).catch((error) => {
+    })).catch((error: unknown) => {
       if (error === notReadyError || (error as Error)?.name === 'AbortError')
         throw error
       host.handleWorkerError(error instanceof Error ? error : new Error(String(error)))

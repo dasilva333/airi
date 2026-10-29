@@ -317,7 +317,7 @@ describe('kokoro adapter - device loss resilience', () => {
     // handleWorkerError(), including the InferenceAbortError produced by a caller
     // cancellation:
     //
-    //   }).catch((error) => {
+    //   }).catch((error: unknown) => {
     //     if (error === notReadyError) throw error
     //     handleWorkerError(...)   // <- AbortError reached here
     //     throw error

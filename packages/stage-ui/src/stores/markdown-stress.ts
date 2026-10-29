@@ -213,7 +213,7 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
     startedAt = performance.now()
     events.value = []
 
-    unsubscribe = defaultPerfTracer.subscribeSafe((event) => {
+    unsubscribe = defaultPerfTracer.subscribeSafe((event: TraceEvent) => {
       if (event.tracerId !== 'markdown' && event.tracerId !== 'chat')
         return
 

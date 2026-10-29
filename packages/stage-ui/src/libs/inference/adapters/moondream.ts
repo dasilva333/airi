@@ -97,7 +97,7 @@ export function createLocalMoondreamAdapter(): LocalMoondreamAdapter {
           info = await consumeLoadStream(stream, (progress) => {
             updateInferenceStatus(MODEL_NAMES.MOONDREAM, { progress })
             onProgress?.(progress)
-          }).catch((error) => {
+          }).catch((error: unknown) => {
             if (options?.signal?.aborted)
               throw new InferenceAbortError(typeof options.signal.reason === 'string' ? options.signal.reason : undefined)
             throw error
@@ -115,7 +115,7 @@ export function createLocalMoondreamAdapter(): LocalMoondreamAdapter {
         updateInferenceStatus(MODEL_NAMES.MOONDREAM, { state: 'ready', device: info.device as any })
         host.recordSuccess()
       })
-    }).catch((error) => {
+    }).catch((error: unknown) => {
       if ((error as Error)?.name === 'AbortError')
         throw error
       host.handleWorkerError(error instanceof Error ? error : new Error(String(error)))
@@ -162,7 +162,7 @@ export function createLocalMoondreamAdapter(): LocalMoondreamAdapter {
       host.setPhase('ready')
       host.recordSuccess()
       return result.text
-    })).catch((error) => {
+    })).catch((error: unknown) => {
       if (error === notReadyError || (error as Error)?.name === 'AbortError')
         throw error
       host.handleWorkerError(error instanceof Error ? error : new Error(String(error)))
