@@ -1,7 +1,6 @@
 <script setup lang="ts">
+import { Alert } from '@proj-airi/ui'
 import { useI18n } from 'vue-i18n'
-
-import Alert from '../../misc/alert.vue'
 
 const props = defineProps<{
   isValid: boolean

@@ -2,12 +2,11 @@
 import type { ProviderMetadata } from '../../../../stores/providers'
 import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
 
-import { Button, Callout, FieldInput } from '@proj-airi/ui'
+import { Alert, Button, Callout, FieldInput } from '@proj-airi/ui'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useProvidersStore } from '../../../../stores/providers'
-import { Alert } from '../../../misc'
 import { ProviderAccountIdInput } from '../../../scenarios/providers'
 
 interface Props {

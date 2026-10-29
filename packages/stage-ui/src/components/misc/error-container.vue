@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Alert from './alert.vue'
+import { Alert } from '@proj-airi/ui'
 
 defineProps<{
   title?: string

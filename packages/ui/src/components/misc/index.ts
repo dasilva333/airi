@@ -1,3 +1,5 @@
+export { default as Alert } from './alert.vue'
+export * from './alert.vue'
 export { default as Button } from './button.vue'
 export { default as Callout } from './callout.vue'
 export { default as DoubleCheckButton } from './double-check-button.vue'

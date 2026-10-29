@@ -11,8 +11,8 @@ import {
   toggleBeatSync,
   updateBeatSyncParameters,
 } from '@proj-airi/stage-shared/beat-sync'
-import { Alert, AudioSpectrumVisualizer } from '@proj-airi/stage-ui/components'
-import { Button, FieldCheckbox, FieldRange, SelectTab } from '@proj-airi/ui'
+import { AudioSpectrumVisualizer } from '@proj-airi/stage-ui/components'
+import { Alert, Button, FieldCheckbox, FieldRange, SelectTab } from '@proj-airi/ui'
 import { createTimeline } from 'animejs'
 import { nanoid } from 'nanoid'
 import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'

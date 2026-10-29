@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { Alert } from '@proj-airi/ui'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
-import Alert from '../misc/alert.vue'
 import VoiceCard from './voice-card.vue'
 
 interface VoiceLanguage {

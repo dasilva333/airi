@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { Alert } from '@proj-airi/ui'
 import { computed, ref } from 'vue'
 
-import Alert from '../misc/alert.vue'
 import RadioCardDetail from './radio-card-detail.vue'
 
 interface Item {
