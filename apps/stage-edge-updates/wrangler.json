@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "airi-updates",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-02-04",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "r2_buckets": [
+    {
+      "binding": "UPDATES_BUCKET",
+      "bucket_name": "airi-updates"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "METRICS",
+      "id": "aa81893db1574f568b8ef66fb7c29758"
+    }
+  ]
+}

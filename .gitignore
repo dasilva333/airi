@@ -52,6 +52,7 @@ coverage/
 # Build
 out/
 bundle/
+.wrangler/
 apps/stage-pocket/build/
 .flatpak-builder/
 .flatpak-repo/

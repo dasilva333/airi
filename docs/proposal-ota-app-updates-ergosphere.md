@@ -195,9 +195,89 @@ Upstream documented several constraints in PR #3126. Here is how they apply to `
    - *Requirement*: C++ native addons (e.g. `@proj-airi/electron-native-backdrop`, SQLite native drivers) cannot be loaded dynamically if Node ABI versions mismatch.
    - *Fork Mitigation*: When native bindings or Electron versions bump, `.github/scripts/plan-tamagotchi-updates.ts` marks the release as `requires_installer: true`. Ergosphere automatically delegates to `electron-updater` to download the complete installer.
 
+### 4.2 The MPA Bootloader Twist (`splash.html` + `setupSplashWindowManager`)
+This fork made a fundamental architectural departure from upstream's Single Page Application (SPA) architecture by adopting a **Multi-Page Application (MPA)** structure specifically for the startup bootloader:
+- `apps/stage-tamagotchi/electron.vite.config.ts` defines dedicated HTML entry points:
+  ```typescript
+  input: {
+    'main': resolve(join(import.meta.dirname, 'src', 'renderer', 'index.html')),
+    'beat-sync': resolve(join(import.meta.dirname, 'src', 'renderer', 'beat-sync.html')),
+    'splash': resolve(join(import.meta.dirname, 'src', 'renderer', 'splash.html')),
+    'sticker': resolve(join(import.meta.dirname, 'src', 'renderer', 'sticker.html')),
+  }
+  ```
+- `src/main/windows/splash/index.ts` creates the splash window immediately (<100ms) upon process boot, loading `splash.html` before heavy dependency injection (`injeca`), Pinia stores, 3D/Live2D engines, or Vite modules initialize.
+- A centralized milestone relay in `src/main/index.ts` tracks startup progress:
+  ```typescript
+  const STARTUP_MILESTONE_IDS: StartupMilestoneId[] = [
+    'core-services',
+    'sync-engine',
+    'character-card',
+    'stage-actor',
+  ]
+  ```
+- Once all milestones report `'ready'`, `electronSplashDismiss` reveals the Control Strip and Actor Stage windows simultaneously, and destroys the splash window.
+
+#### How MPA Directly Empowers Ergosphere OTA (Strategic Benefits):
+1. **Eliminates the "Dead Window" Perception During OTA Downloads**: In upstream's vanilla SPA, checking for updates, verifying signatures, or extracting 15 MB tarballs on startup freezes the window or leaves a blank frame. In our fork, the lightweight `splash.html` paints in <100ms and can natively render update telemetry (*"Downloading update v0.12.0: 4.2 MB / 8.5 MB - 2.1 MB/s..."*) and signature verification states before the heavy main bundle is even touched.
+2. **The Unambiguous, Infallible Health Watchdog Gate**: Upstream struggled with watchdog false alarms and race conditions (PRs #3145, #3165) trying to determine when the app was truly "healthy". In this fork, the application is only declared healthy when `electronSplashDismiss` fires after all milestones finish. Hooking `updaterService.reportHealthy()` into `electronSplashDismiss` provides an ironclad guarantee that broken bundles (e.g. failing 3D stage init) trip the watchdog and roll back.
+3. **User-Facing Rollback UX**: If an update bundle fails integrity checks or throws on dynamic import, `splash.html` displays an on-screen recovery notice (*"Update verification failed. Rolling back to safe baseline..."*) rather than an unhandled crash or native dialog.
+
+#### Critical Engineering Constraints & Guardrails:
+1. **Launcher Base Splash Retention**: The immutable launcher runtime (or fallback `app.asar`) must retain a copy of `splash.html` so that even on cold boot or rollback recovery, the splash can render instantly.
+2. **Full MPA Packaging in Bundle Tarballs**: Upstream packaging scripts assumed a single `index.html`. Our bundle generator must ensure all renderer entry points (`main`, `splash`, `beat-sync`, `sticker`) and their shared assets in `out/renderer/` are included in the OTA bundle.
+3. **Dynamic Bundle Relative Path Resolution**: `baseUrl(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'renderer'), 'splash.html')` must resolve correctly when `import.meta.url` points to `userData/updates/bundles/<id>/out/main/index.mjs` vs embedded `app.asar/out/main/index.mjs`.
+
 ---
 
-## 5. Storage & Hosting Infrastructure: Cloudflare R2
+## 5. Porting Strategy: Consolidated Distinct File Inventory
+
+### 5.1 The Porting Philosophy: Target Consolidated State, Not PR Replays
+Upstream evolved Ergosphere across 15+ incremental PRs (PRs #3126 through #3188) and direct commits over several weeks, repeatedly patching crash loops, reload handlers, CDN cache-busting, semver range parsing, and file permissions.
+
+Attempting to cherry-pick these PRs sequentially is counterproductive and forces us to re-live each intermediate bug. Instead, the correct strategy is:
+1. **Enumerate the distinct set of all touched files** across the entire Ergosphere initiative in upstream.
+2. **Inspect the latest consolidated state** of those files on `upstream/main`.
+3. **Port that definitive, stabilized architecture directly**, adapted cleanly for our fork's decoupled Control Strip/Stage surfaces, Eventa IPC, and MPA bootloader.
+
+### 5.2 Authoritative Upstream Touched Files Inventory
+Below is the complete, distinct list of files touched across upstream commits (`22da37b34` through `0586ed5fe`):
+
+#### Subsystem 1: Launcher & Configuration Core
+* `apps/stage-tamagotchi/src/launcher/index.ts` — Minimal Electron launcher shim & dynamic bundle loader.
+* `apps/stage-tamagotchi/ergo.config.ts` — Ergosphere channel definitions, public Ed25519 update keys, and feed endpoints.
+* `apps/stage-tamagotchi/electron.vite.config.ts` — Dual-target build (launcher + bundle), isolated `assets/build-info.js` chunk for `unplugin-info` to prevent CDN churn, and normalized layouts.
+* `apps/stage-tamagotchi/package.json` — Entry point shift (`main: "out/launcher/index.mjs"`), `@ergosphere-it/electron` runtime dependency.
+* `apps/stage-tamagotchi/tsconfig.json` — TypeScript compilation roots for launcher and bundle.
+
+#### Subsystem 2: Main Process Services, Health Watchdog & IPC
+* `apps/stage-tamagotchi/src/main/services/electron/auto-updater.ts` — Core auto-updater service, Eventa IPC emitter, channel switcher, and install lifecycle.
+* `apps/stage-tamagotchi/src/main/services/electron/mock-auto-updater.ts` — Test/mock updater implementation.
+* `apps/stage-tamagotchi/src/main/services/electron/auto-updater.test.ts` — Unit test suite for updater states and progress telemetry.
+* `apps/stage-tamagotchi/src/main/index.ts` — Launcher health watchdog integration (`reportHealthy()`), reload hooks, and splash milestone coordination.
+* `apps/stage-tamagotchi/src/main/configs/global.ts` & `global.test.ts` — Update channel preference and auto-check configuration flags.
+* `apps/stage-tamagotchi/src/main/libs/electron/location.ts` & `location.test.ts` — Path resolution resolving against active bundle vs embedded baseline.
+* `apps/stage-tamagotchi/src/shared/update-channels.ts` & `update-channels.test.ts` — Channel schemas (`stable`, `canary`, `dev`, `nightly`).
+* `apps/stage-tamagotchi/src/shared/eventa/index.ts` — Eventa contract definitions for download progress, channel switching, and restart triggers.
+
+#### Subsystem 3: CI/CD Release Planning & Bundling Automation
+* `.github/workflows/release-tamagotchi.yml` — Automated GitHub Actions workflow to build, sign with Ed25519, and upload bundles to Cloudflare R2.
+* `.github/scripts/plan-tamagotchi-updates.ts` & `.test.ts` — Analyzes commits/files changed and determines whether to ship an OTA bundle (JS/renderer only) or mandate a full binary installer (native C++ / Electron runtime bumps).
+* `apps/stage-tamagotchi/scripts/collect-installer-files.ts` & `.test.ts` — Collects and validates installer binaries.
+
+#### Subsystem 4: Local Testing & Validation Harness
+* `apps/stage-tamagotchi/scripts/update-test/start-server.ts` — Local mock HTTP/S3 server for serving update manifests and signed bundles.
+* `apps/stage-tamagotchi/scripts/update-test/generate-manifest.ts` & `.test.ts` — Generates local channel update manifests.
+* `apps/stage-tamagotchi/scripts/update-test/setup.sh`, `run-test.sh`, `run-matrix.sh` — Local integration test harness to verify bundle download, extraction, signature verification, and rollback without needing cloud R2.
+* `apps/stage-tamagotchi/scripts/utils.ts` & `.test.ts` — Release and packaging helper utilities.
+
+#### Subsystem 5: UI Presentation & Localization
+* `apps/stage-tamagotchi/src/renderer/pages/about.vue` *(Adapted to `packages/stage-pages/src/pages/settings/about.vue`)* — Channel selection badges, real-time download speed and progress bars, reload-to-apply buttons.
+* `packages/i18n/src/locales/en/tamagotchi/stage.yaml` & `zh-Hans/...` — Localization keys for updater progress, channels, and error states.
+
+---
+
+## 6. Storage & Hosting Infrastructure: Cloudflare R2
 
 Instead of relying on upstream's servers (`release-updates.airi.build`), `dasilva333/airi` will host its own update feed:
 - **Cloudflare R2 Bucket**: `airi-updates` (Zero egress fee distribution).
@@ -225,25 +305,31 @@ Instead of relying on upstream's servers (`release-updates.airi.build`), `dasilv
 
 ---
 
-## 6. Phased Implementation Roadmap
+## 7. Phased Implementation Roadmap
 
-### Phase 1: Toolchain & Launcher Scaffolding
-- [ ] Add `@moeru-ai/ergosphere-it` (v0.0.11+) or vendor the core launcher shim into `apps/stage-tamagotchi/src/launcher/`.
-- [ ] Configure `apps/stage-tamagotchi/ergo.config.ts` with channel definitions and Ed25519 public key.
-- [ ] Update `electron.vite.config.ts` to output both minimal launcher and full application bundle, isolating `unplugin-info` to a dedicated `assets/build-info.js` chunk (PR #3149).
+### Phase 1: Toolchain, Launcher Scaffolding & MPA Bundling
+- [ ] Add `@ergosphere-it/electron` runtime dependency (v0.0.11+) to `apps/stage-tamagotchi/package.json` and set `main: "out/launcher/index.mjs"`.
+- [ ] Configure `apps/stage-tamagotchi/ergo.config.ts` with channel definitions (`stable`, `canary`, `dev`, `nightly`) and trusted Ed25519 public keys.
+- [ ] Implement `apps/stage-tamagotchi/src/launcher/index.ts` with instant fallback to embedded `splash.html` and `app.asar`.
+- [ ] Update `electron.vite.config.ts` to output both the minimal launcher shim and the application bundle:
+  - Isolate `unplugin-info` to an unhashed `assets/build-info.js` chunk to preserve CDN chunk caching across commits.
+  - Package all MPA entry points (`main`, `splash`, `beat-sync`, `sticker`) into `out/renderer/` for the bundle tarball.
 
-### Phase 2: Main Process & Health Integration
-- [ ] Wire `auto-updater.ts` service to communicate with `ergosphere-it` client.
-- [ ] Implement `injeca.start()` health confirmation in `apps/stage-tamagotchi/src/main/index.ts` with reload-resilient health re-registration (PR #3145).
-- [ ] Add dual-engine version range parsing for seamless fallback to `electron-updater` binary installers when native modules change (PR #3137).
-- [ ] Implement local SeaweedFS / S3 mock test harness (`scripts/update-test`) to verify bundle extraction, dynamic load, and fail-safe rollback locally on macOS and Windows.
+### Phase 2: Main Process, Splash Milestone Relay & Health Integration
+- [ ] Implement `apps/stage-tamagotchi/src/main/services/electron/auto-updater.ts` and `mock-auto-updater.ts` using the consolidated upstream reference.
+- [ ] Define Eventa contracts in `apps/stage-tamagotchi/src/shared/eventa/index.ts` for download progress (rate + bytes), channel switching, and restart triggers.
+- [ ] Wire `updaterService.reportHealthy()` directly into `electronSplashDismiss` in `apps/stage-tamagotchi/src/main/index.ts`, ensuring that health is only declared once all startup milestones (`core-services`, `sync-engine`, `character-card`, `stage-actor`) are ready.
+- [ ] Integrate reload-resilient health re-registration (`Cmd+R` / `F5`) and staged bundle hot-swapping.
+- [ ] Add dual-engine version range parsing for seamless fallback to `electron-updater` binary installers when native modules change.
+- [ ] Port the local mock test harness (`apps/stage-tamagotchi/scripts/update-test/*`) to verify bundle extraction, dynamic loading, and fail-safe rollback locally on macOS and Windows.
 
-### Phase 3: GitHub Actions Release Automation
-- [ ] Add `.github/scripts/plan-tamagotchi-updates.ts` with root `package.json` resolution (PR #3130) to determine whether a commit produces an OTA bundle or a full installer.
-- [ ] Add CI reproducibility check asserting identical bundle hashes across clean builds (PR #3150).
-- [ ] Configure GitHub Actions workflow to sign bundles and publish to Cloudflare R2 on push to `main` (dev lane) and release tags (stable).
+### Phase 3: GitHub Actions Release Automation & R2 Storage
+- [ ] Set up Cloudflare R2 bucket (`airi-updates`) and configure public feed domain.
+- [ ] Port `.github/scripts/plan-tamagotchi-updates.ts` with monorepo root resolution to determine OTA bundle vs full installer releases.
+- [ ] Configure `.github/workflows/release-tamagotchi.yml` to sign bundles with Ed25519 and publish channel manifests (`latest.json`) to R2.
+- [ ] Add CI reproducibility check asserting identical bundle hashes across clean builds.
 
 ### Phase 4: UI & Channel Controls
-- [ ] Update `packages/stage-pages/src/pages/settings/about.vue` to display currently running bundle version and allow switching update channels (`stable` vs `dev`).
-- [ ] Implement real-time download telemetry UI showing download rate (MB/s) and byte progress (PR #3142).
-- [ ] Provide user notifications for pending restarts/reloads when updates finish downloading.
+- [ ] Update `packages/stage-pages/src/pages/settings/about.vue` to display channel badges (`stable`, `canary`, `dev`, `nightly`), commit hash, and channel picker.
+- [ ] Implement real-time download telemetry UI showing download rate (MB/s) and byte progress.
+- [ ] Provide user notifications and reload triggers when updates finish staging.
