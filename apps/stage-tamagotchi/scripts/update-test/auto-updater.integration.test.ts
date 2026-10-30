@@ -1,11 +1,11 @@
 import type { TestServerInstance } from './start-server'
 
-import { mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { UpdateClient } from '@ergosphere-it/client'
 import { createNodeFileSystem } from '@ergosphere-it/client/node'
-import { trustedKeyFromPublicKey } from '@ergosphere-it/protocol'
+import { createKeyPair, signingKeyToPem } from '@ergosphere-it/protocol'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createMockRelease } from './generate-manifest'
@@ -14,8 +14,9 @@ import { startTestServer } from './start-server'
 describe('over-The-Air Auto Updater Integration Matrix', () => {
   const testStoreDir = join('/tmp', 'airi-test-store-matrix')
   const testClientDir = join('/tmp', 'airi-test-client-matrix')
-  let server: TestServerInstance
+  let server: TestServerInstance | undefined
   let trustedKey: any
+  let testSigningKeyPem: string
 
   beforeAll(async () => {
     rmSync(testStoreDir, { force: true, recursive: true })
@@ -23,22 +24,23 @@ describe('over-The-Air Auto Updater Integration Matrix', () => {
     mkdirSync(testStoreDir, { recursive: true })
     mkdirSync(testClientDir, { recursive: true })
 
-    const pubKey = readFileSync(
-      join(import.meta.dirname, '../../../../.cache/keys/updater.key.pub'),
-      'utf8',
-    ).trim()
-    trustedKey = await trustedKeyFromPublicKey(pubKey)
+    const testKeyPair = await createKeyPair()
+    trustedKey = testKeyPair.trustedKey
+    testSigningKeyPem = signingKeyToPem(testKeyPair.signingKey)
 
     server = await startTestServer({ storeDir: testStoreDir })
   })
 
   afterAll(async () => {
-    await server.close()
+    await server?.close()
     rmSync(testStoreDir, { force: true, recursive: true })
     rmSync(testClientDir, { force: true, recursive: true })
   })
 
   function createTestClient(channel: string) {
+    if (!server) {
+      throw new Error('Test server was not initialized')
+    }
     return new UpdateClient({
       channel,
       dataDir: join(testClientDir, channel),
@@ -63,6 +65,7 @@ describe('over-The-Air Auto Updater Integration Matrix', () => {
       channel: 'canary',
       releaseId: 200,
       requires: 'reload',
+      signingKeyPem: testSigningKeyPem,
       storeDir: testStoreDir,
       version: '0.9.43-canary.1',
     })
@@ -89,6 +92,7 @@ describe('over-The-Air Auto Updater Integration Matrix', () => {
     await createMockRelease({
       channel: 'stable',
       releaseId: 100,
+      signingKeyPem: testSigningKeyPem,
       storeDir: testStoreDir,
       version: '0.9.42-stable.1',
     })
@@ -103,6 +107,7 @@ describe('over-The-Air Auto Updater Integration Matrix', () => {
       channel: 'stable',
       releaseId: 250,
       requires: 'restart',
+      signingKeyPem: testSigningKeyPem,
       storeDir: testStoreDir,
       version: '0.9.43-stable.1',
     })
@@ -128,6 +133,7 @@ describe('over-The-Air Auto Updater Integration Matrix', () => {
         channel: 'dev',
         corruptSignature: true,
         releaseId: 300,
+        signingKeyPem: testSigningKeyPem,
         storeDir: corruptStoreDir,
         version: '0.9.44-dev.1',
       })

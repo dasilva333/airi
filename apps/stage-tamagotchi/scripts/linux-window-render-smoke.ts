@@ -81,6 +81,10 @@ const requiredWorkspaceBuildOutputs = [
   'packages/electron-screen-capture/dist/main.mjs',
   'packages/electron-vueuse/dist/main/index.mjs',
   'packages/server-runtime/dist/server.mjs',
+]
+
+const stageTamagotchiEntryOutputs = [
+  'apps/stage-tamagotchi/out/launcher/index.mjs',
   'apps/stage-tamagotchi/out/main/index.js',
 ]
 
@@ -97,6 +101,19 @@ async function ensureSmokePrerequisites() {
     catch {
       missingOutputs.push(relativePath)
     }
+  }
+
+  let hasStageEntry = false
+  for (const relativePath of stageTamagotchiEntryOutputs) {
+    try {
+      await access(resolve(repoDir, relativePath))
+      hasStageEntry = true
+      break
+    }
+    catch {}
+  }
+  if (!hasStageEntry) {
+    missingOutputs.push(stageTamagotchiEntryOutputs[0])
   }
 
   if (missingOutputs.length === 0)

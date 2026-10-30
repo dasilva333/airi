@@ -1,11 +1,12 @@
 import type { SigningKey } from '@ergosphere-it/protocol'
 import type { BundleRelease, ChannelFileRelease } from '@ergosphere-it/publish'
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
-import { env } from 'node:process'
+import process, { env } from 'node:process'
 
-import { keyPairFromPrivateKey } from '@ergosphere-it/protocol'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+
+import { createKeyPair, keyPairFromPrivateKey } from '@ergosphere-it/protocol'
 import { buildBundleRelease, buildChannelFile, createReleaseId, uploadStages } from '@ergosphere-it/publish'
 
 export interface CreateMockReleaseOptions {
@@ -37,9 +38,17 @@ export interface GeneratedReleaseResult {
  * Loads the Ed25519 signing key from environment or local keyfile.
  */
 export async function loadSigningKey(customPem?: string): Promise<SigningKey> {
-  const pem = customPem
-    || env.ERGOSPHERE_IT_SIGNING_KEY
-    || readFileSync(resolve(import.meta.dirname, '../../../../.cache/keys/updater.pkcs8.key'), 'utf8')
+  let pem = customPem || env.ERGOSPHERE_IT_SIGNING_KEY
+  if (!pem) {
+    const keyPath = resolve(import.meta.dirname, '../../../../.cache/keys/updater.pkcs8.key')
+    if (existsSync(keyPath)) {
+      pem = readFileSync(keyPath, 'utf8')
+    }
+    else {
+      const ephemeral = await createKeyPair()
+      return ephemeral.signingKey
+    }
+  }
 
   const keyPair = await keyPairFromPrivateKey(pem)
   return keyPair.signingKey
@@ -174,10 +183,10 @@ if (isCli) {
     corruptSignature: corrupt,
     requires: requiresRestart ? 'restart' : 'reload',
   }).then((res) => {
-    console.log(`[test-updater] Generated ${res.channel} release:`)
-    console.log(`  Release ID: ${res.releaseId}`)
-    console.log(`  Version:    ${res.version}`)
-    console.log(`  Files (${res.writtenFiles.length}):\n    ${res.writtenFiles.join('\n    ')}`)
+    console.info(`[test-updater] Generated ${res.channel} release:`)
+    console.info(`  Release ID: ${res.releaseId}`)
+    console.info(`  Version:    ${res.version}`)
+    console.info(`  Files (${res.writtenFiles.length}):\n    ${res.writtenFiles.join('\n    ')}`)
   }).catch((err) => {
     console.error('[test-updater] Failed to generate release:', err)
     process.exit(1)

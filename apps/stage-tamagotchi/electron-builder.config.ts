@@ -214,7 +214,7 @@ export default {
   ],
   extraMetadata: {
     name: 'ai.moeru.airi.dasilva333',
-    main: 'out/main/index.js',
+    main: 'out/launcher/index.mjs',
     homepage: 'https://airi.moeru.ai/docs/',
     repository: 'https://github.com/dasilva333/airi',
     license: 'MIT',
