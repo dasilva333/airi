@@ -67,18 +67,20 @@ function createWorkerClient(worker: Worker): WorkerClient {
         pending.delete(id)
         reject(new DOMException('Aborted', 'AbortError'))
       }
-      if (signal) {
+      if (signal && typeof signal.addEventListener === 'function') {
         if (signal.aborted)
           return onAbort()
         signal.addEventListener('abort', onAbort, { once: true })
       }
       pending.set(id, {
         resolve: (val: any) => {
-          signal?.removeEventListener('abort', onAbort)
+          if (signal && typeof signal.removeEventListener === 'function')
+            signal.removeEventListener('abort', onAbort)
           resolve(val)
         },
         reject: (err: any) => {
-          signal?.removeEventListener('abort', onAbort)
+          if (signal && typeof signal.removeEventListener === 'function')
+            signal.removeEventListener('abort', onAbort)
           reject(err)
         },
       })

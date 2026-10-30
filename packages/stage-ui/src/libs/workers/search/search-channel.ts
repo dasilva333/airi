@@ -100,7 +100,14 @@ export function serveSearchLeader(channel: BroadcastChannel, backend: SearchBack
 
     const { requestId, op, args } = msg
     try {
-      const result = await backend[op](...(args as [any]))
+      let callArgs = args
+      if (op === 'search' && args.length === 5) {
+        // NOTICE: Shape normalization defense.
+        // A client sending [query, limit, charId, hooks, vector] omitted signal at index 4.
+        // Insert undefined so vector aligns to parameter 6 (index 5) of backend.search.
+        callArgs = [args[0], args[1], args[2], args[3], undefined, args[4]]
+      }
+      const result = await backend[op](...(callArgs as [any]))
       channel.postMessage({ type: 'rpc-done', requestId, result } satisfies SearchChannelMessage)
     }
     catch (err) {
@@ -156,7 +163,8 @@ export function createChannelSearchClient(channel: BroadcastChannel): SearchBack
     return new Promise<T>((resolve, reject) => {
       const cleanup = () => {
         channel.removeEventListener('message', handleMessage)
-        signal?.removeEventListener('abort', onAbort)
+        if (signal && typeof signal.removeEventListener === 'function')
+          signal.removeEventListener('abort', onAbort)
       }
 
       const onAbort = () => {
@@ -183,7 +191,8 @@ export function createChannelSearchClient(channel: BroadcastChannel): SearchBack
         }
       }
 
-      signal?.addEventListener('abort', onAbort, { once: true })
+      if (signal && typeof signal.addEventListener === 'function')
+        signal.addEventListener('abort', onAbort, { once: true })
       channel.addEventListener('message', handleMessage)
       channel.postMessage({ type: 'rpc', requestId, senderId: createRequestId(), op, args } satisfies SearchChannelMessage)
     })
@@ -193,7 +202,7 @@ export function createChannelSearchClient(channel: BroadcastChannel): SearchBack
     init: (snapshot?: any) => rpc('init', [snapshot]),
     index: (documents: any[]) => rpc('index', [documents]),
     search: (query: string, limit?: number, characterId?: string, temporalHooks?: any[], signal?: AbortSignal, vector?: number[]) =>
-      rpc('search', [query, limit, characterId, temporalHooks, vector], signal),
+      rpc('search', [query, limit, characterId, temporalHooks, undefined, vector], signal),
     remove: (id: string) => rpc('remove', [id]),
     persist: (watermark?: number) => rpc('persist', [watermark]),
     status: () => rpc('status', []),

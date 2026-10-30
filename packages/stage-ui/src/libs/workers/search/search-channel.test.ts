@@ -132,8 +132,61 @@ describe('search-channel', () => {
     const res: any = await client.search('query', 5, 'char-1', [{ text: 't' }])
     expect(res.documents).toEqual([{ id: 'doc-1' }])
     expect(res.queryVector).toEqual([0.1])
-    // Leader saw the forwarded args (signal stripped); executed exactly once.
-    expect(leaderBackend.calls).toEqual([['search', 'query', 5, 'char-1', [{ text: 't' }], undefined]])
+    // Leader saw the forwarded args (signal stripped to undefined, vector aligned); executed exactly once.
+    expect(leaderBackend.calls).toEqual([['search', 'query', 5, 'char-1', [{ text: 't' }], undefined, undefined]])
+    FakeBroadcastChannel.reset()
+  })
+
+  it('proxies client calls with precomputed vector to the leader without clobbering signal', async () => {
+    FakeBroadcastChannel.reset()
+    const leaderBackend = makeLeaderBackend()
+    await resolveSearchBackend({
+      createLeaderBackend: () => leaderBackend,
+      openChannel: () => new FakeBroadcastChannel(SEARCH_CHANNEL_NAME) as unknown as BroadcastChannel,
+      isLeader: true,
+    })
+    const client = await resolveSearchBackend({
+      createLeaderBackend: () => { throw new Error('client must not host a worker') },
+      openChannel: () => new FakeBroadcastChannel(SEARCH_CHANNEL_NAME) as unknown as BroadcastChannel,
+      isLeader: false,
+    })
+
+    const precomputedVector = [0.1, 0.2, 0.3]
+    const res: any = await client.search('subquery', 5, 'char-1', [{ text: 't' }], undefined, precomputedVector)
+    expect(res.documents).toEqual([{ id: 'doc-1' }])
+    // Parameter 5 is signal (undefined), Parameter 6 is vector (precomputedVector)
+    expect(leaderBackend.calls).toEqual([['search', 'subquery', 5, 'char-1', [{ text: 't' }], undefined, precomputedVector]])
+    FakeBroadcastChannel.reset()
+  })
+
+  it('normalizes legacy 5-argument search RPCs so vector is not treated as signal', async () => {
+    FakeBroadcastChannel.reset()
+    const leaderBackend = makeLeaderBackend()
+    const channel = new FakeBroadcastChannel(SEARCH_CHANNEL_NAME) as unknown as BroadcastChannel
+    serveSearchLeader(channel, leaderBackend)
+
+    const rawChannel = new FakeBroadcastChannel(SEARCH_CHANNEL_NAME)
+    const requestId = 'req-legacy-5'
+    const legacyVector = [0.4, 0.5]
+
+    const responsePromise = new Promise<any>((resolve) => {
+      rawChannel.addEventListener('message', (e: any) => {
+        if (e.data?.requestId === requestId)
+          resolve(e.data)
+      })
+    })
+
+    rawChannel.postMessage({
+      type: 'rpc',
+      requestId,
+      senderId: 'legacy-sender',
+      op: 'search',
+      args: ['query', 5, 'char-1', [{ text: 't' }], legacyVector],
+    })
+
+    const response = await responsePromise
+    expect(response.type).toBe('rpc-done')
+    expect(leaderBackend.calls).toEqual([['search', 'query', 5, 'char-1', [{ text: 't' }], undefined, legacyVector]])
     FakeBroadcastChannel.reset()
   })
 
