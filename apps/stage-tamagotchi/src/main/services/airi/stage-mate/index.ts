@@ -3,10 +3,11 @@ import type { ChildProcess } from 'node:child_process'
 import type { globalAppConfigSchema } from '../../../configs/global'
 import type { Config } from '../../../libs/electron/persistence'
 
-import { spawn } from 'node:child_process'
+import { exec, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { env, platform } from 'node:process'
+import { promisify } from 'node:util'
 
 import koffi from 'koffi'
 
@@ -32,6 +33,8 @@ import { WebSocket, WebSocketServer } from 'ws'
 
 import { onAppBeforeQuit } from '../../../libs/bootkit/lifecycle'
 import { getElectronMainDirname } from '../../../libs/electron/location'
+
+const execAsync = promisify(exec)
 
 export interface StageMateService {
   ensureRunning: () => Promise<void>
@@ -272,48 +275,74 @@ export function createStageMateService(params?: {
     }
   }
 
-  function resolveBinaryPath(): { binPath: string | null, candidates: string[], baseBinPath: string } {
-    const baseBinPath = join(getElectronMainDirname(), '../../../../apps/stage-mate/bin')
-    let candidates: string[] = []
+  let isFetchingBinary = false
 
-    if (platform === 'win32') {
-      candidates = [
-        join(baseBinPath, 'StageMate.exe'),
-        join(baseBinPath, 'MateEngineX.exe'),
-        join(baseBinPath, 'StageMate', 'StageMate.exe'),
-        join(baseBinPath, 'StageMate', 'MateEngineX.exe'),
-        join(baseBinPath, 'Windows', 'StageMate.exe'),
-        join(baseBinPath, 'Windows', 'MateEngineX.exe'),
-        join(process.resourcesPath, 'StageMate.exe'),
-        join(process.resourcesPath, 'MateEngineX.exe'),
-        join(process.resourcesPath, 'StageMate', 'StageMate.exe'),
-        join(process.resourcesPath, 'StageMate', 'MateEngineX.exe'),
-      ]
+  function findRepoRoot(): string | null {
+    let curr = getElectronMainDirname()
+    for (let i = 0; i < 8; i++) {
+      if (existsSync(join(curr, 'pnpm-workspace.yaml')))
+        return curr
+      const parent = join(curr, '..')
+      if (parent === curr)
+        break
+      curr = parent
     }
-    else if (platform === 'linux') {
-      candidates = [
-        join(baseBinPath, 'StageMate.x86_64'),
-        join(baseBinPath, 'MateEngineX.x86_64'),
-        join(baseBinPath, 'Linux', 'StageMate.x86_64'),
-        join(baseBinPath, 'Linux', 'MateEngineX.x86_64'),
-        join(process.resourcesPath, 'StageMate.x86_64'),
-        join(process.resourcesPath, 'MateEngineX.x86_64'),
-      ]
+    curr = process.cwd()
+    for (let i = 0; i < 8; i++) {
+      if (existsSync(join(curr, 'pnpm-workspace.yaml')))
+        return curr
+      const parent = join(curr, '..')
+      if (parent === curr)
+        break
+      curr = parent
     }
-    else if (platform === 'darwin') {
-      candidates = [
-        join(baseBinPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
-        join(baseBinPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
-        join(baseBinPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/StageMate'),
-        join(baseBinPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
-        join(baseBinPath, 'StageMate.app'),
-        join(process.resourcesPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/StageMate'),
-        join(process.resourcesPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
-        join(process.resourcesPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
-        join(process.resourcesPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
-        join(process.resourcesPath, 'StageMate', 'StageMate.app'),
-        join(process.resourcesPath, 'StageMate.app'),
-      ]
+    return null
+  }
+
+  function resolveBinaryPath(): { binPath: string | null, candidates: string[], baseBinPath: string } {
+    const repoRoot = findRepoRoot()
+    const possibleBaseDirs = [
+      repoRoot ? join(repoRoot, 'apps/stage-mate/bin') : null,
+      join(getElectronMainDirname(), '../../../../apps/stage-mate/bin'),
+      join(getElectronMainDirname(), '../../../../../apps/stage-mate/bin'),
+      join(process.cwd(), 'apps/stage-mate/bin'),
+      join(process.cwd(), '../../apps/stage-mate/bin'),
+      join(app.getPath('userData'), 'stage-mate/bin'),
+      process.resourcesPath,
+    ].filter((p): p is string => Boolean(p))
+
+    const baseBinPath = possibleBaseDirs.find(d => existsSync(d)) ?? (repoRoot ? join(repoRoot, 'apps/stage-mate/bin') : possibleBaseDirs[0])
+    const candidates: string[] = []
+
+    for (const base of possibleBaseDirs) {
+      if (platform === 'win32') {
+        candidates.push(
+          join(base, 'StageMate.exe'),
+          join(base, 'MateEngineX.exe'),
+          join(base, 'StageMate', 'StageMate.exe'),
+          join(base, 'StageMate', 'MateEngineX.exe'),
+          join(base, 'Windows', 'StageMate.exe'),
+          join(base, 'Windows', 'MateEngineX.exe'),
+        )
+      }
+      else if (platform === 'linux') {
+        candidates.push(
+          join(base, 'StageMate.x86_64'),
+          join(base, 'MateEngineX.x86_64'),
+          join(base, 'Linux', 'StageMate.x86_64'),
+          join(base, 'Linux', 'MateEngineX.x86_64'),
+        )
+      }
+      else if (platform === 'darwin') {
+        candidates.push(
+          join(base, 'StageMate.app', 'Contents/MacOS/StageMate'),
+          join(base, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
+          join(base, 'StageMate', 'StageMate.app', 'Contents/MacOS/StageMate'),
+          join(base, 'StageMate', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
+          join(base, 'StageMate.app'),
+          join(base, 'StageMate', 'StageMate.app'),
+        )
+      }
     }
 
     for (const cand of candidates) {
@@ -335,16 +364,43 @@ export function createStageMateService(params?: {
     sidecarProcess = null
     sidecarPid = null
 
-    const { binPath, candidates, baseBinPath } = resolveBinaryPath()
+    let { binPath, candidates, baseBinPath } = resolveBinaryPath()
     if (!binPath) {
-      log.withFields({
-        platform,
-        baseBinPath,
-        checkedPaths: candidates,
-        resourcesPath: process.resourcesPath,
-        cwd: process.cwd(),
-      }).warn('StageMate standalone app binary not found. Launch StageMate externally or run pnpm stage-mate:fetch.')
-      return
+      if (isFetchingBinary) {
+        log.log('StageMate binary fetch already in progress, waiting...')
+        return
+      }
+
+      const repoRoot = findRepoRoot()
+      if (repoRoot) {
+        log.warn('StageMate standalone app binary not found. Automatically downloading prebuilt companion runtime from GitHub...')
+        isFetchingBinary = true
+        try {
+          await execAsync('pnpm -F @proj-airi/stage-mate run engine:fetch', { cwd: repoRoot })
+          log.log('Successfully fetched StageMate binary! Re-resolving executable path...')
+          const recheck = resolveBinaryPath()
+          binPath = recheck.binPath
+          candidates = recheck.candidates
+          baseBinPath = recheck.baseBinPath
+        }
+        catch (err) {
+          log.withError(err as Error).error('Failed to automatically fetch StageMate binary.')
+        }
+        finally {
+          isFetchingBinary = false
+        }
+      }
+
+      if (!binPath) {
+        log.withFields({
+          platform,
+          baseBinPath,
+          checkedPaths: candidates,
+          resourcesPath: process.resourcesPath,
+          cwd: process.cwd(),
+        }).warn('StageMate standalone app binary not found even after auto-fetch attempt.')
+        return
+      }
     }
 
     const token = getResolvedAuthToken()
