@@ -1,4 +1,3 @@
-import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { env } from 'node:process'
@@ -12,6 +11,90 @@ interface PublishOptions {
   bucket: string
   dryRun: boolean
   outDir: string
+  workerUrl: string
+}
+
+async function uploadFileViaWorker(
+  workerUrl: string,
+  token: string,
+  key: string,
+  bytes: Uint8Array,
+  isCAS: boolean,
+): Promise<'skipped' | 'uploaded'> {
+  const fileUrl = `${workerUrl.replace(/\/+$/, '')}/${key}`
+
+  // If CAS object, check if it already exists to save bandwidth and time
+  if (isCAS) {
+    try {
+      const headRes = await fetch(fileUrl, { method: 'HEAD' })
+      if (headRes.status === 200) {
+        return 'skipped'
+      }
+    }
+    catch {}
+  }
+
+  let retries = 3
+  while (retries > 0) {
+    try {
+      const res = await fetch(fileUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Length': bytes.byteLength.toString(),
+        },
+        body: bytes,
+      })
+
+      if (res.status === 200) {
+        return 'uploaded'
+      }
+      throw new Error(`Worker returned ${res.status}: ${await res.text()}`)
+    }
+    catch (err) {
+      retries--
+      if (retries === 0)
+        throw err
+      await new Promise(r => setTimeout(r, 500))
+    }
+  }
+  return 'uploaded'
+}
+
+async function uploadStageConcurrently(
+  stageFiles: Array<{ key: string, bytes: Uint8Array }>,
+  workerUrl: string,
+  token: string,
+  isCAS: boolean,
+  concurrency = 25,
+) {
+  let done = 0
+  let uploaded = 0
+  let skipped = 0
+  const total = stageFiles.length
+
+  const queue = [...stageFiles]
+  const workers = Array.from({ length: concurrency }).map(async () => {
+    while (queue.length > 0) {
+      const file = queue.shift()
+      if (!file)
+        break
+
+      const status = await uploadFileViaWorker(workerUrl, token, file.key, file.bytes, isCAS)
+      done++
+      if (status === 'uploaded')
+        uploaded++
+      else
+        skipped++
+
+      if (done % 50 === 0 || done === total) {
+        process.stdout.write(`\r    [${done}/${total}] Uploaded: ${uploaded}, Skipped: ${skipped}`)
+      }
+    }
+  })
+
+  await Promise.all(workers)
+  process.stdout.write('\n')
 }
 
 async function main() {
@@ -20,15 +103,19 @@ async function main() {
   const channel = (channelIdx !== -1 ? args[channelIdx + 1] : 'canary') as PublishOptions['channel']
   const bucketIdx = args.indexOf('--bucket')
   const bucket = bucketIdx !== -1 ? args[bucketIdx + 1] : 'airi-updates'
+  const workerIdx = args.indexOf('--worker-url')
+  const workerUrl = workerIdx !== -1 ? args[workerIdx + 1] : (env.AIRI_UPDATES_WORKER_URL || 'https://airi-updates.r1ch4rd.workers.dev')
+  const token = env.ERGOSPHERE_UPLOAD_TOKEN || 'airi-ota-secret-20261028'
   const dryRun = args.includes('--dry-run')
   const outDir = resolve(process.cwd(), 'out')
   const storeDir = resolve(outDir, 'update-store')
 
   console.log(`==> AIRI OTA Release Publisher`)
-  console.log(`  Channel:  ${channel}`)
-  console.log(`  Bucket:   ${bucket}`)
-  console.log(`  Dry Run:  ${dryRun ? 'YES (local only)' : 'NO (uploading to Cloudflare R2)'}`)
-  console.log(`  Out Dir:  ${outDir}`)
+  console.log(`  Channel:    ${channel}`)
+  console.log(`  Bucket:     ${bucket}`)
+  console.log(`  Worker URL: ${workerUrl}`)
+  console.log(`  Dry Run:    ${dryRun ? 'YES (local only)' : 'NO (uploading to Cloudflare via Worker)'}`)
+  console.log(`  Out Dir:    ${outDir}`)
 
   const bundleJsonPath = join(outDir, 'bundle.json')
   const bundleDirPath = join(outDir, 'bundle')
@@ -64,7 +151,7 @@ async function main() {
   const channelRelease = await buildChannelFile({
     bundle,
     channel,
-    product: 'airi',
+    product: bundle.product || 'ai.moeru.airi.dasilva333',
     signingKey: keyPair.signingKey,
   })
 
@@ -92,33 +179,17 @@ async function main() {
   // Stage 0: CAS objects (payloads)
   // Stage 1: Bundle manifest & signature
   // Stage 2: Channel manifest & signature
-  console.log(`\nUploading to Cloudflare R2 (${bucket})...`)
+  console.log(`\nUploading to Cloudflare Edge via Worker (${workerUrl})...`)
 
   for (let i = 0; i < stages.length; i++) {
     const stage = stages[i]
-    console.log(`--> Uploading Stage ${i + 1}/${stages.length} (${stage.length} files)...`)
-
-    for (const file of stage) {
-      const localFile = join(storeDir, file.key)
-      const r2Target = `${bucket}/${file.key}`
-      process.stdout.write(`    Uploading ${file.key}... `)
-
-      try {
-        execSync(`npx wrangler r2 object put "${r2Target}" -f "${localFile}" --remote`, {
-          stdio: 'pipe',
-        })
-        process.stdout.write(`OK\n`)
-      }
-      catch (err: any) {
-        process.stdout.write(`FAILED\n`)
-        console.error(`Error uploading ${file.key}:`, err?.message || err)
-        process.exit(1)
-      }
-    }
+    const isCAS = i === 0
+    console.log(`--> Uploading Stage ${i + 1}/${stages.length} (${stage.length} files, isCAS=${isCAS})...`)
+    await uploadStageConcurrently(stage, workerUrl, token, isCAS, 25)
   }
 
   console.log(`\n✓ Successfully published v${bundle.version} to channel '${channel}'!`)
-  console.log(`  Feed URL: https://airi-updates.r1ch4rd.workers.dev/channels/${channel}.json`)
+  console.log(`  Feed URL: ${workerUrl.replace(/\/+$/, '')}/channels/${channel}.json`)
 }
 
 main().catch((err) => {

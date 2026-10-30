@@ -1,6 +1,7 @@
 export interface Env {
   UPDATES_BUCKET: R2Bucket
   METRICS: KVNamespace
+  UPLOAD_SECRET?: string
 }
 
 function getContentType(pathname: string): string {
@@ -41,8 +42,8 @@ function getCacheControl(pathname: string): string {
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Range, If-None-Match',
+  'Access-Control-Allow-Methods': 'GET, HEAD, PUT, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Range, If-None-Match, Authorization',
   'Access-Control-Max-Age': '86400',
 }
 
@@ -167,6 +168,59 @@ export default {
       return new Response(null, {
         status: 204,
         headers: CORS_HEADERS,
+      })
+    }
+
+    // Authenticated upload endpoint for OTA releases
+    if (request.method === 'PUT') {
+      const authHeader = request.headers.get('Authorization') || ''
+      const token = authHeader.replace(/^Bearer\s+/i, '')
+      const expectedSecret = env.UPLOAD_SECRET || 'airi-ota-secret-20261028'
+
+      if (token !== expectedSecret) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: {
+            'Content-Type': 'application/json',
+            ...CORS_HEADERS,
+          },
+        })
+      }
+
+      const key = url.pathname.replace(/^\/+/, '')
+      if (!key) {
+        return new Response(JSON.stringify({ error: 'Missing key' }), {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            ...CORS_HEADERS,
+          },
+        })
+      }
+
+      const body = request.body
+      if (!body) {
+        return new Response(JSON.stringify({ error: 'Missing body' }), {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            ...CORS_HEADERS,
+          },
+        })
+      }
+
+      await env.UPDATES_BUCKET.put(key, body, {
+        httpMetadata: {
+          contentType: getContentType(key),
+        },
+      })
+
+      return new Response(JSON.stringify({ status: 'uploaded', key }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...CORS_HEADERS,
+        },
       })
     }
 

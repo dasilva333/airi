@@ -207,7 +207,7 @@
     "zod": "catalog:"
   },
   "build": {
-    "appId": "ai.moeru.airi",
+    "appId": "ai.moeru.airi.dasilva333",
     "extends": "electron-builder.config.ts"
   }
 }
