@@ -274,7 +274,7 @@ export const useSystemOneStore = defineStore('system-one', () => {
   const configured = computed(() => {
     if (!activeProvider.value || activeProvider.value === 'none')
       return false
-    if (activeProvider.value === 'laya-local')
+    if (activeProvider.value === 'laya-local' || activeProvider.value === 'openjev-local')
       return true
     return !!providersStore.configuredProviders[activeProvider.value] || providersStore.persistedProvidersMetadata.some(p => p.id === activeProvider.value)
   })
@@ -322,7 +322,7 @@ export const useSystemOneStore = defineStore('system-one', () => {
         },
       ]
     }
-    if (activeProvider.value === 'laya-local') {
+    if (activeProvider.value === 'openjev-local') {
       return [
         {
           id: 'heman10x/rlcd-modernbert-151m',
@@ -334,6 +334,10 @@ export const useSystemOneStore = defineStore('system-one', () => {
           name: 'OpenJev Base FP16 (300 MB, WebGPU)',
           description: 'On-device ModernBERT-base 151M FP16 calibrated decision model',
         },
+      ]
+    }
+    if (activeProvider.value === 'laya-local') {
+      return [
         {
           id: 'tozp/laya-onnx',
           name: 'Laya Large INT8 (633 MB, Deep Reasoning)',
@@ -373,7 +377,11 @@ export const useSystemOneStore = defineStore('system-one', () => {
         ? 'jev-1.13-free'
         : providerId === 'typesafe-ai'
           ? 'jev-latest'
-          : 'typesafe/jev-1.13'
+          : providerId === 'openjev-local'
+            ? 'heman10x/rlcd-modernbert-151m'
+            : providerId === 'laya-local'
+              ? 'tozp/laya-onnx'
+              : 'typesafe/jev-1.13'
       const model = modelOverride || activeModel.value || defaultModel
       const res = await instance.systemOne(state, questions, model)
       options?.signal?.throwIfAborted?.()
@@ -382,7 +390,7 @@ export const useSystemOneStore = defineStore('system-one', () => {
       const rawTokens = Number(res?.usage?.input_tokens ?? (res?.usage as any)?.prompt_tokens ?? 0)
       const inputTokens = Number.isFinite(rawTokens) && rawTokens > 0 ? rawTokens : 0
       systemOneDecisionsCount.value++
-      if (providerId === 'laya-local') {
+      if (providerId === 'laya-local' || providerId === 'openjev-local') {
         systemOneLocalTokens.value += inputTokens
       }
       else {
@@ -558,7 +566,7 @@ export const useSystemOneStore = defineStore('system-one', () => {
   async function runRerank(query: string, candidates: CandidateItem[], options?: { signal?: AbortSignal }) {
     // NOTICE: cap the rerank pool — each candidate becomes a Jev question in
     // one request; 10-way reranks on every chat turn stall local Laya, but cloud decisions can easily evaluate 10.
-    const maxPoolSize = activeProvider.value === 'laya-local' ? 6 : 10
+    const maxPoolSize = (activeProvider.value === 'laya-local' || activeProvider.value === 'openjev-local') ? 6 : 10
     const pool = candidates.slice(0, maxPoolSize)
     if (pool.length === 0)
       return { rankedCandidates: [], latencyMs: 0 }

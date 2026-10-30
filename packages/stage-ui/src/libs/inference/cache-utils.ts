@@ -413,7 +413,7 @@ async function isOpfsModelCached(modelUrl: string): Promise<boolean> {
  * Returns 0 if no caches exist or all are empty.
  */
 export async function getModelCacheSize(): Promise<number> {
-  const [transformersSize, opfsSize, mossSize, pocketSize, ming3Size, webLlmSize, needleSize, layaSize, nativeSize] = await Promise.all([
+  const [transformersSize, opfsSize, mossSize, pocketSize, ming3Size, webLlmSize, needleSize, layaSize, openjevSize, nativeSize] = await Promise.all([
     getTransformersCacheSize(),
     getOpfsCacheSize(),
     getMossOpfsCacheSize(),
@@ -422,10 +422,11 @@ export async function getModelCacheSize(): Promise<number> {
     getWebLlmCacheSize(),
     getNeedleCacheSize(),
     getLayaCacheSize(),
+    getOpenJevCacheSize(),
     NativeAI.listCachedModels().then(res => res.totalSizeBytes).catch(() => 0),
   ])
 
-  return transformersSize + opfsSize + mossSize + pocketSize + ming3Size + webLlmSize + needleSize + layaSize + nativeSize
+  return transformersSize + opfsSize + mossSize + pocketSize + ming3Size + webLlmSize + needleSize + layaSize + openjevSize + nativeSize
 }
 
 async function getTransformersCacheSize(): Promise<number> {
@@ -507,6 +508,10 @@ export async function clearSingleModelCache(modelId: string): Promise<void> {
   }
   if (modelId === 'needle-2' || modelId.includes('needle2') || modelId.includes('needle')) {
     await clearNeedleCache()
+    return
+  }
+  if (modelId.includes('openjev') || modelId.includes('rlcd-modernbert')) {
+    await clearOpenJevCache()
     return
   }
   if (modelId.includes('laya')) {
@@ -837,8 +842,16 @@ export async function isNeedleModelCached(): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// Laya (Cache Storage API, `laya-cache` scope)
+// Laya & OpenJev System 1 Models (Cache Storage API, `laya-cache` scope)
 // ---------------------------------------------------------------------------
+
+function isOpenJevRequest(url: string): boolean {
+  return url.includes('rlcd-modernbert-151m') || url.includes('ModernBERT-base') || url.includes('heman10x')
+}
+
+function isLayaRequest(url: string): boolean {
+  return url.includes('laya-int8') || url.includes('laya-ONNX') || url.includes('ModernBERT-large') || url.includes('bgoldfarb93') || url.includes('tozp')
+}
 
 export async function getLayaCacheSize(): Promise<number> {
   if (typeof caches === 'undefined')
@@ -852,6 +865,8 @@ export async function getLayaCacheSize(): Promise<number> {
     const keys = await cache.keys()
     let totalSize = 0
     for (const request of keys) {
+      if (!isLayaRequest(request.url))
+        continue
       const response = await cache.match(request)
       if (response) {
         const cl = response.headers.get('content-length')
@@ -872,14 +887,91 @@ export async function getLayaCacheSize(): Promise<number> {
   }
 }
 
+export async function getOpenJevCacheSize(): Promise<number> {
+  if (typeof caches === 'undefined')
+    return 0
+
+  try {
+    const has = await caches.has(LAYA_CACHE_NAME)
+    if (!has)
+      return 0
+    const cache = await caches.open(LAYA_CACHE_NAME)
+    const keys = await cache.keys()
+    let totalSize = 0
+    for (const request of keys) {
+      if (!isOpenJevRequest(request.url))
+        continue
+      const response = await cache.match(request)
+      if (response) {
+        const cl = response.headers.get('content-length')
+        if (cl) {
+          totalSize += Number.parseInt(cl, 10)
+        }
+        else {
+          const blob = await response.blob()
+          totalSize += blob.size
+        }
+      }
+    }
+    return totalSize
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to get OpenJev cache size', error)
+    return 0
+  }
+}
+
 export async function clearLayaCache(): Promise<void> {
   if (typeof caches === 'undefined')
     return
   try {
-    await caches.delete(LAYA_CACHE_NAME)
+    const has = await caches.has(LAYA_CACHE_NAME)
+    if (!has)
+      return
+    const cache = await caches.open(LAYA_CACHE_NAME)
+    const keys = await cache.keys()
+    let remaining = 0
+    for (const request of keys) {
+      if (isLayaRequest(request.url)) {
+        await cache.delete(request)
+      }
+      else {
+        remaining++
+      }
+    }
+    if (remaining === 0) {
+      await caches.delete(LAYA_CACHE_NAME)
+    }
   }
   catch (error) {
     console.warn('[cache-utils] failed to clear Laya cache', error)
+  }
+}
+
+export async function clearOpenJevCache(): Promise<void> {
+  if (typeof caches === 'undefined')
+    return
+  try {
+    const has = await caches.has(LAYA_CACHE_NAME)
+    if (!has)
+      return
+    const cache = await caches.open(LAYA_CACHE_NAME)
+    const keys = await cache.keys()
+    let remaining = 0
+    for (const request of keys) {
+      if (isOpenJevRequest(request.url)) {
+        await cache.delete(request)
+      }
+      else {
+        remaining++
+      }
+    }
+    if (remaining === 0) {
+      await caches.delete(LAYA_CACHE_NAME)
+    }
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to clear OpenJev cache', error)
   }
 }
 
@@ -892,7 +984,23 @@ export async function isLayaModelCached(): Promise<boolean> {
       return false
     const cache = await caches.open(LAYA_CACHE_NAME)
     const keys = await cache.keys()
-    return keys.length > 0
+    return keys.some(k => isLayaRequest(k.url))
+  }
+  catch {
+    return false
+  }
+}
+
+export async function isOpenJevModelCached(): Promise<boolean> {
+  if (typeof caches === 'undefined')
+    return false
+  try {
+    const has = await caches.has(LAYA_CACHE_NAME)
+    if (!has)
+      return false
+    const cache = await caches.open(LAYA_CACHE_NAME)
+    const keys = await cache.keys()
+    return keys.some(k => isOpenJevRequest(k.url))
   }
   catch {
     return false
@@ -986,6 +1094,9 @@ export async function isModelCached(modelId: string): Promise<boolean> {
   }
   if (modelId === 'needle-2' || modelId.includes('needle2') || modelId.includes('needle')) {
     return isNeedleModelCached()
+  }
+  if (modelId.includes('openjev') || modelId.includes('rlcd-modernbert')) {
+    return isOpenJevModelCached()
   }
   if (modelId.includes('laya')) {
     return isLayaModelCached()
@@ -1124,6 +1235,16 @@ export async function getDetailedModelCacheMap(): Promise<ModelCacheStatusMap> {
   }
   catch {
     result['tozp/laya-onnx'] = { cached: false, sizeBytes: 0 }
+  }
+
+  // 7. OpenJev (Cache Storage API)
+  try {
+    const openjevCached = await isOpenJevModelCached()
+    const openjevSize = openjevCached ? await getOpenJevCacheSize() : 0
+    result['heman10x/rlcd-modernbert-151m'] = { cached: openjevCached, sizeBytes: openjevSize }
+  }
+  catch {
+    result['heman10x/rlcd-modernbert-151m'] = { cached: false, sizeBytes: 0 }
   }
 
   // 8. Background removal / IS-Net anime (Cache Storage API)

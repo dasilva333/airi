@@ -141,12 +141,20 @@ const knownModels: KnownModelItem[] = [
 
   // 4. Miscellaneous & System 1 (Motion, Decisions, Embeddings)
   {
+    id: 'heman10x/rlcd-modernbert-151m',
+    name: 'OpenJev 151M / ModernBERT (System 1 Decisions)',
+    category: 'misc',
+    runtime: 'ONNX Web / WASM',
+    icon: 'i-solar:bolt-bold-duotone',
+    description: 'Ultra-fast lightweight on-device System-1 decision & question triage model',
+  },
+  {
     id: 'tozp/laya-onnx',
-    name: 'Laya 80M / ModernBERT (System 1 Decisions)',
+    name: 'Laya 421M / ModernBERT (System 1 Decisions)',
     category: 'misc',
     runtime: 'ONNX Web / WASM',
     icon: 'i-solar:cpu-bolt-bold-duotone',
-    description: 'Ultra-fast on-device System-1 decision & question triage model',
+    description: 'Deep decision reasoning & candidate reranking model',
   },
   {
     id: 'dasilva333/flowmdm-onnx',

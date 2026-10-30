@@ -1521,6 +1521,10 @@ pages:
         title: Local Laya (On-Device)
         description: Client-side ModernBERT System 1 classification running locally via
           WebGPU/WASM
+      openjev-local:
+        title: OpenJev (On-Device)
+        description: Client-side lightweight ModernBERT-base (151M) System 1 decision
+          engine via WebGPU/WASM
     title: Inference Providers
     cache:
       title: Model Cache

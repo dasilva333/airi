@@ -25,6 +25,8 @@ const isSystemOneConfigured = computed(() => systemOneStore.configured)
 
 const activeEngineName = computed(() => {
   switch (systemOneStore.activeProvider) {
+    case 'openjev-local':
+      return 'Local OpenJev (151M)'
     case 'laya-local':
       return systemOneStore.activeModel.includes('openjev') || systemOneStore.activeModel.includes('151m')
         ? 'Local OpenJev (151M)'
@@ -42,6 +44,7 @@ const activeEngineName = computed(() => {
 
 const activeEngineBadgeText = computed(() => {
   switch (systemOneStore.activeProvider) {
+    case 'openjev-local':
     case 'laya-local':
       return '100% On-Device'
     case 'typesafe-ai':
@@ -56,6 +59,7 @@ const activeEngineBadgeText = computed(() => {
 
 const activeEngineBadgeClass = computed(() => {
   switch (systemOneStore.activeProvider) {
+    case 'openjev-local':
     case 'laya-local':
       return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
     case 'typesafe-ai':

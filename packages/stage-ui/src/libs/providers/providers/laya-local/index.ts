@@ -20,7 +20,7 @@ type LayaLocalConfig = z.input<typeof layaLocalConfigSchema>
 
 export const providerLayaLocal = defineProvider<LayaLocalConfig>({
   id: 'laya-local',
-  order: 2,
+  order: 3,
   name: 'Local Laya (On-Device)',
   nameLocalize: ({ t }) => t('settings.pages.providers.provider.laya-local.title'),
   description: 'Client-side ModernBERT System 1 classification running locally via WebGPU/WASM',
@@ -33,7 +33,7 @@ export const providerLayaLocal = defineProvider<LayaLocalConfig>({
   createProvider(config) {
     return {
       systemOne: async (state: string | object, questions: Record<string, any>, model?: string): Promise<System1Response> => {
-        const targetModel = model || config?.model || 'heman10x/rlcd-modernbert-151m'
+        const targetModel = model || config?.model || 'tozp/laya-onnx'
         const precision = targetModel.includes('fp16') ? 'fp16' : 'int8'
         const res = await runLayaSystemOne(state, questions, precision, {
           useWebGpu: Boolean(config?.enableWebGpu),
@@ -53,7 +53,7 @@ export const providerLayaLocal = defineProvider<LayaLocalConfig>({
 
   extraMethods: {
     async loadModel(config, _provider, hooks) {
-      const targetModel = config?.model || 'heman10x/rlcd-modernbert-151m'
+      const targetModel = config?.model || 'tozp/laya-onnx'
       const precision = targetModel.includes('fp16') ? 'fp16' : 'int8'
       await downloadLayaModel({
         precision,
@@ -73,18 +73,6 @@ export const providerLayaLocal = defineProvider<LayaLocalConfig>({
 
     async listModels() {
       return [
-        {
-          id: 'heman10x/rlcd-modernbert-151m',
-          name: 'OpenJev Base INT8 (155 MB, Fast & Lightweight)',
-          provider: 'laya-local',
-          description: 'On-device ModernBERT-base 151M calibrated decision model with explicit abstention',
-        },
-        {
-          id: 'heman10x/rlcd-modernbert-151m-fp16',
-          name: 'OpenJev Base FP16 (300 MB, WebGPU)',
-          provider: 'laya-local',
-          description: 'On-device ModernBERT-base 151M FP16 calibrated decision model',
-        },
         {
           id: 'tozp/laya-onnx',
           name: 'Laya Large INT8 (633 MB, Deep Reasoning)',

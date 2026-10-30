@@ -76,13 +76,21 @@ describe('system 1 coprocessor architecture', () => {
       expect(provider?.id).toBe('opencode-go')
     })
 
-    it('lists all four system1 providers in defined providers catalog', () => {
+    it('registers openjev-local as on-device system1 provider', () => {
+      const provider = getDefinedProvider('openjev-local')
+      expect(provider).toBeDefined()
+      expect(provider?.tasks).toContain('system1')
+      expect(provider?.id).toBe('openjev-local')
+    })
+
+    it('lists all five system1 providers in defined providers catalog', () => {
       const all = listProviders()
       const s1 = all.filter(p => p.tasks.includes('system1'))
       const ids = s1.map(p => p.id)
       expect(ids).toContain('openrouter-ai')
       expect(ids).toContain('typesafe-ai')
       expect(ids).toContain('laya-local')
+      expect(ids).toContain('openjev-local')
       expect(ids).toContain('opencode-go')
     })
   })

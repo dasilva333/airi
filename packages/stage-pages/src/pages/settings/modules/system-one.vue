@@ -59,16 +59,18 @@ watch(activeProvider, (newProv) => {
   else if (newProv === 'opencode-go') {
     activeModel.value = 'jev-1.13-free'
   }
+  else if (newProv === 'openjev-local') {
+    const configuredModel = providersStore.getProviderConfig('openjev-local')?.model as string | undefined
+    activeModel.value = configuredModel || 'heman10x/rlcd-modernbert-151m'
+  }
   else if (newProv === 'laya-local') {
     const configuredModel = providersStore.getProviderConfig('laya-local')?.model as string | undefined
     const validIds = [
-      'heman10x/rlcd-modernbert-151m',
-      'heman10x/rlcd-modernbert-151m-fp16',
       'tozp/laya-onnx',
       'tozp/laya-onnx-fp16',
     ]
     if (!validIds.includes(activeModel.value)) {
-      activeModel.value = configuredModel || 'heman10x/rlcd-modernbert-151m'
+      activeModel.value = configuredModel || 'tozp/laya-onnx'
     }
   }
 })
@@ -189,7 +191,7 @@ function setAffectExample(type: 'apology' | 'roast' | 'lie' | 'neutral') {
 }
 
 const isCurrentProviderConfigured = computed(() => {
-  if (activeProvider.value === 'laya-local')
+  if (activeProvider.value === 'laya-local' || activeProvider.value === 'openjev-local')
     return true
   return !!configuredProviders.value[activeProvider.value]
 })
@@ -371,7 +373,7 @@ const isCurrentProviderConfigured = computed(() => {
           <div :class="['flex items-center justify-between text-[10px] text-neutral-400 mt-1']">
             <span>{{ provider.deployment === 'local' ? '100% Offline' : 'Cloud REST API' }}</span>
             <span v-if="configuredProviders[provider.id]" :class="['text-emerald-500 font-medium']">Configured</span>
-            <span v-else-if="provider.id !== 'laya-local'" :class="['text-amber-500 font-medium']">Needs Key</span>
+            <span v-else-if="provider.id !== 'laya-local' && provider.id !== 'openjev-local'" :class="['text-amber-500 font-medium']">Needs Key</span>
           </div>
         </div>
       </div>

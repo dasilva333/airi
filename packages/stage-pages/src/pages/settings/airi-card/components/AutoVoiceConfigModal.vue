@@ -437,7 +437,9 @@ Description/Traits: ${c.tags}`
                 ? 'OpenRouter Jev'
                 : systemOneStore.activeProvider === 'opencode-go'
                   ? 'OpenCode Go Jev'
-                  : 'Local System 1'
+                  : systemOneStore.activeProvider === 'openjev-local'
+                    ? 'Local OpenJev'
+                    : 'Local Laya'
 
             return {
               characterId: c.id,

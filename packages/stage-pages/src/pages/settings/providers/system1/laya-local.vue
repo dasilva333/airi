@@ -11,7 +11,6 @@ import {
   getLayaCacheSize,
   isLayaDownloaded,
   LAYA_MODEL_SPECS,
-  OPENJEV_MODEL_SPECS,
   resetLayaSession,
   runLayaSystemOne,
 } from '@proj-airi/stage-ui/libs/inference'
@@ -38,7 +37,7 @@ const model = computed({
   get(): string {
     return (providers.value[providerId]?.model as string)
       || (providerConfig.value?.model as string)
-      || 'heman10x/rlcd-modernbert-151m'
+      || 'tozp/laya-onnx'
   },
   set(val: string) {
     if (!providers.value[providerId]) {
@@ -81,14 +80,6 @@ const enableWebGpu = computed({
 // `systemOneStore.activeModel`), not download sources; they pick the
 // model architecture and precision. The weights come from getDecisionModelSpec().
 const modelOptions = [
-  {
-    label: `OpenJev Base INT8 (${OPENJEV_MODEL_SPECS.int8.approxSizeMb} MB - Fast, CPU Recommended)`,
-    value: 'heman10x/rlcd-modernbert-151m',
-  },
-  {
-    label: `OpenJev Base FP16 (${OPENJEV_MODEL_SPECS.fp16.approxSizeMb} MB - WebGPU Recommended)`,
-    value: 'heman10x/rlcd-modernbert-151m-fp16',
-  },
   {
     label: `Laya Large INT8 (${LAYA_MODEL_SPECS.int8.approxSizeMb} MB - Deep Reasoning, CPU)`,
     value: 'tozp/laya-onnx',
@@ -251,6 +242,10 @@ async function handleRunDiagnostic() {
   }
   catch (err: any) {
     console.error('[LayaLocal] Diagnostic failed:', err)
+    if (err?.stack) {
+      console.error('[LayaLocal] Stack trace:', err.stack)
+    }
+    const stackSnippet = err?.stack ? `\n\nStack trace:\n${err.stack}` : ''
     if (typeof err === 'number') {
       diagnosticError.value = `WASM/ONNX runtime internal exception (pointer code ${err}). WebAssembly session failed to initialize. Check DevTools console for detailed WebAssembly logs.`
     }
@@ -258,7 +253,7 @@ async function handleRunDiagnostic() {
       diagnosticError.value = `Inference timed out. ${enableWebGpu.value ? 'WebGPU execution timed out. Try switching to CPU WASM mode or using FP16 weights.' : 'CPU WASM execution timed out. The model may need more time or a faster thread pool.'}`
     }
     else {
-      diagnosticError.value = err?.message || String(err) || 'Execution error during diagnostic test.'
+      diagnosticError.value = `${err?.message || String(err) || 'Execution error during diagnostic test.'}${stackSnippet}`
     }
   }
   finally {
