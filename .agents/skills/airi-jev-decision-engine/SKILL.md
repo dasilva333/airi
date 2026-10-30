@@ -3,8 +3,9 @@ name: airi-jev-decision-engine
 description: >-
   Implement/debug TypeSafe Jev System-1 fast decision routing, non-autoregressive
   discrete classification (choice, score, noul), OpenRouter decisions dispatch,
-  and coprocessor integrations across vision gates, AnimaDex voice matching,
-  streaming expressions, arcade gaming, and memory token compaction.
+  on-device Laya & OpenJev local inference, and coprocessor integrations across
+  vision gates, AnimaDex voice matching, streaming expressions, arcade gaming,
+  and memory token compaction.
 ---
 
 # TypeSafe Jev System-1 Decision Engine
@@ -17,7 +18,7 @@ Paths are repository-relative. Read the relevant implementation before changing 
 
 | Responsibility | Source and anchor |
 | --- | --- |
-| System 1 Coprocessor Settings | `packages/stage-pages/src/pages/settings/modules/system-one.vue` — `#/settings/modules/system-one` (4-provider grid, model selector, telemetry & latency strip, interactive playground) |
+| System 1 Coprocessor Settings | `packages/stage-pages/src/pages/settings/modules/system-one.vue` — `#/settings/modules/system-one` (5-provider grid, model selector, telemetry & latency strip, interactive playground) |
 | System 1 Providers Hub | `packages/stage-pages/src/pages/settings/providers/index.vue` (`#/settings/providers#system1`) & `system1/[providerId].vue` (credential configuration) |
 | System 1 Pinia Store | `packages/stage-ui/src/stores/modules/system-one.ts` — `useSystemOneStore`, `execute()`, `runTriage()`, `runRerank()` |
 | Store Test Suite | `packages/stage-ui/src/stores/modules/system-one.test.ts` — CI-blocking mock Decisions API tests |
@@ -25,7 +26,8 @@ Paths are repository-relative. Read the relevant implementation before changing 
 | OpenCode Go Provider | `packages/stage-ui/src/libs/providers/providers/opencode-go/index.ts` — `systemOne()`, `/zen/v1/systemone`, `jev-1.13-free`, `jev-1.13` |
 | OpenRouter Provider | `packages/stage-ui/src/libs/providers/providers/openrouter-ai/index.ts` — `systemOne()`, `/api/alpha/decisions`, `typesafe/jev-1.13` |
 | Direct TypeSafe AI Provider | `packages/stage-ui/src/libs/providers/providers/typesafe-ai/index.ts` — `systemOne()`, `/v1/systemone` |
-| Local Laya Provider | `packages/stage-ui/src/libs/providers/providers/laya-local/index.ts` — on-device WebGPU/WASM ModernBERT |
+| Local Laya Provider | `packages/stage-ui/src/libs/providers/providers/laya-local/index.ts` — on-device WebGPU/WASM ModernBERT-large (421M) |
+| Local OpenJev Provider | `packages/stage-ui/src/libs/providers/providers/openjev-local/index.ts` — on-device WebGPU/WASM ModernBERT-base (151M, rlcd) |
 | Vision Orchestrator Gate | `packages/stage-ui/src/stores/modules/vision/orchestrator.ts` — `processCapture()`, `evaluateJevVisualAttentionGate()` |
 | Vision Store & Settings | `packages/stage-ui/src/stores/modules/vision.ts` — `useVisionStore` (`settings/vision/programmable-gate-question`) |
 | AnimaDex Voice Matching | `packages/stage-pages/src/pages/settings/airi-card/guided.vue` — `prefillRosterBindings()`, `autoMatchCharacterVoiceWithJev()` |
@@ -46,8 +48,8 @@ Paths are repository-relative. Read the relevant implementation before changing 
    - Dedicated endpoint is `POST https://opencode.ai/zen/v1/systemone` (distinct from chat base URL `/zen/go/v1/`).
    - Supports `jev-1.13-free` (free tier) and `jev-1.13` (paid/standard tier).
    - Automatically forwards session identification via `x-opencode-session` header and normalizes model names (stripping any foreign `typesafe/` prefix).
-3. **Four-Provider System 1 Surface Parity**:
-   - Both `#/settings/modules/system-one` and `#/settings/providers#system1` maintain parity across the four supported backends: `openrouter-ai`, `typesafe-ai`, `laya-local`, and `opencode-go`.
+3. **Five-Provider System 1 Surface Parity**:
+   - Both `#/settings/modules/system-one` and `#/settings/providers#system1` maintain parity across the five supported backends: `openrouter-ai`, `typesafe-ai`, `laya-local`, `openjev-local`, and `opencode-go`.
 4. **Universal Consumer Gate**:
    - Always check `systemOneStore.configured` before executing queries. If false, degrade gracefully to local regex, keyword heuristics, or baseline defaults without throwing unhandled exceptions.
 5. **Telemetry & Latency Observability**:
@@ -160,7 +162,7 @@ const gate = await systemOneStore.runLifetimeDayGate({ characterName, day, curre
 
 ## Source versus proposal
 
-Read `docs/proposal-jev-integration.md` for architecture RFC, OpenRouter alpha endpoints, and full 43-case cleanroom shootouts. Read `docs/design-subconscious-system1-inference-providers.md` for LoCoMo memory benchmarking. Read `docs/design-jev-powered-eternal-thread.md` for the Pillar 5 day-gate / surgical-lock / Winnow architecture. The proposal documents experimental and planned subsystem avenues; `packages/stage-ui/src/stores/modules/system-one.ts` contains the working, production-tested Pinia implementation.
+Read `docs/proposal-jev-integration.md` for architecture RFC, OpenRouter alpha endpoints, and full 43-case cleanroom shootouts. Read `docs/design-openjev-system1-local-integration.md` for OpenJev (151M) on-device WebGPU/WASM integration, benchmarks, and cache architecture. Read `docs/design-subconscious-system1-inference-providers.md` for LoCoMo memory benchmarking. Read `docs/design-jev-powered-eternal-thread.md` for the Pillar 5 day-gate / surgical-lock / Winnow architecture. The proposal documents experimental and planned subsystem avenues; `packages/stage-ui/src/stores/modules/system-one.ts` contains the working, production-tested Pinia implementation.
 
 ## Verification
 

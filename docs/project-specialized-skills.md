@@ -54,7 +54,7 @@ The five groups below organize navigation. Historical “Phase” labels do not 
 
 ## 3. Domain skill catalog
 
-The catalog contains 75 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
+The catalog contains 76 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
 
 ### 🟢 Phase 1: Core Plumbing & Infrastructure
 
@@ -123,8 +123,8 @@ The catalog contains 75 discoverable skills. Desktop chatbox and interaction pip
 - **Content**: Physical synthesis and transcription, VoiceProfile resolution, UST transformations, empty-input handling, format/decode/device failures, permission and stream cleanup. Speech intents belong to airi-speech-runtime; filler preparation belongs to airi-conversational-pacing.
 
 #### 2.3 `airi-local-inference-engines`
-- **Target Domain**: Local WebGPU & WASM Inference (Whisper STT, WebLLM, Web-RWKV, Moondream VLM, Embeddings search worker, Laya System-1, Automated VRAM Eviction & Standby Hibernation). Local TTS engines moved to `airi-local-tts-engines` (2.17).
-- **Key Paths**: `packages/stage-ui/src/libs/inference/` (protocol/coordinator/`gpu-resource-coordinator`, `gpu-worker-host`, `adapters/` incl. `adapters/laya.ts`, `laya-engine.ts`), `packages/stage-ui/src/workers/moondream/`, `packages/stage-ui/src/workers/laya/`, `packages/stage-ui/src/libs/workers/worker.ts`, `packages/stage-ui/src/libs/workers/search/` (embedding worker + loader), `docs/design-vram-eviction-and-standby-hibernation.md`, `docs/design-embedding-provider-support.md`. Note: WebLLM/Web-RWKV/Moondream/Laya run as workers under `packages/stage-ui/src/workers/`.
+- **Target Domain**: Local WebGPU & WASM Inference (Whisper STT, WebLLM, Web-RWKV, Moondream VLM, Embeddings search worker, Laya & OpenJev System-1 decisions, Automated VRAM Eviction & Standby Hibernation). Local TTS engines moved to `airi-local-tts-engines` (2.17).
+- **Key Paths**: `packages/stage-ui/src/libs/inference/` (protocol/coordinator/`gpu-resource-coordinator`, `gpu-worker-host`, `adapters/` incl. `adapters/laya.ts`, `laya-engine.ts`, `cache-utils.ts`), `packages/stage-ui/src/workers/moondream/`, `packages/stage-ui/src/workers/laya/`, `packages/stage-ui/src/libs/workers/worker.ts`, `packages/stage-ui/src/libs/workers/search/` (embedding worker + loader), `docs/design-openjev-system1-local-integration.md`, `docs/design-vram-eviction-and-standby-hibernation.md`, `docs/design-embedding-provider-support.md`. Note: WebLLM/Web-RWKV/Moondream/Laya run as workers under `packages/stage-ui/src/workers/`.
 - **Content**: Message protocol (`load-model`, `run-inference`, `progress`), serialized load queues, `GpuResourceCoordinator` VRAM budget accounting and active LRU eviction under memory pressure (`CRITICAL_THRESHOLD = 0.95`), `createGpuWorkerHost` 15m inactivity TTL unloads, manifest retention for sub-2s re-hydration, and WebGPU detection.
 
 #### 2.4 `airi-stage-ui-surfaces`
@@ -318,8 +318,8 @@ The catalog contains 75 discoverable skills. Desktop chatbox and interaction pip
 
 #### 3.23 `airi-jev-decision-engine`
 - **Target Domain**: TypeSafe Jev System-1 Decision Engine & Discrete Classification Coprocessor.
-- **Key Paths**: `packages/stage-ui/src/stores/modules/system-one.ts`, `packages/stage-ui/src/stores/modules/system-one.test.ts`, `docs/proposal-jev-integration.md`, `packages/stage-ui/src/stores/modules/vision/orchestrator.ts`, `packages/stage-pages/src/pages/settings/airi-card/guided.vue`.
-- **Content**: Sub-150ms parallel non-autoregressive decision network ($42/Btok); OpenRouter Decisions API transport (`POST /api/alpha/decisions`, `"type": "noul"` compatibility contract); `useSystemOneStore` Pinia architecture; question schemas (zero-shot memory triage, candidate reranking, affect & suspicion reflex, entity classification); and multi-domain coprocessor wiring: Attention Ecology Programmable Visual Attention Gate (Domain C), AnimaDex fast voice matching & pitch/speed tuning (Domain E), streaming speech-to-motion expression gating (Domain F), memory token compaction & pre-summary curation (Domain G), and Arcade Room retro gaming co-pilot (Domain A). Peer skills: `airi-attention-ecology-vision`, `airi-animadex-wizard`, `airi-acting-cue-act-tokens`, `airi-memory-short-term`.
+- **Key Paths**: `packages/stage-ui/src/stores/modules/system-one.ts`, `packages/stage-ui/src/stores/modules/system-one.test.ts`, `docs/proposal-jev-integration.md`, `docs/design-openjev-system1-local-integration.md`, `packages/stage-ui/src/stores/modules/vision/orchestrator.ts`, `packages/stage-pages/src/pages/settings/airi-card/guided.vue`, `packages/stage-ui/src/libs/providers/providers/openjev-local/index.ts`, `packages/stage-ui/src/libs/providers/providers/laya-local/index.ts`.
+- **Content**: Sub-150ms parallel non-autoregressive decision network ($42/Btok); OpenRouter Decisions API transport (`POST /api/alpha/decisions`, `"type": "noul"` compatibility contract); 5-provider System 1 surface parity (`openrouter-ai`, `typesafe-ai`, `laya-local`, `openjev-local`, `opencode-go`); `useSystemOneStore` Pinia architecture; question schemas (zero-shot memory triage, candidate reranking, affect & suspicion reflex, entity classification); on-device WebGPU/WASM ModernBERT models (Laya 421M and OpenJev 151M); and multi-domain coprocessor wiring: Attention Ecology Programmable Visual Attention Gate (Domain C), AnimaDex fast voice matching & pitch/speed tuning (Domain E), streaming speech-to-motion expression gating (Domain F), memory token compaction & pre-summary curation (Domain G), and Arcade Room retro gaming co-pilot (Domain A). Peer skills: `airi-attention-ecology-vision`, `airi-animadex-wizard`, `airi-acting-cue-act-tokens`, `airi-memory-short-term`, `airi-local-inference-engines`.
 
 ---
 
@@ -355,12 +355,17 @@ The catalog contains 75 discoverable skills. Desktop chatbox and interaction pip
 - **Key Paths**: `release-tamagotchi.yml`, `apps/stage-tamagotchi/` (electron-builder config, `release:win`/`release:mac`), `apps/stage-pocket/` (Capacitor), `apps/stage-web/` (Docker/Pages), `apps/stage-edge/` (Cloudflare).
 - **Content**: Version stamping/git-tag/notes workflow, user-centric release note voice ("You can now...", audience breakdown, footnote commit tracing), SignPath code signing + Apple notarization (CSC_CONTENT/APPLE_ID), `latest*.yml` auto-update feeds, Android APK + iOS IPA via Capacitor, ghcr.io Docker images, GitHub Pages docs deployment, Cloudflare worker deploys, and gh CLI release-upload auth quirks.
 
-#### 4.7 `airi-code-testing-hygiene`
+#### 4.7 `airi-ota-ergosphere-updater`
+- **Target Domain**: Over-The-Air (OTA) Application Updates via Ergosphere Architecture.
+- **Key Paths**: `.agents/skills/airi-ota-ergosphere-updater/SKILL.md`, `docs/proposal-ota-app-updates-ergosphere.md`, `docs/plan-ota-ergosphere-implementation.md`, `docs/design-desktop-update-checker.md`, `apps/stage-tamagotchi/src/launcher/index.ts`, `apps/stage-tamagotchi/ergo.config.ts`, `apps/stage-tamagotchi/electron.vite.config.ts`, `apps/stage-tamagotchi/src/main/services/electron/auto-updater.ts`, `packages/electron-eventa/src/electron-updater/`, `apps/stage-edge-updates/`.
+- **Content**: Immutable launcher shim bootstrap; dynamic JavaScript/Vue bundle loading; Ed25519 cryptographic signature verification; crash watchdog with splash milestone relay (`updaterService.reportHealthy()`) and atomic rollback on boot crash; unhashed `assets/build-info.js` chunk isolation to preserve CDN chunk caching; Cloudflare R2 bucket (`airi-updates`) and edge worker distribution with non-blocking KV telemetry (`ctx.waitUntil`); and update channel switching (`stable`, `canary`, `dev`, `nightly`). Peer skills: `airi-release-packaging-deploy` (binary packaging), `airi-app-entry-wiring` (window bootstrap), `airi-ipc-eventa` (typed contracts).
+
+#### 4.8 `airi-code-testing-hygiene`
 - **Target Domain**: TypeScript Reactive Safety, Deep Module Cohesion, Fallback Precedence, Vitest Bug Reproduction & Import Boundary Hygiene.
 - **Key Paths**: `.agents/skills/airi-code-testing-hygiene/SKILL.md`, `packages/*/src/**/*.ts`, `packages/*/src/**/*.test.ts`, `docs/project-testing-parity.md`.
 - **Content**: Eliminating inline object/array fallback references (`?? {}`, `?? []`) in reactive getters/computed/watchers/stores, deep-module boundaries over shallow pass-through file shuffling, strict `??` vs `||` precedence, mandatory failing regression tests with `Issue #` naming and `// ROOT CAUSE:` comment blocks before bug patching, prohibiting test-only import hacks (`as unknown as`) to hide circular dependencies, Vue testing and reactivity invariants (never mock Pinia/core stores, headless async `nextTick` / microtask settling, `shallowRef` for heavy engine instances, `storeToRefs` destructuring guard), and Vue SFC hygiene (script→template→style order, split triggers, thin views, typed props/emits).
 
-#### 4.8 `airi-infra-library-references`
+#### 4.9 `airi-infra-library-references`
 - **Target Domain**: Generic library lookups (UnoCSS, tsdown, pnpm, VueUse) and translation-friendly docs prose — task-selected references with fork vetoes.
 - **Key Paths**: `.agents/skills/airi-infra-library-references/SKILL.md`, `references/` (`unocss.md`, `tsdown.md`, `pnpm.md`, `vueuse.md`, `prose.md`), `uno.config.ts`, `packages/ui/`.
 - **Content**: Router loading one reference per task; UnoCSS grouped class arrays with attributify banned, `useDark({ disableTransition: false })`, ManualReset storage semantics for Control Strip layouts, Chromatic-over-hex theming, scoped pnpm workspace commands, tsdown external/dep rules, and prose limits with user-centric release framing. Domain behavior stays in peer skills.
