@@ -597,5 +597,31 @@ describe('exportFlowMDMToVRMA', () => {
         expect(Math.hypot(...leftFoot[t])).toBeCloseTo(1, 4)
       }
     })
+
+    it('gate 8: Neutral HumanML3D mean pose keeps neck and head upright without forward pitch', () => {
+      const seqLen = 3
+      // Zero-filled motionData denormalizes to hmlMean (the dataset neutral rest pose)
+      const data = new Float32Array(263 * seqLen)
+
+      const glb = exportFlowMDMToVRMA(data, seqLen)
+      const { nodeRotations } = parseVRMATracks(glb, seqLen)
+
+      const neckQuats = nodeRotations[4]
+      const headQuats = nodeRotations[5]
+
+      for (let t = 0; t < seqLen; t++) {
+        // Node 4 (Neck) forward pitch (qx) must be upright (|pitch| < 2 deg, qx near 0), not tilted by 64 deg
+        expect(neckQuats[t][0]).toBeCloseTo(0, 1)
+        expect(neckQuats[t][1]).toBeCloseTo(0, 1)
+        expect(neckQuats[t][2]).toBeCloseTo(0, 1)
+        expect(Math.abs(neckQuats[t][3])).toBeCloseTo(1, 2)
+
+        // Node 5 (Head) must also remain upright
+        expect(headQuats[t][0]).toBeCloseTo(0, 1)
+        expect(headQuats[t][1]).toBeCloseTo(0, 1)
+        expect(headQuats[t][2]).toBeCloseTo(0, 1)
+        expect(Math.abs(headQuats[t][3])).toBeCloseTo(1, 2)
+      }
+    })
   })
 })

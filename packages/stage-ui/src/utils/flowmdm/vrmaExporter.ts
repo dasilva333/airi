@@ -140,9 +140,15 @@ export function exportFlowMDMToVRMA(motionDataNormalized: Float32Array, seqLen: 
 
     // 4.3 Neck & Head
     // Node 4: Neck (outgoing segment [12, 15] neck -> head)
+    // In HumanML3D (SMPL), joint 15 (head) is located at the facial center (nose/eyes),
+    // so in the neutral dataset mean pose (hmlMean), the vector from joint 12 (neck base)
+    // to joint 15 pitches forward along [0, 0.440359, 0.897821]. Using [0, 1, 0] treats
+    // this natural cranial forward offset as a ~64 deg forward bend ("tech neck").
+    // Calibrating rest direction to the HumanML3D cranial vector keeps the VRM neck upright.
+    const HML_NECK_REST_DIR: Vec3 = [0, 0.440359, 0.897821]
     worldQ[4] = solveParentSwing(
       worldQ[3],
-      [0, 1, 0],
+      HML_NECK_REST_DIR,
       sub(worldPos[15][t], worldPos[12][t]),
       prevWorldQ[4],
     )
