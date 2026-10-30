@@ -7,9 +7,11 @@ import {
   clearLayaCache,
   downloadLayaModel,
   formatBytes,
+  getDecisionModelSpec,
   getLayaCacheSize,
   isLayaDownloaded,
   LAYA_MODEL_SPECS,
+  OPENJEV_MODEL_SPECS,
   resetLayaSession,
   runLayaSystemOne,
 } from '@proj-airi/stage-ui/libs/inference'
@@ -36,7 +38,7 @@ const model = computed({
   get(): string {
     return (providers.value[providerId]?.model as string)
       || (providerConfig.value?.model as string)
-      || 'tozp/laya-onnx'
+      || 'heman10x/rlcd-modernbert-151m'
   },
   set(val: string) {
     if (!providers.value[providerId]) {
@@ -76,20 +78,28 @@ const enableWebGpu = computed({
 })
 
 // NOTICE: the values are persisted selection keys (provider config and
-// `systemOneStore.activeModel`), not download sources; they only pick the
-// precision. The weights come from LAYA_MODEL_SPECS.
+// `systemOneStore.activeModel`), not download sources; they pick the
+// model architecture and precision. The weights come from getDecisionModelSpec().
 const modelOptions = [
   {
-    label: `Laya INT8 (${LAYA_MODEL_SPECS.int8.approxSizeMb} MB - CPU Recommended)`,
+    label: `OpenJev Base INT8 (${OPENJEV_MODEL_SPECS.int8.approxSizeMb} MB - Fast, CPU Recommended)`,
+    value: 'heman10x/rlcd-modernbert-151m',
+  },
+  {
+    label: `OpenJev Base FP16 (${OPENJEV_MODEL_SPECS.fp16.approxSizeMb} MB - WebGPU Recommended)`,
+    value: 'heman10x/rlcd-modernbert-151m-fp16',
+  },
+  {
+    label: `Laya Large INT8 (${LAYA_MODEL_SPECS.int8.approxSizeMb} MB - Deep Reasoning, CPU)`,
     value: 'tozp/laya-onnx',
   },
   {
-    label: `Laya FP16 (${LAYA_MODEL_SPECS.fp16.approxSizeMb} MB - WebGPU Recommended)`,
+    label: `Laya Large FP16 (${LAYA_MODEL_SPECS.fp16.approxSizeMb} MB - Deep Reasoning, WebGPU)`,
     value: 'tozp/laya-onnx-fp16',
   },
 ]
 
-const activeSpec = computed(() => LAYA_MODEL_SPECS[model.value.includes('fp16') ? 'fp16' : 'int8'])
+const activeSpec = computed(() => getDecisionModelSpec(model.value))
 
 // Cache & Download state
 const isCheckingCache = ref(true)
@@ -106,7 +116,7 @@ async function checkCache() {
   isCheckingCache.value = true
   try {
     const precision = model.value.includes('fp16') ? 'fp16' : 'int8'
-    isCached.value = await isLayaDownloaded(precision)
+    isCached.value = await isLayaDownloaded(precision, model.value)
     cacheSizeBytes.value = await getLayaCacheSize()
   }
   catch (err) {
@@ -132,6 +142,7 @@ async function handleDownload() {
     const precision = model.value.includes('fp16') ? 'fp16' : 'int8'
     await downloadLayaModel({
       precision,
+      modelId: model.value,
       onProgress: (p) => {
         downloadFile.value = p.file
         downloadProgress.value = p.percentage
@@ -232,6 +243,7 @@ async function handleRunDiagnostic() {
     const precision = model.value.includes('fp16') ? 'fp16' : 'int8'
     const res = await runLayaSystemOne(parsedState, parsedQuestions, precision, {
       useWebGpu: enableWebGpu.value,
+      model: model.value,
     })
     diagnosticResult.value = res
     diagnosticLatency.value = res.latency_ms

@@ -14,8 +14,11 @@
  */
 
 export type LayaPrecision = 'int8' | 'fp16'
+export type DecisionModelFamily = 'laya' | 'openjev'
 
 export interface LayaModelSpec {
+  /** Family of the decision model. */
+  family?: DecisionModelFamily
   /** Hugging Face repository the files are fetched from. */
   repo: string
   /** Pinned commit, so a repo update cannot silently swap the weights. */
@@ -28,26 +31,75 @@ export interface LayaModelSpec {
   minWeightsBytes: number
   /** Approximate download size, for labels. */
   approxSizeMb: number
+  /** Number of attention heads (16 for ModernBERT-large/Laya, 12 for ModernBERT-base/OpenJev). */
+  numHeads?: number
+  /** Repository hosting the matching tokenizer. */
+  tokenizerRepo?: string
+  /** Tokenizer revision. */
+  tokenizerRevision?: string
 }
+
+export type DecisionModelSpec = LayaModelSpec
 
 export const LAYA_MODEL_SPECS: Record<LayaPrecision, LayaModelSpec> = {
   // MatMulNBits 8-bit weight-only quantization in one self-contained file.
   int8: {
+    family: 'laya',
     repo: 'bgoldfarb93/laya-int8',
     revision: 'e6c564dc6d3b2df54cc21ba963fc2f3e62303edf',
     modelFile: 'laya.onnx',
     minWeightsBytes: 600_000_000,
     approxSizeMb: 633,
+    numHeads: 16,
+    tokenizerRepo: 'onnx-community/laya-ONNX',
+    tokenizerRevision: '42e2a6e3b3708c8ff5f61f4aa75c314b1449199b',
   },
   // Dynamo export with fp16 weights and activations; validated on WebGPU by its exporter.
   fp16: {
+    family: 'laya',
     repo: 'onnx-community/laya-ONNX',
     revision: '42e2a6e3b3708c8ff5f61f4aa75c314b1449199b',
     modelFile: 'onnx/model_fp16.onnx',
     externalDataFile: 'onnx/model_fp16.onnx_data',
     minWeightsBytes: 800_000_000,
     approxSizeMb: 847,
+    numHeads: 16,
+    tokenizerRepo: 'onnx-community/laya-ONNX',
+    tokenizerRevision: '42e2a6e3b3708c8ff5f61f4aa75c314b1449199b',
   },
+}
+
+export const OPENJEV_MODEL_SPECS: Record<LayaPrecision, LayaModelSpec> = {
+  // OpenJev / Verdict (151M) int8 export: lightweight ModernBERT-base with calibrated RLCD.
+  int8: {
+    family: 'openjev',
+    repo: 'heman10x/rlcd-modernbert-151m',
+    revision: 'main',
+    modelFile: 'model.onnx',
+    minWeightsBytes: 120_000_000,
+    approxSizeMb: 155,
+    numHeads: 12,
+    tokenizerRepo: 'heman10x/rlcd-modernbert-151m',
+    tokenizerRevision: 'main',
+  },
+  // OpenJev / Verdict (151M) fp16 export for WebGPU.
+  fp16: {
+    family: 'openjev',
+    repo: 'heman10x/rlcd-modernbert-151m',
+    revision: 'main',
+    modelFile: 'model_fp16.onnx',
+    minWeightsBytes: 250_000_000,
+    approxSizeMb: 300,
+    numHeads: 12,
+    tokenizerRepo: 'heman10x/rlcd-modernbert-151m',
+    tokenizerRevision: 'main',
+  },
+}
+
+export function getDecisionModelSpec(modelId?: string, precision: LayaPrecision = 'int8'): LayaModelSpec {
+  if (modelId?.includes('openjev') || modelId?.includes('151m') || modelId?.includes('heman10x'))
+    return OPENJEV_MODEL_SPECS[precision]
+  return LAYA_MODEL_SPECS[precision]
 }
 
 /**
@@ -87,7 +139,8 @@ export function layaWeightsFile(spec: LayaModelSpec): string {
  * previous source or revision), which would otherwise pin hundreds of MB.
  */
 export async function evictStaleLayaEntries(cache: Cache): Promise<void> {
-  const known = new Set(Object.values(LAYA_MODEL_SPECS).flatMap(spec => layaModelFiles(spec).map(file => layaFileUrl(spec, file))))
+  const allSpecs = [...Object.values(LAYA_MODEL_SPECS), ...Object.values(OPENJEV_MODEL_SPECS)]
+  const known = new Set(allSpecs.flatMap(spec => layaModelFiles(spec).map(file => layaFileUrl(spec, file))))
   for (const request of await cache.keys()) {
     if (!known.has(request.url))
       await cache.delete(request)

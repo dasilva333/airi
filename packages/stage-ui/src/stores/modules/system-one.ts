@@ -325,14 +325,24 @@ export const useSystemOneStore = defineStore('system-one', () => {
     if (activeProvider.value === 'laya-local') {
       return [
         {
+          id: 'heman10x/rlcd-modernbert-151m',
+          name: 'OpenJev Base INT8 (155 MB, Fast & Lightweight)',
+          description: 'On-device ModernBERT-base 151M calibrated decision model with explicit abstention',
+        },
+        {
+          id: 'heman10x/rlcd-modernbert-151m-fp16',
+          name: 'OpenJev Base FP16 (300 MB, WebGPU)',
+          description: 'On-device ModernBERT-base 151M FP16 calibrated decision model',
+        },
+        {
           id: 'tozp/laya-onnx',
-          name: 'Laya INT8 (633 MB, CPU Recommended)',
-          description: 'On-device ModernBERT quantized INT8 sequence classifier',
+          name: 'Laya Large INT8 (633 MB, Deep Reasoning)',
+          description: 'On-device ModernBERT-large 421M quantized INT8 sequence classifier',
         },
         {
           id: 'tozp/laya-onnx-fp16',
-          name: 'Laya FP16 (847 MB, WebGPU Recommended)',
-          description: 'On-device ModernBERT FP16 precision sequence classifier',
+          name: 'Laya Large FP16 (847 MB, WebGPU)',
+          description: 'On-device ModernBERT-large 421M FP16 precision sequence classifier',
         },
       ]
     }

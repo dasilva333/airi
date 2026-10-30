@@ -271,7 +271,7 @@ These use `localStorage` for settings and are **not** serialized inside the AIRI
 | **Live Session (Gemini)** | `packages/stage-ui/src/stores/modules/live-session.ts` | `notice/gemini.vue` | `settings/gemini/*` |
 | **Artistry Autonomous** | `packages/stage-ui/src/stores/modules/artistry-autonomous.ts` | — | in-memory (director notes in IndexedDB) |
 | **Gaming: Factorio** | `packages/stage-ui/src/stores/modules/gaming-factorio.ts` | — | `settings/factorio/*` |
-| **System 1 (Jev / Laya)** | `packages/stage-ui/src/stores/modules/system-one.ts` | `modules/system-one.vue` | `settings/system-one/*` (fast non-autoregressive discrete decisions; see `docs/design-jev-integrations.md`) |
+| **System 1 (Jev / Laya / OpenJev)** | `packages/stage-ui/src/stores/modules/system-one.ts` | `modules/system-one.vue` | `settings/system-one/*` (fast non-autoregressive discrete decisions; see `docs/design-jev-integrations.md` and `docs/design-openjev-system1-local-integration.md`) |
 
 ### Module Wiring Pattern
 Each module typically follows:

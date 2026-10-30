@@ -10,8 +10,8 @@ import { LAYA_CACHE_NAME } from '../../libs/inference/cache-utils'
 import { layaDecideEvent, layaLoadEvent, layaUnloadEvent } from '../../libs/inference/contract'
 import {
   evictStaleLayaEntries,
+  getDecisionModelSpec,
   LAYA_MAX_SEQ_LEN,
-  LAYA_MODEL_SPECS,
   LAYA_TOKENIZER_REPO,
   LAYA_TOKENIZER_REVISION,
   layaFileUrl,
@@ -25,7 +25,9 @@ const { context } = createContext()
 let activeSession: ort.InferenceSession | null = null
 let activePrecision: 'int8' | 'fp16' | null = null
 let activeEp: 'wasm' | 'webgpu' | null = null
+let activeModelId: string | null = null
 let activeTokenizer: any = null
+let activeTokenizerModel: string | null = null
 let runLock: Promise<unknown> = Promise.resolve()
 
 function ensureOrtConfigured(): void {
@@ -69,20 +71,21 @@ async function downloadFile(cache: Cache, fileUrl: string, onProgress?: (loaded:
 async function ensureSession(
   precision: 'int8' | 'fp16',
   targetEp: 'wasm' | 'webgpu',
+  modelId?: string,
   emit?: (item: LoadStreamItem) => void,
 ): Promise<ort.InferenceSession> {
-  if (activeSession && activePrecision === precision && activeEp === targetEp)
+  const normModel = modelId || 'default'
+  if (activeSession && activePrecision === precision && activeEp === targetEp && activeModelId === normModel)
     return activeSession
-  if (activeSession && (activePrecision !== precision || activeEp !== targetEp)) {
+  if (activeSession) {
     activeSession = null
     activePrecision = null
     activeEp = null
+    activeModelId = null
   }
-  if (activeSession)
-    return activeSession
 
   ensureOrtConfigured()
-  const spec = LAYA_MODEL_SPECS[precision]
+  const spec = getDecisionModelSpec(modelId, precision)
   const cache = await caches.open(LAYA_CACHE_NAME)
   const buffers = new Map<string, ArrayBuffer>()
   for (const file of layaModelFiles(spec)) {
@@ -96,7 +99,7 @@ async function ensureSession(
       }))
       match = await cache.match(fileUrl)
       if (!match)
-        throw new Error(`Failed to retrieve Laya ${file} from cache after download.`)
+        throw new Error(`Failed to retrieve ${spec.family === 'openjev' ? 'OpenJev' : 'Laya'} ${file} from cache after download.`)
     }
     buffers.set(file, await match.arrayBuffer())
   }
@@ -104,7 +107,7 @@ async function ensureSession(
   const weightsBytes = buffers.get(weightsFile)!.byteLength
   if (weightsBytes < spec.minWeightsBytes) {
     await cache.delete(layaFileUrl(spec, weightsFile))
-    throw new Error(`Cached Laya weights truncated (${weightsBytes} bytes). Evicted; retry load.`)
+    throw new Error(`Cached ${spec.family === 'openjev' ? 'OpenJev' : 'Laya'} weights truncated (${weightsBytes} bytes). Evicted; retry load.`)
   }
 
   emit?.({ kind: 'progress', payload: { phase: 'compile', percent: -1, message: `Compiling ${spec.modelFile} (${targetEp})...` } })
@@ -125,14 +128,20 @@ async function ensureSession(
   }
   activePrecision = precision
   activeEp = targetEp
+  activeModelId = normModel
   return activeSession
 }
 
-async function ensureTokenizer(emit?: (item: LoadStreamItem) => void): Promise<any> {
-  if (activeTokenizer)
+async function ensureTokenizer(modelId?: string, emit?: (item: LoadStreamItem) => void): Promise<any> {
+  const spec = getDecisionModelSpec(modelId, 'int8')
+  const tokenizerRepo = spec.tokenizerRepo || LAYA_TOKENIZER_REPO
+  const tokenizerRevision = spec.tokenizerRevision || LAYA_TOKENIZER_REVISION
+  if (activeTokenizer && activeTokenizerModel === tokenizerRepo)
     return activeTokenizer
-  emit?.({ kind: 'progress', payload: { phase: 'download', percent: -1, message: 'Loading Laya tokenizer...' } })
-  activeTokenizer = await AutoTokenizer.from_pretrained(LAYA_TOKENIZER_REPO, { revision: LAYA_TOKENIZER_REVISION })
+  activeTokenizer = null
+  emit?.({ kind: 'progress', payload: { phase: 'download', percent: -1, message: `Loading ${spec.family === 'openjev' ? 'OpenJev' : 'Laya'} tokenizer...` } })
+  activeTokenizer = await AutoTokenizer.from_pretrained(tokenizerRepo, { revision: tokenizerRevision })
+  activeTokenizerModel = tokenizerRepo
   return activeTokenizer
 }
 
@@ -149,10 +158,10 @@ function precisionFromPayload(payload?: LoadModelRequest): 'int8' | 'fp16' {
 defineStreamInvokeHandler(context, layaLoadEvent, toStreamHandler<LoadModelRequest, LoadStreamItem>(async ({ payload, emit }) => {
   const precision = precisionFromPayload(payload)
   const wantWebGpu = payload?.device === 'webgpu'
-  const session = await ensureSession(precision, wantWebGpu ? 'webgpu' : 'wasm', emit)
-  await ensureTokenizer(emit)
+  const session = await ensureSession(precision, wantWebGpu ? 'webgpu' : 'wasm', payload?.model, emit)
+  await ensureTokenizer(payload?.model, emit)
   void session
-  emit({ kind: 'ready', info: { device: (wantWebGpu ? 'webgpu' : 'wasm') as InferenceDevice, metadata: { precision } } })
+  emit({ kind: 'ready', info: { device: (wantWebGpu ? 'webgpu' : 'wasm') as InferenceDevice, metadata: { precision, model: payload?.model } } })
 }))
 
 defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => {
@@ -160,8 +169,8 @@ defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => 
   const precision = req.precision ?? 'int8'
   const targetEp = req.useWebGpu ? 'webgpu' : 'wasm'
   const [session, tokenizer] = await Promise.all([
-    ensureSession(precision, targetEp),
-    ensureTokenizer(),
+    ensureSession(precision, targetEp, req.model),
+    ensureTokenizer(req.model),
   ])
 
   const qids = Object.keys(req.questions)
@@ -213,10 +222,14 @@ defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => 
   const nTokens = items.reduce((sum, it) => sum + it.ids.length, 0)
 
   // NOTICE: the exported ModernBERT graph constructs an fp32 self-attention tensor
-  // [batch, 16, L, L] (64 * L^2 bytes per sequence in the batch).
+  // [batch, num_heads, L, L] (num_heads * 4 * L^2 bytes per sequence in the batch).
+  // ModernBERT-large (Laya) has 16 heads (64 * L^2); ModernBERT-base (OpenJev) has 12 heads (48 * L^2).
   // WebGPU adapters enforce a hard maxBufferSize of 2 GiB (2,147,483,648 bytes).
   // We cap attention tensor allocation at 1.25 GiB (~1.34 GB) so sub-batches never overflow.
   const MAX_ATTENTION_BUFFER_BYTES = 1_342_177_280
+  const spec = getDecisionModelSpec(req.model, precision)
+  const numHeads = spec.numHeads ?? 16
+  const bytesMultiplier = numHeads * 4
   const chunks: Array<{ items: typeof items, qids: string[] }> = []
   let currentChunkItems: typeof items = []
   let currentChunkQids: string[] = []
@@ -226,7 +239,7 @@ defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => 
     const item = items[i]
     const qid = qids[i]
     const candidateMaxL = Math.max(currentMaxL, item.ids.length)
-    const candidateBytes = (currentChunkItems.length + 1) * 64 * candidateMaxL * candidateMaxL
+    const candidateBytes = (currentChunkItems.length + 1) * bytesMultiplier * candidateMaxL * candidateMaxL
     if (currentChunkItems.length > 0 && candidateBytes > MAX_ATTENTION_BUFFER_BYTES) {
       chunks.push({ items: currentChunkItems, qids: currentChunkQids })
       currentChunkItems = [item]
@@ -319,7 +332,7 @@ defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => 
   }
 
   return {
-    model: `laya-${precision}${req.useWebGpu ? '-webgpu' : ''}`,
+    model: `${spec.family || 'laya'}-${precision}${req.useWebGpu ? '-webgpu' : ''}`,
     answers: allAnswers,
     usage: { input_tokens: nTokens, output_tokens: 0 },
     latency_ms: Math.round(performance.now() - start),
@@ -333,4 +346,6 @@ defineInvokeHandler(context, layaUnloadEvent, async () => {
   activeTokenizer = null
   activePrecision = null
   activeEp = null
+  activeModelId = null
+  activeTokenizerModel = null
 })

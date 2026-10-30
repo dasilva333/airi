@@ -20,12 +20,13 @@ export type { LayaPrecision }
 export interface LayaDecideOptions {
   signal?: AbortSignal
   useWebGpu?: boolean
+  model?: string
 }
 
 export interface LayaAdapter {
   load: (
     precision?: LayaPrecision,
-    options?: { signal?: AbortSignal, useWebGpu?: boolean, onProgress?: (p: ProgressPayload) => void, force?: boolean },
+    options?: { signal?: AbortSignal, useWebGpu?: boolean, model?: string, onProgress?: (p: ProgressPayload) => void, force?: boolean },
   ) => Promise<void>
   decide: (
     state: string | Record<string, unknown>,
@@ -53,7 +54,7 @@ type LayaRpc = ReturnType<typeof createLayaRpc>
 
 export function createLayaAdapter(workerUrl?: string | URL): LayaAdapter {
   let lastManifest: { precision: LayaPrecision, device: string } | null = null
-  let lastLoadConfig: { precision: LayaPrecision, useWebGpu: boolean } | null = null
+  let lastLoadConfig: { precision: LayaPrecision, useWebGpu: boolean, model?: string } | null = null
 
   const host = createGpuWorkerHost<LayaRpc>({
     modelId: () => lastManifest ? `laya-${lastManifest.precision}` : MODEL_NAMES.LAYA,
@@ -72,9 +73,10 @@ export function createLayaAdapter(workerUrl?: string | URL): LayaAdapter {
 
   async function load(
     precision: LayaPrecision = 'int8',
-    options?: { signal?: AbortSignal, useWebGpu?: boolean, onProgress?: (p: ProgressPayload) => void, force?: boolean },
+    options?: { signal?: AbortSignal, useWebGpu?: boolean, model?: string, onProgress?: (p: ProgressPayload) => void, force?: boolean },
   ): Promise<void> {
     const useWebGpu = options?.useWebGpu ?? false
+    const model = options?.model
     if (options?.force)
       lastManifest = null
     // NOTICE: the manifest outlives the worker session — the host's inactivity
@@ -82,7 +84,7 @@ export function createLayaAdapter(workerUrl?: string | URL): LayaAdapter {
     // Short-circuiting on the manifest alone then made decide() throw
     // "Laya model not loaded" forever, so also require a live session.
     const sessionLive = host.phase === 'ready' || host.phase === 'busy'
-    if (sessionLive && lastManifest && lastManifest.precision === precision && lastLoadConfig?.useWebGpu === useWebGpu)
+    if (sessionLive && lastManifest && lastManifest.precision === precision && lastLoadConfig?.useWebGpu === useWebGpu && lastLoadConfig?.model === model)
       return
     throwIfAborted(options?.signal)
     return host.runExclusive(async () => {
@@ -92,8 +94,9 @@ export function createLayaAdapter(workerUrl?: string | URL): LayaAdapter {
       const rpc = options?.force ? host.reset() : host.ensure()
       return host.runOnGpu(MODEL_NAMES.LAYA, GPU_PRIORITY.LAYA_LOAD, options?.signal, async ({ crashSignal }) => {
         throwIfAborted(options?.signal)
+        const targetModel = model || LAYA_MODEL_SPECS[precision].repo
         const stream = rpc.load(
-          { device: useWebGpu ? 'webgpu' : 'wasm', dtype: precision, model: LAYA_MODEL_SPECS[precision].repo },
+          { device: useWebGpu ? 'webgpu' : 'wasm', dtype: precision, model: targetModel },
           { signal: AbortSignal.any([signalWithTimeout(options?.signal, TIMEOUTS.LAYA_LOAD), crashSignal]) },
         )
         try {
@@ -107,7 +110,7 @@ export function createLayaAdapter(workerUrl?: string | URL): LayaAdapter {
           })
           host.allocate(MODEL_NAMES.LAYA, estimateFor(precision))
           lastManifest = { precision, device: info.device }
-          lastLoadConfig = { precision, useWebGpu }
+          lastLoadConfig = { precision, useWebGpu, model }
           host.setPhase('ready')
           updateInferenceStatus(MODEL_NAMES.LAYA, { state: 'ready', device: info.device as any })
           host.recordSuccess()
@@ -145,8 +148,9 @@ export function createLayaAdapter(workerUrl?: string | URL): LayaAdapter {
     // Load on demand (no-op while the requested session is live); a precision
     // or device switch replaces the worker so the old session is reclaimed.
     const useWebGpu = options?.useWebGpu ?? lastLoadConfig?.useWebGpu ?? false
-    const switching = lastLoadConfig != null && (lastLoadConfig.precision !== precision || lastLoadConfig.useWebGpu !== useWebGpu)
-    await load(precision, { signal: options?.signal, useWebGpu, force: switching })
+    const model = options?.model
+    const switching = lastLoadConfig != null && (lastLoadConfig.precision !== precision || lastLoadConfig.useWebGpu !== useWebGpu || lastLoadConfig.model !== model)
+    await load(precision, { signal: options?.signal, useWebGpu, model, force: switching })
 
     return host.runExclusive(async () => {
       throwIfAborted(options?.signal)
@@ -160,7 +164,7 @@ export function createLayaAdapter(workerUrl?: string | URL): LayaAdapter {
           if (options?.signal)
             signals.push(options.signal)
           return await host.rpc!.decide(
-            { state: state as any, questions, precision, useWebGpu },
+            { state: state as any, questions, precision, model, useWebGpu },
             { signal: AbortSignal.any(signals) },
           )
         })

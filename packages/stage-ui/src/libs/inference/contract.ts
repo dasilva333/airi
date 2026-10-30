@@ -513,6 +513,7 @@ export interface LayaDecideRequest {
   state: string | Record<string, unknown>
   questions: Record<string, any>
   precision?: 'int8' | 'fp16'
+  model?: string
   useWebGpu?: boolean
 }
 

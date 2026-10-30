@@ -61,8 +61,14 @@ watch(activeProvider, (newProv) => {
   }
   else if (newProv === 'laya-local') {
     const configuredModel = providersStore.getProviderConfig('laya-local')?.model as string | undefined
-    if (activeModel.value !== 'tozp/laya-onnx' && activeModel.value !== 'tozp/laya-onnx-fp16') {
-      activeModel.value = configuredModel || 'tozp/laya-onnx'
+    const validIds = [
+      'heman10x/rlcd-modernbert-151m',
+      'heman10x/rlcd-modernbert-151m-fp16',
+      'tozp/laya-onnx',
+      'tozp/laya-onnx-fp16',
+    ]
+    if (!validIds.includes(activeModel.value)) {
+      activeModel.value = configuredModel || 'heman10x/rlcd-modernbert-151m'
     }
   }
 })

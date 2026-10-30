@@ -48,10 +48,7 @@ const consciousnessStore = useConsciousnessStore()
 const systemOneStore = useSystemOneStore()
 
 const isSystemOneConfigured = computed(() => {
-  if (!systemOneStore.configured)
-    return false
-  const p = systemOneStore.activeProvider
-  return Boolean(p && p !== 'none' && (p === 'laya-local' || p === 'typesafe-ai' || p === 'openrouter-ai'))
+  return systemOneStore.configured
 })
 
 const state = ref<'idle' | 'loading' | 'results' | 'error'>('idle')
@@ -434,7 +431,13 @@ Description/Traits: ${c.tags}`
             const chosenMotion = res.answers?.idle_motion?.choice
             const idleAnimations = chosenMotion ? [chosenMotion] : (motions.length > 0 ? [motions[0]] : [])
             const confidence = res.answers?.best_voice_id?.confidence
-            const provName = systemOneStore.activeProvider === 'typesafe-ai' ? 'TypeSafe Jev' : systemOneStore.activeProvider === 'openrouter-ai' ? 'OpenRouter Jev' : 'Laya Local'
+            const provName = systemOneStore.activeProvider === 'typesafe-ai'
+              ? 'TypeSafe Jev'
+              : systemOneStore.activeProvider === 'openrouter-ai'
+                ? 'OpenRouter Jev'
+                : systemOneStore.activeProvider === 'opencode-go'
+                  ? 'OpenCode Go Jev'
+                  : 'Local System 1'
 
             return {
               characterId: c.id,

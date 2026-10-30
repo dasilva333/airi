@@ -12,7 +12,7 @@
 import type { LayaModelSpec, LayaPrecision } from './laya-models'
 
 import { LAYA_CACHE_NAME } from './cache-utils'
-import { evictStaleLayaEntries, LAYA_MODEL_SPECS, layaFileUrl, layaModelFiles, layaWeightsFile } from './laya-models'
+import { evictStaleLayaEntries, getDecisionModelSpec, layaFileUrl, layaModelFiles, layaWeightsFile } from './laya-models'
 
 export interface LayaDownloadProgress {
   file: string
@@ -23,6 +23,7 @@ export interface LayaDownloadProgress {
 
 export interface LayaSessionOptions {
   useWebGpu?: boolean
+  model?: string
 }
 
 async function cachedSize(response: Response): Promise<number> {
@@ -41,7 +42,7 @@ async function isFileComplete(cache: Cache, spec: LayaModelSpec, file: string): 
   return await cachedSize(match) >= spec.minWeightsBytes
 }
 
-export async function isLayaDownloaded(precision: LayaPrecision = 'int8'): Promise<boolean> {
+export async function isLayaDownloaded(precision: LayaPrecision = 'int8', modelId?: string): Promise<boolean> {
   if (typeof caches === 'undefined')
     return false
 
@@ -49,7 +50,7 @@ export async function isLayaDownloaded(precision: LayaPrecision = 'int8'): Promi
     if (!await caches.has(LAYA_CACHE_NAME))
       return false
     const cache = await caches.open(LAYA_CACHE_NAME)
-    const spec = LAYA_MODEL_SPECS[precision]
+    const spec = getDecisionModelSpec(modelId, precision)
     for (const file of layaModelFiles(spec)) {
       if (!await isFileComplete(cache, spec, file))
         return false
@@ -63,13 +64,14 @@ export async function isLayaDownloaded(precision: LayaPrecision = 'int8'): Promi
 
 export async function downloadLayaModel(options?: {
   precision?: LayaPrecision
+  modelId?: string
   onProgress?: (progress: LayaDownloadProgress) => void
 }): Promise<void> {
   if (typeof caches === 'undefined') {
     throw new TypeError('Cache Storage API is not supported in this environment.')
   }
 
-  const spec = LAYA_MODEL_SPECS[options?.precision ?? 'int8']
+  const spec = getDecisionModelSpec(options?.modelId, options?.precision ?? 'int8')
   const cache = await caches.open(LAYA_CACHE_NAME)
   await evictStaleLayaEntries(cache)
 
@@ -184,5 +186,5 @@ export async function runLayaSystemOne(
     throw new Error('runLayaSystemOne: at least one question is required')
   const { getLayaAdapter } = await import('./adapters/laya')
   const adapter = await getLayaAdapter()
-  return adapter.decide(state, questions, precision, { useWebGpu: options?.useWebGpu })
+  return adapter.decide(state, questions, precision, { useWebGpu: options?.useWebGpu, model: options?.model })
 }

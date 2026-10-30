@@ -97,8 +97,12 @@ export {
   terminateLayaWorker,
 } from './laya-engine'
 export type { LayaDownloadProgress, LayaSessionOptions } from './laya-engine'
-export { LAYA_MODEL_SPECS } from './laya-models'
-export type { LayaModelSpec } from './laya-models'
+export {
+  getDecisionModelSpec,
+  LAYA_MODEL_SPECS,
+  OPENJEV_MODEL_SPECS,
+} from './laya-models'
+export type { DecisionModelSpec, LayaModelSpec } from './laya-models'
 export {
   classifyError,
   createRequestId,
