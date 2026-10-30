@@ -48,3 +48,27 @@ This document inventories the 18 community Hugging Face quantizations and checkp
    - Outputs: `logits`, `act`.
    - Sequence format directly matches the ModernBERT sequence builder:
      `[CLS] <type> question: instructions [SEP] [MASK] opt0 [MASK] opt1 ... [SEP] state [SEP]`
+
+---
+
+## 4. Re-evaluation (2026-10-11): `tozp/laya-onnx` superseded
+
+Section 3 rested on the exporter's reported error bounds and a successful `session.run`; neither checks that the answers are right. Running the same tensors the worker builds against a known-answer state (a duplicate-charge email: department `billing`, churn threat yes, weather question no) showed:
+
+| Source | Answers | Sequence length | ORT CPU, 4 questions, 1 thread |
+|---|---|---|---|
+| `tozp/laya-onnx` `model_int8.onnx` | **Uniform** (25/25/25/25, 50/50); option logits nearly identical even for random inputs | Fixed 512 | 10.5 s |
+| `tozp/laya-onnx` `model_fp16.onnx` | Correct (billing 0.999, churn 0.956, weather 0.000) | **Fixed 512** (head attention reshape baked to `{512, 16·batch, 64}`) | 18.0 s |
+| `onnx-community/laya-ONNX` `onnx/model_fp16.onnx` (+ `_data`) | Correct, identical to tozp fp16 | Dynamic | 3.3 s at L=96 |
+| `bgoldfarb93/laya-int8` `laya.onnx` (single file, `MatMulNBits` 8-bit) | Correct (within 0.01 of fp16) | Dynamic | 4.7 s at L=96 |
+| `inferenceprince/laya-onnx-int8` (+ `.data`) | Correct (within 0.01 of fp16) | Dynamic | 5.0 s at L=96 |
+
+Through the worker's own JS path (`onnxruntime-web` 1.24.2 WASM in Node, 4 questions): tozp fp16 padded to 512 took 66.7 s; `bgoldfarb93/laya-int8` and onnx-community fp16 at the real length took ~11.5 s on one thread and ~3.1 s on four.
+
+All of these graphs also run an unconditional `topk(2)` over the option axis, so a batch whose widest question has a single option fails with `k argument [2] should not be greater than specified axis dim value [1]`; the worker pads the option axis to at least two masked slots.
+
+**Current sources** (`packages/stage-ui/src/libs/inference/laya-models.ts`, pinned by commit): int8 → `bgoldfarb93/laya-int8` (single self-contained file, keeping the property section 3 valued); fp16 → `onnx-community/laya-ONNX` (validated on WebGPU by its exporter; external `.onnx_data` is passed to ORT through `externalData`). The persisted model keys `tozp/laya-onnx` / `tozp/laya-onnx-fp16` remain as precision selectors only.
+
+**Latency caveat:** single-threaded WASM (Windows Electron renderers are not cross-origin isolated, so `numThreads = 1`) needs ~3 s per question, far above the layered-memory budgets (triage 2.5 s for 5 questions, rerank 4 s for 6). On that path triage falls back to heuristics and rerank keeps the RRF order; WebGPU or a multi-threaded WASM runtime is required for Laya to actually serve those calls.
+
+**Sequence length (2026-10-30):** the checkpoint's `laya.max_len = 512` is only the trained default, and `max_position_embeddings` is 8192, but the exported graph builds a dense fp32 `[batch, 16, L, L]` attention tensor, so the practical ceiling on WebGPU is lower. Measured with `onnxruntime-web` 1.24.2 WebGPU, fp16, one `choice` question, RX 9070 XT: 512 tokens 0.24 s, 1024 0.74 s, 2048 2.9 s, 3072 8.5 s, 4096 17-25 s (varies with other VRAM load), 5120 50-60 s (reproduced in four runs); L = 6144 fails ("Buffer size 2415919104 exceeds the max buffer size limit (2147483648)"), L = 8192 overflows. The worker therefore caps one sequence at `LAYA_MAX_SEQ_LEN = 4096` (`laya-models.ts`), logs when the state is truncated, and splits a batch into several passes so that `batch * 16 * L^2 * 4` bytes stays under 1.5 GiB (`planLayaBatches` in `prep.ts`). The `usage.input_tokens` value is the sum over all sequences of a batch, not a context length. Longer inputs (Jev accepts up to 32K) must be routed or trimmed by the caller. Padding to the longest sequence is output-invariant (identical logits at 48/128/512/1024 tokens on `bgoldfarb93/laya-int8`).

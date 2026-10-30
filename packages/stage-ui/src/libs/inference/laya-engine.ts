@@ -9,18 +9,10 @@
  * the main thread never imports `onnxruntime-web`.
  */
 
+import type { LayaModelSpec, LayaPrecision } from './laya-models'
+
 import { LAYA_CACHE_NAME } from './cache-utils'
-
-export const LAYA_HF_REPO = 'tozp/laya-onnx'
-export const LAYA_INT8_MODEL_FILE = 'model_int8.onnx'
-export const LAYA_FP16_MODEL_FILE = 'model_fp16.onnx'
-
-export const LAYA_BUNDLE_FILES = [
-  LAYA_INT8_MODEL_FILE,
-  'tokenizer.json',
-  'tokenizer_config.json',
-  'rl_agent_config.json',
-] as const
+import { evictStaleLayaEntries, LAYA_MODEL_SPECS, layaFileUrl, layaModelFiles, layaWeightsFile } from './laya-models'
 
 export interface LayaDownloadProgress {
   file: string
@@ -33,27 +25,36 @@ export interface LayaSessionOptions {
   useWebGpu?: boolean
 }
 
-export async function isLayaDownloaded(precision: 'int8' | 'fp16' = 'int8'): Promise<boolean> {
+async function cachedSize(response: Response): Promise<number> {
+  const contentLength = Number(response.headers.get('content-length')) || 0
+  if (contentLength > 0)
+    return contentLength
+  return (await response.clone().blob()).size
+}
+
+async function isFileComplete(cache: Cache, spec: LayaModelSpec, file: string): Promise<boolean> {
+  const match = await cache.match(layaFileUrl(spec, file))
+  if (!match)
+    return false
+  if (file !== layaWeightsFile(spec))
+    return true
+  return await cachedSize(match) >= spec.minWeightsBytes
+}
+
+export async function isLayaDownloaded(precision: LayaPrecision = 'int8'): Promise<boolean> {
   if (typeof caches === 'undefined')
     return false
 
   try {
-    const has = await caches.has(LAYA_CACHE_NAME)
-    if (!has)
+    if (!await caches.has(LAYA_CACHE_NAME))
       return false
     const cache = await caches.open(LAYA_CACHE_NAME)
-    const targetFile = precision === 'fp16' ? LAYA_FP16_MODEL_FILE : LAYA_INT8_MODEL_FILE
-    const fileUrl = `https://huggingface.co/${LAYA_HF_REPO}/resolve/main/${targetFile}`
-    const match = await cache.match(fileUrl)
-    if (!match)
-      return false
-
-    const contentLength = Number(match.headers.get('content-length')) || 0
-    if (contentLength > 0)
-      return contentLength > 50_000_000
-
-    const blob = await match.clone().blob()
-    return blob.size > 50_000_000
+    const spec = LAYA_MODEL_SPECS[precision]
+    for (const file of layaModelFiles(spec)) {
+      if (!await isFileComplete(cache, spec, file))
+        return false
+    }
+    return true
   }
   catch {
     return false
@@ -61,49 +62,29 @@ export async function isLayaDownloaded(precision: 'int8' | 'fp16' = 'int8'): Pro
 }
 
 export async function downloadLayaModel(options?: {
-  precision?: 'int8' | 'fp16'
+  precision?: LayaPrecision
   onProgress?: (progress: LayaDownloadProgress) => void
 }): Promise<void> {
   if (typeof caches === 'undefined') {
     throw new TypeError('Cache Storage API is not supported in this environment.')
   }
 
-  const precision = options?.precision ?? 'int8'
-  const modelFile = precision === 'fp16' ? LAYA_FP16_MODEL_FILE : LAYA_INT8_MODEL_FILE
-  const filesToDownload = [
-    modelFile,
-    'tokenizer.json',
-    'tokenizer_config.json',
-    'rl_agent_config.json',
-  ]
-
+  const spec = LAYA_MODEL_SPECS[options?.precision ?? 'int8']
   const cache = await caches.open(LAYA_CACHE_NAME)
+  await evictStaleLayaEntries(cache)
 
-  for (const fileName of filesToDownload) {
-    const fileUrl = `https://huggingface.co/${LAYA_HF_REPO}/resolve/main/${fileName}`
+  for (const fileName of layaModelFiles(spec)) {
+    const fileUrl = layaFileUrl(spec, fileName)
     const cacheMatch = await cache.match(fileUrl)
 
     if (cacheMatch) {
-      if (fileName.endsWith('.onnx')) {
-        const cl = Number(cacheMatch.headers.get('content-length')) || 0
-        let size = cl
-        if (size <= 0) {
-          const b = await cacheMatch.clone().blob()
-          size = b.size
-        }
-        if (size < 50_000_000) {
-          console.warn(`[LayaEngine] Existing cache entry for ${fileName} is truncated (${size} bytes). Evicting...`)
-          await cache.delete(fileUrl)
-        }
-        else {
-          options?.onProgress?.({ file: fileName, loaded: size, total: size, percentage: 100 })
-          continue
-        }
-      }
-      else {
-        options?.onProgress?.({ file: fileName, loaded: 1, total: 1, percentage: 100 })
+      if (await isFileComplete(cache, spec, fileName)) {
+        const size = await cachedSize(cacheMatch)
+        options?.onProgress?.({ file: fileName, loaded: size, total: size, percentage: 100 })
         continue
       }
+      console.warn(`[LayaEngine] Existing cache entry for ${fileName} is truncated. Evicting...`)
+      await cache.delete(fileUrl)
     }
 
     const response = await fetch(fileUrl, { redirect: 'follow' })

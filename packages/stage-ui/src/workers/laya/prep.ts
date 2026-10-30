@@ -117,3 +117,42 @@ export function decodeAnswers(
   })
   return answers
 }
+
+/** Attention heads of the ModernBERT-large encoder behind Laya. */
+const LAYA_ATTENTION_HEADS = 16
+
+/**
+ * Budget for the graph's `[batch, heads, L, L]` fp32 attention tensor.
+ *
+ * NOTICE: onnxruntime-web WebGPU fails once that single buffer passes the
+ * adapter's `maxBufferSize` (2 GiB on the RX 9070 XT, the WebGPU default):
+ * "Buffer size 2415919104 exceeds the max buffer size limit" at L = 6144, and an
+ * integer overflow at L = 8192. Stay well under it; this is also why one
+ * `session.run` over many long questions has to be split.
+ */
+export const LAYA_ATTENTION_BUDGET_BYTES = 1.5 * 2 ** 30
+
+/**
+ * Groups questions (by index, original order kept) into batches whose padded
+ * attention tensor fits `budgetBytes`. A single over-budget question still gets
+ * its own batch; the sequence cap keeps that case from happening.
+ */
+export function planLayaBatches(lengths: number[], budgetBytes = LAYA_ATTENTION_BUDGET_BYTES): number[][] {
+  const batches: number[][] = []
+  let current: number[] = []
+  let longest = 0
+  const bytes = (count: number, len: number) => count * LAYA_ATTENTION_HEADS * len * len * 4
+  lengths.forEach((len, i) => {
+    const nextLongest = Math.max(longest, len)
+    if (current.length > 0 && bytes(current.length + 1, nextLongest) > budgetBytes) {
+      batches.push(current)
+      current = []
+      longest = 0
+    }
+    current.push(i)
+    longest = Math.max(longest, len)
+  })
+  if (current.length > 0)
+    batches.push(current)
+  return batches
+}
