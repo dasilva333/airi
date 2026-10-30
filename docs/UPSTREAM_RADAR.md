@@ -33,6 +33,567 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-10-30] Upstream Delta: `6399a0f1..899c70d1` (33 commits, 379 files, 41 update(s))
+
+### 🎯 Executive Highlights
+#### Upstream Trajectory & Key Highlights
+- **Official v0.14.0 Release Milestone (#3243, commit c32506cd2)**: Upstream published release v0.14.0, updating README release manifests, download links, and packaging checksums across platforms.
+- **Massive Trace & Timeline Observability Subsystem Architecture (PRs #3236, #3239, #3240, #3247, #3249, #3267, #3269, #3272)**: In a major multi-PR initiative spanning 12,000+ new lines of code, upstream introduced an end-to-end execution and IO trace visualization suite:
+  - `@proj-airi/trace-kit` (#3236): High-performance event stream collector, monotonic clock synchronization, schema definitions, and timeline/metrics/event-log projections.
+  - `@proj-airi/stream-kit` (#3239, #3240): Event stream ring buffers, subscriber trackers, and catch-up feeds.
+  - `@proj-airi/timeline-canvas` (#3247): High-efficiency HTML5 Canvas row renderer for dense trace spans.
+  - `@proj-airi/ui-panes` (#3249): Docking workbench UI primitives with resizable panes.
+  - `@proj-airi/ui-timeline` (#3267): Headless timeline state machine and styled timeline components (capsules, lanes, time formatters, navigation).
+  - `@proj-airi/ui-trace` (#3269): Trace inspection workbench with trace timeline, detail inspection, event logs, span link cards, metrics panels, and view presets.
+- **Voiceprint Model Bundling & Model Asset Download Hardening (#3260, #3268)**:
+  - PR #3268: Bundles the 28 MB Sherpaw CAM++ voiceprint model directly into Electron builds (`electron.vite.config.ts`) and cache dirs so users can enroll voiceprints out-of-the-box without network download failures. Removed dead resources store.
+  - PR #3260: Added structured failure taxonomy (`ModelAssetFailure`, `ModelAssetDownloadError`) and retry policies via `ofetch` in `@proj-airi/stage-shared` for model downloads (handling 408/429/5xx status and network drops).
+- **Shared Capture AudioContext & Worklet Preloading (#3242, commit 1cb2a87d2)**: Refactored `packages/audio/src/browser/sources.ts` to share a single cached `AudioContext` across multiple microphone consumers (VAD, speech recognition, recording) and preload the capture AudioWorklet during device acquisition, eliminating up to 1-second capture stall on busy CPUs.
+- **Long-Term Memory & Recipe IndexedDB Migration (#3235, #3241, commits ae9dfe5ec, 2c4d66c6b)**: Upstream migrated long-term memory records and recipes from localStorage/Pinia into IndexedDB repositories (`memory.repo.ts`, `recipes.repo.ts`).
+- **Backdrop Surfaces Refactor & UI Cleanups (#3238, #3248, #3254, #3255, #3256)**:
+  - PR #3238: Introduced `backdrop-surface.ts` composable allowing UI components to own their background fills rather than inheriting window backdrops.
+  - PR #3248: Added reusable `@proj-airi/ui` primitives: `UtilityButton` (compact toolbar button with tooltip) and `CopyableLabel` (hover-revealed copy button with touch fallback).
+
+#### 💬 Discussion & Community Buzz
+- **PR #3000: feat(memory-eval): add identity-continuity evaluation package** by @RUI-debug769 (126 total comments): Top sustained community velocity on persona continuity, Wasserstein-1 distance, and GMM BIC bimodality for memory consolidation.
+- **PR #3236: feat(trace-kit): add the trace event stream package** by @nekomeowww (64 comments, Merged): Deep maintainer discussion on stream projection ergonomics, clock monotonicity, and collector schema.
+- **PR #2541: Telltworose/feat/drop in plugins** by @telltworose (59 comments, Open / Changes Requested): Active discussion following pivot toward MCP stdio child processes.
+- **PR #2290: feat(server): stream official ASR over WebSocket** by @luoling8192 (59 comments, Open / Changes Requested): Architectural discussion on WebSocket streaming vs HTTP SSE.
+- **PR #2672: refactor(stage-ui): bind conversations to window-local characters** by @luoling8192 (48 comments, Draft): Multi-window conversation and character scoping design review.
+- **PR #1518: feat(stage-ui,stage-pages,stage-tamagotchi,i18n): add bilingual trans…** (+4 new comments, 35 total): Active renewed community interest in bilingual translation.
+- **PR #2934: fix(tamagotchi): use showWindowOnAllWorkspaces to prevent Dock icon restoring on macOS** (+2 new comments, 32 total): Investigation into macOS workspace dock behavior.
+- **PR #3247: feat(timeline-canvas): add a canvas renderer for timeline rows** by @nekomeowww (22 comments, Merged): Canvas row rendering optimization discussions.
+- **PR #3237: fix(electron-screen-capture): retain selected sources across requests** by @samedog (18 comments, Open): High discussion around retaining screen share source selection across permissions in Electron.
+- **PR #3267: feat(ui-timeline): add a headless timeline and the AIRI timeline** by @nekomeowww (17 comments, Merged): Headless timeline API review.
+- **PR #3269: feat(ui-trace): add the trace timeline, panels, and toolbar** by @nekomeowww (15 comments, Merged): UI composition and view preset discussions.
+- **PR #3248: feat(ui): add UtilityButton and CopyableLabel** by @nekomeowww (14 comments, Merged): Toolbar UI primitive review.
+- **PR #3258: feat(stage-layouts): make the idle mobile composer narrower** by @nekomeowww (11 comments, Merged): Mobile layout touch ergonomics.
+- **PR #3259: fix(stage-ui): request microphone access when the picker opens in the mobile app** by @nekomeowww (10 comments, Merged): Mobile microphone permissions flow.
+- **PR #3260: fix(stage-shared,stage-ui,stage-tamagotchi): explain model download failures and add retry** by @nekomeowww (9 comments, Merged): Model download retry logic and user guidance.
+
+#### 🍒 Cherry-Pick Candidates
+- **PR #3242 (commit 1cb2a87d2): fix(audio): share the capture AudioContext between microphone connections**: High Value / Low Divergence. In `packages/audio/src/browser/sources.ts`, caches and shares a single `AudioContext` across microphone consumers, preloads the capture AudioWorklet during device opening, and suspends the context only when idle. Fixes up to 1-second audio initialization lag on busy CPUs. Clean drop-in fit.
+- **PR #3248 (commit 75e984616): feat(ui): add UtilityButton and CopyableLabel**: High Value / Clean Primitives. Adds `UtilityButton.vue` (compact icon button with built-in Reka UI tooltip) and `CopyableLabel.vue` (click-to-copy label with `@vueuse/core` clipboard integration and touch fallback). Fully styled with UnoCSS array syntax and dark mode support. Excellent fit for settings, prompt inspectors, and control surfaces.
+- **PR #3260 (commit 8f18f3cd3): fix(stage-shared,stage-ui,stage-tamagotchi): explain model download failures and add retry**: High Value / Reliability. Adds `ModelAssetDownloadError`, `ModelAssetFailure`, and retry handling via `ofetch` in `packages/stage-shared/src/model-assets/index.ts`. Provides actionable failure classification (network vs server vs incomplete) instead of opaque "fetch failed" exceptions.
+- **PR #3268 (commit dc5865d1e): Bundling voiceprint model (`Sherpaw` bundler update)**: Selective Port. When adopting the voiceprint enrollment proposal (`docs/proposal-speaker-diarization-and-voiceprint-tracker.md`), the 28 MB CAM++ model bundling pattern in `electron.vite.config.ts` prevents runtime download failures.
+- **PR #3253 (commit 08d0f01a0): fix(i18n): unify Korean terms and fill missing Korean strings**: Additive Localization. Korean translation fixes in `packages/i18n/src/locales/ko-KR/`. Clean additive import.
+
+#### ⚠️ Divergence / Collision Warnings
+- **Cognitive & Memory Collision (`packages/stage-ui/src/stores/memory.ts`, `packages/stage-ui/src/tools/memory.ts`, `chat.ts`)**: Upstream PR #3241 / commit `2c4d66c6b` rewrote memory storage to store simplified turn memories in IndexedDB via `memory.repo.ts`. Do NOT merge directly. `dasilva333/airi` uses the Eight Pillars memory architecture (STMM daily summaries, LTMM immutable Sacred Journal via `text_journal` tool, Echo chips, and Lifetime Artifacts). Overwriting this file would break the Sacred Journal and dreaming lifecycle.
+- **Deprecated Surfaces (`chat-floating.vue`, `resource-status-island`)**: Upstream commits `96a71be5f` and `dc5865d1e` touch `apps/stage-tamagotchi/src/renderer/pages/chat-floating.vue` and `resource-status-island`. In `dasilva333/airi`, monolithic stage overlays were completely decoupled into the pure Actor Stage and Control Strip. Permanent auto-reject.
+- **Trace & Telemetry Suite Scope**: Upstream added 5 new packages (`@proj-airi/trace-kit`, `ui-timeline`, `ui-trace`, `ui-panes`, `timeline-canvas`) for IO and execution tracing. While architecturally impressive, this fork focuses on local-first agent cognition and companion interaction. Do not bulk-adopt without an explicit design need.
+- **Wake Words & Acoustic Trigger Dependencies**: Upstream PR #3268 and audio tests continue maintaining `kwsModel` (Sherpa-ONNX wake word engines). Our fork explicitly removed wake words (Filter Rule 12), relying on push-to-talk, VAD, and hotkeys.
+
+### 📋 Upstream Commits
+- `899c70d1b` feat(ui-trace): add the trace timeline, panels, and toolbar (#3269) [#3269](https://github.com/moeru-ai/airi/pull/3269) _(Neko, 2026-10-30)_
+- `8406c9e15` feat(ui-timeline): add a headless timeline and the AIRI timeline (#3267) [#3267](https://github.com/moeru-ai/airi/pull/3267) _(Neko, 2026-10-30)_
+- `dc5865d1e` fix(stage-tamagotchi,stage-pages): bundle the voiceprint model, explain its download failures, and remove the dead resources store (#3268) [#3268](https://github.com/moeru-ai/airi/pull/3268) _(Neko, 2026-10-30)_
+- `e13f931ef` fix(testing-audio): open the Apple Speech case in the settings window (#3266) [#3266](https://github.com/moeru-ai/airi/pull/3266) _(Neko, 2026-10-30)_
+- `6d73d2c6a` feat(timeline-canvas): add a canvas renderer for timeline rows (#3247) [#3247](https://github.com/moeru-ai/airi/pull/3247) _(Neko, 2026-10-30)_
+- `d9cc066db` chore(nix): update pnpmDeps hash (#3263) [#3263](https://github.com/moeru-ai/airi/pull/3263) _(Weathercold, 2026-10-30)_
+- `1ff8dd630` chore(i18n): update translations (#3261) [#3261](https://github.com/moeru-ai/airi/pull/3261) _(github-actions[bot], 2026-10-30)_
+- `8f18f3cd3` fix(stage-shared,stage-ui,stage-tamagotchi): explain model download failures and add retry (#3260) [#3260](https://github.com/moeru-ai/airi/pull/3260) _(Neko, 2026-10-30)_
+- `7c61353f7` feat(ui-panes): add a docking workbench package (#3249) [#3249](https://github.com/moeru-ai/airi/pull/3249) _(Neko, 2026-10-30)_
+- `cb5e30c28` fix(stage-ui): wait for the permission query before the mobile picker requests access (#3265) [#3265](https://github.com/moeru-ai/airi/pull/3265) _(Neko, 2026-10-30)_
+- `5c75a5822` feat(trace-kit): add the trace event stream package (#3236) [#3236](https://github.com/moeru-ai/airi/pull/3236) _(Neko, 2026-10-30)_
+- `be1f92f2d` fix(testing-audio): lower Live2D settings in audio cases (#3264) [#3264](https://github.com/moeru-ai/airi/pull/3264) _(Neko, 2026-10-30)_
+- `75e984616` feat(ui): add UtilityButton and CopyableLabel (#3248) [#3248](https://github.com/moeru-ai/airi/pull/3248) _(Neko, 2026-10-30)_
+- `158d8afff` feat(stage-layouts): make the idle mobile composer narrower (#3258) [#3258](https://github.com/moeru-ai/airi/pull/3258) _(Neko, 2026-10-30)_
+- `8bf31e0f7` refactor(testing-audio): remove the vadReady probe (#3252) [#3252](https://github.com/moeru-ai/airi/pull/3252) _(Neko, 2026-10-30)_
+- `147ce7fe5` fix(stage-ui): request microphone access when the picker opens in the mobile app (#3259) [#3259](https://github.com/moeru-ai/airi/pull/3259) _(Neko, 2026-10-30)_
+- `2b57efcf9` fix(stage-layouts): remove the hearing status from the mobile stage (#3257) [#3257](https://github.com/moeru-ai/airi/pull/3257) _(Neko, 2026-10-30)_
+- `ae902d634` chore(deps): auto bump and adapt (#3262) [#3262](https://github.com/moeru-ai/airi/pull/3262) _(LemonNeko, 2026-10-30)_
+- `08d0f01a0` fix(i18n): unify Korean terms and fill missing Korean strings (#3253) [#3253](https://github.com/moeru-ai/airi/pull/3253) _(mullung, 2026-10-30)_
+- `f5365de1c` refactor(ui): match select and combobox borders to input (#3256) [#3256](https://github.com/moeru-ai/airi/pull/3256) _(Neko, 2026-10-30)_
+- `3a425f50d` refactor(stage-ui): remove decorative borders (#3255) [#3255](https://github.com/moeru-ai/airi/pull/3255) _(Neko, 2026-10-30)_
+- `aea0d8a46` refactor(stage-ui): show selection with fills instead of border colors (#3254) [#3254](https://github.com/moeru-ai/airi/pull/3254) _(Neko, 2026-10-30)_
+- `ec867821d` fix(testing-audio): turn on Web listening through the Hearing settings (#3250) [#3250](https://github.com/moeru-ai/airi/pull/3250) _(Neko, 2026-10-30)_
+- `84f2e3bd2` fix(testing-audio): count each span one time when two Electron windows hold it (#3246) [#3246](https://github.com/moeru-ai/airi/pull/3246) _(Neko, 2026-10-30)_
+- `409f542cf` feat(stage-ui): show voice draft problems as a count with a hover list (#3245) [#3245](https://github.com/moeru-ai/airi/pull/3245) _(Neko, 2026-10-30)_
+- `f7c1a85e1` chore: update README release artifacts to v0.14.0 (#3243) [#3243](https://github.com/moeru-ai/airi/pull/3243) _(Neko, 2026-10-30)_
+- `c32506cd2` release: v0.14.0  _(Neko Ayaka, 2026-10-30)_
+- `1cb2a87d2` fix(audio): share the capture AudioContext between microphone connections (#3242) [#3242](https://github.com/moeru-ai/airi/pull/3242) _(Neko, 2026-10-30)_
+- `2c4d66c6b` refactor(stage-ui,stage-pages): keep long-term memory in IndexedDB (#3241) [#3241](https://github.com/moeru-ai/airi/pull/3241) _(蓝莓🫐, 2026-10-30)_
+- `6599f9c21` fix(stream-kit): remove a catch-up subscriber whose listener throws (#3240) [#3240](https://github.com/moeru-ai/airi/pull/3240) _(Neko, 2026-10-30)_
+- `d98a8d435` feat(stream-kit): add buffers, trackers, and a catch-up feed for event streams (#3239) [#3239](https://github.com/moeru-ai/airi/pull/3239) _(Neko, 2026-10-30)_
+- `96a71be5f` refactor(stage-ui,stage-tamagotchi): declare backdrop surfaces and let components own their fill (#3238) [#3238](https://github.com/moeru-ai/airi/pull/3238) _(Neko, 2026-10-30)_
+- `ae9dfe5ec` refactor(stage-ui): keep recipes in IndexedDB (#3235) [#3235](https://github.com/moeru-ai/airi/pull/3235) _(蓝莓🫐, 2026-10-29)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 16 file(s) (+463/-19)
+- `DESIGN.md` *(+17/-0)*
+- `README.md` *(+2/-2)*
+- `docs/README.fr.md` *(+2/-2)*
+- `docs/README.ja-JP.md` *(+2/-2)*
+- `docs/README.ko-KR.md` *(+2/-2)*
+- `docs/README.ru-RU.md` *(+2/-2)*
+- `docs/README.vi.md` *(+2/-2)*
+- `docs/README.zh-CN.md` *(+2/-2)*
+- `docs/ai/adr/2026-09-22-sherpaw-model-assets.md` *(+4/-3)*
+- `docs/ai/adr/2026-10-10-skills-automations-and-memory.md` *(+6/-1)*
+- `docs/ai/adr/2026-10-29-backdrop-surfaces.md` *(+110/-0)*
+- `docs/ai/context/ui-components.md` *(+29/-0)*
+- `packages/stream-kit/README.md` *(+102/-1)*
+- `packages/testing-audio/README.md` *(+6/-0)*
+- `packages/timeline-canvas/README.md` *(+75/-0)*
+- `packages/trace-kit/README.md` *(+100/-0)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 2 file(s) (+6/-6)
+- `apps/stage-pocket/android/app-version.properties` *(+2/-2)*
+- `apps/stage-pocket/ios/App/App.xcodeproj/project.pbxproj` *(+4/-4)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 20 file(s) (+261/-543)
+- `apps/stage-tamagotchi-kirie/StageTamagotchiKirie.csproj` *(+2/-2)*
+- `apps/stage-tamagotchi-kirie/package.json` *(+5/-5)*
+- `apps/stage-tamagotchi/electron.vite.config.ts` *(+5/-4)*
+- `apps/stage-tamagotchi/package.json` *(+1/-1)*
+- `apps/stage-tamagotchi/src/main/services/electron/model-asset-storage.test.ts` *(+61/-1)*
+- `apps/stage-tamagotchi/src/main/services/electron/model-asset-storage.ts` *(+14/-5)*
+- `apps/stage-tamagotchi/src/main/services/electron/sherpaw-model-assets.ts` *(+2/-3)*
+- `apps/stage-tamagotchi/src/renderer/components/inlay/voice-inlay.browser.test.ts` *(+14/-4)*
+- `apps/stage-tamagotchi/src/renderer/components/inlay/voice-inlay.vue` *(+1/-6)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/resource-status-island/index.vue` *(+17/-26)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/resource-status-island/loading-component-detail.vue` *(+0/-3)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/resource-status-island/loading-component.vue` *(+0/-36)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/resource-status-island/loading-modules.vue` *(+0/-76)*
+- `apps/stage-tamagotchi/src/renderer/composables/{use-window-backdrop.browser.test.ts => window-backdrop.browser.test.ts}` *(+69/-84)*
+- `apps/stage-tamagotchi/src/renderer/composables/window-backdrop.css` *(+0/-19)*
+- `apps/stage-tamagotchi/src/renderer/composables/{use-window-backdrop.ts => window-backdrop.ts}` *(+39/-92)*
+- `apps/stage-tamagotchi/src/renderer/main.ts` *(+6/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/chat-page-shell.vue` *(+8/-7)*
+- `apps/stage-tamagotchi/src/renderer/stores/resources.ts` *(+0/-166)*
+- `{apps/stage-tamagotchi/src/renderer/components/stage-islands/resource-status-island => packages/stage-ui/src/components/scenarios/status}/model-asset-progress.vue` *(+17/-3)*
+
+#### Deprecated Surfaces (Control Island / Chat Floating) (`⚪ ignore / rejected in fork (decoupled into Control Strip)`) — 1 file(s) (+10/-9)
+- `apps/stage-tamagotchi/src/renderer/pages/chat-floating.vue` *(+10/-9)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 54 file(s) (+351/-77)
+- `engines/stage-tamagotchi-godot/package.json` *(+1/-1)*
+- `integrations/twitter-services/package.json` *(+1/-1)*
+- `integrations/vscode/airi-plugin-vscode/package.json` *(+1/-1)*
+- `integrations/vscode/vscode-airi/package.json` *(+1/-1)*
+- `package.json` *(+1/-1)*
+- `packages/agents/package.json` *(+1/-1)*
+- `packages/better-ws/package.json` *(+1/-1)*
+- `packages/cap-vite/package.json` *(+1/-1)*
+- `packages/cloud-client/package.json` *(+1/-1)*
+- `packages/core-character/package.json` *(+1/-1)*
+- `packages/electron-eventa/package.json` *(+1/-1)*
+- `packages/electron-native-backdrop/package.json` *(+1/-1)*
+- `packages/electron-screen-capture/package.json` *(+1/-1)*
+- `packages/electron-vueuse/package.json` *(+1/-1)*
+- `packages/font-chillroundm/package.json` *(+1/-1)*
+- `packages/font-cjkfonts-allseto/package.json` *(+1/-1)*
+- `packages/font-departure-mono/package.json` *(+1/-1)*
+- `packages/font-xiaolai/package.json` *(+1/-1)*
+- `packages/input-gamepad-vueuse/package.json` *(+1/-1)*
+- `packages/input-gamepad/package.json` *(+1/-1)*
+- `packages/input-playstation-dualsense-5/package.json` *(+1/-1)*
+- `packages/mathjson/package.json` *(+1/-1)*
+- `packages/memory-pgvector/package.json` *(+1/-1)*
+- `packages/model-driver-lipsync/package.json` *(+1/-1)*
+- `packages/model-driver-magic-live2d/package.json` *(+1/-1)*
+- `packages/motion-driver-magic/package.json` *(+1/-1)*
+- `packages/pipelines-audio/package.json` *(+1/-1)*
+- `packages/plugin-protocol/package.json` *(+1/-1)*
+- `packages/plugin-sdk-tamagotchi/package.json` *(+1/-1)*
+- `packages/plugin-sdk/package.json` *(+1/-1)*
+- `packages/provider-inference/package.json` *(+1/-1)*
+- `packages/scenarios-stage-tamagotchi-browser/package.json` *(+1/-1)*
+- `packages/scenarios-stage-tamagotchi-electron/package.json` *(+1/-1)*
+- `packages/server-runtime/package.json` *(+1/-1)*
+- `packages/server-sdk/package.json` *(+1/-1)*
+- `packages/server-shared/package.json` *(+1/-1)*
+- `packages/speech-transformer-chem/package.json` *(+1/-1)*
+- `packages/speech-transformer-math/package.json` *(+1/-1)*
+- `packages/stage-shared/package.json` *(+1/-0)*
+- `packages/stage-ui/package.json` *(+1/-1)*
+- `packages/stream-kit/package.json` *(+2/-1)*
+- `packages/testing-audio/package.json` *(+1/-1)*
+- `packages/timeline-canvas/package.json` *(+36/-0)*
+- `packages/timeline-canvas/tsconfig.json` *(+15/-0)*
+- `packages/trace-kit/package.json` *(+68/-0)*
+- `packages/trace-kit/tsconfig.json` *(+15/-0)*
+- `packages/unocss-preset-fonts/package.json` *(+1/-1)*
+- `packages/vitest-plugin-fakemic/package.json` *(+1/-1)*
+- `plugins/airi-plugin-bilibili-laplace/package.json` *(+1/-1)*
+- `plugins/airi-plugin-claude-code/package.json` *(+1/-1)*
+- `plugins/airi-plugin-game-chess/package.json` *(+1/-1)*
+- `plugins/airi-plugin-web-extension/package.json` *(+1/-1)*
+- `pnpm-lock.yaml` *(+167/-29)*
+- `services/computer-use-mcp/package.json` *(+1/-1)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 145 file(s) (+10315/-264)
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/audio/src/browser.browser.test.ts` *(+24/-1)*
+- `packages/audio/src/browser/sources.ts` *(+34/-3)*
+- `packages/stage-shared/src/model-assets/index.test.ts` *(+23/-1)*
+- `packages/stage-shared/src/model-assets/index.ts` *(+95/-2)*
+- `packages/stage-shared/src/speaker-model.ts` *(+1/-2)*
+- `packages/stage-ui/histoire.config.ts` *(+6/-0)*
+- `packages/stage-ui/src/components/menu/icon-status-item.vue` *(+8/-2)*
+- `packages/stage-ui/src/components/menu/radio-card-detail.vue` *(+5/-5)*
+- `packages/stage-ui/src/components/menu/radio-card-many-select.vue` *(+2/-2)*
+- `packages/stage-ui/src/components/menu/radio-card-simple.vue` *(+25/-27)*
+- `packages/stage-ui/src/components/menu/voice-card.vue` *(+5/-5)*
+- `packages/stage-ui/src/components/misc/character-switcher-drawer.vue` *(+4/-3)*
+- `packages/stage-ui/src/components/misc/profile-switcher-popover.vue` *(+1/-1)*
+- `packages/stage-ui/src/components/scenarios/chat/components/image-attachment-preview.vue` *(+3/-3)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-drafts.browser.test.ts` *(+28/-1)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-drafts.vue` *(+63/-4)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-presence.story.vue` *(+217/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-presence.vue` *(+6/-3)*
+- `packages/stage-ui/src/components/scenarios/dialogs/background-picker/background-picker.vue` *(+18/-9)*
+- `packages/stage-ui/src/components/scenarios/providers/speech-playground-openai-compatible.vue` *(+8/-6)*
+- `packages/stage-ui/src/components/scenarios/providers/speech-playground.vue` *(+8/-6)*
+- `packages/stage-ui/src/components/scenarios/settings/microphone-picker.browser.test.ts` *(+39/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/microphone-picker.vue` *(+15/-1)*
+- `packages/stage-ui/src/components/scenarios/settings/option-list.vue` *(+3/-2)*
+- `packages/stage-ui/src/components/scenarios/status/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/components/scenarios/status/model-asset-progress.browser.test.ts` *(+40/-0)*
+- `packages/stage-ui/src/components/scenarios/status/model-asset-progress.story.vue` *(+65/-0)*
+- `packages/stage-ui/src/composables/backdrop-surface.browser.test.ts` *(+75/-0)*
+- `packages/stage-ui/src/composables/backdrop-surface.ts` *(+41/-0)*
+- `packages/stage-ui/src/composables/use-data-maintenance.browser.test.ts` *(+2/-2)*
+- `packages/stage-ui/src/composables/use-model-asset-status.ts` *(+19/-1)*
+- `packages/stage-ui/src/database/repos/__mocks__/memory.repo.ts` *(+43/-0)*
+- `packages/stage-ui/src/database/repos/__mocks__/recipes.repo.ts` *(+30/-0)*
+- `packages/stage-ui/src/database/repos/memory.repo.ts` *(+97/-0)*
+- `packages/stage-ui/src/database/repos/recipes.repo.ts` *(+90/-0)*
+- `packages/stage-ui/src/libs/inference/model-assets-opfs.ts` *(+8/-5)*
+- `packages/stage-ui/src/libs/providers/providers/sherpaw/model-asset-controls.vue` *(+4/-2)*
+- `packages/stage-ui/src/stores/recipes.browser.test.ts` *(+119/-0)*
+- `packages/stage-ui/src/stores/recipes.test.ts` *(+0/-48)*
+- `packages/stage-ui/src/stores/recipes.ts` *(+96/-17)*
+- `packages/stage-ui/src/stores/voice-messages.browser.test.ts` *(+10/-4)*
+- `packages/stage-ui/src/tools/memory.test.ts` *(+12/-11)*
+- `packages/stage-ui/src/tools/memory.ts` *(+27/-25)*
+- `packages/stage-ui/src/tools/propose-recipe.test.ts` *(+1/-1)*
+- `packages/stage-ui/src/tools/propose-recipe.ts` *(+2/-2)*
+- `packages/stage-ui/vitest.browser.setup.ts` *(+0/-12)*
+- `packages/stage-ui/vitest.config.ts` *(+0/-1)*
+- `packages/stream-kit/src/batcher.test.ts` *(+117/-0)*
+- `packages/stream-kit/src/batcher.ts` *(+90/-0)*
+- `packages/stream-kit/src/catch-up-feed.test.ts` *(+150/-0)*
+- `packages/stream-kit/src/catch-up-feed.ts` *(+158/-0)*
+- `packages/stream-kit/src/cooldown.test.ts` *(+24/-0)*
+- `packages/stream-kit/src/cooldown.ts` *(+33/-0)*
+- `packages/stream-kit/src/demand-union.test.ts` *(+44/-0)*
+- `packages/stream-kit/src/demand-union.ts` *(+72/-0)*
+- `packages/stream-kit/src/index.ts` *(+8/-0)*
+- `packages/stream-kit/src/lease-table.test.ts` *(+28/-0)*
+- `packages/stream-kit/src/lease-table.ts` *(+49/-0)*
+- `packages/stream-kit/src/retention-buffer.test.ts` *(+78/-0)*
+- `packages/stream-kit/src/retention-buffer.ts` *(+98/-0)*
+- `packages/stream-kit/src/sequence-tracker.test.ts` *(+35/-0)*
+- `packages/stream-kit/src/sequence-tracker.ts` *(+35/-0)*
+- `packages/stream-kit/src/watermark.test.ts` *(+17/-0)*
+- `packages/stream-kit/src/watermark.ts` *(+31/-0)*
+- `packages/testing-audio/cases/apple-speech/case.audio.electron.test.ts` *(+2/-8)*
+- `packages/testing-audio/cases/formula-speech/case.audio.test.ts` *(+2/-1)*
+- `packages/testing-audio/cases/long-leading-silence/case.audio.test.ts` *(+3/-1)*
+- `packages/testing-audio/cases/shared/configurations/index.ts` *(+2/-0)*
+- `packages/testing-audio/cases/shared/configurations/live2d.ts` *(+41/-0)*
+- `packages/testing-audio/cases/shared/interactions/chat.ts` *(+14/-7)*
+- `packages/testing-audio/cases/shared/interactions/hearing-playground.ts` *(+8/-6)*
+- `packages/testing-audio/cases/single-utterance-pipeline/case.audio.test.ts` *(+3/-1)*
+- `packages/testing-audio/cases/two-utterance-streaming/case.audio.test.ts` *(+3/-1)*
+- `packages/testing-audio/cases/voice-end-latency/case.audio.web.test.ts` *(+2/-1)*
+- `packages/testing-audio/src/expect-extend.test.ts` *(+0/-1)*
+- `packages/testing-audio/src/setup/browser-probe.ts` *(+1/-8)*
+- `packages/testing-audio/src/setup/session.ts` *(+3/-5)*
+- `packages/testing-audio/src/setup/spans.test.ts` *(+23/-0)*
+- `packages/testing-audio/src/setup/spans.ts` *(+24/-0)*
+- `packages/testing-audio/src/types.ts` *(+0/-2)*
+- `packages/testing-audio/src/types/browser.d.ts` *(+0/-1)*
+- `packages/timeline-canvas/src/aggregate.ts` *(+164/-0)*
+- `packages/timeline-canvas/src/benchmark.test.ts` *(+84/-0)*
+- `packages/timeline-canvas/src/capsule.ts` *(+125/-0)*
+- `packages/timeline-canvas/src/columns.ts` *(+146/-0)*
+- `packages/timeline-canvas/src/draw.ts` *(+596/-0)*
+- `packages/timeline-canvas/src/hit.ts` *(+61/-0)*
+- `packages/timeline-canvas/src/index.ts` *(+15/-0)*
+- `packages/timeline-canvas/src/row.ts` *(+192/-0)*
+- `packages/timeline-canvas/src/search.ts` *(+44/-0)*
+- `packages/timeline-canvas/src/series.ts` *(+220/-0)*
+- `packages/timeline-canvas/src/timeline-canvas.test.ts` *(+361/-0)*
+- `packages/timeline-canvas/src/view.ts` *(+22/-0)*
+- `packages/timeline-canvas/tsdown.config.ts` *(+8/-0)*
+- `packages/timeline-canvas/vitest.config.ts` *(+8/-0)*
+- `packages/trace-kit/src/collector/collector.test.ts` *(+302/-0)*
+- `packages/trace-kit/src/collector/collector.ts` *(+690/-0)*
+- `packages/trace-kit/src/collector/index.ts` *(+3/-0)*
+- `packages/trace-kit/src/collector/types.ts` *(+21/-0)*
+- `packages/trace-kit/src/conventions/index.test.ts` *(+39/-0)*
+- `packages/trace-kit/src/conventions/index.ts` *(+224/-0)*
+- `packages/trace-kit/src/conventions/semconv.test.ts` *(+21/-0)*
+- `packages/trace-kit/src/conventions/semconv.ts` *(+35/-0)*
+- `packages/trace-kit/src/core/clock.test.ts` *(+63/-0)*
+- `packages/trace-kit/src/core/clock.ts` *(+273/-0)*
+- `packages/trace-kit/src/core/define.ts` *(+141/-0)*
+- `packages/trace-kit/src/core/definitions.ts` *(+163/-0)*
+- `packages/trace-kit/src/core/feed.ts` *(+52/-0)*
+- `packages/trace-kit/src/core/keys.ts` *(+36/-0)*
+- `packages/trace-kit/src/core/records.ts` *(+26/-0)*
+- `packages/trace-kit/src/core/schema.ts` *(+99/-0)*
+- `packages/trace-kit/src/core/series-ring.test.ts` *(+41/-0)*
+- `packages/trace-kit/src/core/series-ring.ts` *(+142/-0)*
+- `packages/trace-kit/src/core/sink.test.ts` *(+52/-0)*
+- `packages/trace-kit/src/core/sink.ts` *(+317/-0)*
+- `packages/trace-kit/src/core/types.ts` *(+276/-0)*
+- `packages/trace-kit/src/index.ts` *(+10/-0)*
+- `packages/trace-kit/src/profiles/agent.ts` *(+136/-0)*
+- `packages/trace-kit/src/profiles/voice.ts` *(+317/-0)*
+- `packages/trace-kit/src/projections/benchmark.test.ts` *(+94/-0)*
+- `packages/trace-kit/src/projections/event-log.ts` *(+43/-0)*
+- `packages/trace-kit/src/projections/index.ts` *(+5/-0)*
+- `packages/trace-kit/src/projections/metrics.test.ts` *(+32/-0)*
+- `packages/trace-kit/src/projections/metrics.ts` *(+100/-0)*
+- `packages/trace-kit/src/projections/reader.test.ts` *(+40/-0)*
+- `packages/trace-kit/src/projections/reader.ts` *(+180/-0)*
+- `packages/trace-kit/src/projections/timeline.test.ts` *(+297/-0)*
+- `packages/trace-kit/src/projections/timeline.ts` *(+535/-0)*
+- `packages/trace-kit/src/projections/types.ts` *(+255/-0)*
+- `packages/trace-kit/src/testing/fixtures/long-leading-silence.json` *(+1/-0)*
+- `packages/trace-kit/src/testing/index.ts` *(+60/-0)*
+- `packages/trace-kit/src/testing/voice-turn.test.ts` *(+20/-0)*
+- `packages/trace-kit/src/testing/voice-turn.ts` *(+92/-0)*
+- `packages/trace-kit/src/views/index.ts` *(+5/-0)*
+- `packages/trace-kit/src/views/lookup.test.ts` *(+65/-0)*
+- `packages/trace-kit/src/views/lookup.ts` *(+114/-0)*
+- `packages/trace-kit/src/views/pipeline.test.ts` *(+26/-0)*
+- `packages/trace-kit/src/views/pipeline.ts` *(+64/-0)*
+- `packages/trace-kit/src/views/reader.ts` *(+27/-0)*
+- `packages/trace-kit/src/views/tracks.test.ts` *(+26/-0)*
+- `packages/trace-kit/src/views/tracks.ts` *(+40/-0)*
+- `packages/trace-kit/src/views/types.ts` *(+23/-0)*
+- `packages/trace-kit/tsdown.config.ts` *(+14/-0)*
+- `packages/trace-kit/vitest.config.ts` *(+10/-0)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 1 file(s) (+1/-1)
+- `packages/core-agent/package.json` *(+1/-1)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 25 file(s) (+693/-173)
+- `packages/i18n/src/locales/en/stage.yaml` *(+13/-0)*
+- `packages/i18n/src/locales/en/tamagotchi/settings.yaml` *(+6/-0)*
+- `packages/i18n/src/locales/es/settings.yaml` *(+0/-2)*
+- `packages/i18n/src/locales/es/stage.yaml` *(+0/-6)*
+- `packages/i18n/src/locales/fr/settings.yaml` *(+0/-1)*
+- `packages/i18n/src/locales/fr/stage.yaml` *(+0/-6)*
+- `packages/i18n/src/locales/ja/settings.yaml` *(+0/-2)*
+- `packages/i18n/src/locales/ja/stage.yaml` *(+0/-6)*
+- `packages/i18n/src/locales/ko/base.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/ko/settings.yaml` *(+349/-75)*
+- `packages/i18n/src/locales/ko/stage.yaml` *(+126/-24)*
+- `packages/i18n/src/locales/ko/tamagotchi/settings.yaml` *(+5/-2)*
+- `packages/i18n/src/locales/ko/tamagotchi/stage.yaml` *(+162/-3)*
+- `packages/i18n/src/locales/ru/settings.yaml` *(+0/-2)*
+- `packages/i18n/src/locales/ru/stage.yaml` *(+0/-6)*
+- `packages/i18n/src/locales/th/settings.yaml` *(+0/-2)*
+- `packages/i18n/src/locales/th/stage.yaml` *(+0/-6)*
+- `packages/i18n/src/locales/vi/settings.yaml` *(+0/-2)*
+- `packages/i18n/src/locales/vi/stage.yaml` *(+0/-6)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+12/-12)*
+- `packages/i18n/src/locales/zh-Hans/stage.yaml` *(+12/-0)*
+- `packages/i18n/src/locales/zh-Hans/tamagotchi/settings.yaml` *(+6/-0)*
+- `packages/i18n/src/locales/zh-Hans/tamagotchi/stage.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/zh-Hant/settings.yaml` *(+0/-2)*
+- `packages/i18n/src/locales/zh-Hant/stage.yaml` *(+0/-6)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 2 file(s) (+15/-7)
+- `packages/stage-layouts/src/components/Layouts/MobileInteractiveArea.vue` *(+11/-3)*
+- `packages/stage-layouts/src/components/Widgets/ChatContainer.vue` *(+4/-4)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 98 file(s) (+6513/-80)
+- `packages/stage-pages/src/pages/settings/airi-card/components/card-detail.vue` *(+4/-3)*
+- `packages/stage-pages/src/pages/settings/airi-card/components/card-list-item.vue` *(+0/-1)*
+- `packages/stage-pages/src/pages/settings/flux.vue` *(+8/-6)*
+- `packages/stage-pages/src/pages/settings/modules/consciousness.vue` *(+6/-6)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/transcriber.vue` *(+1/-2)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/voiceprint.browser.test.ts` *(+24/-0)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/voiceprint.vue` *(+20/-3)*
+- `packages/stage-pages/src/pages/settings/modules/memory-long-term-memories.search.ts` *(+9/-7)*
+- `packages/stage-pages/src/pages/settings/modules/memory-long-term-memories.vue` *(+7/-8)*
+- `packages/stage-pages/src/pages/settings/modules/memory-long-term-recipes.search.ts` *(+6/-2)*
+- `packages/stage-pages/src/pages/settings/modules/memory-long-term-recipes.vue` *(+6/-6)*
+- `packages/stage-pages/src/pages/settings/modules/speech.vue` *(+20/-16)*
+- `packages/stage-pages/src/pages/settings/modules/vision.vue` *(+7/-11)*
+- `packages/ui-panes/README.md` *(+63/-0)*
+- `packages/ui-panes/env.d.ts` *(+1/-0)*
+- `packages/ui-panes/package.json` *(+32/-0)*
+- `packages/ui-panes/src/index.ts` *(+1/-0)*
+- `packages/ui-panes/src/workbench/index.ts` *(+2/-0)*
+- `packages/ui-panes/src/workbench/workbench-tab.vue` *(+44/-0)*
+- `packages/ui-panes/src/workbench/workbench.story.vue` *(+36/-0)*
+- `packages/ui-panes/src/workbench/workbench.vue` *(+148/-0)*
+- `packages/ui-panes/tsconfig.json` *(+17/-0)*
+- `packages/ui-timeline/README.md` *(+137/-0)*
+- `packages/ui-timeline/env.d.ts` *(+1/-0)*
+- `packages/ui-timeline/package.json` *(+41/-0)*
+- `packages/ui-timeline/src/components/timeline-capsule-row.browser.test.ts` *(+39/-0)*
+- `packages/ui-timeline/src/components/timeline-capsule-row.vue` *(+115/-0)*
+- `packages/ui-timeline/src/components/timeline-lanes-layer.vue` *(+438/-0)*
+- `packages/ui-timeline/src/components/timeline.browser.test.ts` *(+59/-0)*
+- `packages/ui-timeline/src/components/timeline.vue` *(+225/-0)*
+- `packages/ui-timeline/src/headless/components/timeline-axis.vue` *(+77/-0)*
+- `packages/ui-timeline/src/headless/components/timeline-canvas.vue` *(+44/-0)*
+- `packages/ui-timeline/src/headless/components/timeline-item-list.vue` *(+108/-0)*
+- `packages/ui-timeline/src/headless/components/timeline-label-column.vue` *(+15/-0)*
+- `packages/ui-timeline/src/headless/components/timeline-label-resizer.vue` *(+70/-0)*
+- `packages/ui-timeline/src/headless/components/timeline-lanes.vue` *(+89/-0)*
+- `packages/ui-timeline/src/headless/components/timeline-root-harness.vue` *(+45/-0)*
+- `packages/ui-timeline/src/headless/components/timeline-root.browser.test.ts` *(+60/-0)*
+- `packages/ui-timeline/src/headless/components/timeline-root.vue` *(+339/-0)*
+- `packages/ui-timeline/src/headless/components/timeline-scroll-area.vue` *(+16/-0)*
+- `packages/ui-timeline/src/headless/composables/timeline-root-context.ts` *(+144/-0)*
+- `packages/ui-timeline/src/headless/index.ts` *(+14/-0)*
+- `packages/ui-timeline/src/headless/types.ts` *(+16/-0)*
+- `packages/ui-timeline/src/headless/utils/item-navigation.test.ts` *(+38/-0)*
+- `packages/ui-timeline/src/headless/utils/item-navigation.ts` *(+79/-0)*
+- `packages/ui-timeline/src/headless/utils/time-format.test.ts` *(+37/-0)*
+- `packages/ui-timeline/src/headless/utils/time-format.ts` *(+93/-0)*
+- `packages/ui-timeline/src/index.ts` *(+4/-0)*
+- `packages/ui-timeline/src/types.ts` *(+86/-0)*
+- `packages/ui-timeline/src/utils/point-rings.test.ts` *(+39/-0)*
+- `packages/ui-timeline/src/utils/point-rings.ts` *(+64/-0)*
+- `packages/ui-timeline/src/utils/row-item.test.ts` *(+39/-0)*
+- `packages/ui-timeline/src/utils/row-item.ts` *(+19/-0)*
+- `packages/ui-timeline/src/utils/row-model-cache.test.ts` *(+36/-0)*
+- `packages/ui-timeline/src/utils/row-model-cache.ts` *(+41/-0)*
+- `packages/ui-timeline/tsconfig.json` *(+18/-0)*
+- `packages/ui-timeline/vitest.config.ts` *(+53/-0)*
+- `packages/ui-trace/README.md` *(+108/-0)*
+- `packages/ui-trace/env.d.ts` *(+1/-0)*
+- `packages/ui-trace/package.json` *(+47/-0)*
+- `packages/ui-trace/src/components/panels/span-link-card.vue` *(+56/-0)*
+- `packages/ui-trace/src/components/panels/trace-detail.vue` *(+378/-0)*
+- `packages/ui-trace/src/components/panels/trace-event-log.vue` *(+172/-0)*
+- `packages/ui-trace/src/components/panels/trace-metrics.vue` *(+77/-0)*
+- `packages/ui-trace/src/components/panels/trace-panels.story.vue` *(+52/-0)*
+- `packages/ui-trace/src/components/panels/trace-pipeline.vue` *(+116/-0)*
+- `packages/ui-trace/src/components/timeline/timeline-capsules.story.vue` *(+174/-0)*
+- `packages/ui-trace/src/components/timeline/trace-hover-card.vue` *(+46/-0)*
+- `packages/ui-trace/src/components/timeline/trace-timeline.story.vue` *(+42/-0)*
+- `packages/ui-trace/src/components/timeline/trace-timeline.vue` *(+404/-0)*
+- `packages/ui-trace/src/components/toolbar/trace-toolbar.story.vue` *(+36/-0)*
+- `packages/ui-trace/src/components/toolbar/trace-toolbar.vue` *(+62/-0)*
+- `packages/ui-trace/src/components/toolbar/view-preset-menu.vue` *(+62/-0)*
+- `packages/ui-trace/src/composables/use-tracer-view.ts` *(+117/-0)*
+- `packages/ui-trace/src/index.ts` *(+17/-0)*
+- `packages/ui-trace/src/models/canvas-model.ts` *(+196/-0)*
+- `packages/ui-trace/src/models/entity-lanes.ts` *(+207/-0)*
+- `packages/ui-trace/src/models/timeline-model.test.ts` *(+200/-0)*
+- `packages/ui-trace/src/models/timeline-model.ts` *(+172/-0)*
+- `packages/ui-trace/src/models/trace-lookup.test.ts` *(+44/-0)*
+- `packages/ui-trace/src/models/trace-lookup.ts` *(+66/-0)*
+- `packages/ui-trace/src/stories/index.ts` *(+6/-0)*
+- `packages/ui-trace/src/stories/story-trace.ts` *(+49/-0)*
+- `packages/ui-trace/src/stories/timeline-frame.vue` *(+61/-0)*
+- `packages/ui-trace/src/utils/colors.test.ts` *(+23/-0)*
+- `packages/ui-trace/src/utils/colors.ts` *(+78/-0)*
+- `packages/ui-trace/src/utils/icon-glyphs.test.ts` *(+22/-0)*
+- `packages/ui-trace/src/utils/icon-glyphs.ts` *(+74/-0)*
+- `packages/ui-trace/tsconfig.json` *(+18/-0)*
+- `packages/ui-trace/vitest.config.ts` *(+13/-0)*
+- `packages/ui/package.json` *(+1/-1)*
+- `packages/ui/src/components/form/combobox/combobox.vue` *(+2/-2)*
+- `packages/ui/src/components/form/radio/radio.vue` *(+3/-2)*
+- `packages/ui/src/components/form/select/select.vue` *(+3/-2)*
+- `packages/ui/src/components/misc/copyable-label.vue` *(+35/-0)*
+- `packages/ui/src/components/misc/dropdown-menu.vue` *(+2/-2)*
+- `packages/ui/src/components/misc/index.ts` *(+2/-0)*
+- `packages/ui/src/components/misc/utility-button.vue` *(+69/-0)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 7 file(s) (+273/-132)
+- `packages/stage-ui/src/stores/chat-background-tasks.browser.test.ts` *(+8/-6)*
+- `packages/stage-ui/src/stores/chat.contract.test.ts` *(+17/-11)*
+- `packages/stage-ui/src/stores/chat.ts` *(+6/-4)*
+- `packages/stage-ui/src/stores/memory.browser.test.ts` *(+130/-0)*
+- `packages/stage-ui/src/stores/memory.test.ts` *(+0/-52)*
+- `packages/stage-ui/src/stores/memory.ts` *(+94/-59)*
+- `packages/stage-ui/src/types/memory.ts` *(+18/-0)*
+
+#### Wake Words & Voice Trigger (`⚪ ignore / rejected in fork (no wake words in fork)`) — 3 file(s) (+6/-3)
+- `packages/testing-audio/cases/wake-word-routing/case.audio.test.ts` *(+2/-1)*
+- `packages/testing-audio/cases/wake-word-second-pronunciation/case.audio.test.ts` *(+2/-1)*
+- `packages/testing-audio/cases/wake-word/case.audio.test.ts` *(+2/-1)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 5 file(s) (+5/-5)
+- `server/apps/api/package.json` *(+1/-1)*
+- `server/apps/auth/package.json` *(+1/-1)*
+- `server/packages/auth-shared/package.json` *(+1/-1)*
+- `server/packages/http-error-shared/package.json` *(+1/-1)*
+- `server/packages/server-sdk-shared/package.json` *(+1/-1)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (39)
+- [PR] [#3272](https://github.com/moeru-ai/airi/pull/3272) `feat(stage-ui,stage-pages,stage-tamagotchi): run the IO tracer on trace-kit and the trace UI packages` by **@nekomeowww** *(6 comments)*
+- [PR] [#3273](https://github.com/moeru-ai/airi/pull/3273) `fix(minecraft): use correct equipment slots for shields and elytra` by **@louisjia2008-ux** *(Draft)* *(1 comments)*
+- [PR] [#3269](https://github.com/moeru-ai/airi/pull/3269) `feat(ui-trace): add the trace timeline, panels, and toolbar` by **@nekomeowww** *(15 comments)*
+- [PR] [#3271](https://github.com/moeru-ai/airi/pull/3271) `feat(stage-ui): add manual conversation renaming` by **@jim139129** *(3 comments)*
+- [PR] [#3267](https://github.com/moeru-ai/airi/pull/3267) `feat(ui-timeline): add a headless timeline and the AIRI timeline` by **@nekomeowww** *(17 comments)*
+- [PR] [#3270](https://github.com/moeru-ai/airi/pull/3270) `chore(nix): update assets hash` by **@Weathercold** *(2 comments)*
+- [PR] [#3268](https://github.com/moeru-ai/airi/pull/3268) `fix(stage-tamagotchi,stage-pages): bundle the voiceprint model, explain its download failures, and remove the dead resources store` by **@nekomeowww** *(2 comments)*
+- [PR] [#3266](https://github.com/moeru-ai/airi/pull/3266) `fix(testing-audio): open the Apple Speech case in the settings window` by **@nekomeowww** *(4 comments)*
+- [PR] [#3247](https://github.com/moeru-ai/airi/pull/3247) `feat(timeline-canvas): add a canvas renderer for timeline rows` by **@nekomeowww** *(22 comments)*
+- [PR] [#3260](https://github.com/moeru-ai/airi/pull/3260) `fix(stage-shared,stage-ui,stage-tamagotchi): explain model download failures and add retry` by **@nekomeowww** *(9 comments)*
+- [PR] [#3236](https://github.com/moeru-ai/airi/pull/3236) `feat(trace-kit): add the trace event stream package` by **@nekomeowww** *(64 comments)*
+- [PR] [#3263](https://github.com/moeru-ai/airi/pull/3263) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(2 comments)*
+- [PR] [#3261](https://github.com/moeru-ai/airi/pull/3261) `chore(i18n): update translations` by **@github-actions** *(3 comments)*
+- [PR] [#3249](https://github.com/moeru-ai/airi/pull/3249) `feat(ui-panes): add a docking workbench package` by **@nekomeowww** *(7 comments)*
+- [PR] [#3265](https://github.com/moeru-ai/airi/pull/3265) `fix(stage-ui): wait for the permission query before the mobile picker requests access` by **@nekomeowww** *(5 comments)*
+- [PR] [#3259](https://github.com/moeru-ai/airi/pull/3259) `fix(stage-ui): request microphone access when the picker opens in the mobile app` by **@nekomeowww** *(10 comments)*
+- [PR] [#3264](https://github.com/moeru-ai/airi/pull/3264) `fix(testing-audio): lower Live2D settings in audio cases` by **@nekomeowww** *(2 comments)*
+- [PR] [#3258](https://github.com/moeru-ai/airi/pull/3258) `feat(stage-layouts): make the idle mobile composer narrower` by **@nekomeowww** *(11 comments)*
+- [PR] [#3257](https://github.com/moeru-ai/airi/pull/3257) `fix(stage-layouts): remove the hearing status from the mobile stage` by **@nekomeowww** *(4 comments)*
+- [PR] [#3248](https://github.com/moeru-ai/airi/pull/3248) `feat(ui): add UtilityButton and CopyableLabel` by **@nekomeowww** *(14 comments)*
+- [PR] [#3252](https://github.com/moeru-ai/airi/pull/3252) `refactor(testing-audio): remove the vadReady probe` by **@nekomeowww** *(2 comments)*
+- [PR] [#3262](https://github.com/moeru-ai/airi/pull/3262) `chore(deps): auto bump and adapt` by **@LemonNekoGH** *(3 comments)*
+- [PR] [#3253](https://github.com/moeru-ai/airi/pull/3253) `fix(i18n): unify Korean terms and fill missing Korean strings` by **@Daeil-Jung** *(2 comments)*
+- [PR] [#3237](https://github.com/moeru-ai/airi/pull/3237) `fix(electron-screen-capture): retain selected sources across requests` by **@samedog** *(18 comments)*
+- [PR] [#3256](https://github.com/moeru-ai/airi/pull/3256) `refactor(ui): match select and combobox borders to input` by **@nekomeowww** *(2 comments)*
+- [PR] [#3255](https://github.com/moeru-ai/airi/pull/3255) `refactor(stage-ui): remove decorative borders` by **@nekomeowww** *(2 comments)*
+- [PR] [#3254](https://github.com/moeru-ai/airi/pull/3254) `refactor(stage-ui): show selection with fills instead of border colors` by **@nekomeowww** *(2 comments)*
+- [PR] [#3250](https://github.com/moeru-ai/airi/pull/3250) `fix(testing-audio): turn on Web listening through the Hearing settings` by **@nekomeowww** *(2 comments)*
+- [PR] [#3246](https://github.com/moeru-ai/airi/pull/3246) `fix(testing-audio): count each span one time when two Electron windows hold it` by **@nekomeowww** *(2 comments)*
+- [PR] [#3245](https://github.com/moeru-ai/airi/pull/3245) `feat(stage-ui): show voice draft problems as a count with a hover list` by **@nekomeowww** *(6 comments)*
+- [PR] [#3243](https://github.com/moeru-ai/airi/pull/3243) `chore: update README release artifacts to v0.14.0` by **@nekomeowww** *(2 comments)*
+- [PR] [#3241](https://github.com/moeru-ai/airi/pull/3241) `refactor(stage-ui,stage-pages): keep long-term memory in IndexedDB` by **@chiba233** *(2 comments)*
+- [PR] [#3242](https://github.com/moeru-ai/airi/pull/3242) `fix(audio): share the capture AudioContext between microphone connections` by **@nekomeowww** *(4 comments)*
+- [PR] [#3233](https://github.com/moeru-ai/airi/pull/3233) `feat(stage-ui,agents): save long-term memories after each turn` by **@chiba233** *(2 comments)*
+- [PR] [#3240](https://github.com/moeru-ai/airi/pull/3240) `fix(stream-kit): remove a catch-up subscriber whose listener throws` by **@nekomeowww** *(2 comments)*
+- [PR] [#3239](https://github.com/moeru-ai/airi/pull/3239) `feat(stream-kit): add buffers, trackers, and a catch-up feed for event streams` by **@nekomeowww** *(5 comments)*
+- [PR] [#3238](https://github.com/moeru-ai/airi/pull/3238) `refactor(stage-ui,stage-tamagotchi): declare backdrop surfaces and let components own their fill` by **@nekomeowww** *(2 comments)*
+- [PR] [#3234](https://github.com/moeru-ai/airi/pull/3234) `fix(stage-tamagotchi): keep floating chat and inlay windows interactive on Wayland` by **@gg582** *(3 comments)*
+- [PR] [#3235](https://github.com/moeru-ai/airi/pull/3235) `refactor(stage-ui): keep recipes in IndexedDB` by **@chiba233** *(2 comments)*
+
+#### 💬 Discussion Activity (2)
+- [PR] [#2934](https://github.com/moeru-ai/airi/pull/2934) `fix(tamagotchi): use showWindowOnAllWorkspaces to prevent Dock icon restoring on macOS` — *+2 comments (30 ➔ 32 total)*
+- [PR] [#1518](https://github.com/moeru-ai/airi/pull/1518) `feat(stage-ui,stage-pages,stage-tamagotchi,i18n): add bilingual trans…` — *+4 comments (31 ➔ 35 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [OPEN] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+
+---
 ## [2026-10-29] Upstream Delta: `68869042..6399a0f1` (33 commits, 315 files, 39 update(s))
 
 ### 🎯 Executive Highlights
