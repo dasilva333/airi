@@ -55,6 +55,10 @@ async function incrementCounter(kv: KVNamespace, key: string, by = 1): Promise<n
 }
 
 async function recordTelemetry(request: Request, key: string, env: Env) {
+  // Never record telemetry for granular CAS objects (avoids burning KV daily write quota)
+  if (key.startsWith('objects/'))
+    return
+
   try {
     const today = new Date().toISOString().slice(0, 10)
     const country = (request as any).cf?.country || 'Unknown'
@@ -271,8 +275,8 @@ export default {
       )
     }
 
-    // Non-blocking telemetry tracking via waitUntil
-    if (request.method === 'GET') {
+    // Non-blocking telemetry tracking via waitUntil (skip internal CAS objects to preserve KV write quota)
+    if (request.method === 'GET' && !key.startsWith('objects/')) {
       ctx.waitUntil(recordTelemetry(request, key, env))
     }
 
