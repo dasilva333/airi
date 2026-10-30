@@ -41,14 +41,6 @@ export const DEFAULT_SKIP_CORS_HOSTS: string[] = [
   'gen.pollinations.ai',
   'api.kilo.ai',
   'archive.org',
-  'localhost:11434',
-  '127.0.0.1:11434',
-  'localhost:1234',
-  '127.0.0.1:1234',
-  'localhost:50021',
-  '127.0.0.1:50021',
-  'localhost:10101',
-  '127.0.0.1:10101',
 ]
 
 /**
@@ -64,6 +56,19 @@ export function isCorsBypassTarget(url: string, customPatterns?: string[]): bool
 
   try {
     const parsed = new URL(url)
+    const hostname = parsed.hostname.toLowerCase()
+
+    // Never route loopback or local network addresses to a remote edge proxy
+    if (
+      hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || hostname === '0.0.0.0'
+      || hostname === '::1'
+      || hostname.endsWith('.local')
+      || hostname.endsWith('.internal')
+    ) {
+      return false
+    }
 
     // Check host list
     const hostWithPort = parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname

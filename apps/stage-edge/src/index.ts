@@ -160,6 +160,21 @@ export default {
 
       try {
         const parsedTarget = new URL(targetUrl)
+        const targetHost = parsedTarget.hostname.toLowerCase()
+
+        if (
+          targetHost === 'localhost'
+          || targetHost === '127.0.0.1'
+          || targetHost === '0.0.0.0'
+          || targetHost === '::1'
+          || targetHost.endsWith('.local')
+          || targetHost.endsWith('.internal')
+        ) {
+          return jsonResponse(
+            { error: 'Cannot proxy loopback or local network addresses through edge proxy.' },
+            { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } },
+          )
+        }
         const forwardHeaders = new Headers(request.headers)
         forwardHeaders.delete('host')
         forwardHeaders.delete('referer')
