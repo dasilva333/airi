@@ -152,6 +152,11 @@ function resetScreenCaptureSource() {
 
 const initializedWindows = new WeakSet<BrowserWindow>()
 
+// NOTICE: On Linux desktop environments, `desktopCapturer.getSources` can return different source IDs
+// from one call to the next, even for the same display. Keep the actual source objects from every
+// successful selection query so a display media request does not have to look them up again.
+const knownSources = new Map<string, DesktopCapturerSource>()
+
 // NOTICE: use this to guard to prevent handling destroyed window
 // especially when trying to get window title,
 // but window.id is another story as window.id is stable and unique even
@@ -203,6 +208,8 @@ export function initScreenCaptureForWindow(window: BrowserWindow, options?: Init
     // REVIEW(@sumimakito): This has nothing to do with out side, probably related to Electron Bug, you can
     // read more here https://github.com/electron/electron/issues/44504
     const sources = await desktopCapturer.getSources(sourcesOptions)
+    for (const source of sources)
+      knownSources.set(source.id, source)
     return sources.map(source => toSerializableDesktopCapturerSource(source))
   })
 
@@ -225,13 +232,20 @@ export function initScreenCaptureForWindow(window: BrowserWindow, options?: Init
     screenCaptureSourceMutexHandle = handle
 
     try {
-      session.setDisplayMediaRequestHandler(async (_request, callback) => {
+      let selectedSource = knownSources.get(request.sourceId)
+      if (!selectedSource) {
+        // Fall back to a fresh query for callers that did not use getSources first.
         const sources = await desktopCapturer.getSources(request.options)
-        const source = sources.find(source => source.id === request.sourceId)
-        if (!source) {
-          throw new Error(`Source with id ${request.sourceId} not found.`)
-        }
+        for (const source of sources)
+          knownSources.set(source.id, source)
+        selectedSource = knownSources.get(request.sourceId)
+      }
+      if (!selectedSource) {
+        throw new Error(`Source with id ${request.sourceId} not found.`)
+      }
 
+      const source = selectedSource
+      session.setDisplayMediaRequestHandler(async (_request, callback) => {
         callback({
           video: source,
           audio: options?.loopbackWithMute ? LoopbackAudioTypes.LoopbackWithMute : LoopbackAudioTypes.Loopback,
