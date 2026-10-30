@@ -45,8 +45,11 @@ Concept-to-file-path index for rapid context retrieval. Use this to find where a
 
 | Concept | Path | Notes |
 | :--- | :--- | :--- |
+| **Launcher entry (OTA)** | `apps/stage-tamagotchi/src/launcher/index.ts` | Packaged app entry point (`package.json` main: `./out/launcher/index.mjs`). Boots Ergosphere runtime, selects active release, and executes the active bundle's `main/index.mjs`. |
 | **DI composition root** | `apps/stage-tamagotchi/src/main/index.ts` | Where services are injected via `injeca`. Start here to trace how a service gets wired. |
 | **Eventa IPC contract** | `apps/stage-tamagotchi/src/shared/eventa.ts` | All typed IPC/RPC event definitions between main and renderer. |
+| **Over-the-Air (OTA) Updater** | `apps/stage-tamagotchi/src/main/services/electron/auto-updater.ts` | Ergosphere OTA update service: 4 channels (`stable`, `canary`, `dev`, `nightly`), CAS object deduplication, Ed25519 signature checks, splash watchdog rollback, and web hot-reloading. |
+| **OTA Edge Worker & R2 Feed** | `apps/stage-edge-updates/src/index.ts` | Cloudflare Worker + R2 (`airi-updates`) + KV (`airi-updates-metrics`) update feed and high-speed release publisher. |
 | **Window managers** | `apps/stage-tamagotchi/src/main/windows/` | One dir per window. Primary: `main/` (control strip), `stage/`, `chat/`, `caption/`, `widgets/`, `settings/`. Auxiliary: `about/`, `beat-sync/`, `customizer/`, `dashboard/`, `devtools/`, `inlay/`, `notice/`, `onboarding/`, plus `shared/` helpers. |
 | **Renderer bootstrap** | `apps/stage-tamagotchi/src/renderer/` | `App.vue`, `router.ts`, layouts at `layouts/settings.vue` |
 | **Renderer build config** | `apps/stage-tamagotchi/electron.vite.config.ts` | Vite config + route definitions for the Electron renderer |
@@ -549,6 +552,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | `packages/electron-eventa/` | Electron Eventa bindings |
 | `packages/font-*` | Font packages (allseto, departure-mono, xiaolai) |
 | `apps/stage-tamagotchi` | Electron app (main + renderer). Desktop stage: fully self-contained in-process runtime. |
+| `apps/stage-edge-updates` | Cloudflare Worker + R2 (`airi-updates`) + KV (`airi-updates-metrics`) update feed and high-speed release publisher. |
 | `apps/stage-web` | Web app (hosted at `/airi/web-stage/` on GitHub Pages via `.github/workflows/deploy-frontends.yml`; build with `pnpm run build:web:pages`). Web stage: relies on `apps/server` as its backend service. |
 | `apps/stage-pocket` | Mobile app (Capacitor iOS/Android). Pocket stage: hosted natively by Capacitor. |
 | `apps/server` | Dedicated backend service for the Web Stage (`apps/stage-web`) topology (WebSocket channel server, API proxy, storage). Required for web-stage deployments. |
