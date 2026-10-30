@@ -107,7 +107,7 @@ export const MODEL_VRAM_ESTIMATES: Record<string, number> = {
   'ming3-local': 1500 * 1024 * 1024, // ~1.5 GB (weights + WASM arena)
 
   // Laya System-1 ModernBERT ONNX — WASM heap backing, freed by worker terminate
-  'laya-int8': 500 * 1024 * 1024, // ~500 MB (424MB weights + arena)
+  'laya-int8': 750 * 1024 * 1024, // ~750 MB (633MB weights + arena)
   'laya-fp16': 1000 * 1024 * 1024, // ~1 GB (843MB weights + arena)
 }
 

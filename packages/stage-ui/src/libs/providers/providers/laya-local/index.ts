@@ -72,13 +72,13 @@ export const providerLayaLocal = defineProvider<LayaLocalConfig>({
       return [
         {
           id: 'tozp/laya-onnx',
-          name: 'Laya INT8 (424 MB, CPU Recommended)',
+          name: 'Laya INT8 (633 MB, CPU Recommended)',
           provider: 'laya-local',
           description: 'On-device ModernBERT quantized INT8 sequence classifier',
         },
         {
           id: 'tozp/laya-onnx-fp16',
-          name: 'Laya FP16 (843 MB, CPU)',
+          name: 'Laya FP16 (847 MB, WebGPU Recommended)',
           provider: 'laya-local',
           description: 'On-device ModernBERT FP16 precision sequence classifier',
         },
