@@ -18,7 +18,7 @@ import {
   layaModelFiles,
   layaWeightsFile,
 } from '../../libs/inference/laya-models'
-import { decodeAnswers, QTYPES, renderOptions, serializeState, toInternal } from './prep'
+import { decodeAnswers, planLayaBatches, QTYPES, renderOptions, serializeState, toInternal } from './prep'
 
 const { context } = createContext()
 
@@ -210,86 +210,95 @@ defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => 
     return { q, ids: seq.slice(0, maxLen), markers: markers.filter(m => m < maxLen), qtype: QTYPES[q.t] ?? 0 }
   })
 
-  const n = items.length
-  // Pad only to the longest sequence in the batch: the encoder is length-agnostic
-  // and padding every question to 512 multiplies CPU time ~5x for typical prompts.
-  const L = Math.max(...items.map(it => it.ids.length))
-  // NOTICE: the exported graph computes the act-head features with an
-  // unconditional `topk(2)` over the option axis, so a batch whose widest
-  // question has one option fails with "k argument [2] should not be greater
-  // than specified axis dim value [1]". Extra slots stay masked out.
-  const K = Math.max(2, ...items.map(it => it.markers.length))
-  const inputIds = new BigInt64Array(n * L).fill(BigInt(padId))
-  const attention = new BigInt64Array(n * L)
-  const markerPos = new BigInt64Array(n * K)
-  const markerMask = new Uint8Array(n * K)
-  const qtype = new BigInt64Array(n)
   let nTokens = 0
-  items.forEach((it, i) => {
-    it.ids.forEach((v, j) => {
-      inputIds[i * L + j] = BigInt(v)
-      attention[i * L + j] = 1n
-    })
-    nTokens += it.ids.length
-    it.markers.forEach((m, j) => {
-      markerPos[i * K + j] = BigInt(m)
-      markerMask[i * K + j] = 1
-    })
-    qtype[i] = BigInt(it.qtype)
-  })
-
-  const inputTensor = new ort.Tensor('int64', inputIds, [n, L])
-  const attentionTensor = new ort.Tensor('int64', attention, [n, L])
-  const markerPosTensor = new ort.Tensor('int64', markerPos, [n, K])
-  const markerMaskTensor = new ort.Tensor('bool', markerMask, [n, K])
-  const qtypeTensor = new ort.Tensor('int64', qtype, [n])
-
-  let out: Record<string, ort.Tensor> | null = null
-  try {
-    let release!: () => void
-    const next = new Promise<void>(r => release = r)
-    const prev = runLock
-    runLock = next
-    await prev.catch(() => {})
-    try {
-      out = await session.run({
-        input_ids: inputTensor,
-        attention_mask: attentionTensor,
-        marker_pos: markerPosTensor,
-        marker_mask: markerMaskTensor,
-        qtype: qtypeTensor,
+  // The graph's attention tensor grows as batch * L^2, so a big triage fan-out
+  // (one question per query word) over long text is run in several passes.
+  const runChunk = async (chunk: typeof items, chunkQids: string[]): Promise<Record<string, any>> => {
+    const n = chunk.length
+    // Pad only to the longest sequence in the batch: the encoder is length-agnostic
+    // and padding every question to 512 multiplies CPU time ~5x for typical prompts.
+    const L = Math.max(...chunk.map(it => it.ids.length))
+    // NOTICE: the exported graph computes the act-head features with an
+    // unconditional `topk(2)` over the option axis, so a batch whose widest
+    // question has one option fails with "k argument [2] should not be greater
+    // than specified axis dim value [1]". Extra slots stay masked out.
+    const K = Math.max(2, ...chunk.map(it => it.markers.length))
+    const inputIds = new BigInt64Array(n * L).fill(BigInt(padId))
+    const attention = new BigInt64Array(n * L)
+    const markerPos = new BigInt64Array(n * K)
+    const markerMask = new Uint8Array(n * K)
+    const qtype = new BigInt64Array(n)
+    chunk.forEach((it, i) => {
+      it.ids.forEach((v, j) => {
+        inputIds[i * L + j] = BigInt(v)
+        attention[i * L + j] = 1n
       })
+      nTokens += it.ids.length
+      it.markers.forEach((m, j) => {
+        markerPos[i * K + j] = BigInt(m)
+        markerMask[i * K + j] = 1
+      })
+      qtype[i] = BigInt(it.qtype)
+    })
+
+    const inputTensor = new ort.Tensor('int64', inputIds, [n, L])
+    const attentionTensor = new ort.Tensor('int64', attention, [n, L])
+    const markerPosTensor = new ort.Tensor('int64', markerPos, [n, K])
+    const markerMaskTensor = new ort.Tensor('bool', markerMask, [n, K])
+    const qtypeTensor = new ort.Tensor('int64', qtype, [n])
+
+    let out: Record<string, ort.Tensor> | null = null
+    try {
+      let release!: () => void
+      const next = new Promise<void>(r => release = r)
+      const prev = runLock
+      runLock = next
+      await prev.catch(() => {})
+      try {
+        out = await session.run({
+          input_ids: inputTensor,
+          attention_mask: attentionTensor,
+          marker_pos: markerPosTensor,
+          marker_mask: markerMaskTensor,
+          qtype: qtypeTensor,
+        })
+      }
+      finally {
+        release()
+      }
     }
     finally {
-      release()
+      inputTensor.dispose?.()
+      attentionTensor.dispose?.()
+      markerPosTensor.dispose?.()
+      markerMaskTensor.dispose?.()
+      qtypeTensor.dispose?.()
     }
-  }
-  finally {
-    inputTensor.dispose?.()
-    attentionTensor.dispose?.()
-    markerPosTensor.dispose?.()
-    markerMaskTensor.dispose?.()
-    qtypeTensor.dispose?.()
+
+    try {
+      const logitsTensor = out!.logits || (out as any).output
+      const logits = logitsTensor?.data
+      if (!(logits instanceof Float32Array))
+        throw new Error('Laya worker: unexpected logits dtype')
+      return decodeAnswers(logits, chunk, K, chunkQids)
+    }
+    finally {
+      if (out) {
+        for (const t of Object.values(out))
+          (t as any)?.dispose?.()
+      }
+    }
   }
 
-  try {
-    const logitsTensor = out!.logits || (out as any).output
-    const logits = logitsTensor?.data
-    if (!(logits instanceof Float32Array))
-      throw new Error('Laya worker: unexpected logits dtype')
-    const answers = decodeAnswers(logits, items, K, qids)
-    return {
-      model: `laya-${precision}${req.useWebGpu ? '-webgpu' : ''}`,
-      answers,
-      usage: { input_tokens: nTokens, output_tokens: 0 },
-      latency_ms: Math.round(performance.now() - start),
-    }
+  const answers: Record<string, any> = {}
+  for (const indices of planLayaBatches(items.map(it => it.ids.length))) {
+    Object.assign(answers, await runChunk(indices.map(i => items[i]), indices.map(i => qids[i])))
   }
-  finally {
-    if (out) {
-      for (const t of Object.values(out))
-        (t as any)?.dispose?.()
-    }
+  return {
+    model: `laya-${precision}${req.useWebGpu ? '-webgpu' : ''}`,
+    answers,
+    usage: { input_tokens: nTokens, output_tokens: 0 },
+    latency_ms: Math.round(performance.now() - start),
   }
 })
 
