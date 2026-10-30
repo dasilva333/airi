@@ -91,8 +91,8 @@ let lastPersistAt = 0
 let indexLock: Promise<void> = Promise.resolve()
 let persistLock: Promise<void> = Promise.resolve()
 const MIN_PERSIST_INTERVAL_MS = 30_000
-const TRIAGE_TIMEOUT_MS = 10_000
-const RERANK_TIMEOUT_MS = 10_000
+const TRIAGE_TIMEOUT_MS = 60_000
+const RERANK_TIMEOUT_MS = 60_000
 const MAX_SUB_QUERIES = 3
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
