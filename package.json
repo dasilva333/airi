@@ -1,7 +1,7 @@
 {
   "name": "@proj-airi/root",
   "type": "module",
-  "version": "0.9.42-stable.20261028",
+  "version": "0.9.43-stable.20261030",
   "private": true,
   "packageManager": "pnpm@10.32.1",
   "description": "LLM powered virtual character",
