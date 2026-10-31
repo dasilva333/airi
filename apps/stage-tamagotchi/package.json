@@ -86,6 +86,7 @@
     "alien-signals": "catalog:",
     "animejs": "^4.3.6",
     "async-mutex": "catalog:",
+    "canonicalize": "catalog:",
     "colorjs.io": "^0.6.1",
     "culori": "^4.0.2",
     "date-fns": "^4.1.0",

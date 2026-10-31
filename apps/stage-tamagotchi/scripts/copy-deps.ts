@@ -18,6 +18,7 @@ const packages = [
   'undici',
   'magic-bytes.js',
   'ws',
+  'canonicalize',
 ]
 
 function copyRecursiveSync(src: string, dest: string) {

@@ -83,6 +83,7 @@ catalog:
   aws4fetch: ^1.0.20
   better-auth: ^1.4.19
   builder-util-runtime: ^9.5.1
+  canonicalize: ^5.1.0
   capacitor-native-settings: ^8.0.0
   crossws: ^0.4.4
   d3-force: ^3.0.0
