@@ -18,7 +18,15 @@ import {
   layaModelFiles,
   layaWeightsFile,
 } from '../../libs/inference/laya-models'
-import { decodeAnswers, QTYPES, renderOptions, serializeState, toInternal } from './prep'
+import {
+  decodeAnswers,
+  decodeOpenJevAnswers,
+  prepareOpenJevItem,
+  QTYPES,
+  renderOptions,
+  serializeState,
+  toInternal,
+} from './prep'
 
 const { context } = createContext()
 
@@ -184,6 +192,120 @@ defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => 
     const padId = tokenizer.pad_token_id ?? 50283
     const maxLen = LAYA_MAX_SEQ_LEN
     const headMaxLen = 192
+    const spec = getDecisionModelSpec(req.model, precision)
+    const isOpenJev = spec.family === 'openjev'
+    const MAX_ATTENTION_BUFFER_BYTES = 1_342_177_280
+
+    if (isOpenJev) {
+      const openJevItems = qids.map((qid) => {
+        const rawQ = (req.questions as any)[qid]
+        const prep = prepareOpenJevItem(rawQ, req.state)
+        const out = tokenizer(prep.prompt, { add_special_tokens: true })
+        const data = out.input_ids.ort_tensor?.cpuData || out.input_ids.data
+        const ids = Array.from(data, (v: any) => Number(v)).slice(0, maxLen)
+        return { prep, ids }
+      })
+
+      const nTokens = openJevItems.reduce((sum, it) => sum + it.ids.length, 0)
+      const numHeads = spec.numHeads ?? 12
+      const bytesMultiplier = numHeads * 4
+      const chunks: Array<{ items: typeof openJevItems, qids: string[] }> = []
+      let currentChunkItems: typeof openJevItems = []
+      let currentChunkQids: string[] = []
+      let currentMaxL = 0
+
+      for (let i = 0; i < openJevItems.length; i++) {
+        const item = openJevItems[i]
+        const qid = qids[i]
+        const candidateMaxL = Math.max(currentMaxL, item.ids.length)
+        const candidateBytes = (currentChunkItems.length + 1) * bytesMultiplier * candidateMaxL * candidateMaxL
+        if (currentChunkItems.length > 0 && candidateBytes > MAX_ATTENTION_BUFFER_BYTES) {
+          chunks.push({ items: currentChunkItems, qids: currentChunkQids })
+          currentChunkItems = [item]
+          currentChunkQids = [qid]
+          currentMaxL = item.ids.length
+        }
+        else {
+          currentChunkItems.push(item)
+          currentChunkQids.push(qid)
+          currentMaxL = candidateMaxL
+        }
+      }
+      if (currentChunkItems.length > 0)
+        chunks.push({ items: currentChunkItems, qids: currentChunkQids })
+
+      const allAnswers: Record<string, any> = {}
+
+      for (const chunk of chunks) {
+        const n = chunk.items.length
+        const L = Math.max(...chunk.items.map(it => it.ids.length))
+        const inputIds = new BigInt64Array(n * L).fill(BigInt(padId))
+        const attention = new BigInt64Array(n * L)
+
+        chunk.items.forEach((it, i) => {
+          it.ids.forEach((v, j) => {
+            inputIds[i * L + j] = BigInt(v)
+            attention[i * L + j] = 1n
+          })
+        })
+
+        const inputTensor = new ort.Tensor('int64', inputIds, [n, L])
+        const attentionTensor = new ort.Tensor('int64', attention, [n, L])
+        const feeds: Record<string, ort.Tensor> = {
+          input_ids: inputTensor,
+          attention_mask: attentionTensor,
+        }
+
+        let out: Record<string, ort.Tensor> | null = null
+        try {
+          let release!: () => void
+          const next = new Promise<void>(r => release = r)
+          const prev = runLock
+          runLock = next
+          await prev.catch(() => {})
+          try {
+            out = await session.run(feeds)
+          }
+          catch (runErr: any) {
+            console.error('[OpenJevWorker] session.run failed!', {
+              sessionInputNames: session.inputNames,
+              sessionOutputNames: session.outputNames,
+              feedKeys: Object.keys(feeds),
+              error: runErr,
+              stack: runErr?.stack,
+            })
+            throw runErr
+          }
+          finally {
+            release()
+          }
+
+          const outputKey = session.outputNames.find(name => name === 'logits' || name === 'output' || name === 'probabilities') || session.outputNames[0]
+          const logitsTensor = out![outputKey]
+          const logits = logitsTensor?.data
+          if (!(logits instanceof Float32Array))
+            throw new Error(`OpenJev worker: unexpected logits dtype (outputKey=${outputKey})`)
+
+          const chunkAnswers = decodeOpenJevAnswers(logits, chunk.items.map(it => it.prep), chunk.qids)
+          Object.assign(allAnswers, chunkAnswers)
+        }
+        finally {
+          inputTensor.dispose?.()
+          attentionTensor.dispose?.()
+          if (out) {
+            for (const t of Object.values(out))
+              (t as any)?.dispose?.()
+          }
+        }
+      }
+
+      return {
+        model: `${spec.family || 'openjev'}-${precision}${req.useWebGpu ? '-webgpu' : ''}`,
+        answers: allAnswers,
+        usage: { input_tokens: nTokens, output_tokens: 0 },
+        latency_ms: Math.round(performance.now() - start),
+      }
+    }
 
     const encodeText = (txt: string): number[] => {
       const out = tokenizer(txt, { add_special_tokens: false })
@@ -227,8 +349,6 @@ defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => 
     // ModernBERT-large (Laya) has 16 heads (64 * L^2); ModernBERT-base (OpenJev) has 12 heads (48 * L^2).
     // WebGPU adapters enforce a hard maxBufferSize of 2 GiB (2,147,483,648 bytes).
     // We cap attention tensor allocation at 1.25 GiB (~1.34 GB) so sub-batches never overflow.
-    const MAX_ATTENTION_BUFFER_BYTES = 1_342_177_280
-    const spec = getDecisionModelSpec(req.model, precision)
     const numHeads = spec.numHeads ?? 16
     const bytesMultiplier = numHeads * 4
     const chunks: Array<{ items: typeof items, qids: string[] }> = []
@@ -311,7 +431,6 @@ defineInvokeHandler(context, layaDecideEvent, async (req: LayaDecideRequest) => 
         runLock = next
         await prev.catch(() => {})
         try {
-          console.log('[LayaWorker] Running session with feeds:', Object.keys(feeds), 'session inputNames:', session.inputNames, 'outputNames:', session.outputNames)
           out = await session.run(feeds)
         }
         catch (runErr: any) {

@@ -33,7 +33,8 @@ export const providerOpenJevLocal = defineProvider<OpenJevLocalConfig>({
   createProvider(config) {
     return {
       systemOne: async (state: string | object, questions: Record<string, any>, model?: string): Promise<System1Response> => {
-        const targetModel = model || config?.model || 'heman10x/rlcd-modernbert-151m'
+        const isOpenJevModel = model ? (model.includes('openjev') || model.includes('151m') || model.includes('heman10x')) : false
+        const targetModel = (isOpenJevModel ? model : undefined) || config?.model || 'heman10x/rlcd-modernbert-151m'
         const precision = targetModel.includes('fp16') ? 'fp16' : 'int8'
         const res = await runLayaSystemOne(state, questions, precision, {
           useWebGpu: Boolean(config?.enableWebGpu),

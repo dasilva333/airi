@@ -636,14 +636,50 @@ function releaseAutonomousCue(text: string) {
   }
 }
 
+function resolveActorModelId(actorId?: string | null): string | null {
+  const card = activeCard.value
+  const fallbackModelId = (card as any)?.extensions?.airi?.modules?.displayModelId || null
+
+  if (!actorId || actorId === 'default') {
+    return fallbackModelId
+  }
+
+  const airiExt = (card as any)?.extensions?.airi
+  const visualAssets = airiExt?.visual_assets || {}
+  const cardModules = airiExt?.modules || {}
+
+  // 1. Check visual_assets[actorId].manifestation.modelId
+  const asset = visualAssets[actorId] || cardModules[actorId]
+  const manifestationModelId = asset?.manifestation?.modelId
+
+  if (manifestationModelId && manifestationModelId !== 'inherit') {
+    return manifestationModelId
+  }
+
+  // 2. Fallback to modules.displayModelId
+  return fallbackModelId
+}
+
+function resolveActorModel(actorId?: string | null) {
+  const modelId = resolveActorModelId(actorId)
+  const model = modelId ? displayModelsStore.displayModels.find(m => m.id === modelId) : null
+  return {
+    modelId,
+    expressionCapabilities: model?.expressionCapabilities || [],
+    motionCapabilities: model?.motionCapabilities || [],
+  }
+}
+
+const autoCuesAutoMode = ref<boolean | null>(true)
+
 const autonomousCues = useAutonomousCues({
   activeCard: computed(() => activeCard.value),
-  activeModelId: computed(() => (activeCard.value as any)?.extensions?.airi?.modules?.displayModelId || null),
-  expressionCapabilities: computed(() => {
-    const displayModelId = (activeCard.value as any)?.extensions?.airi?.modules?.displayModelId
-    const activeModel = displayModelId ? displayModelsStore.displayModels.find(m => m.id === displayModelId) : null
-    return activeModel?.expressionCapabilities || []
-  }),
+  activeModelId: computed(() => resolveActorModelId(parserActorId.value)),
+  currentActorId: computed(() => parserActorId.value),
+  autoMode: computed(() => autoCuesAutoMode.value ?? undefined),
+  expressionCapabilities: computed(() => resolveActorModel(parserActorId.value).expressionCapabilities),
+  motionCapabilities: computed(() => resolveActorModel(parserActorId.value).motionCapabilities),
+  resolveActorModel,
   actuateEmotion: (rawKey, meta) => {
     debug('[Stage] Autonomous System-1 cue firing (evaporates):', { rawKey, meta })
 
@@ -756,6 +792,11 @@ if (typeof window !== 'undefined') {
   (window as any).testMarker = (content: string) => {
     debug('[DEBUG] Manually testing marker:', content)
     playSpecialToken(content)
+  }
+
+  (window as any).setAutoCuesMode = (enabled: boolean) => {
+    autoCuesAutoMode.value = enabled
+    console.log('[AutonomousCues] autoMode manually set to:', enabled)
   }
 
   ;(window as any).simulateAssistant = (content: string) => {
@@ -2017,6 +2058,7 @@ chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
 
 chatHookCleanups.push(onBeforeSend(async (message, context) => {
   autonomousCues.reset()
+  parserActorId.value = activeCardId.value || 'default'
   resetHeldAutonomousCues()
   live2dStore.triggerMotion(EmotionThinkMotionName)
   currentMotion.value = { group: EmotionThinkMotionName }
@@ -2052,6 +2094,11 @@ chatHookCleanups.push(onTokenSpecial(async (special) => {
   // debug('Stage received special token:', special)
   debug('[Stage] onTokenSpecial -> forwarding', { intentId: intent.intentId, special })
   intent.writeSpecial(special)
+
+  const actor = parseActor(special)
+  if (actor) {
+    parserActorId.value = actor
+  }
 
   if (containsExplicitActToken(special)) {
     autonomousCues.markExplicitActSeen()

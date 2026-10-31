@@ -240,22 +240,49 @@ describe('use-autonomous-cues', () => {
       expect(isFallback).toBe(false)
     })
 
-    it('falls back to usable model capabilities when allowlist is empty', () => {
+    it('returns allowlist emotion keys plus none when present in manual mode (leaving motions empty)', () => {
+      const allowlist: CharacterCueAllowlist = {
+        emotions: {
+          smug: { rawKey: 'Smug', label: 'Smug' },
+          pout: { rawKey: 'Pout', label: 'Pout' },
+        },
+      }
+      const motionCaps: ModelCapabilityItem[] = [
+        { rawKey: 'Happy_1', label: 'Happy 1', usable: true },
+      ]
+      const { options, isFallback } = resolveAllowedEmotionOptions(allowlist, [], motionCaps, { autoMode: false })
+      expect(options).toEqual(['none', 'smug', 'pout'])
+      expect(isFallback).toBe(false)
+    })
+
+    it('populates both emotions and motions from active model when autoMode is true', () => {
       const capabilities: ModelCapabilityItem[] = [
         { rawKey: 'Joy', label: 'Joy', usable: true },
         { rawKey: 'Sad', label: 'Sad', usable: true },
         { rawKey: 'Noise', label: 'Noise', usable: false },
       ]
-      const { options, isFallback } = resolveAllowedEmotionOptions(undefined, capabilities)
-      expect(options).toEqual(['none', 'Joy', 'Sad'])
+      const motionCaps: ModelCapabilityItem[] = [
+        { rawKey: 'Happy_1', label: 'Happy 1', usable: true },
+        { rawKey: 'Angry_1', label: 'Angry 1', usable: true },
+      ]
+      const { options, isFallback } = resolveAllowedEmotionOptions(undefined, capabilities, motionCaps, { autoMode: true })
+      expect(options).toEqual(['none', 'Joy', 'Sad', 'Happy 1', 'Angry 1'])
       expect(isFallback).toBe(false)
     })
 
-    it('falls back to canonical emotions when both are empty', () => {
-      const { options, isFallback } = resolveAllowedEmotionOptions()
-      expect(options).toContain('happy')
-      expect(options).toContain('none')
-      expect(isFallback).toBe(true)
+    it('returns only none when allowlist is empty in manual mode', () => {
+      const capabilities: ModelCapabilityItem[] = [
+        { rawKey: 'Default', label: 'Default', usable: true },
+      ]
+      const { options, isFallback } = resolveAllowedEmotionOptions(undefined, capabilities, [], { autoMode: false })
+      expect(options).toEqual(['none'])
+      expect(isFallback).toBe(false)
+    })
+
+    it('returns only none without fallbacks when both model capabilities are empty in auto mode', () => {
+      const { options, isFallback } = resolveAllowedEmotionOptions(undefined, [], [], { autoMode: true })
+      expect(options).toEqual(['none'])
+      expect(isFallback).toBe(false)
     })
   })
 
@@ -556,6 +583,52 @@ describe('use-autonomous-cues', () => {
 
       const recordLow = await evaluateSentenceStride('Look at this subtle thing.')
       expect(recordLow.intensity).toBe(0.3)
+    })
+
+    it('dynamically resolves per-actor model and capabilities via resolveActorModel in multi-character turns', async () => {
+      const card = createMockCard({ autoCuesEnabled: true })
+      const actuateEmotion = vi.fn()
+      const systemOneStore = useSystemOneStore()
+      systemOneStore.activeProvider = 'laya-local'
+
+      const currentActorId = ref('actor_butter')
+      const resolveActorModel = vi.fn((actorId?: string | null) => {
+        if (actorId === 'actor_butter') {
+          return {
+            modelId: 'model-butter',
+            expressionCapabilities: [{ rawKey: 'Butter_Happy', label: 'Butter Happy', usable: true }],
+            motionCapabilities: [{ rawKey: 'Butter_TailWag', label: 'Butter TailWag', usable: true }],
+          }
+        }
+        return {
+          modelId: 'model-kommy',
+          expressionCapabilities: [{ rawKey: 'Kommy_Serious', label: 'Kommy Serious', usable: true }],
+          motionCapabilities: [{ rawKey: 'Kommy_Goggles', label: 'Kommy Goggles', usable: true }],
+        }
+      })
+
+      vi.spyOn(systemOneStore, 'execute').mockResolvedValue({
+        answers: {
+          emotion: { choice: 'none', confidence: 0.9 },
+        },
+      } as any)
+
+      const { evaluateSentenceStride } = useAutonomousCues({
+        activeCard: card,
+        currentActorId,
+        autoMode: true,
+        resolveActorModel,
+        actuateEmotion,
+      })
+
+      // Turn 1: Butter
+      await evaluateSentenceStride('I checked with my ears!')
+      expect(resolveActorModel).toHaveBeenCalledWith('actor_butter')
+
+      // Turn 2: Switch actor to Kommy
+      currentActorId.value = 'actor_kommy'
+      await evaluateSentenceStride('You want me to hit the box on purpose?')
+      expect(resolveActorModel).toHaveBeenCalledWith('actor_kommy')
     })
   })
 

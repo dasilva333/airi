@@ -382,7 +382,8 @@ export const useSystemOneStore = defineStore('system-one', () => {
             : providerId === 'laya-local'
               ? 'tozp/laya-onnx'
               : 'typesafe/jev-1.13'
-      const model = modelOverride || activeModel.value || defaultModel
+      const isModelValidForProvider = availableModels.value.some(m => m.id === activeModel.value)
+      const model = modelOverride || (isModelValidForProvider ? activeModel.value : defaultModel)
       const res = await instance.systemOne(state, questions, model)
       options?.signal?.throwIfAborted?.()
       lastLatencyMs.value = Math.round(performance.now() - t0)
