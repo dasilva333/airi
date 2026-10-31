@@ -112,7 +112,7 @@ export function createBackgroundRemovalAdapter(): BackgroundRemovalAdapter {
           info = await consumeLoadStream(stream, (progress) => {
             updateInferenceStatus(MODEL_NAMES.BG_REMOVAL, { progress })
             onProgress?.(progress)
-          }).catch((error) => {
+          }).catch((error: unknown) => {
             // Normalize caller-driven aborts to InferenceAbortError so callers
             // see name === 'AbortError'.
             if (options?.signal?.aborted)
@@ -132,7 +132,7 @@ export function createBackgroundRemovalAdapter(): BackgroundRemovalAdapter {
         updateInferenceStatus(MODEL_NAMES.BG_REMOVAL, { state: 'ready', device: info.device as any })
         host.recordSuccess()
       })
-    }).catch((error) => {
+    }).catch((error: unknown) => {
       // Don't route AbortError through handleWorkerError — cancellation is
       // not a worker failure and shouldn't trigger restart logic.
       if ((error as Error)?.name === 'AbortError')
@@ -189,7 +189,7 @@ export function createBackgroundRemovalAdapter(): BackgroundRemovalAdapter {
       host.setPhase('ready')
       host.recordSuccess()
       return output
-    }), { width: imageData.width, height: imageData.height }).catch((error) => {
+    }), { width: imageData.width, height: imageData.height }).catch((error: unknown) => {
       // notReadyError and caller cancellation (AbortError) are request-level and
       // must not tear the worker down or trigger restart logic — mirrors load's
       // guard above.

@@ -9,6 +9,34 @@ const headXIndex = 3
 const headYIndex = 4
 const mouthOpenIndex = 10
 
+/** Absolute tolerance for engine-rounded float drift in the fitted pipeline. */
+const engineFloatTolerance = 1e-12
+
+/**
+ * Asserts every element of `actual` is within `tolerance` of the expected value.
+ *
+ * The VAR/AR-HMM pipeline accumulates through the Gram matrix, a Cholesky solve, and
+ * an autoregressive step, each of which rounds IEEE doubles. Those roundings differ by
+ * a few ULP between engines (measured ~2.4 ULP ≈ 1.6e-14 relative between V8 and
+ * JavaScriptCore here), so exact equality over-constrains platform arithmetic rather
+ * than the model. The tolerance sits far below the scale any real regression moves a
+ * value by — a wrong track fold, swapped coefficient, or different seed shifts channels
+ * by roughly 1e-3 — so it still catches genuine numeric defects.
+ */
+function expectValuesCloseTo(
+  actual: readonly number[][],
+  expected: readonly number[][],
+  tolerance = engineFloatTolerance,
+): void {
+  expect(actual).toHaveLength(expected.length)
+  actual.forEach((row, rowIndex) => {
+    expect(row).toHaveLength(expected[rowIndex].length)
+    row.forEach((value, columnIndex) => {
+      expect(Math.abs(value - expected[rowIndex][columnIndex])).toBeLessThanOrEqual(tolerance)
+    })
+  })
+}
+
 function createTrainingSequence(): TrainingSequence {
   const sampleRateHz = 30
   const frames = Array.from({ length: 240 }, (_, frame) => {
@@ -56,11 +84,11 @@ describe('var motion model', () => {
     expect(model.diagnostics.sourceFrameCount).toBe(240)
     expect(leftFrames).toEqual(rightFrames)
     expect(leftFrames.every(frame => frame.values[eyeXIndex] === frame.values[headXIndex])).toBe(true)
-    expect(leftFrames.slice(0, 3).map(frame => [
+    expectValuesCloseTo(leftFrames.slice(0, 3).map(frame => [
       frame.values[headXIndex],
       frame.values[headYIndex],
       frame.values[mouthOpenIndex],
-    ])).toEqual([
+    ]), [
       [0.12799432561135884, 0.054573315614377164, 0.024153378051292806],
       [0.10509858715154652, 0.03374690235924656, 0.056620804071637526],
       [0.08510790150474039, 0.04028754800254499, 0.07558465056506322],
@@ -99,15 +127,15 @@ describe('ar-hmm motion model', () => {
     expect(model.diagnostics.stateOccupancy.reduce((sum, value) => sum + value, 0)).toBeCloseTo(1)
     expect(leftFrames).toEqual(rightFrames)
     expect(leftFrames.every(frame => frame.state >= 0 && frame.state < 2)).toBe(true)
-    expect(leftFrames.slice(0, 3).map(frame => [
+    expectValuesCloseTo(leftFrames.slice(0, 3).map(frame => [
       frame.values[headXIndex],
       frame.values[headYIndex],
       frame.values[mouthOpenIndex],
-      frame.state,
-    ])).toEqual([
-      [0.13943473079372, 0.06070498660996517, 0.020640206789858145, 0],
-      [0.11433926174359062, 0.06803350647613264, 0.04315048588173365, 0],
-      [0.08294112596838775, 0.03427563830236432, 0.07306459062250431, 0],
+    ]), [
+      [0.13943473079372, 0.06070498660996517, 0.020640206789858145],
+      [0.11433926174359062, 0.06803350647613264, 0.04315048588173365],
+      [0.08294112596838775, 0.03427563830236432, 0.07306459062250431],
     ])
+    expect(leftFrames.slice(0, 3).map(frame => frame.state)).toEqual([0, 0, 0])
   })
 })

@@ -1,3 +1,9 @@
+// @vitest-environment jsdom
+// The store under test is reached through the `@proj-airi/stage-ui-three` barrel,
+// whose evaluation pulls in Three.js / TresJS / wlipsync. Running it in a DOM
+// environment keeps the browser-shaped globals (`window.devicePixelRatio`,
+// `localStorage`) on the real jsdom implementations instead of the node shims in
+// vitest.setup.ts, and matches how the sibling browser-style tests here opt in.
 import { createPinia, disposePinia, setActivePinia } from 'pinia'
 import { expect, it } from 'vitest'
 import { nextTick } from 'vue'

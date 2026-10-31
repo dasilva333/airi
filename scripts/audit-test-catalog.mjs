@@ -11,8 +11,10 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import process from 'node:process'
 
-import { execSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -65,14 +67,38 @@ for (const relPath of catalogFiles) {
 }
 
 // 2. Discover actual test suites in repository via Vitest
+//
+// Vitest is invoked directly through its resolved bin entry instead of via
+// `pnpm exec`. When pnpm is asked to verify dependencies before running
+// (`npm_config_verify_deps_before_run`, which pnpm itself sets on nested
+// `exec` calls), it prints an "Unsupported engine" WARN banner on STDOUT if the
+// local Node version falls outside the workspace `engines.node` range. The
+// banner lands in front of the JSON payload and breaks `JSON.parse`.
+//
+// This bypasses pnpm entirely, so no banner can contaminate stdout regardless of
+// pnpm's environment. The discovered file set is identical to what `pnpm exec`
+// and `pnpm --silent exec` return, so the parity verdict is unchanged.
 let vitestSuites = []
 try {
-  const vitestOutput = execSync('pnpm exec vitest list --json', {
+  const localRequire = createRequire(path.join(REPO_ROOT, 'package.json'))
+  const vitestPackageJson = localRequire.resolve('vitest/package.json')
+  const { bin } = JSON.parse(fs.readFileSync(vitestPackageJson, 'utf8'))
+  const vitestEntry = path.resolve(path.dirname(vitestPackageJson), typeof bin === 'string' ? bin : bin.vitest)
+
+  const discovery = spawnSync(process.execPath, [vitestEntry, 'list', '--json'], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     maxBuffer: 50 * 1024 * 1024,
   })
-  const tests = JSON.parse(vitestOutput)
+
+  if (discovery.error)
+    throw discovery.error
+  if (discovery.status !== 0) {
+    const detail = String(discovery.stderr).trim() || String(discovery.stdout).trim()
+    throw new Error(`vitest exited with code ${discovery.status}: ${detail.slice(0, 500)}`)
+  }
+
+  const tests = JSON.parse(discovery.stdout)
   const uniqueVitestFiles = new Set(tests.map(t => path.relative(REPO_ROOT, t.file)))
   vitestSuites = [...uniqueVitestFiles]
 }
