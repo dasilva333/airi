@@ -33,6 +33,269 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-10-31] Upstream Delta: `899c70d1..ab918b8d` (7 commits, 149 files, 12 update(s))
+
+### 🎯 Executive Highlights
+#### Upstream Trajectory & Key Highlights
+- **Official v0.14.1 Release Milestone (commits 349ecfeda, 324f8547c, PR #3275)**: Upstream cut the v0.14.1 patch release directly following v0.14.0, bumping package versions monorepo-wide and updating release manifests and binary download links.
+- **IO Tracer Integration & Trace UI Rollout Completed (PR #3272, commit 4c8052077)**: Upstream merged the full integration of their tracing suite (`@proj-airi/trace-kit`, `ui-timeline`, `ui-trace`). Deleted 1,600+ lines of bespoke devtools Vue code (`io-tracer-chart.vue`, `io-tracer-controls.vue`, `io-tracer-detail.vue`) in `packages/stage-pages/src/pages/devtools/io-tracer/`, consolidating into `io-tracer-devtools.vue` from `packages/stage-ui/src/features/trace/io-tracer/`. Replaced legacy OpenTelemetry `use-io-tracer` with `use-trace.ts` across `chat.ts`, `hearing-transcriber.ts`, `voice-input-trace.ts`, and Electron `io-trace-hub`.
+- **Fullscreen Island & Chat Dock Restyling (PR #3278, commit aa2a55a37; PR #3279)**: Contributor `@chiba233` (蓝莓🫐) restyled the fullscreen stage island into a white floating pill (with dark mode neutral-900) matching the proportions of the floating chat dock (36px round buttons, 20px Solar icons, 2px padding, detached exit island 8px away). Also proposed PR #3279 to display account status and notifications inside the fullscreen island.
+- **Desktop Chat Interaction & Click-Through Fixes (PRs #3276, #3277, #3281, #3282)**:
+  - PR #3276 (commit e9cd520ef): Fixed click-through on transparent desktop windows where clicks on the empty-session welcome card passed through to underlying OS windows by adding `z-1` and `pointer-events-auto` in `InteractiveArea.vue`.
+  - PR #3277 (commit 1290d825a): Standing chat dock hover/click hit-testing overhaul in `chat-floating.vue`—dock opens only when hovered directly over its bar, avoiding accidental dock expansions over message action buttons, and stays open while navigating menus.
+  - PR #3282: Contributor `@mvanhorn` opened a PR to preserve WebGL acceleration while avoiding Linux transparent-window click-through issues.
+  - PR #3281: Contributor `@balabommablock-cpu` opened a PR to keep the voice menu popover clamped inside narrow chat windows.
+- **Nix Flake Maintenance (PR #3270, commit ab918b8d4)**: Updated `nix/assets-hash.txt` following release v0.14.1.
+
+#### 💬 Discussion & Community Buzz
+- **PR #1577: feat(stage-ui): add GPT-SoVITS speech provider support** (+34 new comments, 47 total): Massive comment spike and renewed community velocity around adding GPT-SoVITS as a first-class local/remote TTS provider in `stage-ui`.
+- **PR #3000: feat(memory-eval): add identity-continuity evaluation package** by @RUI-debug769 (126 total comments): Sustained top discussion volume on long-turn identity evaluation and mathematical persona drift metrics.
+- **PR #2541: Telltworose/feat/drop in plugins** by @telltworose (59 total comments): Sustained high engagement on MCP plugin execution model.
+- **PR #2290: feat(server): stream official ASR over WebSocket** by @luoling8192 (59 total comments): High interest in streaming speech recognition protocol.
+- **PR #2672: refactor(stage-ui): bind conversations to window-local characters** by @luoling8192 (48 total comments): Continuing architecture review on multi-window conversation and character isolation.
+- **PR #2552: add bilingual subtitles** by @phx3334 (36 total comments): Steady interest in bilingual subtitles overlay.
+- **PR #3121: fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image** (Merged, 20 total comments): WebP to PNG decoding discussion concluded with merge.
+- **PR #3272: feat(stage-ui,stage-pages,stage-tamagotchi): run the IO tracer on trace-kit and the trace UI packages** (+10 new comments, 16 total, Merged): Active discussion through review and merge of the IO tracer rewrite.
+
+#### 🍒 Cherry-Pick Candidates
+- **PR #3282: fix(stage-tamagotchi): preserve WebGL while avoiding Linux transparent-window click-through**: High Value (Linux Desktop Stability / Approved for Adoption). Preserves WebGL hardware acceleration (Live2D, VRM) on Linux X11 while fixing click-through on transparent windows by appending `--disable-gpu-compositing` instead of `--disable-gpu`. Clean, surgical fix directly applicable to our transparent Actor Stage window (`RendererStage.vue`).
+
+#### ⚠️ Divergence / Collision Warnings
+- **Desktop Chatbox Workspace vs. Upstream Transparent Floating Chat (PR #3276, PR #3277, PR #3278, PR #3281)**:
+  - **PR #3276 (commit e9cd520ef)**: Does NOT apply to our fork. Upstream patched `InteractiveArea.vue` for `props.floating` because their chat is a transparent floating dock overlaid on top of the stage window, fighting with Chromium's `elementFromPoint` click-through hit-testing. In `dasilva333/airi`, `chat-floating.vue` was completely deleted; our chat is an opaque, dedicated desktop workspace (`apps/stage-tamagotchi/src/renderer/pages/chat.vue`) with left navigation, right dashboard panel (`useChatDashboard`), wallpapers, and atmosphere particle systems. Our input area never runs with `props.floating` over transparent desktop scrollers.
+  - **PR #3281**: Rejected / Divergent. Upstream patched an inline voice selector popover to clamp within a narrow floating dock. In our fork, voice selection and audio configuration are richly authored in `ChatOptionsVoiceView.vue` inside `ChatOptionsPopover.vue` (`packages/stage-layouts`), with volume sliders, preview audition buttons, and single/multi-actor voice overrides.
+  - **PR #3277 & PR #3278 (commits 1290d825a, aa2a55a37)**: Modifies `chat-floating.vue` and restyles `fullscreen-island.vue`. Permanent auto-rejects (Filter Rule 1).
+- **Upstream Nix Release Flake (PR #3270 / commit ab918b8d4)**: Updating `nix/assets-hash.txt` does NOT apply. This checksum is strictly for upstream's remote Nix release CI builder. Our fork uses local package workflows (pnpm, Vite, Electron-Vite) with custom assets.
+- **Cognitive & Chat Trace Injection (`packages/stage-ui/src/stores/chat.ts`, `hearing-transcriber.ts`)**: Upstream PR #3272 (commit `4c8052077`) heavily modified `packages/stage-ui/src/stores/chat.ts` (+113/-44) and `chat.contract.test.ts` (+183/-65), removing OpenTelemetry and wiring `@proj-airi/trace-kit` (`beginSpan`, `TraceLinkRelations.CausedBy`, `trackPath`, `LOCAL_AGENT_ACTOR`). **DO NOT merge upstream `chat.ts` directly**. Our fork's `chat.ts` contains multi-actor `<|ACTOR|>` routing, Eight Pillars memory injection (Sacred Journal & STMM hooks), ComfyUI tool integration, and conversational pacing. Overwriting `chat.ts` would destroy these fork-exclusive systems.
+- **Wake Words (`packages/stage-ui/src/stores/wake-word-detection.ts`)**: Commit `4c8052077` touches `wake-word-detection.ts`. Our fork maintains zero wake-word runtime footprint (Filter Rule 12). Auto-reject.
+
+### 📋 Upstream Commits
+- `ab918b8d4` chore(nix): update assets hash (#3270) [#3270](https://github.com/moeru-ai/airi/pull/3270) _(Weathercold, 2026-10-31)_
+- `aa2a55a37` chore(stage-tamagotchi): restyle the fullscreen island like the floating chat dock (#3278) [#3278](https://github.com/moeru-ai/airi/pull/3278) _(蓝莓🫐, 2026-10-31)_
+- `1290d825a` fix(stage-tamagotchi): open the standing chat dock only from its bar (#3277) [#3277](https://github.com/moeru-ai/airi/pull/3277) _(蓝莓🫐, 2026-10-31)_
+- `e9cd520ef` fix(stage-tamagotchi): keep the floating welcome card from passing clicks through (#3276) [#3276](https://github.com/moeru-ai/airi/pull/3276) _(蓝莓🫐, 2026-10-31)_
+- `324f8547c` chore: update README release artifacts to v0.14.1 (#3275) [#3275](https://github.com/moeru-ai/airi/pull/3275) _(Neko, 2026-10-31)_
+- `349ecfeda` release: v0.14.1  _(Neko Ayaka, 2026-10-30)_
+- `4c8052077` feat(stage-ui,stage-pages,stage-tamagotchi): run the IO tracer on trace-kit and the trace UI packages (#3272) [#3272](https://github.com/moeru-ai/airi/pull/3272) _(Neko, 2026-10-30)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 8 file(s) (+56/-42)
+- `.agents/skills/analyze-io-traces/SKILL.md` *(+42/-28)*
+- `README.md` *(+2/-2)*
+- `docs/README.fr.md` *(+2/-2)*
+- `docs/README.ja-JP.md` *(+2/-2)*
+- `docs/README.ko-KR.md` *(+2/-2)*
+- `docs/README.ru-RU.md` *(+2/-2)*
+- `docs/README.vi.md` *(+2/-2)*
+- `docs/README.zh-CN.md` *(+2/-2)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 2 file(s) (+6/-6)
+- `apps/stage-pocket/android/app-version.properties` *(+2/-2)*
+- `apps/stage-pocket/ios/App/App.xcodeproj/project.pbxproj` *(+4/-4)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 15 file(s) (+762/-263)
+- `apps/stage-tamagotchi-kirie/package.json` *(+1/-1)*
+- `apps/stage-tamagotchi/package.json` *(+2/-1)*
+- `apps/stage-tamagotchi/src/main/index.ts` *(+7/-4)*
+- `apps/stage-tamagotchi/src/main/services/airi/io-trace-hub/index.test.ts` *(+94/-62)*
+- `apps/stage-tamagotchi/src/main/services/airi/io-trace-hub/index.ts` *(+100/-57)*
+- `apps/stage-tamagotchi/src/main/services/airi/io-trace-hub/register.ts` *(+149/-34)*
+- `apps/stage-tamagotchi/src/main/services/airi/io-trace-recording/hub.test.ts` *(+49/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/io-trace-recording/hub.ts` *(+26/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/io-trace-recording/index.test.ts` *(+48/-20)*
+- `apps/stage-tamagotchi/src/main/services/airi/io-trace-recording/index.ts` *(+54/-4)*
+- `apps/stage-tamagotchi/src/renderer/bridges/io-trace-hub.ts` *(+143/-24)*
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` *(+6/-2)*
+- `apps/stage-tamagotchi/src/renderer/components/fullscreen/fullscreen-island.vue` *(+57/-46)*
+- `apps/stage-tamagotchi/src/renderer/components/fullscreen/surfaces.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/shared/eventa/index.ts` *(+24/-6)*
+
+#### Deprecated Surfaces (Control Island / Chat Floating) (`⚪ ignore / rejected in fork (decoupled into Control Strip)`) — 2 file(s) (+49/-14)
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-overflow.browser.test.ts` *(+3/-1)*
+- `apps/stage-tamagotchi/src/renderer/pages/chat-floating.vue` *(+46/-13)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 52 file(s) (+74/-69)
+- `engines/stage-tamagotchi-godot/package.json` *(+1/-1)*
+- `integrations/twitter-services/package.json` *(+1/-1)*
+- `integrations/vscode/airi-plugin-vscode/package.json` *(+1/-1)*
+- `integrations/vscode/vscode-airi/package.json` *(+1/-1)*
+- `package.json` *(+1/-1)*
+- `packages/agents/package.json` *(+1/-1)*
+- `packages/better-ws/package.json` *(+1/-1)*
+- `packages/cap-vite/package.json` *(+1/-1)*
+- `packages/cloud-client/package.json` *(+1/-1)*
+- `packages/core-character/package.json` *(+1/-1)*
+- `packages/electron-eventa/package.json` *(+1/-1)*
+- `packages/electron-native-backdrop/package.json` *(+1/-1)*
+- `packages/electron-screen-capture/package.json` *(+1/-1)*
+- `packages/electron-vueuse/package.json` *(+1/-1)*
+- `packages/font-chillroundm/package.json` *(+1/-1)*
+- `packages/font-cjkfonts-allseto/package.json` *(+1/-1)*
+- `packages/font-departure-mono/package.json` *(+1/-1)*
+- `packages/font-xiaolai/package.json` *(+1/-1)*
+- `packages/input-gamepad-vueuse/package.json` *(+1/-1)*
+- `packages/input-gamepad/package.json` *(+1/-1)*
+- `packages/input-playstation-dualsense-5/package.json` *(+1/-1)*
+- `packages/mathjson/package.json` *(+1/-1)*
+- `packages/memory-pgvector/package.json` *(+1/-1)*
+- `packages/model-driver-lipsync/package.json` *(+1/-1)*
+- `packages/model-driver-magic-live2d/package.json` *(+1/-1)*
+- `packages/motion-driver-magic/package.json` *(+1/-1)*
+- `packages/pipelines-audio/package.json` *(+1/-1)*
+- `packages/plugin-protocol/package.json` *(+1/-1)*
+- `packages/plugin-sdk-tamagotchi/package.json` *(+1/-1)*
+- `packages/plugin-sdk/package.json` *(+1/-1)*
+- `packages/provider-inference/package.json` *(+1/-1)*
+- `packages/scenarios-stage-tamagotchi-browser/package.json` *(+1/-1)*
+- `packages/scenarios-stage-tamagotchi-electron/package.json` *(+1/-1)*
+- `packages/server-runtime/package.json` *(+1/-1)*
+- `packages/server-sdk/package.json` *(+1/-1)*
+- `packages/server-shared/package.json` *(+1/-1)*
+- `packages/speech-transformer-chem/package.json` *(+1/-1)*
+- `packages/speech-transformer-math/package.json` *(+1/-1)*
+- `packages/stage-shared/package.json` *(+0/-1)*
+- `packages/stage-ui/package.json` *(+6/-4)*
+- `packages/stream-kit/package.json` *(+1/-1)*
+- `packages/testing-audio/package.json` *(+2/-1)*
+- `packages/timeline-canvas/package.json` *(+1/-1)*
+- `packages/trace-kit/package.json` *(+1/-1)*
+- `packages/unocss-preset-fonts/package.json` *(+1/-1)*
+- `packages/vitest-plugin-fakemic/package.json` *(+1/-1)*
+- `plugins/airi-plugin-bilibili-laplace/package.json` *(+1/-1)*
+- `plugins/airi-plugin-claude-code/package.json` *(+1/-1)*
+- `plugins/airi-plugin-game-chess/package.json` *(+1/-1)*
+- `plugins/airi-plugin-web-extension/package.json` *(+1/-1)*
+- `pnpm-lock.yaml` *(+18/-15)*
+- `services/computer-use-mcp/package.json` *(+1/-1)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 49 file(s) (+2090/-1577)
+- `nix/assets-hash.txt` *(+1/-1)*
+- `packages/stage-shared/src/index.ts` *(+0/-1)*
+- `packages/stage-shared/src/perf/io-trace.ts` *(+0/-151)*
+- `packages/stage-shared/src/types/io-trace.ts` *(+14/-26)*
+- `packages/stage-ui/histoire.config.ts` *(+4/-0)*
+- `packages/stage-ui/src/composables/speech-output-trace.test.ts` *(+86/-54)*
+- `packages/stage-ui/src/composables/speech-output-trace.ts` *(+99/-55)*
+- `packages/stage-ui/src/composables/use-io-tracer.browser.test.ts` *(+0/-20)*
+- `packages/stage-ui/src/composables/use-io-tracer.ts` *(+0/-284)*
+- `packages/stage-ui/src/composables/use-trace.test.ts` *(+50/-0)*
+- `packages/stage-ui/src/composables/use-trace.ts` *(+332/-0)*
+- `packages/stage-ui/src/composables/voice-end-judge.ts` *(+24/-10)*
+- `packages/stage-ui/src/composables/voice-input-trace.test.ts` *(+93/-97)*
+- `packages/stage-ui/src/composables/voice-input-trace.ts` *(+76/-58)*
+- `packages/stage-ui/src/composables/voice-rephrase.ts` *(+17/-10)*
+- `packages/stage-ui/src/features/trace/io-tracer/index.ts` *(+5/-0)*
+- `packages/stage-ui/src/features/trace/io-tracer/io-tracer-devtools.browser.test.ts` *(+327/-0)*
+- `packages/stage-ui/src/features/trace/io-tracer/io-tracer-devtools.story.vue` *(+26/-0)*
+- `packages/stage-ui/src/features/trace/io-tracer/io-tracer-devtools.vue` *(+189/-0)*
+- `packages/stage-ui/src/features/trace/io-tracer/visible-tracks.test.ts` *(+23/-0)*
+- `packages/stage-ui/src/features/trace/io-tracer/visible-tracks.ts` *(+21/-0)*
+- `packages/stage-ui/src/libs/voice/input-level.ts` *(+23/-13)*
+- `packages/stage-ui/src/stores/ai/chat-llm/streaming-control.test.ts` *(+42/-82)*
+- `packages/stage-ui/src/stores/ai/chat-llm/streaming-control.ts` *(+36/-53)*
+- `packages/stage-ui/src/stores/ai/models/vad.test.ts` *(+25/-24)*
+- `packages/stage-ui/src/stores/ai/models/vad.ts` *(+13/-10)*
+- `packages/stage-ui/src/stores/devtools/io-tracer-export.test.ts` *(+43/-0)*
+- `packages/stage-ui/src/stores/devtools/io-tracer-export.ts` *(+38/-0)*
+- `packages/stage-ui/src/stores/devtools/io-tracer-otlp.test.ts` *(+0/-35)*
+- `packages/stage-ui/src/stores/devtools/io-tracer-otlp.ts` *(+0/-70)*
+- `packages/stage-ui/src/stores/devtools/io-tracer.test.ts` *(+95/-91)*
+- `packages/stage-ui/src/stores/devtools/io-tracer.ts` *(+136/-259)*
+- `packages/stage-ui/src/stores/voice.ts` *(+7/-5)*
+- `packages/stage-ui/vitest.config.ts` *(+3/-0)*
+- `packages/testing-audio/cases/shared/interactions/voice-drafts.ts` *(+4/-4)*
+- `packages/testing-audio/cases/voice-end-latency/case.audio.web.test.ts` *(+20/-22)*
+- `packages/testing-audio/src/expect-extend.test.ts` *(+14/-19)*
+- `packages/testing-audio/src/expect-extend.ts` *(+8/-13)*
+- `packages/testing-audio/src/setup/browser-probe.ts` *(+18/-16)*
+- `packages/testing-audio/src/setup/session.ts` *(+38/-34)*
+- `packages/testing-audio/src/setup/spans.test.ts` *(+0/-23)*
+- `packages/testing-audio/src/setup/spans.ts` *(+0/-24)*
+- `packages/testing-audio/src/setup/trace-spans.test.ts` *(+30/-0)*
+- `packages/testing-audio/src/setup/trace-spans.ts` *(+35/-0)*
+- `packages/testing-audio/src/types.ts` *(+19/-3)*
+- `packages/testing-audio/src/types/browser.d.ts` *(+2/-2)*
+- `packages/trace-kit/src/collector/collector.test.ts` *(+22/-0)*
+- `packages/trace-kit/src/collector/collector.ts` *(+32/-6)*
+- `pnpm-workspace.yaml` *(+0/-2)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 1 file(s) (+1/-1)
+- `packages/core-agent/package.json` *(+1/-1)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 2 file(s) (+62/-4)
+- `packages/i18n/src/locales/en/tamagotchi/settings.yaml` *(+31/-2)*
+- `packages/i18n/src/locales/zh-Hans/tamagotchi/settings.yaml` *(+31/-2)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 8 file(s) (+23/-1767)
+- `packages/stage-pages/src/pages/devtools/io-tracer/components/io-tracer-chart.vue` *(+0/-888)*
+- `packages/stage-pages/src/pages/devtools/io-tracer/components/io-tracer-controls.vue` *(+0/-100)*
+- `packages/stage-pages/src/pages/devtools/io-tracer/components/io-tracer-detail.vue` *(+0/-367)*
+- `packages/stage-pages/src/pages/devtools/io-tracer/components/io-tracer-metrics.vue` *(+0/-151)*
+- `packages/stage-pages/src/pages/devtools/io-tracer/components/io-tracer-turn-list.vue` *(+0/-136)*
+- `packages/stage-pages/src/pages/devtools/io-tracer/index.vue` *(+22/-70)*
+- `packages/stage-pages/src/pages/devtools/io-tracer/io-tracer-types.ts` *(+0/-54)*
+- `packages/ui/package.json` *(+1/-1)*
+
+#### Audio & Speech Pipeline (`🔍 inspect`) — 2 file(s) (+30/-29)
+- `packages/stage-ui/src/libs/audio/hearing-transcriber.test.ts` *(+14/-14)*
+- `packages/stage-ui/src/libs/audio/hearing-transcriber.ts` *(+16/-15)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 2 file(s) (+131/-165)
+- `packages/stage-ui/src/stores/chat.contract.test.ts` *(+62/-121)*
+- `packages/stage-ui/src/stores/chat.ts` *(+69/-44)*
+
+#### Wake Words & Voice Trigger (`⚪ ignore / rejected in fork (no wake words in fork)`) — 1 file(s) (+21/-16)
+- `packages/stage-ui/src/stores/wake-word-detection.ts` *(+21/-16)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 5 file(s) (+5/-5)
+- `server/apps/api/package.json` *(+1/-1)*
+- `server/apps/auth/package.json` *(+1/-1)*
+- `server/packages/auth-shared/package.json` *(+1/-1)*
+- `server/packages/http-error-shared/package.json` *(+1/-1)*
+- `server/packages/server-sdk-shared/package.json` *(+1/-1)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (8)
+- [PR] [#3282](https://github.com/moeru-ai/airi/pull/3282) `fix(stage-tamagotchi): preserve WebGL while avoiding Linux transparent-window click-through` by **@mvanhorn** *(2 comments)*
+- [PR] [#3281](https://github.com/moeru-ai/airi/pull/3281) `fix(stage-ui): keep the voice menu inside a narrow chat window` by **@balabommablock-cpu** *(2 comments)*
+- [PR] [#3280](https://github.com/moeru-ai/airi/pull/3280) `chore(i18n): update translations` by **@github-actions** *(2 comments)*
+- [PR] [#3279](https://github.com/moeru-ai/airi/pull/3279) `feat(stage-tamagotchi): show the account and notifications in the fullscreen island` by **@chiba233** *(2 comments)*
+- [PR] [#3278](https://github.com/moeru-ai/airi/pull/3278) `chore(stage-tamagotchi): restyle the fullscreen island like the floating chat dock` by **@chiba233** *(2 comments)*
+- [PR] [#3277](https://github.com/moeru-ai/airi/pull/3277) `fix(stage-tamagotchi): open the standing chat dock only from its bar` by **@chiba233** *(2 comments)*
+- [PR] [#3276](https://github.com/moeru-ai/airi/pull/3276) `fix(stage-tamagotchi): keep the floating welcome card from passing clicks through` by **@chiba233** *(2 comments)*
+- [PR] [#3275](https://github.com/moeru-ai/airi/pull/3275) `chore: update README release artifacts to v0.14.1` by **@nekomeowww** *(2 comments)*
+
+#### 🔄 Status & Lifecycle Changes (2)
+- [PR] [#3270](https://github.com/moeru-ai/airi/pull/3270) `chore(nix): update assets hash` — `OPEN` ➔ `MERGED`
+- [PR] [#3272](https://github.com/moeru-ai/airi/pull/3272) `feat(stage-ui,stage-pages,stage-tamagotchi): run the IO tracer on trace-kit and the trace UI packages` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (2)
+- [PR] [#1577](https://github.com/moeru-ai/airi/pull/1577) `feat(stage-ui): add GPT-SoVITS speech provider support` — *+34 comments (13 ➔ 47 total)*
+- [PR] [#3272](https://github.com/moeru-ai/airi/pull/3272) `feat(stage-ui,stage-pages,stage-tamagotchi): run the IO tracer on trace-kit and the trace UI packages` — *+10 comments (6 ➔ 16 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [OPEN] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+
+---
 ## [2026-10-30] Upstream Delta: `6399a0f1..899c70d1` (33 commits, 379 files, 41 update(s))
 
 ### 🎯 Executive Highlights

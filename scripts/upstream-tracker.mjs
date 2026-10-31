@@ -230,11 +230,12 @@ const SUBSYSTEM_RULES = [
     ],
   },
   {
-    name: 'Deprecated Surfaces (Control Island / Chat Floating)',
-    risk: '⚪ ignore / rejected in fork (decoupled into Control Strip)',
+    name: 'Deprecated Surfaces (Control Island / Chat Floating / Fullscreen Island)',
+    risk: '⚪ ignore / rejected in fork (decoupled into Control Strip & Dedicated Chat Workspace)',
     patterns: [
-      /stage-islands\/controls-island/,
+      /stage-islands/,
       /chat-floating\.vue/,
+      /fullscreen\/fullscreen-island/,
     ],
   },
   {

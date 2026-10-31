@@ -29,6 +29,10 @@ Own desktop chat surfaces, Quick Settings popover, right dashboard panel, and sh
 - **Desktop Input Area**: `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue`
   - Composer input, file drop & attachment tray, producer magic wand suggestions, send/stop lifecycle.
 
+> [!WARNING]
+> **Subpixel Antialiasing & Window Opacity Invariant**:
+> Never make the desktop chat window semi-transparent or enable `transparent: true` on its `BrowserWindow`. Chromium and OS font engines (DirectWrite/CoreText) mathematically require a 100% opaque RGB backing store for subpixel text antialiasing (ClearType). Introducing window-level alpha drops rendering to blurry grayscale antialiasing, destroys text crispness, and causes severe eye strain. Keep the chat workspace fully opaque; transparent canvas rendering belongs strictly on the isolated Actor Stage (`windows/stage`).
+
 ### 2. Quick Settings Popover ("Chat Options")
 - **Root Orchestrator**: `packages/stage-layouts/src/components/Layouts/ChatOptionsPopover.vue`
   - Triggered via `triggerVariant="dots"` in `chat.vue` (header action `...`) and `triggerVariant="circle"` in `MobileHeader.vue`.

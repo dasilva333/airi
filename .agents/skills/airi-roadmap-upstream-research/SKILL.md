@@ -73,6 +73,11 @@ This fork (`dasilva333/airi`) has undergone deep, structural architectural shift
    - This fork does not include, maintain, or use wake words (`openwakeword`, Sherpa-ONNX wake engines, or acoustic trigger catalogs). Audio ingestion relies strictly on user-directed Push-to-Talk, VAD, or explicit hotkeys.
    - Upstream actively develops wake word catalogs, wake word preparation lifecycles, and openwakeword integration.
    - **Filter Rule**: All upstream PRs, commits, and fixes touching wake word engines, wake word catalogs, or wake word preparation (e.g. PR #3104) are permanent auto-rejects for cherry-picking. Never recommend wake word changes as cherry-pick candidates.
+13. **Desktop Chat Workspace vs. Upstream Transparent Floating Chat (`chat-floating.vue`)**:
+   - This fork completely decoupled the desktop experience: avatar rendering lives exclusively on the transparent Actor Stage (`windows/stage`, `RendererStage.vue`), while chat interaction lives in an opaque, dedicated desktop workspace (`apps/stage-tamagotchi/src/renderer/pages/chat.vue`) with full left navigation, right dashboard panel (`useChatDashboard`), quick settings popovers (`ChatOptionsPopover.vue`), wallpapers, and atmospheres.
+   - The legacy `chat-floating.vue` was deleted in this fork. `InteractiveArea.vue` in this fork is exclusively embedded inside `chat.vue` as a standard desktop workstation input area. It never runs with `props.floating`, never overlays a transparent desktop scroller, and never needs transparent window click-through workarounds.
+   - Upstream continues to treat chat as a transparent floating dock / overlay sitting directly on top of the stage window, resulting in ongoing hit-test, click-through, and menu-docking patches (`chat-floating.vue`, `props.floating` in `InteractiveArea.vue`, standing chat dock clips, narrow-dock voice menus).
+   - **Filter Rule**: All upstream PRs, commits, and fixes touching `chat-floating.vue`, floating chat docks, narrow-dock voice menus, or transparent click-through workarounds for `props.floating` in `InteractiveArea.vue` (e.g. PRs #3276, #3277, #3278, #3281) are permanent auto-rejects for cherry-picking. Never recommend upstream floating chat fixes as cherry-pick candidates.
 
 ## Upstream Radar Watchlist (High-Interest Monitored PRs)
 
