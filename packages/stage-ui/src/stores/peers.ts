@@ -25,7 +25,7 @@ export function getLocalDeviceAlias(): string {
   if (typeof window === 'undefined')
     return 'Desktop'
 
-  const isElectron = Boolean((window as any).electron)
+  const isElectron = Boolean((window as { electron?: unknown }).electron)
   const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '') || ''
 
   if (isElectron) {
@@ -149,7 +149,7 @@ export const usePeersStore = defineStore('peers', () => {
   async function removePeer(id: string) {
     if (!isInitialized.value)
       await init()
-    roster.value = roster.value.filter(p => p.id !== id && (p as any).machineId !== id)
+    roster.value = roster.value.filter(p => p.id !== id && (p as SameAccountDevice).machineId !== id)
     await persist()
   }
 
