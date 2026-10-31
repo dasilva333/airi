@@ -260,6 +260,9 @@ async function handleDeployEmbassy() {
         void initEmbassySocket()
       }
     }
+    else {
+      toast.error('Failed to deploy Companion Embassy.')
+    }
   }
   catch (err: any) {
     toast.error(err?.message || 'Failed to deploy Companion Embassy')
@@ -604,7 +607,9 @@ const pendingMessagesCount = computed(() => pendingMessages.value.length)
 
 // NOTICE: the transport summary must reflect observed state only.
 const transportStatusSummary = computed(() => {
-  const edge = isEmbassyOnline.value ? 'Cloudflare Edge connected' : 'Cloudflare Edge standby'
+  const edge = cloudflareStore.isAuthenticated
+    ? (isEmbassyOnline.value ? 'Cloudflare Edge connected' : 'Cloudflare Edge standby')
+    : 'Cloudflare Edge not configured'
   const mesh = 'libp2p local mesh available in the desktop app'
   return `Transport: ${edge} · ${mesh} · Inbox queue: ${embassyInboxStore.stagedOutbound.length}`
 })
@@ -826,7 +831,7 @@ async function handleApprovePendingMessage() {
     embassyInboxStore.updateStagedText(selected.id, selected.text)
   const res = await embassyInboxStore.approveStaged(selected.id)
   if (res.ok)
-    toast.success(`Message to ${selected.peerName} sent via Edge transport!`)
+    toast.success(`Message to ${selected.peerName} sent.`)
   else toast.info(res.error || `Staged for delivery to ${selected.peerName}.`)
   // The turn is committed: inscribe it into the per-pair napchat session so
   // the next draft continues this dialog instead of starting over.
@@ -2709,11 +2714,11 @@ const surfaceCardClass = computed(() => [
                 Cloudflare Edge Relay
               </div>
               <div class="mt-1 flex items-center gap-1.5 text-xs text-neutral-900 font-semibold dark:text-white">
-                <span class="size-2 rounded-full bg-emerald-500" />
-                <span>{{ isEmbassyOnline ? 'Connected (WAN)' : 'Standby' }}</span>
+                <span :class="['size-2', 'rounded-full', isEmbassyOnline ? 'bg-emerald-500' : (cloudflareStore.isAuthenticated ? 'bg-amber-500' : 'bg-neutral-400')]" />
+                <span>{{ isEmbassyOnline ? 'Connected (WAN)' : (cloudflareStore.isAuthenticated ? 'Standby (Configured)' : 'Not Configured') }}</span>
               </div>
               <p class="mt-1 text-[10px] text-neutral-400">
-                Durable Object SQLite inbox active
+                {{ cloudflareStore.isAuthenticated ? 'Durable Object SQLite inbox active' : 'Sign in via Settings to activate' }}
               </p>
             </div>
 
@@ -3208,7 +3213,7 @@ const surfaceCardClass = computed(() => [
           </div>
 
           <p :class="['text-[11px]', 'text-neutral-500']">
-            Approving this message promotes it to active transmission over Cloudflare Edge or local mesh when the recipient is available.
+            Approving this message promotes it to active transmission when a transport for the recipient is available; otherwise it stays staged for delivery.
           </p>
         </div>
 
