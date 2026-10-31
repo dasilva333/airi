@@ -49,6 +49,7 @@ export interface AutonomousCueContext {
   activeModelId?: MaybeRefOrGetter<string | null | undefined>
   currentActorId?: MaybeRefOrGetter<string | null | undefined>
   autoMode?: MaybeRefOrGetter<boolean | undefined>
+  enforceBudget?: MaybeRefOrGetter<boolean | undefined>
   expressionCapabilities?: MaybeRefOrGetter<ModelCapabilityItem[] | undefined>
   motionCapabilities?: MaybeRefOrGetter<ModelCapabilityItem[] | undefined>
   resolveActorModel?: (actorId?: string | null) => {
@@ -253,24 +254,75 @@ export function resolveCueToken(
     }
   }
 
+  // 5. Model capabilities fallback: match by stemmed label or rawKey
+  const stemTarget = stemCueName(token).toLowerCase()
+  for (const cap of capabilities) {
+    if (cap.usable !== false) {
+      const stemLabel = cap.label ? stemCueName(cap.label).toLowerCase() : null
+      const stemRawKey = cap.rawKey ? stemCueName(cap.rawKey).toLowerCase() : null
+      if (stemLabel === stemTarget || stemRawKey === stemTarget) {
+        return { rawKey: cap.rawKey, label: cap.label }
+      }
+    }
+  }
+
   return null
 }
 
 /**
+ * Stems a motion or emotion cue name by stripping trailing numbers or numbered variant suffixes
+ * (e.g. "Happy 1" -> "Happy", "Angry_2" -> "Angry", "Tickle Idle 1" -> "Tickle Idle").
+ * Preserves compound words, spaces, skins, and bracketed descriptors (e.g. "Basic Civvies [Normal]").
+ */
+export function stemCueName(name: string): string {
+  if (!name || typeof name !== 'string') {
+    return ''
+  }
+  const stripped = name.replace(/[\s_]+\d+$/, '').trim()
+  return stripped.length > 0 ? stripped : name
+}
+
+export interface AllowedEmotionOptionsResult {
+  options: string[]
+  isFallback: boolean
+  variantMap: Map<string, string[]>
+}
+
+/**
  * Extracts candidate emotion option names from the character's allowlist or model capabilities.
+ * Groups numbered motion/emotion variants under their base name to eliminate classifier noise
+ * and prevent candidate list overflow, returning a variantMap for playback entropy.
  */
 export function resolveAllowedEmotionOptions(
   allowlist?: CharacterCueAllowlist,
   capabilities?: ModelCapabilityItem[],
   motionCapabilities?: ModelCapabilityItem[],
   options: { autoMode?: boolean } = {},
-): { options: string[], isFallback: boolean } {
+): AllowedEmotionOptionsResult {
   const { autoMode = false } = options
 
   const usableExprs = (capabilities || []).filter(c => c.usable !== false)
   const usableMotions = (motionCapabilities || []).filter(c => c.usable !== false)
   const modelExprKeys = usableExprs.map(c => c.label || c.rawKey)
   const modelMotionKeys = usableMotions.map(c => c.label || c.rawKey)
+
+  const variantMap = new Map<string, string[]>()
+  variantMap.set('none', ['none'])
+
+  function groupKeys(keys: string[]) {
+    for (const key of keys) {
+      if (!key)
+        continue
+      const base = stemCueName(key)
+      if (!variantMap.has(base)) {
+        variantMap.set(base, [])
+      }
+      const list = variantMap.get(base)!
+      if (!list.includes(key)) {
+        list.push(key)
+      }
+    }
+  }
 
   // Auto Mode ON: Populate both emotions and motions dynamically from the active model (falling back to allowlist if model has no stored caps)
   if (autoMode) {
@@ -283,23 +335,30 @@ export function resolveAllowedEmotionOptions(
 
     const allCaps = [...exprKeys, ...motionKeys]
     if (allCaps.length > 0) {
+      groupKeys(allCaps)
+      const uniqueBases = Array.from(variantMap.keys()).filter(k => k !== 'none')
       return {
-        options: ['none', ...Array.from(new Set(allCaps))],
+        options: ['none', ...uniqueBases],
         isFallback: false,
+        variantMap,
       }
     }
     return {
       options: ['none'],
       isFallback: false,
+      variantMap,
     }
   }
 
   // Auto Mode OFF (Manual Mode): Respect cueAllowlist config for emotions, leave motions blank/empty
   if (allowlist?.emotions && Object.keys(allowlist.emotions).length > 0) {
     const emotionKeys = Object.keys(allowlist.emotions)
+    groupKeys(emotionKeys)
+    const uniqueBases = Array.from(variantMap.keys()).filter(k => k !== 'none')
     return {
-      options: ['none', ...Array.from(new Set(emotionKeys))],
+      options: ['none', ...uniqueBases],
       isFallback: false,
+      variantMap,
     }
   }
 
@@ -307,6 +366,7 @@ export function resolveAllowedEmotionOptions(
   return {
     options: ['none'],
     isFallback: false,
+    variantMap,
   }
 }
 
@@ -401,7 +461,7 @@ export function useAutonomousCues(context: AutonomousCueContext = {}) {
    */
   async function evaluateSentenceStride(
     rawSentence: string,
-    options: { force?: boolean } = {},
+    options: { force?: boolean, enforceBudget?: boolean } = {},
   ): Promise<AutonomousCueRunRecord> {
     const cleanSentence = normalizeSentenceText(rawSentence)
     const budgetMs = calculateWpmBudgetMs(cleanSentence)
@@ -496,7 +556,7 @@ export function useAutonomousCues(context: AutonomousCueContext = {}) {
       ?? true,
     )
 
-    const { options: emotionOptions } = resolveAllowedEmotionOptions(
+    const { options: emotionOptions, variantMap } = resolveAllowedEmotionOptions(
       allowlist,
       caps,
       motionCaps,
@@ -590,8 +650,10 @@ export function useAutonomousCues(context: AutonomousCueContext = {}) {
         return record
       }
 
-      // Budget check: dropped if latency exceeded 90% spoken duration
-      if (latencyMs > budgetMs) {
+      // Budget check: only drop if explicitly requested by caller (e.g. strict synchronous test/timeout).
+      // During live chat streaming, timing is owned by the playback queue (heldAutonomousCues in ControlStripHost).
+      const enforceBudget = options.enforceBudget ?? toValue(context.enforceBudget) ?? false
+      if (enforceBudget && latencyMs > budgetMs) {
         return finishRun({
           sentence: cleanSentence,
           token,
@@ -611,14 +673,23 @@ export function useAutonomousCues(context: AutonomousCueContext = {}) {
           token: 'none',
           rawKey: null,
           confidence,
+          intensity,
           latencyMs,
           budgetMs,
           status: 'none',
         })
       }
 
+      // Resolve base token to specific variant from variant pool (entropy without classifier confusion)
+      let selectedVariant = token
+      const variants = variantMap.get(token)
+      if (variants && variants.length > 0) {
+        const randIdx = Math.floor(Math.random() * variants.length)
+        selectedVariant = variants[randIdx]
+      }
+
       // Resolve token to physical rig rawKey
-      const resolved = resolveCueToken(token, {
+      const resolved = resolveCueToken(selectedVariant, {
         allowlist,
         capabilities: [...caps, ...motionCaps],
       })
@@ -626,7 +697,7 @@ export function useAutonomousCues(context: AutonomousCueContext = {}) {
       if (!resolved?.rawKey) {
         return finishRun({
           sentence: cleanSentence,
-          token,
+          token: selectedVariant,
           rawKey: null,
           confidence,
           intensity,
@@ -638,7 +709,7 @@ export function useAutonomousCues(context: AutonomousCueContext = {}) {
 
       // Trigger actuation (evaporates: in-memory callback only, never persisted)
       const meta: AutonomousCueMeta = {
-        token,
+        token: selectedVariant,
         rawKey: resolved.rawKey,
         sentence: cleanSentence,
         confidence,
@@ -652,7 +723,7 @@ export function useAutonomousCues(context: AutonomousCueContext = {}) {
 
       return finishRun({
         sentence: cleanSentence,
-        token,
+        token: selectedVariant,
         rawKey: resolved.rawKey,
         confidence,
         intensity,

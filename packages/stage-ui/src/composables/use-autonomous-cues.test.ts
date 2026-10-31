@@ -255,7 +255,7 @@ describe('use-autonomous-cues', () => {
       expect(isFallback).toBe(false)
     })
 
-    it('populates both emotions and motions from active model when autoMode is true', () => {
+    it('populates both emotions and motions from active model when autoMode is true with variant stemming', () => {
       const capabilities: ModelCapabilityItem[] = [
         { rawKey: 'Joy', label: 'Joy', usable: true },
         { rawKey: 'Sad', label: 'Sad', usable: true },
@@ -263,11 +263,14 @@ describe('use-autonomous-cues', () => {
       ]
       const motionCaps: ModelCapabilityItem[] = [
         { rawKey: 'Happy_1', label: 'Happy 1', usable: true },
+        { rawKey: 'Happy_2', label: 'Happy 2', usable: true },
         { rawKey: 'Angry_1', label: 'Angry 1', usable: true },
       ]
-      const { options, isFallback } = resolveAllowedEmotionOptions(undefined, capabilities, motionCaps, { autoMode: true })
-      expect(options).toEqual(['none', 'Joy', 'Sad', 'Happy 1', 'Angry 1'])
+      const { options, isFallback, variantMap } = resolveAllowedEmotionOptions(undefined, capabilities, motionCaps, { autoMode: true })
+      expect(options).toEqual(['none', 'Joy', 'Sad', 'Happy', 'Angry'])
       expect(isFallback).toBe(false)
+      expect(variantMap.get('Happy')).toEqual(['Happy 1', 'Happy 2'])
+      expect(variantMap.get('Angry')).toEqual(['Angry 1'])
     })
 
     it('returns only none when allowlist is empty in manual mode', () => {
@@ -431,7 +434,7 @@ describe('use-autonomous-cues', () => {
       expect(actuateEmotion).not.toHaveBeenCalled()
     })
 
-    it('drops cue and records "budget-dropped" when latency exceeds WPM budget', async () => {
+    it('drops cue and records "budget-dropped" when latency exceeds WPM budget and enforceBudget is enabled', async () => {
       const card = createMockCard({ autoCuesEnabled: true })
       const actuateEmotion = vi.fn()
       const systemOneStore = useSystemOneStore()
@@ -448,11 +451,45 @@ describe('use-autonomous-cues', () => {
         } as any
       })
 
-      const { evaluateSentenceStride } = useAutonomousCues({ activeCard: card, actuateEmotion })
+      const { evaluateSentenceStride } = useAutonomousCues({
+        activeCard: card,
+        actuateEmotion,
+        enforceBudget: true,
+      })
 
       const record = await evaluateSentenceStride('Go now.')
       expect(record.status).toBe('budget-dropped')
       expect(actuateEmotion).not.toHaveBeenCalled()
+    })
+
+    it('does not drop cue when enforceBudget is false even if latency exceeds WPM budget (holds for playback queue)', async () => {
+      const card = createMockCard({ autoCuesEnabled: true })
+      const actuateEmotion = vi.fn()
+      const systemOneStore = useSystemOneStore()
+      systemOneStore.activeProvider = 'laya-local'
+
+      vi.spyOn(systemOneStore, 'execute').mockImplementationOnce(async () => {
+        await new Promise(resolve => setTimeout(resolve, 800))
+        return {
+          answers: {
+            emotion: { choice: 'happy', confidence: 0.9 },
+          },
+        } as any
+      })
+
+      const { evaluateSentenceStride } = useAutonomousCues({
+        activeCard: card,
+        actuateEmotion,
+        enforceBudget: false,
+      })
+
+      const record = await evaluateSentenceStride('Go now.')
+      expect(record.status).toBe('fired')
+      expect(record.rawKey).toBe('F_Happy')
+      expect(actuateEmotion).toHaveBeenCalledWith('F_Happy', expect.objectContaining({
+        token: 'happy',
+        rawKey: 'F_Happy',
+      }))
     })
 
     it('skips evaluation and records "skipped-noise" without invoking System 1 for short fragments or punctuation', async () => {

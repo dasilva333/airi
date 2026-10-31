@@ -626,8 +626,9 @@ function releaseAutonomousCue(text: string) {
   const match = held.find(c => c.norm && (norm.includes(c.norm) || c.norm.includes(norm)))
   if (match) {
     match.status = 'applied'
-    debug('[Stage] Released held Autonomous System-1 cue on speech start:', {
+    console.log('[AutonomousCues:Playback] Releasing held cue on speech start:', {
       rawKey: match.rawKey,
+      token: match.token,
       intensity: match.intensity,
       sentence: match.sentence,
       matchedText: text.slice(0, 60),
@@ -694,11 +695,11 @@ const autonomousCues = useAutonomousCues({
 
     if (norm && playedStrideNorms.value.has(norm)) {
       if (nowSpeaking.value) {
-        debug('[Stage] Autonomous System-1 cue arrived during active speech: firing immediately:', { rawKey, intensity: meta?.intensity, sentence })
+        console.log('[AutonomousCues:Playback] Cue arrived during active speech: firing immediately:', { rawKey, token: meta?.token, intensity: meta?.intensity, sentence })
         emitAutonomousSpecialToken(rawKey, meta?.intensity)
         return
       }
-      debug('[Stage] Autonomous System-1 cue arrived after speech slice ended (dropped):', { rawKey, sentence })
+      console.log('[AutonomousCues:Playback] Cue arrived after speech slice ended (dropped):', { rawKey, token: meta?.token, sentence })
       return
     }
 
@@ -712,7 +713,7 @@ const autonomousCues = useAutonomousCues({
       status: 'held',
       createdAt: Date.now(),
     })
-    debug('[Stage] Held Autonomous System-1 cue until speech playback:', { rawKey, intensity: meta?.intensity, sentence, norm })
+    console.log('[AutonomousCues:Playback] Held Autonomous System-1 cue until speech playback:', { rawKey, token: meta?.token, intensity: meta?.intensity, sentence, norm })
   },
 })
 
