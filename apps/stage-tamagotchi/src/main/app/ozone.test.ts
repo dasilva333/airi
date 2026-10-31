@@ -1,0 +1,148 @@
+import { describe, expect, it } from 'vitest'
+
+import { resolveGpuCompositingSwitches, resolveIsWayland } from './ozone'
+
+describe('resolveIsWayland', () => {
+  it('resolves to true when --ozone-platform is explicitly wayland', () => {
+    expect(resolveIsWayland({
+      explicitOzonePlatform: 'wayland',
+      env: {
+        XDG_SESSION_TYPE: 'x11',
+      },
+    })).toBe(true)
+  })
+
+  it('resolves to false when --ozone-platform is explicitly x11, even under a Wayland session', () => {
+    expect(resolveIsWayland({
+      explicitOzonePlatform: 'x11',
+      env: {
+        WAYLAND_DISPLAY: 'wayland-0',
+        XDG_SESSION_TYPE: 'wayland',
+      },
+    })).toBe(false)
+  })
+
+  it('resolves via session environment when --ozone-platform is auto', () => {
+    expect(resolveIsWayland({
+      explicitOzonePlatform: 'auto',
+      env: {
+        WAYLAND_DISPLAY: 'wayland-0',
+      },
+    })).toBe(true)
+
+    expect(resolveIsWayland({
+      explicitOzonePlatform: 'auto',
+      env: {
+        XDG_SESSION_TYPE: 'wayland',
+      },
+    })).toBe(true)
+
+    expect(resolveIsWayland({
+      explicitOzonePlatform: 'auto',
+      env: {
+        XDG_SESSION_TYPE: 'x11',
+      },
+    })).toBe(false)
+  })
+
+  it('resolves via session environment when --ozone-platform is not specified', () => {
+    expect(resolveIsWayland({
+      env: {
+        WAYLAND_DISPLAY: 'wayland-0',
+      },
+    })).toBe(true)
+
+    expect(resolveIsWayland({
+      env: {
+        XDG_SESSION_TYPE: 'wayland',
+      },
+    })).toBe(true)
+
+    expect(resolveIsWayland({
+      env: {
+        XDG_SESSION_TYPE: 'x11',
+      },
+    })).toBe(false)
+  })
+
+  it('falls back to false when neither ozone switches nor wayland session variables are present', () => {
+    expect(resolveIsWayland({
+      env: {},
+    })).toBe(false)
+  })
+})
+
+describe('resolveGpuCompositingSwitches', () => {
+  // https://github.com/moeru-ai/airi/issues/3251
+  // ROOT CAUSE:
+  //
+  // Linux X11 GPU compositing makes a transparent window ignore clicks on NVIDIA.
+  // `--disable-gpu` restores clicks and disables WebGL, so Live2D and VRM fail.
+  // The policy had no compositing-only branch.
+  //
+  // Linux X11 now returns `disable-gpu-compositing`. Wayland and other platforms return none.
+  it('disables GPU compositing only on Linux X11 (Issue #3251)', () => {
+    expect(resolveGpuCompositingSwitches({
+      isLinux: true,
+      explicitOzonePlatform: 'x11',
+      env: {
+        WAYLAND_DISPLAY: 'wayland-0',
+        XDG_SESSION_TYPE: 'wayland',
+      },
+    })).toEqual(['disable-gpu-compositing'])
+
+    expect(resolveGpuCompositingSwitches({
+      isLinux: true,
+      explicitOzonePlatform: 'wayland',
+      env: {
+        XDG_SESSION_TYPE: 'x11',
+      },
+    })).toEqual([])
+
+    expect(resolveGpuCompositingSwitches({
+      isLinux: true,
+      env: {
+        WAYLAND_DISPLAY: 'wayland-0',
+      },
+    })).toEqual([])
+
+    expect(resolveGpuCompositingSwitches({
+      isLinux: true,
+      env: {
+        XDG_SESSION_TYPE: 'wayland',
+      },
+    })).toEqual([])
+
+    expect(resolveGpuCompositingSwitches({
+      isLinux: true,
+      explicitOzonePlatform: 'auto',
+      ozonePlatformHint: 'auto',
+      env: {
+        XDG_SESSION_TYPE: 'x11',
+      },
+    })).toEqual(['disable-gpu-compositing'])
+
+    expect(resolveGpuCompositingSwitches({
+      isLinux: true,
+      explicitOzonePlatform: 'auto',
+      env: {
+        XDG_SESSION_TYPE: 'wayland',
+      },
+    })).toEqual([])
+
+    expect(resolveGpuCompositingSwitches({
+      isLinux: true,
+      env: {
+        XDG_SESSION_TYPE: 'x11',
+      },
+    })).toEqual(['disable-gpu-compositing'])
+
+    expect(resolveGpuCompositingSwitches({
+      isLinux: false,
+      explicitOzonePlatform: 'x11',
+      env: {
+        XDG_SESSION_TYPE: 'x11',
+      },
+    })).toEqual([])
+  })
+})

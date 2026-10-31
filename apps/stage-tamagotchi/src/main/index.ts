@@ -56,6 +56,7 @@ import {
 import { openDebugger, setupDebugger } from './app/debugger'
 import { ensureLevelDBIntegrityOrHalt } from './app/leveldb-guard'
 import { ensureLegacyUserDataMigrated } from './app/migration'
+import { resolveGpuCompositingSwitches, resolveIsWayland } from './app/ozone'
 import { createGlobalAppConfig } from './configs/global'
 import { emitAppBeforeQuit, emitAppReady, emitAppWindowAllClosed } from './libs/bootkit/lifecycle'
 import { setElectronMainDirname } from './libs/electron/location'
@@ -189,8 +190,15 @@ const log = useLogg('main').useGlobalConfig()
 const forceHighPerformanceGpu = env.AIRI_FORCE_HIGH_PERFORMANCE_GPU === '1'
 
 if (isLinux) {
+  const ozoneSelection = {
+    explicitOzonePlatform: app.commandLine.getSwitchValue('ozone-platform') || env.ELECTRON_OZONE_PLATFORM,
+    ozonePlatformHint: app.commandLine.getSwitchValue('ozone-platform-hint') || env.ELECTRON_OZONE_PLATFORM_HINT,
+    env,
+  }
+  const isWayland = resolveIsWayland(ozoneSelection)
+
   const linuxFeatures = ['SharedArrayBuffer', 'Vulkan']
-  if (env.XDG_SESSION_TYPE === 'wayland') {
+  if (isWayland) {
     linuxFeatures.push('GlobalShortcutsPortal', 'UseOzonePlatform', 'WaylandWindowDecorations')
   }
   app.commandLine.appendSwitch('enable-features', linuxFeatures.join(','))
@@ -204,6 +212,13 @@ if (isLinux) {
   }
   else if (!app.commandLine.hasSwitch('ozone-platform-hint') && !app.commandLine.hasSwitch('ozone-platform')) {
     app.commandLine.appendSwitch('ozone-platform-hint', env.ELECTRON_OZONE_PLATFORM_HINT || 'auto')
+  }
+
+  for (const compositingSwitch of resolveGpuCompositingSwitches({
+    isLinux,
+    ...ozoneSelection,
+  })) {
+    app.commandLine.appendSwitch(compositingSwitch)
   }
 }
 
