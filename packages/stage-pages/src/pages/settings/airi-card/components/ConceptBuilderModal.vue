@@ -448,6 +448,35 @@ function buildPayload(): { id: string, data: ConceptData } {
     // Ignore invalid JSON for now
   }
 
+  // Prune non-existent / hallucinated expression keys against active model capabilities
+  let cleanExpressions: Record<string, number> | undefined
+  if (Object.keys(selectedExpressions.value).length > 0) {
+    if (availableExpressions.value.length > 0) {
+      const validKeys = new Set<string>()
+      for (const exp of availableExpressions.value) {
+        if (exp.key)
+          validKeys.add(exp.key)
+        if (exp.name)
+          validKeys.add(exp.name)
+      }
+      const filtered: Record<string, number> = {}
+      for (const [k, v] of Object.entries(selectedExpressions.value)) {
+        if (validKeys.has(k)) {
+          filtered[k] = v
+        }
+      }
+      if (Object.keys(filtered).length > 0) {
+        cleanExpressions = filtered
+      }
+    }
+    else {
+      cleanExpressions = { ...selectedExpressions.value }
+    }
+  }
+
+  // Synchronize internal state with sanitized expressions
+  selectedExpressions.value = cleanExpressions ? { ...cleanExpressions } : {}
+
   return {
     id: id.value.trim(),
     data: {
@@ -467,9 +496,7 @@ function buildPayload(): { id: string, data: ConceptData } {
         modelId: selectedModelId.value !== 'inherit' ? selectedModelId.value : undefined,
         mood: selectedMood.value.trim() || undefined,
         backgroundId: selectedBackgroundId.value !== 'inherit' ? selectedBackgroundId.value : undefined,
-        active_expressions: Object.keys(selectedExpressions.value).length > 0
-          ? { ...selectedExpressions.value }
-          : undefined,
+        active_expressions: cleanExpressions,
       },
       speech: selectedSpeechProvider.value !== 'inherit'
         ? {

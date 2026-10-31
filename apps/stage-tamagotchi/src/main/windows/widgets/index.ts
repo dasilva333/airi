@@ -32,6 +32,7 @@ export interface WidgetsWindowManager {
   clearWidgets: () => Promise<void>
   getWidgetSnapshot: (id: string) => WidgetSnapshot | undefined
   prepareWidgetWindow: (options?: { id?: string }) => string
+  resizeWidgetWindow: (payload: { id?: string, width?: number, height?: number, window?: BrowserWindow }) => Promise<void>
 }
 
 const widgetsWindowConfigSchema = object({
@@ -545,6 +546,47 @@ export function setupWidgetsWindowManager(params: {
     eventaContext?.emit(event, payload)
   }
 
+  async function resizeWidgetWindow(payload: { id?: string, width?: number, height?: number, window?: BrowserWindow }) {
+    let targetWin: BrowserWindow | undefined = payload.window
+
+    if (!targetWin || targetWin.isDestroyed()) {
+      if (payload.id) {
+        targetWin = standaloneWindows.get(payload.id)
+        if (!targetWin || targetWin.isDestroyed()) {
+          const ctx = windowContexts.get(payload.id)
+          if (ctx?.window && !ctx.window.isDestroyed()) {
+            targetWin = ctx.window
+          }
+        }
+      }
+    }
+
+    if (!targetWin || targetWin.isDestroyed()) {
+      targetWin = await getWindow()
+    }
+
+    if (!targetWin || targetWin.isDestroyed())
+      return
+
+    const currentBounds = targetWin.getBounds()
+    const primary = screen.getDisplayMatching(currentBounds).workArea
+
+    const newWidth = payload.width != null ? Math.round(payload.width) : currentBounds.width
+    const newHeight = payload.height != null ? Math.round(payload.height) : currentBounds.height
+
+    const clampedWidth = Math.min(Math.max(160, newWidth), primary.width)
+    const clampedHeight = Math.min(Math.max(80, newHeight), primary.height)
+
+    if (currentBounds.width !== clampedWidth || currentBounds.height !== clampedHeight) {
+      targetWin.setBounds({
+        x: currentBounds.x,
+        y: currentBounds.y,
+        width: clampedWidth,
+        height: clampedHeight,
+      })
+    }
+  }
+
   widgetsManager = {
     getWindow,
     openWindow,
@@ -555,6 +597,7 @@ export function setupWidgetsWindowManager(params: {
     getWidgetSnapshot,
     prepareWidgetWindow,
     hideWindow,
+    resizeWidgetWindow,
     emit,
   }
 
@@ -574,5 +617,6 @@ export interface WidgetsWindowManager {
   clearWidgets: () => Promise<void>
   getWidgetSnapshot: (id: string) => WidgetSnapshot | undefined
   prepareWidgetWindow: (options?: { id?: string }) => string
+  resizeWidgetWindow: (payload: { id?: string, width?: number, height?: number, window?: BrowserWindow }) => Promise<void>
   emit: (event: any, payload: any) => void
 }

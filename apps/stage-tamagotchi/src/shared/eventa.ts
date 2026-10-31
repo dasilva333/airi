@@ -363,6 +363,7 @@ export const widgetsUpdate = defineInvokeEventa<void, { id: string, componentPro
 export const widgetsFetch = defineInvokeEventa<WidgetSnapshot | void, { id: string }>('eventa:invoke:electron:windows:widgets:fetch')
 export const widgetsPrepareWindow = defineInvokeEventa<string | undefined, { id?: string }>('eventa:invoke:electron:windows:widgets:prepare')
 export const widgetsHideWindow = defineInvokeEventa<void, { id?: string }>('eventa:invoke:electron:windows:widgets:hide')
+export const widgetsResizeWindow = defineInvokeEventa<void, { id?: string, width?: number, height?: number }>('eventa:invoke:electron:windows:widgets:resize')
 
 export const electronWindowClose = defineInvokeEventa<void>('eventa:invoke:electron:window:close')
 export const electronWindowHide = defineInvokeEventa<void>('eventa:invoke:electron:window:hide')

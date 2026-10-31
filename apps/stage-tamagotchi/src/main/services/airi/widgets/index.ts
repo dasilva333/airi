@@ -7,7 +7,7 @@ import { defineInvokeHandlers } from '@moeru/eventa'
 import { artistryComfyHealthCheck, artistryGenerateHeadless } from '@proj-airi/stage-shared'
 import { ipcMain } from 'electron'
 
-import { widgetsAdd, widgetsClear, widgetsFetch, widgetsHideWindow, widgetsOpenWindow, widgetsPrepareWindow, widgetsRemove, widgetsUpdate } from '../../../../shared/eventa'
+import { widgetsAdd, widgetsClear, widgetsFetch, widgetsHideWindow, widgetsOpenWindow, widgetsPrepareWindow, widgetsRemove, widgetsResizeWindow, widgetsUpdate } from '../../../../shared/eventa'
 import { generateHeadless } from './artistry-bridge'
 
 interface InvokeOptions {
@@ -56,6 +56,7 @@ export function createWidgetsService(params: { context: ReturnType<typeof create
     widgetsClear,
     widgetsFetch,
     widgetsHideWindow,
+    widgetsResizeWindow,
     artistryGenerateHeadless,
     artistryComfyHealthCheck,
   }, {
@@ -98,6 +99,14 @@ export function createWidgetsService(params: { context: ReturnType<typeof create
       if (!isFromWindow(options as InvokeOptions, params.window))
         return undefined
       return params.widgetsManager!.hideWindow(payload ?? undefined)
+    },
+    widgetsResizeWindow: async (payload, options) => {
+      if (!isFromWindow(options as InvokeOptions, params.window))
+        return undefined
+      return params.widgetsManager!.resizeWidgetWindow({
+        ...payload,
+        window: params.window,
+      })
     },
     artistryGenerateHeadless: async (payload, options) => {
       if (!isFromWindow(options as InvokeOptions, params.window))

@@ -258,6 +258,7 @@ function handleApplyAutoVoices(payload: Record<string, { baseProvider: string, b
   }
 
   extension.airi.visual_assets = nextAssets
+  ;(props.card as any).extensions = extension
 
   cardStore.updateCard(props.cardId, {
     ...props.card,
@@ -287,6 +288,7 @@ function saveAssets(assets: any) {
   if (!extension.airi)
     extension.airi = {}
   extension.airi.visual_assets = assets
+  ;(props.card as any).extensions = extension
 
   cardStore.updateCard(props.cardId, {
     ...props.card,
@@ -294,8 +296,21 @@ function saveAssets(assets: any) {
   })
 }
 
-const visualAssets = computed(() => props.card.extensions?.airi?.visual_assets || {})
-const activeConcepts = computed(() => props.card.extensions?.airi?.active_concepts || [])
+const resolvedCardId = computed(() => {
+  return props.cardId ? cardStore.resolveCardId(props.cardId) : undefined
+})
+
+const currentCard = computed(() => {
+  if (resolvedCardId.value) {
+    const storeCard = cardStore.getCard(resolvedCardId.value)
+    if (storeCard)
+      return storeCard
+  }
+  return props.card
+})
+
+const visualAssets = computed(() => currentCard.value?.extensions?.airi?.visual_assets || {})
+const activeConcepts = computed(() => currentCard.value?.extensions?.airi?.active_concepts || [])
 const journalEntries = computed(() => backgroundStore.getCharacterJournalEntries(props.cardId))
 const directorNotes = computed(() => autonomousArtistryStore.directorNotes.slice(-5).reverse())
 
@@ -323,6 +338,7 @@ async function toggleConcept(conceptId: string) {
   if (!extension.airi)
     extension.airi = {}
   extension.airi.active_concepts = Array.from(new Set(next))
+  ;(props.card as any).extensions = extension
 
   await cardStore.updateCard(props.cardId, {
     ...props.card,

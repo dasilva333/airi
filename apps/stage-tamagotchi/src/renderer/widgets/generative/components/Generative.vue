@@ -5,7 +5,7 @@ import { buildWidgetIframeSrcdoc, handleWidgetMcpMessage } from '@proj-airi/stag
 import { useTheme } from '@proj-airi/ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
-import { electronOpenMainDevtools } from '../../../../shared/eventa'
+import { electronOpenMainDevtools, widgetsResizeWindow } from '../../../../shared/eventa'
 
 const props = withDefaults(defineProps<{
   id?: string
@@ -23,6 +23,7 @@ const props = withDefaults(defineProps<{
 
 const { isDark } = useTheme()
 const openDevTools = useElectronEventaInvoke(electronOpenMainDevtools)
+const resizeWidgetWindow = useElectronEventaInvoke(widgetsResizeWindow)
 const { init, mountedWidgets, readFile } = useSandbox()
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 
@@ -115,6 +116,13 @@ function handleIframeMessage(e: MessageEvent) {
     return
   }
 
+  if (e.data?.type === 'widget-resize' && typeof e.data.height === 'number') {
+    // Header is 28px (h-7) + borders (~4px) = 32px chrome
+    const totalHeight = Math.max(76, Math.min(1000, Math.ceil(e.data.height + 32)))
+    void resizeWidgetWindow?.({ id: props.id, height: totalHeight })
+    return
+  }
+
   void handleWidgetMcpMessage(e)
 }
 
@@ -136,19 +144,22 @@ onUnmounted(() => {
 <template>
   <div class="h-full w-full flex flex-col select-none overflow-hidden border border-neutral-700/60 rounded-2xl bg-neutral-900/90 shadow-2xl backdrop-blur-xl">
     <!-- Header Bar with clearance for window drag pill (center) and close button (right) -->
-    <div class="h-10 flex shrink-0 items-center justify-between border-b border-neutral-800/80 bg-neutral-950/40 px-3">
-      <div class="max-w-[45%] flex items-center gap-2">
-        <span class="i-solar:widget-5-bold-duotone shrink-0 text-sm text-primary-400" />
-        <span class="truncate text-xs text-neutral-200 font-semibold">{{ displayTitle }}</span>
+    <div
+      class="h-7 flex shrink-0 cursor-grab select-none items-center justify-between border-b border-neutral-800/80 bg-neutral-950/40 px-2.5 active:cursor-grabbing"
+      style="-webkit-app-region: drag;"
+    >
+      <div class="pointer-events-none max-w-[45%] flex select-none items-center gap-1.5">
+        <span class="i-solar:widget-5-bold-duotone shrink-0 text-xs text-primary-400" />
+        <span class="truncate text-[11px] text-neutral-200 font-semibold">{{ displayTitle }}</span>
       </div>
-      <!-- Right controls: reload button with right margin for close button (✕ at top-2 right-2) -->
-      <div class="mr-9 flex items-center gap-1.5">
+      <!-- Right controls: reload button with right margin for close button (✕ at top-1 right-2) -->
+      <div class="mr-8 flex items-center gap-1" style="-webkit-app-region: no-drag;">
         <button
           title="Reload widget canvas"
-          class="size-6 flex items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-800/60 hover:text-neutral-100"
+          class="size-5 flex items-center justify-center rounded text-neutral-400 transition-colors hover:bg-neutral-800/60 hover:text-neutral-100"
           @click="refresh"
         >
-          <span class="i-solar:refresh-linear text-xs" :class="{ 'animate-spin': isLoading }" />
+          <span class="i-solar:refresh-linear text-[10px]" :class="{ 'animate-spin': isLoading }" />
         </button>
       </div>
     </div>
