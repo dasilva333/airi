@@ -7,7 +7,7 @@ import { useRoute } from 'vue-router'
 
 import WeatherSkeleton from '../widgets/weather/components/Skeleton.vue'
 
-import { electronOpenMainDevtools, widgetsClearEvent, widgetsFetch, widgetsRemove, widgetsRemoveEvent, widgetsRenderEvent, widgetsUpdateEvent } from '../../shared/eventa'
+import { electronOpenMainDevtools, electronWindowClose, widgetsClearEvent, widgetsFetch, widgetsHideWindow, widgetsRemove, widgetsRemoveEvent, widgetsRenderEvent, widgetsUpdateEvent } from '../../shared/eventa'
 
 type SizePreset = 's' | 'm' | 'l' | { cols?: number, rows?: number }
 
@@ -63,6 +63,8 @@ const context = useElectronEventaContext()
 const removeWidgetInvoke = useElectronEventaInvoke(widgetsRemove)
 const fetchWidget = useElectronEventaInvoke(widgetsFetch)
 const openDevTools = useElectronEventaInvoke(electronOpenMainDevtools)
+const closeWindow = useElectronEventaInvoke(electronWindowClose)
+const hideWidgetWindow = useElectronEventaInvoke(widgetsHideWindow)
 
 let ttlTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -275,7 +277,20 @@ async function handleClose() {
   if (widgetId.value) {
     await requestRemoval(widgetId.value)
   }
-  window.close()
+  try {
+    if (widgetId.value) {
+      await hideWidgetWindow?.({ id: widgetId.value })
+    }
+  }
+  catch {}
+  try {
+    await closeWindow?.()
+  }
+  catch {}
+  try {
+    window.close()
+  }
+  catch {}
 }
 </script>
 
@@ -288,6 +303,7 @@ async function handleClose() {
     </div>
     <div v-else-if="widget" class="relative h-full">
       <button
+        v-if="widget.componentName !== 'generative'"
         class="absolute right-2 top-1 z-50 size-5.5 flex items-center justify-center rounded-full bg-black/40 text-[10px] text-white shadow-lg transition hover:bg-black/60"
         style="-webkit-app-region: no-drag;"
         title="Close widget"
@@ -303,6 +319,7 @@ async function handleClose() {
         :model-value="widget.componentProps"
         :size="widget.size"
         v-bind="widget.componentProps"
+        @close="handleClose"
       />
     </div>
     <div v-else class="h-full flex items-center justify-center">

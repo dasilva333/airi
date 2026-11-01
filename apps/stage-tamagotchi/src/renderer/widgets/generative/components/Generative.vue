@@ -5,7 +5,7 @@ import { buildWidgetIframeSrcdoc, handleWidgetMcpMessage } from '@proj-airi/stag
 import { useTheme } from '@proj-airi/ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
-import { electronOpenMainDevtools, widgetsResizeWindow } from '../../../../shared/eventa'
+import { electronOpenMainDevtools, electronWindowClose, widgetsHideWindow, widgetsResizeWindow } from '../../../../shared/eventa'
 
 const props = withDefaults(defineProps<{
   id?: string
@@ -21,11 +21,31 @@ const props = withDefaults(defineProps<{
   code: '',
 })
 
+const emit = defineEmits<{
+  (e: 'close'): void
+}>()
+
 const { isDark } = useTheme()
 const openDevTools = useElectronEventaInvoke(electronOpenMainDevtools)
 const resizeWidgetWindow = useElectronEventaInvoke(widgetsResizeWindow)
+const closeWindow = useElectronEventaInvoke(electronWindowClose)
+const hideWidgetWindow = useElectronEventaInvoke(widgetsHideWindow)
 const { init, mountedWidgets, readFile } = useSandbox()
 const iframeRef = ref<HTMLIFrameElement | null>(null)
+
+async function handleClose() {
+  emit('close')
+  try {
+    if (props.id) {
+      await hideWidgetWindow?.({ id: props.id })
+    }
+  }
+  catch {}
+  try {
+    await closeWindow?.()
+  }
+  catch {}
+}
 
 const targetCode = computed(() => {
   if (props.code)
@@ -152,14 +172,21 @@ onUnmounted(() => {
         <span class="i-solar:widget-5-bold-duotone shrink-0 text-xs text-primary-400" />
         <span class="truncate text-[11px] text-neutral-200 font-semibold">{{ displayTitle }}</span>
       </div>
-      <!-- Right controls: reload button with right margin for close button (✕ at top-1 right-2) -->
-      <div class="mr-8 flex items-center gap-1" style="-webkit-app-region: no-drag;">
+      <!-- Right controls: reload button and close button inside no-drag region -->
+      <div class="flex items-center gap-1.5" style="-webkit-app-region: no-drag;">
         <button
           title="Reload widget canvas"
           class="size-5 flex items-center justify-center rounded text-neutral-400 transition-colors hover:bg-neutral-800/60 hover:text-neutral-100"
           @click="refresh"
         >
           <span class="i-solar:refresh-linear text-[10px]" :class="{ 'animate-spin': isLoading }" />
+        </button>
+        <button
+          title="Close widget"
+          class="size-5.5 flex items-center justify-center rounded-full bg-black/40 text-[10px] text-white shadow-lg transition hover:bg-black/60"
+          @click="handleClose"
+        >
+          ✕
         </button>
       </div>
     </div>
