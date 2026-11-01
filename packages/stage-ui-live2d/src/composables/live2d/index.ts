@@ -1,5 +1,6 @@
 export * from './animation'
 export * from './beat-sync'
+export * from './focus-bias'
 export * from './head-tethered-caption'
 export * from './motion-control-spring'
 export * from './motion-manager'
