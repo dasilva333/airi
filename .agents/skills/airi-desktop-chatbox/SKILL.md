@@ -60,10 +60,24 @@ Own desktop chat surfaces, Quick Settings popover, right dashboard panel, and sh
   - Scene Picker Dialog: `StageBackgroundDialogPicker` from `@proj-airi/stage-ui/components`.
 
 ### 4. Right Dashboard Context Panel
-- **State & Layout**: `useChatDashboard()` inside `apps/stage-tamagotchi/src/renderer/pages/chat.vue`.
-  - Persisted layout state: `localStorage` key `airi:chat:dashboard-layout`.
-  - Built-in Modules: `Widgets`, `Virtual Terminal`, `Memories`, `Stage`, `Current Scene`, `Media Gallery`, `Nan0 Cognition`.
-  - View vs. Customize mode: Click `i-solar:tuning-2-linear` to reorder, hide/show, or restore defaults.
+- **Chassis Host**: `apps/stage-tamagotchi/src/renderer/pages/chat.vue` (`showRightPanel` + `<ChatDashboardPanel />`).
+- **Panel Orchestrator**: `apps/stage-tamagotchi/src/renderer/components/chat/ChatDashboardPanel.vue`.
+- **Dashboard State & Composables**: `packages/stage-ui/src/composables/use-chat-dashboard.ts` (`useChatDashboard()`, `computeSmartInitialDashboardModules()`).
+- **Shared Chassis Primitive**: `packages/stage-ui/src/components/scenarios/chat/ChatDashboardCard.vue`.
+- **Persisted State in localStorage**:
+  - `airi:chat:right-panel-open`: Panel open/collapsed toggle.
+  - `airi:chat:dashboard-active-modules`: Ordered array of active module IDs (`DashboardModuleId[]`).
+  - `airi:chat:dashboard-collapsed`: Map of per-module collapsed booleans (`Record<string, boolean>`).
+  - `airi:chat:dashboard-has-initialized`: Sentinel boolean preventing overwriting custom user layouts with smart defaults on reload.
+- **Built-in Modules & Gating**:
+  - `stage`: Companion viewport via `RendererStage` (gated by `embeddedStageSupported ?? true`).
+  - `widgets`: Sandboxed micro-apps via `ChatWorkspaceWidgetsPanel.vue` (ungated, available regardless of sandbox/bash status).
+  - `terminal`: In-memory bash workstation via `ChatWorkspaceTerminalPanel.vue` (gated by `effectiveSandboxActive`).
+  - `nan0`: Somatic cognition & reflexes via `ChatNan0CognitionPanel.vue` (gated by `isNan0Active`).
+  - `memories`: Inline STMM daily summaries, echo anchors, and long-term journal snippets.
+  - `scene`: Inline current visual background / scene cover preview.
+  - `media`: Inline thumbnail gallery of generated imagery and backgrounds.
+- **Modes**: View mode (runtime cards with chevrons) vs. Customize mode (`i-solar:tuning-2-linear` with drag-and-drop reordering, eye hide buttons, available module catalog, and "Restore default layout").
 
 ### 5. Shared Transcript Rendering
 - **Shared Chat Scenario Components**: `packages/stage-ui/src/components/scenarios/chat/`
@@ -81,7 +95,10 @@ Own desktop chat surfaces, Quick Settings popover, right dashboard panel, and sh
 | Atmosphere Options Definition | `packages/stage-layouts/src/components/Backgrounds/patterns/index.ts:L30` | `ATMOSPHERE_OPTIONS` array of particle effects |
 | Wallpaper Quick Grid | `ChatOptionsAppearanceView.vue:L192` | 2×3 thumbnail grid for active character backgrounds |
 | Desktop Chat Background Layer | `apps/stage-tamagotchi/src/renderer/pages/chat.vue:L1135` | Crossfaded `backgroundImage` container |
-| Dashboard Layout Composable | `apps/stage-tamagotchi/src/renderer/pages/chat.vue:L157` | `useChatDashboard()` active modules, ordering & collapse |
+| Dashboard Host Layer | `apps/stage-tamagotchi/src/renderer/pages/chat.vue:L1640` | `<ChatDashboardPanel />` mount & right panel drawer container |
+| Dashboard Panel Orchestrator | `apps/stage-tamagotchi/src/renderer/components/chat/ChatDashboardPanel.vue:L1` | Right panel view/customize mode, drag-drop, module cards |
+| Dashboard State Composable | `packages/stage-ui/src/composables/use-chat-dashboard.ts:L132` | `useChatDashboard()` module definitions, reordering & persistence |
+| Dashboard Chassis Card | `packages/stage-ui/src/components/scenarios/chat/ChatDashboardCard.vue:L1` | Card chassis with icon, title, action slot, chevron collapse |
 | Desktop Input Submission | `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue:L330` | `handleSend()` draft dispatch and optimistic clear |
 
 ---

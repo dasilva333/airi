@@ -141,7 +141,7 @@ function getModuleUnavailableReason(moduleId: DashboardModuleId): string | null 
   if (moduleId === 'stage' && !(props.embeddedStageSupported ?? true)) {
     return 'Won\'t be shown in view mode: Stage model is disabled or not set.'
   }
-  if ((moduleId === 'widgets' || moduleId === 'terminal') && !effectiveSandboxActive.value) {
+  if (moduleId === 'terminal' && !effectiveSandboxActive.value) {
     return 'Won\'t be shown in view mode: Sandbox / bash is disabled for this character.'
   }
   if (moduleId === 'nan0' && !props.isNan0Active) {
@@ -669,7 +669,7 @@ function handleRestoreDefaults() {
 
           <!-- 6. WIDGETS MODULE -->
           <ChatDashboardCard
-            v-else-if="moduleId === 'widgets' && effectiveSandboxActive"
+            v-else-if="moduleId === 'widgets'"
             title="Widgets"
             icon="i-solar:widget-5-bold-duotone"
             icon-color-class="text-emerald-500 dark:text-emerald-400"

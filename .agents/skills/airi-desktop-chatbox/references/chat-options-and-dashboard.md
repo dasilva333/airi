@@ -91,6 +91,27 @@ type ChatOptionsView = 'root' | 'capabilities' | 'tools' | 'injections' | 'memor
 
 ## 2. Dashboard Panel Architecture
 
+### Component Hierarchy & Structural Roles
+- **Chassis Host**: `apps/stage-tamagotchi/src/renderer/pages/chat.vue` (`showRightPanel` computed with 768px breakpoint, `<ChatDashboardPanel />` mount).
+- **Panel Orchestrator**: `apps/stage-tamagotchi/src/renderer/components/chat/ChatDashboardPanel.vue` (manages View Mode vs. Customize Mode, HTML5 drag-and-drop, module cards, collapse states).
+- **Dashboard State & Composables**: `packages/stage-ui/src/composables/use-chat-dashboard.ts` (manages `ALL_DASHBOARD_MODULES`, `activeModuleIds`, `collapsedStates`, `computeSmartInitialDashboardModules()`).
+- **Shared Card Chassis**: `packages/stage-ui/src/components/scenarios/chat/ChatDashboardCard.vue` (standard accordion container with title, icon, action slot, badge, and collapse chevron).
+
+### Module Catalog & Gating Invariants
+
+| Module ID | Title | Backing Component | Runtime Gate (`v-if` in View Mode) | Unavailable Tooltip Reason |
+| :--- | :--- | :--- | :--- | :--- |
+| `stage` | Stage | `RendererStage` (`@proj-airi/stage-ui/components/scenes`) | `embeddedStageSupported ?? true` | Stage model is disabled or not set. |
+| `widgets` | Widgets | `ChatWorkspaceWidgetsPanel.vue` | **None** (always visible if added) | None |
+| `terminal` | Virtual Terminal | `ChatWorkspaceTerminalPanel.vue` | `effectiveSandboxActive` (`bash` tool allowed) | Sandbox / bash is disabled for this character. |
+| `nan0` | Nan0 Cognition | `ChatNan0CognitionPanel.vue` | `props.isNan0Active` | Nan0 Cognition is not active for this character. |
+| `memories` | Memories | Inline cards (`STMM` daily summary, `echo` chips, `journal` entries) | None (renders empty state if 0) | None |
+| `scene` | Current Scene | Inline cover image (`allImageEntries[0]`) | None (renders dashed empty box) | None |
+| `media` | Media Gallery | Inline thumbnail grid with `View More` pagination | None | None |
+
+> [!NOTE]
+> **Widgets vs. Sandbox Decoupling**: Widgets authored in `/workspace` run inside sandboxed `srcdoc` iframes. While *authoring* new widgets originally leverages the virtual workstation bash environment, pre-built or imported widgets persist in `widgetsRepo` (`local:widgets/registry`) and remain fully functional even when the character card has bash or sandbox execution disabled. Thus, the `widgets` module has no runtime gate.
+
 ### View Mode vs. Customize Mode
 - **View Mode (`mode === 'view'`)**: Normal runtime view rendering active modules in user-defined order with accordion collapse chevrons (`^`/`v`).
 - **Customize Mode (`mode === 'customize'`)**: Edit mode with drag-and-drop reordering, eye hide buttons, "AVAILABLE MODULES" add catalog, and "Restore default layout".
@@ -101,19 +122,15 @@ type ChatOptionsView = 'root' | 'capabilities' | 'tools' | 'injections' | 'memor
 - **Sandbox Widgets**: Micro-apps running in iframes authored in `/workspace` managed by `useSandbox()` and persisted in `widgetsRepo` (`local:widgets/registry`).
 - The `Widgets` dashboard module simply acts as the viewport container for active sandbox widgets. Customizing dashboard layout does not alter `widgetsRepo`.
 
-### Persistence & Invariants
-- **Persisted Schema**:
-  ```ts
-  interface DashboardLayoutState {
-    version: number
-    activeModuleIds: DashboardModuleId[]
-    collapsedStates: Record<DashboardModuleId, boolean>
-  }
-  ```
-  Persist IDs, order, and collapse booleans only. Metadata, icons, titles, and components remain in code.
-- **Legacy Migration**: Migrate existing `airi:chat:rp-*-collapsed` localStorage values on first run.
-- **Availability Decoupling**: If a module is unavailable (e.g. sandbox disabled, character lacks cognition), hide it from render but keep its slot in `activeModuleIds` so the user's saved order is never destroyed.
-- **Lifecycle Guarantees**: Use stable `:key="module.id"` so reordering does not unmount or reload running widget iframes.
+### Persistence & Storage Invariants
+Discrete `localStorage` keys used by the dashboard system:
+- **`airi:chat:right-panel-open`** (`boolean`): Whether the right sidebar is visible or collapsed.
+- **`airi:chat:dashboard-active-modules`** (`DashboardModuleId[]`): Ordered array of active module IDs. Default: `['widgets', 'terminal', 'memories']`.
+- **`airi:chat:dashboard-collapsed`** (`Record<string, boolean>`): Map of module ID to collapsed boolean. Default: `{ stage: true }`.
+- **`airi:chat:dashboard-has-initialized`** (`boolean`): Sentinel flag ensuring `computeSmartInitialDashboardModules()` only populates once on fresh installs without clobbering user customizations.
+
+- **Availability Decoupling**: If a module is unavailable (e.g. character lacks cognition, terminal lacks bash permissions), hide it from render in View Mode but keep its slot in `activeModuleIds` so the user's saved order is never destroyed. In Customize Mode, an amber warning badge (`i-solar:danger-triangle-bold`) displays the exact unavailability reason tooltip.
+- **Lifecycle Guarantees**: Use stable `:key="moduleId"` so reordering does not unmount or reload running widget iframes.
 
 ---
 

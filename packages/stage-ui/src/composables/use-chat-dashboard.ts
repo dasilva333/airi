@@ -100,18 +100,20 @@ export function computeSmartInitialDashboardModules(ctx: SmartDashboardContext):
     result.push('nan0')
   }
 
-  // 3. Sandbox micro-apps & Terminal (if sandbox is active)
+  // 3. Widgets (always available as interactive mini-apps)
+  result.push('widgets')
+
+  // 4. Virtual Terminal (if sandbox is active)
   if (ctx.isSandboxActive) {
-    result.push('widgets')
     result.push('terminal')
   }
 
-  // 4. Memories (if any journal/daily summary/echo records exist)
+  // 5. Memories (if any journal/daily summary/echo records exist)
   if (ctx.hasMemories) {
     result.push('memories')
   }
 
-  // 5. Scene & Media (if visual assets or scenes are present)
+  // 6. Scene & Media (if visual assets or scenes are present)
   if (ctx.hasScene) {
     result.push('scene')
   }
