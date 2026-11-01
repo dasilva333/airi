@@ -1,3 +1,4 @@
+export { default as AnimatedHeight } from './animated-height.vue'
 export { default as TransitionBidirectional } from './transition-bidirectional.vue'
 export {
   /**
