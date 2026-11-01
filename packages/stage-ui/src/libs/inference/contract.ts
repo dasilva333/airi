@@ -253,6 +253,7 @@ export function createIdleTimeout(firstOutputMs: number, idleMs: number): IdleTi
 export interface KokoroGenerateRequest {
   text: string
   voice: VoiceKey
+  styleVector?: Float32Array | number[]
 }
 
 /**

@@ -557,7 +557,9 @@ async function clearSingleTransformersModelCache(modelId: string): Promise<void>
     const cache = await caches.open(TRANSFORMERS_CACHE_NAME)
     const keys = await cache.keys()
     for (const request of keys) {
-      if (request.url.includes(modelId)) {
+      const isKokoroMatch = modelId === 'onnx-community/Kokoro-82M-v1.0-ONNX'
+        && (request.url.includes('Kokoro-82M') || request.url.includes('kokoro-inno') || request.url.includes('inno-kokoro') || request.url.includes('inno-tuner') || request.url.includes('inno_tuner'))
+      if (request.url.includes(modelId) || isKokoroMatch) {
         await cache.delete(request)
       }
     }
@@ -1264,7 +1266,7 @@ export async function getDetailedModelCacheMap(): Promise<ModelCacheStatusMap> {
       const keys = await cache.keys()
 
       const tfModels: { id: string, match: (url: string) => boolean }[] = [
-        { id: 'onnx-community/Kokoro-82M-v1.0-ONNX', match: url => url.includes('Kokoro-82M') },
+        { id: 'onnx-community/Kokoro-82M-v1.0-ONNX', match: url => url.includes('Kokoro-82M') || url.includes('kokoro-inno') || url.includes('inno-kokoro') || url.includes('inno-tuner') || url.includes('inno_tuner') },
         { id: 'whisper', match: url => url.includes('whisper') },
         { id: 'wd-tagger', match: url => url.includes('SmilingWolf') || url.includes('wd-v1-4') || url.includes('wd-swinv2') || url.includes('wd-convnext') },
         { id: 'Xenova/moondream2', match: url => url.includes('moondream2') },

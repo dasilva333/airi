@@ -49,7 +49,7 @@ export interface KokoroAdapter {
   generate: (
     text: string,
     voice: VoiceKey,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal, styleVector?: Float32Array | number[] },
   ) => Promise<ArrayBuffer>
 
   /** Get the voices from the last loaded model */
@@ -266,7 +266,7 @@ export function createKokoroAdapter(): KokoroAdapter {
   async function generate(
     text: string,
     voice: VoiceKey,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal, styleVector?: Float32Array | number[] },
   ): Promise<ArrayBuffer> {
     throwIfAborted(options?.signal)
 
@@ -307,7 +307,7 @@ export function createKokoroAdapter(): KokoroAdapter {
           if (options?.signal)
             signals.push(options.signal)
           const stream = host.rpc!.generate(
-            { text, voice },
+            { text, voice, styleVector: options?.styleVector },
             { signal: AbortSignal.any(signals) },
           )
           for await (const chunk of stream) {

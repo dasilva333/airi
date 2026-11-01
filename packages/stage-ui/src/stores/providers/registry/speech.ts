@@ -344,8 +344,25 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                     }
                   }
 
+                  // Resolve custom cloned voice profile styleVector if applicable
+                  let styleVector: Float32Array | undefined
+                  if (voice.startsWith('kokoro-profile-')) {
+                    try {
+                      const { kokoroVoiceProfilesStore } = await import('../kokoro-audio-utils')
+                      const profile = await kokoroVoiceProfilesStore.getItem<any>(voice)
+                      if (profile?.styleVector) {
+                        styleVector = profile.styleVector instanceof Float32Array
+                          ? profile.styleVector
+                          : new Float32Array(profile.styleVector)
+                      }
+                    }
+                    catch (err) {
+                      console.warn('[Kokoro Provider] Error retrieving custom voice styleVector:', err)
+                    }
+                  }
+
                   // Generate audio in the worker thread
-                  const buffer = await adapter.generate(text, voice)
+                  const buffer = await adapter.generate(text, voice, { styleVector })
 
                   return new Response(buffer, {
                     status: 200,
@@ -414,7 +431,24 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         },
 
         listVoices: async (_config: Record<string, unknown>) => {
-          return getKokoroVoiceList()
+          const stock = getKokoroVoiceList()
+          try {
+            const { getKokoroVoiceProfiles } = await import('../kokoro-audio-utils')
+            const customProfiles = await getKokoroVoiceProfiles()
+            const customVoices = customProfiles.map(p => ({
+              id: p.id,
+              name: `👤 ${p.name}`,
+              provider: 'kokoro-local',
+              languages: [{ code: 'en-US', title: 'English' }],
+              description: p.blendSummary
+                ? `Custom cloned voice: ${p.blendSummary}`
+                : `Custom cloned voice from ${p.sourceFilename}`,
+            }))
+            return [...stock, ...customVoices]
+          }
+          catch {
+            return stock
+          }
         },
       },
 

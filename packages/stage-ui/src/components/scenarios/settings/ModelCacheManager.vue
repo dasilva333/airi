@@ -78,7 +78,7 @@ const knownModels: KnownModelItem[] = [
     category: 'audio',
     runtime: 'Transformers.js',
     icon: 'i-solar:volume-loud-bold-duotone',
-    description: 'High-speed conversational English & Japanese voice synthesis',
+    description: 'High-speed conversational voice synthesis with zero-shot voice cloning',
   },
   {
     id: 'whisper',

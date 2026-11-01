@@ -243,3 +243,62 @@ describe('ming 3.0 OPFS registry', () => {
     expect(await isModelCached('ming3-local')).toBe(false)
   })
 })
+
+describe('kokoro 82M + inno-tuner cache registry', () => {
+  const originalCaches = globalThis.caches
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  afterEach(() => {
+    if (originalCaches !== undefined) {
+      globalThis.caches = originalCaches
+    }
+    else {
+      delete (globalThis as any).caches
+    }
+  })
+
+  it('aggregates Kokoro-82M base weights and inno-tuner voice cloning weights into a single row', async () => {
+    const deletedUrls: string[] = []
+    const requests = [
+      { url: 'https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model.onnx', size: 310_000_000 },
+      { url: 'https://huggingface.co/remsky/kokoro-inno-clone-tuner/resolve/main/inno-tuner.onnx', size: 25_000_000 },
+    ]
+
+    const mockCache = {
+      keys: vi.fn().mockResolvedValue(requests.map(r => ({ url: r.url }))),
+      match: vi.fn().mockImplementation((req: any) => {
+        const item = requests.find(r => r.url === req.url)
+        if (!item)
+          return null
+        return {
+          headers: {
+            get: (header: string) => header === 'content-length' ? String(item.size) : null,
+          },
+        }
+      }),
+      delete: vi.fn().mockImplementation((req: any) => {
+        deletedUrls.push(req.url)
+        return Promise.resolve(true)
+      }),
+    }
+
+    globalThis.caches = {
+      open: vi.fn().mockResolvedValue(mockCache),
+    } as any
+
+    const map = await getDetailedModelCacheMap()
+    expect(map['onnx-community/Kokoro-82M-v1.0-ONNX']).toEqual({
+      cached: true,
+      sizeBytes: 335_000_000,
+    })
+
+    await clearSingleModelCache('onnx-community/Kokoro-82M-v1.0-ONNX')
+    expect(deletedUrls).toEqual([
+      'https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model.onnx',
+      'https://huggingface.co/remsky/kokoro-inno-clone-tuner/resolve/main/inno-tuner.onnx',
+    ])
+  })
+})
