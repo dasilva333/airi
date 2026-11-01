@@ -33,6 +33,246 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-01] Upstream Delta: `ab918b8d..43a282bd` (10 commits, 113 files, 23 update(s))
+
+### 🎯 Executive Highlights
+#### Upstream Trajectory & Key Highlights
+- **Avatar Tactile Perception & Spark Notifications (PR #3292 commit 259b6188a, PR #3299 commit 43a282bd9)**: Upstream merged tactile Live2D interaction. touch.ts detects taps and head pats on hit-test regions (head, body). In Stage.vue, createAvatarTouchAggregator aggregates bursts with cooldowns and dispatches them via avatarTouch.notifyTouch / spark:notify (The user patted your head (N times)) to notify the character.
+- **Stage-First Mobile Live2D Model Editor & animated-height.vue (PR #3297 commit 6e8d39a9b)**: Neko introduced a stage-first Live2D model editor for mobile viewports (model-settings/mobile/index.vue, model-strip.vue, ruler.vue, tool-panel.vue), along with a clean, self-contained UI animation primitive animated-height.vue in @proj-airi/ui.
+- **Motion Driver MAGIC Upgrades (PR #3284 commit 12f2b0f6e, PR #3285 commit 84df1c2df, PR #3286 commit 1ede78fea)**: Major enhancements to MAGIC:
+  - PR #3284: Center Live2D focus targets and run MAGIC independently in each renderer.
+  - PR #3285: Focus bias controller (focus-bias.ts) that smoothly turns head, body, and gaze toward cursor position while preserving inertial animation.
+  - PR #3286: Speaking profile blending via smoothstep crossfade (crossfade.ts, speech-activity.ts) so avatar body language dynamically shifts into an active speaking profile during speech playback.
+- **Voice Output Plugins & Speech Playback Observation (PR #3283 commit 30def52c0)**: Implemented ADR 2026-10-31-observe-speech-output.md. Extended VoicePluginScope with onOutput hooks and unified playback output (PlaybackDriver.output), allowing lip-sync and spectrum analyzers across Live2D, VRM, and MMD to tap mixed audio after clip fades without ad-hoc component wiring.
+- **Custom Drawn Title Bars on Desktop (PR #3298 by @luoling8192)**: Replaced native OS title bars with custom drawn HTML/CSS title bars across settings, chat, devtools, onboarding, about, editor, and notice windows. Draws minimize/maximize/close on Windows/Linux while preserving macOS native traffic lights.
+- **Card Context Window Limit (PR #3289 by @jim139129)**: Community PR adding an optional per-card history message limit (contextWindow) in the card editor, trimming the oldest 10% of messages when exceeded (default -1 = unlimited).
+- **Default Character Rename to Iru (PR #3287 commit 9e7917d9c)**: Renamed upstream's built-in starter character from Airi to Iru across prompts, locales, and card sync.
+- **Shared Dock in @proj-airi/ui (PR #3295 by @chiba233)**: Shared Dock, DockButton, DockSeparator, and TransitionBud spring animation easing in @proj-airi/ui.
+
+#### 💬 Discussion & Community Buzz
+- **PR #3000: feat(memory-eval): add identity-continuity evaluation package** by @RUI-debug769 (126 total comments): Highest discussion volume upstream, covering mathematical metrics (Wasserstein-1, GMM BIC bimodality) for long-turn persona drift evaluation.
+- **PR #2541: Telltworose/feat/drop in plugins (MCP-first tool architecture)** by @telltworose (59 total comments): High ongoing interest around MCP stdio tool execution and card-level permission gating.
+- **PR #2290: feat(server): stream official ASR over WebSocket** by @luoling8192 (59 total comments): Sustained debate on streaming ASR protocols (WS vs HTTP SSE).
+- **PR #1577: feat(stage-ui): add GPT-SoVITS speech provider support** (+5 new comments, 52 total): Steady community requests and activity regarding first-class GPT-SoVITS integration.
+- **PR #2672: refactor(stage-ui): bind conversations to window-local characters** by @luoling8192 (48 total comments): Architecture discussion on window-local character scoping.
+- **PR #3292: feat(stage-ui-live2d): react to taps and head pats on the Live2D model** (17 comments): Discussion and rapid iteration leading to merge of Live2D tactile tap/pat gestures.
+- **PR #3297: feat(stage-ui,stage-pages,stage-layouts,ui): add a stage-first Live2D model editor for phones** (11 comments): Triage and review of mobile Live2D editor components.
+- **PR #3285: feat(stage-ui-live2d,stage-ui): turn MAGIC motion toward the cursor** (10 comments): Feedback on gaze and head/body follow gains.
+- **PR #3296: feat(stage-ui,stage-tamagotchi): open onboarding through requests** (10 comments): Discussion on request queues, resulting in closing PR #3296 to simplify.
+- **PR #3234: fix(stage-tamagotchi): keep floating chat and inlay windows interactive on Wayland** (+2 new comments, 5 total): Ongoing Linux Wayland input debugging.
+
+#### 🍒 Cherry-Pick Candidates
+- **animated-height.vue (packages/ui/src/components/animations/animated-height.vue, PR #3297 / commit 6e8d39a9b)**: High Value (Zero-Risk UI Primitive). Clean VueUse useElementSize animated height wrapper with UnoCSS classes, easing, and reduced-motion support. Perfect for accordions, collapsible panels, and dynamic popovers across settings and Control Strip.
+- **MAGIC Crossfade & Focus Bias Algorithms (crossfade.ts, focus-bias.ts, PRs #3285, #3286 / commits 84df1c2df, 1ede78fea)**: High Value (Live2D & Motion Polish). Mathematical utilities for smoothstep generator blending and normalized view-space cursor tracking (head/body/eye gain partitioning). Porting these improves Live2D gaze and speech-motion transition smoothness in our multi-engine stage.
+- **PR #3300: fix(computer-use-mcp): honor Chrome bridge endpoint settings by @Elaina10172004**: High Value (Tooling / MCP Bugfix). Reads browserDomBridgeHost and browserDomBridgePort from chrome.storage.local with immediate reconnection and IPv6 support instead of hardcoding 127.0.0.1:8765. Valuable for our MCP browser automation capability pack.
+- **Live2D Hit-Test Gesture Detection (packages/stage-ui-live2d/src/composables/live2d/touch.ts, PR #3292 / commit 259b6188a)**: Medium Value (Tactile Interaction). Head pat and tap detection algorithm with velocity thresholds and boundary tracking. Can be adopted directly into stage-ui-live2d and connected to our fork's proactivity / sensory ledger without adopting upstream's spark:notify orchestrator.
+
+#### ⚠️ Divergence / Collision Warnings
+- **Tactile Notification Orchestrator (packages/stage-ui/src/stores/character/avatar-touch.ts, PR #3299 commit 43a282bd9)**: Upstream wires touch events directly into useCharacterOrchestratorStore().handleSparkNotify() via spark:notify and pinia-plugin-synced leader routing. In our fork, proactivity and event memory are managed via the Eight Pillars (proactivity.ts, Event Ledger, Sacred Journal). Do NOT port avatar-touch.ts directly; route touch events into our existing sensory telemetry / proactivity store instead.
+- **Built-in Character Rename to Iru (PR #3287 commit 9e7917d9c)**: Upstream renamed their starter card and default assets to Iru. Our fork maintains its own character catalog, AnimaDex roster bindings, and multi-actor schemas. Auto-reject.
+- **Custom Drawn Title Bars (PR #3298 by @luoling8192)**: Upstream introduces custom HTML title bars and window controls in apps/stage-tamagotchi (window-controls.vue, useWindowControls). In our fork, the desktop experience is cleanly decoupled into the transparent Actor Stage (RendererStage.vue) and the floating Control Strip ribbon (ControlStrip.vue), which already use custom, non-standard window frame geometry. Merging upstream's window frame patches would collide with our multi-window Electron architecture.
+- **Shared Dock & Floating Chat Restyling (PR #3295 by @chiba233)**: Upstream continues investing heavily in the floating chat dock (chat-floating.vue) and fullscreen-island.vue. In our fork, floating chat and controls island are completely deleted in favor of the dedicated desktop Chat Workspace (chat.vue) and Control Strip ribbon (Filter Rule 1 & Filter Rule 13). Auto-reject the stage-tamagotchi changes from PR #3295.
+- **Card Context Window Limit (PR #3289 by @jim139129)**: Modifies request context trimming in core-agent based on a naive message count. In our fork, context budgeting and memory compaction are handled via the Eight Pillars (STMM daily summaries, LTMM Sacred Journal, Orama hybrid retrieval, and token-based prompt budgeting in airi-prompt-builder-engine). A crude 90/10 message-count drop conflicts with our memory recall invariants.
+
+### 📋 Upstream Commits
+- `43a282bd9` feat(stage-ui): tell the character when the user touches the avatar (#3299) [#3299](https://github.com/moeru-ai/airi/pull/3299) _(Neko, 2026-11-01)_
+- `6e8d39a9b` feat(stage-ui,stage-pages,stage-layouts,ui): add a stage-first Live2D model editor for phones (#3297) [#3297](https://github.com/moeru-ai/airi/pull/3297) _(Neko, 2026-11-01)_
+- `259b6188a` feat(stage-ui-live2d): react to taps and head pats on the Live2D model (#3292) [#3292](https://github.com/moeru-ai/airi/pull/3292) _(Neko, 2026-11-01)_
+- `e417d9489` chore(stage-tamagotchi): upgrade auv to 0.0.40 (#3294) [#3294](https://github.com/moeru-ai/airi/pull/3294) _(Neko, 2026-11-01)_
+- `9e7917d9c` feat(stage-ui,i18n): rename the built-in character to Iru (#3287) [#3287](https://github.com/moeru-ai/airi/pull/3287) _(Neko, 2026-11-01)_
+- `1ede78fea` feat(motion-driver-magic,stage-ui,i18n): blend MAGIC to a speaking profile while AIRI speaks (#3286) [#3286](https://github.com/moeru-ai/airi/pull/3286) _(Neko, 2026-11-01)_
+- `d14d109d2` fix(nix/stage-tamagotchi): remove asset patching workaround (#3290) [#3290](https://github.com/moeru-ai/airi/pull/3290) _(Weathercold, 2026-11-01)_
+- `84df1c2df` feat(stage-ui-live2d,stage-ui): turn MAGIC motion toward the cursor (#3285) [#3285](https://github.com/moeru-ai/airi/pull/3285) _(Neko, 2026-11-01)_
+- `12f2b0f6e` fix(stage-ui-live2d,stage-ui): center the Live2D focus target and run MAGIC in each renderer (#3284) [#3284](https://github.com/moeru-ai/airi/pull/3284) _(Neko, 2026-11-01)_
+- `30def52c0` feat(core-agent,pipelines-audio,audio,stage-ui): add voice output plugins and observe the speech playback (#3283) [#3283](https://github.com/moeru-ai/airi/pull/3283) _(Neko, 2026-10-31)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 8 file(s) (+117/-6)
+- `.agents/skills/enforce-rules-for-render-loops/SKILL.md` *(+37/-0)*
+- `AGENTS.md` *(+1/-0)*
+- `docs/ai/adr/2026-10-16-voice-plugins-watch-and-finalize.md` *(+1/-1)*
+- `docs/ai/adr/2026-10-31-observe-speech-output.md` *(+55/-0)*
+- `integrations/telegram-bot/src/prompts/personality-v1.velin.md` *(+2/-4)*
+- `packages/audio/README.md` *(+3/-1)*
+- `packages/motion-driver-magic/README.md` *(+11/-0)*
+- `packages/pipelines-audio/README.md` *(+7/-0)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 2 file(s) (+26/-20)
+- `apps/stage-pocket/src/pages/devtools/performance-playground.vue` *(+13/-10)*
+- `apps/stage-web/src/pages/devtools/performance-playground.vue` *(+13/-10)*
+
+#### Deprecated Surfaces (Control Island / Chat Floating / Fullscreen Island) (`⚪ ignore / rejected in fork (decoupled into Control Strip & Dedicated Chat Workspace)`) — 2 file(s) (+6/-6)
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/components/stage-islands/controls-island/controls-island-overflow.browser.test.ts` *(+3/-3)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-overflow.browser.test.ts` *(+3/-3)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 63 file(s) (+2941/-367)
+- `flake.lock` *(+3/-3)*
+- `nix/package.nix` *(+0/-7)*
+- `packages/audio/src/browser.browser.test.ts` *(+44/-1)*
+- `packages/audio/src/browser/audio-output.ts` *(+0/-2)*
+- `packages/audio/src/browser/playback.ts` *(+27/-4)*
+- `packages/audio/src/browser/sources.ts` *(+35/-12)*
+- `packages/ccc/test/characterCardV3.test.ts` *(+2/-2)*
+- `packages/motion-driver-magic/src/crossfade.test.ts` *(+58/-0)*
+- `packages/motion-driver-magic/src/crossfade.ts` *(+59/-0)*
+- `packages/motion-driver-magic/src/index.ts` *(+1/-0)*
+- `packages/pipelines-audio/src/index.ts` *(+1/-0)*
+- `packages/{stage-ui/src/libs/voice/input-level.test.ts => pipelines-audio/src/level.test.ts}` *(+6/-6)*
+- `packages/{stage-ui/src/libs/voice/input-level.ts => pipelines-audio/src/level.ts}` *(+7/-5)*
+- `packages/pipelines-audio/src/playback.test.ts` *(+47/-2)*
+- `packages/pipelines-audio/src/playback.ts` *(+37/-6)*
+- `packages/stage-shared/src/composables/use-local-storage-manual-reset/index.test.ts` *(+4/-4)*
+- `packages/stage-ui-mmd/src/components/scenes/MMD.vue` *(+4/-3)*
+- `packages/stage-ui-mmd/src/composables/mmd/lip-sync.ts` *(+6/-16)*
+- `packages/stage-ui/src/components/layouts/page-header.vue` *(+3/-1)*
+- `packages/stage-ui/src/components/menu/character-card.story.vue` *(+4/-4)*
+- `packages/stage-ui/src/components/misc/character-switcher-drawer.browser.test.ts` *(+2/-2)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-presence.story.vue` *(+1/-1)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/live2d.browser.test.ts` *(+1/-1)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/live2d.vue` *(+22/-214)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/index.vue` *(+580/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/model-strip.browser.test.ts` *(+109/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/model-strip.vue` *(+208/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/option-select.vue` *(+20/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/ruler.vue` *(+164/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/tool-panel.vue` *(+67/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/preview-stage.vue` *(+8/-1)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/use-live2d-model-settings.ts` *(+268/-0)*
+- `packages/stage-ui/src/composables/audio/voice-controller.ts` *(+4/-3)*
+- `packages/stage-ui/src/composables/settings-full-bleed.ts` *(+36/-0)*
+- `packages/stage-ui/src/composables/speech-output-trace.ts` *(+1/-1)*
+- `packages/stage-ui/src/composables/voice-input-trace.ts` *(+1/-1)*
+- `packages/stage-ui/src/features/motions/live2d/components/magic-settings.vue` *(+24/-4)*
+- `packages/stage-ui/src/features/motions/live2d/settings.test.ts` *(+14/-8)*
+- `packages/stage-ui/src/features/motions/live2d/settings.ts` *(+23/-8)*
+- `packages/stage-ui/src/features/motions/live2d/speech-activity.test.ts` *(+59/-0)*
+- `packages/stage-ui/src/features/motions/live2d/speech-activity.ts` *(+122/-0)*
+- `packages/stage-ui/src/features/motions/live2d/use-live2d-motion-magic.test.ts` *(+39/-3)*
+- `packages/stage-ui/src/features/motions/live2d/use-live2d-motion-magic.ts` *(+95/-19)*
+- `packages/stage-ui/src/features/motions/live2d/use-live2d-stage-motion-magic.ts` *(+111/-0)*
+- `packages/stage-ui/src/libs/avatar-touch/notify.test.ts` *(+69/-0)*
+- `packages/stage-ui/src/libs/avatar-touch/notify.ts` *(+135/-0)*
+- `packages/stage-ui/src/libs/character-card-sync/card-fields.test.ts` *(+2/-2)*
+- `packages/stage-ui/src/libs/voice/speaker-evidence-plugin.ts` *(+1/-1)*
+- `packages/stage-ui/src/libs/voice/speech-output-level-plugin.test.ts` *(+51/-0)*
+- `packages/stage-ui/src/libs/voice/speech-output-level-plugin.ts` *(+46/-0)*
+- `packages/stage-ui/src/libs/voice/voice-activity-plugin.ts` *(+1/-1)*
+- `packages/stage-ui/src/libs/voice/voice-rephrase-plugin.ts` *(+1/-1)*
+- `packages/stage-ui/src/services/airi-card-editor.test.ts` *(+3/-3)*
+- `packages/stage-ui/src/services/speech/bus.ts` *(+7/-0)*
+- `packages/stage-ui/src/stores/character/avatar-touch.browser.test.ts` *(+58/-0)*
+- `packages/stage-ui/src/stores/character/avatar-touch.ts` *(+35/-0)*
+- `packages/stage-ui/src/stores/character/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/stores/modules/airi-card-sync.browser.test.ts` *(+23/-0)*
+- `packages/stage-ui/src/stores/modules/airi-card.test.ts` *(+80/-5)*
+- `packages/stage-ui/src/stores/modules/airi-card.ts` *(+60/-1)*
+- `packages/stage-ui/src/stores/voice.ts` *(+38/-7)*
+- `pnpm-workspace.yaml` *(+2/-2)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 10 file(s) (+793/-134)
+- `packages/core-agent/README.md` *(+55/-3)*
+- `packages/core-agent/src/voice/controller.test.ts` *(+12/-12)*
+- `packages/core-agent/src/voice/controller.ts` *(+38/-7)*
+- `packages/core-agent/src/voice/index.ts` *(+4/-1)*
+- `packages/core-agent/src/voice/output/response.ts` *(+123/-13)*
+- `packages/core-agent/src/voice/plugins/input-plugins.ts` *(+4/-4)*
+- `packages/core-agent/src/voice/plugins/output-plugins.test.ts` *(+199/-0)*
+- `packages/core-agent/src/voice/plugins/output-plugins.ts` *(+134/-0)*
+- `packages/core-agent/src/voice/plugins/registry.ts` *(+173/-86)*
+- `packages/core-agent/src/voice/plugins/types.ts` *(+51/-8)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 4 file(s) (+95/-5)
+- `packages/i18n/src/locales/en/base.yaml` *(+1/-2)*
+- `packages/i18n/src/locales/en/settings.yaml` *(+51/-2)*
+- `packages/i18n/src/locales/zh-Hans/base.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+42/-0)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 1 file(s) (+44/-9)
+- `packages/stage-layouts/src/layouts/settings.vue` *(+44/-9)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 3 file(s) (+93/-23)
+- `packages/stage-pages/src/pages/settings/models/index.vue` *(+42/-23)*
+- `packages/ui/src/components/animations/animated-height.vue` *(+50/-0)*
+- `packages/ui/src/components/animations/index.ts` *(+1/-0)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 19 file(s) (+1376/-121)
+- `packages/stage-ui-live2d/README.md` *(+13/-0)*
+- `packages/stage-ui-live2d/src/components/scenes/Live2D.vue` *(+94/-3)*
+- `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue` *(+152/-14)*
+- `packages/stage-ui-live2d/src/composables/live2d/eye-tracking.test.ts` *(+23/-0)*
+- `packages/stage-ui-live2d/src/composables/live2d/eye-tracking.ts` *(+25/-0)*
+- `packages/stage-ui-live2d/src/composables/live2d/focus-bias.test.ts` *(+90/-0)*
+- `packages/stage-ui-live2d/src/composables/live2d/focus-bias.ts` *(+164/-0)*
+- `packages/stage-ui-live2d/src/composables/live2d/index.ts` *(+2/-0)*
+- `packages/stage-ui-live2d/src/composables/live2d/motion-manager.test.ts` *(+48/-0)*
+- `packages/stage-ui-live2d/src/composables/live2d/motion-manager.ts` *(+54/-7)*
+- `packages/stage-ui-live2d/src/composables/live2d/touch.test.ts` *(+180/-0)*
+- `packages/stage-ui-live2d/src/composables/live2d/touch.ts` *(+384/-0)*
+- `packages/stage-ui-live2d/src/stores/motion-control.browser.test.ts` *(+37/-0)*
+- `packages/stage-ui-live2d/src/stores/motion-control.ts` *(+23/-4)*
+- `packages/stage-ui-three/src/components/Model/VRMModel.vue` *(+5/-4)*
+- `packages/stage-ui-three/src/components/ThreeScene.vue` *(+4/-3)*
+- `packages/stage-ui-three/src/composables/vrm/lip-sync.test.ts` *(+38/-0)*
+- `packages/stage-ui-three/src/composables/vrm/lip-sync.ts` *(+6/-16)*
+- `packages/stage-ui/src/components/scenes/Stage.vue` *(+34/-70)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 1 file(s) (+41/-40)
+- `pnpm-lock.yaml` *(+41/-40)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (19)
+- [PR] [#3303](https://github.com/moeru-ai/airi/pull/3303) `fix(stage-ui): clear unavailable module selections on provider reset` by **@Huyvux12** *(2 comments)*
+- [PR] [#3300](https://github.com/moeru-ai/airi/pull/3300) `fix(computer-use-mcp): honor Chrome bridge endpoint settings` by **@Elaina10172004** *(7 comments)*
+- [PR] [#3301](https://github.com/moeru-ai/airi/pull/3301) `refactor(stage-ui): build the Live2D motion timeline on the headless ui-timeline parts` by **@nekomeowww** *(6 comments)*
+- [PR] [#3289](https://github.com/moeru-ai/airi/pull/3289) `feat(core-agent,stage-ui): add card context window limit` by **@jim139129** *(9 comments)*
+- [PR] [#3299](https://github.com/moeru-ai/airi/pull/3299) `feat(stage-ui): tell the character when the user touches the avatar` by **@nekomeowww** *(4 comments)*
+- [PR] [#3297](https://github.com/moeru-ai/airi/pull/3297) `feat(stage-ui,stage-pages,stage-layouts,ui): add a stage-first Live2D model editor for phones` by **@nekomeowww** *(11 comments)*
+- [PR] [#3293](https://github.com/moeru-ai/airi/pull/3293) `feat(stage-ui): record a version for each onboarding step` by **@nekomeowww** *(6 comments)*
+- [PR] [#3296](https://github.com/moeru-ai/airi/pull/3296) `feat(stage-ui,stage-tamagotchi): open onboarding through requests` by **@nekomeowww** *(10 comments)*
+- [PR] [#3292](https://github.com/moeru-ai/airi/pull/3292) `feat(stage-ui-live2d): react to taps and head pats on the Live2D model` by **@nekomeowww** *(17 comments)*
+- [PR] [#3298](https://github.com/moeru-ai/airi/pull/3298) `feat(stage-tamagotchi): replace native title bars with drawn title bars` by **@luoling8192** *(3 comments)*
+- [PR] [#3294](https://github.com/moeru-ai/airi/pull/3294) `chore(stage-tamagotchi): upgrade auv to 0.0.40` by **@nekomeowww** *(2 comments)*
+- [PR] [#3295](https://github.com/moeru-ai/airi/pull/3295) `feat(ui,stage-ui,stage-tamagotchi): add a shared dock and use it in the floating chat and the fullscreen island` by **@chiba233** *(4 comments)*
+- [PR] [#3287](https://github.com/moeru-ai/airi/pull/3287) `feat(stage-ui,i18n): rename the built-in character to Iru` by **@nekomeowww** *(4 comments)*
+- [PR] [#3286](https://github.com/moeru-ai/airi/pull/3286) `feat(motion-driver-magic,stage-ui,i18n): blend MAGIC to a speaking profile while AIRI speaks` by **@nekomeowww** *(2 comments)*
+- [PR] [#3290](https://github.com/moeru-ai/airi/pull/3290) `fix(nix/stage-tamagotchi): remove asset patching workaround` by **@Weathercold** *(5 comments)*
+- [PR] [#3288](https://github.com/moeru-ai/airi/pull/3288) `feat(stage-ui): let the user choose the voice language in speech settings` by **@haixu8396-png** *(3 comments)*
+- [PR] [#3285](https://github.com/moeru-ai/airi/pull/3285) `feat(stage-ui-live2d,stage-ui): turn MAGIC motion toward the cursor` by **@nekomeowww** *(10 comments)*
+- [PR] [#3284](https://github.com/moeru-ai/airi/pull/3284) `fix(stage-ui-live2d,stage-ui): center the Live2D focus target and run MAGIC in each renderer` by **@nekomeowww** *(4 comments)*
+- [PR] [#3283](https://github.com/moeru-ai/airi/pull/3283) `feat(core-agent,pipelines-audio,audio,stage-ui): add voice output plugins and observe the speech playback` by **@nekomeowww** *(9 comments)*
+
+#### 🔄 Status & Lifecycle Changes (1)
+- [PR] [#3282](https://github.com/moeru-ai/airi/pull/3282) `fix(stage-tamagotchi): preserve WebGL while avoiding Linux transparent-window click-through` — `OPEN` ➔ `CLOSED`
+
+#### 💬 Discussion Activity (3)
+- [PR] [#3234](https://github.com/moeru-ai/airi/pull/3234) `fix(stage-tamagotchi): keep floating chat and inlay windows interactive on Wayland` — *+2 comments (3 ➔ 5 total)*
+- [PR] [#1577](https://github.com/moeru-ai/airi/pull/1577) `feat(stage-ui): add GPT-SoVITS speech provider support` — *+5 comments (47 ➔ 52 total)*
+- [PR] [#3282](https://github.com/moeru-ai/airi/pull/3282) `fix(stage-tamagotchi): preserve WebGL while avoiding Linux transparent-window click-through` — *+1 comments (2 ➔ 3 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [OPEN] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+
+---
 ## [2026-10-31] Upstream Delta: `899c70d1..ab918b8d` (7 commits, 149 files, 12 update(s))
 
 ### 🎯 Executive Highlights
