@@ -4,6 +4,7 @@ import type { Ref } from 'vue'
 import type { Live2DBreathControlState, Live2DMotionControlState } from '../../stores/motion-control'
 import type { BeatSyncController } from './beat-sync'
 import type { Live2DMotionSpringController } from './motion-control-spring'
+import type { Live2DTouchReactionOffsets } from './touch'
 
 import { sampleLive2DBreath } from '../../stores/motion-control'
 import { useLive2DIdleEyeFocus } from './animation'
@@ -716,6 +717,34 @@ export function useMotionUpdatePluginManualControl(
     setModelParameterDual(ctx.model, 'ParamMouthForm', 'PARAM_MOUTH_FORM', mouthForm)
     if (mouthOpen > 0.001) {
       setModelParameterDual(ctx.model, 'ParamMouthOpenY', 'PARAM_MOUTH_OPEN_Y', mouthOpen)
+    }
+  }
+}
+
+/**
+ * Applies procedural offsets from touch and head-pat impulses on top of the model motion.
+ */
+export function useMotionUpdatePluginTouchReaction(
+  sample: (nowSeconds: number) => Live2DTouchReactionOffsets,
+): MotionManagerPlugin {
+  return (ctx) => {
+    const offsets = sample(ctx.now)
+    if (offsets.angleX)
+      setModelParameterDual(ctx.model, 'ParamAngleX', 'PARAM_ANGLE_X', (ctx.model.getParameterValueById('ParamAngleX') ?? 0) + offsets.angleX)
+    if (offsets.angleY)
+      setModelParameterDual(ctx.model, 'ParamAngleY', 'PARAM_ANGLE_Y', (ctx.model.getParameterValueById('ParamAngleY') ?? 0) + offsets.angleY)
+    if (offsets.angleZ)
+      setModelParameterDual(ctx.model, 'ParamAngleZ', 'PARAM_ANGLE_Z', (ctx.model.getParameterValueById('ParamAngleZ') ?? 0) + offsets.angleZ)
+    if (offsets.bodyAngleX)
+      setModelParameterDual(ctx.model, 'ParamBodyAngleX', 'PARAM_BODY_ANGLE_X', (ctx.model.getParameterValueById('ParamBodyAngleX') ?? 0) + offsets.bodyAngleX)
+    if (offsets.bodyAngleY)
+      setModelParameterDual(ctx.model, 'ParamBodyAngleY', 'PARAM_BODY_ANGLE_Y', (ctx.model.getParameterValueById('ParamBodyAngleY') ?? 0) + offsets.bodyAngleY)
+    if (offsets.eyeSquint) {
+      const remaining = 1 - offsets.eyeSquint
+      const currentEyeL = (ctx.model.getParameterValueById('ParamEyeLOpen') ?? ctx.model.getParameterValueById('PARAM_EYE_L_OPEN') ?? 1)
+      const currentEyeR = (ctx.model.getParameterValueById('ParamEyeROpen') ?? ctx.model.getParameterValueById('PARAM_EYE_R_OPEN') ?? 1)
+      setModelParameterDual(ctx.model, 'ParamEyeLOpen', 'PARAM_EYE_L_OPEN', currentEyeL * remaining)
+      setModelParameterDual(ctx.model, 'ParamEyeROpen', 'PARAM_EYE_R_OPEN', currentEyeR * remaining)
     }
   }
 }

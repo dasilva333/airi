@@ -2,10 +2,11 @@
 import type { Application } from '@pixi/app'
 import type { DslMotionGroup } from '@proj-airi/live2d-runtime'
 
-import type { PixiLive2DInternalModel } from '../../../composables/live2d'
+import type { Live2DTouch, Live2DTouchRegion, PixiLive2DInternalModel } from '../../../composables/live2d'
 
 import JSZip from 'jszip'
 
+import { Point } from '@pixi/math'
 import { DSLVirtualMachine } from '@proj-airi/live2d-runtime'
 import { listenBeatSyncBeatSignal } from '@proj-airi/stage-shared/beat-sync'
 import { useTheme } from '@proj-airi/ui'
@@ -21,8 +22,12 @@ import { toast } from 'vue-sonner'
 import {
   createBeatSyncController,
   createLive2DMotionSpring,
+  createLive2DTouchGestureTracker,
+  createLive2DTouchReaction,
   disableLive2DSdkBreath,
+  findLive2DTouchMotionGroup,
   hookArtMeshColorsAfterModelUpdate,
+  isPointInLive2DMesh,
   useLive2DMotionManagerUpdate,
   useMotionUpdatePluginAutoEyeBlink,
   useMotionUpdatePluginBeatSync,
@@ -31,6 +36,7 @@ import {
   useMotionUpdatePluginIdleFocus,
   useMotionUpdatePluginManualControl,
   useMotionUpdatePluginMouseFocus,
+  useMotionUpdatePluginTouchReaction,
 } from '../../../composables/live2d'
 import { Emotion, EmotionNeutralMotionName } from '../../../constants/emotions'
 import { consumePendingDslGroups } from '../../../runtime/dsl-capture'
@@ -91,6 +97,7 @@ const emits = defineEmits<{
   (e: 'modelLoaded'): void
   (e: 'error', error: Error): void
   (e: 'hitAreaHover', value: { name: string, x: number, y: number, hovered: boolean } | null): void
+  (e: 'touch', value: Live2DTouch): void
 }>()
 
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
@@ -139,6 +146,9 @@ const modelLoading = ref(false)
 let isUnmounted = false
 
 const modelLoadMutex = new Mutex()
+
+const touchReaction = createLive2DTouchReaction()
+const touchGestures = createLive2DTouchGestureTracker()
 
 // --- Live2D DSL runtime (additive; never alters existing Cubism behavior) ---
 let dslVM: DSLVirtualMachine | null = null
@@ -677,6 +687,8 @@ async function loadModel() {
   await modelLoadMutex.acquire()
   try {
     modelLoading.value = true
+    touchReaction.reset()
+    touchGestures.cancel()
     availableExpressions.value = []
     expressionData.value = []
     settledIdleParameterBaseline.value = []
@@ -888,6 +900,7 @@ async function loadModel() {
     // Manual / Procedural ambient motion spring controller (with additive mouse focus blending)
     motionManagerUpdate.register(useMotionUpdatePluginManualControl(manualMotionControl, manualMotionSpring, exclusiveOwnerId, disableFocusAtRef), 'post')
     motionManagerUpdate.register(useMotionUpdatePluginBreathControl(manualBreathControl), 'post')
+    motionManagerUpdate.register(useMotionUpdatePluginTouchReaction(touchReaction.sample), 'post')
 
     // Real-time lip-sync mouth opening (registered after manual control so audio speech phonemes have final authority)
     motionManagerUpdate.register((ctx) => {
@@ -1852,6 +1865,8 @@ onUnmounted(() => {
   disposeShouldUpdateView?.()
   disposeDslRuntime()
   cleanupCanvasListeners()
+  touchReaction.reset()
+  touchGestures.cancel()
 
   // NOTICE: Explicitly cancel the drop shadow RAF loop on unmount. The isUnmounted
   // guard inside the loop is the primary defense, but cancelling the pending frame
@@ -1911,24 +1926,71 @@ function onCanvasMouseMove(event: MouseEvent) {
   }
 }
 
-function onCanvasClick(event: MouseEvent) {
-  if (!model.value || !props.app)
-    return
+function resolveTouchHit(globalX: number, globalY: number): { region: Live2DTouchRegion, hitArea?: string, side: number } | undefined {
+  const current = model.value
+  if (!current)
+    return undefined
 
-  const canvasEl = props.app.view as HTMLCanvasElement
-  if (!canvasEl)
-    return
+  const internalModel = current.internalModel
+  const coreModel = internalModel?.coreModel
+  if (!internalModel || !coreModel)
+    return undefined
 
-  const rect = canvasEl.getBoundingClientRect()
-  const mouseX = event.clientX - rect.left
-  const mouseY = event.clientY - rect.top
+  // 1. Check declared author hit areas
+  const hitAreas = current.hitTest(globalX, globalY)
+  let hitArea: string | undefined
+  let region: Live2DTouchRegion = 'body'
 
-  const globalX = mouseX * (props.app.screen.width / rect.width)
-  const globalY = mouseY * (props.app.screen.height / rect.height)
-
-  const hitAreas = model.value.hitTest(globalX, globalY)
   if (hitAreas && hitAreas.length > 0) {
-    const hitArea = hitAreas[0]
+    hitArea = hitAreas[0]
+    const hitAreaLower = hitArea.toLowerCase()
+    const headHitAreas = ['head', 'face', 'hair', '頭', 'アタマ', '顔', '髪']
+    if (headHitAreas.some(k => hitAreaLower.includes(k)))
+      region = 'head'
+    else
+      region = 'body'
+  }
+  else {
+    // 2. Fallback to mesh triangle hit test if no author hit areas exist
+    const point = current.toModelPosition(new Point(globalX, globalY))
+    let insideDrawable = false
+    const drawableCount = coreModel.getDrawableCount?.() ?? 0
+    for (let index = 0; index < drawableCount && !insideDrawable; index += 1) {
+      if (!coreModel.getDrawableDynamicFlagIsVisible?.(index) || (coreModel.getDrawableOpacity?.(index) ?? 1) <= 0)
+        continue
+      const bounds = internalModel.getDrawableBounds?.(index)
+      if (bounds && (point.x < bounds.x || point.x > bounds.x + bounds.width || point.y < bounds.y || point.y > bounds.y + bounds.height))
+        continue
+      const vertices = internalModel.getDrawableVertices?.(index)
+      const indices = coreModel.getDrawableVertexIndices?.(index)
+      if (vertices && indices && isPointInLive2DMesh(point, vertices, indices)) {
+        insideDrawable = true
+      }
+    }
+
+    if (!insideDrawable)
+      return undefined
+
+    // Upper 35% of model height corresponds to head/face on standard humanoid Live2D rigs
+    const isUpperHead = point.y < ((internalModel.originalHeight || 1000) * 0.35)
+    region = isUpperHead ? 'head' : 'body'
+  }
+
+  const point = current.toModelPosition(new Point(globalX, globalY))
+  const side = Math.min(1, Math.max(-1, (point.x / (internalModel.originalWidth || 1000)) * 2 - 1))
+  return { region, hitArea, side }
+}
+
+function executeTactileClick(hitArea: string | undefined, region: Live2DTouchRegion, globalX: number, globalY: number) {
+  if (!model.value)
+    return
+
+  const internalModel = model.value.internalModel
+  const motionManager = internalModel?.motionManager
+  if (!motionManager)
+    return
+
+  if (hitArea) {
     const declared = ((model.value.internalModel as any)?.settings as any)?.hitAreas as any[] | undefined
     const declaration = declared?.find((h: any) => (h.Name ?? h.name) === hitArea)
     const target = (declaration?.Motion ?? declaration?.motion ?? hitArea) as string
@@ -1947,14 +2009,8 @@ function onCanvasClick(event: MouseEvent) {
       console.warn('[Live2D DSL] dispatch failed (non-fatal):', e)
     }
 
-    const internalModel = model.value.internalModel
-    const motionManager = internalModel?.motionManager
-    if (!motionManager)
-      return
-
     // Categorical pooling system based on body parts
     const hitAreaLower = hitArea.toLowerCase()
-
     const privateHitAreas = ['bust', 'chest', 'boob', 'breast', 'crotch', 'skirt', 'thigh', 'leg', 'butt', 'hip', 'belly', 'private', '胸', '股', '尻', '脚', '足', 'おっぱい', 'お腹']
     const headHitAreas = ['head', 'face', 'hair', '頭', 'アタマ', '顔', '髪']
     const handHitAreas = ['hand', 'arm', 'finger', '手', '腕']
@@ -1977,7 +2033,6 @@ function onCanvasClick(event: MouseEvent) {
     let triggered = false
 
     if (emotionKeywords.length > 0) {
-      // Filter expressions that match the context keywords
       const choices = availableExpressions.value.filter(e => emotionKeywords.some(k => e.name.toLowerCase().includes(k)))
       if (choices.length > 0) {
         const selected = choices[Math.floor(Math.random() * choices.length)]
@@ -2023,12 +2078,147 @@ function onCanvasClick(event: MouseEvent) {
         model.value.motion('tap_body')
       }
       else if (availableExpressions.value.length > 0) {
-        // Fallback: pick any random expression if nothing specifically matched
         const selected = availableExpressions.value[Math.floor(Math.random() * availableExpressions.value.length)]
         console.info(`[Live2D Tactile] Playing generic fallback expression: ${selected.name}`)
         live2dStore.triggerEmotion(selected.name)
       }
     }
+  }
+  else {
+    // Model has no declared HitAreas: fall back to mesh-tested region ('head' | 'body')
+    console.info(`[Live2D Tactile] Mesh-based fallback click on region: ${region} at global(${globalX.toFixed(1)}, ${globalY.toFixed(1)})`)
+    const groups = Object.keys(motionManager.definitions || {})
+    if (region === 'head') {
+      const headKeywords = ['happy', 'smile', 'joy', 'laugh', 'blush', 'wink', 'shy', 'heh', 'ドヤ']
+      const choices = availableExpressions.value.filter(e => headKeywords.some(k => e.name.toLowerCase().includes(k)))
+      if (choices.length > 0) {
+        const selected = choices[Math.floor(Math.random() * choices.length)]
+        live2dStore.triggerEmotion(selected.name)
+      }
+      const touchMotion = findLive2DTouchMotionGroup(groups, 'head')
+      if (touchMotion)
+        model.value.motion(touchMotion, undefined, MotionPriority.NORMAL)
+    }
+    else {
+      const touchMotion = findLive2DTouchMotionGroup(groups, 'body') || (groups.includes('tap_body') ? 'tap_body' : undefined)
+      if (touchMotion) {
+        model.value.motion(touchMotion, undefined, MotionPriority.NORMAL)
+      }
+      else if (availableExpressions.value.length > 0) {
+        const selected = availableExpressions.value[Math.floor(Math.random() * availableExpressions.value.length)]
+        live2dStore.triggerEmotion(selected.name)
+      }
+    }
+  }
+}
+
+let gesturePointerId: number | undefined
+let gestureHit: { region: Live2DTouchRegion, hitArea?: string, side: number } | undefined
+
+function onCanvasPointerDown(event: PointerEvent) {
+  if (!model.value || !props.app || gesturePointerId !== undefined || !event.isPrimary || event.button !== 0)
+    return
+
+  const canvasEl = props.app.view as HTMLCanvasElement
+  if (!canvasEl)
+    return
+
+  const rect = canvasEl.getBoundingClientRect()
+  const mouseX = event.clientX - rect.left
+  const mouseY = event.clientY - rect.top
+  const globalX = mouseX * (props.app.screen.width / rect.width)
+  const globalY = mouseY * (props.app.screen.height / rect.height)
+
+  gesturePointerId = event.pointerId
+  try {
+    canvasEl.setPointerCapture(event.pointerId)
+  }
+  catch {}
+
+  gestureHit = resolveTouchHit(globalX, globalY)
+  touchGestures.down({
+    x: event.clientX,
+    y: event.clientY,
+    atMs: event.timeStamp,
+    hit: gestureHit ? { region: gestureHit.region, side: gestureHit.side } : undefined,
+  })
+
+  // Start instant procedural response on touch down
+  if (gestureHit) {
+    touchReaction.trigger({ region: gestureHit.region, gesture: 'tap', side: gestureHit.side }, lastUpdateTime.value)
+  }
+}
+
+function onCanvasPointerMove(event: PointerEvent) {
+  if (event.pointerId !== gesturePointerId || event.buttons % 2 !== 1)
+    return
+
+  const pat = touchGestures.move({
+    x: event.clientX,
+    y: event.clientY,
+    atMs: event.timeStamp,
+    hit: gestureHit ? { region: gestureHit.region, side: gestureHit.side } : undefined,
+  })
+
+  if (pat) {
+    // 1. Continuous physical spring impulse (head tilt + eye squint)
+    touchReaction.trigger(pat, lastUpdateTime.value)
+
+    // 2. Trigger joyful head-pat expression
+    const headPatKeywords = ['happy', 'smile', 'joy', 'laugh', 'blush', 'wink', 'shy', 'heh', 'ドヤ']
+    const choices = availableExpressions.value.filter(e => headPatKeywords.some(k => e.name.toLowerCase().includes(k)))
+    if (choices.length > 0) {
+      const selected = choices[Math.floor(Math.random() * choices.length)]
+      live2dStore.triggerEmotion(selected.name)
+    }
+
+    // 3. Play head-pat motion if available
+    const motionManager = model.value?.internalModel?.motionManager
+    if (motionManager?.definitions) {
+      const group = findLive2DTouchMotionGroup(Object.keys(motionManager.definitions), 'head')
+      if (group) {
+        model.value?.motion(group, undefined, MotionPriority.NORMAL)
+      }
+    }
+
+    emits('touch', pat)
+  }
+}
+
+function onCanvasPointerUp(event: PointerEvent) {
+  if (event.pointerId !== gesturePointerId)
+    return
+
+  const tap = touchGestures.up({
+    x: event.clientX,
+    y: event.clientY,
+    atMs: event.timeStamp,
+    hit: gestureHit ? { region: gestureHit.region, side: gestureHit.side } : undefined,
+  })
+
+  const currentHit = gestureHit
+  gesturePointerId = undefined
+  gestureHit = undefined
+
+  if (tap && currentHit && props.app) {
+    const canvasEl = props.app.view as HTMLCanvasElement
+    if (canvasEl) {
+      const rect = canvasEl.getBoundingClientRect()
+      const mouseX = event.clientX - rect.left
+      const mouseY = event.clientY - rect.top
+      const globalX = mouseX * (props.app.screen.width / rect.width)
+      const globalY = mouseY * (props.app.screen.height / rect.height)
+      executeTactileClick(currentHit.hitArea, tap.region, globalX, globalY)
+    }
+    emits('touch', tap)
+  }
+}
+
+function onCanvasPointerCancel(event: PointerEvent) {
+  if (event.pointerId === gesturePointerId) {
+    gesturePointerId = undefined
+    gestureHit = undefined
+    touchGestures.cancel()
   }
 }
 
@@ -2043,17 +2233,23 @@ function setupCanvasListeners() {
     return
 
   canvasEl.addEventListener('mousemove', onCanvasMouseMove)
-  canvasEl.addEventListener('click', onCanvasClick)
+  canvasEl.addEventListener('pointerdown', onCanvasPointerDown)
+  canvasEl.addEventListener('pointermove', onCanvasPointerMove)
+  canvasEl.addEventListener('pointerup', onCanvasPointerUp)
+  canvasEl.addEventListener('pointercancel', onCanvasPointerCancel)
   boundCanvas = canvasEl
-  console.info('[Live2D Tactile] Registered canvas tactile listeners')
+  console.info('[Live2D Tactile] Registered canvas tactile & gesture listeners')
 }
 
 function cleanupCanvasListeners() {
   if (boundCanvas) {
     boundCanvas.removeEventListener('mousemove', onCanvasMouseMove)
-    boundCanvas.removeEventListener('click', onCanvasClick)
+    boundCanvas.removeEventListener('pointerdown', onCanvasPointerDown)
+    boundCanvas.removeEventListener('pointermove', onCanvasPointerMove)
+    boundCanvas.removeEventListener('pointerup', onCanvasPointerUp)
+    boundCanvas.removeEventListener('pointercancel', onCanvasPointerCancel)
     boundCanvas = null
-    console.info('[Live2D Tactile] Unregistered canvas tactile listeners')
+    console.info('[Live2D Tactile] Unregistered canvas tactile & gesture listeners')
   }
 }
 

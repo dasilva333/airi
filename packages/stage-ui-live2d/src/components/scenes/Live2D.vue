@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { Live2DTouch } from '../../composables/live2d'
+
 import { Screen } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { ref, watch } from 'vue'
@@ -56,6 +58,7 @@ const emits = defineEmits<{
   (e: 'scaleChange', value: number): void
   (e: 'offsetChange', value: { x: number, y: number }): void
   (e: 'hitAreaHover', value: { name: string, x: number, y: number, hovered: boolean } | null): void
+  (e: 'touch', value: Live2DTouch): void
 }>()
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
 const componentStateCanvas = defineModel<'pending' | 'loading' | 'mounted'>('canvasState', { default: 'pending' })
@@ -277,6 +280,7 @@ defineExpose({
         :idle-animations="idleAnimations"
         :interaction-mode="interactionMode"
         @hit-area-hover="handleHitAreaHover"
+        @touch="emits('touch', $event)"
       />
     </Live2DCanvas>
 
