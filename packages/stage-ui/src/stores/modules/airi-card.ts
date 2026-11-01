@@ -1052,6 +1052,13 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     // itself is speech-gated.
     if (!isModelSyncPrevented.value || force) {
       const nextExpressions = extension.active_state?.active_expressions || {}
+      debug('[AiriCard Store] Model & Expression sync parameters:', {
+        newModelId: extension.active_state?.displayModelId ?? extension.modules?.displayModelId,
+        actorHandoff,
+        isModelSyncPrevented: isModelSyncPrevented.value,
+        force,
+        nextExpressions,
+      })
       if (JSON.stringify(live2dStore.activeExpressions) !== JSON.stringify(nextExpressions)) {
         live2dStore.activeExpressions = { ...nextExpressions }
       }

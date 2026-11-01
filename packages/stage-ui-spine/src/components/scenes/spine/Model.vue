@@ -276,10 +276,19 @@ async function loadModel() {
       // Populate variant store.
       availableVariants.value = loaded.variants.map(v => ({ name: v.name }))
       // Select stored variant or default to first.
-      const selectedVariant = loaded.variants.find(v => v.name === currentVariant.value)
-        ?? loaded.variants[0]
+      const matchingVariant = loaded.variants.find(v => v.name === currentVariant.value)
+      const selectedVariant = matchingVariant ?? loaded.variants[0]
       activeVariantName = selectedVariant?.name
-      if (selectedVariant && currentVariant.value !== selectedVariant.name)
+      console.log('[Spine] Variant selection:', {
+        requestedVariant: currentVariant.value,
+        availableVariants: loaded.variants.map(v => v.name),
+        chosenVariant: selectedVariant?.name,
+      })
+      // NOTICE: Only sync currentVariant if it was completely unset/empty. If this model
+      // had to fall back to variants[0] because requestedVariant belongs to a different
+      // model (e.g. cross-actor handoff mid-speech), do NOT mutate currentVariant and
+      // clobber the incoming actor's desired outfit!
+      if (!currentVariant.value && selectedVariant)
         currentVariant.value = selectedVariant.name
 
       // Auto-detect PMA from the atlas header — the Spine editor writes
@@ -1022,8 +1031,12 @@ watch(oneShotAnimation, (req) => {
   }
 })
 
-watch(currentVariant, async () => {
-  if (loadedVariants.length > 1)
+watch(currentVariant, async (newVariant) => {
+  // NOTICE: Only trigger a reload if this model actually has the requested variant.
+  // During an actor/model swap, currentVariant may be set for the incoming model
+  // while this model is still on stage — reloading the old model here causes race conditions
+  // and clobbers the new model's variant.
+  if (loadedVariants.length > 1 && loadedVariants.some(v => v.name === newVariant))
     await loadModel()
 })
 

@@ -1047,6 +1047,12 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       moduleUpdates.displayModelId = folded.modelId
     }
 
+    artistLog('ActivateConcept: Folded concept result:', {
+      conceptId,
+      modelId: folded.modelId,
+      activeExpressions: folded.activeExpressions,
+    })
+
     if (folded.speechProvider && folded.speechProvider !== 'inherit') {
       artistLog(`ActivateConcept: Applying speech override to card config:`, { provider: folded.speechProvider, voice: folded.speechVoiceId })
 
