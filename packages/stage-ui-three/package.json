@@ -26,6 +26,7 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@mkkellogg/gaussian-splats-3d": "^0.4.7",
     "@moeru/eventa": "catalog:",
     "@pixiv/three-vrm": "^3.5.1",
     "@pixiv/three-vrm-animation": "^3.5.1",
