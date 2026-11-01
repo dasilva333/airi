@@ -147,11 +147,11 @@ const { config } = props
                   <div class="flex items-center justify-between gap-1">
                     <span class="truncate text-xs text-neutral-800 font-bold dark:text-neutral-100">{{ preset.name }}</span>
                     <span class="flex-shrink-0 rounded bg-primary-500/10 px-1.5 py-0.2 text-[9px] text-primary-600 font-bold dark:text-primary-400">
-                      {{ t(preset.badgeKey) }}
+                      {{ preset.badgeKey ? t(preset.badgeKey) : (preset.badge || '') }}
                     </span>
                   </div>
                   <p class="line-clamp-1 mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                    {{ t(preset.descriptionKey) }}
+                    {{ preset.descriptionKey ? t(preset.descriptionKey) : (preset.description || '') }}
                   </p>
                 </div>
               </button>
@@ -291,7 +291,7 @@ const { config } = props
             >
               <span class="truncate text-xs text-neutral-800 font-bold dark:text-neutral-100">{{ preset.name }}</span>
               <p class="line-clamp-2 text-[11px] text-neutral-500 dark:text-neutral-400">
-                {{ t(preset.descriptionKey) }}
+                {{ preset.descriptionKey ? t(preset.descriptionKey) : (preset.description || '') }}
               </p>
             </button>
           </div>
@@ -492,7 +492,7 @@ const { config } = props
                   </span>
                 </div>
                 <p class="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">
-                  {{ t(model.descriptionKey) }}
+                  {{ model.descriptionKey ? t(model.descriptionKey) : (model.description || '') }}
                 </p>
               </div>
               <span class="flex-shrink-0 rounded-md bg-neutral-100 px-2 py-1 text-[10px] text-neutral-600 font-bold font-mono dark:bg-neutral-800 dark:text-neutral-300">

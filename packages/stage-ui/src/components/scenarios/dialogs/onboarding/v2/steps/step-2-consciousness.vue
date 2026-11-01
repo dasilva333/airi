@@ -231,7 +231,12 @@ async function startWebLlmDownload() {
     const adapter = await getWebLlmAdapter()
 
     const curated = WEB_LLM_MODELS.find(m => m.id === selectedLlmModel.value)
-    const target: WebLlmLoadTarget = { modelId: selectedLlmModel.value, vramMB: curated?.vramMB }
+    const target: WebLlmLoadTarget = {
+      modelId: selectedLlmModel.value,
+      modelUrl: curated?.modelUrl,
+      modelLib: curated?.modelLib,
+      vramMB: curated?.vramMB,
+    }
 
     await adapter.loadModel(target, {
       signal: controller.signal,

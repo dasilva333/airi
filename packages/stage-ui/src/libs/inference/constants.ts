@@ -247,6 +247,10 @@ export interface WebLlmModelInfo {
   vramMB: number
   /** Whether this model requires WebGPU `shader-f16` (FP16) support. False indicates standard FP32 compatibility. */
   fp16?: boolean
+  /** Custom HF weights URL when not in MLC prebuilt catalog. */
+  modelUrl?: string
+  /** Custom `model_lib` WASM URL when not in MLC prebuilt catalog. */
+  modelLib?: string
 }
 
 export const WEB_LLM_MODELS: readonly WebLlmModelInfo[] = [
@@ -257,6 +261,15 @@ export const WEB_LLM_MODELS: readonly WebLlmModelInfo[] = [
     description: 'Ultra-fast pre-filtering and event-log distillation; complements the web-rwkv salience gate.',
     vramMB: 1629,
     fp16: true,
+  },
+  {
+    id: 'LFM3-1.7B-q6f16_a-MLC',
+    name: 'Liquid AI LFM3 1.7B (Hybrid SSM)',
+    description: 'Liquid AI tri-hybrid architecture (short convs + sliding window + global attention). Ultra-fast 1.7B on-device brain.',
+    vramMB: 3202,
+    fp16: true,
+    modelUrl: 'https://huggingface.co/CharlZKP/LFM3-1.7B-MLC/resolve/main/LFM3-1.7B-q6f16_a-MLC',
+    modelLib: 'https://huggingface.co/CharlZKP/LFM3-1.7B-MLC/resolve/main/libs/LFM3-1.7B-q6f16_a_cs1k-webgpu.wasm',
   },
   {
     id: 'gemma3-1b-it-q4f16_1-MLC',

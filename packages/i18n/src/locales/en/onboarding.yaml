@@ -914,6 +914,8 @@ steps:
         llama-3-2-1b-instruct-q4f32-1-mlc: Ultra-fast, lightweight 1.2B instruction model for low-end hardware.
         llama-3-2-3b-instruct-q4f32-1-mlc: Strong general instruction & chat model with standard FP32 precision.
         phi-4-mini-instruct-q4f32-1-mlc: Next-gen compact generalist running with standard WebGPU FP32 compute.
+        lfm3-1-7b-q6f16-a-mlc: Liquid AI tri-hybrid architecture (short convs + sliding window +
+          global attention). Ultra-fast 1.7B on-device brain.
     verification:
       failed: Connection test failed. Check API key, model ID, and network.
       latencyPlain: '{latency}ms TTFT'
@@ -1597,8 +1599,8 @@ steps:
     mingModelNote: ~850 MB download · Runs locally after setup.
     mingModelReadyTitle: Model ready on this device
     mingModelReadyDesc: Ming 3.0 is downloaded and ready to use.
-    mingSampleDefault: Hey, welcome back! I was just thinking about what we could make together
-      today.
+    mingSampleDefault: Hey, welcome back! I was just thinking about what we could
+      make together today.
 
   thinking:
     label: Thinking

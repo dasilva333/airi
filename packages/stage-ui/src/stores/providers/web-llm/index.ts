@@ -3,7 +3,7 @@ import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { WebLlmGenerateRequest } from '../../../workers/web-llm/contract'
 
 import { getWebLlmAdapter } from '../../../libs/inference/adapters/web-llm'
-import { DEFAULT_WEB_LLM_MODEL } from '../../../libs/inference/constants'
+import { DEFAULT_WEB_LLM_MODEL, WEB_LLM_MODELS } from '../../../libs/inference/constants'
 import { openAIChatChunk, openAIChatCompletion, SSE_DONE } from '../web-rwkv/format'
 
 export interface WebLlmProviderConfig {
@@ -71,11 +71,17 @@ export function createWebLlmChatProvider(config: WebLlmProviderConfig = {}): Cha
         const modelId = body.model?.trim() || defaultModelId
 
         const adapter = await getWebLlmAdapter()
+        const curated = WEB_LLM_MODELS.find(m => m.id === modelId)
         // Load-on-demand and reload when the requested model differs from what's
         // resident (the adapter's worker owns one engine = one model at a time).
         if (adapter.state !== 'ready' || adapter.manifest?.modelId !== modelId) {
           await adapter.loadModel(
-            { modelId, modelUrl: config.modelUrl, modelLib: config.modelLib, vramMB: config.vramMB },
+            {
+              modelId,
+              modelUrl: curated?.modelUrl || config.modelUrl,
+              modelLib: curated?.modelLib || config.modelLib,
+              vramMB: curated?.vramMB || config.vramMB,
+            },
             { signal: init?.signal ?? undefined },
           )
         }

@@ -280,6 +280,7 @@ export function useConsciousnessConfig(options: UseConsciousnessConfigOptions = 
 
   const localModelDescriptionKeys: Record<string, string> = {
     'Qwen3.5-0.8B-q4f16_1-MLC': 'onboarding.steps.consciousness.localModels.descriptions.qwen3-5-0-8b-q4f16-1-mlc',
+    'LFM3-1.7B-q6f16_a-MLC': 'onboarding.steps.consciousness.localModels.descriptions.lfm3-1-7b-q6f16-a-mlc',
     'gemma3-1b-it-q4f16_1-MLC': 'onboarding.steps.consciousness.localModels.descriptions.gemma3-1b-it-q4f16-1-mlc',
     'Ministral-3-3B-Reasoning-2512-q4f16_1-MLC': 'onboarding.steps.consciousness.localModels.descriptions.ministral-3-3b-reasoning-2512-q4f16-1-mlc',
     'Phi-4-mini-instruct-q4f16_1-MLC': 'onboarding.steps.consciousness.localModels.descriptions.phi-4-mini-instruct-q4f16-1-mlc',
@@ -425,7 +426,12 @@ export function useConsciousnessConfig(options: UseConsciousnessConfigOptions = 
       const adapter = await getWebLlmAdapter()
 
       const curated = WEB_LLM_MODELS.find((m: WebLlmModelInfo) => m.id === selectedLlmModel.value)
-      const target: WebLlmLoadTarget = { modelId: selectedLlmModel.value, vramMB: curated?.vramMB }
+      const target: WebLlmLoadTarget = {
+        modelId: selectedLlmModel.value,
+        modelUrl: curated?.modelUrl,
+        modelLib: curated?.modelLib,
+        vramMB: curated?.vramMB,
+      }
 
       await adapter.loadModel(target, {
         signal: controller.signal,

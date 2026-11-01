@@ -900,7 +900,12 @@ async function handleStartChatting() {
           prepSteps.value[0].desc = t('onboarding.quickStart.preparation.downloadingWeights')
           const curated = WEB_LLM_MODELS.find(m => m.id === llmModel.value)
           await adapter.loadModel(
-            { modelId: llmModel.value, vramMB: curated?.vramMB },
+            {
+              modelId: llmModel.value,
+              modelUrl: curated?.modelUrl,
+              modelLib: curated?.modelLib,
+              vramMB: curated?.vramMB,
+            },
             {
               onProgress: (p: any) => {
                 const percent = typeof p?.percent === 'number' && p.percent >= 0
