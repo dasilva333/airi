@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { DropInViewer } from '@mkkellogg/gaussian-splats-3d'
+import { DropInViewer, SceneFormat } from '@mkkellogg/gaussian-splats-3d'
 import { useTresContext } from '@tresjs/core'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 
 const props = withDefaults(defineProps<{
   src?: string
+  format?: number
   splatAlphaRemovalThreshold?: number
   position?: [number, number, number]
   rotation?: [number, number, number]
@@ -25,6 +26,18 @@ const { scene } = useTresContext()
 const splatViewer = ref<any>(null)
 let currentSceneIndex: number | null = null
 
+function determineFormat(url: string, explicitFormat?: number): number {
+  if (explicitFormat !== undefined)
+    return explicitFormat
+  if (url.endsWith('.splat'))
+    return SceneFormat.Splat
+  if (url.endsWith('.ksplat'))
+    return SceneFormat.KSplat
+  if (url.endsWith('.spz'))
+    return SceneFormat.Spz
+  return SceneFormat.Ply
+}
+
 async function loadSplat(url: string) {
   if (!splatViewer.value)
     return
@@ -40,6 +53,7 @@ async function loadSplat(url: string) {
       : props.scale
 
     await splatViewer.value.addSplatScene(url, {
+      format: determineFormat(url, props.format),
       splatAlphaRemovalThreshold: props.splatAlphaRemovalThreshold,
       position: props.position,
       rotation: props.rotation,
@@ -61,7 +75,7 @@ onMounted(() => {
 
   const viewer = new DropInViewer({
     sharedMemoryForWorkers: false,
-    gpuAcceleratedSort: true,
+    gpuAcceleratedSort: false,
   })
 
   splatViewer.value = viewer

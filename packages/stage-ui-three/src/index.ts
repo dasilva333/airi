@@ -1,4 +1,5 @@
 export * from './assets/vrm/animations'
+export * from './components/Model'
 export { default as ThreeScene } from './components/ThreeScene.vue'
 export * from './composables/hit-test'
 export * from './composables/render-target'

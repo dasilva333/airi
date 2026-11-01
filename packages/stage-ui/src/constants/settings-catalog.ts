@@ -398,6 +398,21 @@ export const SETTINGS_CATALOG_ITEMS: CatalogNodeItem[] = [
     parentId: 'area-modules',
     kind: 'page',
   },
+  {
+    id: 'mod-idol-3dgs',
+    label: '3D Gaussian Splats (IDOL)',
+    shortLabel: '3D Splats',
+    titleKey: 'settings.pages.modules.idol_3dgs.title',
+    descriptionKey: 'settings.pages.modules.idol_3dgs.description',
+    description: 'Synthesize, preview, and interact with 3D Gaussian Splat desk figurines from images',
+    glyph: '晶',
+    clusterGroup: 'PERCEPTION & FACULTIES 感',
+    route: '/settings/modules/idol-3dgs',
+    icon: 'i-solar:box-minimalistic-bold-duotone',
+    order: 7.5,
+    parentId: 'area-modules',
+    kind: 'page',
+  },
 
   // Cluster: BRIDGES & SYNC 網
   {

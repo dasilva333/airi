@@ -710,6 +710,10 @@ pages:
       title: System 1 Coprocessor
       description: High-speed cognitive coprocessor for zero-shot query triage,
         batched candidate reranking, and affective heuristics
+    idol_3dgs:
+      title: 3D Gaussian Splats (IDOL)
+      description: Synthesize, preview, and interact with 3D Gaussian Splat desk figurines
+        from images
   providers:
     explained:
       chat: Text generation model providers. e.g. OpenRouter, OpenAI, Ollama.
