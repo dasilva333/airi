@@ -1,6 +1,7 @@
 export * from './airi-card'
 export * from './arcade-knowledge'
 export * from './cloudflare'
+export * from './code-assistant'
 export * from './consciousness'
 export * from './discord'
 export * from './gaming-factorio'
