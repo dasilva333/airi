@@ -260,6 +260,117 @@ async function testEndpointHandshake() {
     toast.error(`Endpoint unreachable: ${err.message}`)
   }
 }
+
+// Quick Connector Dialog & Session tracking
+const activeConnectorModal = ref<'claude' | 'antigravity' | null>(null)
+const connectorTab = ref<'auto' | 'curl' | 'json'>('auto')
+
+const claudeSession = computed(() => {
+  return store.activeSessions.find(s => s.assistant === 'claude-code')
+})
+
+const isClaudeConnected = computed(() => {
+  if (!claudeSession.value)
+    return false
+  return Date.now() - claudeSession.value.lastUpdated < 300000
+})
+
+const antigravitySession = computed(() => {
+  return store.activeSessions.find(s => s.assistant === 'antigravity')
+})
+
+const isAntigravityConnected = computed(() => {
+  if (!antigravitySession.value)
+    return false
+  return Date.now() - antigravitySession.value.lastUpdated < 300000
+})
+
+function sendSimulatedAgentEvent(source: 'claude-code' | 'antigravity') {
+  store.handleAssistantState({
+    source,
+    assistant: source,
+    state: 'wait',
+    headline: source === 'claude-code' ? 'Claude Code Approval' : 'Antigravity Approval',
+    note: 'Allow bash command "npm test"?',
+    tool: 'run_command',
+  })
+  toast.success(`Dispatched simulated "${source}" approval event to stage!`)
+}
+
+const claudeJsonConfig = computed(() => {
+  const token = authToken.value || 'YOUR_AUTH_TOKEN'
+  return JSON.stringify({
+    hooks: {
+      UserPromptSubmit: [
+        {
+          type: 'command',
+          command: `curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" -d '{"source":"claude-code","state":"work","headline":"Claude is thinking..."}' >/dev/null 2>&1 &`,
+        },
+      ],
+      PreToolUse: [
+        {
+          type: 'command',
+          command: `curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" -d '{"source":"claude-code","state":"wait","headline":"Tool approval requested"}' >/dev/null 2>&1 &`,
+        },
+      ],
+      PostToolUse: [
+        {
+          type: 'command',
+          command: `curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" -d '{"source":"claude-code","state":"work","headline":"Claude is executing..."}' >/dev/null 2>&1 &`,
+        },
+      ],
+      Stop: [
+        {
+          type: 'command',
+          command: `curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" -d '{"source":"claude-code","state":"done","headline":"Turn completed"}' >/dev/null 2>&1 &`,
+        },
+      ],
+    },
+  }, null, 2)
+})
+
+const antigravityJsonConfig = computed(() => {
+  const token = authToken.value || 'YOUR_AUTH_TOKEN'
+  return JSON.stringify({
+    'airi-assistant-sync': {
+      enabled: true,
+      PreInvocation: [
+        {
+          type: 'command',
+          command: `curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" -d '{"source":"antigravity","state":"work","headline":"Antigravity is thinking..."}' >/dev/null 2>&1 &`,
+        },
+      ],
+      PreToolUse: [
+        {
+          matcher: '*',
+          hooks: [
+            {
+              type: 'command',
+              command: `curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" -d '{"source":"antigravity","state":"wait","headline":"Tool approval requested"}' >/dev/null 2>&1 &`,
+            },
+          ],
+        },
+      ],
+      PostToolUse: [
+        {
+          matcher: '*',
+          hooks: [
+            {
+              type: 'command',
+              command: `curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" -d '{"source":"antigravity","state":"work","headline":"Executing tool..."}' >/dev/null 2>&1 &`,
+            },
+          ],
+        },
+      ],
+      Stop: [
+        {
+          type: 'command',
+          command: `curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" -d '{"source":"antigravity","state":"done","headline":"Task finished"}' >/dev/null 2>&1 &`,
+        },
+      ],
+    },
+  }, null, 2)
+})
 </script>
 
 <template>
@@ -824,18 +935,37 @@ async function testEndpointHandshake() {
             </div>
 
             <div class="flex items-center justify-between border-t border-neutral-100 pt-2 dark:border-neutral-800/80">
-              <span class="flex items-center gap-1 text-[10px] text-emerald-600 font-medium dark:text-emerald-400">
-                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Ready to connect
-              </span>
-              <Button
-                variant="primary"
-                color="primary"
-                class="px-3 py-1 text-xs font-bold"
-                @click="toast.info('Claude Code hook installer will configure ~/.claude/settings.json in Phase 4')"
+              <span
+                class="flex items-center gap-1.5 text-[10px] font-medium"
+                :class="isClaudeConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-500'"
               >
-                Connect Claude Code
-              </Button>
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="isClaudeConnected ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'"
+                />
+                {{ isClaudeConnected ? 'Receiving events' : 'Ready to connect' }}
+              </span>
+
+              <div class="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  color="neutral"
+                  class="px-2.5 py-1 text-xs"
+                  title="Dispatch simulated test event from Claude Code"
+                  @click="sendSimulatedAgentEvent('claude-code')"
+                >
+                  <div class="i-solar:play-bold mr-1 text-xs" />
+                  <span>Test</span>
+                </Button>
+                <Button
+                  variant="primary"
+                  color="primary"
+                  class="px-3 py-1 text-xs font-bold"
+                  @click="activeConnectorModal = 'claude'"
+                >
+                  Configure
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -857,18 +987,37 @@ async function testEndpointHandshake() {
             </div>
 
             <div class="flex items-center justify-between border-t border-neutral-100 pt-2 dark:border-neutral-800/80">
-              <span class="flex items-center gap-1 text-[10px] text-purple-600 font-medium dark:text-purple-400">
-                <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-purple-500" />
-                Plugin available
-              </span>
-              <Button
-                variant="secondary"
-                color="neutral"
-                class="px-3 py-1 text-xs font-medium"
-                @click="toast.info('Antigravity plugin registration script will be generated in Phase 4')"
+              <span
+                class="flex items-center gap-1.5 text-[10px] font-medium"
+                :class="isAntigravityConnected ? 'text-purple-600 dark:text-purple-400' : 'text-neutral-500'"
               >
-                Install Plugin
-              </Button>
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="isAntigravityConnected ? 'bg-purple-500 animate-pulse' : 'bg-neutral-400'"
+                />
+                {{ isAntigravityConnected ? 'Receiving events' : 'Ready to connect' }}
+              </span>
+
+              <div class="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  color="neutral"
+                  class="px-2.5 py-1 text-xs"
+                  title="Dispatch simulated test event from Antigravity"
+                  @click="sendSimulatedAgentEvent('antigravity')"
+                >
+                  <div class="i-solar:play-bold mr-1 text-xs" />
+                  <span>Test</span>
+                </Button>
+                <Button
+                  variant="secondary"
+                  color="neutral"
+                  class="px-3 py-1 text-xs font-medium"
+                  @click="activeConnectorModal = 'antigravity'"
+                >
+                  Configure
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -979,6 +1128,175 @@ async function testEndpointHandshake() {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connector Setup Dialog Modal -->
+    <div
+      v-if="activeConnectorModal"
+      class="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      @click.self="activeConnectorModal = null"
+    >
+      <div class="relative max-w-xl w-full flex flex-col gap-4 border border-neutral-200 rounded-2xl bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900">
+        <!-- Modal Header -->
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div
+              class="h-10 w-10 flex shrink-0 items-center justify-center border rounded-xl"
+              :class="activeConnectorModal === 'claude'
+                ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                : 'bg-purple-500/10 text-purple-500 border-purple-500/20'"
+            >
+              <div :class="activeConnectorModal === 'claude' ? 'i-carbon:terminal text-xl' : 'i-solar:magic-stick-3-bold-duotone text-xl'" />
+            </div>
+            <div class="flex flex-col">
+              <h2 class="text-sm text-neutral-900 font-bold dark:text-neutral-100">
+                Connect {{ activeConnectorModal === 'claude' ? 'Claude Code' : 'Google Antigravity' }}
+              </h2>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                {{ activeConnectorModal === 'claude'
+                  ? 'Notify your AIRI companion when Claude is thinking, executing tools, or waiting for approval.'
+                  : 'Notify your AIRI companion when Antigravity invokes tools, runs commands, or finishes turns.'
+                }}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="h-7 w-7 flex items-center justify-center rounded-lg text-neutral-400 transition-colors hover:text-neutral-600 dark:hover:text-neutral-200"
+            @click="activeConnectorModal = null"
+          >
+            <div class="i-solar:close-circle-bold text-lg" />
+          </button>
+        </div>
+
+        <!-- Mode Sub-Tabs -->
+        <div class="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800">
+          <button
+            type="button"
+            class="border-b-2 px-3 py-1.5 text-xs font-bold transition-colors"
+            :class="connectorTab === 'auto'
+              ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'"
+            @click="connectorTab = 'auto'"
+          >
+            1-Click Command
+          </button>
+          <button
+            type="button"
+            class="border-b-2 px-3 py-1.5 text-xs font-bold transition-colors"
+            :class="connectorTab === 'curl'
+              ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'"
+            @click="connectorTab = 'curl'"
+          >
+            Direct cURL (Zero Latency)
+          </button>
+          <button
+            type="button"
+            class="border-b-2 px-3 py-1.5 text-xs font-bold transition-colors"
+            :class="connectorTab === 'json'
+              ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'"
+            @click="connectorTab = 'json'"
+          >
+            Config File (JSON)
+          </button>
+        </div>
+
+        <!-- Tab 1: 1-Click Auto Installer -->
+        <div v-if="connectorTab === 'auto'" class="flex flex-col gap-3 text-xs">
+          <p class="text-neutral-600 dark:text-neutral-300">
+            Run this one-liner in your terminal to automatically configure the assistant hooks and backup previous settings:
+          </p>
+
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              readonly
+              :value="`pnpm assistant install ${activeConnectorModal}`"
+              class="flex-1 select-all border border-neutral-200 rounded-xl bg-neutral-950 px-3 py-2 text-xs text-neutral-200 font-mono dark:border-neutral-800"
+            >
+            <Button
+              variant="primary"
+              color="primary"
+              class="shrink-0 px-3 py-2 text-xs font-bold"
+              @click="copyToClipboard(`pnpm assistant install ${activeConnectorModal}`)"
+            >
+              Copy
+            </Button>
+          </div>
+
+          <div class="flex items-center justify-between text-[11px] text-neutral-400">
+            <span>Target file: <code class="text-neutral-600 font-mono dark:text-neutral-300">{{ activeConnectorModal === 'claude' ? '~/.claude/settings.json' : '.agents/hooks.json' }}</code></span>
+            <span class="text-neutral-500">Or: <code class="text-[10px] text-neutral-400 font-mono">npx airi-assistant install {{ activeConnectorModal }}</code></span>
+          </div>
+        </div>
+
+        <!-- Tab 2: Direct cURL (Zero Latency) -->
+        <div v-else-if="connectorTab === 'curl'" class="flex flex-col gap-3 text-xs">
+          <p class="text-neutral-600 dark:text-neutral-300">
+            Direct HTTP POST via native <code class="text-primary-500 font-mono">curl</code> for sub-millisecond execution with zero node startup delay:
+          </p>
+
+          <div class="group relative max-h-48 overflow-y-auto border border-neutral-800 rounded-xl bg-neutral-950 p-3 text-[11px] text-neutral-300 font-mono">
+            <pre><code>curl -s -X POST http://127.0.0.1:6121/api/assistant/state \
+  -H "Authorization: Bearer {{ authToken }}" \
+  -H "Content-Type: application/json" \
+  -d '{"source":"{{ activeConnectorModal === 'claude' ? 'claude-code' : 'antigravity' }}","state":"work","headline":"Active"}'</code></pre>
+            <button
+              type="button"
+              class="absolute right-2 top-2 rounded bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200 font-medium hover:bg-neutral-700"
+              @click="copyToClipboard(`curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H &quot;Authorization: Bearer ${authToken}&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;source&quot;:&quot;${activeConnectorModal === 'claude' ? 'claude-code' : 'antigravity'}&quot;,&quot;state&quot;:&quot;work&quot;,&quot;headline&quot;:&quot;Active&quot;}'`)"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 3: Manual JSON -->
+        <div v-else class="flex flex-col gap-3 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-neutral-500">
+              Merge this block into <code class="text-neutral-700 font-bold font-mono dark:text-neutral-300">{{ activeConnectorModal === 'claude' ? '~/.claude/settings.json' : '.agents/hooks.json' }}</code>:
+            </span>
+            <Button
+              variant="secondary"
+              color="neutral"
+              class="px-2 py-1 text-xs"
+              @click="copyToClipboard(activeConnectorModal === 'claude' ? claudeJsonConfig : antigravityJsonConfig)"
+            >
+              Copy JSON
+            </Button>
+          </div>
+
+          <div class="max-h-56 overflow-y-auto border border-neutral-800 rounded-xl bg-neutral-950 p-3 text-[11px] text-neutral-300 font-mono">
+            <pre><code>{{ activeConnectorModal === 'claude' ? claudeJsonConfig : antigravityJsonConfig }}</code></pre>
+          </div>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="flex items-center justify-between border-t border-neutral-200 pt-3 dark:border-neutral-800">
+          <Button
+            variant="secondary"
+            color="neutral"
+            class="px-3 py-1.5 text-xs"
+            @click="sendSimulatedAgentEvent(activeConnectorModal === 'claude' ? 'claude-code' : 'antigravity')"
+          >
+            <div class="i-solar:play-bold mr-1.5 text-xs text-primary-500" />
+            <span>Send Test Event</span>
+          </Button>
+
+          <Button
+            variant="secondary"
+            color="neutral"
+            class="px-4 py-1.5 text-xs font-bold"
+            @click="activeConnectorModal = null"
+          >
+            Close
+          </Button>
         </div>
       </div>
     </div>

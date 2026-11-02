@@ -18,6 +18,7 @@ export interface CodeAssistantStatePayload {
   state: CodeAssistantState
   sessionId?: string
   assistant?: string
+  source?: string
   headline?: string
   note?: string
   tool?: string
@@ -435,7 +436,7 @@ export const useCodeAssistantStore = defineStore('code-assistant', () => {
     const sessionRecord: ActiveAssistantSession = {
       sessionId,
       state: payload.state,
-      assistant: payload.assistant || 'assistant',
+      assistant: payload.assistant || payload.source || 'assistant',
       headline: payload.headline,
       note: payload.note,
       tool: payload.tool,

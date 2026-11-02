@@ -26,6 +26,9 @@
   },
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
+  "bin": {
+    "airi-assistant": "./dist/bin/assistant.mjs"
+  },
   "files": [
     "README.md",
     "dist",
@@ -34,6 +37,7 @@
   "scripts": {
     "dev": "pnpm run build",
     "build": "tsdown",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

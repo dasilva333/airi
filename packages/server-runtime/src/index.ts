@@ -326,7 +326,7 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
       data: {
         state: body.state as 'work' | 'wait' | 'done' | 'idle' | 'error',
         sessionId: typeof body.sessionId === 'string' ? body.sessionId : 'default',
-        assistant: typeof body.assistant === 'string' ? body.assistant : 'assistant',
+        assistant: typeof body.assistant === 'string' ? body.assistant : (typeof body.source === 'string' ? body.source : 'assistant'),
         headline: typeof body.headline === 'string' ? body.headline : undefined,
         note: typeof body.note === 'string' ? body.note : undefined,
         tool: typeof body.tool === 'string' ? body.tool : undefined,

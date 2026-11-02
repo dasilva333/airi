@@ -4,6 +4,7 @@ export default defineConfig({
   entry: [
     './src/index.ts',
     './src/utils/node/index.ts',
+    './src/bin/assistant.ts',
   ],
   sourcemap: true,
   unused: true,

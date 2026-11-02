@@ -16,6 +16,7 @@ export default defineConfig({
       'packages/audio-pipelines-transcribe',
       'packages/pipelines-audio',
       'packages/server-runtime',
+      'packages/server-sdk',
       'packages/live2d-runtime',
       'packages/i18n',
       'packages/speech-transformer-math',
