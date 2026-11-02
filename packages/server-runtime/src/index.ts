@@ -1,4 +1,5 @@
 import type { MetadataEventSource, WebSocketEvent } from '@proj-airi/server-shared/types'
+import type { CorsOptions } from 'h3'
 
 import type {
   RouteContext,
@@ -10,7 +11,7 @@ import type { AuthenticatedPeer, Peer } from './types'
 
 import { availableLogLevelStrings, Format, LogLevelString, logLevelStringToLogLevelMap, useLogg } from '@guiiai/logg'
 import { MessageHeartbeat, MessageHeartbeatKind, WebSocketEventSource } from '@proj-airi/server-shared/types'
-import { createError, defineEventHandler, defineWebSocketHandler, getRequestHeader, H3, readBody } from 'h3'
+import { createError, defineEventHandler, defineWebSocketHandler, getRequestHeader, H3, handleCors, readBody } from 'h3'
 import { nanoid } from 'nanoid'
 import { parse, stringify } from 'superjson'
 
@@ -274,8 +275,30 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
     return Boolean(providedToken && providedToken === authToken)
   }
 
+  const corsConfig: CorsOptions = {
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
+    preflight: {
+      statusCode: 204,
+    },
+  }
+
+  // Preflight CORS for browser/renderer clients
+  app.options('/api/assistant/state', defineEventHandler((event) => {
+    const corsRes = handleCors(event, corsConfig)
+    if (corsRes !== false) {
+      return corsRes
+    }
+    return ''
+  }))
+
   // Health and connectivity check for assistant clients
   app.get('/api/assistant/state', defineEventHandler(async (event) => {
+    const corsRes = handleCors(event, corsConfig)
+    if (corsRes !== false) {
+      return corsRes
+    }
     if (!verifyAuthToken(event)) {
       throw createError({
         statusCode: 401,
@@ -294,6 +317,10 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
 
   // State update ingestion for local assistants (Gemini, Claude Code, Antigravity, OpenCode, etc)
   app.post('/api/assistant/state', defineEventHandler(async (event) => {
+    const corsRes = handleCors(event, corsConfig)
+    if (corsRes !== false) {
+      return corsRes
+    }
     if (!verifyAuthToken(event)) {
       throw createError({
         statusCode: 401,

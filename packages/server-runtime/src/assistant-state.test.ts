@@ -139,4 +139,33 @@ describe('code Assistant REST Ingestion (/api/assistant/state)', () => {
       closeAllPeers()
     }
   })
+
+  it('handles CORS preflight OPTIONS and responds with CORS headers', async () => {
+    const { app, closeAllPeers } = setupApp({
+      auth: { token: testToken },
+    })
+
+    try {
+      const optionsRes = await app.request('/api/assistant/state', {
+        method: 'OPTIONS',
+        headers: {
+          'Origin': 'http://localhost:5173',
+          'Access-Control-Request-Method': 'GET',
+          'Access-Control-Request-Headers': 'authorization',
+        },
+      })
+      expect(optionsRes.status).toBeLessThan(400)
+      expect(optionsRes.headers.get('access-control-allow-origin')).toBe('*')
+      expect(optionsRes.headers.get('access-control-allow-methods')).toContain('GET')
+
+      const getRes = await app.request('/api/assistant/state', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${testToken}` },
+      })
+      expect(getRes.headers.get('access-control-allow-origin')).toBe('*')
+    }
+    finally {
+      closeAllPeers()
+    }
+  })
 })

@@ -245,7 +245,14 @@ function copyCurlExample() {
 async function testEndpointHandshake() {
   testHandshakeStatus.value = 'testing'
   try {
-    const res = await fetch('http://127.0.0.1:6121/api/assistant/state')
+    const headers: Record<string, string> = {}
+    if (authToken.value) {
+      headers.Authorization = `Bearer ${authToken.value}`
+    }
+    const res = await fetch('http://127.0.0.1:6121/api/assistant/state', {
+      method: 'GET',
+      headers,
+    })
     if (res.ok) {
       testHandshakeStatus.value = 'success'
       toast.success('Endpoint handshake successful (200 OK)')
