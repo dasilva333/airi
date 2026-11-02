@@ -10,7 +10,7 @@ import type { AuthenticatedPeer, Peer } from './types'
 
 import { availableLogLevelStrings, Format, LogLevelString, logLevelStringToLogLevelMap, useLogg } from '@guiiai/logg'
 import { MessageHeartbeat, MessageHeartbeatKind, WebSocketEventSource } from '@proj-airi/server-shared/types'
-import { defineWebSocketHandler, H3 } from 'h3'
+import { createError, defineEventHandler, defineWebSocketHandler, getRequestHeader, H3, readBody } from 'h3'
 import { nanoid } from 'nanoid'
 import { parse, stringify } from 'superjson'
 
@@ -258,6 +258,91 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
       }
     }
   }
+
+  function verifyAuthToken(event: any): boolean {
+    if (!authToken) {
+      return true
+    }
+
+    const authHeader = getRequestHeader(event, 'authorization') || ''
+    const customHeader = getRequestHeader(event, 'x-auth-token') || ''
+    const tokenFromBearer = authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : authHeader.trim()
+    const providedToken = tokenFromBearer || customHeader
+
+    return Boolean(providedToken && providedToken === authToken)
+  }
+
+  // Health and connectivity check for assistant clients
+  app.get('/api/assistant/state', defineEventHandler(async (event) => {
+    if (!verifyAuthToken(event)) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Unauthorized',
+        message: 'Invalid or missing authentication token',
+      })
+    }
+
+    return {
+      ok: true,
+      status: 'ready',
+      authenticated: true,
+      timestamp: Date.now(),
+    }
+  }))
+
+  // State update ingestion for local assistants (Gemini, Claude Code, Antigravity, OpenCode, etc)
+  app.post('/api/assistant/state', defineEventHandler(async (event) => {
+    if (!verifyAuthToken(event)) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Unauthorized',
+        message: 'Invalid or missing authentication token',
+      })
+    }
+
+    const rawBody = await readBody(event).catch(() => null)
+    if (!rawBody || typeof rawBody !== 'object') {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Bad Request',
+        message: 'Request body must be a valid JSON object',
+      })
+    }
+
+    const body = rawBody as Record<string, unknown>
+    const validStates = ['work', 'wait', 'done', 'idle', 'error']
+    if (!body.state || typeof body.state !== 'string' || !validStates.includes(body.state)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Bad Request',
+        message: `Invalid state. Expected one of: ${validStates.join(', ')}`,
+      })
+    }
+
+    const assistantEvent: WebSocketEvent = {
+      type: 'assistant:state',
+      data: {
+        state: body.state as 'work' | 'wait' | 'done' | 'idle' | 'error',
+        sessionId: typeof body.sessionId === 'string' ? body.sessionId : 'default',
+        assistant: typeof body.assistant === 'string' ? body.assistant : 'assistant',
+        headline: typeof body.headline === 'string' ? body.headline : undefined,
+        note: typeof body.note === 'string' ? body.note : undefined,
+        tool: typeof body.tool === 'string' ? body.tool : undefined,
+        timestamp: typeof body.timestamp === 'number' ? body.timestamp : Date.now(),
+      },
+      metadata: createServerEventMetadata(instanceId),
+    }
+
+    broadcastToAuthenticated(assistantEvent)
+
+    return {
+      ok: true,
+      handled: true,
+      state: body.state,
+    }
+  }))
 
   app.get('/ws', defineWebSocketHandler({
     open: (peer) => {

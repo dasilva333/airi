@@ -5,9 +5,10 @@ import { useSpine } from '@proj-airi/stage-ui-spine'
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { useBroadcastChannel } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed, getCurrentInstance, onUnmounted, ref } from 'vue'
+import { computed, getCurrentInstance, onUnmounted, ref, watch } from 'vue'
 
 import { useEventLogStore } from '../event-log'
+import { useModsServerChannelStore } from '../mods/api/channel-server'
 import { useSettings } from '../settings'
 import { useAiriCardStore } from './airi-card'
 
@@ -608,6 +609,31 @@ export const useCodeAssistantStore = defineStore('code-assistant', () => {
     triggerMotion('Breathing')
   }
 
+  // Inbound BroadcastChannel listener (window-to-window or testing relay)
+  const { data: inboundBroadcastData } = useBroadcastChannel<CodeAssistantStatePayload, CodeAssistantStatePayload>({
+    name: 'airi:code-assistant:state',
+  })
+
+  watch(inboundBroadcastData, (data) => {
+    if (data && typeof data === 'object' && data.state) {
+      handleAssistantState(data)
+    }
+  })
+
+  // WebSocket Server Channel Listener
+  let removeWsListener: (() => void) | null = null
+  try {
+    const modsServerChannelStore = useModsServerChannelStore()
+    removeWsListener = modsServerChannelStore.onEvent('assistant:state', (event) => {
+      if (event?.data) {
+        handleAssistantState(event.data)
+      }
+    })
+  }
+  catch (err) {
+    console.debug('[CodeAssistant] Server channel store not available at store init:', err)
+  }
+
   // Start periodic watchdog
   if (typeof window !== 'undefined') {
     watchdogInterval = setInterval(sweepStaleSessions, 10000)
@@ -615,6 +641,7 @@ export const useCodeAssistantStore = defineStore('code-assistant', () => {
 
   if (getCurrentInstance()) {
     onUnmounted(() => {
+      removeWsListener?.()
       if (watchdogInterval) {
         clearInterval(watchdogInterval)
         watchdogInterval = null

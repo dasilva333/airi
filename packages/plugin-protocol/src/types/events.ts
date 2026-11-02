@@ -782,6 +782,16 @@ interface SparkNotifyEvent {
   metadata?: Record<string, unknown>
 }
 
+export interface AssistantStateEvent {
+  state: 'work' | 'wait' | 'done' | 'idle' | 'error'
+  sessionId?: string
+  assistant?: string
+  headline?: string
+  note?: string
+  tool?: string
+  timestamp?: number
+}
+
 interface SparkEmitEvent {
   id: string
   eventId?: string
@@ -898,6 +908,7 @@ export const outputGenAiChatComplete = defineEventa<OutputGenAiChatCompleteEvent
 export const sparkNotify = defineEventa<SparkNotifyEvent>('spark:notify')
 export const sparkEmit = defineEventa<SparkEmitEvent>('spark:emit')
 export const sparkCommand = defineEventa<SparkCommandEvent>('spark:command')
+export const assistantState = defineEventa<AssistantStateEvent>('assistant:state')
 
 export const transportConnectionHeartbeat = defineEventa<TransportConnectionHeartbeatEvent>('transport:connection:heartbeat')
 export const contextUpdate = defineEventa<ContextUpdateEvent>('context:update')
@@ -1088,6 +1099,11 @@ export interface ProtocolEvents<C = undefined> {
    * - Contextual hints: intent=context with contextPatch ideas/hints.
    */
   'spark:command': SparkCommandEvent
+
+  /**
+   * Code assistant lifecycle state notification.
+   */
+  'assistant:state': AssistantStateEvent
 
   'transport:connection:heartbeat': TransportConnectionHeartbeatEvent
 
