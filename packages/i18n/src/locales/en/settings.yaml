@@ -712,8 +712,12 @@ pages:
         batched candidate reranking, and affective heuristics
     idol_3dgs:
       title: 3D Gaussian Splats (IDOL)
-      description: Synthesize, preview, and interact with 3D Gaussian Splat desk figurines
-        from images
+      description: Synthesize, preview, and interact with 3D Gaussian Splat desk
+        figurines from images
+    code-assistant:
+      title: Code Assistant Notifications
+      description: Let your companion react when your coding assistant is working, needs
+        you, or finishes
   providers:
     explained:
       chat: Text generation model providers. e.g. OpenRouter, OpenAI, Ollama.

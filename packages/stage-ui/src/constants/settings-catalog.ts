@@ -460,6 +460,21 @@ export const SETTINGS_CATALOG_ITEMS: CatalogNodeItem[] = [
     parentId: 'area-modules',
     kind: 'page',
   },
+  {
+    id: 'mod-code-assistant',
+    label: 'Code Assistant Notifications',
+    shortLabel: 'Code Assistant',
+    titleKey: 'settings.pages.modules.code-assistant.title',
+    descriptionKey: 'settings.pages.modules.code-assistant.description',
+    description: 'Let your companion react when your coding assistant is working, needs you, or finishes',
+    glyph: '碼',
+    clusterGroup: 'BRIDGES & SYNC 網',
+    route: '/settings/modules/code-assistant',
+    icon: 'i-solar:code-square-bold-duotone',
+    order: 9.5,
+    parentId: 'area-modules',
+    kind: 'page',
+  },
 
   // Cluster: PLATFORMS & MESSAGING 交
   {
