@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useDataMaintenance } from '@proj-airi/stage-ui/composables/use-data-maintenance'
+import { useBackupStore } from '@proj-airi/stage-ui/stores/backup'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useCloudflareStore } from '@proj-airi/stage-ui/stores/modules/cloudflare'
 import { useSyncEngineStore } from '@proj-airi/stage-ui/stores/sync-engine'
@@ -46,6 +47,33 @@ const {
 const syncEngineStore = useSyncEngineStore()
 const cloudflareStore = useCloudflareStore()
 const airiCardStore = useAiriCardStore()
+const backupStore = useBackupStore()
+
+const isCreatingSnapshot = ref(false)
+const formattedLastSnapshotTime = computed(() => {
+  if (!backupStore.lastBackupTime)
+    return 'Never'
+  return new Date(backupStore.lastBackupTime).toLocaleString()
+})
+
+async function handleTriggerSnapshot() {
+  isCreatingSnapshot.value = true
+  try {
+    const res = await backupStore.triggerBackup()
+    if (res) {
+      setStatus(`Snapshot created successfully at ${res}!`, 'success')
+    }
+    else {
+      setStatus('Failed to create snapshot.', 'error')
+    }
+  }
+  catch (error) {
+    setStatus(error instanceof Error ? error.message : String(error), 'error')
+  }
+  finally {
+    isCreatingSnapshot.value = false
+  }
+}
 
 const statusMessage = ref('')
 const statusTone = ref<'neutral' | 'success' | 'error'>('neutral')
@@ -507,6 +535,113 @@ async function executeAdvancedRestore() {
           </div>
           <div class="mt-0.5 truncate text-xs text-neutral-800 font-semibold dark:text-neutral-200">
             {{ formattedLastSyncTime }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desktop Snapshot Auto-Backup Card -->
+    <div
+      v-if="isDesktop"
+      :class="[
+        'border-2 border-neutral-200/60 rounded-2xl bg-white/70 p-6 shadow-sm',
+        'dark:border-neutral-800/60 dark:bg-neutral-900/60',
+      ]"
+    >
+      <div :class="['flex flex-col items-start justify-between gap-4 md:flex-row md:items-center']">
+        <div :class="['flex items-center gap-3']">
+          <div :class="['h-10 w-10 flex items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400']">
+            <div :class="['i-solar:disk-bold-duotone size-6']" />
+          </div>
+          <div>
+            <div :class="['flex flex-wrap items-center gap-2']">
+              <span :class="['text-xl text-neutral-900 font-bold dark:text-white']">
+                Desktop Snapshot Auto-Backup
+              </span>
+              <span
+                :class="[
+                  'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border',
+                  backupStore.isBackupEnabled
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/25 dark:text-emerald-400 border-emerald-500/30'
+                    : 'bg-neutral-500/15 text-neutral-600 dark:bg-neutral-500/25 dark:text-neutral-400 border-neutral-500/30',
+                ]"
+              >
+                <span :class="['h-1.5 w-1.5 rounded-full', backupStore.isBackupEnabled ? 'bg-emerald-500' : 'bg-neutral-400']" />
+                {{ backupStore.isBackupEnabled ? 'Active (Every 24h)' : 'Disabled' }}
+              </span>
+            </div>
+            <p :class="['mt-0.5 text-sm text-neutral-600 dark:text-neutral-400']">
+              Periodic full JSON snapshot archive of chats, character cards, memories, and app state saved directly to local or network storage.
+            </p>
+          </div>
+        </div>
+
+        <div :class="['flex flex-wrap items-center gap-2.5']">
+          <Button
+            :variant="backupStore.isBackupEnabled ? 'primary' : 'secondary'"
+            size="sm"
+            @click="backupStore.isBackupEnabled = !backupStore.isBackupEnabled"
+          >
+            {{ backupStore.isBackupEnabled ? 'Auto-Backup Enabled' : 'Enable Auto-Backup' }}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            :disabled="isCreatingSnapshot"
+            :class="['flex items-center gap-1.5']"
+            @click="handleTriggerSnapshot"
+          >
+            <div :class="['i-solar:folder-with-files-bold size-4', isCreatingSnapshot ? 'animate-spin' : '']" />
+            <span>{{ isCreatingSnapshot ? 'Saving...' : 'Snapshot Now' }}</span>
+          </Button>
+        </div>
+      </div>
+
+      <!-- Backup Destination Path Input -->
+      <div :class="['mt-4 border-t border-neutral-200/60 pt-4 dark:border-neutral-800/60']">
+        <label :class="['block text-xs text-neutral-500 font-medium dark:text-neutral-400 mb-1.5']">
+          Backup Destination Directory
+        </label>
+        <div :class="['flex items-center gap-2']">
+          <input
+            v-model="backupStore.backupPath"
+            type="text"
+            placeholder="~/Documents/AIRI-Backups (Default)"
+            :class="[
+              'w-full border border-neutral-300 rounded-lg bg-white px-3 py-1.5 text-sm text-neutral-800 outline-none',
+              'focus:border-primary-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200',
+            ]"
+          >
+          <Button
+            v-if="backupStore.backupPath"
+            variant="ghost"
+            size="sm"
+            @click="backupStore.backupPath = ''"
+          >
+            Reset
+          </Button>
+        </div>
+        <p :class="['mt-1 text-xs text-neutral-400 dark:text-neutral-500']">
+          Leave blank to use the default OS documents path (<code>~/Documents/AIRI-Backups</code>), or enter an absolute path to a local folder or mounted share (e.g. <code>/Volumes/AIRI-Backup-Share/airi-backups</code>).
+        </p>
+      </div>
+
+      <!-- Status Metadata Strip -->
+      <div :class="['grid grid-cols-1 mt-4 gap-3 sm:grid-cols-2']">
+        <div :class="['rounded-lg bg-neutral-100/70 p-2.5 dark:bg-neutral-800/50']">
+          <div :class="['text-[11px] text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400']">
+            Current Save Destination
+          </div>
+          <div :class="['mt-0.5 truncate text-xs text-neutral-800 font-semibold dark:text-neutral-200']">
+            {{ backupStore.backupPath || '~/Documents/AIRI-Backups (Default)' }}
+          </div>
+        </div>
+        <div :class="['rounded-lg bg-neutral-100/70 p-2.5 dark:bg-neutral-800/50']">
+          <div :class="['text-[11px] text-neutral-500 font-medium tracking-wider uppercase dark:text-neutral-400']">
+            Last Local Snapshot
+          </div>
+          <div :class="['mt-0.5 truncate text-xs text-neutral-800 font-semibold dark:text-neutral-200']">
+            {{ formattedLastSnapshotTime }}
           </div>
         </div>
       </div>
