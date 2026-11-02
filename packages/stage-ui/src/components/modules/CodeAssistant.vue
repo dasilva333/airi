@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { CodeAssistantState } from '../../stores/modules/code-assistant'
 
+import { useLive2d } from '@proj-airi/stage-ui-live2d'
+import { useMmd } from '@proj-airi/stage-ui-mmd'
+import { useSpine } from '@proj-airi/stage-ui-spine'
+import { useCustomVrmAnimationsStore } from '@proj-airi/stage-ui-three'
 import { Button, Select } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
@@ -8,19 +12,24 @@ import { toast } from 'vue-sonner'
 
 import CharacterAvatar from '../misc/CharacterAvatar.vue'
 
-import { useDisplayModelsStore } from '../../stores/display-models'
+import { DisplayModelFormat, useDisplayModelsStore } from '../../stores/display-models'
 import { useModsServerChannelStore } from '../../stores/mods/api/channel-server'
 import { useAiriCardStore } from '../../stores/modules/airi-card'
 import {
-
   resolveCaptionText,
   useCodeAssistantStore,
 } from '../../stores/modules/code-assistant'
+import { useSettings } from '../../stores/settings'
 
 const store = useCodeAssistantStore()
 const airiCardStore = useAiriCardStore()
 const displayModelsStore = useDisplayModelsStore()
 const serverChannelStore = useModsServerChannelStore()
+const settingsStore = useSettings()
+const live2dStore = useLive2d()
+const mmdStore = useMmd()
+const spineStore = useSpine()
+const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 
 const { cards, activeCardId } = storeToRefs(airiCardStore)
 const { enabled, captionSurface, idleTimeoutSeconds, recordEventLedger, statusInfo } = storeToRefs(store)
@@ -48,10 +57,38 @@ const selectedCharacter = computed(() => {
   return cards.value.get(selectedCharacterId.value)
 })
 
-const selectedDisplayModelId = computed(() => {
-  if (!selectedCharacterId.value)
-    return undefined
-  return airiCardStore.getCardDisplayModelId(selectedCharacterId.value)
+const resolvedDisplayModelId = computed(() => {
+  if (selectedCharacterId.value) {
+    const card = cards.value.get(selectedCharacterId.value)
+    const cardModelId = card?.extensions?.airi?.active_state?.displayModelId
+      || card?.extensions?.airi?.modules?.displayModelId
+      || airiCardStore.getCardDisplayModelId(selectedCharacterId.value)
+    if (cardModelId)
+      return cardModelId
+  }
+  return settingsStore.stageModelSelected || ''
+})
+
+const currentModel = computed(() => {
+  return displayModelsStore.displayModels.find(m => m.id === resolvedDisplayModelId.value)
+})
+
+const modelType = computed<'live2d' | 'vrm' | 'mmd' | 'spine' | 'unknown'>(() => {
+  if (currentModel.value) {
+    const fmt = currentModel.value.format
+    if (fmt === DisplayModelFormat.Live2dZip || fmt === DisplayModelFormat.Live2dDirectory)
+      return 'live2d'
+    if (fmt === DisplayModelFormat.VRM)
+      return 'vrm'
+    if (fmt === DisplayModelFormat.PMXZip || fmt === DisplayModelFormat.PMXDirectory || fmt === DisplayModelFormat.PMD)
+      return 'mmd'
+    if (fmt === DisplayModelFormat.SpineZip)
+      return 'spine'
+  }
+  const renderer = settingsStore.stageModelRenderer
+  if (renderer === 'live2d' || renderer === 'vrm' || renderer === 'mmd' || renderer === 'spine')
+    return renderer
+  return 'unknown'
 })
 
 // When character dropdown changes, switch active on-stage character as agreed
@@ -100,17 +137,32 @@ function toggleAccordion(state: CodeAssistantState) {
 
 // Capabilities from active display model
 const modelCapabilities = ref<{
-  expressionCapabilities: { rawKey: string, label: string }[]
-  motionCapabilities: { rawKey: string, label: string }[]
+  expressionCapabilities: { rawKey: string, label: string, usable?: boolean }[]
+  motionCapabilities: { rawKey: string, label: string, usable?: boolean }[]
 }>({ expressionCapabilities: [], motionCapabilities: [] })
 
-watch(selectedDisplayModelId, async (displayModelId) => {
+const capabilitiesLoading = ref(false)
+
+watch(resolvedDisplayModelId, async (displayModelId) => {
+  if (displayModelsStore.displayModels.length === 0) {
+    await displayModelsStore.loadDisplayModelsFromIndexedDB()
+  }
+
   if (displayModelId) {
+    capabilitiesLoading.value = true
     try {
-      modelCapabilities.value = await displayModelsStore.getOrLoadModelCapabilities(displayModelId)
+      const caps = await displayModelsStore.getOrLoadModelCapabilities(displayModelId)
+      modelCapabilities.value = {
+        expressionCapabilities: caps.expressionCapabilities || [],
+        motionCapabilities: caps.motionCapabilities || [],
+      }
     }
-    catch {
+    catch (err) {
+      console.warn('[CodeAssistant] Failed to load model capabilities:', err)
       modelCapabilities.value = { expressionCapabilities: [], motionCapabilities: [] }
+    }
+    finally {
+      capabilitiesLoading.value = false
     }
   }
   else {
@@ -118,21 +170,131 @@ watch(selectedDisplayModelId, async (displayModelId) => {
   }
 }, { immediate: true })
 
-const expressionOptions = computed(() => [
-  { label: 'None', value: '' },
-  ...modelCapabilities.value.expressionCapabilities.map(e => ({
-    label: e.label || e.rawKey,
-    value: e.rawKey,
-  })),
-])
+const expressionOptions = computed(() => {
+  const options: { label: string, value: string }[] = [{ label: 'None', value: 'None' }]
+  const seen = new Set<string>(['None', 'none', ''])
 
-const motionOptions = computed(() => [
-  { label: 'None', value: '' },
-  ...modelCapabilities.value.motionCapabilities.map(m => ({
-    label: m.label || m.rawKey,
-    value: m.rawKey,
-  })),
-])
+  // Filter for usable expressions (Tier 1 noise-gated expressions)
+  const usableItems = modelCapabilities.value.expressionCapabilities.filter(e => e.usable !== false)
+  const itemsToUse = usableItems.length > 0
+    ? usableItems
+    : modelCapabilities.value.expressionCapabilities
+
+  for (const item of itemsToUse) {
+    if (item.rawKey && !seen.has(item.rawKey)) {
+      seen.add(item.rawKey)
+      options.push({
+        label: item.label || item.rawKey,
+        value: item.rawKey,
+      })
+    }
+  }
+
+  // Preserve configured reaction expressions so they are always selectable and display properly
+  const reactions = currentConfig.value?.reactions
+  if (reactions) {
+    for (const reaction of Object.values(reactions)) {
+      if (reaction.expression && !seen.has(reaction.expression)) {
+        seen.add(reaction.expression)
+        options.push({
+          label: reaction.expression,
+          value: reaction.expression,
+        })
+      }
+    }
+  }
+
+  return options
+})
+
+const motionOptions = computed(() => {
+  const options: { label: string, value: string }[] = [{ label: 'None', value: 'None' }]
+  const seen = new Set<string>(['None', 'none', ''])
+  const mType = modelType.value
+
+  // 1. VRM: pull from customVrmAnimationsStore.animationOptions
+  if (mType === 'vrm' || mType === 'unknown') {
+    for (const opt of customVrmAnimationsStore.animationOptions) {
+      if (opt.value && !seen.has(opt.value)) {
+        seen.add(opt.value)
+        options.push({
+          label: opt.label || opt.value,
+          value: opt.value,
+        })
+      }
+    }
+  }
+
+  // 2. Live2D: pull from live2dStore.availableMotions
+  if (mType === 'live2d' || mType === 'unknown') {
+    for (const m of (live2dStore.availableMotions || [])) {
+      const val = m.fileName || m.motionName
+      if (val && !seen.has(val)) {
+        seen.add(val)
+        options.push({
+          label: m.motionName || m.fileName || val,
+          value: val,
+        })
+      }
+    }
+  }
+
+  // 3. MMD: pull from mmdStore.availableMotions and customMotions
+  if (mType === 'mmd' || mType === 'unknown') {
+    const mmdList = [...(mmdStore.availableMotions || []), ...(mmdStore.customMotions || [])]
+    for (const m of mmdList) {
+      const val = typeof m === 'string' ? m : (m as any).fileName || (m as any).key || ''
+      if (val && !seen.has(val)) {
+        seen.add(val)
+        options.push({
+          label: (m as any).displayName || val,
+          value: val,
+        })
+      }
+    }
+  }
+
+  // 4. Spine: pull from spineStore.availableAnimations
+  if (mType === 'spine' || mType === 'unknown') {
+    for (const anim of (spineStore.availableAnimations || [])) {
+      const name = typeof anim === 'string' ? anim : anim?.name
+      if (name && !seen.has(name)) {
+        seen.add(name)
+        options.push({
+          label: name,
+          value: name,
+        })
+      }
+    }
+  }
+
+  // 5. Model capability motions (parsed from model file / zip references)
+  for (const item of modelCapabilities.value.motionCapabilities) {
+    if (item.rawKey && !seen.has(item.rawKey)) {
+      seen.add(item.rawKey)
+      options.push({
+        label: item.label || item.rawKey,
+        value: item.rawKey,
+      })
+    }
+  }
+
+  // Preserve configured reaction motions so they are always selectable and display properly
+  const reactions = currentConfig.value?.reactions
+  if (reactions) {
+    for (const reaction of Object.values(reactions)) {
+      if (reaction.motion && !seen.has(reaction.motion)) {
+        seen.add(reaction.motion)
+        options.push({
+          label: reaction.motion,
+          value: reaction.motion,
+        })
+      }
+    }
+  }
+
+  return options
+})
 
 const soundOptions = [
   { label: 'None', value: 'None' },
@@ -475,7 +637,7 @@ const antigravityJsonConfig = computed(() => {
             v-if="selectedCharacter"
             :card-id="selectedCharacterId"
             :name="selectedCharacter.name || selectedCharacterId"
-            :display-model-id="selectedDisplayModelId"
+            :display-model-id="resolvedDisplayModelId"
             shape="circle"
             size-class="h-10 w-10"
           />
@@ -592,7 +754,7 @@ const antigravityJsonConfig = computed(() => {
           <div class="w-full flex flex-col divide-y divide-neutral-200/60 dark:divide-neutral-800/60">
             <!-- Table Header -->
             <div class="grid grid-cols-12 gap-2 pb-2 text-[11px] text-neutral-400 font-bold tracking-wider uppercase">
-              <div class="col-span-3">
+              <div class="col-span-2">
                 State
               </div>
               <div class="col-span-3">
@@ -601,7 +763,7 @@ const antigravityJsonConfig = computed(() => {
               <div class="col-span-3">
                 Motion
               </div>
-              <div class="col-span-1">
+              <div class="col-span-2">
                 Sound
               </div>
               <div class="col-span-1 text-center">
@@ -621,7 +783,7 @@ const antigravityJsonConfig = computed(() => {
             >
               <div class="grid grid-cols-12 items-center gap-2">
                 <!-- State Dot + Label -->
-                <div class="col-span-3 flex cursor-pointer select-none items-center gap-2" @click="toggleAccordion(row.key)">
+                <div class="col-span-2 flex cursor-pointer select-none items-center gap-2" @click="toggleAccordion(row.key)">
                   <div class="h-2.5 w-2.5 shrink-0 rounded-full" :class="row.dotClass" />
                   <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">{{ row.label }}</span>
                   <div
@@ -649,7 +811,7 @@ const antigravityJsonConfig = computed(() => {
                 </div>
 
                 <!-- Sound Dropdown -->
-                <div class="col-span-1">
+                <div class="col-span-2">
                   <Select
                     v-model="currentConfig.reactions[row.key].sound"
                     :options="soundOptions"
@@ -768,7 +930,7 @@ const antigravityJsonConfig = computed(() => {
                 v-if="selectedCharacter"
                 :card-id="selectedCharacterId"
                 :name="selectedCharacter.name || selectedCharacterId"
-                :display-model-id="selectedDisplayModelId"
+                :display-model-id="resolvedDisplayModelId"
                 shape="circle"
                 size-class="h-24 w-24"
               />

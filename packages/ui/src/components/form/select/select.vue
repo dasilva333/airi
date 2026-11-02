@@ -9,6 +9,7 @@ const props = defineProps<{
   disabled?: boolean
   title?: string
   layout?: 'horizontal' | 'vertical'
+  ignoreFilter?: boolean
 }>()
 
 const show = ref(false)
@@ -32,6 +33,7 @@ provide('hide', handleHide)
     :default-value="modelValue"
     :placeholder="props.placeholder"
     :disabled="props.disabled"
+    :ignore-filter="props.ignoreFilter ?? true"
     :options="[{ groupLabel: '', children: props.options }]"
   />
 </template>

@@ -271,7 +271,7 @@ export const useCodeAssistantStore = defineStore('code-assistant', () => {
 
   // Expression & Motion Actuation across all 4 avatar engines
   function triggerExpression(emotion?: string) {
-    if (!emotion)
+    if (!emotion || emotion === 'None' || emotion === 'none')
       return
     const renderer = settingsStore.stageModelRenderer
     try {
@@ -303,7 +303,7 @@ export const useCodeAssistantStore = defineStore('code-assistant', () => {
   }
 
   function triggerMotion(motion?: string) {
-    if (!motion)
+    if (!motion || motion === 'None' || motion === 'none')
       return
     const renderer = settingsStore.stageModelRenderer
     try {

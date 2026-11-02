@@ -22,8 +22,10 @@ const props = withDefaults(defineProps<{
   placeholder?: string
   openOnClick?: boolean
   disabled?: boolean
+  ignoreFilter?: boolean
 }>(), {
   openOnClick: true,
+  ignoreFilter: true,
 })
 
 const modelValue = defineModel<T>({ required: false })
@@ -95,6 +97,7 @@ function handleChangeOrBlur(event: Event) {
   <ComboboxRoot
     v-model="modelValue"
     :open-on-click="props.openOnClick"
+    :ignore-filter="props.ignoreFilter"
     :disabled="props.disabled"
     :class="['relative', 'w-full', 'h-fit']"
   >
@@ -182,8 +185,8 @@ function handleChangeOrBlur(event: Event) {
               </ComboboxLabel>
 
               <ComboboxItem
-                v-for="option in group.children"
-                :key="option.label"
+                v-for="option in (group.children?.filter(c => c && c.value !== '') || [])"
+                :key="`${group.groupLabel}-${option.value}-${option.label}`"
                 :text-value="option.label"
                 :value="option.value"
                 :class="[
