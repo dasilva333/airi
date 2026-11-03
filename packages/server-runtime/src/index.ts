@@ -322,6 +322,8 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
       return corsRes
     }
     if (!verifyAuthToken(event)) {
+      console.warn('[H3 Assistant API] 401 Unauthorized on POST /api/assistant/state - missing or invalid Bearer token')
+      appLogger.warn('401 Unauthorized: Invalid or missing authentication token on /api/assistant/state')
       throw createError({
         statusCode: 401,
         statusMessage: 'Unauthorized',
@@ -331,6 +333,7 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
 
     const rawBody = await readBody(event).catch(() => null)
     if (!rawBody || typeof rawBody !== 'object') {
+      console.warn('[H3 Assistant API] 400 Bad Request: Body is not a valid JSON object')
       throw createError({
         statusCode: 400,
         statusMessage: 'Bad Request',
@@ -341,6 +344,7 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
     const body = rawBody as Record<string, unknown>
     const validStates = ['work', 'wait', 'done', 'idle', 'error']
     if (!body.state || typeof body.state !== 'string' || !validStates.includes(body.state)) {
+      console.warn(`[H3 Assistant API] 400 Bad Request: Invalid state "${body.state}"`)
       throw createError({
         statusCode: 400,
         statusMessage: 'Bad Request',
@@ -348,12 +352,15 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
       })
     }
 
+    const assistantName = typeof body.assistant === 'string' ? body.assistant : (typeof body.source === 'string' ? body.source : 'assistant')
+    console.info(`[H3 Assistant API] ✅ State received: state="${body.state}" assistant="${assistantName}" headline="${body.headline || 'none'}"`)
+
     const assistantEvent: WebSocketEvent = {
       type: 'assistant:state',
       data: {
         state: body.state as 'work' | 'wait' | 'done' | 'idle' | 'error',
         sessionId: typeof body.sessionId === 'string' ? body.sessionId : 'default',
-        assistant: typeof body.assistant === 'string' ? body.assistant : (typeof body.source === 'string' ? body.source : 'assistant'),
+        assistant: assistantName,
         headline: typeof body.headline === 'string' ? body.headline : undefined,
         note: typeof body.note === 'string' ? body.note : undefined,
         tool: typeof body.tool === 'string' ? body.tool : undefined,
@@ -363,6 +370,7 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
     }
 
     broadcastToAuthenticated(assistantEvent)
+    console.info(`[H3 Assistant API] 📡 Broadcasted assistant:state="${body.state}" to authenticated peers`)
 
     return {
       ok: true,

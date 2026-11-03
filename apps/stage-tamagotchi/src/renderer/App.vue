@@ -19,6 +19,7 @@ import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-jour
 import { useModsServerChannelStore } from '@proj-airi/stage-ui/stores/mods/api/channel-server'
 import { useContextBridgeStore } from '@proj-airi/stage-ui/stores/mods/api/context-bridge'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useCodeAssistantStore } from '@proj-airi/stage-ui/stores/modules/code-assistant'
 import { useDiscordStore } from '@proj-airi/stage-ui/stores/modules/discord'
 import { useScreenWatcherStore } from '@proj-airi/stage-ui/stores/modules/screen-watcher'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
@@ -100,6 +101,7 @@ usePerfTracerBridgeStore()
 const proactivityStore = useProactivityStore()
 const providersStore = useProvidersStore()
 const screenWatcherStore = useScreenWatcherStore()
+const codeAssistantStore = useCodeAssistantStore()
 const stageWindowLifecycleStore = useStageWindowLifecycleStore()
 void stageWindowLifecycleStore.initializeWindowLifecycleBridge()
 

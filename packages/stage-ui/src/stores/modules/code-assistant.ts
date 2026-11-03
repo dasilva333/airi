@@ -417,19 +417,24 @@ export const useCodeAssistantStore = defineStore('code-assistant', () => {
 
   // Ingestion handler for inbound agent events (REST or WebSocket)
   function handleAssistantState(payload: CodeAssistantStatePayload) {
+    console.info('[CodeAssistant] 📥 Inbound assistant state event received:', payload)
     const sessionId = payload.sessionId || 'default'
     const now = payload.timestamp || Date.now()
 
     // 1. Check master switch
     if (!enabled.value) {
+      console.warn('[CodeAssistant] Event ignored: Code Assistant Notifications master switch is disabled.')
       return { handled: false, reason: 'disabled' }
     }
 
     // 2. Check active on-stage character configuration
     const activeCfg = activeCharacterConfig.value
     if (!activeCfg || !activeCfg.enabled) {
+      console.warn(`[CodeAssistant] Event ignored: Active character "${activeCharacterName.value}" (${activeCharacterId.value}) has notifications disabled or unconfigured.`)
       return { handled: false, reason: 'character_unconfigured' }
     }
+
+    console.info(`[CodeAssistant] 🎭 Actuating state "${payload.state}" for "${activeCharacterName.value}"`)
 
     // 3. Update session record
     const existingIndex = activeSessions.value.findIndex(s => s.sessionId === sessionId)
@@ -621,11 +626,12 @@ export const useCodeAssistantStore = defineStore('code-assistant', () => {
     }
   })
 
-  // WebSocket Server Channel Listener
+  // WebSocket Server Channel Listener (Persistent across stage & settings views)
   let removeWsListener: (() => void) | null = null
   try {
     const modsServerChannelStore = useModsServerChannelStore()
     removeWsListener = modsServerChannelStore.onEvent('assistant:state', (event) => {
+      console.info('[CodeAssistant] 📡 Received assistant:state from modsServerChannelStore:', event)
       if (event?.data) {
         handleAssistantState(event.data)
       }
@@ -640,13 +646,22 @@ export const useCodeAssistantStore = defineStore('code-assistant', () => {
     watchdogInterval = setInterval(sweepStaleSessions, 10000)
   }
 
+  function dispose() {
+    if (removeWsListener) {
+      removeWsListener()
+      removeWsListener = null
+    }
+    if (watchdogInterval) {
+      clearInterval(watchdogInterval)
+      watchdogInterval = null
+    }
+    stopPreview()
+  }
+
   if (getCurrentInstance()) {
     onUnmounted(() => {
-      removeWsListener?.()
-      if (watchdogInterval) {
-        clearInterval(watchdogInterval)
-        watchdogInterval = null
-      }
+      // NOTICE: Do not tear down removeWsListener or watchdog here; the store is a singleton
+      // and must remain listening on Stage after Settings is closed.
       if (previewTimer.value) {
         clearTimeout(previewTimer.value)
         previewTimer.value = null
@@ -688,6 +703,7 @@ export const useCodeAssistantStore = defineStore('code-assistant', () => {
     testReaction,
     testLifecycle,
     stopPreview,
+    dispose,
 
     // Direct Primitives
     playSoundCue,

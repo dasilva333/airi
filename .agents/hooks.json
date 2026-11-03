@@ -4,7 +4,7 @@
     "PreInvocation": [
       {
         "type": "command",
-        "command": "curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H \"Content-Type: application/json\" -d '{\"source\":\"antigravity\",\"state\":\"work\",\"headline\":\"Antigravity is thinking...\"}' >/dev/null 2>&1 &"
+        "command": "bash \"${HOME}/Projects.nosync/airi/airi_dasilva333/.agents/hooks/airi-hook.sh\" PreInvocation work \"Antigravity is thinking...\""
       }
     ],
     "PreToolUse": [
@@ -13,7 +13,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H \"Content-Type: application/json\" -d '{\"source\":\"antigravity\",\"state\":\"wait\",\"headline\":\"Tool approval requested\"}' >/dev/null 2>&1 &"
+            "command": "bash \"${HOME}/Projects.nosync/airi/airi_dasilva333/.agents/hooks/airi-hook.sh\" PreToolUse wait \"Tool approval requested\""
           }
         ]
       }
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H \"Content-Type: application/json\" -d '{\"source\":\"antigravity\",\"state\":\"work\",\"headline\":\"Executing tool...\"}' >/dev/null 2>&1 &"
+            "command": "bash \"${HOME}/Projects.nosync/airi/airi_dasilva333/.agents/hooks/airi-hook.sh\" PostToolUse work \"Executing tool...\""
           }
         ]
       }
@@ -32,7 +32,7 @@
     "Stop": [
       {
         "type": "command",
-        "command": "curl -s -X POST http://127.0.0.1:6121/api/assistant/state -H \"Content-Type: application/json\" -d '{\"source\":\"antigravity\",\"state\":\"done\",\"headline\":\"Task finished\"}' >/dev/null 2>&1 &"
+        "command": "bash \"${HOME}/Projects.nosync/airi/airi_dasilva333/.agents/hooks/airi-hook.sh\" Stop done \"Task finished\""
       }
     ]
   }

@@ -11,6 +11,7 @@ import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import CharacterAvatar from '../misc/CharacterAvatar.vue'
+import RendererStage from '../scenes/RendererStage.vue'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../../stores/display-models'
 import { useModsServerChannelStore } from '../../stores/mods/api/channel-server'
@@ -362,6 +363,53 @@ function handleStartLifecycle() {
 function handleStopPreview() {
   store.stopPreview()
 }
+
+// Live RendererStage preview viewport state
+const stageModelReady = ref(false)
+const isLoadingModel = ref(false)
+const stageState = ref<'pending' | 'loading' | 'mounted'>('pending')
+const previewXOffset = ref(0)
+const previewYOffset = ref(0)
+const previewScale = ref(0.7)
+
+function resetPreviewPosition() {
+  previewXOffset.value = 0
+  previewYOffset.value = 0
+  previewScale.value = 0.7
+}
+
+async function ensureStageModelLoaded() {
+  isLoadingModel.value = true
+  try {
+    const targetModelId = resolvedDisplayModelId.value
+    if (targetModelId) {
+      if (settingsStore.stageModelSelected !== targetModelId || !settingsStore.stageModelSelectedUrl) {
+        settingsStore.stageModelSelected = targetModelId
+        await settingsStore.updateStageModel('code-assistant-preview')
+      }
+    }
+    stageModelReady.value = true
+  }
+  catch (err) {
+    console.warn('[CodeAssistant] ensureStageModelLoaded encountered error:', err)
+  }
+  finally {
+    isLoadingModel.value = false
+  }
+}
+
+watch(resolvedDisplayModelId, async (newModelId) => {
+  if (newModelId) {
+    await ensureStageModelLoaded()
+  }
+}, { immediate: true })
+
+const isLiveCanvas = computed(() => {
+  return stageModelReady.value
+    && Boolean(settingsStore.stageModelRenderer)
+    && settingsStore.stageModelRenderer !== 'disabled'
+    && Boolean(settingsStore.stageModelSelectedUrl)
+})
 
 // Overflow menu state (Copy, Reset)
 const showActionsMenu = ref(false)
@@ -913,19 +961,43 @@ const antigravityJsonConfig = computed(() => {
           </div>
 
           <!-- Preview Canvas Viewport -->
-          <div class="relative min-h-[200px] flex flex-col items-center justify-center overflow-hidden border border-neutral-800 rounded-2xl bg-neutral-950 p-5">
-            <!-- Simulated Head-Tethered Comic Bubble -->
-            <div
-              v-if="previewCaptionText"
-              class="relative mb-3 max-w-[240px] animate-fade-in border border-neutral-700 rounded-2xl bg-neutral-900/90 px-3.5 py-2 text-center text-xs text-white font-medium shadow-xl backdrop-blur-md"
-            >
-              <span>{{ previewCaptionText }}</span>
-              <!-- Comic bubble pointer triangle -->
-              <div class="absolute left-1/2 h-0 w-0 border-x-6 border-t-6 border-x-transparent border-t-neutral-900/90 -bottom-2 -translate-x-1/2" />
-            </div>
+          <div class="relative h-72 min-h-[260px] flex flex-col items-center justify-center overflow-hidden border border-neutral-200/80 rounded-2xl bg-neutral-950 p-2 dark:border-neutral-800">
+            <!-- Ambient Glow -->
+            <div class="pointer-events-none absolute z-0 h-36 w-36 rounded-full bg-primary-500/15 blur-2xl" />
 
-            <!-- Stylized Avatar Render -->
-            <div class="relative mt-2">
+            <!-- Live RendererStage Canvas -->
+            <RendererStage
+              v-if="isLiveCanvas"
+              v-model:state="stageState"
+              :focus-at="{ x: 0, y: 0 }"
+              :paused="false"
+              :show-background="false"
+              :radial-menu-enabled="false"
+              :draggable="true"
+              :x-offset="previewXOffset"
+              :y-offset="previewYOffset"
+              :scale="previewScale"
+              class="absolute inset-0 z-0 h-full w-full"
+              @offset-change="({ x, y }) => { previewXOffset = x; previewYOffset = y }"
+              @scale-change="(s) => previewScale = s"
+            />
+
+            <!-- Reset Framing Button -->
+            <button
+              v-if="isLiveCanvas && (previewXOffset !== 0 || previewYOffset !== 0 || previewScale !== 0.7)"
+              type="button"
+              class="absolute right-3 top-3 z-20 h-6 w-6 flex items-center justify-center rounded-lg bg-neutral-800/80 text-neutral-400 backdrop-blur-sm transition-colors hover:text-white"
+              title="Reset position"
+              @click="resetPreviewPosition"
+            >
+              <div class="i-solar:restart-bold text-xs" />
+            </button>
+
+            <!-- Fallback Static Asset Preview while loading / unmounted -->
+            <div
+              v-else
+              class="relative z-0 flex flex-col select-none items-center justify-center text-neutral-400"
+            >
               <CharacterAvatar
                 v-if="selectedCharacter"
                 :card-id="selectedCharacterId"
@@ -934,9 +1006,20 @@ const antigravityJsonConfig = computed(() => {
                 shape="circle"
                 size-class="h-24 w-24"
               />
-              <div class="absolute h-6 w-6 flex items-center justify-center rounded-full bg-primary-600 text-xs text-white shadow-md -bottom-1 -right-1">
-                <div class="i-solar:sparkles-bold" />
+              <div v-if="isLoadingModel" class="mt-2 flex items-center gap-1.5 text-[10px] text-primary-400 font-medium">
+                <div class="i-solar:refresh-linear h-3 w-3 animate-spin" />
+                <span>Loading model...</span>
               </div>
+            </div>
+
+            <!-- Simulated Head-Tethered Comic Bubble (Layered on top of live model) -->
+            <div
+              v-if="previewCaptionText"
+              class="pointer-events-none absolute top-4 z-10 max-w-[240px] animate-fade-in border border-neutral-700/80 rounded-2xl bg-neutral-900/95 px-3.5 py-2 text-center text-xs text-white font-medium shadow-2xl backdrop-blur-md"
+            >
+              <span>{{ previewCaptionText }}</span>
+              <!-- Comic bubble pointer triangle -->
+              <div class="absolute left-1/2 h-0 w-0 border-x-6 border-t-6 border-x-transparent border-t-neutral-900/95 -bottom-2 -translate-x-1/2" />
             </div>
           </div>
 
