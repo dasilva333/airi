@@ -18,6 +18,170 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-03] 7n1m4 Fork Delta: `a639f80a..3c58f428` (5 commits, 63 files, 14 update(s))
+
+### 🚨 Action Required: Direct Mentions & Maintainer Inquiries
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6382505252)):
+  > "@dasilva333  — thank you for putting together such a comprehensive blueprint! Having reviewed it end-to-end, the proposed 4-layer inversion aligns perfectly with our architecture and integrates seamlessly into the components we have already deployed without any structural rework. ### Architecture Ma"
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@anlmabot** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6442783645)):
+  > "Phase 6 PR 1 landed: ported `packages/stage-shared/src/peers.ts` (+12 tests) as the Universal Friends & Peers domain substrate. Transport-agnostic, sovereign-adapted (libp2p multiaddrs, no Cloudflare relay). PR: https://github.com/dasilva333/airi/pull/30. Next: reconciler (libp2p-based same-account "
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@anlmabot** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6453934222)):
+  > "## 2026-10-28 — feat/nap-chat-substrate-unify (PR #22) Opened PR #22 unifying fork nap-chat substrate onto upstream (dasilva333/airi) design to eliminate code silos. Shipped on branch `feat/nap-chat-substrate-unify` (commit b23152b4a):"
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6473559133)):
+  > "--- ## Milestone: Fork-upstream alignment (devlog #24) We’re kicking off a focused effort to stay closely aligned with upstream (dasilva333/airi) for painless porting of features/improvements."
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6476456954)):
+  > "Progress checkpoint summary: - Ported peers vault sync (peers-reconciler + store methods) committed as b99f02811. - Restored peers tests."
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6477119522)):
+  > "Upstream contract alignment progress: ported peers vault sync, cadence delivery + libs + speech bus, dsl-snapshot, composer-draft-bridge, message-sanitizer, compaction exports, cloudflare-auth + cors-proxy-worker-script, stickers + image-convert + background-removal, sandbox libs, ming3, perf/tracer"
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6477379397)):
+  > "Typecheck clean (exit 0). All upstream contract alignment work complete. Commits: ba2d6c370 (contract alignment, 73 files), ad0e53485 (remaining typecheck fixes, 33 files). Removed dead sandbox module (no external callers). Working tree clean. Ready for next task. --- _Posted by **Beam from Anima La"
+
+### 🎯 Executive Highlights
+Sister Fork Intelligence Briefing & Architectural Alignment:
+
+• **Executive Highlights**:
+  - **In-Browser Sandbox Subsystem Shipped (PR #27, Issue #26, commit `cd6f13fd0`)**: 7n1m4 landed an extensive 51-file, +11,650 line sandbox environment (`packages/stage-ui/src/libs/sandbox/*`). Features include in-browser Bash (`just-bash`), TypeScript compilation (`sucrase`), VFS projections, MCP bridge, Jev tool routing, import/export, and interactive starter templates (Daily Checklist, Focus Timer, Glyphs Audio Works, Live2D Menu Driver, Haven Weather, Honey Notes, Strawberry Pet), coupled with DSL hit area routing in `packages/live2d-runtime`.
+  - **Pluggable Cloud Shims & Cloudflare Workers AI (PR #29, PR #32, commit `5b8ddee50`)**: Restored minimal pluggable cloud shims behind the `TransportAdapter` seam, strictly gated behind flags (`AIRI_ENABLE_CLOUD_ADAPTERS=1`, `VITE_ENABLE_CLOUD_PROVIDERS=1`). Added Cloudflare Workers AI provider (`cloudflare-workers-ai`) and edge relay transport adapter while preserving sovereign mode opt-outs.
+  - **Sovereignty Gate TDD Hardening (PR #30, commit `0e598c5c0`)**: Implemented a comprehensive TDD test suite for `createTransportRegistry` verifying that adapters requiring external relays are rejected when sovereign mode is enabled, and capturing capabilities at registration time to prevent post-registration mutation leaks.
+  - **Transport Seam Upstream Alignment & Stable Peer Meta (PR #28, commit `06695b4a1`)**: Eliminated the final documented divergence from Devlog #24 by updating the libp2p transport adapter to preserve `senderId` and `timestamp` from incoming message metadata instead of hardcoding `'mesh'` and `Date.now()`, ensuring stable peer identity across multi-hop gossipsub networks.
+  - **Nap-Chat Recap Consolidation (PR #31, commit `3c58f428d`)**: Consolidated autonomous nap-chat recap handling. `finishSession` now directly creates and records `NapChatSessionRecord` into `latestEpisode` as the reactive single source of truth for the UI and pending recap slot, streamlining session lifecycle.
+  - **Upstream Cherry-Picks Batch 1 (PR #33)**: 7n1m4 opened PR #33 cherry-picking 7 commits directly from `dasilva333/airi` (Linux Wayland screen capture caching, unscoped CSS highlight rule for v-html bubbles, Plausible removal, native dialog dismissal, AnimatedHeight primitive, smoothstep crossfade, and Live2D focus bias).
+
+• **Discussion Velocity**:
+  - **Issue #17 ([CI] Cross-WAN rendezvous)**: Exploded with +126 new automated CI comments (108 ➔ 234 total) validating automated multiaddr gossipsub mesh connectivity across WAN relays.
+  - **Issue #1 (Roadmap)**: +2 new comments (26 ➔ 28 total) with @anlmabot reporting sandbox landing and nap-chat recap consolidation, acknowledging dasilva333's maintainer endorsement.
+  - **Milestone Transitions**: Both Issue #10 (Phase 4: TransportAdapter seam) and Issue #24 (Devlog: Align fork with upstream) were marked CLOSED as transport seam convergence and contract parity reached 100%. Issue #26 (Sandbox test suite) was opened and closed within 24 hours with all 80 tests passing.
+  - **PR Spurt**: 8 new items opened in rapid succession (PRs #27–#33, Issue #26) during Vi's sprint.
+
+• **Cherry-Pick Candidates**:
+  - **`06695b4a1` (PR #28) — Preserve `senderId` & `timestamp` in `Libp2pTransportAdapter`**: High-value contract fix. Prevents timestamp/sender loss across gossipsub mesh hops without introducing regressions.
+  - **`0e598c5c0` (PR #30) — Sovereignty Gate TDD Cases (`transport-registry.test.ts`)**: Clean, zero-risk unit test suite validating that external relay adapters are rejected in sovereign mode and adapter capabilities are captured immutably at registration.
+  - **`3c58f428d` (PR #31) — Nap-chat coordinator recap consolidation**: High-quality cleanup linking `finishSession` directly to `useNapChatStore().recordNapChatCompletion`, eliminating state drift between coordinator and UI display.
+  - **`cd6f13fd0` (PR #27) — Live2D DSL hit area parser & VM method**: Isolated runtime fix in `packages/live2d-runtime/src/dsl/interpreter.ts` exposing `runCommandChain` and connecting `Model.vue` command handling.
+  - *(Note on Sandbox and Cloudflare Workers AI: Strictly quarantined under Cherry-Pick Policy until empirical testing is performed).*
+
+• **Collision Warnings**:
+  - **Cloud Shim Ingress (`apps/stage-tamagotchi/.../cloudflare/`)**: Introduces cloud relay shims. Must verify that `dasilva333/airi`'s offline-first posture remains untouched and that `AIRI_ENABLE_CLOUD_ADAPTERS` stays opt-in.
+  - **Root Dependencies**: PR #27 adds `just-bash` and `sucrase` to `packages/stage-ui/package.json` (+954 lockfile lines). Do not adopt without evaluating client bundle overhead.
+  - **Store Contract Divergence (`nap-chat-coordinator.ts`)**: 7n1m4 imports `storeToRefs(airiCardStore)` and `useCompanionStore()`. Ensure `localPeerIdSafe` and card accessor helpers match `dasilva333/airi`'s active card implementation if porting.
+
+### 📋 7n1m4 Fork Commits
+- `3c58f428d` feat(nap-chat): consolidate recap handling in coordinator and store (#31) [#31](https://github.com/7n1m4/airi/pull/31) _(ヴィオレット, 2026-11-02)_
+- `0e598c5c0` test(transport): harden sovereignty gate TDD cases (phase 5) (#30) [#30](https://github.com/7n1m4/airi/pull/30) _(ヴィオレット, 2026-11-02)_
+- `5b8ddee50` feat(cloudflare): restore minimal pluggable cloud shims behind TransportAdapter seam (phase 6) (#29) [#29](https://github.com/7n1m4/airi/pull/29) _(ヴィオレット, 2026-11-02)_
+- `06695b4a1` fix(transport): preserve sender/timestamp in libp2p adapter (upstream alignment) (#28) [#28](https://github.com/7n1m4/airi/pull/28) _(ヴィオレット, 2026-11-02)_
+- `cd6f13fd0` feat(sandbox): implement sandbox subsystem (issue #26) (#27) [#26](https://github.com/7n1m4/airi/pull/26) _(ヴィオレット, 2026-11-02)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 1 file(s) (+96/-73)
+- `AGENTS.md` *(+96/-73)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 6 file(s) (+428/-5)
+- `apps/stage-tamagotchi/src/main/services/airi/cloudflare/index.ts` *(+16/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/cloudflare/transport-adapter.ts` *(+48/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/libp2p/index.ts` *(+1/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/libp2p/transport-adapter.ts` *(+12/-5)*
+- `apps/stage-tamagotchi/src/main/services/airi/transport-registry.test.ts` *(+72/-0)*
+- `apps/stage-tamagotchi/src/main/services/sandbox/index.ts` *(+279/-0)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 51 file(s) (+10587/-84)
+- `packages/live2d-runtime/src/dsl/command-parser.ts` *(+5/-0)*
+- `packages/live2d-runtime/src/dsl/interpreter.ts` *(+15/-0)*
+- `packages/live2d-runtime/src/dsl/types.ts` *(+2/-0)*
+- `packages/stage-shared/src/cors.ts` *(+18/-2)*
+- `packages/stage-shared/src/index.ts` *(+1/-0)*
+- `packages/stage-shared/src/libp2p.ts` *(+2/-0)*
+- `packages/stage-shared/src/llm/structured-output.ts` *(+1/-4)*
+- `packages/stage-shared/src/sandbox.ts` *(+18/-0)*
+- `packages/stage-shared/src/sensors.ts` *(+6/-0)*
+- `packages/stage-shared/src/text.ts` *(+26/-0)*
+- `packages/stage-shared/src/url.ts` *(+19/-7)*
+- `packages/stage-shared/src/vision.ts` *(+23/-0)*
+- `packages/stage-ui/src/components/modules/MessagingFriends.vue` *(+5/-3)*
+- `packages/stage-ui/src/composables/use-sandbox.ts` *(+206/-0)*
+- `packages/stage-ui/src/database/repos/widgets.repo.ts` *(+143/-0)*
+- `packages/stage-ui/src/libs/providers/providers/cloudflare-workers-ai/index.ts` *(+65/-0)*
+- `packages/stage-ui/src/libs/providers/providers/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/libs/providers/providers/registry.ts` *(+15/-1)*
+- `packages/stage-ui/src/libs/sandbox/ansi.ts` *(+33/-0)*
+- `packages/stage-ui/src/libs/sandbox/compiler-bridge.ts` *(+124/-0)*
+- `packages/stage-ui/src/libs/sandbox/export.test.ts` *(+42/-0)*
+- `packages/stage-ui/src/libs/sandbox/export.ts` *(+79/-0)*
+- `packages/stage-ui/src/libs/sandbox/import.test.ts` *(+77/-0)*
+- `packages/stage-ui/src/libs/sandbox/import.ts` *(+109/-0)*
+- `packages/stage-ui/src/libs/sandbox/index.ts` *(+28/-0)*
+- `packages/stage-ui/src/libs/sandbox/jev.ts` *(+846/-0)*
+- `packages/stage-ui/src/libs/sandbox/live2d.ts` *(+80/-0)*
+- `packages/stage-ui/src/libs/sandbox/manager.ts` *(+2178/-0)*
+- `packages/stage-ui/src/libs/sandbox/mcp-bridge.test.ts` *(+178/-0)*
+- `packages/stage-ui/src/libs/sandbox/mcp-bridge.ts` *(+117/-0)*
+- `packages/stage-ui/src/libs/sandbox/projections.ts` *(+340/-0)*
+- `packages/stage-ui/src/libs/sandbox/sandbox.test.ts` *(+1572/-0)*
+- `packages/stage-ui/src/libs/sandbox/srcdoc.ts` *(+450/-0)*
+- `packages/stage-ui/src/libs/sandbox/starters/daily-checklist.ts` *(+297/-0)*
+- `packages/stage-ui/src/libs/sandbox/starters/focus-timer.ts` *(+407/-0)*
+- `packages/stage-ui/src/libs/sandbox/starters/glyphs-audio-works.ts` *(+1527/-0)*
+- `packages/stage-ui/src/libs/sandbox/starters/haven-weather.ts` *(+31/-0)*
+- `packages/stage-ui/src/libs/sandbox/starters/honey-notes.ts` *(+46/-0)*
+- `packages/stage-ui/src/libs/sandbox/starters/index.ts` *(+27/-0)*
+- `packages/stage-ui/src/libs/sandbox/starters/live2d-menu-driver.test.ts` *(+205/-0)*
+- `packages/stage-ui/src/libs/sandbox/starters/live2d-menu-driver.ts` *(+493/-0)*
+- `packages/stage-ui/src/libs/sandbox/starters/strawberry-pet.ts` *(+401/-0)*
+- `packages/stage-ui/src/libs/sandbox/types.ts` *(+186/-0)*
+- `packages/stage-ui/src/stores/companion.ts` *(+1/-1)*
+- `packages/stage-ui/src/stores/modules/tools/bash.ts` *(+51/-0)*
+- `packages/stage-ui/src/stores/nap-chat-coordinator.test.ts` *(+6/-5)*
+- `packages/stage-ui/src/stores/nap-chat-coordinator.ts` *(+59/-40)*
+- `packages/stage-ui/src/stores/nap-chat.ts` *(+16/-21)*
+- `packages/stage-ui/src/types/just-bash.d.ts` *(+5/-0)*
+- `packages/stage-ui/src/types/sucrase.d.ts` *(+3/-0)*
+- `pnpm-workspace.yaml` *(+2/-0)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 2 file(s) (+34/-1)
+- `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue` *(+8/-1)*
+- `packages/stage-ui-live2d/src/runtime/live2d-runtime-adapter.ts` *(+26/-0)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 2 file(s) (+823/-133)
+- `packages/stage-ui/package.json` *(+2/-0)*
+- `pnpm-lock.yaml` *(+821/-133)*
+
+#### Provider & Model Integrations (`📦 import / inspect`) — 1 file(s) (+7/-0)
+- `packages/stage-ui/src/stores/providers/registry/index.ts` *(+7/-0)*
+
+### 📬 7n1m4 Fork Activity Radar
+#### 🆕 New Items Opened (8)
+- [PR] [#33](https://github.com/anlmalabs/airi/pull/33) `feat(upstream): cherry-picks batch 1` by **@7n1m4** *(0 comments)*
+- [PR] [#32](https://github.com/anlmalabs/airi/pull/32) `feat(cloudflare): wire cloud adapter registration into transport setup` by **@7n1m4** *(0 comments)*
+- [PR] [#31](https://github.com/anlmalabs/airi/pull/31) `feat(nap-chat): consolidate recap handling in coordinator and store` by **@7n1m4** *(0 comments)*
+- [PR] [#30](https://github.com/anlmalabs/airi/pull/30) `test(transport): harden sovereignty gate TDD cases (phase 5)` by **@7n1m4** *(0 comments)*
+- [PR] [#29](https://github.com/anlmalabs/airi/pull/29) `feat(cloudflare): restore minimal pluggable cloud shims behind TransportAdapter seam (phase 6)` by **@7n1m4** *(0 comments)*
+- [PR] [#28](https://github.com/anlmalabs/airi/pull/28) `fix(transport): preserve sender/timestamp in libp2p adapter (upstream alignment)` by **@7n1m4** *(0 comments)*
+- [PR] [#27](https://github.com/anlmalabs/airi/pull/27) `feat(sandbox): implement sandbox subsystem (issue #26)` by **@7n1m4** *(0 comments)*
+- [Issue] [#26](https://github.com/anlmalabs/airi/issues/26) `Create comprehensive test suite for the Sandbox system` by **@7n1m4** *(1 comments)*
+
+#### 🔄 Status & Lifecycle Changes (2)
+- [Issue] [#10](https://github.com/anlmalabs/airi/issues/10) `Phase 4: TransportAdapter seam (pluggable mesh boundary)` — `OPEN` ➔ `CLOSED`
+- [Issue] [#24](https://github.com/anlmalabs/airi/issues/24) `Devlog: Align fork with upstream for painless porting` — `OPEN` ➔ `CLOSED`
+
+#### 💬 Discussion Activity (4)
+- [Issue] [#17](https://github.com/anlmalabs/airi/issues/17) `[CI] Cross-WAN rendezvous (auto-managed, do not close)` — *+126 comments (108 ➔ 234 total)*
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — *+2 comments (26 ➔ 28 total)*
+- [Issue] [#10](https://github.com/anlmalabs/airi/issues/10) `Phase 4: TransportAdapter seam (pluggable mesh boundary)` — *+1 comments (0 ➔ 1 total)*
+- [Issue] [#24](https://github.com/anlmalabs/airi/issues/24) `Devlog: Align fork with upstream for painless porting` — *+1 comments (4 ➔ 5 total)*
+
+### 👁️ Watched 7n1m4 Fork Monitor
+- [PR] [#7](https://github.com/anlmalabs/airi/pull/7) `feat(agentic): presence single source + nap & companion nap-chat` [MERGED] — *(1 comments)*
+  - *Focus*: Presence-derived idle state triggering autonomous peer-to-peer companion nap-chat over libp2p with memory write-back & recap
+- [PR] [#6](https://github.com/anlmalabs/airi/pull/6) `feat(libp2p): complete pairing over the wire and paired-device management` [MERGED] — *(0 comments)*
+  - *Focus*: Wire pairing negotiation, multiaddr identity storage, and eventa message transport
+- [PR] [#8](https://github.com/anlmalabs/airi/pull/8) `fix: migrate zod imports to default for Node 26 Vite SSR interop` [MERGED] — *(0 comments)*
+  - *Focus*: Vite SSR interop for Node 26 runtime
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` [OPEN] — 🚨 **+2 comments** (28 total)
+  - *Focus*: Violet's master roadmap and architectural milestone tracker
+- [Issue] [#4](https://github.com/anlmalabs/airi/issues/4) `Phase 3: Agentic OS Integration` [CLOSED] — *(0 comments)*
+  - *Focus*: Autonomous mode toggle, memory-driven proactive intentions, Jev decision loop
+
+---
 ## [2026-10-29] 7n1m4 Fork Delta: `c516650a..a639f80a` (1 commits, 56 files, 4 update(s))
 
 ### 🚨 Action Required: Direct Mentions & Maintainer Inquiries

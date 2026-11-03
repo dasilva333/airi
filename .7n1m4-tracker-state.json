@@ -1,6 +1,6 @@
 {
-  "last_inspected_sha": "a639f80ab7b498ee7a3611218852163bac1fa18d",
-  "last_run_timestamp": "2026-10-29T15:12:59.117Z",
+  "last_inspected_sha": "3c58f428d2dbfa4f22b457917092d80bf8732a10",
+  "last_run_timestamp": "2026-11-03T16:04:29.102Z",
   "remote": "7n1m4",
   "branch": "main",
   "tracked_prs": {
@@ -45,12 +45,12 @@
       "type": "PR"
     },
     "Issue:1": {
-      "title": "roadmap (permanent):  libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)",
+      "title": "[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)",
       "state": "OPEN",
       "isDraft": false,
       "author": "7n1m4",
-      "commentsCount": 26,
-      "updatedAt": "2026-10-28T18:34:41Z",
+      "commentsCount": 28,
+      "updatedAt": "2026-11-02T19:57:59Z",
       "url": "https://github.com/anlmalabs/airi/issues/1",
       "type": "Issue"
     },
@@ -179,8 +179,8 @@
       "state": "OPEN",
       "isDraft": false,
       "author": "anlmabot",
-      "commentsCount": 108,
-      "updatedAt": "2026-10-28T18:40:27Z",
+      "commentsCount": 234,
+      "updatedAt": "2026-11-03T03:40:18Z",
       "url": "https://github.com/anlmalabs/airi/issues/17",
       "type": "Issue"
     },
@@ -196,11 +196,11 @@
     },
     "Issue:10": {
       "title": "Phase 4: TransportAdapter seam (pluggable mesh boundary)",
-      "state": "OPEN",
+      "state": "CLOSED",
       "isDraft": false,
       "author": "anlmabot",
-      "commentsCount": 0,
-      "updatedAt": "2026-10-21T11:24:34Z",
+      "commentsCount": 1,
+      "updatedAt": "2026-11-02T19:45:16Z",
       "url": "https://github.com/anlmalabs/airi/issues/10",
       "type": "Issue"
     },
@@ -246,12 +246,92 @@
     },
     "Issue:24": {
       "title": "Devlog: Align fork with upstream for painless porting",
+      "state": "CLOSED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 5,
+      "updatedAt": "2026-11-02T19:40:41Z",
+      "url": "https://github.com/anlmalabs/airi/issues/24",
+      "type": "Issue"
+    },
+    "PR:33": {
+      "title": "feat(upstream): cherry-picks batch 1",
       "state": "OPEN",
       "isDraft": false,
       "author": "7n1m4",
-      "commentsCount": 4,
-      "updatedAt": "2026-10-28T17:23:10Z",
-      "url": "https://github.com/anlmalabs/airi/issues/24",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-03T03:39:06Z",
+      "url": "https://github.com/anlmalabs/airi/pull/33",
+      "type": "PR"
+    },
+    "PR:32": {
+      "title": "feat(cloudflare): wire cloud adapter registration into transport setup",
+      "state": "OPEN",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-02T21:01:39Z",
+      "url": "https://github.com/anlmalabs/airi/pull/32",
+      "type": "PR"
+    },
+    "PR:31": {
+      "title": "feat(nap-chat): consolidate recap handling in coordinator and store",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-02T20:48:27Z",
+      "url": "https://github.com/anlmalabs/airi/pull/31",
+      "type": "PR"
+    },
+    "PR:30": {
+      "title": "test(transport): harden sovereignty gate TDD cases (phase 5)",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-02T20:48:22Z",
+      "url": "https://github.com/anlmalabs/airi/pull/30",
+      "type": "PR"
+    },
+    "PR:29": {
+      "title": "feat(cloudflare): restore minimal pluggable cloud shims behind TransportAdapter seam (phase 6)",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-02T20:48:18Z",
+      "url": "https://github.com/anlmalabs/airi/pull/29",
+      "type": "PR"
+    },
+    "PR:28": {
+      "title": "fix(transport): preserve sender/timestamp in libp2p adapter (upstream alignment)",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-02T19:41:52Z",
+      "url": "https://github.com/anlmalabs/airi/pull/28",
+      "type": "PR"
+    },
+    "PR:27": {
+      "title": "feat(sandbox): implement sandbox subsystem (issue #26)",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-02T19:36:19Z",
+      "url": "https://github.com/anlmalabs/airi/pull/27",
+      "type": "PR"
+    },
+    "Issue:26": {
+      "title": "Create comprehensive test suite for the Sandbox system",
+      "state": "CLOSED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 1,
+      "updatedAt": "2026-11-02T19:43:10Z",
+      "url": "https://github.com/anlmalabs/airi/issues/26",
       "type": "Issue"
     }
   },
@@ -327,6 +407,14 @@
       "commits_count": 1,
       "files_count": 56,
       "pr_changes_count": 4
+    },
+    {
+      "date": "2026-11-03T16:04:29.102Z",
+      "from_sha": "a639f80ab7b498ee7a3611218852163bac1fa18d",
+      "to_sha": "3c58f428d2dbfa4f22b457917092d80bf8732a10",
+      "commits_count": 5,
+      "files_count": 63,
+      "pr_changes_count": 14
     }
   ],
   "acknowledged_mentions": [
