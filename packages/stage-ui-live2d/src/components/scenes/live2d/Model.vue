@@ -1439,7 +1439,10 @@ async function loadModel() {
         try {
           lastDslDispatch = { kind, target: payload, at: Date.now() }
           if (kind === 'command') {
-            dslVM.dispatchCommand(payload)
+            if (typeof (dslVM as any).runCommandChain === 'function')
+              (dslVM as any).runCommandChain(payload)
+            else
+              dslVM.dispatchCommand(payload)
           }
           else {
             if (isRemoteTargetGated(payload))

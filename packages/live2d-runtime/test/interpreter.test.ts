@@ -309,4 +309,17 @@ describe('dSLVirtualMachine — features + NextMtn chain', () => {
     expect(resultCaps).toBeDefined()
     expect(vm.hasPendingChoices()).toBe(true)
   })
+
+  it('executes runCommandChain to toggle hit_areas and tracking', () => {
+    const { host } = makeHost()
+    const vm = new DSLVirtualMachine({ host })
+    expect(vm.isHitAreaEnabled('Head')).toBe(true)
+
+    vm.runCommandChain('hit_areas disable Head; eye_blink off')
+    expect(vm.isHitAreaEnabled('Head')).toBe(false)
+    expect(host.tracking?.setEyeBlink).toHaveBeenCalledWith(false)
+
+    vm.runCommandChain('hit_areas enable Head')
+    expect(vm.isHitAreaEnabled('Head')).toBe(true)
+  })
 })

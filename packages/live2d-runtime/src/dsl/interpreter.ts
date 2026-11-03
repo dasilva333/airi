@@ -137,6 +137,11 @@ export class DSLVirtualMachine {
     this.runCommands(parseCommandChain(chain), 0)
   }
 
+  /** Execute a raw `;`-delimited command chain (parsed + run). Public entry for host command handlers (7n1m4/upstream parity). */
+  runCommandChain(chain: string): void {
+    this.dispatchCommand(chain)
+  }
+
   /** Resume a pending choice menu: pick by index and follow its NextMtn. */
   selectChoice(index: number): DslEntry | undefined {
     const pending = this.pendingChoices
