@@ -170,6 +170,9 @@ export async function* chunkTtsInput(
       switch (value) {
         case '.':
         case ',': {
+          if (buffer.length === 0)
+            break
+
           if (previousValue !== undefined && /\d/.test(previousValue)) {
             next = await iterator.next()
             if (!next.done && next.value && /\d/.test(next.value)) {

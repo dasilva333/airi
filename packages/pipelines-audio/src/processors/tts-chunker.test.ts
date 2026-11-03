@@ -300,4 +300,44 @@ describe('tts-chunker', () => {
       expect(chunks.join('')).toBe(input)
     })
   })
+
+  // https://github.com/moeru-ai/airi/issues/3345
+  // ROOT CAUSE:
+  //
+  // A period at an empty buffer reads ahead for decimal or ellipsis checks.
+  // The empty-buffer branch advances again and drops the read graphemes.
+  //
+  // Before the fix, it read ahead even when no text was buffered.
+  //
+  // The fix skips lookahead when no text is buffered.
+  describe('chunkTtsInput punctuation lookahead (Issue #3345)', () => {
+    async function collectChunkText(input: string) {
+      const chunks: string[] = []
+      for await (const chunk of chunkTtsInput(input))
+        chunks.push(chunk.text)
+      return chunks
+    }
+
+    async function collectChunks(input: string) {
+      const chunks = []
+      for await (const chunk of chunkTtsInput(input))
+        chunks.push(chunk)
+      return chunks
+    }
+
+    it.each([
+      { label: 'a leading period', input: '.NET is great.', expected: 'NET is great.' },
+      { label: 'a period after hard punctuation', input: 'Really?.NET works.', expected: 'Really?NET works.' },
+      { label: 'two periods after hard punctuation', input: 'Hmm!..No way.', expected: 'Hmm!No way.' },
+    ])('preserves the lookahead grapheme after an empty-buffer period (Issue #3345): $label', async ({ input, expected }) => {
+      expect((await collectChunkText(input)).join('')).toBe(expected)
+    })
+
+    it('preserves a special token after an empty-buffer period (Issue #3345)', async () => {
+      const chunks = await collectChunks(`Ok!.${TTS_SPECIAL_TOKEN}No.`)
+
+      expect(chunks.map(chunk => chunk.reason)).toEqual(['hard', 'special', 'hard'])
+      expect(chunks.map(chunk => chunk.text).join('')).toBe('Ok!No.')
+    })
+  })
 })
