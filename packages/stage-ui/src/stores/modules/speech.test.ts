@@ -188,5 +188,36 @@ describe('speech store helpers', () => {
       }
       expect(applyUSTTransformations('*smiles* 2 * 3 = 6', ustAsteriskMute)).toBe('2 * 3 = 6')
     })
+
+    it('handles web addresses and Obsidian wiki-links verbalization', () => {
+      const ustWebAddressesEnabled: any = {
+        enabled: true,
+        readCurrencyNaturally: false,
+        readWebAddressesNaturally: true,
+      }
+      expect(applyUSTTransformations('See https://home.example.com now.', ustWebAddressesEnabled))
+        .toBe('See https home dot example dot com now.')
+      expect(applyUSTTransformations('看 [[Home Assistant 配置|配置说明]] 这页。', ustWebAddressesEnabled, 'zh'))
+        .toBe('看 配置说明 这页。')
+      expect(applyUSTTransformations('看 [[Home Assistant 配置#网络]] 这页。', ustWebAddressesEnabled, 'zh'))
+        .toBe('看 Home Assistant 配置 网络 这页。')
+      expect(applyUSTTransformations('图 ![[shot.png|300]] 在这。', ustWebAddressesEnabled, 'zh'))
+        .toBe('图 图片 在这。')
+      expect(applyUSTTransformations('See ![[shot.png]] here.', ustWebAddressesEnabled, 'en'))
+        .toBe('See image here.')
+      expect(applyUSTTransformations('打开 `./src/index.ts` 看看。', ustWebAddressesEnabled, 'zh'))
+        .toBe('打开 点 斜杠 src 斜杠 index 点 ts 看看。')
+
+      const ustWebAddressesDisabled: any = {
+        enabled: true,
+        readCurrencyNaturally: false,
+        readWebAddressesNaturally: false,
+        squareBrackets: 'passThrough',
+      }
+      expect(applyUSTTransformations('See https://home.example.com now.', ustWebAddressesDisabled))
+        .toBe('See https://home.example.com now.')
+      expect(applyUSTTransformations('看 [[Home Assistant 配置|配置说明]] 这页。', ustWebAddressesDisabled))
+        .toBe('看 [[Home Assistant 配置|配置说明]] 这页。')
+    })
   })
 })

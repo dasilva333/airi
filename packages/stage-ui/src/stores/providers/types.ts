@@ -215,11 +215,12 @@ export interface VoiceProfile {
     customBracketEnd: string
     customBracketAction: BracketAction
 
-    // Notation & Technical Speech (UST V3 / PR #3054)
+    // Notation & Technical Speech (UST V3 / PR #3054 & PR #3332)
     mathFormulas?: NotationAction
     chemicalNotation?: NotationAction
     codeBlocks?: CodeBlockAction
     readCurrencyNaturally?: boolean
+    readWebAddressesNaturally?: boolean
     formulaLanguage?: FormulaLanguage
 
     stripEmojis: boolean

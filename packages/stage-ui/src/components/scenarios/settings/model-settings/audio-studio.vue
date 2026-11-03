@@ -87,6 +87,7 @@ const form = ref<VoiceProfile>({
     chemicalNotation: 'passThrough',
     codeBlocks: 'mute',
     readCurrencyNaturally: true,
+    readWebAddressesNaturally: true,
     formulaLanguage: 'auto',
     stripEmojis: true,
     stripSymbols: true,
@@ -103,6 +104,14 @@ const readCurrencyNaturallyModel = computed({
   get: () => form.value.ust.readCurrencyNaturally !== false,
   set: (val: boolean) => {
     form.value.ust.readCurrencyNaturally = val
+    saveProfile()
+  },
+})
+
+const readWebAddressesNaturallyModel = computed({
+  get: () => form.value.ust.readWebAddressesNaturally !== false,
+  set: (val: boolean) => {
+    form.value.ust.readWebAddressesNaturally = val
     saveProfile()
   },
 })
@@ -179,6 +188,7 @@ watch(activeProfile, (newProfile) => {
         chemicalNotation: 'passThrough',
         codeBlocks: 'mute',
         readCurrencyNaturally: true,
+        readWebAddressesNaturally: true,
         formulaLanguage: 'auto',
         stripEmojis: true,
         stripSymbols: true,
@@ -201,6 +211,8 @@ watch(activeProfile, (newProfile) => {
 
     if (loaded.ust.readCurrencyNaturally === undefined)
       loaded.ust.readCurrencyNaturally = true
+    if (loaded.ust.readWebAddressesNaturally === undefined)
+      loaded.ust.readWebAddressesNaturally = true
     if (loaded.ust.mathFormulas === undefined)
       loaded.ust.mathFormulas = 'passThrough'
     if (loaded.ust.chemicalNotation === undefined)
@@ -258,6 +270,7 @@ function createNewProfile() {
       chemicalNotation: 'passThrough',
       codeBlocks: 'mute',
       readCurrencyNaturally: true,
+      readWebAddressesNaturally: true,
       formulaLanguage: 'auto',
       stripEmojis: true,
       stripSymbols: true,
@@ -765,6 +778,15 @@ onUnmounted(() => {
                   v-model="readCurrencyNaturallyModel"
                   label="Read currency naturally ($19.99 → words)"
                   description="Expands dollar signs and prices into natural spoken words before synthesis"
+                />
+              </div>
+
+              <!-- Read web addresses & links naturally -->
+              <div class="border-t border-neutral-200/60 pt-3 dark:border-neutral-800/60">
+                <FieldCheckbox
+                  v-model="readWebAddressesNaturallyModel"
+                  label="Read web addresses & links naturally"
+                  description="Expands URLs, file paths, and Obsidian wiki-links into natural spoken words before synthesis"
                 />
               </div>
 

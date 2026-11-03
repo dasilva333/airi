@@ -18,6 +18,7 @@ import {
   speakMath,
   toSpeechLanguage,
 } from '../../utils/math-speech'
+import { verbalizeWebAddressesAndLinks } from '../../utils/web-address-speech'
 import { useOnboardingStore } from '../onboarding'
 import { useProactivityStore } from '../proactivity'
 import { useProvidersStore } from '../providers'
@@ -190,6 +191,11 @@ export function applyUSTTransformations(text: string, ust?: VoiceProfile['ust'],
   // Currency verbalization
   if (ust.readCurrencyNaturally !== false) {
     transformed = verbalizePrices(transformed, baseLanguage)
+  }
+
+  // Web addresses, file paths, and Obsidian wiki-links (PR #3332 / UST V3)
+  if (ust.readWebAddressesNaturally !== false) {
+    transformed = verbalizeWebAddressesAndLinks(transformed, baseLanguage)
   }
 
   // Math formulas handling (mute vs verbalize vs passThrough)
