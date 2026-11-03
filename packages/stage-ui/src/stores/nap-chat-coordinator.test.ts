@@ -82,7 +82,7 @@ describe('useNapChatCoordinatorStore.evaluateTrigger', () => {
 describe('useNapChatCoordinatorStore session lifecycle', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
-  it('runs a capped turn loop and records the episode', () => {
+  it('runs a capped turn loop and records the episode', async () => {
     const store = useNapChatCoordinatorStore()
     expect(store.beginSession('ed25519-kirie', 'card-1', 'shader pipeline')).toBe(true)
     expect(store.beginSession('other', 'card-1')).toBe(false)
@@ -92,17 +92,18 @@ describe('useNapChatCoordinatorStore session lifecycle', () => {
       store.recordTurn(i % 2 === 0 ? 'AIRI' : 'Kirie', `turn ${i}`)
     expect(store.turnCount).toBe(NAP_COORDINATOR_MAX_TURNS)
 
-    const episode = store.finishSession('Compared notes on a rainy afternoon.')
+    const episode = await store.finishSession('Compared notes on a rainy afternoon.')
     expect(episode).not.toBeNull()
     expect(episode!.turnCount).toBe(NAP_COORDINATOR_MAX_TURNS)
     expect(episode!.summary).toContain('rainy afternoon')
-    expect(store.status).toBe('done')
+    const napChat = useNapChatStore()
+    expect(napChat.latestEpisode?.sessionId).toBe(episode!.sessionId)
   })
 
-  it('rejects turns and finish outside an active session', () => {
+  it('rejects turns and finish outside an active session', async () => {
     const store = useNapChatCoordinatorStore()
     expect(store.recordTurn('AIRI', 'hi')).toBe(false)
-    expect(store.finishSession('nope')).toBeNull()
+    expect(await store.finishSession('nope')).toBeNull()
   })
 
   it('aborts and resets cleanly', () => {

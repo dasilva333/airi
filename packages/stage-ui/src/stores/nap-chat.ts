@@ -44,6 +44,22 @@ export interface NapEpisode {
   turns: NapTurn[]
 }
 
+export type NapChatCloseReason = 'completed' | 'user-present' | 'aborted' | 'model-gate'
+
+export interface NapChatSessionRecord {
+  sessionId: string
+  localPeerId: string
+  peerPeerId: string
+  localCardName: string
+  peerCardName: string
+  turnCount: number
+  startedAt: number
+  endedAt: number
+  closeReason: NapChatCloseReason
+  recap: string
+  turns?: NapTurn[]
+}
+
 export const useNapChatStore = defineStore('nap-chat', () => {
   const napEnabled = ref(true)
   const afkThresholdMinutes = ref(NAP_CHAT_DEFAULT_THRESHOLD_MIN)
@@ -85,6 +101,18 @@ export const useNapChatStore = defineStore('nap-chat', () => {
     latestEpisode.value = episode
   }
 
+  async function recordNapChatCompletion(record: NapChatSessionRecord): Promise<void> {
+    latestEpisode.value = {
+      sessionId: record.sessionId,
+      with: { characterName: record.peerCardName, alias: record.peerCardName },
+      turnCount: record.turnCount,
+      summary: record.recap,
+      timestamp: record.endedAt,
+      journalEntryId: '',
+      turns: record.turns ?? [],
+    }
+  }
+
   function formatWelcomeBackRecap(episode?: NapEpisode | null): string {
     const ep = episode !== undefined ? episode : latestEpisode.value
     if (!ep || !ep.with?.characterName)
@@ -105,6 +133,7 @@ export const useNapChatStore = defineStore('nap-chat', () => {
     markIdleSessionStarted,
     shouldDeliverRecap,
     recordEpisode,
+    recordNapChatCompletion,
     formatWelcomeBackRecap,
   }
 })

@@ -1,11 +1,12 @@
 import type { Peer } from '@proj-airi/stage-shared'
 
-import type { NapEpisode, NapTurn } from './nap-chat'
+import type { NapChatSessionRecord, NapEpisode, NapTurn } from './nap-chat'
 
-import { defineStore } from 'pinia'
+import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { useChatSessionStore } from './chat/session-store'
+import { useAiriCardStore } from './modules/airi-card'
 import { NAPCHAT_UNIVERSE_ID, useNapChatStore } from './nap-chat'
 import { isUserAway } from './proactivity-telemetry'
 
@@ -37,6 +38,7 @@ function stampNow(): string {
  */
 export const useNapChatCoordinatorStore = defineStore('nap-chat-coordinator', () => {
   const napChat = useNapChatStore()
+  const airiCardStore = useAiriCardStore()
 
   const status = ref<NapSessionStatus>('idle')
   const activePeerId = ref<string | null>(null)
@@ -44,6 +46,20 @@ export const useNapChatCoordinatorStore = defineStore('nap-chat-coordinator', ()
   const sessionTopic = ref<string | null>(null)
   const turns = ref<NapTurn[]>([])
   const startedAt = ref<number | null>(null)
+
+  function napChatStoreActiveCardName(): string {
+    try {
+      const { activeCard } = storeToRefs(airiCardStore)
+      return activeCard.value?.name || 'AIRI'
+    }
+    catch {
+      return 'AIRI'
+    }
+  }
+
+  function localPeerIdSafe(): string {
+    return 'local'
+  }
 
   const isActive = computed(() => status.value === 'active')
   const turnCount = computed(() => turns.value.length)
@@ -83,23 +99,40 @@ export const useNapChatCoordinatorStore = defineStore('nap-chat-coordinator', ()
     return true
   }
 
-  function finishSession(summary: string): NapEpisode | null {
+  async function finishSession(summary: string): Promise<NapEpisode | null> {
     if (status.value !== 'active')
       return null
     status.value = 'consolidating'
     const peerId = activePeerId.value ?? 'unknown-peer'
-    const episode: NapEpisode = {
-      sessionId: `nap-${startedAt.value ?? Date.now()}`,
-      with: { characterName: peerId, alias: peerId },
+    const now = Date.now()
+    const started = startedAt.value ?? now
+    const record: NapChatSessionRecord = {
+      sessionId: `nap-${started}`,
+      localPeerId: localPeerIdSafe(),
+      peerPeerId: peerId,
+      localCardName: napChatStoreActiveCardName(),
+      peerCardName: peerId,
       turnCount: turns.value.length,
-      summary,
-      timestamp: Date.now(),
-      journalEntryId: '',
+      startedAt: started,
+      endedAt: now,
+      closeReason: 'completed',
+      recap: summary,
       turns: [...turns.value],
     }
-    napChat.recordEpisode(episode)
+    try {
+      await napChat.recordNapChatCompletion(record)
+    }
+    catch {}
     status.value = 'done'
-    return episode
+    return napChat.latestEpisode ?? {
+      sessionId: record.sessionId,
+      with: { characterName: record.peerCardName, alias: record.peerCardName },
+      turnCount: record.turnCount,
+      summary: record.recap,
+      timestamp: record.endedAt,
+      journalEntryId: '',
+      turns: record.turns ?? [],
+    }
   }
 
   /**
