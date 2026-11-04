@@ -146,6 +146,7 @@
     "rehype-stringify": "catalog:",
     "reka-ui": "^2.8.2",
     "remark-breaks": "catalog:",
+    "remark-cjk-friendly": "catalog:",
     "remark-math": "^6.0.0",
     "remark-parse": "catalog:",
     "remark-rehype": "catalog:",
