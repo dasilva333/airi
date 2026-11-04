@@ -147,7 +147,7 @@ function handleApplyPreset(preset: 'mini' | 'medium' | 'large' | 'full') {
         <div class="i-solar:database-bold-duotone size-5 text-amber-500" />
         <div class="flex flex-col text-left">
           <span class="text-xs text-neutral-800 font-semibold dark:text-neutral-100">Context Injections</span>
-          <span class="text-[9px] text-neutral-400">Sensors, memory and intrusions</span>
+          <span class="text-[9px] text-neutral-400">Sensors, memory and reflections</span>
         </div>
       </div>
       <div class="i-solar:alt-arrow-right-linear size-4 text-neutral-400" />

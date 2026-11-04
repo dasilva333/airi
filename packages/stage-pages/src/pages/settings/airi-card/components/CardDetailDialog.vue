@@ -390,11 +390,11 @@ const directives = computed<DirectiveItem[]>(() => {
     description: 'Guides image generation tool invocation and visual context grounding.',
   })
 
-  // 7. Artistry Intrusion Prompt
+  // 7. Artistry Reflection Prompt
   const artistryIntrusion = airiExt.value?.artistry?.artistryIntrusionPrompt || DEFAULT_ARTISTRY_INTRUSION_PROMPT
   list.push({
     id: 'artistry_intrusion',
-    title: 'Artistry Intrusion Prompt',
+    title: 'Artistry Reflection Prompt',
     category: 'Autonomous Artistry',
     categoryColor: 'pink',
     icon: 'i-solar:camera-bold-duotone',
@@ -416,11 +416,11 @@ const directives = computed<DirectiveItem[]>(() => {
     description: 'Defines how long-term memory journal entries are recorded and structured.',
   })
 
-  // 9. Journal Intrusion Prompt
+  // 9. Journal Reflection Prompt
   const journalIntrusion = airiExt.value?.textJournal?.journalIntrusionPrompt || DEFAULT_JOURNAL_INTRUSION_PROMPT
   list.push({
     id: 'journal_intrusion',
-    title: 'Journal Intrusion Prompt',
+    title: 'Journal Reflection Prompt',
     category: 'Sacred Journal',
     categoryColor: 'emerald',
     icon: 'i-solar:pen-new-square-bold-duotone',
@@ -429,11 +429,11 @@ const directives = computed<DirectiveItem[]>(() => {
     description: 'Controls memory recording prompts and spontaneous reflection recording.',
   })
 
-  // 10. Dream State Intrusion Prompt
+  // 10. Dream State Reflection Prompt
   const dreamIntrusion = airiExt.value?.dreamState?.dreamIntrusionPrompt || DEFAULT_DREAM_INTRUSION_PROMPT
   list.push({
     id: 'dream_intrusion',
-    title: 'Dream State Intrusion Prompt',
+    title: 'Dream State Reflection Prompt',
     category: 'Dream State',
     categoryColor: 'indigo',
     icon: 'i-solar:moon-stars-bold-duotone',
@@ -790,7 +790,7 @@ const scheduleAfkThreshold = computed(() => airiExt.value?.heartbeats?.afkThresh
               <div v-if="activeTab === 'directives'" class="flex flex-col gap-4">
                 <div class="flex items-center justify-between">
                   <p class="text-xs text-neutral-500 dark:text-neutral-400">
-                    Inspect all character prompts, system directives, acting cues, and autonomous intrusion instructions in one place.
+                    Inspect all character prompts, system directives, acting cues, and autonomous reflection instructions in one place.
                   </p>
                   <span class="shrink-0 border border-neutral-200 rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-600 font-medium dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
                     {{ directives.length }} Directives

@@ -908,11 +908,11 @@ const textJournalConflictWarning = computed(() => {
           </div>
         </div>
 
-        <!-- Artistry Intrusion Toggle & Config -->
+        <!-- Artistry Reflection Toggle & Config -->
         <div class="border-t border-neutral-100 pt-3 dark:border-neutral-800">
           <div class="flex items-center justify-between">
             <div class="flex flex-col">
-              <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">Enable Artistry Intrusion</span>
+              <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">Enable Artistry Reflection</span>
               <span class="text-[11px] text-neutral-400">Prompt the character to reference newly generated image artworks on the next turn.</span>
             </div>
             <button
@@ -935,7 +935,7 @@ const textJournalConflictWarning = computed(() => {
           <div v-if="selectedInjectArtistryContext" class="mt-3 border-l-2 border-primary-500/30 pl-2">
             <FieldInput
               v-model="selectedArtistryIntrusionPrompt"
-              label="Artistry Intrusion Prompt Template"
+              label="Artistry Reflection Prompt Template"
               description="Variables: {imagePrompt}"
               :single-line="false"
               :rows="3"
@@ -1021,14 +1021,14 @@ const textJournalConflictWarning = computed(() => {
           </div>
         </div>
 
-        <!-- Dream Intrusion Toggle & Config -->
+        <!-- Dream Reflection Toggle & Config -->
         <div
           class="border-t border-neutral-100 pt-3 dark:border-neutral-800"
           :class="[!dreamStateEnabled ? 'opacity-50 pointer-events-none' : '']"
         >
           <div class="flex items-center justify-between">
             <div class="flex flex-col">
-              <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">Enable Dream Intrusion</span>
+              <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">Enable Dream Reflection</span>
               <span class="text-[11px] text-neutral-400">
                 Inject offline consolidated dreams (Echo Chips) into thoughts when resuming chat.
                 <span v-if="!dreamStateEnabled" class="text-red-500 font-semibold"> (Requires Dream State in Modules)</span>
@@ -1055,7 +1055,7 @@ const textJournalConflictWarning = computed(() => {
           <div v-if="selectedInjectDreamContext && dreamStateEnabled" class="mt-3 border-l-2 border-primary-500/30 pl-2">
             <FieldInput
               v-model="selectedDreamIntrusionPrompt"
-              label="Dream Intrusion Prompt Template"
+              label="Dream Reflection Prompt Template"
               description="Variables: {timeToDream}, {insertEchoChips}"
               :single-line="false"
               :rows="3"
@@ -1063,11 +1063,11 @@ const textJournalConflictWarning = computed(() => {
           </div>
         </div>
 
-        <!-- Journal Intrusion Toggle & Config -->
+        <!-- Journal Reflection Toggle & Config -->
         <div class="border-t border-neutral-100 pt-3 dark:border-neutral-800">
           <div class="flex items-center justify-between">
             <div class="flex flex-col">
-              <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">Enable Journal Intrusion</span>
+              <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">Enable Journal Reflection</span>
               <span class="text-[11px] text-neutral-400">Prompt the character to reference their latest text journal entry in their next reply.</span>
             </div>
             <button
@@ -1090,7 +1090,7 @@ const textJournalConflictWarning = computed(() => {
           <div v-if="selectedInjectJournalContext" class="mt-3 border-l-2 border-primary-500/30 pl-2">
             <FieldInput
               v-model="selectedJournalIntrusionPrompt"
-              label="Journal Intrusion Prompt Template"
+              label="Journal Reflection Prompt Template"
               description="Variables: {timeSinceJournal}, {journalEntryText}"
               :single-line="false"
               :rows="3"

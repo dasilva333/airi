@@ -225,7 +225,7 @@ function handleToggleArtistryIntrusion() {
       </div>
       <div class="flex flex-col">
         <span class="text-xs text-neutral-800 font-bold dark:text-neutral-100">Context Injections</span>
-        <span class="text-[10px] text-neutral-400 dark:text-neutral-500">Sensors, memory and intrusions</span>
+        <span class="text-[10px] text-neutral-400 dark:text-neutral-500">Sensors, memory and reflections</span>
       </div>
     </div>
 
@@ -403,7 +403,7 @@ function handleToggleArtistryIntrusion() {
             : 'text-neutral-400 dark:text-neutral-500 i-solar:sleeping-linear'"
         />
         <div class="flex flex-col">
-          <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Dream Intrusion</span>
+          <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Dream Reflection</span>
           <span class="text-[9px] text-neutral-400">
             Inject offline consolidated dreams
             <span v-if="!isDreamStateEnabled" class="text-amber-500 font-semibold dark:text-amber-400"> (Requires Dreams)</span>
@@ -439,7 +439,7 @@ function handleToggleArtistryIntrusion() {
             : 'text-neutral-400 dark:text-neutral-500 i-solar:notebook-linear'"
         />
         <div class="flex flex-col">
-          <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Journal Intrusion</span>
+          <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Journal Reflection</span>
           <span class="text-[9px] text-neutral-400">
             Reference latest journal entry
             <span v-if="!hasTextJournal" class="text-amber-500 font-semibold dark:text-amber-400"> (Requires Memory Tool)</span>
@@ -475,7 +475,7 @@ function handleToggleArtistryIntrusion() {
             : 'text-neutral-400 dark:text-neutral-500 i-solar:gallery-linear'"
         />
         <div class="flex flex-col">
-          <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Artistry Intrusion</span>
+          <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Artistry Reflection</span>
           <span class="text-[9px] text-neutral-400">
             Reference latest image creations
             <span v-if="!hasImageJournal" class="text-amber-500 font-semibold dark:text-amber-400"> (Requires Image Journal)</span>
