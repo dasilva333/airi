@@ -161,10 +161,15 @@ const formattedArgs = computed(() => {
   }
 })
 
-// --- MCP music tool results ------------------------------------------------
-// A finished track arrives as an mcp_call_tool result whose structuredContent
-// carries the track record. Detect that specific call so the transcript renders
-// a player instead of a wall of JSON.
+// --- MCP & Bash music tool results ----------------------------------------
+// A finished track arrives as an mcp_call_tool result (or a bash `mcp ...::music`
+// result) whose structuredContent or stdout carries the track record. Detect that
+// call so the transcript renders an inline player or progress card instead of
+// a wall of raw JSON.
+
+const isBashToolCall = computed(() => {
+  return props.toolName === 'bash' || props.toolName === 'mcp_bash' || props.toolName === 'sandbox::bash' || props.toolName === 'execute_bash'
+})
 
 const mcpCall = computed<{ name?: string } | null>(() => {
   if (props.toolName !== 'mcp_call_tool')
@@ -173,7 +178,14 @@ const mcpCall = computed<{ name?: string } | null>(() => {
 })
 
 const isMusicToolCall = computed(() => {
-  return !!mcpCall.value?.name?.endsWith('::music')
+  if (mcpCall.value?.name?.endsWith('::music'))
+    return true
+  if (isBashToolCall.value) {
+    const cmd = String(parsedArgs.value?.command || props.args || '')
+    if (cmd.includes('::music') || cmd.includes('airi-audio-server::music'))
+      return true
+  }
+  return false
 })
 
 const musicResult = computed<any | null>(() => {
@@ -188,7 +200,19 @@ const musicResult = computed<any | null>(() => {
       envelope = JSON.parse(envelope)
     }
     catch {
-      return null
+      // In bash, output may be wrapped with "STDOUT:\n{ ... }" or multi-line text
+      const match = envelope.match(/\{[\s\S]*\}/)
+      if (match) {
+        try {
+          envelope = JSON.parse(match[0])
+        }
+        catch {
+          return null
+        }
+      }
+      else {
+        return null
+      }
     }
   }
   if (!envelope || typeof envelope !== 'object')
@@ -197,6 +221,9 @@ const musicResult = computed<any | null>(() => {
   const structured = envelope.structuredContent
   if (structured && typeof structured === 'object')
     return structured
+
+  if (envelope.track || Array.isArray(envelope.tracks) || envelope.state === 'running' || envelope.state === 'queued')
+    return envelope
 
   // Fall back to the text content for results that omit structuredContent.
   const text = envelope.content?.find((entry: any) => entry?.type === 'text')?.text
@@ -208,18 +235,50 @@ const musicResult = computed<any | null>(() => {
       return null
     }
   }
+  return envelope
+})
+
+const musicTrack = computed<{ title?: string, model?: string, audioUrl?: string, durationMs?: number } | null>(() => {
+  const track = musicResult.value?.track
+  if (track?.audioUrl)
+    return track
+
+  if (Array.isArray(musicResult.value?.tracks)) {
+    const firstReady = musicResult.value.tracks.find((t: any) => t?.audioUrl)
+    if (firstReady)
+      return firstReady
+  }
+
+  if (musicResult.value?.audioUrl)
+    return musicResult.value
+
   return null
 })
 
-const musicTrack = computed<{ title?: string, model?: string, audioUrl?: string } | null>(() => {
-  const track = musicResult.value?.track
-  return track?.audioUrl ? track : null
+const isMusicInProgress = computed(() => {
+  if (musicTrack.value)
+    return false
+  const state = musicResult.value?.state || musicResult.value?.status
+  return state === 'running' || state === 'queued' || Boolean(musicResult.value?.jobId && !musicResult.value?.error)
+})
+
+const musicProgressPercent = computed<number | null>(() => {
+  const p = musicResult.value?.progress
+  if (typeof p === 'number')
+    return Math.round(p)
+  if (typeof p?.percent === 'number')
+    return Math.round(p.percent)
+  return null
 })
 
 const toolSummary = computed(() => {
-  // A named track beats "🛠️ music: status" once the render is done.
+  // A named track beats "🛠️ music: status" or "🛠️ bash: mcp ..." once the render is done.
   if (musicTrack.value?.title)
     return `🎵 ${musicTrack.value.title}`
+  if (isMusicInProgress.value) {
+    const title = musicResult.value?.track?.title || musicResult.value?.title || musicResult.value?.jobId
+    return `🎵 In the Oven: ${title || 'Rendering'}`
+  }
   return formatToolCallSummary(props.toolName, parsedArgs.value || props.args)
 })
 </script>
@@ -283,6 +342,29 @@ const toolSummary = computed(() => {
           </div>
         </div>
         <MusicTrackPreview :track="musicTrack" />
+      </template>
+
+      <template v-else-if="isMusicInProgress">
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <div class="i-solar:music-notes-bold-duotone animate-pulse text-base text-amber-500" />
+            <div class="rounded-full bg-amber-500/12 px-2.5 py-1 text-xs text-amber-700 dark:text-amber-300">
+              In the oven · {{ musicResult?.state || musicResult?.status || 'rendering' }}
+            </div>
+          </div>
+          <span v-if="musicProgressPercent" class="text-xs text-amber-600 font-mono dark:text-amber-400">
+            {{ musicProgressPercent }}%
+          </span>
+        </div>
+        <div class="border border-amber-500/20 rounded-lg bg-amber-500/5 p-2.5 text-xs text-amber-800 space-y-1 dark:text-amber-200">
+          <div class="flex items-center justify-between font-bold">
+            <span class="truncate">{{ musicResult?.track?.title || musicResult?.title || musicResult?.jobId || 'Generating Audio' }}</span>
+            <span class="ml-2 shrink-0 text-[10px] font-mono opacity-70">{{ musicResult?.jobId }}</span>
+          </div>
+          <div class="text-[11px] leading-relaxed opacity-80">
+            {{ musicResult?.next || 'Music is actively rendering on the audio server. Check the audio widget or ask for status in a few moments.' }}
+          </div>
+        </div>
       </template>
 
       <template v-else-if="isTextJournalCreate">

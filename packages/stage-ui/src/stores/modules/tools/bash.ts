@@ -7,7 +7,7 @@ import { getSandboxManager } from '../../../libs/sandbox'
 
 export const bashParams = z.object({
   command: z.string().describe(
-    'The bash command to execute in the in-memory POSIX workstation (/workspace). Supports pipes, jq, sed, awk, grep, node, tsc, mcp, jev, and mount_widget. Live state projections are available under /workspace/.airi/ (session.json, cognition.json, telemetry.json, messages.json). Call MCP tools directly via `mcp <server::tool> [json_args]` or `require("mcp")` in node. Evaluate fast semantic decisions via `jev is/choose/score` or `require("jev")`.',
+    'The bash command to execute in the in-memory POSIX workstation (/workspace). Supports pipes, jq, sed, awk, grep, node, tsc, mcp, jev, and mount_widget. Live state projections are available under /workspace/.airi/ (session.json, cognition.json, telemetry.json, messages.json). For interactive media creation (e.g. music generation/status), prefer calling mcp_call_tool directly so rich cards and players render in chat. Call MCP tools in bash via `mcp <server::tool> [json_args]` or `require("mcp")` in node when scripting or piping output to files. Evaluate fast semantic decisions via `jev is/choose/score` or `require("jev")`.',
   ),
 })
 
