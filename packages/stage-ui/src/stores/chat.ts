@@ -1874,7 +1874,84 @@ Format your output as a raw thought log.`
           onStreamEvent: async (event: StreamEvent) => {
             resetStreamIdleTimeout()
             switch (event.type) {
+              case 'tool-call-streaming-start': {
+                const call: ChatSlices = {
+                  type: 'tool-call',
+                  toolCall: {
+                    id: event.toolCallId,
+                    type: 'function',
+                    function: {
+                      name: event.toolName,
+                      arguments: '',
+                    },
+                  } as any,
+                }
+                pendingToolCalls.add(call)
+                const enqueue = async () => {
+                  if (pendingToolCalls.has(call)) {
+                    if (literalInterceptor?.flush) {
+                      await literalInterceptor.flush()
+                    }
+                    toolCallQueue.enqueue(call)
+                  }
+                }
+                void parser.flush().then(enqueue, enqueue)
+                break
+              }
+              case 'tool-call-delta': {
+                const targetCall = Array.from(pendingToolCalls).find((c: any) => {
+                  const tc = c.toolCall as any
+                  return tc.id === event.toolCallId || tc.toolCallId === event.toolCallId
+                })
+                if (targetCall) {
+                  const tc = (targetCall as any).toolCall
+                  if (tc?.function) {
+                    tc.function.arguments = (tc.function.arguments || '') + (event.argsTextDelta || '')
+                  }
+                  else if (tc) {
+                    tc.args = (tc.args || '') + (event.argsTextDelta || '')
+                  }
+                }
+
+                const slice = buildingMessage.slices.find((s: any) => {
+                  if (s.type !== 'tool-call')
+                    return false
+                  const tc = s.toolCall as any
+                  return tc.id === event.toolCallId || tc.toolCallId === event.toolCallId
+                })
+                if (slice && slice.type === 'tool-call') {
+                  const tc = slice.toolCall as any
+                  if (tc?.function) {
+                    tc.function.arguments = (tc.function.arguments || '') + (event.argsTextDelta || '')
+                  }
+                  else if (tc) {
+                    tc.args = (tc.args || '') + (event.argsTextDelta || '')
+                  }
+                  updateUI()
+                }
+                break
+              }
               case 'tool-call': {
+                const pendingCall = Array.from(pendingToolCalls).find((c: any) => {
+                  const tc = c.toolCall as any
+                  return tc.id === (event as any).id || tc.toolCallId === (event as any).id
+                })
+                if (pendingCall) {
+                  ;(pendingCall as any).toolCall = event
+                }
+
+                const existingSlice = buildingMessage.slices.find((s: any) => {
+                  if (s.type !== 'tool-call')
+                    return false
+                  const tc = s.toolCall as any
+                  return tc.id === (event as any).id || tc.toolCallId === (event as any).id
+                })
+                if (existingSlice && existingSlice.type === 'tool-call') {
+                  existingSlice.toolCall = event
+                  updateUI()
+                  break
+                }
+
                 // The flush covers only preceding text. A call stays pending until its slice joins, including during interruption.
                 const call: ChatSlices = {
                   type: 'tool-call',

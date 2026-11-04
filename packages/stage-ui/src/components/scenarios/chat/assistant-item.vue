@@ -55,7 +55,14 @@ const isCadenceActive = computed(() => {
 })
 
 const isMaskedByCadence = computed(() => {
-  return isCadenceActive.value && chatOrchestrator.sending && isLatestAssistantMessage.value
+  return isCadenceActive.value
+    && chatOrchestrator.sending
+    && isLatestAssistantMessage.value
+    && !slices.value.some(s => s.type === 'tool-call')
+})
+
+const hasStreamingText = computed(() => {
+  return resolvedSlices.value.some(s => s.type === 'text' && s.text.trim().length > 0)
 })
 
 const cadenceBubbles = computed(() => {
@@ -874,6 +881,15 @@ const hasActorSlices = computed(() => actorAwareSlices.value.some(s => s.type ==
                   />
                 </template>
               </template>
+
+              <!-- Live typing indicator after tool call while waiting for speech tokens -->
+              <div
+                v-if="chatOrchestrator.sending && isLatestAssistantMessage && !hasStreamingText"
+                class="mt-2 flex items-center gap-2 text-sm text-neutral-400"
+              >
+                <span class="i-eos-icons:three-dots-loading text-base" />
+                <span class="text-xs italic">typing...</span>
+              </div>
             </div>
             <div v-else-if="showLoader" i-eos-icons:three-dots-loading />
 

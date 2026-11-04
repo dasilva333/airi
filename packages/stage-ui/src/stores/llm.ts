@@ -23,6 +23,8 @@ export type StreamEvent
     | ({ type: 'finish' } & any)
     | ({ type: 'tool-call' } & CompletionToolCall)
     | { type: 'tool-result', toolCallId: string, result?: string | CommonContentPart[] }
+    | { type: 'tool-call-streaming-start', toolCallId: string, toolName: string }
+    | { type: 'tool-call-delta', toolCallId: string, toolName?: string, argsTextDelta: string }
     | { type: 'usage', usage: any }
     | { type: 'error', error: any }
 
