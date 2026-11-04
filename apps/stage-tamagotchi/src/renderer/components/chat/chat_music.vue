@@ -1,8 +1,15 @@
 <script setup lang="ts">
+import localforage from 'localforage'
+
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
-import { describeMusicProvisionFailure, ensureMusicToolProvisioned, readMusicMcpEndpoint } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
+import {
+  describeMusicProvisionFailure,
+  ensureMusicToolProvisioned,
+  readMusicMcpEndpoint,
+  tryGetMcpToolBridge,
+} from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
@@ -19,6 +26,19 @@ interface MusicTrack {
   audioUrl: string
   createdAt: string
   abcScore?: string
+}
+
+interface MusicJob {
+  id: string
+  title: string
+  model: string
+  prompt?: string
+  lyrics?: string
+  state: 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
+  progress?: number
+  requestedAt: number
+  durationSeconds?: number
+  error?: string
 }
 
 interface StudioChatMessage {
@@ -134,6 +154,8 @@ async function checkServerHealth() {
       signal: controller.signal,
     }).catch(() => {
       return fetch(`${rootUrl}/health`, { method: 'GET', signal: controller.signal })
+    }).catch(() => {
+      return fetch(`${rootUrl}/v1/capabilities`, { method: 'GET', signal: controller.signal })
     })
 
     clearTimeout(timer)
@@ -141,10 +163,26 @@ async function checkServerHealth() {
       // If endpoint responds at all, the port is live
       serverStatus.value = 'online'
       serverStatusMessage.value = `Online · ${new URL(serverBaseUrl.value).host}`
+      void syncLibraryWithServer()
     }
     else {
+      // Check MCP bridge
+      const bridge = tryGetMcpToolBridge()
+      if (bridge) {
+        try {
+          const status = await bridge.getRuntimeStatus()
+          const s = status.servers.find(srv => srv.name === 'airi-audio-server')
+          if (s && s.state === 'running') {
+            serverStatus.value = 'online'
+            serverStatusMessage.value = 'Online · MCP'
+            void syncLibraryWithServer()
+            return
+          }
+        }
+        catch {}
+      }
       serverStatus.value = 'offline'
-      serverStatusMessage.value = 'Offline (No response)'
+      serverStatusMessage.value = 'Offline (Check port 8095)'
     }
   }
   catch {
@@ -256,16 +294,326 @@ function insertStructureTag(tag: string) {
   lyricsText.value = `${lyricsText.value.trim()}\n\n[${tag}]\n`
 }
 
-// --- Generation Lifecycle ---
+// --- Storage & Persistence ---
+const musicTracksStore = localforage.createInstance({
+  name: 'sound-studio-tracks',
+})
+
+// Current & Recent Tracks & Active Jobs
+const activeTrack = ref<MusicTrack | null>(null)
+const recentTracks = ref<MusicTrack[]>([])
+const activeJobs = ref<MusicJob[]>([])
+const librarySearchQuery = ref('')
+const isSyncingLibrary = ref(false)
+let jobPollInterval: any = null
+
+async function loadPersistedTracks() {
+  try {
+    const saved = await musicTracksStore.getItem<MusicTrack[]>('library')
+    if (Array.isArray(saved) && saved.length) {
+      recentTracks.value = saved
+      if (!activeTrack.value && saved[0]) {
+        activeTrack.value = saved[0]
+      }
+    }
+  }
+  catch (err) {
+    console.error('[SoundStudio] Failed to load persisted tracks:', err)
+  }
+}
+
+async function saveTrackToLibrary(track: MusicTrack) {
+  const existing = recentTracks.value.filter(t => t.id !== track.id && (!track.audioUrl || t.audioUrl !== track.audioUrl))
+  recentTracks.value = [track, ...existing].slice(0, 100)
+  try {
+    await musicTracksStore.setItem('library', JSON.parse(JSON.stringify(recentTracks.value)))
+  }
+  catch (err) {
+    console.error('[SoundStudio] Failed to persist track:', err)
+  }
+}
+
+async function removeTrackFromLibrary(trackId: string) {
+  recentTracks.value = recentTracks.value.filter(t => t.id !== trackId)
+  if (activeTrack.value?.id === trackId) {
+    activeTrack.value = recentTracks.value[0] || null
+    if (!activeTrack.value && audioElementRef.value) {
+      audioElementRef.value.pause()
+      isPlaying.value = false
+    }
+  }
+  try {
+    await musicTracksStore.setItem('library', JSON.parse(JSON.stringify(recentTracks.value)))
+  }
+  catch (err) {
+    console.error('[SoundStudio] Failed to update library in localforage:', err)
+  }
+}
+
+function downloadTrack(track: MusicTrack) {
+  if (!track?.audioUrl)
+    return
+  const a = document.createElement('a')
+  a.href = track.audioUrl
+  const safeTitle = (track.title || 'sound_studio_track').toLowerCase().replace(/[^a-z0-9]+/g, '_')
+  a.download = `${safeTitle}.wav`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
+
+function downloadActiveTrack() {
+  if (activeTrack.value)
+    downloadTrack(activeTrack.value)
+}
+
+function formatElapsed(requestedAt: number): string {
+  const sec = Math.max(0, Math.round((Date.now() - requestedAt) / 1000))
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${m}:${s < 10 ? '0' : ''}${s}`
+}
+
+const filteredTracks = computed(() => {
+  const query = librarySearchQuery.value.trim().toLowerCase()
+  if (!query)
+    return recentTracks.value
+  return recentTracks.value.filter((t) => {
+    return (
+      t.title.toLowerCase().includes(query)
+      || t.prompt.toLowerCase().includes(query)
+      || t.model.toLowerCase().includes(query)
+      || (t.lyrics && t.lyrics.toLowerCase().includes(query))
+    )
+  })
+})
+
+// --- MCP & HTTP Unified Music API Bridge ---
+async function callMusicApi(action: string, extra: Record<string, any> = {}): Promise<any> {
+  const bridge = tryGetMcpToolBridge()
+  if (bridge) {
+    try {
+      const outcome = await bridge.callTool({
+        name: 'airi-audio-server::music',
+        arguments: { action, ...extra },
+      })
+      if (!outcome.isError) {
+        if (outcome.structuredContent && typeof outcome.structuredContent === 'object')
+          return outcome.structuredContent
+        if (outcome.content) {
+          const text = outcome.content.find((c: any) => c.type === 'text')?.text
+          if (typeof text === 'string') {
+            try {
+              return JSON.parse(text)
+            }
+            catch {}
+          }
+        }
+        if (outcome.toolResult)
+          return outcome.toolResult
+      }
+    }
+    catch (mcpErr) {
+      console.warn('[SoundStudio] MCP tool invocation failed, falling back to REST:', mcpErr)
+    }
+  }
+
+  // Fallback to HTTP REST
+  const rootUrl = serverBaseUrl.value.replace(/\/v1\/?$/, '')
+  const endpoints = [
+    `${serverBaseUrl.value}audio/music`,
+    `${serverBaseUrl.value}music`,
+    `${rootUrl}/v1/audio/music`,
+  ]
+
+  let lastError: any = null
+  for (const ep of endpoints) {
+    try {
+      const resp = await fetch(ep, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ...extra }),
+      })
+      if (resp.ok) {
+        const contentType = resp.headers.get('content-type') || ''
+        if (contentType.includes('application/json'))
+          return await resp.json()
+        const blob = await resp.blob()
+        return { audioUrl: URL.createObjectURL(blob) }
+      }
+    }
+    catch (err) {
+      lastError = err
+    }
+  }
+
+  throw lastError || new Error(`Failed to call ${action} on audio server`)
+}
+
+async function syncLibraryWithServer() {
+  if (isSyncingLibrary.value)
+    return
+  isSyncingLibrary.value = true
+  try {
+    const res = await callMusicApi('list', { limit: 50 })
+    const remoteTracks: any[] = res?.tracks || (Array.isArray(res) ? res : [])
+    const remoteJobs: any[] = res?.jobs || res?.activeJobs || res?.pending || []
+
+    // 1. Process active jobs from server
+    for (const rj of remoteJobs) {
+      const jobId = rj.jobId || rj.id
+      if (jobId && !activeJobs.value.some(j => j.id === jobId)) {
+        activeJobs.value.push({
+          id: jobId,
+          title: rj.title || 'In-Flight Render',
+          model: rj.model || selectedModel.value,
+          state: rj.state || 'running',
+          progress: typeof rj.progress === 'number' ? rj.progress : undefined,
+          requestedAt: rj.createdAt ? (Date.parse(rj.createdAt) || Date.now()) : Date.now(),
+          durationSeconds: rj.durationSeconds || 60,
+        })
+      }
+    }
+
+    // 2. Process remote tracks
+    for (const rt of remoteTracks) {
+      if (!rt)
+        continue
+      const jobId = rt.id || rt.jobId
+      const audioUrl = rt.audioUrl || rt.url || ''
+      if (!jobId && !audioUrl)
+        continue
+
+      const isPending = rt.state === 'running' || rt.state === 'queued' || (!audioUrl && rt.status !== 'failed' && rt.status !== 'cancelled' && rt.status !== 'expired')
+      if (isPending) {
+        if (jobId && !activeJobs.value.some(j => j.id === jobId)) {
+          activeJobs.value.push({
+            id: jobId,
+            title: rt.title || 'In-Flight Render',
+            model: rt.model || selectedModel.value,
+            state: rt.state || 'running',
+            requestedAt: rt.createdAt ? (Date.parse(rt.createdAt) || Date.now()) : Date.now(),
+            durationSeconds: rt.durationSeconds || 60,
+          })
+        }
+        continue
+      }
+
+      const alreadyHas = recentTracks.value.some(t => (jobId && t.id === jobId) || (audioUrl && t.audioUrl === audioUrl))
+      if (!alreadyHas && audioUrl) {
+        const newTrack: MusicTrack = {
+          id: jobId || `track-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          title: rt.title || 'Untitled Track',
+          model: rt.model || selectedModel.value,
+          prompt: rt.prompt || '',
+          lyrics: rt.lyrics || '',
+          duration: rt.duration || 60,
+          audioUrl,
+          createdAt: rt.createdAt ? new Date(rt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          abcScore: rt.abcScore || rt.abc,
+        }
+        await saveTrackToLibrary(newTrack)
+      }
+    }
+
+    if (activeJobs.value.length)
+      ensureJobPolling()
+  }
+  catch (err: any) {
+    console.warn('[SoundStudio] Library sync failed (server offline or unavailable):', err)
+  }
+  finally {
+    isSyncingLibrary.value = false
+  }
+}
+
+function ensureJobPolling() {
+  if (jobPollInterval || !activeJobs.value.length)
+    return
+  jobPollInterval = setInterval(async () => {
+    if (!activeJobs.value.length) {
+      stopJobPolling()
+      return
+    }
+    await pollActiveJobs()
+  }, 3000)
+}
+
+function stopJobPolling() {
+  if (jobPollInterval) {
+    clearInterval(jobPollInterval)
+    jobPollInterval = null
+  }
+}
+
+async function pollActiveJobs() {
+  const currentJobs = [...activeJobs.value]
+  for (const job of currentJobs) {
+    try {
+      const res = await callMusicApi('status', { jobId: job.id })
+      if (!res)
+        continue
+
+      const state = res.state || res.status
+      if (typeof res.progress === 'number')
+        job.progress = Math.round(res.progress)
+      else if (typeof res.progress?.percent === 'number')
+        job.progress = Math.round(res.progress.percent)
+
+      if (state === 'running' || state === 'queued') {
+        job.state = state
+      }
+      else if (state === 'done' || res.track?.audioUrl || res.audioUrl) {
+        const rawTrack = res.track || res
+        const finishedTrack: MusicTrack = {
+          id: job.id,
+          title: rawTrack.title || job.title || 'Untitled Track',
+          model: rawTrack.model || job.model || selectedModel.value,
+          prompt: rawTrack.prompt || job.prompt || '',
+          lyrics: rawTrack.lyrics || job.lyrics || '',
+          duration: rawTrack.duration || job.durationSeconds || durationSeconds.value,
+          audioUrl: rawTrack.audioUrl || rawTrack.url || '',
+          createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          abcScore: rawTrack.abcScore || rawTrack.abc,
+        }
+
+        activeJobs.value = activeJobs.value.filter(j => j.id !== job.id)
+        await saveTrackToLibrary(finishedTrack)
+        selectTrack(finishedTrack)
+
+        triggerReactiveReaction(
+          `"${finishedTrack.title}" is ready! Listen to those harmonies—what do you think? We can tweak the tempo or lyrics if you want another take!`,
+          'inspired',
+          finishedTrack,
+        )
+      }
+      else if (state === 'failed' || res.error) {
+        job.state = 'failed'
+        job.error = res.error || 'Rendering failed on server'
+      }
+    }
+    catch (err: any) {
+      console.warn(`[SoundStudio] Failed to poll status for job ${job.id}:`, err)
+    }
+  }
+}
+
+async function cancelActiveJob(job: MusicJob) {
+  try {
+    await callMusicApi('cancel', { jobId: job.id })
+  }
+  catch (err) {
+    console.warn(`[SoundStudio] Cancel failed for ${job.id}:`, err)
+  }
+  activeJobs.value = activeJobs.value.filter(j => j.id !== job.id)
+}
+
+// Current & Recent Tracks
 const isGenerating = ref(false)
 const elapsedSeconds = ref(0)
 let timerInterval: any = null
 const generationError = ref('')
 const activeAbortController = ref<AbortController | null>(null)
-
-// Current & Recent Tracks
-const activeTrack = ref<MusicTrack | null>(null)
-const recentTracks = ref<MusicTrack[]>([])
 
 // --- Audio Playback Engine ---
 const audioElementRef = ref<HTMLAudioElement | null>(null)
@@ -318,18 +666,6 @@ function formatTime(sec: number): string {
   return `${m}:${s < 10 ? '0' : ''}${s}`
 }
 
-function downloadActiveTrack() {
-  if (!activeTrack.value?.audioUrl)
-    return
-  const a = document.createElement('a')
-  a.href = activeTrack.value.audioUrl
-  const safeTitle = (activeTrack.value.title || 'sound_studio_track').toLowerCase().replace(/[^a-z0-9]+/g, '_')
-  a.download = `${safeTitle}.wav`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-}
-
 // --- Generation Request ---
 async function handleGenerateTrack() {
   if (isGenerating.value)
@@ -352,61 +688,41 @@ async function handleGenerateTrack() {
 
   try {
     const payload = {
+      action: 'generate',
       model: selectedModel.value,
       prompt: stylePrompt.value.trim(),
       lyrics: isInstrumental.value ? '[Instrumental]' : lyricsText.value.trim(),
       duration_seconds: durationSeconds.value,
+      durationSeconds: durationSeconds.value,
       temperature: temperature.value,
       cot: cotMode.value,
       title: trackTitle.value.trim() || 'Untitled Track',
     }
 
-    const endpoint = `${serverBaseUrl.value}audio/music`
+    const res = await callMusicApi('generate', payload)
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    }).catch(async (err) => {
-      // Fallback try to root /music if /v1/audio/music returned connection issue
-      if (err.name === 'AbortError')
-        throw err
-      return fetch(`${serverBaseUrl.value}music`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      })
-    })
-
-    if (!response || !response.ok) {
-      const errorDetail = await response?.text().catch(() => '')
-      throw new Error(`Server returned HTTP ${response?.status || 500}: ${errorDetail || 'Unknown error'}`)
+    const jobId = res?.jobId || res?.planId || res?.id
+    if (jobId && !res?.audioUrl && !res?.track?.audioUrl) {
+      const newJob: MusicJob = {
+        id: jobId,
+        title: trackTitle.value.trim() || 'Untitled Track',
+        model: selectedModel.value,
+        prompt: stylePrompt.value.trim(),
+        lyrics: isInstrumental.value ? '[Instrumental]' : lyricsText.value.trim(),
+        state: res.state || 'queued',
+        progress: 0,
+        requestedAt: Date.now(),
+        durationSeconds: durationSeconds.value,
+      }
+      activeJobs.value.unshift(newJob)
+      ensureJobPolling()
+      return
     }
 
-    const contentType = response.headers.get('content-type') || ''
-    let audioUrl = ''
-    let parsedAbc = ''
-
-    if (contentType.includes('application/json')) {
-      const data = await response.json()
-      if (data.audio_url || data.url) {
-        audioUrl = data.audio_url || data.url
-      }
-      else if (data.data) {
-        audioUrl = `data:audio/wav;base64,${data.data}`
-      }
-      if (data.abc_score || data.abc) {
-        parsedAbc = data.abc_score || data.abc
-      }
-    }
-    else {
-      // Raw binary audio/wav or audio/mpeg stream
-      const blob = await response.blob()
-      audioUrl = URL.createObjectURL(blob)
+    const trackPayload = res?.track || res
+    let audioUrl = trackPayload?.audioUrl || trackPayload?.url || ''
+    if (!audioUrl && trackPayload?.data) {
+      audioUrl = `data:audio/wav;base64,${trackPayload.data}`
     }
 
     if (!audioUrl) {
@@ -414,7 +730,7 @@ async function handleGenerateTrack() {
     }
 
     const track: MusicTrack = {
-      id: `track-${Date.now()}`,
+      id: jobId || `track-${Date.now()}`,
       title: trackTitle.value.trim() || 'Untitled Track',
       model: selectedModel.value,
       prompt: stylePrompt.value,
@@ -422,24 +738,11 @@ async function handleGenerateTrack() {
       duration: durationSeconds.value,
       audioUrl,
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      abcScore: parsedAbc,
+      abcScore: trackPayload?.abcScore || trackPayload?.abc,
     }
 
-    activeTrack.value = track
-    recentTracks.value.unshift(track)
-
-    // Auto load audio element
-    void nextTick(() => {
-      if (audioElementRef.value) {
-        audioElementRef.value.src = audioUrl
-        audioElementRef.value.load()
-        audioElementRef.value.play().then(() => {
-          isPlaying.value = true
-        }).catch(() => {
-          isPlaying.value = false
-        })
-      }
-    })
+    await saveTrackToLibrary(track)
+    selectTrack(track)
 
     // Notify character chat
     triggerReactiveReaction(
@@ -640,6 +943,7 @@ function sendTrackToChat(track: MusicTrack) {
 }
 
 onMounted(() => {
+  void loadPersistedTracks()
   void checkServerHealth()
 
   // Read the endpoint already recorded in mcp.json. This deliberately does not
@@ -650,6 +954,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  stopJobPolling()
   if (timerInterval) {
     clearInterval(timerInterval)
   }
@@ -1058,6 +1363,72 @@ onUnmounted(() => {
         </button>
       </div>
 
+      <!-- Active Jobs / In the Oven -->
+      <div v-if="activeJobs.length" class="space-y-2.5">
+        <div class="flex items-center justify-between text-xs text-neutral-700 font-bold dark:text-neutral-200">
+          <div class="flex items-center gap-2">
+            <div class="i-solar:flame-bold-duotone animate-pulse text-sm text-amber-500" />
+            <span>In the Oven ({{ activeJobs.length }})</span>
+          </div>
+          <span class="text-[11px] text-neutral-400 font-normal">Rendering on audio server</span>
+        </div>
+
+        <div class="space-y-2">
+          <div
+            v-for="job in activeJobs"
+            :key="job.id"
+            class="border border-amber-500/30 rounded-xl bg-amber-500/5 p-3 backdrop-blur-md transition-all space-y-2 dark:bg-amber-950/20"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <div class="min-w-0 flex items-center gap-2.5">
+                <div class="h-7 w-7 flex shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                  <div class="i-solar:music-note-bold animate-bounce text-sm" />
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="truncate text-xs text-neutral-800 font-bold dark:text-neutral-100">{{ job.title }}</span>
+                    <span class="rounded bg-amber-500/20 px-1.5 py-0.2 text-[9px] text-amber-700 font-bold uppercase dark:text-amber-300">
+                      {{ job.state || 'rendering' }}
+                    </span>
+                    <span class="rounded bg-neutral-200/60 px-1.5 py-0.2 text-[9px] text-neutral-600 font-mono dark:bg-neutral-800 dark:text-neutral-300">
+                      {{ job.model.toUpperCase() }}
+                    </span>
+                  </div>
+                  <div class="max-w-sm truncate text-[10px] text-neutral-400">
+                    {{ job.prompt || 'Synthesizing neural audio...' }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex shrink-0 items-center gap-2.5">
+                <span v-if="typeof job.progress === 'number'" class="text-xs text-amber-600 font-bold font-mono dark:text-amber-400">
+                  {{ job.progress }}%
+                </span>
+                <span v-else class="text-[10px] text-neutral-400 font-mono">
+                  {{ formatElapsed(job.requestedAt) }}
+                </span>
+                <button
+                  class="border border-rose-500/30 rounded bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-600 font-bold transition-all active:scale-95 hover:bg-rose-500/20 dark:text-rose-400"
+                  title="Cancel job"
+                  @click="cancelActiveJob(job)"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            <!-- Progress bar -->
+            <div class="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200/70 dark:bg-neutral-800">
+              <div
+                class="h-full rounded-full from-amber-500 to-primary-500 bg-gradient-to-r transition-all duration-300"
+                :style="{ width: `${typeof job.progress === 'number' ? job.progress : 25}%` }"
+                :class="typeof job.progress !== 'number' ? 'animate-pulse' : ''"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Active Track Showcase Player -->
       <div
         v-if="activeTrack"
@@ -1144,29 +1515,120 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Recent Tracks Strip -->
-      <div v-if="recentTracks.length > 1" class="space-y-2">
-        <h4 class="text-xs text-neutral-500 font-bold dark:text-neutral-400">
-          Recent Studio Takes ({{ recentTracks.length }})
-        </h4>
-        <div class="flex flex-wrap gap-2">
-          <button
-            v-for="track in recentTracks"
+      <!-- Studio Track Library -->
+      <div class="pt-2 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200/50 pt-3 dark:border-neutral-800/50">
+          <div class="flex items-center gap-2">
+            <h4 class="text-xs text-neutral-700 font-bold dark:text-neutral-200">
+              Studio Library
+            </h4>
+            <span class="rounded bg-neutral-200/60 px-1.5 py-0.2 text-[10px] text-neutral-500 font-mono dark:bg-neutral-800">
+              {{ recentTracks.length }}
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <!-- Search Input -->
+            <div class="relative flex items-center">
+              <div class="i-solar:magnifer-linear absolute left-2 text-xs text-neutral-400" />
+              <input
+                v-model="librarySearchQuery"
+                type="text"
+                placeholder="Filter library..."
+                class="w-36 border border-neutral-200/70 rounded-lg bg-white/70 py-0.5 pl-6 pr-2 text-[11px] text-neutral-800 outline-none transition-all focus:w-48 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              >
+            </div>
+
+            <!-- Sync Button -->
+            <button
+              class="flex items-center gap-1.5 border border-neutral-200/70 rounded-lg bg-white/80 px-2.5 py-1 text-xs text-neutral-700 font-medium transition-all active:scale-95 dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-50 dark:text-neutral-200 disabled:opacity-50"
+              :disabled="isSyncingLibrary"
+              title="Sync tracks with audio server"
+              @click="syncLibraryWithServer"
+            >
+              <div :class="isSyncingLibrary ? 'i-solar:restart-bold animate-spin text-primary-500' : 'i-solar:restart-bold'" class="text-xs" />
+              <span>{{ isSyncingLibrary ? 'Syncing...' : 'Sync Server' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Library List -->
+        <div v-if="filteredTracks.length" class="space-y-2">
+          <div
+            v-for="track in filteredTracks"
             :key="track.id"
-            class="shadow-2xs flex items-center gap-2 border rounded-xl bg-white/70 px-3 py-2 text-left transition-all active:scale-95 dark:bg-neutral-900/70"
-            :class="activeTrack?.id === track.id ? 'border-primary-500/60 bg-primary-500/10' : 'border-neutral-200/60 dark:border-neutral-800 hover:border-neutral-300'"
-            @click="selectTrack(track)"
+            class="shadow-2xs flex items-center justify-between gap-3 border rounded-xl bg-white/70 p-2.5 backdrop-blur-md transition-all hover:border-neutral-300 dark:bg-neutral-900/70 dark:hover:border-neutral-700"
+            :class="activeTrack?.id === track.id ? 'border-primary-500/60 bg-primary-500/5 shadow-xs' : 'border-neutral-200/60 dark:border-neutral-800/80'"
           >
-            <div class="i-solar:play-circle-bold text-lg text-primary-500" />
-            <div>
-              <div class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
-                {{ track.title }}
-              </div>
-              <div class="text-[10px] text-neutral-400">
-                {{ track.model.toUpperCase() }} &bull; {{ track.duration }}s &bull; {{ track.createdAt }}
+            <!-- Left: Play button & Track Info -->
+            <div class="min-w-0 flex flex-1 items-center gap-2.5">
+              <button
+                class="h-8 w-8 flex shrink-0 items-center justify-center rounded-lg transition-all active:scale-95"
+                :class="activeTrack?.id === track.id && isPlaying ? 'bg-primary-500 text-white shadow-xs' : 'bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20'"
+                @click="activeTrack?.id === track.id ? togglePlay() : selectTrack(track)"
+              >
+                <div :class="activeTrack?.id === track.id && isPlaying ? 'i-solar:pause-bold' : 'i-solar:play-bold'" class="text-sm" />
+              </button>
+
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="cursor-pointer truncate text-xs text-neutral-800 font-bold dark:text-neutral-100 hover:underline" @click="selectTrack(track)">
+                    {{ track.title }}
+                  </span>
+                  <span class="shrink-0 rounded bg-primary-500/10 px-1 py-0.2 text-[8px] text-primary-600 font-bold uppercase dark:text-primary-400">
+                    {{ track.model }}
+                  </span>
+                  <span class="shrink-0 text-[9px] text-neutral-400 font-mono">
+                    {{ track.duration }}s &bull; {{ track.createdAt }}
+                  </span>
+                </div>
+                <div class="max-w-md truncate text-[10px] text-neutral-500 dark:text-neutral-400">
+                  {{ track.prompt }}
+                </div>
               </div>
             </div>
-          </button>
+
+            <!-- Right: Actions -->
+            <div class="flex shrink-0 items-center gap-1">
+              <button
+                class="border border-neutral-200/60 rounded-lg p-1.5 text-neutral-500 transition-all active:scale-95 dark:border-neutral-700 hover:border-primary-500/40 hover:text-primary-500"
+                title="Share track into studio chat"
+                @click="sendTrackToChat(track)"
+              >
+                <div class="i-solar:chat-line-linear text-xs" />
+              </button>
+
+              <button
+                class="border border-neutral-200/60 rounded-lg p-1.5 text-neutral-500 transition-all active:scale-95 dark:border-neutral-700 hover:text-neutral-800 dark:hover:text-neutral-200"
+                title="Download track"
+                @click="downloadTrack(track)"
+              >
+                <div class="i-solar:download-linear text-xs" />
+              </button>
+
+              <button
+                class="border border-neutral-200/60 rounded-lg p-1.5 text-neutral-400 transition-all active:scale-95 dark:border-neutral-700 hover:border-rose-500/40 hover:text-rose-500"
+                title="Remove from library"
+                @click="removeTrackFromLibrary(track.id)"
+              >
+                <div class="i-solar:trash-bin-minimalistic-linear text-xs" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div
+          v-else
+          class="border border-neutral-200/80 rounded-xl border-dashed p-6 text-center space-y-1.5 dark:border-neutral-800"
+        >
+          <div class="i-solar:music-library-2-bold-duotone mx-auto text-2xl text-neutral-400" />
+          <div class="text-xs text-neutral-600 font-semibold dark:text-neutral-300">
+            {{ librarySearchQuery ? 'No matching tracks found' : 'Your studio library is empty' }}
+          </div>
+          <p class="mx-auto max-w-sm text-[11px] text-neutral-400">
+            {{ librarySearchQuery ? 'Try searching for a different keyword or prompt.' : 'Pick a preset above and click "Generate Music Track", or ask your companion to compose a track in chat.' }}
+          </p>
         </div>
       </div>
     </div>
