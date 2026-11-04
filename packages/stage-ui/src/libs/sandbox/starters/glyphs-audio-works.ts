@@ -1,17 +1,5 @@
 import type { WidgetExportManifest } from '../export'
 
-/**
- * Glyph's Audio Works — a listening room with an oven.
- *
- * The character queues job ids into `state.pending` (via `setState`, or by
- * editing `/workspace/glyphs_audio_works.json`, which the sandbox syncs back
- * into the widget). The widget polls the audio server *only* while something is
- * pending, folds finished renders into its library, and plays them. An empty
- * oven means no timers at all.
- *
- * Ships with empty state on purpose: the library backfills from the server's
- * `music { action: "list" }` on mount, so a fresh install is never a dead panel.
- */
 export const GLYPHS_AUDIO_WORKS_STARTER: WidgetExportManifest = {
   version: '1.0',
   id: 'starter-glyphs-audio-works',
@@ -23,10 +11,10 @@ export const GLYPHS_AUDIO_WORKS_STARTER: WidgetExportManifest = {
   sourcePath: '/workspace/glyphs_audio_works.ts',
   sourceCode: `// Glyph's Audio Works — a listening room with an oven.
 //
-// Flow: the agent queues job ids into \`state.pending\` (via setState or by editing
-// /workspace/glyphs_audio_works.json). This widget polls the audio server only
-// while something is pending, moves finished tracks into the library, and plays
-// them. It never polls when the oven is empty.
+// Flow: the agent queues job ids into \`state.pending\` (or the widget discovers
+// them from the server's music { action: "list" }). The widget polls the audio
+// server while something is pending, moves finished tracks into the library, and
+// plays them. Can be collapsed into a compact one-row player.
 
 type OrderRequest = {
   prompt?: string
@@ -114,6 +102,7 @@ export default function mount(ctx: any) {
     volume: 0.9,
     loops: 0,
     chime: true,
+    collapsed: false,
     toolName: DEFAULT_TOOL,
   }, state || {})
 
@@ -123,6 +112,18 @@ export default function mount(ctx: any) {
     s.finished = []
   if (!s.current)
     s.current = { url: '', title: '' }
+
+  // Migrate legacy tracks array format if finished is empty
+  if (Array.isArray(s.tracks) && !s.finished.length) {
+    s.finished = s.tracks.map((t: any) => ({
+      jobId: t.jobId || slugTail(t.url || t.audioUrl) || \`track-\${Date.now()}\`,
+      title: t.title || 'Untitled',
+      audioUrl: t.url || t.audioUrl || '',
+      durationMs: t.durationMs || 12000,
+      completedAt: Date.now(),
+      status: 'ready',
+    }))
+  }
 
   let pollTimer: any = null
   let inFlight = false
@@ -143,7 +144,7 @@ export default function mount(ctx: any) {
 
   const root = el(
     'div',
-    'w-full h-full overflow-y-auto bg-[#FFF8F1] dark:bg-[#141414] text-[#6b4a33] dark:text-[#FAD2B8] p-3 sm:p-4 font-mono text-[13px] space-y-3',
+    'w-full h-full overflow-y-auto bg-[#FFF8F1] dark:bg-[#141414] text-[#6b4a33] dark:text-[#FAD2B8] p-3 sm:p-4 font-mono text-[13px] space-y-3 transition-all duration-200',
   )
   container.innerHTML = ''
   container.appendChild(root)
@@ -159,14 +160,35 @@ export default function mount(ctx: any) {
   const headActions = el('div', 'flex shrink-0 items-center gap-1')
   const chimeBtn = el('button', 'px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[11px]')
   const refreshBtn = el('button', 'px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[11px]', '↻')
-  refreshBtn.title = 'Refresh library'
+  refreshBtn.title = 'Refresh library and check active jobs'
+  const compactBtn = el('button', 'px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[11px]', '▾ compact')
+  compactBtn.title = 'Toggle compact player mode'
   headActions.appendChild(chimeBtn)
   headActions.appendChild(refreshBtn)
+  headActions.appendChild(compactBtn)
   head.appendChild(headActions)
   root.appendChild(head)
 
   const banner = el('div', 'hidden')
   root.appendChild(banner)
+
+  // compact 1-row player (active when collapsed is true)
+  const compactBar = el('div', 'hidden items-center gap-2 p-2 rounded-xl border border-[#EAD9C7] dark:border-neutral-700 bg-[#FFFDF8] dark:bg-[#1b1b1b]')
+  compactBar.innerHTML = \`
+    <button data-role="c-play" class="shrink-0 px-2 py-0.5 rounded bg-[#E8B78E] dark:bg-[#B98D6E] text-[#3b2415] font-bold text-[11px]">▶</button>
+    <div class="min-w-0 flex-1 space-y-1">
+      <div class="flex items-center justify-between gap-1">
+        <span class="truncate text-[12px] font-bold" data-role="c-title">nothing loaded yet</span>
+        <span class="shrink-0 text-[10px] tabular-nums opacity-60" data-role="c-time">0:00</span>
+      </div>
+      <div class="h-1 w-full rounded bg-[#EAD9C7]/50 dark:bg-neutral-800 overflow-hidden">
+        <div class="h-full w-0 bg-[#E8B78E] dark:bg-[#B98D6E] transition-all duration-150" data-role="c-bar"></div>
+      </div>
+    </div>
+    <button data-role="c-refresh" class="shrink-0 px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[10px]" title="Refresh">↻</button>
+    <button data-role="c-expand" class="shrink-0 px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[10px]" title="Expand to full player">▸</button>
+  \`
+  root.appendChild(compactBar)
 
   // now playing
   const player = el('div', 'p-2.5 rounded-xl border border-[#EAD9C7] dark:border-neutral-700 bg-[#FFFDF8] dark:bg-[#1b1b1b] space-y-2')
@@ -215,6 +237,13 @@ export default function mount(ctx: any) {
   const seek = player.querySelector('[data-role="seek"]') as HTMLInputElement
   const vol = player.querySelector('[data-role="vol"]') as HTMLInputElement
   const loopBtn = player.querySelector('[data-role="loop"]') as HTMLButtonElement
+
+  const cPlayBtn = compactBar.querySelector('[data-role="c-play"]') as HTMLButtonElement
+  const cTitle = compactBar.querySelector('[data-role="c-title"]') as HTMLElement
+  const cTime = compactBar.querySelector('[data-role="c-time"]') as HTMLElement
+  const cBar = compactBar.querySelector('[data-role="c-bar"]') as HTMLElement
+  const cRefreshBtn = compactBar.querySelector('[data-role="c-refresh"]') as HTMLButtonElement
+  const cExpandBtn = compactBar.querySelector('[data-role="c-expand"]') as HTMLButtonElement
 
   // ---- helpers -----------------------------------------------------------
   function pending(): PendingOrder[] {
@@ -295,6 +324,34 @@ export default function mount(ctx: any) {
     catch (e) {
       // Autoplay/audio unavailable — the "new" badge still tells the story.
     }
+  }
+
+  // ---- collapse toggle ----------------------------------------------------
+  function applyCollapsed(on: boolean): void {
+    s.collapsed = on
+    if (on) {
+      head.classList.add('hidden')
+      banner.classList.add('hidden')
+      player.classList.add('hidden')
+      oven.classList.add('hidden')
+      library.classList.add('hidden')
+      foot.classList.add('hidden')
+      compactBar.classList.remove('hidden')
+      compactBar.classList.add('flex')
+    }
+    else {
+      head.classList.remove('hidden')
+      if (banner.textContent)
+        banner.classList.remove('hidden')
+      player.classList.remove('hidden')
+      oven.classList.remove('hidden')
+      library.classList.remove('hidden')
+      foot.classList.remove('hidden')
+      compactBar.classList.add('hidden')
+      compactBar.classList.remove('flex')
+    }
+    compactBtn.textContent = s.collapsed ? '▸ expand' : '▾ compact'
+    persist()
   }
 
   // ---- polling -----------------------------------------------------------
@@ -420,6 +477,7 @@ export default function mount(ctx: any) {
       volume: s.volume,
       loops: s.loops,
       chime: s.chime,
+      collapsed: !!s.collapsed,
     })
   }
 
@@ -435,7 +493,8 @@ export default function mount(ctx: any) {
       isNew: true,
     }
     s.pending = pending().filter(j => j.jobId !== job.jobId)
-    s.finished = [entry, ...finished().filter(t => t.jobId !== entry.jobId)].slice(0, SHELF_LIMIT)
+    // Keyed deduplication across finished library
+    s.finished = [entry, ...finished().filter(t => t.jobId !== entry.jobId && (!entry.audioUrl || t.audioUrl !== entry.audioUrl))].slice(0, SHELF_LIMIT)
     persist()
     chime()
     render()
@@ -512,25 +571,82 @@ export default function mount(ctx: any) {
     try {
       const res = await callMusic('list', { limit: SHELF_LIMIT })
       const remote: any[] = (res && res.tracks) || []
-      const byId = new Map<string, Track>()
-      for (const track of finished())
-        byId.set(track.jobId, track)
+      const remoteJobs: any[] = (res && (res.jobs || res.activeJobs || res.pending)) || []
+
+      const byKey = new Map<string, Track>()
+      const seenUrls = new Set<string>()
+
+      for (const track of finished()) {
+        const key = track.jobId || track.audioUrl
+        if (!key)
+          continue
+        if (track.audioUrl)
+          seenUrls.add(track.audioUrl)
+        byKey.set(key, track)
+      }
+
       for (const track of remote) {
-        if (!track || !track.id)
+        if (!track)
           continue
-        if (byId.has(track.id))
+        const jobId = track.id || track.jobId
+        const audioUrl = track.audioUrl || track.url || ''
+        if (!jobId && !audioUrl)
           continue
-        byId.set(track.id, {
-          jobId: track.id,
+
+        // Check if this track is actually an in-progress / queued render
+        const isPending = track.state === 'running'
+          || track.state === 'queued'
+          || track.status === 'running'
+          || track.status === 'queued'
+          || (!audioUrl && track.status !== 'failed' && track.status !== 'cancelled' && track.status !== 'expired')
+
+        if (isPending) {
+          if (!s.pending.some((p: any) => p.jobId === jobId)) {
+            s.pending.push({
+              jobId: jobId || \`job-\${Date.now()}\`,
+              title: track.title || 'Untitled',
+              requestedAt: track.createdAt ? (Date.parse(track.createdAt) || Date.now()) : Date.now(),
+              durationSeconds: track.durationMs ? Math.round(track.durationMs / 1000) : 60,
+            })
+          }
+          continue
+        }
+
+        // Deduplicate against finished tracks
+        if (jobId && byKey.has(jobId))
+          continue
+        if (audioUrl && seenUrls.has(audioUrl))
+          continue
+
+        const entry: Track = {
+          jobId: jobId || slugTail(audioUrl) || \`track-\${Date.now()}\`,
           title: track.title || 'Untitled',
-          audioUrl: track.audioUrl,
+          audioUrl,
           durationMs: track.durationMs || 0,
           model: track.model || '',
-          completedAt: track.createdAt ? Date.parse(track.createdAt) || 0 : 0,
-          status: 'ready',
-        })
+          completedAt: track.createdAt ? (Date.parse(track.createdAt) || 0) : Date.now(),
+          status: (track.status as TrackStatus) || 'ready',
+        }
+        if (jobId)
+          byKey.set(jobId, entry)
+        if (audioUrl)
+          seenUrls.add(audioUrl)
       }
-      const merged = [...byId.values()].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
+
+      // Merge active jobs from server if present
+      for (const rj of remoteJobs) {
+        const jobId = rj.jobId || rj.id
+        if (jobId && !s.pending.some((p: any) => p.jobId === jobId)) {
+          s.pending.push({
+            jobId,
+            title: rj.title || 'Untitled',
+            requestedAt: rj.requestedAt || (rj.createdAt ? (Date.parse(rj.createdAt) || Date.now()) : Date.now()),
+            durationSeconds: rj.durationSeconds || 60,
+          })
+        }
+      }
+
+      const merged = [...byKey.values()].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
       s.finished = merged.slice(0, SHELF_LIMIT)
       persist()
       render()
@@ -598,8 +714,6 @@ export default function mount(ctx: any) {
     }
     library.appendChild(el('div', 'text-[10px] uppercase tracking-wider opacity-60 px-1', 'library'))
 
-    // Repeated titles are common when a character re-orders the same brief; tag
-    // duplicates with the tail of their job slug so the shelf stays scannable.
     const counts = new Map<string, number>()
     for (const track of tracks)
       counts.set(track.title, (counts.get(track.title) || 0) + 1)
@@ -645,7 +759,11 @@ export default function mount(ctx: any) {
       : 'border-[#EAD9C7] dark:border-neutral-700'}\`
     vol.value = String(Math.round((audio.volume || 0) * 100))
     chimeBtn.textContent = s.chime ? '🔔 chime' : '🔕 chime'
+    compactBtn.textContent = s.collapsed ? '▸ expand' : '▾ compact'
     foot.textContent = KAO[Math.min(KAO.length - 1, finished().length % KAO.length)]
+
+    cTitle.textContent = s.current.title || 'nothing loaded yet'
+    cPlayBtn.textContent = audio.paused ? '▶' : '⏸'
   }
 
   function render(): void {
@@ -662,6 +780,10 @@ export default function mount(ctx: any) {
       void audio.play().catch(() => {})
     else
       audio.pause()
+  }
+
+  cPlayBtn.onclick = () => {
+    playBtn.click()
   }
 
   seek.oninput = () => {
@@ -693,17 +815,47 @@ export default function mount(ctx: any) {
     renderPlayer()
   }
 
-  refreshBtn.onclick = () => {
-    void backfill()
-    ensurePolling()
+  compactBtn.onclick = () => {
+    applyCollapsed(!s.collapsed)
+  }
+
+  cExpandBtn.onclick = () => {
+    applyCollapsed(false)
+  }
+
+  refreshBtn.onclick = async () => {
+    refreshBtn.classList.add('animate-spin')
+    refreshBtn.setAttribute('disabled', 'true')
+    cRefreshBtn.classList.add('animate-spin')
+    cRefreshBtn.setAttribute('disabled', 'true')
+    try {
+      await backfill()
+      if (pending().length) {
+        await tick()
+        ensurePolling()
+      }
+    }
+    finally {
+      refreshBtn.classList.remove('animate-spin')
+      refreshBtn.removeAttribute('disabled')
+      cRefreshBtn.classList.remove('animate-spin')
+      cRefreshBtn.removeAttribute('disabled')
+    }
+  }
+
+  cRefreshBtn.onclick = () => {
+    refreshBtn.click()
   }
 
   audio.addEventListener('timeupdate', () => {
     const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
     const cur = audio.currentTime || 0
     npTime.textContent = \`\${fmtClock(cur * 1000)} / \${duration ? fmtClock(duration * 1000) : '0:00'}\`
-    if (duration)
+    if (duration) {
       seek.value = String(Math.round((cur / duration) * 1000))
+      cBar.style.width = \`\${(cur / duration) * 100}%\`
+    }
+    cTime.textContent = fmtClock(cur * 1000)
   })
   audio.addEventListener('play', () => renderPlayer())
   audio.addEventListener('pause', () => renderPlayer())
@@ -735,13 +887,27 @@ export default function mount(ctx: any) {
         if (disposed || !next)
           return
         s.pending = Array.isArray(next.pending) ? next.pending : []
-        s.finished = Array.isArray(next.finished) ? next.finished : []
+        if (Array.isArray(next.finished)) {
+          s.finished = next.finished
+        }
+        else if (Array.isArray(next.tracks)) {
+          s.finished = next.tracks.map((t: any) => ({
+            jobId: t.jobId || slugTail(t.url || t.audioUrl) || \`track-\${Date.now()}\`,
+            title: t.title || 'Untitled',
+            audioUrl: t.url || t.audioUrl || '',
+            durationMs: t.durationMs || 12000,
+            completedAt: Date.now(),
+            status: 'ready',
+          }))
+        }
         if (next.current)
           s.current = next.current
         if (typeof next.chime === 'boolean')
           s.chime = next.chime
         if (typeof next.loops === 'number')
           s.loops = next.loops
+        if (typeof next.collapsed === 'boolean' && next.collapsed !== s.collapsed)
+          applyCollapsed(next.collapsed)
         render()
         if (pending().length)
           ensurePolling()
@@ -756,8 +922,12 @@ export default function mount(ctx: any) {
   }
 
   render()
-  void backfill()
-  ensurePolling()
+  if (s.collapsed)
+    applyCollapsed(true)
+  void backfill().then(() => {
+    if (pending().length)
+      ensurePolling()
+  })
 
   return () => {
     disposed = true
@@ -774,10 +944,10 @@ export default function mount(ctx: any) {
 `,
   code: ` function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }// Glyph's Audio Works — a listening room with an oven.
 //
-// Flow: the agent queues job ids into \`state.pending\` (via setState or by editing
-// /workspace/glyphs_audio_works.json). This widget polls the audio server only
-// while something is pending, moves finished tracks into the library, and plays
-// them. It never polls when the oven is empty.
+// Flow: the agent queues job ids into \`state.pending\` (or the widget discovers
+// them from the server's music { action: "list" }). The widget polls the audio
+// server while something is pending, moves finished tracks into the library, and
+// plays them. Can be collapsed into a compact one-row player.
 
 
 
@@ -865,6 +1035,7 @@ export default function mount(ctx) {
     volume: 0.9,
     loops: 0,
     chime: true,
+    collapsed: false,
     toolName: DEFAULT_TOOL,
   }, state || {})
 
@@ -874,6 +1045,18 @@ export default function mount(ctx) {
     s.finished = []
   if (!s.current)
     s.current = { url: '', title: '' }
+
+  // Migrate legacy tracks array format if finished is empty
+  if (Array.isArray(s.tracks) && !s.finished.length) {
+    s.finished = s.tracks.map((t) => ({
+      jobId: t.jobId || slugTail(t.url || t.audioUrl) || \`track-\${Date.now()}\`,
+      title: t.title || 'Untitled',
+      audioUrl: t.url || t.audioUrl || '',
+      durationMs: t.durationMs || 12000,
+      completedAt: Date.now(),
+      status: 'ready',
+    }))
+  }
 
   let pollTimer = null
   let inFlight = false
@@ -894,7 +1077,7 @@ export default function mount(ctx) {
 
   const root = el(
     'div',
-    'w-full h-full overflow-y-auto bg-[#FFF8F1] dark:bg-[#141414] text-[#6b4a33] dark:text-[#FAD2B8] p-3 sm:p-4 font-mono text-[13px] space-y-3',
+    'w-full h-full overflow-y-auto bg-[#FFF8F1] dark:bg-[#141414] text-[#6b4a33] dark:text-[#FAD2B8] p-3 sm:p-4 font-mono text-[13px] space-y-3 transition-all duration-200',
   )
   container.innerHTML = ''
   container.appendChild(root)
@@ -910,14 +1093,35 @@ export default function mount(ctx) {
   const headActions = el('div', 'flex shrink-0 items-center gap-1')
   const chimeBtn = el('button', 'px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[11px]')
   const refreshBtn = el('button', 'px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[11px]', '↻')
-  refreshBtn.title = 'Refresh library'
+  refreshBtn.title = 'Refresh library and check active jobs'
+  const compactBtn = el('button', 'px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[11px]', '▾ compact')
+  compactBtn.title = 'Toggle compact player mode'
   headActions.appendChild(chimeBtn)
   headActions.appendChild(refreshBtn)
+  headActions.appendChild(compactBtn)
   head.appendChild(headActions)
   root.appendChild(head)
 
   const banner = el('div', 'hidden')
   root.appendChild(banner)
+
+  // compact 1-row player (active when collapsed is true)
+  const compactBar = el('div', 'hidden items-center gap-2 p-2 rounded-xl border border-[#EAD9C7] dark:border-neutral-700 bg-[#FFFDF8] dark:bg-[#1b1b1b]')
+  compactBar.innerHTML = \`
+    <button data-role="c-play" class="shrink-0 px-2 py-0.5 rounded bg-[#E8B78E] dark:bg-[#B98D6E] text-[#3b2415] font-bold text-[11px]">▶</button>
+    <div class="min-w-0 flex-1 space-y-1">
+      <div class="flex items-center justify-between gap-1">
+        <span class="truncate text-[12px] font-bold" data-role="c-title">nothing loaded yet</span>
+        <span class="shrink-0 text-[10px] tabular-nums opacity-60" data-role="c-time">0:00</span>
+      </div>
+      <div class="h-1 w-full rounded bg-[#EAD9C7]/50 dark:bg-neutral-800 overflow-hidden">
+        <div class="h-full w-0 bg-[#E8B78E] dark:bg-[#B98D6E] transition-all duration-150" data-role="c-bar"></div>
+      </div>
+    </div>
+    <button data-role="c-refresh" class="shrink-0 px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[10px]" title="Refresh">↻</button>
+    <button data-role="c-expand" class="shrink-0 px-1.5 py-0.5 rounded border border-[#EAD9C7] dark:border-neutral-700 text-[10px]" title="Expand to full player">▸</button>
+  \`
+  root.appendChild(compactBar)
 
   // now playing
   const player = el('div', 'p-2.5 rounded-xl border border-[#EAD9C7] dark:border-neutral-700 bg-[#FFFDF8] dark:bg-[#1b1b1b] space-y-2')
@@ -966,6 +1170,13 @@ export default function mount(ctx) {
   const seek = player.querySelector('[data-role="seek"]') 
   const vol = player.querySelector('[data-role="vol"]') 
   const loopBtn = player.querySelector('[data-role="loop"]') 
+
+  const cPlayBtn = compactBar.querySelector('[data-role="c-play"]') 
+  const cTitle = compactBar.querySelector('[data-role="c-title"]') 
+  const cTime = compactBar.querySelector('[data-role="c-time"]') 
+  const cBar = compactBar.querySelector('[data-role="c-bar"]') 
+  const cRefreshBtn = compactBar.querySelector('[data-role="c-refresh"]') 
+  const cExpandBtn = compactBar.querySelector('[data-role="c-expand"]') 
 
   // ---- helpers -----------------------------------------------------------
   function pending() {
@@ -1046,6 +1257,34 @@ export default function mount(ctx) {
     catch (e) {
       // Autoplay/audio unavailable — the "new" badge still tells the story.
     }
+  }
+
+  // ---- collapse toggle ----------------------------------------------------
+  function applyCollapsed(on) {
+    s.collapsed = on
+    if (on) {
+      head.classList.add('hidden')
+      banner.classList.add('hidden')
+      player.classList.add('hidden')
+      oven.classList.add('hidden')
+      library.classList.add('hidden')
+      foot.classList.add('hidden')
+      compactBar.classList.remove('hidden')
+      compactBar.classList.add('flex')
+    }
+    else {
+      head.classList.remove('hidden')
+      if (banner.textContent)
+        banner.classList.remove('hidden')
+      player.classList.remove('hidden')
+      oven.classList.remove('hidden')
+      library.classList.remove('hidden')
+      foot.classList.remove('hidden')
+      compactBar.classList.add('hidden')
+      compactBar.classList.remove('flex')
+    }
+    compactBtn.textContent = s.collapsed ? '▸ expand' : '▾ compact'
+    persist()
   }
 
   // ---- polling -----------------------------------------------------------
@@ -1171,6 +1410,7 @@ export default function mount(ctx) {
       volume: s.volume,
       loops: s.loops,
       chime: s.chime,
+      collapsed: !!s.collapsed,
     })
   }
 
@@ -1186,7 +1426,8 @@ export default function mount(ctx) {
       isNew: true,
     }
     s.pending = pending().filter(j => j.jobId !== job.jobId)
-    s.finished = [entry, ...finished().filter(t => t.jobId !== entry.jobId)].slice(0, SHELF_LIMIT)
+    // Keyed deduplication across finished library
+    s.finished = [entry, ...finished().filter(t => t.jobId !== entry.jobId && (!entry.audioUrl || t.audioUrl !== entry.audioUrl))].slice(0, SHELF_LIMIT)
     persist()
     chime()
     render()
@@ -1263,25 +1504,82 @@ export default function mount(ctx) {
     try {
       const res = await callMusic('list', { limit: SHELF_LIMIT })
       const remote = (res && res.tracks) || []
-      const byId = new Map()
-      for (const track of finished())
-        byId.set(track.jobId, track)
+      const remoteJobs = (res && (res.jobs || res.activeJobs || res.pending)) || []
+
+      const byKey = new Map()
+      const seenUrls = new Set()
+
+      for (const track of finished()) {
+        const key = track.jobId || track.audioUrl
+        if (!key)
+          continue
+        if (track.audioUrl)
+          seenUrls.add(track.audioUrl)
+        byKey.set(key, track)
+      }
+
       for (const track of remote) {
-        if (!track || !track.id)
+        if (!track)
           continue
-        if (byId.has(track.id))
+        const jobId = track.id || track.jobId
+        const audioUrl = track.audioUrl || track.url || ''
+        if (!jobId && !audioUrl)
           continue
-        byId.set(track.id, {
-          jobId: track.id,
+
+        // Check if this track is actually an in-progress / queued render
+        const isPending = track.state === 'running'
+          || track.state === 'queued'
+          || track.status === 'running'
+          || track.status === 'queued'
+          || (!audioUrl && track.status !== 'failed' && track.status !== 'cancelled' && track.status !== 'expired')
+
+        if (isPending) {
+          if (!s.pending.some((p) => p.jobId === jobId)) {
+            s.pending.push({
+              jobId: jobId || \`job-\${Date.now()}\`,
+              title: track.title || 'Untitled',
+              requestedAt: track.createdAt ? (Date.parse(track.createdAt) || Date.now()) : Date.now(),
+              durationSeconds: track.durationMs ? Math.round(track.durationMs / 1000) : 60,
+            })
+          }
+          continue
+        }
+
+        // Deduplicate against finished tracks
+        if (jobId && byKey.has(jobId))
+          continue
+        if (audioUrl && seenUrls.has(audioUrl))
+          continue
+
+        const entry = {
+          jobId: jobId || slugTail(audioUrl) || \`track-\${Date.now()}\`,
           title: track.title || 'Untitled',
-          audioUrl: track.audioUrl,
+          audioUrl,
           durationMs: track.durationMs || 0,
           model: track.model || '',
-          completedAt: track.createdAt ? Date.parse(track.createdAt) || 0 : 0,
-          status: 'ready',
-        })
+          completedAt: track.createdAt ? (Date.parse(track.createdAt) || 0) : Date.now(),
+          status: (track.status ) || 'ready',
+        }
+        if (jobId)
+          byKey.set(jobId, entry)
+        if (audioUrl)
+          seenUrls.add(audioUrl)
       }
-      const merged = [...byId.values()].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
+
+      // Merge active jobs from server if present
+      for (const rj of remoteJobs) {
+        const jobId = rj.jobId || rj.id
+        if (jobId && !s.pending.some((p) => p.jobId === jobId)) {
+          s.pending.push({
+            jobId,
+            title: rj.title || 'Untitled',
+            requestedAt: rj.requestedAt || (rj.createdAt ? (Date.parse(rj.createdAt) || Date.now()) : Date.now()),
+            durationSeconds: rj.durationSeconds || 60,
+          })
+        }
+      }
+
+      const merged = [...byKey.values()].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
       s.finished = merged.slice(0, SHELF_LIMIT)
       persist()
       render()
@@ -1349,8 +1647,6 @@ export default function mount(ctx) {
     }
     library.appendChild(el('div', 'text-[10px] uppercase tracking-wider opacity-60 px-1', 'library'))
 
-    // Repeated titles are common when a character re-orders the same brief; tag
-    // duplicates with the tail of their job slug so the shelf stays scannable.
     const counts = new Map()
     for (const track of tracks)
       counts.set(track.title, (counts.get(track.title) || 0) + 1)
@@ -1396,7 +1692,11 @@ export default function mount(ctx) {
       : 'border-[#EAD9C7] dark:border-neutral-700'}\`
     vol.value = String(Math.round((audio.volume || 0) * 100))
     chimeBtn.textContent = s.chime ? '🔔 chime' : '🔕 chime'
+    compactBtn.textContent = s.collapsed ? '▸ expand' : '▾ compact'
     foot.textContent = KAO[Math.min(KAO.length - 1, finished().length % KAO.length)]
+
+    cTitle.textContent = s.current.title || 'nothing loaded yet'
+    cPlayBtn.textContent = audio.paused ? '▶' : '⏸'
   }
 
   function render() {
@@ -1413,6 +1713,10 @@ export default function mount(ctx) {
       void audio.play().catch(() => {})
     else
       audio.pause()
+  }
+
+  cPlayBtn.onclick = () => {
+    playBtn.click()
   }
 
   seek.oninput = () => {
@@ -1444,17 +1748,47 @@ export default function mount(ctx) {
     renderPlayer()
   }
 
-  refreshBtn.onclick = () => {
-    void backfill()
-    ensurePolling()
+  compactBtn.onclick = () => {
+    applyCollapsed(!s.collapsed)
+  }
+
+  cExpandBtn.onclick = () => {
+    applyCollapsed(false)
+  }
+
+  refreshBtn.onclick = async () => {
+    refreshBtn.classList.add('animate-spin')
+    refreshBtn.setAttribute('disabled', 'true')
+    cRefreshBtn.classList.add('animate-spin')
+    cRefreshBtn.setAttribute('disabled', 'true')
+    try {
+      await backfill()
+      if (pending().length) {
+        await tick()
+        ensurePolling()
+      }
+    }
+    finally {
+      refreshBtn.classList.remove('animate-spin')
+      refreshBtn.removeAttribute('disabled')
+      cRefreshBtn.classList.remove('animate-spin')
+      cRefreshBtn.removeAttribute('disabled')
+    }
+  }
+
+  cRefreshBtn.onclick = () => {
+    refreshBtn.click()
   }
 
   audio.addEventListener('timeupdate', () => {
     const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
     const cur = audio.currentTime || 0
     npTime.textContent = \`\${fmtClock(cur * 1000)} / \${duration ? fmtClock(duration * 1000) : '0:00'}\`
-    if (duration)
+    if (duration) {
       seek.value = String(Math.round((cur / duration) * 1000))
+      cBar.style.width = \`\${(cur / duration) * 100}%\`
+    }
+    cTime.textContent = fmtClock(cur * 1000)
   })
   audio.addEventListener('play', () => renderPlayer())
   audio.addEventListener('pause', () => renderPlayer())
@@ -1486,13 +1820,27 @@ export default function mount(ctx) {
         if (disposed || !next)
           return
         s.pending = Array.isArray(next.pending) ? next.pending : []
-        s.finished = Array.isArray(next.finished) ? next.finished : []
+        if (Array.isArray(next.finished)) {
+          s.finished = next.finished
+        }
+        else if (Array.isArray(next.tracks)) {
+          s.finished = next.tracks.map((t) => ({
+            jobId: t.jobId || slugTail(t.url || t.audioUrl) || \`track-\${Date.now()}\`,
+            title: t.title || 'Untitled',
+            audioUrl: t.url || t.audioUrl || '',
+            durationMs: t.durationMs || 12000,
+            completedAt: Date.now(),
+            status: 'ready',
+          }))
+        }
         if (next.current)
           s.current = next.current
         if (typeof next.chime === 'boolean')
           s.chime = next.chime
         if (typeof next.loops === 'number')
           s.loops = next.loops
+        if (typeof next.collapsed === 'boolean' && next.collapsed !== s.collapsed)
+          applyCollapsed(next.collapsed)
         render()
         if (pending().length)
           ensurePolling()
@@ -1507,8 +1855,12 @@ export default function mount(ctx) {
   }
 
   render()
-  void backfill()
-  ensurePolling()
+  if (s.collapsed)
+    applyCollapsed(true)
+  void backfill().then(() => {
+    if (pending().length)
+      ensurePolling()
+  })
 
   return () => {
     disposed = true
