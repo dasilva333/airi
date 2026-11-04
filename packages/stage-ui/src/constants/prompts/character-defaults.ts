@@ -145,6 +145,10 @@ This reflects your private thoughts at the time. For this turn only, continue th
 export const DEFAULT_ARTISTRY_INTRUSION_PROMPT = `You just finished creating a new artwork of: "{imagePrompt}".
 For this turn only, continue the conversation and find a natural way to reference or react to having just made this creation.`
 
+export const DEFAULT_TOOL_CALL_REFLECTION_PROMPT = `Recently executed tool action(s):
+{toolCallRollup}
+For this turn only, continue the conversation naturally while keeping in mind that these tool actions were completed with the recorded results. Do not play-act, simulate, or pretend to run tools that have already completed.`
+
 export const DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION = `## Instruction: In-Memory POSIX Sandbox & Generative UI
 You have an isolated in-memory POSIX workstation at \`/workspace\` (zero-leak RAM disk).
 

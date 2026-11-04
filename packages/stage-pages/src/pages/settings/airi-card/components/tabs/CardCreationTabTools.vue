@@ -284,11 +284,13 @@ function loadSandboxTemplate(templateType: 'workstation' | 'scratchpad') {
 const selectedInjectDreamContext = defineModel<boolean>('selectedInjectDreamContext', { required: false, default: false })
 const selectedInjectJournalContext = defineModel<boolean>('selectedInjectJournalContext', { required: false, default: false })
 const selectedInjectArtistryContext = defineModel<boolean>('selectedInjectArtistryContext', { required: false, default: false })
+const selectedInjectToolCallReflection = defineModel<boolean>('selectedInjectToolCallReflection', { required: false, default: true })
 
 // Customizable Intrusion Prompts
 const selectedDreamIntrusionPrompt = defineModel<string>('selectedDreamIntrusionPrompt', { required: false, default: '' })
 const selectedJournalIntrusionPrompt = defineModel<string>('selectedJournalIntrusionPrompt', { required: false, default: '' })
 const selectedArtistryIntrusionPrompt = defineModel<string>('selectedArtistryIntrusionPrompt', { required: false, default: '' })
+const selectedToolCallReflectionPrompt = defineModel<string>('selectedToolCallReflectionPrompt', { required: false, default: '' })
 
 // Default Templates
 const IMAGE_JOURNAL_TOOL_CALL = `## Instruction: Image Journaling
@@ -1207,6 +1209,57 @@ const textJournalConflictWarning = computed(() => {
           — the tool appears as
           <code class="rounded bg-white/70 px-1 py-0.5 text-[10px] font-mono dark:bg-neutral-900/60">airi-audio-server::music</code>.
         </div>
+      </div>
+    </section>
+
+    <!-- Tool Call Reflection -->
+    <section class="border border-neutral-200 rounded-2xl bg-white p-6 transition-all dark:border-neutral-800 dark:bg-neutral-900/40">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="size-10 flex shrink-0 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:bg-teal-500/20 dark:text-teal-400">
+            <div class="i-solar:wrench-bold-duotone text-2xl" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
+                Tool Call Reflection
+              </h3>
+              <span class="whitespace-nowrap rounded-full bg-teal-100 px-2 py-0.5 text-[10px] text-teal-700 font-bold uppercase dark:bg-teal-900/40 dark:text-teal-300">
+                Cognitive Reflection
+              </span>
+            </div>
+            <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+              Summarizes and rolls up executed tool calls (native and MCP) into a post-fact reflection context for subsequent turns, preventing play-acting and hallucinations without manual OOC prompts.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          :class="[
+            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+            selectedInjectToolCallReflection ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+          ]"
+          @click="selectedInjectToolCallReflection = !selectedInjectToolCallReflection"
+        >
+          <span
+            aria-hidden="true"
+            :class="[
+              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+              selectedInjectToolCallReflection ? 'translate-x-5' : 'translate-x-0',
+            ]"
+          />
+        </button>
+      </div>
+
+      <div v-if="selectedInjectToolCallReflection" class="border-neutral-150 mt-4 border-t pt-4 dark:border-neutral-800">
+        <FieldInput
+          v-model="selectedToolCallReflectionPrompt"
+          label="Tool Call Reflection Prompt Template"
+          description="Variables: {toolCallRollup}"
+          :single-line="false"
+          :rows="3"
+        />
       </div>
     </section>
   </div>

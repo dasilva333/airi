@@ -256,6 +256,11 @@ export interface AiriExtension {
 
   sandbox?: AiriSandboxConfig
 
+  toolCallReflection?: {
+    enabled?: boolean
+    promptTemplate?: string
+  }
+
   artistry?: {
     provider?: string
     model?: string
@@ -869,6 +874,34 @@ export const useAiriCardStore = defineStore('airi-card', () => {
           ...ext,
           ...card.extensions?.airi,
           groundingDirectorScratchpadEnabled: !current,
+        },
+      },
+    } as any)
+  }
+
+  const toggleToolCallReflection = async (id: string) => {
+    await until(cardsLoading).toBe(false)
+    const resolvedId = resolveMutationId(id)
+    const card = cards.value.get(resolvedId) ?? cards.value.get(id)
+    if (!card) {
+      debug('[AiriCard] toggleToolCallReflection: card not found for id', id)
+      return
+    }
+
+    const ext = ('data' in card ? (card as any).data?.extensions?.airi : undefined)
+    const current = (card.extensions?.airi?.toolCallReflection?.enabled ?? ext?.toolCallReflection?.enabled) ?? true
+    debug('[AiriCard] toggleToolCallReflection:', { id: resolvedId, current, next: !current })
+    await updateCard(resolvedId, {
+      extensions: {
+        ...card.extensions,
+        airi: {
+          ...ext,
+          ...card.extensions?.airi,
+          toolCallReflection: {
+            ...ext?.toolCallReflection,
+            ...card.extensions?.airi?.toolCallReflection,
+            enabled: !current,
+          },
         },
       },
     } as any)
@@ -1695,6 +1728,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     toggleLifetimeMemory,
     toggleGroundingTopics,
     toggleGroundingDirectorScratchpad,
+    toggleToolCallReflection,
     toggleSalienceGate,
     setAutonomousArtistry,
     getCardDisplayModelId,

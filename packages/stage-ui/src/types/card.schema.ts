@@ -171,6 +171,11 @@ const AiriSandboxSchema = object({
   widgetInstruction: optional(string()),
 })
 
+const AiriToolCallReflectionSchema = object({
+  enabled: optional(boolean()),
+  promptTemplate: optional(string()),
+})
+
 const AiriShortTermMemorySchema = object({
   enabled: optional(boolean()),
   windowSize: number(),
@@ -319,6 +324,7 @@ const AiriExtensionSchema = looseObject({
   screenWatching: optional(AiriScreenWatchingSchema),
   textJournal: optional(AiriTextJournalSchema),
   sandbox: optional(AiriSandboxSchema),
+  toolCallReflection: optional(AiriToolCallReflectionSchema),
   groundingEnabled: optional(boolean()),
   groundingMemoryEnabled: optional(boolean()),
   groundingTopicsEnabled: optional(boolean()),

@@ -197,6 +197,16 @@ const isArtistryIntrusionEnabled = computed(() => {
   return activeAiriExt.value?.artistry?.injectArtistryContext ?? false
 })
 
+const isToolCallReflectionEnabled = computed(() => {
+  return activeAiriExt.value?.toolCallReflection?.enabled ?? true
+})
+
+function handleToggleToolCallReflection() {
+  if (!effectiveCardId.value)
+    return
+  airiCardStore.toggleToolCallReflection(effectiveCardId.value)
+}
+
 function handleToggleArtistryIntrusion() {
   if (!effectiveCardId.value || !targetCard.value)
     return
@@ -488,6 +498,36 @@ function handleToggleArtistryIntrusion() {
       >
         <span
           :class="isArtistryIntrusionEnabled && hasImageJournal ? 'translate-x-3.5' : 'translate-x-0.5'"
+          class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+        />
+      </div>
+    </div>
+
+    <!-- 7. Tool Call Reflection -->
+    <div
+      class="w-full flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 transition hover:bg-neutral-100 dark:hover:bg-neutral-800/60"
+      @click="handleToggleToolCallReflection"
+    >
+      <div class="flex items-center gap-2.5">
+        <div
+          class="size-4.5"
+          :class="isToolCallReflectionEnabled
+            ? 'text-teal-500 i-solar:wrench-bold-duotone'
+            : 'text-neutral-400 dark:text-neutral-500 i-solar:wrench-linear'"
+        />
+        <div class="flex flex-col">
+          <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Tool Call Reflection</span>
+          <span class="text-[9px] text-neutral-400">
+            Roll up executed actions and results
+          </span>
+        </div>
+      </div>
+      <div
+        :class="isToolCallReflectionEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+        class="relative h-4 w-7 inline-flex shrink-0 items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+      >
+        <span
+          :class="isToolCallReflectionEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
           class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
         />
       </div>

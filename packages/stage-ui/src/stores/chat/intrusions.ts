@@ -1,7 +1,10 @@
+import type { ToolCallReflectionItem } from './intrusion-staging'
+
 import {
   DEFAULT_ARTISTRY_INTRUSION_PROMPT,
   DEFAULT_DREAM_INTRUSION_PROMPT,
   DEFAULT_JOURNAL_INTRUSION_PROMPT,
+  DEFAULT_TOOL_CALL_REFLECTION_PROMPT,
 } from '../../constants/prompts/character-defaults'
 
 export interface ClimaxInput {
@@ -118,4 +121,73 @@ export function formatArtistryPrompt(input: ArtistryIntrusionInput): string {
 
   return template
     .replace('{imagePrompt}', input.prompt ?? '')
+}
+
+export interface ToolCallReflectionInput {
+  injectToolCallsContext?: boolean
+  calls?: ToolCallReflectionItem[]
+  template?: string
+}
+
+/**
+ * Pure helper for formatting a single tool call item into a human-readable reflection line.
+ */
+export function summarizeToolCall(call: ToolCallReflectionItem): string {
+  const toolName = call.name || 'tool'
+  let argsStr = ''
+  if (call.arguments !== undefined) {
+    if (typeof call.arguments === 'string') {
+      argsStr = call.arguments.trim()
+    }
+    else {
+      try {
+        argsStr = JSON.stringify(call.arguments)
+      }
+      catch {
+        argsStr = String(call.arguments)
+      }
+    }
+  }
+
+  let resultStr = ''
+  if (call.result !== undefined) {
+    if (typeof call.result === 'string') {
+      resultStr = call.result.trim()
+    }
+    else {
+      try {
+        resultStr = JSON.stringify(call.result)
+      }
+      catch {
+        resultStr = String(call.result)
+      }
+    }
+  }
+
+  const maxSnippetLen = 200
+  const trimmedArgs = argsStr.length > maxSnippetLen ? `${argsStr.slice(0, maxSnippetLen)}...` : argsStr
+  const trimmedRes = resultStr.length > maxSnippetLen ? `${resultStr.slice(0, maxSnippetLen)}...` : resultStr
+
+  const statusLabel = call.state === 'error' ? 'Failed' : 'Executed'
+  let line = `- ${statusLabel} tool "${toolName}"`
+  if (trimmedArgs && trimmedArgs !== '{}') {
+    line += ` with parameters: ${trimmedArgs}`
+  }
+  if (trimmedRes) {
+    line += ` -> Result: ${trimmedRes}`
+  }
+  return line
+}
+
+/**
+ * Pure helper for interpolating tool call reflections rollup prompt template.
+ */
+export function formatToolCallsPrompt(input: ToolCallReflectionInput): string {
+  if (!input.injectToolCallsContext || !input.calls || input.calls.length === 0)
+    return ''
+
+  const rollup = input.calls.map(summarizeToolCall).join('\n')
+  const template = input.template || DEFAULT_TOOL_CALL_REFLECTION_PROMPT
+
+  return template.replace('{toolCallRollup}', rollup)
 }

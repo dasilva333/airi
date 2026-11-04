@@ -9,12 +9,15 @@ import {
   rollbackIntrusions,
   stageArtistryIntrusion,
   stageJournalIntrusion,
+  stageToolCallsIntrusion,
 } from './intrusion-staging'
 import {
   formatArtistryPrompt,
   formatClimaxPrompt,
   formatDreamPrompt,
   formatJournalPrompt,
+  formatToolCallsPrompt,
+  summarizeToolCall,
 } from './intrusions'
 
 describe('intrusions pure computational seams', () => {
@@ -232,6 +235,62 @@ describe('intrusions pure computational seams', () => {
       expect(prompt).toBe('Art generated: Sunset over mountains')
     })
   })
+
+  describe('formatToolCallsPrompt & summarizeToolCall', () => {
+    it('returns empty string when tool call reflection is disabled or calls are empty', () => {
+      expect(formatToolCallsPrompt({ injectToolCallsContext: false, calls: [{ name: 'test_tool', timestamp: 1000 }] })).toBe('')
+      expect(formatToolCallsPrompt({ injectToolCallsContext: true, calls: [] })).toBe('')
+      expect(formatToolCallsPrompt({ injectToolCallsContext: true, calls: undefined })).toBe('')
+    })
+
+    it('summarizes a successful tool call cleanly', () => {
+      const summary = summarizeToolCall({
+        name: 'airi-audio-server::music',
+        arguments: { action: 'generate', style: 'lo-fi chill' },
+        result: { status: 'success', jobId: 'job-42' },
+        state: 'done',
+        timestamp: 1000,
+      })
+      expect(summary).toContain('- Executed tool "airi-audio-server::music"')
+      expect(summary).toContain('"action":"generate"')
+      expect(summary).toContain('"jobId":"job-42"')
+    })
+
+    it('summarizes a failed tool call cleanly with error state', () => {
+      const summary = summarizeToolCall({
+        name: 'filesystem::readFile',
+        arguments: { path: '/tmp/missing.txt' },
+        result: 'File not found',
+        state: 'error',
+        timestamp: 1000,
+      })
+      expect(summary).toContain('- Failed tool "filesystem::readFile"')
+      expect(summary).toContain('Result: File not found')
+    })
+
+    it('interpolates default tool call reflection template with multiple calls', () => {
+      const prompt = formatToolCallsPrompt({
+        injectToolCallsContext: true,
+        calls: [
+          { name: 'mcp_list_tools', result: 'Found 5 tools', state: 'done', timestamp: 1000 },
+          { name: 'airi-audio-server::music', arguments: { action: 'generate' }, result: 'Started', state: 'done', timestamp: 1100 },
+        ],
+      })
+      expect(prompt).toContain('Recently executed tool action(s):')
+      expect(prompt).toContain('Executed tool "mcp_list_tools"')
+      expect(prompt).toContain('Executed tool "airi-audio-server::music"')
+      expect(prompt).toContain('Do not play-act, simulate, or pretend to run tools that have already completed.')
+    })
+
+    it('supports custom template substitution with {toolCallRollup}', () => {
+      const prompt = formatToolCallsPrompt({
+        injectToolCallsContext: true,
+        calls: [{ name: 'take_screenshot', state: 'done', timestamp: 1000 }],
+        template: 'ACTIONS:\n{toolCallRollup}',
+      })
+      expect(prompt).toBe('ACTIONS:\n- Executed tool "take_screenshot"')
+    })
+  })
 })
 
 describe('intrusion staging lease lifecycle', () => {
@@ -311,5 +370,44 @@ describe('intrusion staging lease lifecycle', () => {
     // Journal remains in pending staging, artistry was leased
     expect(pendingIntrusionStaging.journal?.entryText).toBe('Journal entry')
     expect(pendingIntrusionStaging.artistry).toBeUndefined()
+  })
+
+  it('leases, commits, and rolls back tool calls reflections correctly', () => {
+    stageToolCallsIntrusion({
+      calls: [{ name: 'airi-audio-server::music', result: 'Success', state: 'done', timestamp: 1000 }],
+      timestamp: 1000,
+    }, true)
+
+    expect(pendingIntrusionStaging.toolCalls).toBeDefined()
+    expect(pendingIntrusionStaging.toolCalls?.calls.length).toBe(1)
+
+    const lease = leaseIntrusions('lease-tools')
+    expect(lease.toolCalls?.calls.length).toBe(1)
+    expect(pendingIntrusionStaging.toolCalls).toBeUndefined()
+
+    // Test rollback
+    rollbackIntrusions('lease-tools')
+    expect(pendingIntrusionStaging.toolCalls?.calls.length).toBe(1)
+
+    // Re-lease and commit
+    leaseIntrusions('lease-tools-2')
+    expect(pendingIntrusionStaging.toolCalls).toBeUndefined()
+    commitIntrusions('lease-tools-2')
+    expect(pendingIntrusionStaging.toolCalls).toBeUndefined()
+  })
+
+  it('accumulates multiple staged tool call batches into pending staging', () => {
+    stageToolCallsIntrusion({
+      calls: [{ name: 'mcp_list_tools', result: '3 tools', state: 'done', timestamp: 1000 }],
+      timestamp: 1000,
+    }, true)
+    stageToolCallsIntrusion({
+      calls: [{ name: 'mcp_call_tool', result: 'Created', state: 'done', timestamp: 1050 }],
+      timestamp: 1050,
+    }, true)
+
+    expect(pendingIntrusionStaging.toolCalls?.calls.length).toBe(2)
+    expect(pendingIntrusionStaging.toolCalls?.calls[0].name).toBe('mcp_list_tools')
+    expect(pendingIntrusionStaging.toolCalls?.calls[1].name).toBe('mcp_call_tool')
   })
 })

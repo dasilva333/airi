@@ -8,6 +8,7 @@ import type { ChatAssistantMessage, ChatGroundingHit, ChatGroundingMetadata, Cha
 import type { PacingMetrics } from '../types/pacing'
 import type { GroundingMessage } from './chat/grounding-assembler'
 import type { ChatInputBridgePayload } from './chat/input-bridge'
+import type { ToolCallReflectionItem } from './chat/intrusion-staging'
 import type { StreamEvent, StreamOptions } from './llm'
 
 import { debug, healMozibake, isStageTamagotchi } from '@proj-airi/stage-shared'
@@ -56,12 +57,15 @@ import {
   rollbackIntrusions,
   stageArtistryIntrusion,
   stageJournalIntrusion,
+  stageToolCallsIntrusion,
+
 } from './chat/intrusion-staging'
 import {
   formatArtistryPrompt,
   formatClimaxPrompt,
   formatDreamPrompt,
   formatJournalPrompt,
+  formatToolCallsPrompt,
 } from './chat/intrusions'
 import { useChatSessionStore } from './chat/session-store'
 import { useChatStreamStore } from './chat/stream-store'
@@ -1515,25 +1519,32 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         const dreamState = activeCard.value?.extensions?.airi?.dreamState
         const textJournal = activeCard.value?.extensions?.airi?.textJournal
         const artistry = activeCard.value?.extensions?.airi?.artistry
+        const toolCallReflection = activeCard.value?.extensions?.airi?.toolCallReflection
+        const injectToolCallsContext = toolCallReflection?.enabled ?? true
 
         // Lease pending intrusion data for this turn attempt on initial hop
         if (bridgedSteps === 1) {
           intrusionLease = leaseIntrusions(turnLeaseId, {
             leaseJournal: Boolean(textJournal?.injectJournalContext),
             leaseArtistry: Boolean(artistry?.injectArtistryContext),
+            leaseToolCalls: injectToolCallsContext,
           })
         }
 
         const pendingJournal = intrusionLease?.journal ? toRaw(intrusionLease.journal) : undefined
         const pendingArtistry = intrusionLease?.artistry ? toRaw(intrusionLease.artistry) : undefined
+        const pendingStagedToolCalls = intrusionLease?.toolCalls ? toRaw(intrusionLease.toolCalls) : undefined
 
         debug('[Chat Debug] performSend evaluation:', {
           activeCardId: activeCardId.value,
           dreamStateInject: dreamState?.injectDreamContext,
           journalStateInject: textJournal?.injectJournalContext,
           artistryStateInject: artistry?.injectArtistryContext,
+          toolCallsStateInject: injectToolCallsContext,
           hasPendingJournal: !!pendingJournal,
           pendingJournalContent: pendingJournal?.entryText?.substring(0, 50),
+          hasPendingToolCalls: !!pendingStagedToolCalls,
+          pendingToolCallsCount: pendingStagedToolCalls?.calls?.length,
         })
 
         const now = Date.now()
@@ -1567,6 +1578,12 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           hasEntry: !!pendingArtistry,
           prompt: pendingArtistry?.prompt,
           template: artistry?.artistryIntrusionPrompt,
+        })
+
+        const toolCallsPrompt = formatToolCallsPrompt({
+          injectToolCallsContext,
+          calls: pendingStagedToolCalls?.calls,
+          template: toolCallReflection?.promptTemplate,
         })
 
         // Build module contexts, filtering out empty modules and meaningless placeholders
@@ -1603,6 +1620,10 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
         if (artistryPrompt) {
           contextContent += `${contextContent ? '\n---\n' : ''}[INSPECTIVE ARTWORK AWARENESS]\n${artistryPrompt}\n`
+        }
+
+        if (toolCallsPrompt) {
+          contextContent += `${contextContent ? '\n---\n' : ''}[INSPECTIVE TOOL CALL REFLECTION]\n${toolCallsPrompt}\n`
         }
 
         if (contextContent.trim().length > 0) {
@@ -2263,6 +2284,31 @@ Format your output as a raw thought log.`
 
         const currentMessages = chatSession.getSessionMessages(sessionId)
         chatSession.setSessionMessages(sessionId, [...currentMessages, toRaw(buildingMessage)])
+
+        // Stage tool call reflections post-fact for executed tools so subsequent turns naturally reflect on completed actions
+        const toolSlices = (buildingMessage.slices || []).filter((s: any) => s.type === 'tool-call')
+        if (toolSlices.length > 0) {
+          const calls: ToolCallReflectionItem[] = toolSlices.map((s: any) => {
+            const tc = s.toolCall as any
+            const name = tc?.function?.name || tc?.toolName || tc?.name || (s as any).toolName || (s as any).name || 'tool'
+            let args = tc?.function?.arguments ?? tc?.arguments ?? tc?.args ?? (s as any).args
+            if (typeof args === 'string') {
+              try {
+                args = JSON.parse(args)
+              }
+              catch {}
+            }
+            return {
+              id: tc?.id || tc?.toolCallId || s.id,
+              name,
+              arguments: args,
+              result: s.result,
+              state: s.state || 'done',
+              timestamp: Date.now(),
+            }
+          })
+          stageToolCallsIntrusion({ calls, timestamp: Date.now() })
+        }
 
         // Commit leased intrusions upon successful message persistence
         commitIntrusions(turnLeaseId)

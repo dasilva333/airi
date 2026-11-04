@@ -23,6 +23,7 @@ import {
   DEFAULT_POST_HISTORY_INSTRUCTIONS,
   DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION,
   DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION,
+  DEFAULT_TOOL_CALL_REFLECTION_PROMPT,
 } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
@@ -306,9 +307,11 @@ const selectedSandboxInstruction = ref<string>('')
 const selectedInjectDreamContext = ref<boolean>(false)
 const selectedInjectJournalContext = ref<boolean>(false)
 const selectedInjectArtistryContext = ref<boolean>(false)
+const selectedInjectToolCallReflection = ref<boolean>(true)
 const selectedDreamIntrusionPrompt = ref<string>('')
 const selectedJournalIntrusionPrompt = ref<string>('')
 const selectedArtistryIntrusionPrompt = ref<string>('')
+const selectedToolCallReflectionPrompt = ref<string>('')
 
 // Resolve which visual asset (actor) corresponds to the currently active stage model.
 // Returns the actor key and its idleAnimations override, or null if no override exists.
@@ -1331,6 +1334,11 @@ async function saveCard(card: Card): Promise<boolean> {
     widgetInstruction: selectedSandboxInstruction.value,
   }
 
+  cardWithModules.extensions.airi.toolCallReflection = {
+    enabled: selectedInjectToolCallReflection.value,
+    promptTemplate: selectedToolCallReflectionPrompt.value,
+  }
+
   console.log('[CardCreationDialog] 📊 DUMPING SAVED CHARACTER PROFILE GRAPH:', {
     isEditMode: isEditMode.value,
     cardId: props.cardId,
@@ -1584,6 +1592,8 @@ function initializeCard(): Card {
     selectedArtistryIntrusionPrompt.value = airiExt?.artistry?.artistryIntrusionPrompt ?? DEFAULT_ARTISTRY_INTRUSION_PROMPT
     selectedTextJournalInstruction.value = airiExt?.textJournal?.widgetInstruction ?? DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION
     selectedSandboxInstruction.value = airiExt?.sandbox?.widgetInstruction ?? DEFAULT_SANDBOX_WORKSTATION_INSTRUCTION
+    selectedInjectToolCallReflection.value = airiExt?.toolCallReflection?.enabled ?? true
+    selectedToolCallReflectionPrompt.value = airiExt?.toolCallReflection?.promptTemplate ?? DEFAULT_TOOL_CALL_REFLECTION_PROMPT
 
     loadActingSpeechCapabilities(selectedSpeechProvider.value || speechProvider.value)
 
@@ -2214,9 +2224,11 @@ function handleGeneratorSave(newValue: string) {
         v-model:selected-inject-dream-context="selectedInjectDreamContext"
         v-model:selected-inject-journal-context="selectedInjectJournalContext"
         v-model:selected-inject-artistry-context="selectedInjectArtistryContext"
+        v-model:selected-inject-tool-call-reflection="selectedInjectToolCallReflection"
         v-model:selected-dream-intrusion-prompt="selectedDreamIntrusionPrompt"
         v-model:selected-journal-intrusion-prompt="selectedJournalIntrusionPrompt"
         v-model:selected-artistry-intrusion-prompt="selectedArtistryIntrusionPrompt"
+        v-model:selected-tool-call-reflection-prompt="selectedToolCallReflectionPrompt"
         :dream-state-enabled="dreamStateEnabled"
       />
       <div class="mt-4 flex flex-row justify-end gap-2">
