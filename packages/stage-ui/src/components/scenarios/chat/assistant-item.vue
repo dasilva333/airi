@@ -12,7 +12,9 @@ import ChatResponsePart from './response-part.vue'
 import ChatToolCallBlock from './tool-call-block.vue'
 import ChatToolCallGroup from './tool-call-group.vue'
 
+import { speechAudioCache } from '../../../services/speech/audio-cache'
 import { useCadenceDeliveryStore } from '../../../stores/cadence-delivery'
+import { useCharacterStore } from '../../../stores/character'
 import { useChatOrchestratorStore } from '../../../stores/chat'
 import { useChatSessionStore } from '../../../stores/chat/session-store'
 import { useTextJournalStore } from '../../../stores/memory-text-journal'
@@ -45,6 +47,7 @@ const showJournalModal = ref(false)
 
 const chatSession = useChatSessionStore()
 const chatOrchestrator = useChatOrchestratorStore()
+const characterStore = useCharacterStore()
 const cardStore = useAiriCardStore()
 const { activeCardId } = storeToRefs(cardStore)
 const systemOneStore = useSystemOneStore()
@@ -101,6 +104,29 @@ const containerClasses = computed(() => [
 ])
 
 const copyText = computed(() => getChatHistoryItemCopyText(props.message as ChatHistoryItem))
+
+const rawReplayableText = computed(() => {
+  if (typeof props.message.rawContent === 'string' && props.message.rawContent.trim().length > 0)
+    return props.message.rawContent
+  if (typeof props.message.content === 'string' && props.message.content.trim().length > 0)
+    return props.message.content
+  return copyText.value
+})
+
+const hasReplayableText = computed(() => {
+  return typeof rawReplayableText.value === 'string' && rawReplayableText.value.trim().length > 0
+})
+
+const isReplayCached = computed(() => {
+  return speechAudioCache.isMessageCached(props.message.id, copyText.value)
+})
+
+async function handleReplay() {
+  const text = rawReplayableText.value
+  if (!text || !text.trim())
+    return
+  await characterStore.replaySpeech(text, props.message.id)
+}
 
 function handleCopy() {
   emit('copy')
@@ -753,9 +779,12 @@ const hasActorSlices = computed(() => actorAwareSlices.value.some(s => s.type ==
     <ChatActionMenu
       :copy-text="copyText"
       :can-edit="true"
+      :can-replay="hasReplayableText"
+      :is-replay-cached="isReplayCached"
       :full-width="hasReasoning"
       placement="right"
       @copy="handleCopy"
+      @replay="handleReplay"
       @delete="handleDelete"
       @fork="handleFork"
       @retry="handleRetry"

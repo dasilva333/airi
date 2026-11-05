@@ -35,6 +35,8 @@ const props = withDefaults(defineProps<{
   canCopy?: boolean
   canDelete?: boolean
   canEdit?: boolean
+  canReplay?: boolean
+  isReplayCached?: boolean
   copyText?: string
   menuLabel?: string
   placement?: 'left' | 'right'
@@ -43,6 +45,8 @@ const props = withDefaults(defineProps<{
   canCopy: true,
   canDelete: true,
   canEdit: true,
+  canReplay: false,
+  isReplayCached: false,
   copyText: '',
   menuLabel: 'Message actions',
   placement: 'right',
@@ -58,6 +62,7 @@ const emit = defineEmits<{
   (e: 'fork-switch', universeId: string): void
   (e: 'delete-following'): void
   (e: 'journal'): void
+  (e: 'replay'): void
 }>()
 defineSlots<{
   default: (props: { setMeasuredElement: (element: Element | ComponentPublicInstance | null) => void }) => unknown
@@ -108,6 +113,8 @@ const menuItems = computed(() => createChatActionMenuItems({
   canCopy: props.canCopy && props.copyText.trim().length > 0,
   canDelete: props.canDelete,
   canEdit: props.canEdit,
+  canReplay: props.canReplay,
+  isReplayCached: props.isReplayCached,
 }))
 const hasMenuItems = computed(() => menuItems.value.length > 0)
 const forceVisible = computed(() => contextMenuOpen.value)
@@ -153,6 +160,11 @@ const inlineTriggerStyle = computed(() => (
 ))
 
 async function handleAction(action: ChatActionMenuAction) {
+  if (action === 'replay') {
+    emit('replay')
+    return
+  }
+
   if (action === 'copy') {
     if (props.copyText.trim()) {
       await navigator.clipboard.writeText(props.copyText)

@@ -5,6 +5,7 @@ import { defineStore, storeToRefs } from 'pinia'
 import { computed, reactive, ref } from 'vue'
 
 import { useLlmmarkerParser } from '../../composables/llm-marker-parser'
+import { useChatSessionStore } from '../chat/session-store'
 import { useAiriCardStore } from '../modules'
 import { useSpeechRuntimeStore } from '../speech-runtime'
 
@@ -139,6 +140,53 @@ export const useCharacterStore = defineStore('character', () => {
     reactions.value = []
   }
 
+  async function replaySpeech(text: string, messageId?: string) {
+    if (!text?.trim())
+      return
+
+    const intent = speechRuntimeStore.openIntent({
+      intentId: messageId ? `replay:${messageId}` : undefined,
+      ownerId: ownerId.value,
+      priority: 'high',
+      behavior: 'interrupt',
+    })
+
+    const parser = parserFactory({
+      onLiteral: async (literal) => {
+        if (literal)
+          intent.writeLiteral(literal)
+      },
+      onSpecial: async (special) => {
+        if (special)
+          intent.writeSpecial(special)
+      },
+    })
+
+    await parser.consume(text)
+    await parser.end()
+
+    intent.writeFlush()
+    intent.end()
+  }
+
+  async function replayLastSpeech(): Promise<boolean> {
+    const chatSession = useChatSessionStore()
+    const activeSessionId = chatSession.activeSessionId
+    if (!activeSessionId)
+      return false
+    const messages = chatSession.getSessionMessages(activeSessionId)
+    const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant')
+    if (!lastAssistant)
+      return false
+
+    const raw = lastAssistant.rawContent || (typeof lastAssistant.content === 'string' ? lastAssistant.content : '')
+    if (!raw.trim())
+      return false
+
+    await replaySpeech(raw, lastAssistant.id)
+    return true
+  }
+
   return {
     name,
     reactions,
@@ -150,5 +198,7 @@ export const useCharacterStore = defineStore('character', () => {
     clearReactions,
 
     emitTextOutput,
+    replaySpeech,
+    replayLastSpeech,
   }
 })

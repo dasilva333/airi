@@ -1,4 +1,4 @@
-export type ChatActionMenuAction = 'copy' | 'delete' | 'delete-following' | 'fork' | 'fork-switch' | 'edit' | 'retry' | 'journal'
+export type ChatActionMenuAction = 'copy' | 'delete' | 'delete-following' | 'fork' | 'fork-switch' | 'edit' | 'retry' | 'journal' | 'replay'
 
 export interface ChatActionMenuItem {
   action: ChatActionMenuAction
@@ -14,8 +14,18 @@ export function createChatActionMenuItems(options: {
   canFork?: boolean
   canEdit?: boolean
   canRetry?: boolean
+  canReplay?: boolean
+  isReplayCached?: boolean
 }): ChatActionMenuItem[] {
   return [
+    options.canReplay
+      ? {
+          action: 'replay',
+          label: options.isReplayCached ? 'Replay Speech (Cached)' : 'Re-synthesize Speech',
+          icon: options.isReplayCached ? 'i-solar:replay-bold text-emerald-500' : 'i-solar:refresh-circle-outline',
+          divider: !options.canCopy && options.canEdit === false && options.canRetry === false,
+        }
+      : null,
     options.canCopy
       ? {
           action: 'copy',

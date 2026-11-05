@@ -512,6 +512,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | `airi:inference:search` | `stage-ui/src/libs/workers/search/search-channel.ts` | Single-owner embedding search coordinator (leader hosts the EmbeddingGemma worker via `createGpuWorkerHost` with 15-min idle TTL; secondaries proxy init/index/search/remove/persist, never spawning a worker) |
 | `airi:nan0:state-sync` | `stage-ui/src/stores/modules/nan0.ts` | Single-owner Nan0 cognition state sync (Main Stage Window leader broadcasts emotional vectors, reflex badges, and executive decisions to secondary windows like Chatbox) |
 | `airi:sandbox:channel` | `stage-ui/src/libs/sandbox/manager.ts` | Single-owner POSIX sandbox & virtual terminal sync (Main Stage Window leader broadcasts agent command logs and proxies oversight RPCs from secondary windows) |
+| `airi:speech-cache-sync` | `stage-ui/src/services/speech/audio-cache.ts` | In-memory speech audio cache metadata sync (cached keys, message associations, evictions) across Main Stage and secondary windows (e.g. Chatbox) |
 
 ---
 

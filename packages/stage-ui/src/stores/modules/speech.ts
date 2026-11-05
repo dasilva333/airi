@@ -10,6 +10,7 @@ import { computed, onMounted, watch } from 'vue'
 import { toXml } from 'xast-util-to-xml'
 import { x } from 'xastscript'
 
+import { speechAudioCache } from '../../services/speech/audio-cache'
 import {
   braceBareScripts,
   detectSpeechLanguage,
@@ -889,5 +890,6 @@ export const useSpeechStore = defineStore('speech', () => {
     saveVoiceProfile,
     deleteVoiceProfile,
     resetState,
+    audioCache: speechAudioCache,
   }
 })

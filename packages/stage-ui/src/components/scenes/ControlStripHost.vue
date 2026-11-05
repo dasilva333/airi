@@ -33,6 +33,7 @@ import { containsExplicitActToken, normalizeStrideText, useAutonomousCues } from
 import { useTurnPacing } from '../../composables/use-turn-pacing'
 import { llmInferenceEndToken } from '../../constants'
 import { EMOTION_EmotionMotionName_value, EmotionThinkMotionName } from '../../constants/emotions'
+import { createSpeechAudioCacheKey, speechAudioCache } from '../../services/speech/audio-cache'
 import { getSpeechBusContext, speechSegmentPlaybackEvent } from '../../services/speech/bus'
 import { useAudioContext, useSpeakingStore } from '../../stores/audio'
 import { useCadenceDeliveryStore } from '../../stores/cadence-delivery'
@@ -1304,6 +1305,7 @@ playbackManager.schedule = (item) => {
 }
 
 const rawAudioBuffers = new Map<string, ArrayBuffer>()
+const currentActiveMessageId = ref<string | null>(null)
 
 async function generateSpeechBuffered(request: TtsRequest, signal: AbortSignal): Promise<AudioBuffer | null> {
   if (import.meta.env.DEV)
@@ -1483,6 +1485,30 @@ async function generateSpeechBuffered(request: TtsRequest, signal: AbortSignal):
     ? speechStore.generateSSML(transformedText, voice, { ...targetProviderConfig, pitch: pitch.value })
     : transformedText
 
+  const cacheKey = createSpeechAudioCacheKey({
+    providerId: targetProviderId,
+    model,
+    voiceId: voice.id,
+    text: input,
+    pitch: pitch.value,
+    speed: speechStore.rate,
+    ssml: ssmlEnabled.value,
+    language: speechStore.selectedLanguage,
+  })
+
+  const targetMsgId = (request.intentId?.startsWith('replay:') ? request.intentId.slice('replay:'.length) : currentActiveMessageId.value) || undefined
+
+  const cachedBuffer = speechAudioCache.get(cacheKey)
+  if (cachedBuffer) {
+    debug('[Stage:TTS] Audio cache hit for segment:', { text: input.slice(0, 30), bytes: cachedBuffer.byteLength })
+    if (targetMsgId) {
+      speechAudioCache.associate(cacheKey, targetMsgId)
+    }
+    rawAudioBuffers.set(request.segmentId, cachedBuffer.slice(0))
+    const audioBuffer = await audioContext.decodeAudioData(cachedBuffer.slice(0))
+    return audioBuffer
+  }
+
   try {
     const res = await generateSpeech({
       ...provider.speech(model, targetProviderConfig),
@@ -1492,6 +1518,9 @@ async function generateSpeechBuffered(request: TtsRequest, signal: AbortSignal):
 
     if (signal.aborted || !res || res.byteLength === 0)
       return null
+
+    // Cache a copy in the bounded LRU audio cache before decodeAudioData detaches it
+    speechAudioCache.set(cacheKey, res.slice(0), targetMsgId)
 
     // Tap into the audio stream for Discord Voice Notes
     // We slice() because decodeAudioData(res) will detach the original buffer.
@@ -2025,6 +2054,7 @@ chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
   // once streaming finishes; unarmed turns are never gated.
   // TEMP-DELIVERY-DIAG: eligibility breakdown (remove after diagnosis).
   try {
+    currentActiveMessageId.value = context?.assistantMessageId ?? null
     const cadenceCardConfig = activeCard.value?.extensions?.airi?.acting?.cadence
     const cadenceMessageId = context?.assistantMessageId
     console.info('[Cadence] before-compose', {
