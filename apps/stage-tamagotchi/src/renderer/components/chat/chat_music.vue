@@ -271,6 +271,29 @@ const stylePrompt = ref(STYLE_PRESETS[0].prompt)
 const lyricsText = ref(STYLE_PRESETS[0].lyrics)
 const isInstrumental = ref(false)
 const durationSeconds = ref<number>(60)
+const isCustomDuration = computed(() => ![15, 30, 60, 120].includes(durationSeconds.value))
+
+function handleCustomDurationInput(e: Event) {
+  const target = e.target as HTMLInputElement
+  const raw = Number.parseInt(target.value, 10)
+  if (!Number.isNaN(raw)) {
+    durationSeconds.value = Math.max(1, Math.min(600, raw))
+  }
+}
+
+function handleCustomDurationBlur(e: Event) {
+  const target = e.target as HTMLInputElement
+  if (!target.value.trim() && isCustomDuration.value) {
+    durationSeconds.value = 60
+  }
+  else {
+    durationSeconds.value = Math.max(5, Math.min(600, durationSeconds.value || 60))
+    if (isCustomDuration.value) {
+      target.value = String(durationSeconds.value)
+    }
+  }
+}
+
 const cotMode = ref<'full' | 'melody' | 'off'>('full')
 const temperature = ref<number>(0.8)
 const trackTitle = ref('Neon Horizon')
@@ -687,13 +710,14 @@ async function handleGenerateTrack() {
   )
 
   try {
+    const safeDuration = Math.max(5, Math.min(600, durationSeconds.value || 60))
     const payload = {
       action: 'generate',
       model: selectedModel.value,
       prompt: stylePrompt.value.trim(),
       lyrics: isInstrumental.value ? '[Instrumental]' : lyricsText.value.trim(),
-      duration_seconds: durationSeconds.value,
-      durationSeconds: durationSeconds.value,
+      duration_seconds: safeDuration,
+      durationSeconds: safeDuration,
       temperature: temperature.value,
       cot: cotMode.value,
       title: trackTitle.value.trim() || 'Untitled Track',
@@ -712,7 +736,7 @@ async function handleGenerateTrack() {
         state: res.state || 'queued',
         progress: 0,
         requestedAt: Date.now(),
-        durationSeconds: durationSeconds.value,
+        durationSeconds: safeDuration,
       }
       activeJobs.value.unshift(newJob)
       ensureJobPolling()
@@ -735,7 +759,7 @@ async function handleGenerateTrack() {
       model: selectedModel.value,
       prompt: stylePrompt.value,
       lyrics: lyricsText.value,
-      duration: durationSeconds.value,
+      duration: safeDuration,
       audioUrl,
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       abcScore: trackPayload?.abcScore || trackPayload?.abc,
@@ -1250,16 +1274,53 @@ onUnmounted(() => {
           <!-- Duration Selector -->
           <div class="flex items-center gap-1.5">
             <span class="text-[11px] text-neutral-500 font-bold dark:text-neutral-400">Duration:</span>
-            <div class="flex border border-neutral-200/80 rounded-lg p-0.5 dark:border-neutral-700/80 dark:bg-neutral-800">
+            <div class="flex items-center border border-neutral-200/80 rounded-lg p-0.5 dark:border-neutral-700/80 dark:bg-neutral-800">
               <button
                 v-for="d in [15, 30, 60, 120]"
                 :key="d"
-                class="rounded px-2 py-0.5 text-[11px] font-semibold transition-all"
-                :class="durationSeconds === d ? 'bg-primary-500 text-white shadow-2xs' : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50'"
+                type="button"
+                :class="[
+                  'rounded px-2 py-0.5 text-[11px] font-semibold transition-all',
+                  durationSeconds === d
+                    ? 'bg-primary-500 text-white shadow-2xs'
+                    : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50',
+                ]"
                 @click="durationSeconds = d"
               >
                 {{ d }}s
               </button>
+
+              <div class="mx-0.5 h-3.5 w-px bg-neutral-200 dark:bg-neutral-700" />
+
+              <!-- Custom Duration Inline Pill (Clamped 5s - 600s) -->
+              <div
+                :class="[
+                  'flex items-center gap-0.5 rounded px-1.5 py-0.5 transition-all text-[11px] font-semibold',
+                  isCustomDuration
+                    ? 'bg-primary-500 text-white shadow-2xs'
+                    : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50',
+                ]"
+                title="Custom duration in seconds (5s - 600s)"
+              >
+                <input
+                  type="number"
+                  min="5"
+                  max="600"
+                  step="1"
+                  :value="isCustomDuration ? durationSeconds : ''"
+                  placeholder="Custom"
+                  :class="[
+                    'w-11 text-center font-mono text-[11px] font-bold bg-transparent outline-none p-0',
+                    '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+                    isCustomDuration
+                      ? 'text-white placeholder-white/70'
+                      : 'text-neutral-700 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-500',
+                  ]"
+                  @input="handleCustomDurationInput"
+                  @blur="handleCustomDurationBlur"
+                >
+                <span :class="isCustomDuration ? 'text-white/90' : 'text-neutral-400'">s</span>
+              </div>
             </div>
           </div>
 
