@@ -16,6 +16,11 @@ https://arxiv.org/html/2410.12773?_immersive_translate_auto_translate=1
 来自人级指令的人机交互 --- Human-Object Interaction from Human-Level Instructions
 https://arxiv.org/html/2406.17840?_immersive_translate_auto_translate=1
 
+Möbius: A Unified Motion-Language Model Bridging Understanding and Generation (HKUST / Tencent Games Motus / MIT, Nov 2026)
+- Paper: https://arxiv.org/abs/2611.05279
+- Project Page: https://jiazhishu.github.io/mobius/
+- Code Repo: https://github.com/JiazhiShu/mobius-code (Code availability under internal corporate review)
+
 ## Industry Solutions
 
 - [Synthesia Pricing | From $18 per Month](https://www.synthesia.io/pricing-options)

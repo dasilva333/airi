@@ -557,6 +557,7 @@ export interface System1Provider {
 | `openrouter-ai` | `true` | Forwards image payload to `/api/alpha/decisions` Jev vision endpoint. |
 | `typesafe-ai` | `true` | Forwards image payload to `/v1/systemone`. |
 | `opencode-go` | `true` (when enabled) | Forwards session-authenticated image payload to `/zen/v1/systemone`. |
+| `cactus-mirage-local` | `true` | Evaluates on-device via Cactus 4.0.0 WASM worker (22 MB). Extracts OCR and local bounding box coordinates at $0 cost. See [`design-cactus-mirage-local-vision.md`](./design-cactus-mirage-local-vision.md). |
 | `laya-local` | `false` | Falls back to local OCR/ChronoLog text summarization and invokes ModernBERT on text state. Ignores image payload without throwing. |
 
 ---

@@ -33,6 +33,515 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-08] Upstream Delta: `407d959b..cbc49a88` (11 commits, 69 files, 25 update(s))
+
+### 🎯 Executive Highlights
+- **Injeca 0.5.1 & Plugin Host Overhaul (`#3436`, `#3438`, `#3439`, `#3442`, `#3443`, `#3444`)**: Upstream executed a massive, coordinated refactoring of the plugin runtime. Injeca was updated to `0.5.1`. The plugin host internals now run directly on injeca (`#3439`), built-in Kits run as modular app container units inside Electron (`#3438`), and the complex 800+ line `activation-plan.ts` was replaced with dynamic `activation-checks.ts` that wait for missing kits (`#3442`, net -1,000 lines). In addition, permission and identity types were decoupled into a new `@proj-airi/extension-protocol` package (`#3443`).
+- **Voice Input Deadlock Guard (`#3434` / `2ed311630`)**: Neko fixed a critical hang where an input whose transcription stream never closed left the voice controller stranded in `finalizing`, blocking subsequent input. Added `transcriptionTimeoutMs` (30s default) to fail stalled transcriptions, bound `AbortSignal.timeout` to speculative rephrasings in `voice-rephrase-plugin`, and ensured audio input tracking propagates unique `inputId` / `sessionId` tags.
+- **Stream-Kit Queue Type Hardening (`#3411` / `18c8fa3b5`)**: Merged PR #3411 by 小卡塔克, replacing loose `any` types with `unknown` across `@proj-airi/stream-kit` queue listeners, handler callbacks, and event emitters, accompanied by comprehensive unit tests and ESLint suppression cleanup.
+- **Devtools Beat Sync Emulation (`#3441`)**: Added devtools controls in `stage-pages` and `stage-shared` to simulate and dispatch Beat Sync rhythm beats directly to characters for testing motion synchronization without active audio playback.
+- **Web Extension Channel Bridge (`#3433`)**: FoolKc opened PR #3433 with 36 comments connecting browser web extensions to the local channel server to deliver notifications to the stage.
+
+#### 💬 Discussion & Community Buzz
+- **#3433: `fix(web-extension): connect to the channel server and deliver notifications to the stage` (+36 comments)**: High discussion velocity around browser web extension integration, WebSocket connection reliability to the AIRI local channel server (`localhost:6121`), and stage notification dispatching.
+- **#3000: `feat(memory-eval): add identity-continuity evaluation package` (+7 new comments, 126 total)**: Ongoing deep discussion with maintainers on identity continuity evaluation metrics (Wasserstein-1, GMM bimodality) and whether the package belongs in `packages/` or `evals/`.
+- **#3027: `feat(stage-tamagotchi): add opt-in local AI HTTP proxy` (+5 new comments, total 17)**: Active evaluation of an embedded opt-in HTTP reverse proxy inside Electron to route and normalize local AI provider requests.
+- **#3411: `refactor(stream-kit): type the queue listeners and handler events` (+5 new comments, total 13)**: Reviews between Goldloli and Younsang Na concluding in successful merge.
+- **#2197: `feat(live2d): support Cubism 2 through generation-specific loaders` (+2 new comments, total 76)**: Continued community interest and architectural discussions around legacy Cubism 2 Live2D model backward compatibility.
+- **#3375 & #3356 (+2 and +1 comments)**: Ongoing type-refinement PRs in Spine world transform calls and MediaPipe VRM bone lookups.
+
+#### 🍒 Cherry-Pick Candidates
+- **`2ed311630` (PR #3434)** — `fix(core-agent,stage-ui,stage-pages): fail a voice input whose transcript never closes`: **High Priority / Critical Port Candidate**. Resolves an audio pipeline hang where a stalled transcription provider stream never closes, trapping the controller in `finalizing` and preventing following voice inputs from cleanly finishing. Introduces `transcriptionTimeoutMs` (30s) and bounds speculative rephrase requests with `AbortSignal.timeout`. Directly benefits our audio & speech pipeline (`packages/stage-ui/src/libs/audio/hearing-transcriber.ts` and `core-agent`).
+- **`18c8fa3b5` (PR #3411)** — `refactor(stream-kit): type the queue listeners and handler events`: **Medium Priority / Clean Type Safety Port**. Replaces 9 `any` types in `@proj-airi/stream-kit` queue with strict `unknown` types and typed handler contexts. Clean, zero-runtime-risk enhancement that matches our code hygiene standards.
+- **`#3441` (PR #3441)** — `feat(stage-pages,stage-shared): send Beat Sync beats to the character from devtools`: **Low-to-Medium Priority / Devtools Enhancement**. Useful devtools utility for triggering beat events directly on avatars to test rhythmic kinematics and Live2D/VRM motion springs without requiring an active audio player or microphone feed.
+- **`#3440` (PR #3440)** — `fix(provider-inference): support Volcengine Agent Plan`: **Low Priority / Provider Niche**. Adds support for Volcengine Agent Plan model calls. Relevant if expanding Chinese cloud LLM provider options.
+
+#### ⚠️ Divergence / Collision Warnings
+- **`#3438`, `#3439`, `#3442`, `#3443`: Plugin SDK & Tamagotchi Container Overhaul**: **Major Collision Warning**. Upstream is heavily refactoring its plugin host around `kits`, `extension-protocol`, and injeca-based plugin hosts in `apps/stage-tamagotchi/src/main/services/airi/plugins`. Our fork maintains its own decoupled architecture with MCP stdio tool execution, local capability packs, and custom service composition. Do NOT blindly pull or merge these plugin host refactors without assessing our fork's plugin roadmap.
+- **`#3435`: `fix(core-agent,audio,stage-ui): resume VAD, wake word, and ASR after the microphone ends`**: **Collision / Caution**. Touches wake word lifecycles (`openwakeword`). As established in `airi-roadmap-upstream-research`, our fork does not use wake words. If inspecting for VAD/ASR microphone resume logic, the wake word parts must be cleanly excised.
+- **`#3445`: `feat(chat): add conversation feature preferences and execution gates`**: Touches upstream chat preferences in `stage-ui`. Our fork has decoupled chat into a dedicated desktop workspace (`chat.vue`, `useChatDashboard`, `ChatOptionsPopover.vue`) and Eight Pillars memory; upstream changes to chat store state may conflict with our universe/session schema.
+
+### 📋 Upstream Commits
+- `cbc49a880` refactor(plugin-sdk,plugin-protocol): move permission and identity types to extension-protocol (#3443) [#3443](https://github.com/moeru-ai/airi/pull/3443) _(Neko, 2026-11-08)_
+- `7a0b8515e` refactor(plugin-sdk,stage-tamagotchi): wait for missing Kits instead of the Activation Planner (#3442) [#3442](https://github.com/moeru-ai/airi/pull/3442) _(Neko, 2026-11-08)_
+- `1614746aa` refactor(stage-tamagotchi): run the built-in Kits as app container units (#3438) [#3438](https://github.com/moeru-ai/airi/pull/3438) _(Neko, 2026-11-08)_
+- `43b3b97a6` refactor(plugin-sdk): run the host internals on injeca (#3439) [#3439](https://github.com/moeru-ai/airi/pull/3439) _(Neko, 2026-11-08)_
+- `18c8fa3b5` refactor(stream-kit): type the queue listeners and handler events (#3411) [#3411](https://github.com/moeru-ai/airi/pull/3411) _(小卡塔克, 2026-11-08)_
+- `f1a30137d` chore(nix): update pnpmDeps hash (#3447) [#3447](https://github.com/moeru-ai/airi/pull/3447) _(Weathercold, 2026-11-08)_
+- `7492580a9` chore: remove the unused sponsors-svg dependency (#3446) [#3446](https://github.com/moeru-ai/airi/pull/3446) _(Neko, 2026-11-08)_
+- `0723b7d37` docs: state that plugin-sdk uses injeca as its lifecycle runtime (#3444) [#3444](https://github.com/moeru-ai/airi/pull/3444) _(Neko, 2026-11-08)_
+- `ea7b3fe8a` chore(nix): update pnpmDeps hash (#3437) [#3437](https://github.com/moeru-ai/airi/pull/3437) _(Weathercold, 2026-11-07)_
+- `2ed311630` fix(core-agent,stage-ui,stage-pages): fail a voice input whose transcript never closes (#3434) [#3434](https://github.com/moeru-ai/airi/pull/3434) _(Neko, 2026-11-08)_
+- `d16d54417` chore: upgrade injeca to 0.5.1 (#3436) [#3436](https://github.com/moeru-ai/airi/pull/3436) _(Neko, 2026-11-08)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 4 file(s) (+40/-3)
+- `AGENTS.md` *(+1/-0)*
+- `packages/extension-protocol/README.md` *(+34/-0)*
+- `packages/plugin-protocol/README.md` *(+1/-0)*
+- `packages/plugin-sdk/README.md` *(+4/-3)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 15 file(s) (+388/-488)
+- `apps/stage-tamagotchi/src/main/index.ts` *(+22/-5)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/README.md` *(+3/-3)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/activation-planner-consumer/README.md` *(+6/-6)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/activation-planner-provider/README.md` *(+5/-6)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/examples/activation-planner-provider/activation-planner-provider.mjs` *(+2/-2)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/host/debug.ts` *(+1/-0)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/host/index.ts` *(+50/-133)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/host/managed-sessions.ts` *(+0/-5)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/index.test.ts` *(+112/-94)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/index.ts` *(+1/-3)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/kits/index.test.ts` *(+40/-37)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/kits/index.ts` *(+30/-118)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/kits/tool/registry.test.ts` *(+83/-0)*
+- `{packages/plugin-sdk-tamagotchi/src/tools => apps/stage-tamagotchi/src/main/services/airi/plugins/kits/tool}/registry.ts` *(+8/-72)*
+- `apps/stage-tamagotchi/src/main/services/airi/plugins/types.ts` *(+25/-4)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 32 file(s) (+1036/-2009)
+- `eslint-suppressions.json` *(+1/-11)*
+- `integrations/minecraft/src/cognitive/container.ts` *(+2/-2)*
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/extension-protocol/src/index.ts` *(+111/-0)*
+- `packages/extension-protocol/tsdown.config.ts` *(+9/-0)*
+- `packages/plugin-protocol/src/types/events.ts` *(+19/-112)*
+- `packages/plugin-sdk-tamagotchi/src/index.test.ts` *(+0/-79)*
+- `packages/plugin-sdk-tamagotchi/src/tools/index.ts` *(+2/-5)*
+- `packages/plugin-sdk-tamagotchi/src/tools/types.ts` *(+72/-0)*
+- `packages/plugin-sdk/src/channels/index.ts` *(+1/-1)*
+- `packages/plugin-sdk/src/extension/shared.ts` *(+1/-1)*
+- `packages/plugin-sdk/src/plugin-host/activation-checks.test.ts` *(+133/-0)*
+- `packages/plugin-sdk/src/plugin-host/activation-checks.ts` *(+95/-0)*
+- `packages/plugin-sdk/src/plugin-host/activation-plan.test.ts` *(+0/-831)*
+- `packages/plugin-sdk/src/plugin-host/activation-plan.ts` *(+0/-582)*
+- `packages/plugin-sdk/src/plugin-host/api.ts` *(+1/-1)*
+- `packages/plugin-sdk/src/plugin-host/core.test.ts` *(+175/-18)*
+- `packages/plugin-sdk/src/plugin-host/core.ts` *(+116/-79)*
+- `packages/plugin-sdk/src/plugin-host/hosted-kits.ts` *(+153/-219)*
+- `packages/plugin-sdk/src/plugin-host/runtimes/node/cleanup-context.ts` *(+0/-31)*
+- `packages/plugin-sdk/src/plugin-host/runtimes/shared/services/permissions.test.ts` *(+1/-1)*
+- `packages/plugin-sdk/src/plugin-host/runtimes/shared/services/permissions.ts` *(+1/-1)*
+- `packages/plugin-sdk/src/plugin-host/shared/types.ts` *(+5/-5)*
+- `packages/stage-shared/src/plugin-host.ts` *(+2/-0)*
+- `packages/stage-ui/src/composables/voice-rephrase.ts` *(+5/-5)*
+- `packages/stage-ui/src/libs/voice/voice-rephrase-plugin.test.ts` *(+27/-4)*
+- `packages/stage-ui/src/libs/voice/voice-rephrase-plugin.ts` *(+13/-6)*
+- `packages/stage-ui/src/stores/devtools/plugin-host-debug.test.ts` *(+1/-0)*
+- `packages/stage-ui/src/stores/voice.ts` *(+3/-1)*
+- `packages/stream-kit/src/queue.test.ts` *(+39/-0)*
+- `packages/stream-kit/src/queue.ts` *(+46/-11)*
+- `pnpm-workspace.yaml` *(+1/-2)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 6 file(s) (+81/-683)
+- `package.json` *(+0/-1)*
+- `packages/extension-protocol/package.json` *(+35/-0)*
+- `packages/extension-protocol/tsconfig.json` *(+19/-0)*
+- `packages/plugin-protocol/package.json` *(+1/-0)*
+- `packages/plugin-sdk/package.json` *(+2/-1)*
+- `pnpm-lock.yaml` *(+24/-681)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 5 file(s) (+114/-5)
+- `packages/core-agent/README.md` *(+2/-1)*
+- `packages/core-agent/src/voice/controller.test.ts` *(+86/-1)*
+- `packages/core-agent/src/voice/controller.ts` *(+11/-0)*
+- `packages/core-agent/src/voice/input/attempt.ts` *(+13/-2)*
+- `packages/core-agent/src/voice/input/ports.ts` *(+2/-1)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 1 file(s) (+2/-0)
+- `packages/i18n/src/locales/en/settings.yaml` *(+2/-0)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 2 file(s) (+8/-3)
+- `packages/stage-pages/src/pages/devtools/plugin-host.vue` *(+7/-1)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/transcriber.vue` *(+1/-2)*
+
+#### Audio & Speech Pipeline (`🔍 inspect`) — 2 file(s) (+7/-14)
+- `packages/stage-ui/src/libs/audio/hearing-transcriber.test.ts` *(+2/-4)*
+- `packages/stage-ui/src/libs/audio/hearing-transcriber.ts` *(+5/-10)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 2 file(s) (+2/-1)
+- `server/apps/api/src/app.ts` *(+1/-0)*
+- `server/apps/auth/src/server.ts` *(+1/-1)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (15)
+- [PR] [#3443](https://github.com/moeru-ai/airi/pull/3443) `refactor(plugin-sdk,plugin-protocol): move permission and identity types to extension-protocol` by **@nekomeowww** *(3 comments)*
+- [PR] [#3442](https://github.com/moeru-ai/airi/pull/3442) `refactor(plugin-sdk,stage-tamagotchi): wait for missing Kits instead of the Activation Planner` by **@nekomeowww** *(3 comments)*
+- [PR] [#3438](https://github.com/moeru-ai/airi/pull/3438) `refactor(stage-tamagotchi): run the built-in Kits as app container units` by **@nekomeowww** *(4 comments)*
+- [PR] [#3439](https://github.com/moeru-ai/airi/pull/3439) `refactor(plugin-sdk): run the host internals on injeca` by **@nekomeowww** *(11 comments)*
+- [PR] [#3447](https://github.com/moeru-ai/airi/pull/3447) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(3 comments)*
+- [PR] [#3446](https://github.com/moeru-ai/airi/pull/3446) `chore: remove the unused sponsors-svg dependency` by **@nekomeowww** *(3 comments)*
+- [PR] [#3440](https://github.com/moeru-ai/airi/pull/3440) `fix(provider-inference): support Volcengine Agent Plan` by **@iluv7** *(3 comments)*
+- [PR] [#3445](https://github.com/moeru-ai/airi/pull/3445) `feat(chat): add conversation feature preferences and execution gates` by **@lulu0119** *(Draft)* *(1 comments)*
+- [PR] [#3444](https://github.com/moeru-ai/airi/pull/3444) `docs: state that plugin-sdk uses injeca as its lifecycle runtime` by **@nekomeowww** *(2 comments)*
+- [PR] [#3441](https://github.com/moeru-ai/airi/pull/3441) `feat(stage-pages,stage-shared): send Beat Sync beats to the character from devtools` by **@nekomeowww** *(3 comments)*
+- [PR] [#3435](https://github.com/moeru-ai/airi/pull/3435) `fix(core-agent,audio,stage-ui): resume VAD, wake word, and ASR after the microphone ends` by **@nekomeowww** *(6 comments)*
+- [PR] [#3437](https://github.com/moeru-ai/airi/pull/3437) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(2 comments)*
+- [PR] [#3434](https://github.com/moeru-ai/airi/pull/3434) `fix(core-agent,stage-ui,stage-pages): fail a voice input whose transcript never closes` by **@nekomeowww** *(2 comments)*
+- [PR] [#3436](https://github.com/moeru-ai/airi/pull/3436) `chore: upgrade injeca to 0.5.1` by **@nekomeowww** *(3 comments)*
+- [PR] [#3433](https://github.com/moeru-ai/airi/pull/3433) `fix(web-extension): connect to the channel server and deliver notifications to the stage` by **@FoolKc** *(36 comments)*
+
+#### 🔄 Status & Lifecycle Changes (3)
+- [PR] [#3411](https://github.com/moeru-ai/airi/pull/3411) `refactor(stream-kit): type the queue listeners and handler events` — `OPEN` ➔ `MERGED`
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` — ➔ `Draft`
+- [PR] [#3418](https://github.com/moeru-ai/airi/pull/3418) `refactor(plugin-sdk,stage-tamagotchi): run the plugin host on injeca 0.4` — `OPEN` ➔ `CLOSED`
+
+#### 💬 Discussion Activity (7)
+- [PR] [#3375](https://github.com/moeru-ai/airi/pull/3375) `refactor(stage-ui-spine): type versioned world transform calls` — *+2 comments (4 ➔ 6 total)*
+- [PR] [#3356](https://github.com/moeru-ai/airi/pull/3356) `refactor(model-driver-mediapipe): type VRM bone lookups` — *+1 comments (4 ➔ 5 total)*
+- [PR] [#3411](https://github.com/moeru-ai/airi/pull/3411) `refactor(stream-kit): type the queue listeners and handler events` — *+5 comments (8 ➔ 13 total)*
+- [PR] [#2197](https://github.com/moeru-ai/airi/pull/2197) `feat(live2d): support Cubism 2 through generation-specific loaders` — *+2 comments (74 ➔ 76 total)*
+- [PR] [#3418](https://github.com/moeru-ai/airi/pull/3418) `refactor(plugin-sdk,stage-tamagotchi): run the plugin host on injeca 0.4` — *+1 comments (8 ➔ 9 total)*
+- [PR] [#1577](https://github.com/moeru-ai/airi/pull/1577) `feat(stage-ui): add GPT-SoVITS speech provider support` — *+1 comments (65 ➔ 66 total)*
+- [PR] [#3027](https://github.com/moeru-ai/airi/pull/3027) `feat(stage-tamagotchi): add opt-in local AI HTTP proxy` — *+5 comments (12 ➔ 17 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [Draft] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+
+---
+## [2026-11-07] Upstream Delta: `63f91d82..407d959b` (12 commits, 103 files, 20 update(s))
+
+### 🎯 Executive Highlights
+- **Live2D Motion Pipeline Modernization (`#3420`)**: Upstream merged `543d8dfe3`, decoupling Beat Sync into a two-phase motion plugin (`pre` for spring physics advance, `layer` for additive angles in `final` phase). Resolves head-snapping and parameter collisions when manual pose drivers (such as the MAGIC driver) are active, while unifying all beat scheduling onto a single monotonic clock.
+- **UI Design System Enhancements (`SelectTab` & Strict Typing)**: Makito added `radius` (`lg`, `xl`, `full`) and `color` (`primary`, `neutral`) props to `@proj-airi/ui`'s `SelectTab` (`fb48b1708`), while Younsang Na eliminated `any` types in `transition-horizontal.vue` and `LocalStorageShim` (`f09978fcf`).
+- **Chat Session Batch Deletion (`#3422`)**: Merged `d7f44f3ac` introducing a multi-select delete mode in `stage-ui` chat sessions with two-step delete confirmation and batch store pruning.
+- **Font Decoupling & Repo Slimming (`#3425`)**: Upstream extracted heavy bundled CJK font assets out of the monorepo into external npm packages (`@proj-airi/fonts`), slimming repo clone weight.
+- **Mobile Gesture Consolidation (`#3429`)**: Unified mobile model placement controls across stage-pocket and stage-web into dedicated gesture handlers and placement panels.
+
+#### 💬 Discussion & Community Buzz
+- **#1577: `feat(stage-ui): add GPT-SoVITS speech provider support` (+8 new comments, 60 total)**: Surging community and maintainer discussion around local GPT-SoVITS TTS integration and audio streaming contracts.
+- **#3411: `refactor(stream-kit): type the queue listeners and handler events` (+4 new comments, 8 total)**: Active review velocity focusing on typed event handlers for streaming pipelines.
+- **#3418: `refactor(plugin-sdk,stage-tamagotchi): run the plugin host on injeca 0.4` (+2 new comments, 8 total)**: Ongoing progress on upgrading the plugin host container to `injeca 0.4`.
+- **#3424: `feat(font-lxgw-975yuan,font-chillroundf,font-kirakara-maru): add three rounded CJK font packages` (8 comments)**: Active discussion around new rounded CJK typography packages.
+- **#3419: `fix(stage-ui): wait for channel ready before sending events` (+1 new comment, 6 total)**: WebSocket handshake readiness guards.
+
+#### 🍒 Cherry-Pick Candidates
+- **`543d8dfe3` (PR #3420)** — `fix(stage-ui-live2d): move Beat Sync on top of MAGIC poses and on one clock`: **High Priority / Strong Port Candidate**. Resolves jitter and motion collision between manual pose drivers and rhythmic beat synchronization in Live2D by using a two-phase plugin (`pre`/`layer`) and unifying the clock. Directly benefits our 4-avatar engine suite in `packages/stage-ui-live2d`.
+- **`fb48b1708` (PR #3423)** — `feat(ui): add radius and color props to SelectTab`: **Medium Priority / Clean UI Port**. Adds `radius` ('lg' | 'xl' | 'full') and `color` ('primary' | 'neutral') variants to `@proj-airi/ui` `SelectTab`. Fully backward-compatible and useful for UI customization.
+- **`f09978fcf` (PR #3415)** — `refactor(ui): replace any types in ui package`: **Low Priority / Clean Maintenance**. Type-safe `ElementCSSInlineStyle` typing in `transition-horizontal.vue` and `LocalStorageShim` cleanup.
+- **`7fea98704` (PR #3430) / `407d959b1` (PR #3431)** — Localization updates: **Low Priority / Additive Import**. Localizes the background picker across 10 languages and aligns default character descriptions.
+
+#### ⚠️ Divergence / Collision Warnings
+- **`d7f44f3ac` (PR #3422) — Multi-select delete in chat sessions (`packages/stage-ui/src/stores/chat.ts`, `session-store.ts`)**: **Collision Warning**. Upstream's session store batch deletion is tightly coupled to cloud sync (`DELETE /api/v1/chats/:id`, `addTombstone`), modifying `chat.ts` and `session-store.ts` which are heavily diverged in our local-first, multi-actor, Eight-Pillars architecture. Do NOT cherry-pick as-is; adapt the batch UI concept into our dedicated desktop chat workspace if desired.
+- **`f65804ea4` (PR #3428) — `authedFetch` Request header/body preservation (`packages/stage-ui/src/libs/auth-fetch.ts`)**: **Architectural Reject**. Modifies upstream's cloud service authentication layer (OpenPanel telemetry, remote bearer tokens). Our fork is strictly local-first with zero accounts/cloud telemetry.
+- **`3d4b7561e` (PR #3425) — Externalizing font packages to npm**: Modifies monorepo package manifests and pnpm workspaces. Our fork manages its own font bundles locally; avoid adopting external package references that disrupt offline hermetic builds.
+- **`#3427` — `feat(server): send one cross-origin policy from the API and Auth`**: Touches upstream server apps (`server/apps/api`, `server/apps/auth`). Auto-reject per local-first architectural boundaries.
+
+### 📋 Upstream Commits
+- `407d959b1` fix(i18n): align translated default descriptions with Iru (#3431) [#3431](https://github.com/moeru-ai/airi/pull/3431) _(RainbowBird, 2026-11-07)_
+- `f65804ea4` fix(stage-ui): preserve Request headers and bodies in authedFetch (#3428) [#3428](https://github.com/moeru-ai/airi/pull/3428) _(moth, 2026-11-07)_
+- `f3289a37b` feat(stage-ui): unify mobile model placement controls (#3429) [#3429](https://github.com/moeru-ai/airi/pull/3429) _(Hatsune Miku, 2026-11-07)_
+- `7fea98704` fix(i18n): localize the background picker in all supported languages (#3430) [#3430](https://github.com/moeru-ai/airi/pull/3430) _(Hatsune Miku, 2026-11-07)_
+- `5673976c0` chore(nix): update pnpmDeps hash (#3426) [#3426](https://github.com/moeru-ai/airi/pull/3426) _(Weathercold, 2026-11-06)_
+- `3d4b7561e` chore: install the font packages from npm after the move to proj-airi/fonts (#3425) [#3425](https://github.com/moeru-ai/airi/pull/3425) _(Neko, 2026-11-07)_
+- `f09978fcf` refactor(ui): replace any types in ui package (#3415) [#3415](https://github.com/moeru-ai/airi/pull/3415) _(Younsang Na, 2026-11-07)_
+- `7011c7017` chore(nix): update pnpmDeps hash (#3417) [#3417](https://github.com/moeru-ai/airi/pull/3417) _(Weathercold, 2026-11-06)_
+- `543d8dfe3` fix(stage-ui-live2d): move Beat Sync on top of MAGIC poses and on one clock (#3420) [#3420](https://github.com/moeru-ai/airi/pull/3420) _(Neko, 2026-11-07)_
+- `2461a6bc0` ci: add AgentScan PR triage and auto-close (#3421) [#3421](https://github.com/moeru-ai/airi/pull/3421) _(Younsang Na, 2026-11-07)_
+- `fb48b1708` feat(ui): add radius and color props to SelectTab (#3423) [#3423](https://github.com/moeru-ai/airi/pull/3423) _(Makito, 2026-11-07)_
+- `d7f44f3ac` feat(stage-ui): add multi-select delete to chat sessions (#3422) [#3422](https://github.com/moeru-ai/airi/pull/3422) _(蓝莓🫐, 2026-11-07)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 11 file(s) (+190/-246)
+- `.github/labeling.md` *(+6/-0)*
+- `.github/labels.yml` *(+9/-0)*
+- `.github/workflows/agent-scan.yml` *(+27/-0)*
+- `docs/ai/context/ui-components.md` *(+4/-1)*
+- `packages/font-chillroundm/LICENSE` *(+0/-93)*
+- `packages/font-chillroundm/README.md` *(+36/-0)*
+- `packages/font-cjkfonts-allseto/README.md` *(+36/-0)*
+- `packages/font-departure-mono/LICENSE` *(+0/-93)*
+- `packages/font-departure-mono/README.md` *(+36/-0)*
+- `packages/font-departure-mono/src/README.md` *(+0/-59)*
+- `packages/font-xiaolai/README.md` *(+36/-0)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 4 file(s) (+17/-15)
+- `apps/stage-pocket/package.json` *(+3/-3)*
+- `apps/stage-pocket/src/pages/index.vue` *(+3/-2)*
+- `apps/stage-web/package.json` *(+3/-3)*
+- `apps/stage-web/src/pages/index.vue` *(+8/-7)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 4 file(s) (+19/-20)
+- `apps/stage-tamagotchi-kirie/package.json` *(+3/-3)*
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/components/InteractiveArea.browser.test.ts` *(+6/-6)*
+- `apps/stage-tamagotchi/package.json` *(+3/-3)*
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.browser.test.ts` *(+7/-8)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 12 file(s) (+85/-284)
+- `apps/ui-server-auth/package.json` *(+3/-3)*
+- `packages/font-chillroundm/package.json` *(+0/-31)*
+- `packages/font-chillroundm/tsconfig.json` *(+0/-25)*
+- `packages/font-cjkfonts-allseto/package.json` *(+0/-29)*
+- `packages/font-cjkfonts-allseto/tsconfig.json` *(+0/-25)*
+- `packages/font-departure-mono/package.json` *(+0/-33)*
+- `packages/font-departure-mono/tsconfig.json` *(+0/-25)*
+- `packages/font-xiaolai/package.json` *(+0/-30)*
+- `packages/font-xiaolai/tsconfig.json` *(+0/-25)*
+- `packages/stage-ui/package.json` *(+3/-3)*
+- `packages/unocss-preset-fonts/package.json` *(+3/-3)*
+- `pnpm-lock.yaml` *(+76/-52)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 38 file(s) (+858/-329)
+- `eslint-suppressions.json` *(+0/-15)*
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/font-chillroundm/src/files/ChillRoundM.otf` *(+0/-0)*
+- `packages/font-chillroundm/src/files/ChillRoundM.ttf` *(+0/-0)*
+- `packages/font-chillroundm/src/index.css` *(+0/-15)*
+- `packages/font-chillroundm/src/index.ts` *(+0/-1)*
+- `packages/font-chillroundm/tsdown.config.ts` *(+0/-11)*
+- `packages/font-cjkfonts-allseto/license.txt` *(+0/-44)*
+- `packages/font-cjkfonts-allseto/src/files/cjkFonts_allseto_v1.11.ttf` *(+0/-0)*
+- `packages/font-cjkfonts-allseto/src/index.css` *(+0/-7)*
+- `packages/font-cjkfonts-allseto/src/index.ts` *(+0/-1)*
+- `packages/font-cjkfonts-allseto/tsdown.config.ts` *(+0/-11)*
+- `packages/font-departure-mono/src/files/DepartureMono-Regular.otf` *(+0/-0)*
+- `packages/font-departure-mono/src/files/DepartureMono-Regular.woff` *(+0/-0)*
+- `packages/font-departure-mono/src/files/DepartureMono-Regular.woff2` *(+0/-0)*
+- `packages/font-departure-mono/src/index.css` *(+0/-7)*
+- `packages/font-departure-mono/src/index.ts` *(+0/-1)*
+- `packages/font-departure-mono/tsdown.config.ts` *(+0/-11)*
+- `packages/font-xiaolai/src/files/XiaolaiSC-Regular.ttf` *(+0/-0)*
+- `packages/font-xiaolai/src/index.css` *(+0/-7)*
+- `packages/font-xiaolai/src/index.ts` *(+0/-1)*
+- `packages/font-xiaolai/tsdown.config.ts` *(+0/-11)*
+- `packages/stage-ui/src/components/misc/select-tab.story.vue` *(+11/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/sessions-dialog.vue` *(+17/-25)*
+- `packages/stage-ui/src/components/scenarios/chat/components/sessions-drawer.vue` *(+1/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/sessions-list.vue` *(+240/-15)*
+- `packages/stage-ui/src/components/scenarios/dialogs/background-picker/background-picker-dialog.vue` *(+24/-7)*
+- `packages/stage-ui/src/components/scenarios/dialogs/background-picker/background-picker.vue` *(+49/-42)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/index.ts` *(+2/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/index.vue` *(+21/-94)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/placement-gestures.test.ts` *(+82/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/placement-gestures.ts` *(+70/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/placement-panel.browser.test.ts` *(+105/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/placement-panel.vue` *(+67/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/mobile/placement-surface.vue` *(+35/-0)*
+- `packages/stage-ui/src/libs/auth-fetch.browser.test.ts` *(+123/-0)*
+- `packages/stage-ui/src/libs/auth-fetch.ts` *(+6/-2)*
+- `pnpm-workspace.yaml` *(+4/-0)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 18 file(s) (+200/-8)
+- `packages/i18n/src/locales/en/stage.yaml` *(+24/-0)*
+- `packages/i18n/src/locales/es/base.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/es/stage.yaml` *(+18/-0)*
+- `packages/i18n/src/locales/fr/base.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/fr/stage.yaml` *(+18/-0)*
+- `packages/i18n/src/locales/ja/base.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/ja/stage.yaml` *(+18/-0)*
+- `packages/i18n/src/locales/ko/base.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/ko/stage.yaml` *(+18/-0)*
+- `packages/i18n/src/locales/ru/base.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/ru/stage.yaml` *(+18/-0)*
+- `packages/i18n/src/locales/th/base.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/th/stage.yaml` *(+18/-0)*
+- `packages/i18n/src/locales/vi/base.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/vi/stage.yaml` *(+18/-0)*
+- `packages/i18n/src/locales/zh-Hans/stage.yaml` *(+24/-0)*
+- `packages/i18n/src/locales/zh-Hant/base.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/zh-Hant/stage.yaml` *(+18/-0)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 3 file(s) (+40/-13)
+- `packages/stage-layouts/src/components/Backgrounds/default/transparent-preview.vue` *(+7/-1)*
+- `packages/stage-layouts/src/components/Layouts/MobileInteractiveArea.vue` *(+22/-4)*
+- `packages/stage-layouts/src/stores/background.ts` *(+11/-8)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 4 file(s) (+291/-61)
+- `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue` *(+7/-2)*
+- `packages/stage-ui-live2d/src/composables/live2d/beat-sync.ts` *(+17/-3)*
+- `packages/stage-ui-live2d/src/composables/live2d/motion-manager.test.ts` *(+189/-0)*
+- `packages/stage-ui-live2d/src/composables/live2d/motion-manager.ts` *(+78/-56)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 3 file(s) (+131/-107)
+- `packages/stage-ui/src/stores/chat.contract.test.ts` *(+5/-5)*
+- `packages/stage-ui/src/stores/chat.ts` *(+12/-3)*
+- `packages/stage-ui/src/stores/chat/session-store.ts` *(+114/-99)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 6 file(s) (+97/-22)
+- `packages/ui-loading-screens/package.json` *(+1/-1)*
+- `packages/ui/src/components/animations/transition-horizontal.vue` *(+26/-3)*
+- `packages/ui/src/components/form/select-tab/index.ts` *(+1/-1)*
+- `packages/ui/src/components/form/select-tab/select-tab.vue` *(+62/-16)*
+- `packages/ui/src/components/form/select-tab/types.ts` *(+6/-0)*
+- `packages/ui/src/utils/shim/local-storage.ts` *(+1/-1)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (10)
+- [PR] [#3429](https://github.com/moeru-ai/airi/pull/3429) `feat(stage-ui): unify mobile model placement controls` by **@Neko-233** *(2 comments)*
+- [PR] [#3431](https://github.com/moeru-ai/airi/pull/3431) `fix(i18n): align translated default descriptions with Iru` by **@luoling8192** *(2 comments)*
+- [PR] [#3428](https://github.com/moeru-ai/airi/pull/3428) `fix(stage-ui): preserve Request headers and bodies in authedFetch` by **@mothieras** *(2 comments)*
+- [PR] [#3430](https://github.com/moeru-ai/airi/pull/3430) `fix(i18n): localize the background picker in all supported languages` by **@Neko-233** *(2 comments)*
+- [PR] [#3427](https://github.com/moeru-ai/airi/pull/3427) `feat(server): send one cross-origin policy from the API and Auth` by **@luoling8192** *(2 comments)*
+- [PR] [#3426](https://github.com/moeru-ai/airi/pull/3426) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(2 comments)*
+- [PR] [#3425](https://github.com/moeru-ai/airi/pull/3425) `chore: install the font packages from npm after the move to proj-airi/fonts` by **@nekomeowww** *(5 comments)*
+- [PR] [#3424](https://github.com/moeru-ai/airi/pull/3424) `feat(font-lxgw-975yuan,font-chillroundf,font-kirakara-maru): add three rounded CJK font packages` by **@nekomeowww** *(8 comments)*
+- [PR] [#3423](https://github.com/moeru-ai/airi/pull/3423) `feat(ui): add radius and color props to SelectTab` by **@sumimakito** *(2 comments)*
+- [PR] [#3422](https://github.com/moeru-ai/airi/pull/3422) `feat(stage-ui): add multi-select delete to chat sessions` by **@chiba233** *(4 comments)*
+
+#### 🔄 Status & Lifecycle Changes (4)
+- [PR] [#3415](https://github.com/moeru-ai/airi/pull/3415) `refactor(ui): replace any types in ui package` — `OPEN` ➔ `MERGED`
+- [PR] [#3417](https://github.com/moeru-ai/airi/pull/3417) `chore(nix): update pnpmDeps hash` — `OPEN` ➔ `MERGED`
+- [PR] [#3420](https://github.com/moeru-ai/airi/pull/3420) `fix(stage-ui-live2d): move Beat Sync on top of MAGIC poses and on one clock` — `OPEN` ➔ `MERGED`
+- [PR] [#3421](https://github.com/moeru-ai/airi/pull/3421) `ci: add AgentScan PR triage and auto-close` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (6)
+- [PR] [#1577](https://github.com/moeru-ai/airi/pull/1577) `feat(stage-ui): add GPT-SoVITS speech provider support` — *+13 comments (52 ➔ 65 total)*
+- [PR] [#3419](https://github.com/moeru-ai/airi/pull/3419) `fix(stage-ui): wait for channel ready before sending events` — *+1 comments (5 ➔ 6 total)*
+- [PR] [#3411](https://github.com/moeru-ai/airi/pull/3411) `refactor(stream-kit): type the queue listeners and handler events` — *+4 comments (4 ➔ 8 total)*
+- [PR] [#3027](https://github.com/moeru-ai/airi/pull/3027) `feat(stage-tamagotchi): add opt-in local AI HTTP proxy` — *+1 comments (11 ➔ 12 total)*
+- [PR] [#3418](https://github.com/moeru-ai/airi/pull/3418) `refactor(plugin-sdk,stage-tamagotchi): run the plugin host on injeca 0.4` — *+2 comments (6 ➔ 8 total)*
+- [PR] [#3421](https://github.com/moeru-ai/airi/pull/3421) `ci: add AgentScan PR triage and auto-close` — *+2 comments (4 ➔ 6 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [OPEN] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+
+---
+## [2026-11-06] Upstream Delta: `11b8989f..63f91d82` (4 commits, 26 files, 12 update(s))
+
+### 🎯 Executive Highlights
+- **macOS TCC Privacy Permission Boundary (`node-macos-disclaim`)**: Upstream merged commit `d3fecf6a8` (PR #3416), resolving a macOS privacy/TCC permission delegation bug when packaged AIRI is launched via terminal or external launchers. By invoking `ensureSelfResponsible()`, AIRI re-execs in place under the same PID to become its own responsible process, ensuring system audio and screen capture permissions are granted directly to AIRI instead of the parent shell.
+- **Dependency Injection Framework Modernization (`injeca 0.3` -> `0.4`)**: Upstream merged commit `974643525` (PR #3412), upgrading `injeca` to v0.3 to replace legacy `lifecycle.appHooks` with scoped `on('start')` / `on('stop')` hooks inside service builders and making `injeca.start()` eagerly build all registered services without dummy invoke workarounds. Work is already underway in PR #3418 to migrate the plugin host to `injeca 0.4`.
+- **Live2D Motion & Beat Sync Layering**: Significant momentum in PR #3420 around Live2D animation layering, synchronizing rhythmic beat motions on top of MAGIC pose transitions under a single unified clock.
+- **Localization Clarity**: Merged commit `63f91d82f` (PR #3410), clarifying settings copy across 10 locales for character cards, consciousness (LLM settings), and vision capture.
+
+#### 💬 Discussion & Community Buzz
+- **#3420: `fix(stage-ui-live2d): move Beat Sync on top of MAGIC poses and on one clock`** by `@nekomeowww` — **20 comments**: Surging maintainer discussion on coordinating Live2D rhythmic beat synchronization with MAGIC pose interpolation under a single monotonic render clock to eliminate motion jitter.
+- **#3408: `feat(stage-tamagotchi,stage-shared): add screen vision snapshot and companion desktop capture`** — **+1 new comment (13 total)**: Ongoing technical discussion around desktop capture mechanics and IPC transport across Electron windows.
+- **#3418: `refactor(plugin-sdk,stage-tamagotchi): run the plugin host on injeca 0.4`** by `@nekomeowww` — **6 comments**: Discussion on plugin container lifecycle and isolation in the next iteration of the dependency injection container.
+- **#3419: `fix(stage-ui): wait for channel ready before sending events`** by `@hou36692-bot` — **5 comments**: Exploring channel socket readiness guards to prevent dropped events during client/server handshake phases.
+- **#3416: `feat(stage-tamagotchi): make packaged AIRI its own TCC responsible process on macOS`** — **5 comments**: Validation of process re-exec and TCC entitlement propagation on Apple Silicon.
+
+#### 🍒 Cherry-Pick Candidates
+- **`d3fecf6a8` (PR #3416)** — `feat(stage-tamagotchi): make packaged AIRI its own TCC responsible process on macOS`: **High Priority / Strong Port Candidate**. Uses `node-macos-disclaim` (`ensureSelfResponsible()`) in `apps/stage-tamagotchi/src/launcher/index.ts`. Directly resolves macOS TCC permission delegation when packaged AIRI is launched via CLI or external launchers, preventing silent screen and audio capture failures without breaking dev runs.
+- **`63f91d82f` (PR #3410)** — `fix(i18n): clarify settings descriptions across locales`: **Low Priority / Clean Import**. Clarifies settings copy across all locales for cards, consciousness, and vision pages (`packages/i18n/src/locales/*/settings.yaml`). Additive and clean.
+- **PR #3419** — `fix(stage-ui): wait for channel ready before sending events`: **Medium Priority Candidate (Watch for Merge)**. Fixes race conditions where renderer events fire before server-channel WebSockets complete handshakes. Clean fix for channel reliability once merged.
+- **PR #3420** — `fix(stage-ui-live2d): move Beat Sync on top of MAGIC poses and on one clock`: **Medium Priority Candidate (Watch for Merge)**. Greatly improves Live2D motion smoothness during speech/music beat sync by anchoring to one clock above MAGIC poses. Highly relevant to our 4-avatar engine suite once upstream stabilizes the implementation.
+
+#### ⚠️ Divergence / Collision Warnings
+- **`974643525` (PR #3412) / PR #3418 (`injeca 0.3` / `0.4` upgrade & lifecycle migration)**: Modifies `apps/stage-tamagotchi/src/main/index.ts` and service registration conventions (`dependsOn: { lifecycle }` -> `{ on }`). Our fork has diverged extensively in `apps/stage-tamagotchi/src/main/index.ts` (adding Control Strip customizer windows, BYOS sync managers, ComfyUI daemons, and decoupling stage/chat windows). Do NOT bulk-merge `main/index.ts` or upstream service registrations; port injeca API updates selectively if and when the dependency is upgraded.
+- **Screen Vision Snapshot (PR #3408)**: Continues to touch desktop capture and screen sensing. Reminder: this fork maintains an in-process Cascaded Salience Gate (pHash, OCR, CLIP, RWKV gating) in `airi-attention-ecology-vision`. Upstream's companion capture pattern diverges from our local Attention Ecology.
+- **Cloud Services & Server Apps in `974643525`**: Touched `server/apps/api` and `server/apps/auth`. Automatically ignored and rejected under our local-first, zero-cloud architecture.
+
+### 📋 Upstream Commits
+- `63f91d82f` fix(i18n): clarify settings descriptions across locales (#3410) [#3410](https://github.com/moeru-ai/airi/pull/3410) _(jim139129, 2026-11-06)_
+- `d3fecf6a8` feat(stage-tamagotchi): make packaged AIRI its own TCC responsible process on macOS (#3416) [#3416](https://github.com/moeru-ai/airi/pull/3416) _(Neko, 2026-11-06)_
+- `b26c22351` chore(nix): update pnpmDeps hash (#3414) [#3414](https://github.com/moeru-ai/airi/pull/3414) _(Weathercold, 2026-11-06)_
+- `974643525` chore: upgrade injeca to 0.3 and move lifecycle hooks into build (#3412) [#3412](https://github.com/moeru-ai/airi/pull/3412) _(Neko, 2026-11-06)_
+
+### 🔬 Subsystem Breakdown
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 7 file(s) (+66/-39)
+- `apps/stage-tamagotchi/README.md` *(+3/-1)*
+- `apps/stage-tamagotchi/package.json` *(+3/-0)*
+- `apps/stage-tamagotchi/src/launcher/index.ts` *(+30/-0)*
+- `apps/stage-tamagotchi/src/main/index.ts` *(+20/-28)*
+- `apps/stage-tamagotchi/src/main/services/airi/apple-speech-transcription/index.ts` *(+3/-3)*
+- `apps/stage-tamagotchi/src/main/services/airi/apple-vision/index.ts` *(+3/-3)*
+- `apps/stage-tamagotchi/src/main/services/airi/channel-server/index.ts` *(+4/-4)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 3 file(s) (+11/-8)
+- `integrations/vscode/vscode-airi/src/extension.ts` *(+3/-6)*
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `pnpm-workspace.yaml` *(+7/-1)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 10 file(s) (+47/-47)
+- `packages/i18n/src/locales/en/settings.yaml` *(+4/-4)*
+- `packages/i18n/src/locales/es/settings.yaml` *(+4/-4)*
+- `packages/i18n/src/locales/fr/settings.yaml` *(+3/-3)*
+- `packages/i18n/src/locales/ja/settings.yaml` *(+4/-4)*
+- `packages/i18n/src/locales/ko/settings.yaml` *(+4/-4)*
+- `packages/i18n/src/locales/ru/settings.yaml` *(+4/-4)*
+- `packages/i18n/src/locales/th/settings.yaml` *(+4/-4)*
+- `packages/i18n/src/locales/vi/settings.yaml` *(+4/-4)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+12/-12)*
+- `packages/i18n/src/locales/zh-Hant/settings.yaml` *(+4/-4)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 1 file(s) (+69/-19)
+- `pnpm-lock.yaml` *(+69/-19)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 5 file(s) (+22/-22)
+- `server/apps/api/README.md` *(+1/-1)*
+- `server/apps/api/src/app.ts` *(+11/-11)*
+- `server/apps/api/src/libs/redis/stream-consumer.ts` *(+1/-1)*
+- `server/apps/auth/src/server.ts` *(+7/-7)*
+- `server/docs/ai/adr/2026-10-18-account-events-stream.md` *(+2/-2)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (11)
+- [PR] [#3411](https://github.com/moeru-ai/airi/pull/3411) `refactor(stream-kit): type the queue listeners and handler events` by **@Goldloli** *(4 comments)*
+- [PR] [#3421](https://github.com/moeru-ai/airi/pull/3421) `ci: add AgentScan PR triage and auto-close` by **@nayounsang** *(4 comments)*
+- [PR] [#3420](https://github.com/moeru-ai/airi/pull/3420) `fix(stage-ui-live2d): move Beat Sync on top of MAGIC poses and on one clock` by **@nekomeowww** *(20 comments)*
+- [PR] [#3419](https://github.com/moeru-ai/airi/pull/3419) `fix(stage-ui): wait for channel ready before sending events` by **@hou36692-bot** *(5 comments)*
+- [PR] [#3418](https://github.com/moeru-ai/airi/pull/3418) `refactor(plugin-sdk,stage-tamagotchi): run the plugin host on injeca 0.4` by **@nekomeowww** *(6 comments)*
+- [PR] [#3410](https://github.com/moeru-ai/airi/pull/3410) `fix(i18n): clarify settings descriptions across locales` by **@jim139129** *(6 comments)*
+- [PR] [#3417](https://github.com/moeru-ai/airi/pull/3417) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(2 comments)*
+- [PR] [#3416](https://github.com/moeru-ai/airi/pull/3416) `feat(stage-tamagotchi): make packaged AIRI its own TCC responsible process on macOS` by **@nekomeowww** *(5 comments)*
+- [PR] [#3415](https://github.com/moeru-ai/airi/pull/3415) `refactor(ui): replace any types in ui package` by **@nayounsang** *(3 comments)*
+- [PR] [#3414](https://github.com/moeru-ai/airi/pull/3414) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(2 comments)*
+- [PR] [#3412](https://github.com/moeru-ai/airi/pull/3412) `chore: upgrade injeca to 0.3 and move lifecycle hooks into build` by **@nekomeowww** *(2 comments)*
+
+#### 💬 Discussion Activity (1)
+- [PR] [#3408](https://github.com/moeru-ai/airi/pull/3408) `feat(stage-tamagotchi,stage-shared): add screen vision snapshot and companion desktop capture` — *+1 comments (12 ➔ 13 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [OPEN] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+
+---
 ## [2026-11-05] Upstream Delta: `120cad3a..11b8989f` (11 commits, 63 files, 24 update(s))
 
 ### 🎯 Executive Highlights

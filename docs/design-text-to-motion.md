@@ -315,6 +315,16 @@ NVIDIA's Kimodo family introduces a two-stage transformer architecture separatin
   * [`nvidia/TMR-SOMA-RP-v1`](https://huggingface.co/nvidia/TMR-SOMA-RP-v1) (Text-to-Motion Retrieval encoder)
   * [`nvidia/Kimodo-Motion-Gen-Benchmark`](https://huggingface.co/datasets/nvidia/Kimodo-Motion-Gen-Benchmark) (Standardized evaluation benchmark)
 
+### 7.3 Candidate Radar: Möbius (Unified Motion-Language Model)
+* **Paper**: *Möbius: A Unified Motion-Language Model Bridging Understanding and Generation* (arXiv:2611.05279, Nov 2026, HKUST / Tencent Games Motus / MIT).
+* **Repository**: [`JiazhiShu/mobius-code`](https://github.com/JiazhiShu/mobius-code) · **Project Page**: [`jiazhishu.github.io/mobius`](https://jiazhishu.github.io/mobius/)
+* **Status**: Code & model weights currently under internal corporate review at Tencent Games Motus.
+* **Architectural Invariants & Relevance for AIRI**:
+  * **Unified Multimodal Attention**: Integrates diffusion noise directly into the language model's shared multimodal representation space rather than delegating generation to a disconnected downstream diffusion network.
+  * **Continuous Frame-Level Raw Motion**: Operates directly on continuous joint coordinates without discrete VQ-VAE tokenization or a pre-trained motion VAE, eliminating codebook quantization jitter and foot-sliding.
+  * **Bidirectional 4-in-1 Capabilities**: Natively supports text-to-motion generation, motion-to-text captioning/understanding, temporal motion completion (in-betweening), and instruction-guided motion editing (*e.g., iteratively tweaking an existing `.vrma` clip via natural language*).
+  * **Action Item for AIRI**: Monitor repository for public checkpoint release. When available, evaluate whether a pruned/distilled variant (or sub-1B checkpoint) can be ported/quantized to ONNX WebGPU to upgrade the Tier 1 FlowMDM pipeline or serve as an on-device instruction-guided motion editor.
+
 ## Relevant Skills & Companion References
 
 - [[airi-generative-motion-vrma]]
