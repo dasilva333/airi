@@ -21,6 +21,8 @@ export default defineConfig({
       'packages/i18n',
       'packages/speech-transformer-math',
       'packages/speech-transformer-chem',
+      'packages/stream-kit',
+      'packages/stage-ui-spine',
     ],
   },
 })

@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 
-import { loadSpineRuntime } from './spine-runtime'
+import { loadSpineRuntime, updateSpineWorldTransform } from './spine-runtime'
 import { detectSpineVersionFromBinary, detectSpineVersionFromJson } from './spine-version'
 import { loadSpineZip } from './spine-zip-loader'
 
@@ -123,10 +123,8 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
             skeleton.y = 0
             skeleton.scaleX = 1
             skeleton.scaleY = 1
-            if (spine.Physics && (spine.Physics as any).none !== undefined)
-              (skeleton as any).updateWorldTransform((spine.Physics as any).none)
-            else
-              (skeleton as any).updateWorldTransform()
+            const nonePhysics = 'Physics' in spine ? spine.Physics.none : undefined
+            updateSpineWorldTransform(spine, skeleton, nonePhysics)
 
             // 1. Calculate actual bone-based boundaries across all bones
             let boneMinX = Infinity
@@ -266,10 +264,8 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
                 animState.update(delta)
                 animState.apply(skeleton)
               }
-              if (spine.Physics && (spine.Physics as any).none !== undefined)
-                skeleton.updateWorldTransform((spine.Physics as any).none)
-              else
-                (skeleton as any).updateWorldTransform()
+              const nonePhysics = 'Physics' in spine ? spine.Physics.none : undefined
+              updateSpineWorldTransform(spine, skeleton, nonePhysics)
             }
           },
           render: (canvasApp: import('@esotericsoftware/spine-webgl').SpineCanvas) => {

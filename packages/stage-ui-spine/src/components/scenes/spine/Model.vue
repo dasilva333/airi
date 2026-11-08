@@ -14,7 +14,7 @@ import { useSpineAnimationManager, useSpineGestureInteraction } from '../../../c
 import { EMOTION_SpineAnimationName_value, SPINE_IDLE_TRACK, SpineAnimationName } from '../../../constants/emotions'
 import { useSpine } from '../../../stores/spine'
 import { clearSpineHackerRuntime, setSpineHackerRuntime } from '../../../utils/spine-hacker-runtime'
-import { loadSpineRuntime } from '../../../utils/spine-runtime'
+import { loadSpineRuntime, updateSpineWorldTransform } from '../../../utils/spine-runtime'
 import { detectSpineVersionFromBinary, detectSpineVersionFromJson } from '../../../utils/spine-version'
 import { loadSpineZip } from '../../../utils/spine-zip-loader'
 
@@ -597,11 +597,7 @@ async function loadModel() {
               mouthBone.y = mouthBone.data.y - (props.mouthOpenSize * 15)
             }
           }
-          // Physics was added in Spine 4.2; older runtimes take no argument.
-          if (spine.Physics && (spine.Physics as any).update)
-            skeleton.updateWorldTransform((spine.Physics as any).update)
-          else
-            (skeleton as any).updateWorldTransform()
+          updateSpineWorldTransform(spine, skeleton)
         },
         render: (sc) => {
           if (!skeleton || !canvas.value)
