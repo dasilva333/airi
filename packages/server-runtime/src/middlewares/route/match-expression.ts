@@ -92,8 +92,9 @@ export function matchesDestination(destination: string | RouteTargetExpression, 
     return true
   }
 
-  const [prefix, rawValue] = destination.split(':', 2)
-  const value = rawValue ?? ''
+  const colonIndex = destination.indexOf(':')
+  const prefix = colonIndex === -1 ? destination : destination.slice(0, colonIndex)
+  const value = colonIndex === -1 ? '' : destination.slice(colonIndex + 1)
 
   switch (prefix) {
     case 'plugin':

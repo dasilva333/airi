@@ -64,7 +64,7 @@ describe('providerKilo', () => {
     const models = await providerKilo.extraMethods?.listModels?.(config, provider)
 
     // Live listing takes precedence: at least the gateway's isFree models surface.
-    expect((models ?? []).length).toBeGreaterThanOrEqual(17)
+    expect((models ?? []).length).toBeGreaterThanOrEqual(12)
     // The 4 free models with no :free suffix used to be dropped by the id filter.
     for (const id of ['kilo-auto/free', 'openrouter/free', 'reflection/beam-free', 'stealth/glyph-cluster']) {
       expect((models ?? []).some(m => m.id === id)).toBe(true)
@@ -98,7 +98,7 @@ describe('providerKilo', () => {
       const ids = (models ?? []).map(m => m.id)
       expect(ids).toEqual(expect.arrayContaining(['kilo-auto/free', 'reflection/beam-free', 'openrouter/free', 'stealth/glyph-cluster']))
       expect(ids).toEqual(
-        expect.not.arrayContaining(['kilo-auto', 'poolside/laguna-m.1:free', 'poolside/laguna-xs.2:free', 'stepfun/step-3.7-flash:free']),
+        expect.not.arrayContaining(['kilo-auto', 'poolside/laguna-m.1:free', 'poolside/laguna-xs.2:free', 'stepfun/step-3.7-flash:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'nvidia/nemotron-3.5-content-safety:free', 'xingchen-agi/xing4.0-29b-a4b:free', 'thinkingmachines/inkling-small:free', 'poolside/laguna-s-2.1:free', 'poolside/laguna-xs-2.1:free', 'liquid/lfm-2.5-2.6b:free']),
       )
     }
     finally {

@@ -64,8 +64,7 @@ function toKiloModelInfo(model: z.infer<typeof kiloGatewayModelSchema>): ModelIn
 
 /**
  * Verified Kilo Gateway free models. Provenance: live listing from
- * https://api.kilo.ai/api/gateway/models (2026-10-17) cross-checked against
- * the Kilo lane in ~/pi-freeflow/src/models.ts.
+ * https://api.kilo.ai/api/gateway/models (2026-11-08).
  *
  * These are a fallback: listModels() returns the live listing first and only
  * merges these in for IDs the live call did not return. Preset rows carry a
@@ -118,21 +117,6 @@ const kiloPresetModels: ModelInfo[] = [
     contextLength: 1_000_000,
   },
   {
-    id: 'nvidia/nemotron-3-super-120b-a12b:free',
-    name: 'Nemotron 3 Super 120B',
-    provider: 'kilo',
-    description: 'NVIDIA large reasoning model, 262K context',
-    contextLength: 262_144,
-  },
-  {
-    id: 'nvidia/nemotron-3.5-content-safety:free',
-    name: 'Nemotron 3.5 Content Safety',
-    provider: 'kilo',
-    description: 'NVIDIA moderation classifier, not a chat model',
-    contextLength: 128_000,
-    capabilities: ['vision'],
-  },
-  {
     id: 'reflection/beam-free',
     name: 'Reflection Beam 1.0',
     provider: 'kilo',
@@ -140,47 +124,11 @@ const kiloPresetModels: ModelInfo[] = [
     contextLength: 1_048_576,
   },
   {
-    id: 'xingchen-agi/xing4.0-29b-a4b:free',
-    name: 'XingChen Xing4.0 29B A4B',
-    provider: 'kilo',
-    description: 'XingChen AGI 29B MoE model, 262K context',
-    contextLength: 262_144,
-  },
-  {
-    id: 'thinkingmachines/inkling-small:free',
-    name: 'Inkling Small',
-    provider: 'kilo',
-    description: 'Thinking Machines model, 1M context',
-    contextLength: 1_048_576,
-    capabilities: ['vision'],
-  },
-  {
-    id: 'poolside/laguna-s-2.1:free',
-    name: 'Poolside Laguna S 2.1',
-    provider: 'kilo',
-    description: 'Poolside coding model, 262K context',
-    contextLength: 262_144,
-  },
-  {
-    id: 'poolside/laguna-xs-2.1:free',
-    name: 'Poolside Laguna XS 2.1',
-    provider: 'kilo',
-    description: 'Poolside small coding model, 262K context',
-    contextLength: 262_144,
-  },
-  {
     id: 'cohere/north-mini-code:free',
     name: 'Cohere North Mini Code',
     provider: 'kilo',
     description: 'Cohere coding model, 256K context',
     contextLength: 256_000,
-  },
-  {
-    id: 'liquid/lfm-2.5-2.6b:free',
-    name: 'Liquid LFM 2.5 2.6B',
-    provider: 'kilo',
-    description: 'Liquid AI small fast model, 64K context',
-    contextLength: 65_536,
   },
   {
     id: 'openrouter/free',

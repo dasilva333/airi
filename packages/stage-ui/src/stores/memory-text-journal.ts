@@ -329,8 +329,17 @@ export const useTextJournalStore = defineStore('text-journal', () => {
    * dashboard can show "WebGPU q4" vs the fp32 CPU fallback.
    */
   async function refreshEmbedderRuntime() {
-    const status = await layeredMemory.fetchStatus()
-    embedderRuntime.value = status?.embedder ?? null
+    if (typeof layeredMemory.fetchStatus !== 'function') {
+      embedderRuntime.value = null
+      return
+    }
+    try {
+      const status = await layeredMemory.fetchStatus()
+      embedderRuntime.value = status?.embedder ?? null
+    }
+    catch {
+      embedderRuntime.value = null
+    }
   }
 
   async function backgroundIndexAll() {

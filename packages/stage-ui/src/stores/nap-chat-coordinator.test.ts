@@ -98,6 +98,7 @@ describe('useNapChatCoordinatorStore session lifecycle', () => {
     expect(episode!.summary).toContain('rainy afternoon')
     const napChat = useNapChatStore()
     expect(napChat.latestEpisode?.sessionId).toBe(episode!.sessionId)
+    expect(episode).toBe(napChat.latestEpisode)
   })
 
   it('rejects turns and finish outside an active session', async () => {

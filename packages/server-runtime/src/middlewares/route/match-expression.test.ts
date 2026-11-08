@@ -65,4 +65,18 @@ describe('match-expression comprehensive', () => {
     const expr = { type: 'module', modules: ['mod'] } as unknown as RouteTargetExpression
     expect(matchesDestination(expr, p)).toBe(true)
   })
+  it('prefixed destinations with colon-containing values', () => {
+    const p = peer({ name: 'x:y', identity: { id: 'inst1', plugin: { id: 'proj-airi:stage-tamagotchi', labels: { devtools: 'true' } }, labels: { foo: 'bar' } } as unknown as AuthenticatedPeer['identity'] })
+    // plugin:<id> with colon-containing id
+    expect(matchesDestination('plugin:proj-airi:stage-tamagotchi', p)).toBe(true)
+    expect(matchesDestination('plugin:proj-airi:stage-web', p)).toBe(false)
+    // module:<name> with colon-containing name
+    expect(matchesDestination('module:x:y', p)).toBe(true)
+    // label: destinations unaffected
+    expect(matchesDestination('label:foo=bar', p)).toBe(true)
+    // colon-less prefixed destinations still work
+    expect(matchesDestination('plugin:plug', peer())).toBe(true)
+    // plain colon-less destination behavior unchanged
+    expect(matchesDestination('mod*', peer())).toBe(true)
+  })
 })
