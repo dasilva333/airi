@@ -328,4 +328,5 @@ NVIDIA's Kimodo family introduces a two-stage transformer architecture separatin
 ## Relevant Skills & Companion References
 
 - [[airi-generative-motion-vrma]]
+- [`docs/proposal-motionbricks-realtime-kinematics-and-beat-sync.md`](./proposal-motionbricks-realtime-kinematics-and-beat-sync.md) — Real-Time Kinematic Inbetweening & Beat-Synced Dancing via NVIDIA MotionBricks and `@proj-airi/motion-choreography`
 - [`docs/design-live2d-autoregressive-motion.md`](./design-live2d-autoregressive-motion.md) — Autoregressive Live2D Ambient Motion & Micro-Movement Synthesis

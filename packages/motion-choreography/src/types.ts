@@ -89,3 +89,62 @@ export interface DanceBrief {
   /** Signal confidence score (0.0 to 1.0) */
   confidence: number
 }
+
+/**
+ * Anchor pose classification category.
+ */
+export type PoseType
+  = | 'velocity_minimum'
+    | 'extension_maximum'
+    | 'foot_strike'
+    | 'boundary'
+
+/**
+ * A single anchor keyframe in a DanceSheet.
+ */
+export interface DanceSheetKeyframe {
+  /** Index of the frame in the original motion sequence (0 to seqLen - 1) */
+  frameIndex: number
+  /** Time of the frame in seconds */
+  timeSeconds: number
+  /** Salience / importance score of this pose (0.0 to 1.0) */
+  salienceScore: number
+  /** Reason why this keyframe was selected */
+  poseType: PoseType
+  /** Root translation [x, y, z] in meters */
+  rootTranslation: [number, number, number]
+  /** Root rotation quaternion [x, y, z, w] */
+  rootRotation: [number, number, number, number]
+  /** Joint rotations by joint index or standard humanoid name */
+  jointRotations?: Record<string, [number, number, number, number]>
+}
+
+/**
+ * A curated sequence of anchor key-poses extracted from a motion sequence.
+ */
+export interface DanceSheet {
+  /** Total frames in source motion */
+  totalFrames: number
+  /** Source motion frame rate (typically 20 fps for FlowMDM) */
+  fps: number
+  /** Total duration in seconds */
+  durationSeconds: number
+  /** Target count of keyframes requested */
+  targetKeyPoseCount: number
+  /** Extracted keyframes ordered chronologically */
+  keyframes: DanceSheetKeyframe[]
+}
+
+/**
+ * Options configuring key-pose extraction.
+ */
+export interface KeyPoseExtractionOptions {
+  /** Target number of anchor poses to extract (default: 4 to 8) */
+  targetKeyPoseCount?: number
+  /** Frame rate of the motion sequence (default: 20) */
+  fps?: number
+  /** Minimum frames between consecutive key-poses (NMS window, default: 6) */
+  minFrameInterval?: number
+  /** Whether to decode 6D rotations to quaternions for joints (default: true) */
+  decodeJointRotations?: boolean
+}
