@@ -4,7 +4,7 @@
 
 export type EnergyTier = 'low' | 'moderate' | 'high' | 'explosive'
 
-export type TimbreBrightness = 'dark' | 'balanced' | 'bright'
+export type TimbreBrightness = 'dark' | 'warm' | 'balanced' | 'bright'
 
 export type RhythmStructure
   = | 'four_on_the_floor'

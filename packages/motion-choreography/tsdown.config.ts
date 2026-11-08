@@ -6,6 +6,7 @@ export default defineConfig({
     'dsp/index': 'src/dsp/index.ts',
     'kinematics/index': 'src/kinematics/index.ts',
     'types': 'src/types.ts',
+    'cli': 'src/cli.ts',
   },
   unbundle: true,
 })

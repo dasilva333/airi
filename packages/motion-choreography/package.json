@@ -35,6 +35,9 @@
   },
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
+  "bin": {
+    "motion-choreography": "./dist/cli.mjs"
+  },
   "files": [
     "README.md",
     "dist",
@@ -43,6 +46,7 @@
   "scripts": {
     "dev": "pnpm run build",
     "build": "tsdown",
+    "listen": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

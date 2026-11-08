@@ -101,7 +101,24 @@ To maintain monorepo hygiene and prevent top-level script bloat, all acoustic an
 
 ---
 
-### 4.3 Zero-Binary In-Memory Test Infrastructure
+### 4.3 Subsystem 3: Real-Time Interactive CLI Inspector (`listen`)
+Housed in [`src/cli.ts`](../packages/motion-choreography/src/cli.ts) and wired to `pnpm -F @proj-airi/motion-choreography listen`:
+* **Live Playback with `afplay`**: Spawns macOS CoreAudio `afplay` against sample-sliced in-memory PCM buffers for zero-latency, click-free seeking and instantaneous pause/resume.
+* **ANSI Terminal UI (~30 FPS)**:
+  * **4-Band Real-Time Spectrum**: Sub-bass (40 Hz), Low-Mid (250 Hz), Mid (1000 Hz), Treble (4000 Hz) with dynamic auto-scaling decibel VU meter bars ($20\log_{10}(RMS)$) and ballistics.
+  * **Live Spectral Brightness & Tilt Meter**: Real-time spectral centroid barycenter tracking with 4-tier psychoacoustic classification (`DARK` <850Hz, `WARM` <1500Hz, `BALANCED` ≤3000Hz, `BRIGHT` >3000Hz) and logarithmic centroid tilt gauge (`[───●──────]`).
+  * **Metric Cadence Lights**: Real-time downbeat pulse indicator (`● ○ ○` for 3/4 waltz, `● ○ ○ ○` for 4/4 four-on-the-floor).
+  * **Live DanceBrief Feed**: Continuously updates genre, mood, and FlowMDM prompts as the track plays.
+  * **Key-Pose Event Flashes**: Highlights incoming anchor key-poses as they are traversed (`⭐ KEY-POSE #N: [EXT_MAX / VEL_MIN]`).
+* **Interactive Keyboard Controls**:
+  * `[Space]`: Pause / resume playback.
+  * `[p]`: Cycle companion persona archetype in real time (`idol` ➔ `gothic_maid` ➔ `cool_android` ➔ `chill_gamer` ➔ `chaotic_gremlin`).
+  * `[Left / Right Arrow]`: Skip backward / forward by 10 seconds for targeted replay debugging.
+  * `[q]` or `[Ctrl+C]`: Clean shutdown with terminal restoration.
+
+---
+
+### 4.4 Zero-Binary In-Memory Test Infrastructure
 To guarantee CI velocity and prevent repository bloat, no binary audio files or 3D assets are committed to Git:
 * **Synthetic Audio Generator ([`tests/synthetic-audio.ts`](../packages/motion-choreography/tests/synthetic-audio.ts))**:
   * Generates pure mathematical PCM test buffers: 120 BPM 4/4 kicks + snares, 84 BPM 3/4 waltz downbeats + chord hits, and low-amplitude ambient soundscapes.

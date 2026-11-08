@@ -91,10 +91,13 @@ export function classifyEnergyTier(rms: number): EnergyTier {
  * Classifies spectral centroid into qualitative timbre brightness tiers.
  */
 export function classifyTimbreBrightness(centroidHz: number): TimbreBrightness {
-  if (centroidHz < 1400) {
+  if (centroidHz < 850) {
     return 'dark'
   }
-  if (centroidHz <= 3200) {
+  if (centroidHz < 1500) {
+    return 'warm'
+  }
+  if (centroidHz <= 3000) {
     return 'balanced'
   }
   return 'bright'

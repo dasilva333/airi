@@ -98,6 +98,7 @@ function resolveMood(energy: EnergyTier, timbre: TimbreBrightness): string {
   const timbreKeywords: Record<TimbreBrightness, string> = {
     bright: 'sparkling and radiant',
     balanced: 'harmonized and organic',
+    warm: 'rich, acoustic warmth',
     dark: 'deep and grounded',
   }
 
