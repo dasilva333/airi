@@ -1,0 +1,57 @@
+[
+  {
+    "id": "blue-danube-waltz",
+    "title": "An der schönen blauen Donau (The Blue Danube), Op. 314",
+    "artist": "Johann Strauss II",
+    "license": "Public Domain (CC-0)",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/9/91/Strauss%2C_An_der_sch%C3%B6nen_blauen_Donau.ogg",
+    "sha1": "19b20e4c8d04fc9e2a4980bf555b3520e0516ea4",
+    "expectedBpm": 84,
+    "expectedRhythm": "waltz_triple",
+    "genreHint": "Classical Waltz"
+  },
+  {
+    "id": "maple-leaf-rag",
+    "title": "Maple Leaf Rag",
+    "artist": "Scott Joplin",
+    "license": "Public Domain (CC-0)",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/f/fe/Maple_Leaf_Rag.ogg",
+    "sha1": "62c5b66e40504e4d732f622d53037e4490ab2280",
+    "expectedBpm": 100,
+    "expectedRhythm": "syncopated",
+    "genreHint": "Ragtime"
+  },
+  {
+    "id": "transit-of-venus-march",
+    "title": "Transit of Venus March",
+    "artist": "John Philip Sousa (United States Marine Band)",
+    "license": "Public Domain (CC-0)",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/4/4a/Sousa_Transit_of_Venus_United_States_Marine_Band.ogg",
+    "sha1": "c47abf2f3dccbd98624c60f5cf32e293b4e4cab2",
+    "expectedBpm": 120,
+    "expectedRhythm": "four_on_the_floor",
+    "genreHint": "Military March"
+  },
+  {
+    "id": "thefatrat-unity",
+    "title": "Unity",
+    "artist": "TheFatRat",
+    "license": "CC-BY 3.0",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/4/40/TheFatRat_-_Unity.flac",
+    "sha1": "3527bd667e39efdf36a003fc3465b06e123d7ec3",
+    "expectedBpm": 105,
+    "expectedRhythm": "four_on_the_floor",
+    "genreHint": "Glitch Hop / Electronic"
+  },
+  {
+    "id": "arpeggio-dreamer",
+    "title": "Arpeggio Dreamer",
+    "artist": "Joth (Wikimedia Commons)",
+    "license": "CC-BY-SA 3.0",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Arpeggio_Dreamer.ogg",
+    "sha1": "741e0bddb3c3fb541e69605723fdba2a366a4add",
+    "expectedBpm": 128,
+    "expectedRhythm": "four_on_the_floor",
+    "genreHint": "Chiptune / Electro"
+  }
+]

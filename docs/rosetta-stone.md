@@ -324,6 +324,7 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 | **Conversational Pacing & Thinking Fillers proposal** | [`proposal-conversational-pacing-thinking-fillers.md`](./proposal-conversational-pacing-thinking-fillers.md) — dynamic audio thinking fillers, CoT cue interception, post-CoT text velocity |
 | **GPT-SoVITS ONNX analysis** | [`analysis-gpt-sovits-onnx-webgpu-viability.md`](./analysis-gpt-sovits-onnx-webgpu-viability.md) — technical evaluation & ONNX WebGPU vetting checklist |
 | **Text-to-Motion design** | [`design-text-to-motion.md`](./design-text-to-motion.md) (supercedes `proposal-text-to-vrma-system.md`) |
+| **Motion Choreography & Generative Dance** | `packages/motion-choreography/` — acoustic DSP analysis (tempo, RMS, FFT, onset covariance waltz/4-4 classification), synthetic in-memory audio generator, and persona prompt synthesis ("The Identifier"); see [`proposal-motionbricks-realtime-kinematics-and-beat-sync.md`](./proposal-motionbricks-realtime-kinematics-and-beat-sync.md) |
 | **Audio pipelines (transcribe)** | `packages/audio-pipelines-transcribe/` — audio transcription pipeline implementations |
 | **Audio pipelines (general)** | `packages/pipelines-audio/` — general audio pipeline utilities |
 | **Model drivers** | `packages/model-driver-lipsync/` (lipsync) | `packages/model-driver-mediapipe/` (face/body tracking) |

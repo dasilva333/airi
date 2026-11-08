@@ -1,0 +1,54 @@
+{
+  "name": "@proj-airi/motion-choreography",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Real-time acoustic analysis, dance prompt synthesis, and kinematic choreography orchestration for Project AIRI",
+  "author": {
+    "name": "Moeru AI Project AIRI Team",
+    "email": "airi@moeru.ai",
+    "url": "https://github.com/moeru-ai"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dasilva333/airi.git",
+    "directory": "packages/motion-choreography"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./dsp": {
+      "types": "./dist/dsp/index.d.mts",
+      "default": "./dist/dsp/index.mjs"
+    },
+    "./types": {
+      "types": "./dist/types.d.mts",
+      "default": "./dist/types.mjs"
+    }
+  },
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "README.md",
+    "dist",
+    "package.json"
+  ],
+  "scripts": {
+    "dev": "pnpm run build",
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@moeru/std": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsdown": "catalog:",
+    "typescript": "^5.8.2",
+    "vitest": "catalog:vitest"
+  }
+}
