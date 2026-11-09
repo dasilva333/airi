@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  DEFAULT_COMPANION_SCENARIO,
+  DEFAULT_COMPANION_SYSTEM_PROMPT,
+  DEFAULT_POST_HISTORY_INSTRUCTIONS,
+} from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { Button } from '@proj-airi/ui'
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -170,9 +175,9 @@ function addCardPreviewNormalize(card: any) {
       description: data.description ?? '',
       notes: data.creator_notes ?? '',
       personality: data.personality ?? '',
-      scenario: data.scenario ?? '',
-      systemPrompt: data.system_prompt ?? '',
-      postHistoryInstructions: data.post_history_instructions ?? '',
+      scenario: data.scenario?.trim() ? data.scenario : DEFAULT_COMPANION_SCENARIO,
+      systemPrompt: data.system_prompt?.trim() ? data.system_prompt : DEFAULT_COMPANION_SYSTEM_PROMPT,
+      postHistoryInstructions: data.post_history_instructions?.trim() ? data.post_history_instructions : DEFAULT_POST_HISTORY_INSTRUCTIONS,
       greetings: [
         data.first_mes,
         ...(data.alternate_greetings ?? []),

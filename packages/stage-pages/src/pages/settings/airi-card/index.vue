@@ -3,6 +3,11 @@ import type { Card, ccv3 } from '@proj-airi/ccc'
 import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
 
 import { normalizeSearchText } from '@proj-airi/stage-shared'
+import {
+  DEFAULT_COMPANION_SCENARIO,
+  DEFAULT_COMPANION_SYSTEM_PROMPT,
+  DEFAULT_POST_HISTORY_INSTRUCTIONS,
+} from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
@@ -156,7 +161,7 @@ async function handleCharaCardDownloaded(payload: { base64Data: string, filename
     else {
       const decoder = new TextDecoder('utf-8')
       const text = decoder.decode(arrayBuffer)
-      importedCard = parseImportedCard(text)
+      importedCard = parseImportedCard(text).card
     }
 
     const normalized = addCardPreviewNormalize(importedCard)
@@ -443,14 +448,14 @@ function getUniqueImportedCardName(baseName: string): string {
   return `${trimmedBase} (${counter})`
 }
 
-function parseImportedCard(content: string): ImportedCardPayload {
+function parseImportedCard(content: string): { card: ImportedCardPayload, isNativeAiri: boolean } {
   const parsed = JSON.parse(content) as any
 
   if (parsed?.format === 'airi-card' && parsed?.version === 1 && parsed?.card) {
-    return parsed.card as Card
+    return { card: parsed.card as Card, isNativeAiri: true }
   }
 
-  return parsed as ImportedCardPayload
+  return { card: parsed as ImportedCardPayload, isNativeAiri: false }
 }
 
 watch(inputFiles, async (newFiles) => {
@@ -493,6 +498,7 @@ watch(inputFiles, async (newFiles) => {
     }
 
     let importedCard: ImportedCardPayload
+    let isNativeAiri = false
 
     if (file.name.toLowerCase().endsWith('.png')) {
       importedCard = parsePngCharaPayload(await file.arrayBuffer())
@@ -500,7 +506,9 @@ watch(inputFiles, async (newFiles) => {
     else {
       const content = await file.text()
       try {
-        importedCard = parseImportedCard(content)
+        const parsedResult = parseImportedCard(content)
+        importedCard = parsedResult.card
+        isNativeAiri = parsedResult.isNativeAiri
       }
       catch (e) {
         toast.error('Failed to parse card JSON: Malformed file')
@@ -509,6 +517,13 @@ watch(inputFiles, async (newFiles) => {
     }
 
     const normalizedForValidation = addCardPreviewNormalize(importedCard)
+
+    // Community Tavern/CCv2 cards (not 1st-party airi-card JSON backups) should go through the setup wizard
+    if (!isNativeAiri) {
+      importedCardData.value = normalizedForValidation
+      isImportWizardOpen.value = true
+      return
+    }
 
     // Validate the normalized AIRI card shape
     const validation = safeParse(AiriCardSchema, normalizedForValidation)
@@ -647,9 +662,9 @@ function addCardPreviewNormalize(card: any) {
       description: data.description ?? '',
       notes: data.creator_notes ?? '',
       personality: data.personality ?? '',
-      scenario: data.scenario ?? '',
-      systemPrompt: data.system_prompt ?? '',
-      postHistoryInstructions: data.post_history_instructions ?? '',
+      scenario: data.scenario?.trim() ? data.scenario : DEFAULT_COMPANION_SCENARIO,
+      systemPrompt: data.system_prompt?.trim() ? data.system_prompt : DEFAULT_COMPANION_SYSTEM_PROMPT,
+      postHistoryInstructions: data.post_history_instructions?.trim() ? data.post_history_instructions : DEFAULT_POST_HISTORY_INSTRUCTIONS,
       greetings: [
         data.first_mes,
         ...(data.alternate_greetings ?? []),

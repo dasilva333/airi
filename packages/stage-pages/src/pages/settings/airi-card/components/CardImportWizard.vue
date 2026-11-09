@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { AiriExtension } from '@proj-airi/stage-ui/stores/modules/airi-card'
 
-import { DEFAULT_POST_HISTORY_INSTRUCTIONS } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
+import {
+  DEFAULT_COMPANION_SCENARIO,
+  DEFAULT_COMPANION_SYSTEM_PROMPT,
+  DEFAULT_POST_HISTORY_INSTRUCTIONS,
+} from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useLLM } from '@proj-airi/stage-ui/stores/llm'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
@@ -169,12 +173,23 @@ const speechVoiceOptions = computed(() => {
   }))
 })
 
+// Reactive pattern replacement helper that previews live edits to name and userName
+function replaceMacros(text: string): string {
+  if (typeof text !== 'string')
+    return ''
+  let res = text.replace(/\{\{(?:char|chara)\}\}/gi, name.value.trim() || '{{char}}')
+  if (userName.value.trim()) {
+    res = res.replace(/\{\{user\}\}/gi, userName.value.trim())
+  }
+  return res
+}
+
 // Computed normalized card metadata for CCv2 / CCv3 / SillyTavern payloads
 const extractedCardMeta = computed(() => {
   const card = props.cardData
   if (!card) {
     console.info('[CardImport:Stage4:ExtractedMeta] cardData is null/undefined')
-    return { name: '', greetings: [] as string[], personality: '' }
+    return { name: '', greetings: [] as string[], description: '', scenario: '', personality: '' }
   }
 
   const d = card.data || card
@@ -197,20 +212,23 @@ const extractedCardMeta = computed(() => {
       greetings.push(card.first_mes)
   }
 
-  const personality = d.personality || d.description || d.system_prompt || card.personality || card.description || ''
+  const descriptionText = d.description || card.description || ''
+  const scenarioText = d.scenario || card.scenario || ''
+  const personality = d.personality || card.personality || ''
 
   console.info('[CardImport:Stage4:ExtractedMeta]', {
     hasDataObj: Boolean(card.data),
     resolvedName: cardName,
     greetingsCount: greetings.length,
     greetingsSample: greetings.slice(0, 2),
+    descriptionLength: descriptionText.length,
+    scenarioLength: scenarioText.length,
     personalityLength: personality.length,
-    personalitySnippet: personality.slice(0, 120),
     dataKeys: card.data ? Object.keys(card.data) : null,
     topLevelKeys: Object.keys(card),
   })
 
-  return { name: cardName, greetings, personality }
+  return { name: cardName, greetings, description: descriptionText, scenario: scenarioText, personality }
 })
 
 // Initialize state
@@ -456,9 +474,9 @@ async function finalizeImport() {
     const replacePatterns = (text: string) => {
       if (typeof text !== 'string')
         return text
-      let res = text.replace(/\{\{char\}\}/g, name.value.trim())
+      let res = text.replace(/\{\{(?:char|chara)\}\}/gi, name.value.trim())
       if (userName.value.trim()) {
-        res = res.replace(/\{\{user\}\}/g, userName.value.trim())
+        res = res.replace(/\{\{user\}\}/gi, userName.value.trim())
       }
       return res
     }
@@ -474,13 +492,16 @@ async function finalizeImport() {
       return replacePatterns(example)
     })
 
+    const rawSystemPrompt = props.cardData.systemPrompt?.trim()
+    const rawScenario = props.cardData.scenario?.trim()
+
     const finalCard = {
       ...props.cardData,
       name: name.value.trim(),
       description: replacePatterns(description.value.trim()),
       personality: replacePatterns(props.cardData.personality || ''),
-      scenario: replacePatterns(props.cardData.scenario || ''),
-      systemPrompt: replacePatterns(props.cardData.systemPrompt) || '.',
+      scenario: rawScenario ? replacePatterns(props.cardData.scenario) : replacePatterns(DEFAULT_COMPANION_SCENARIO),
+      systemPrompt: rawSystemPrompt ? replacePatterns(props.cardData.systemPrompt) : replacePatterns(DEFAULT_COMPANION_SYSTEM_PROMPT),
       postHistoryInstructions: replacePatterns(props.cardData.postHistoryInstructions) || DEFAULT_POST_HISTORY_INSTRUCTIONS,
       greetings: formattedGreetings,
       messageExample: formattedMessageExample,
@@ -611,7 +632,7 @@ async function finalizeImport() {
                 <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Greetings</label>
                 <div class="max-h-[100px] overflow-y-auto border border-neutral-200 rounded-xl bg-neutral-50/40 p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-950/40">
                   <div v-for="(greet, i) in (extractedCardMeta.greetings.length ? extractedCardMeta.greetings : props.cardData?.greetings)" :key="i" class="mb-2 last:mb-0">
-                    <strong>Greeting {{ Number(i) + 1 }}:</strong> {{ greet }}
+                    <strong>Greeting {{ Number(i) + 1 }}:</strong> {{ replaceMacros(greet) }}
                   </div>
                   <div v-if="!extractedCardMeta.greetings.length && !props.cardData?.greetings?.length" class="italic">
                     No greetings imported.
@@ -620,11 +641,21 @@ async function finalizeImport() {
               </div>
 
               <div class="flex flex-col gap-2">
-                <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Personality & Context (Read-Only)</label>
+                <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Description & Character Context (Read-Only)</label>
                 <textarea
                   readonly
-                  :value="extractedCardMeta.personality || 'No personality prompt found.'"
+                  :value="replaceMacros(extractedCardMeta.description) || 'No description found.'"
                   rows="4"
+                  class="w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/40 p-3 text-xs text-neutral-500 outline-none dark:border-neutral-700 dark:bg-neutral-950/40"
+                />
+              </div>
+
+              <div v-if="extractedCardMeta.scenario" class="flex flex-col gap-2">
+                <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Scenario & Setting (Read-Only)</label>
+                <textarea
+                  readonly
+                  :value="replaceMacros(extractedCardMeta.scenario)"
+                  rows="3"
                   class="w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/40 p-3 text-xs text-neutral-500 outline-none dark:border-neutral-700 dark:bg-neutral-950/40"
                 />
               </div>

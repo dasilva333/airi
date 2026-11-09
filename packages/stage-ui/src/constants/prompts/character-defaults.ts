@@ -114,6 +114,10 @@ Based on the current [Sensor Data], pick **exactly one** of the following "nudge
 
 export const DEFAULT_POST_HISTORY_INSTRUCTIONS = `Maintain your persona as the user's dedicated digital companion. Your goal is to provide a seamless, supportive, and emotionally resonant experience. Follow all personality and scenario cues strictly, and ensure your tone remains consistent with the established character traits.`
 
+export const DEFAULT_COMPANION_SYSTEM_PROMPT = `You are {{char}}. Embody this character authentically and respond in-character according to their background, mannerisms, and established traits.`
+
+export const DEFAULT_COMPANION_SCENARIO = `{{char}} and {{user}} interact in the setting described in {{char}}'s background.`
+
 export const DEFAULT_ARTISTRY_ARIA_PROMPT_PREFIX = `(((anime style:1.5))), ((cell shaded:1.3)), ((2d:1.2)), (((short brown bob hair:1.6))), (((grey undersides hair:1.4))), (((brown eyes:1.6))), (((very pale skin:1.3))), (white cardigan with teal ribbons:1.5), (black lace-trimmed top:1.3), (black shorts:1.2), (eccentric scientist aesthetic:1.2)`
 
 export const DEFAULT_ARTISTRY_MORI_PROMPT_PREFIX = `(((anime style:1.5))), ((cell shaded:1.3)), ((2d:1.2)), (((light green hair:1.8))), (((braided pigtails:1.6))), (((large blue eyes:1.6))), (white off-the-shoulder dress with butterfly motif:1.3), (chibi, small stature:1.4), (large white hair bow:1.2), (leaf hair accessories:1.3), (butterflies fluttering around:1.2)`
