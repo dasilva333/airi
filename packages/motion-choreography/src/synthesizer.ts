@@ -21,6 +21,7 @@ import type {
  * tuned for the HumanML3D / FlowMDM text diffusion semantic space.
  */
 const PERSONA_BASE_KINEMATICS: Record<PersonaArchetype, string> = {
+  none: '',
   idol: 'cheerful idol stage dance, bouncy rhythmic footwork, lively arm sweeps, radiant expressive presence',
   gothic_maid: 'composed aristocratic gothic dance, graceful slow turns, poised hand gestures, noble posture',
   cool_android: 'sharp mechanical popping and locking, precise body isolation, crisp robotic transitions, fluid geometry',
@@ -51,18 +52,13 @@ const RHYTHMIC_KINEMATICS: Record<RhythmStructure, string> = {
 }
 
 /**
- * Derives musical genre from acoustic parameters and metadata hints.
+ * Derives musical genre purely from acoustic parameters (zero cheating / no metadata hints).
  */
 function resolveGenre(
   rhythm: RhythmStructure,
   bpm: number,
   timbre: TimbreBrightness,
-  hint?: string,
 ): string {
-  if (hint && hint.trim().length > 0) {
-    return hint.trim()
-  }
-
   switch (rhythm) {
     case 'waltz_triple':
       return 'Classical Waltz / Triple Meter Ballad'
@@ -142,7 +138,6 @@ export function synthesizeDanceBrief(
     features.rhythmStructure,
     effectiveBpm,
     features.timbreBrightness,
-    metadata?.genreHint,
   )
 
   const mood = resolveMood(features.energyTier, features.timbreBrightness)
@@ -155,10 +150,17 @@ export function synthesizeDanceBrief(
 
   const promptParts: string[] = [
     `a person dancing to a ${effectiveBpm} BPM track`,
-    personaBase,
-    energyPart,
-    rhythmPart,
   ]
+
+  if (personaBase && personaBase.trim().length > 0) {
+    promptParts.push(personaBase.trim())
+  }
+  if (energyPart && energyPart.trim().length > 0) {
+    promptParts.push(energyPart.trim())
+  }
+  if (rhythmPart && rhythmPart.trim().length > 0) {
+    promptParts.push(rhythmPart.trim())
+  }
 
   if (persona?.preferredMovements && persona.preferredMovements.length > 0) {
     promptParts.push(`featuring ${persona.preferredMovements.join(', ')}`)

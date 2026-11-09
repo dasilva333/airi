@@ -213,7 +213,7 @@ async function main() {
   }
 
   let songArg = 'blue-danube-waltz'
-  let personaArg: PersonaArchetype = 'idol'
+  let personaArg: PersonaArchetype = 'none'
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--song' && args[i + 1])
@@ -260,7 +260,7 @@ async function main() {
   )
 
   // Audio Playback Controller
-  const personas: PersonaArchetype[] = ['idol', 'gothic_maid', 'cool_android', 'chill_gamer', 'chaotic_gremlin']
+  const personas: PersonaArchetype[] = ['none', 'idol', 'gothic_maid', 'cool_android', 'chill_gamer', 'chaotic_gremlin']
   let currentPersonaIndex = Math.max(0, personas.indexOf(personaArg))
 
   let isPlaying = false
@@ -648,7 +648,8 @@ async function main() {
     out.push('\x1B[K')
 
     out.push('\x1B[1;35m╭─ Real-Time FlowMDM DanceBrief & Key-Pose Feed ───────────────────────────────────\x1B[0m\x1B[K')
-    out.push(`│  Active Persona : [\x1B[1;33m ${activePersona.padEnd(16)} \x1B[0m]  \x1B[90m(press 'p' to switch)\x1B[0m\x1B[K`)
+    const personaLabel = activePersona === 'none' ? 'none (pure beat)' : activePersona
+    out.push(`│  Active Persona : [\x1B[1;33m ${personaLabel.padEnd(16)} \x1B[0m]  \x1B[90m(press 'p' to switch)\x1B[0m\x1B[K`)
     out.push(`│  Detected Genre : \x1B[1m${brief.detectedGenre}\x1B[0m\x1B[K`)
     out.push(`│  FlowMDM Prompt :\x1B[K`)
     out.push(`│    \x1B[37m"${brief.choreographerPrompt.slice(0, 78)}\x1B[0m\x1B[K`)

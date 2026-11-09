@@ -130,6 +130,19 @@ describe('motion Choreography - The Identifier', () => {
       beatTimestamps: [0.5, 1.0, 1.5, 2.0],
     }
 
+    it('synthesizes pure kinematic brief when archetype is none', () => {
+      const brief = synthesizeDanceBrief(dummyFeatures, undefined, {
+        archetype: 'none',
+      })
+
+      expect(brief.bpm).toBe(124)
+      expect(brief.choreographerPrompt).toBe(
+        'a person dancing to a 124 BPM track, spirited bouncing, crisp arm accents, brisk continuous groove, lively step changes, pumping march steps on the beat, synchronized rhythmic pulse',
+      )
+      expect(brief.choreographerPrompt).not.toContain('idol')
+      expect(brief.choreographerPrompt).not.toContain('stage dance')
+    })
+
     it('synthesizes idol persona brief for FlowMDM text conditioning', () => {
       const brief = synthesizeDanceBrief(dummyFeatures, undefined, {
         archetype: 'idol',

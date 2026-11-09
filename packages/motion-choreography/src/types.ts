@@ -52,7 +52,8 @@ export interface TrackMetadata {
  * Companion persona modality that filters how music translates into body language.
  */
 export type PersonaArchetype
-  = | 'idol'
+  = | 'none'
+    | 'idol'
     | 'gothic_maid'
     | 'cool_android'
     | 'chill_gamer'
