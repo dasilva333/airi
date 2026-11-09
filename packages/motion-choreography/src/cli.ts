@@ -6,6 +6,7 @@
 
 import type { ChildProcess } from 'node:child_process'
 
+import type { JevGenreResult } from './dsp/jev-genre-resolver.js'
 import type { EnergyTier, PersonaArchetype, TimbreBrightness, TrackMetadata } from './types.js'
 
 import { execSync, spawn } from 'node:child_process'
@@ -18,6 +19,7 @@ import * as readline from 'node:readline'
 
 import { analyzeAudioBuffer, classifyEnergyTier, classifyTimbreBrightness } from './dsp/analyzer.js'
 import { applyHannWindow, computeMagnitudeSpectrum, computeSpectralCentroid } from './dsp/fft.js'
+import { resolveGenreWithJev } from './dsp/jev-genre-resolver.js'
 import { decodeWav, encodeWav } from './dsp/wav.js'
 import { extractKeyPosesFromTrajectories } from './kinematics/key-pose-extractor.js'
 import { synthesizeDanceBrief } from './synthesizer.js'
@@ -54,8 +56,10 @@ Usage:
 Options:
   --song <id | path>       Corpus song ID or path to local audio file (.wav, .mp3, .ogg, .flac)
                            Default: 'blue-danube-waltz' (or 'synthetic-44')
-  --persona <archetype>    Companion persona archetype: idol, gothic_maid, cool_android,
-                           chill_gamer, chaotic_gremlin (Default: 'idol')
+  --persona <archetype>    Companion persona: none, idol, gothic_maid, cool_android,
+                           chill_gamer, chaotic_gremlin (Default: 'none')
+  --no-jev                 Disable TypeSafe Jev System-1 genre inference (use local DSP only)
+  --model <model>          Jev model to use (Default: 'jev-1.13-free')
   --list                   List all public-domain / CC-0 corpus tracks and exit
   -h, --help               Show this help message
 
@@ -214,12 +218,16 @@ async function main() {
 
   let songArg = 'blue-danube-waltz'
   let personaArg: PersonaArchetype = 'none'
+  const useJev = !args.includes('--no-jev')
+  let jevModel = 'jev-1.13-free'
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--song' && args[i + 1])
       songArg = args[++i]
     else if (args[i] === '--persona' && args[i + 1])
       personaArg = args[++i] as PersonaArchetype
+    else if (args[i] === '--model' && args[i + 1])
+      jevModel = args[++i]
   }
 
   process.stdout.write('\nAnalyzing audio signal...\n')
@@ -229,6 +237,26 @@ async function main() {
 
   // Run full DSP analysis
   const features = analyzeAudioBuffer([mono], sampleRate)
+
+  // Asynchronous TypeSafe Jev System-1 Genre Resolution (non-blocking)
+  let jevGenreResult: JevGenreResult | null = null
+  let jevStatus: 'idle' | 'resolving' | 'resolved' | 'failed' = useJev ? 'resolving' : 'idle'
+
+  if (useJev) {
+    resolveGenreWithJev(features, { model: jevModel })
+      .then((res) => {
+        if (res) {
+          jevGenreResult = res
+          jevStatus = 'resolved'
+        }
+        else {
+          jevStatus = 'failed'
+        }
+      })
+      .catch(() => {
+        jevStatus = 'failed'
+      })
+  }
 
   // Pre-extract key-poses across duration using trajectory representation
   const trajSeqLen = Math.floor(duration * 20)
@@ -650,7 +678,13 @@ async function main() {
     out.push('\x1B[1;35m╭─ Real-Time FlowMDM DanceBrief & Key-Pose Feed ───────────────────────────────────\x1B[0m\x1B[K')
     const personaLabel = activePersona === 'none' ? 'none (pure beat)' : activePersona
     out.push(`│  Active Persona : [\x1B[1;33m ${personaLabel.padEnd(16)} \x1B[0m]  \x1B[90m(press 'p' to switch)\x1B[0m\x1B[K`)
-    out.push(`│  Detected Genre : \x1B[1m${brief.detectedGenre}\x1B[0m\x1B[K`)
+    const activeGenre = jevGenreResult ? jevGenreResult.genreTitle : brief.detectedGenre
+    const jevBadge = jevStatus === 'resolved' && jevGenreResult
+      ? ` \x1B[90m[\x1B[1;32mJev System-1: ${(jevGenreResult.confidence * 100).toFixed(0)}%\x1B[90m]\x1B[0m`
+      : jevStatus === 'resolving'
+        ? ` \x1B[90m[\x1B[33mJev resolving...\x1B[90m]\x1B[0m`
+        : ''
+    out.push(`│  Detected Genre : \x1B[1m${activeGenre}\x1B[0m${jevBadge}\x1B[K`)
     out.push(`│  FlowMDM Prompt :\x1B[K`)
     out.push(`│    \x1B[37m"${brief.choreographerPrompt.slice(0, 78)}\x1B[0m\x1B[K`)
     if (brief.choreographerPrompt.length > 78) {

@@ -108,11 +108,12 @@ Housed in [`src/cli.ts`](../packages/motion-choreography/src/cli.ts) and wired t
   * **4-Band Real-Time Spectrum**: Sub-bass (40 Hz), Low-Mid (250 Hz), Mid (1000 Hz), Treble (4000 Hz) with dynamic auto-scaling decibel VU meter bars ($20\log_{10}(RMS)$) and ballistics.
   * **Live Spectral Brightness & Tilt Meter**: Real-time spectral centroid barycenter tracking with 4-tier psychoacoustic classification (`DARK` <850Hz, `WARM` <1500Hz, `BALANCED` ≤3000Hz, `BRIGHT` >3000Hz) and logarithmic centroid tilt gauge (`[───●──────]`).
   * **Metric Cadence Lights**: Real-time downbeat pulse indicator (`● ○ ○` for 3/4 waltz, `● ○ ○ ○` for 4/4 four-on-the-floor).
+  * **TypeSafe Jev System-1 Genre Resolution**: Asynchronous non-blocking classification against an open 17-genre taxonomy (Waltz, Trap, Reggaeton Dembow, Salsa, Boom-Bap, etc.) displaying live confidence badges (`[Jev System-1: 100%]`).
   * **Live DanceBrief Feed**: Continuously updates genre, mood, and FlowMDM prompts as the track plays.
   * **Key-Pose Event Flashes**: Highlights incoming anchor key-poses as they are traversed (`⭐ KEY-POSE #N: [EXT_MAX / VEL_MIN]`).
 * **Interactive Keyboard Controls**:
   * `[Space]`: Pause / resume playback.
-  * `[p]`: Cycle companion persona archetype in real time (`idol` ➔ `gothic_maid` ➔ `cool_android` ➔ `chill_gamer` ➔ `chaotic_gremlin`).
+  * `[p]`: Cycle companion persona archetype in real time (`none (pure beat)` ➔ `idol` ➔ `gothic_maid` ➔ `cool_android` ➔ `chill_gamer` ➔ `chaotic_gremlin`).
   * `[Left / Right Arrow]`: Skip backward / forward by 10 seconds for targeted replay debugging.
   * `[q]` or `[Ctrl+C]`: Clean shutdown with terminal restoration.
 
