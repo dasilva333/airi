@@ -778,9 +778,9 @@ async function attachAndActivateModel(
   disposeBeforeRenderLoop?.()
   disposeBeforeRenderLoop = onBeforeRender(({ delta }) => {
     if (vrm.value) {
-      vrmFrameHook.value?.(vrm.value, delta)
       vrmClothTug.update(vrm.value, delta, vrmEmote.value)
       vrmAnimationMixer?.update(delta)
+      vrmFrameHook.value?.(vrm.value, delta)
     }
     const activeVrm = vrm.value
     if (!activeVrm)

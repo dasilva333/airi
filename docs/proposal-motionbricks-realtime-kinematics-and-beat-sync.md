@@ -166,9 +166,15 @@ MotionBricks solves the physical interaction problem:
   - Shipped in [`packages/motion-choreography/src/kinematics/`](../packages/motion-choreography/src/kinematics/).
   - Implemented quaternion math and `quatSlerp`.
   - Implemented 263-dim HumanML3D tensor extractor sampling 4–8 anchor keyframes based on velocity minima, extension maxima, foot strikes, and temporal NMS.
-- [ ] **Milestone 3: The Conductor (Beat-to-Keypoint Scheduler & Time-Warping)**
-  - Map `DanceSheetKeyframe[]` onto live `beatTimestamps`.
-  - Implement elastic tempo scaling and downbeat synchronization.
+- [x] **Milestone 3: The Conductor & Motion Choreography Studio**
+  - Shipped in [`packages/motion-choreography/src/conductor/`](../packages/motion-choreography/src/conductor/) and [`packages/stage-pages/src/pages/settings/modules/motion-choreography.vue`](../packages/stage-pages/src/pages/settings/modules/motion-choreography.vue).
+  - Implemented elastic beat-to-keypoint alignment (`alignDanceSheetToBeats`) with monotonic time-warping constraints and cadence filters (`downbeats_only`, `all_beats`, `adaptive`).
+  - Implemented non-linear phase shaping (`smooth_step`, `cubic_elastic`, `linear`), quaternion SLERP, and loop boundary crossfades (`evaluateWarpedPoseAt`).
+  - **Dual-Layer Real-Time Kinematic Runtime**:
+    1. *Tier 1 (Instant Beat-Sync Sway)*: Rawdogging 60 FPS humanoid bone driving via ThreeScene `setVrmFrameHook(vrm)` for immediate hip sway, beat bounce, torso counter-rotation, and head bop with 0ms latency and 0 bytes disk writes.
+    2. *Tier 2 (FlowMDM On-Device Diffusion)*: On-demand WebGPU 50-step DDIM diffusion generating authentic 3D choreography from acoustic DSP prompts, loaded into ThreeScene via ephemeral `blob:` URLs with zero IndexedDB/localforage pollution.
+    3. *Deterministic In-Memory Session Cache*: Keyed by `dance:${trackId}_${bpm}bpm_${meter}_${persona}` avoiding duplicate diffusion runs when switching tracks or archetypes.
+    4. *Opt-in Permanent Storage*: User can explicitly choose to persist favorite generated dance routines into their Custom Animations library.
 - [ ] **Milestone 4: MotionBricks Ingestion & Stage-Mate Driver**
   - Benchmark 800 MB MotionBricks ONNX checkpoint in Unity Sentis (<5ms target).
   - Implement `MotionBricksDriver.cs` in `apps/stage-mate/unity-src/` executing continuous inbetweening between selected key-poses.

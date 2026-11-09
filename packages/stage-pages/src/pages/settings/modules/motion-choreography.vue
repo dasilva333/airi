@@ -6,6 +6,7 @@ import type {
   PersonaArchetype,
   WarpedPoseFrame,
 } from '@proj-airi/motion-choreography'
+import type { MotionGenerationResult } from '@proj-airi/stage-ui/stores/modules/text-to-motion'
 
 import {
   alignDanceSheetToBeats,
@@ -23,12 +24,22 @@ import {
   generateSyntheticWaltz,
   synthesizeDanceBrief,
 } from '@proj-airi/motion-choreography'
+import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
+import { useTextToMotionStore } from '@proj-airi/stage-ui/stores/modules/text-to-motion'
 import { Button } from '@proj-airi/ui'
+import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { toast } from 'vue-sonner'
 
 const { t } = useI18n()
+
+// Core Engine Stores
+const textToMotionStore = useTextToMotionStore()
+const modelStore = useModelStore()
+const customVrmAnimationsStore = useCustomVrmAnimationsStore()
+const { downloadProgress } = storeToRefs(textToMotionStore)
 
 // Preset tracks
 interface TrackPreset {
@@ -109,6 +120,7 @@ const audioVolume = ref(0.75)
 const isAnalyzing = ref(false)
 
 // Live Stage Viewport State
+const rendererStageRef = ref<InstanceType<typeof RendererStage>>()
 const stageState = ref<'pending' | 'loading' | 'mounted'>('pending')
 const stageScale = ref(1.0)
 const stageXOffset = ref(0)
@@ -125,6 +137,23 @@ const selectedEasing = ref<'smooth_step' | 'cubic_elastic' | 'linear'>('smooth_s
 const activeDanceSheet = ref<DanceSheet | null>(null)
 const alignmentMappings = ref<AlignedKeyframeMapping[]>([])
 const currentPose = ref<WarpedPoseFrame | null>(null)
+
+// FlowMDM Diffusion Generation & In-Memory Deterministic Session Cache
+const isGeneratingMotion = ref(false)
+const generationStatus = ref('')
+const activeMotionBlobUrl = ref<string | null>(null)
+const activeMotionResult = ref<MotionGenerationResult | null>(null)
+const isMotionActiveOnStage = ref(false)
+const isSavingToLibrary = ref(false)
+
+// In-memory deterministic cache: Map<danceKey, blobUrl> (0 disk writes, 0 DB spam)
+const sessionBlobCache = new Map<string, string>()
+
+function getDanceCacheKey(): string {
+  if (!acousticFeatures.value)
+    return `dance:${selectedPresetId.value}:${selectedPersona.value}`
+  return `dance:${selectedPresetId.value}_${Math.round(acousticFeatures.value.bpm)}bpm_${acousticFeatures.value.rhythmStructure}_${selectedPersona.value}`
+}
 
 // Synthesized FlowMDM prompt
 const synthesizedPrompt = computed(() => {
@@ -161,6 +190,75 @@ function resetStageCamera() {
   stageFraming.value = 'full'
 }
 
+// Rawdogging Real-Time Kinematic Frame Hook (60 FPS on Three.js render loop)
+let restHipsPos: { x: number, y: number, z: number } | null = null
+
+function handleVrmFrame(vrm: any) {
+  if (!vrm?.humanoid)
+    return
+
+  const hips = vrm.humanoid.getNormalizedBoneNode('hips')
+  const spine = vrm.humanoid.getNormalizedBoneNode('spine')
+  const chest = vrm.humanoid.getNormalizedBoneNode('chest')
+  const head = vrm.humanoid.getNormalizedBoneNode('head')
+
+  // Capture resting position once when model loads
+  if (hips && restHipsPos === null) {
+    restHipsPos = {
+      x: hips.position.x,
+      y: hips.position.y,
+      z: hips.position.z,
+    }
+  }
+
+  // When not playing or when full FlowMDM diffusion motion is active, restore hips and let mixer take over
+  if (!isPlaying.value || !currentPose.value || isMotionActiveOnStage.value) {
+    if (hips && restHipsPos !== null && !isMotionActiveOnStage.value) {
+      hips.position.x = restHipsPos.x
+      hips.position.y = restHipsPos.y
+      hips.position.z = restHipsPos.z
+    }
+    return
+  }
+
+  const [swayX] = currentPose.value.rootTranslation
+  const bpm = acousticFeatures.value?.bpm || 120
+  const beatFreq = bpm / 60
+
+  if (hips && restHipsPos !== null) {
+    // Relative groove bounce: subtle 1.2cm (0.012m) rhythm modulation relative to rest height
+    const verticalBounce = Math.sin(currentTime.value * Math.PI * 2 * beatFreq) * 0.012
+    hips.position.x = restHipsPos.x + swayX * 0.15
+    hips.position.y = restHipsPos.y + verticalBounce
+
+    // Synchronized pelvic sway & twist
+    hips.rotation.z += -swayX * 0.18
+    hips.rotation.y += swayX * 0.12
+  }
+
+  if (spine) {
+    // Spine counter-rotates slightly for natural body balance
+    spine.rotation.z += swayX * 0.12
+    spine.rotation.x += Math.abs(swayX) * 0.03
+  }
+
+  if (chest) {
+    chest.rotation.z += swayX * 0.06
+  }
+
+  if (head) {
+    // Rhythmic head bop synced to audio tempo
+    head.rotation.x += Math.sin(currentTime.value * Math.PI * 2 * beatFreq) * 0.035
+  }
+}
+
+// Connect frame hook when stage mounts
+watch([stageState, rendererStageRef], ([state, stage]) => {
+  if (state === 'mounted' && stage?.vrmViewerRef) {
+    stage.vrmViewerRef.setVrmFrameHook(handleVrmFrame)
+  }
+})
+
 // Load and analyze track preset
 function loadPreset(presetId: string) {
   selectedPresetId.value = presetId
@@ -184,6 +282,18 @@ function loadPreset(presetId: string) {
     duration.value = track.duration
     currentTime.value = 0
     isPlaying.value = false
+
+    // Check if we have a cached diffusion routine for this track + persona
+    const cacheKey = `dance:${presetId}_${preset.bpm}bpm_${preset.meter.replace(/[^a-z0-9]/gi, '_')}_${selectedPersona.value}`
+    const cachedUrl = sessionBlobCache.get(cacheKey)
+    if (cachedUrl) {
+      activeMotionBlobUrl.value = cachedUrl
+    }
+    else {
+      activeMotionBlobUrl.value = null
+      activeMotionResult.value = null
+      isMotionActiveOnStage.value = false
+    }
 
     // Run acoustic analysis
     const features = analyzeAudioBuffer(track.channelData, track.sampleRate)
@@ -240,10 +350,21 @@ function togglePlayback() {
   if (isPlaying.value) {
     audioElement.value.pause()
     isPlaying.value = false
+    if (isMotionActiveOnStage.value) {
+      isMotionActiveOnStage.value = false
+      modelStore.triggerMotion('__STOP__')
+    }
   }
   else {
     audioElement.value.play().then(() => {
       isPlaying.value = true
+      // If we have a cached diffusion routine for this preset, play it!
+      const cacheKey = getDanceCacheKey()
+      const cachedUrl = sessionBlobCache.get(cacheKey) || activeMotionBlobUrl.value
+      if (cachedUrl) {
+        isMotionActiveOnStage.value = true
+        modelStore.triggerMotion(cachedUrl)
+      }
     }).catch(() => {
       isPlaying.value = false
     })
@@ -280,6 +401,114 @@ function onAudioEnded() {
   isPlaying.value = false
   currentTime.value = 0
   updatePoseAtTime(0)
+  if (isMotionActiveOnStage.value) {
+    isMotionActiveOnStage.value = false
+    modelStore.triggerMotion('__STOP__')
+  }
+}
+
+function handleAnimationFinished() {
+  // If audio is still playing and we have an active motion, loop it!
+  if (isPlaying.value && activeMotionBlobUrl.value) {
+    modelStore.triggerMotion(activeMotionBlobUrl.value)
+  }
+}
+
+// FlowMDM Diffusion Generation with In-Memory Deterministic Session Cache
+async function generateFlowMDMDance() {
+  const prompt = synthesizedPrompt.value.trim()
+  if (!prompt || isGeneratingMotion.value)
+    return
+
+  const cacheKey = getDanceCacheKey()
+
+  // 1. Check in-memory deterministic session cache
+  if (sessionBlobCache.has(cacheKey)) {
+    const cachedUrl = sessionBlobCache.get(cacheKey)!
+    activeMotionBlobUrl.value = cachedUrl
+    toast.success('Dance routine loaded from session cache!')
+    if (isPlaying.value) {
+      isMotionActiveOnStage.value = true
+      modelStore.triggerMotion(cachedUrl)
+    }
+    return
+  }
+
+  isGeneratingMotion.value = true
+  generationStatus.value = 'Preparing WebGPU FlowMDM pipeline...'
+
+  try {
+    const result = await textToMotionStore.generateMotion(prompt, {
+      engine: 'flowmdm',
+      format: 'vrma',
+      outputLength: 120, // ~6s diffusion motion
+      onLog: (msg) => {
+        generationStatus.value = msg
+      },
+    })
+
+    if (result && result.buffer) {
+      const blobPart = new Uint8Array(result.buffer)
+      const blob = new Blob([blobPart.buffer], { type: 'model/gltf-binary' })
+      const blobUrl = URL.createObjectURL(blob)
+
+      // Store in deterministic session cache (0 disk writes, 0 DB spam)
+      sessionBlobCache.set(cacheKey, blobUrl)
+      activeMotionBlobUrl.value = blobUrl
+      activeMotionResult.value = result
+
+      toast.success('3D dance generated with FlowMDM!')
+
+      // If playing, immediately trigger on the 3D avatar
+      if (isPlaying.value) {
+        isMotionActiveOnStage.value = true
+        modelStore.triggerMotion(blobUrl)
+      }
+    }
+  }
+  catch (err: any) {
+    console.error('[MotionChoreography] FlowMDM generation failed:', err)
+    toast.error(`Motion generation failed: ${err.message || String(err)}`)
+  }
+  finally {
+    isGeneratingMotion.value = false
+  }
+}
+
+// Optional Explicit Save to Custom Animations Library
+async function saveToAnimationLibrary() {
+  if (!activeMotionResult.value || isSavingToLibrary.value)
+    return
+
+  isSavingToLibrary.value = true
+  try {
+    const fileName = `flowmdm_dance_${activePreset.value.id}_${selectedPersona.value}_${Date.now()}.vrma`
+    const blobPart = new Uint8Array(activeMotionResult.value.buffer)
+    const file = new File([blobPart], fileName, { type: 'application/octet-stream' })
+
+    await customVrmAnimationsStore.addCustomAnimation(file, { source: 'saved' })
+    toast.success(`Dance saved to Custom Animations! (${fileName})`)
+  }
+  catch (err: any) {
+    console.error('[MotionChoreography] Failed to save to library:', err)
+    toast.error(`Save failed: ${err.message || String(err)}`)
+  }
+  finally {
+    isSavingToLibrary.value = false
+  }
+}
+
+function resetToBeatSync() {
+  activeMotionBlobUrl.value = null
+  activeMotionResult.value = null
+  isMotionActiveOnStage.value = false
+  if (isPlaying.value) {
+    rendererStageRef.value?.vrmViewerRef?.stopAnimations()
+  }
+  else {
+    modelStore.triggerMotion('__STOP__')
+  }
+  toast.info('Switched to real-time kinematic beat-sync sway.')
 }
 
 function handleCustomFileUpload(event: Event) {
@@ -308,6 +537,9 @@ function handleCustomFileUpload(event: Event) {
       duration.value = decoded.duration
       currentTime.value = 0
       isPlaying.value = false
+      activeMotionBlobUrl.value = null
+      activeMotionResult.value = null
+      isMotionActiveOnStage.value = false
 
       const features = analyzeAudioBuffer(decoded.channelData, decoded.sampleRate)
       acousticFeatures.value = features
@@ -334,6 +566,22 @@ function handleCustomFileUpload(event: Event) {
 // Watchers
 watch(selectedCadence, () => recalculateAlignment())
 watch(selectedEasing, () => updatePoseAtTime(currentTime.value))
+watch(selectedPersona, () => {
+  const cacheKey = getDanceCacheKey()
+  const cachedUrl = sessionBlobCache.get(cacheKey)
+  if (cachedUrl) {
+    activeMotionBlobUrl.value = cachedUrl
+    if (isPlaying.value) {
+      isMotionActiveOnStage.value = true
+      modelStore.triggerMotion(cachedUrl)
+    }
+  }
+  else {
+    activeMotionBlobUrl.value = null
+    activeMotionResult.value = null
+    isMotionActiveOnStage.value = false
+  }
+})
 
 onMounted(() => {
   loadPreset('waltz')
@@ -346,6 +594,14 @@ onUnmounted(() => {
   if (audioElement.value) {
     audioElement.value.pause()
   }
+  for (const url of sessionBlobCache.values()) {
+    URL.revokeObjectURL(url)
+  }
+  sessionBlobCache.clear()
+  if (rendererStageRef.value?.vrmViewerRef) {
+    rendererStageRef.value.vrmViewerRef.setVrmFrameHook(undefined)
+  }
+  modelStore.triggerMotion('__STOP__')
 })
 </script>
 
@@ -427,6 +683,7 @@ onUnmounted(() => {
 
             <!-- Live RendererStage Canvas -->
             <RendererStage
+              ref="rendererStageRef"
               v-model:state="stageState"
               :focus-at="{ x: 0, y: 0 }"
               :paused="false"
@@ -439,15 +696,29 @@ onUnmounted(() => {
               class="absolute inset-0 z-1 size-full"
               @offset-change="({ x, y }) => { stageXOffset = x; stageYOffset = y }"
               @scale-change="(s) => { stageScale = s }"
+              @animation-finished="handleAnimationFinished"
             />
 
-            <!-- Beat Pulse Badge (overlay on stage canvas) -->
+            <!-- Beat Pulse / Playback Mode Badge (overlay on stage canvas) -->
             <div
               v-if="isPlaying"
-              class="absolute left-3 top-3 z-2 flex items-center gap-1.5 border border-white/10 rounded-full bg-black/60 px-2.5 py-1 text-[10px] text-primary-400 font-mono shadow-sm backdrop-blur-md"
+              class="absolute left-3 top-3 z-2 flex items-center gap-1.5 border border-white/10 rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-mono shadow-sm backdrop-blur-md"
+              :class="isMotionActiveOnStage ? 'text-emerald-400' : 'text-primary-400'"
             >
-              <div class="size-1.5 animate-ping rounded-full bg-primary-500" />
-              <span>{{ Math.round(acousticFeatures?.bpm || 0) }} BPM · BEAT SYNC</span>
+              <div
+                class="size-1.5 animate-ping rounded-full"
+                :class="isMotionActiveOnStage ? 'bg-emerald-500' : 'bg-primary-500'"
+              />
+              <span>
+                {{ isMotionActiveOnStage ? 'FLOWMDM DIFFUSION ACTIVE' : 'BEAT-SYNC KINEMATICS (60 FPS)' }} · {{ Math.round(acousticFeatures?.bpm || 0) }} BPM
+              </span>
+            </div>
+            <div
+              v-else-if="activeMotionBlobUrl"
+              class="absolute left-3 top-3 z-2 flex items-center gap-1.5 border border-emerald-500/20 rounded-full bg-black/60 px-2.5 py-1 text-[10px] text-emerald-400 font-mono shadow-sm backdrop-blur-md"
+            >
+              <div class="size-1.5 rounded-full bg-emerald-500" />
+              <span>FLOWMDM READY · CLICK PLAY TO DANCE</span>
             </div>
 
             <!-- Drag hint overlay on hover -->
@@ -459,15 +730,19 @@ onUnmounted(() => {
           <!-- Stage Telemetry Footer -->
           <div class="flex flex-col gap-2 border-t border-neutral-800/80 bg-neutral-900/90 px-4 py-3">
             <div class="flex items-center justify-between text-xs">
-              <span class="text-neutral-400 font-medium">Kinematic Pose Warper</span>
-              <span class="text-primary-400 font-bold font-mono">
-                {{ currentPose ? `Keyframe #${currentPose.activeKeyframeIndex + 1}` : 'Idle' }}
+              <span class="text-neutral-400 font-medium">Stage Drive Mode</span>
+              <span
+                class="text-[11px] font-bold font-mono"
+                :class="isMotionActiveOnStage ? 'text-emerald-400' : isPlaying ? 'text-primary-400' : 'text-neutral-500'"
+              >
+                {{ isMotionActiveOnStage ? 'FlowMDM Diffusion Routine' : isPlaying ? 'Live Beat-Sync Kinematics' : 'Idle' }}
               </span>
             </div>
             <!-- Warper Progress Bar -->
             <div class="h-1.5 w-full overflow-hidden rounded-full bg-neutral-800">
               <div
-                class="h-full rounded-full bg-primary-500 transition-all duration-75"
+                class="h-full rounded-full transition-all duration-75"
+                :class="isMotionActiveOnStage ? 'bg-emerald-500' : 'bg-primary-500'"
                 :style="{ width: `${((currentPose?.phaseProgress || 0) * 100).toFixed(0)}%` }"
               />
             </div>
@@ -720,6 +995,71 @@ onUnmounted(() => {
             <p class="mt-1.5 text-xs text-neutral-700 leading-relaxed font-mono dark:text-neutral-300">
               "{{ synthesizedPrompt }}"
             </p>
+          </div>
+
+          <!-- FlowMDM Action & Progress Section -->
+          <div class="mt-4 flex flex-col gap-3">
+            <!-- Progress Bar (shown when downloading models or denoising) -->
+            <div v-if="isGeneratingMotion" class="flex flex-col gap-1.5 border border-primary-500/30 rounded-xl bg-primary-500/5 p-3 dark:bg-primary-500/10">
+              <div class="flex items-center justify-between text-xs">
+                <span class="flex items-center gap-1.5 text-primary-600 font-semibold dark:text-primary-400">
+                  <div class="i-solar:restart-bold animate-spin text-sm" />
+                  <span>{{ downloadProgress.status || generationStatus || 'Synthesizing 3D Motion...' }}</span>
+                </span>
+                <span class="text-primary-600 font-bold font-mono dark:text-primary-400">
+                  {{ downloadProgress.percentage }}%
+                </span>
+              </div>
+              <div class="h-1.5 w-full overflow-hidden rounded-full bg-primary-200/50 dark:bg-primary-950/60">
+                <div
+                  class="h-full rounded-full bg-primary-500 transition-all duration-150"
+                  :style="{ width: `${downloadProgress.percentage}%` }"
+                />
+              </div>
+            </div>
+
+            <!-- Action Controls Row -->
+            <div class="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                :disabled="isGeneratingMotion || !synthesizedPrompt"
+                class="flex items-center gap-2 px-4 py-2 text-xs font-bold shadow-sm"
+                @click="generateFlowMDMDance"
+              >
+                <div :class="[isGeneratingMotion ? 'i-solar:restart-bold animate-spin' : 'i-solar:magic-stick-3-bold', 'text-sm']" />
+                <span>{{ isGeneratingMotion ? 'Generating Motion (WebGPU)...' : activeMotionBlobUrl ? 'Regenerate FlowMDM Dance' : 'Generate Dance with FlowMDM' }}</span>
+              </Button>
+
+              <button
+                v-if="activeMotionResult"
+                type="button"
+                :disabled="isSavingToLibrary"
+                class="flex items-center gap-1.5 border border-neutral-200 rounded-xl bg-white px-3 py-2 text-xs text-neutral-700 font-semibold shadow-sm transition-colors dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+                @click="saveToAnimationLibrary"
+              >
+                <div :class="[isSavingToLibrary ? 'i-solar:restart-bold animate-spin' : 'i-solar:bookmark-bold-duotone', 'text-sm text-amber-500']" />
+                <span>{{ isSavingToLibrary ? 'Saving...' : 'Save to Library' }}</span>
+              </button>
+
+              <button
+                v-if="activeMotionBlobUrl"
+                type="button"
+                class="flex items-center gap-1.5 border border-neutral-200 rounded-xl bg-white px-3 py-2 text-xs text-neutral-500 transition-colors dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-700/60"
+                title="Switch back to live kinematic sway"
+                @click="resetToBeatSync"
+              >
+                <div class="i-solar:tuning-square-bold-duotone text-sm" />
+                <span>Reset to Beat-Sync</span>
+              </button>
+
+              <span
+                v-if="activeMotionBlobUrl"
+                class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-600 font-semibold dark:bg-emerald-500/20 dark:text-emerald-400"
+              >
+                <div class="i-solar:check-circle-bold text-xs" />
+                In-Memory Cache Hit
+              </span>
+            </div>
           </div>
         </div>
 
