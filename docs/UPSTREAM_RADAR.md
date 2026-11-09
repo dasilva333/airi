@@ -33,6 +33,247 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-09] Upstream Delta: `cbc49a88..528a31de` (11 commits, 120 files, 25 update(s))
+
+### 🎯 Executive Highlights
+- **v0.15.2 Monorepo Release & MediaPipe Asset Revert (`528a31de6`, `e677264de`)**: Upstream tagged and released `v0.15.2` across 58 packages and apps. Concurrently, Neko reverted PR #3366, abandoning runtime dynamic fetching of MediaPipe assets and restoring build-time asset staging via `tasks/prepare-tasks.ts` in `@proj-airi/model-driver-mediapipe`.
+- **Avatar Engine Type Hardening (`#3375`, `#3356`)**: Merged clean typing improvements across avatar subsystems by Grapecoe. PR #3375 encapsulates versioned Spine world transforms (`updateSpineWorldTransform`) across Spine 4.0, 4.1, and 4.2 (`Physics.update`), eliminating `as any` casts and adding 6 SDK tests. PR #3356 types VRM humanoid bone lookups with SDK-owned `VRMHumanBoneName`.
+- **Display Model Picking Deduplication (`#3452` / `156597ed7`)**: RainbowBird resolved a subtle double-resolution race in `useSettingsStageModel` where both the model picker dialog and the selection watcher concurrently called `updateStageModel()`. Added `activeStageModelUpdate` in-flight promise sharing to ensure subsequent identical requests await the ongoing resolution.
+- **Browser Web Extension Channel Server Integration & YouTube Suite (`#3433`, `#3461`, `#3462`, `#3463`)**: Merged PR #3433 connecting browser extensions over WebSocket to AIRI's local channel server (`localhost:6121`). FoolKc followed up with a rapid succession of PRs: #3461 (rate-limiting video notifications to once per watch), #3463 (YouTube Shorts playback detection), and #3462 (storing extension `spark:notify` reactions into active character chat sessions as assistant turns).
+- **Artistry OpenAI Image Generation (`#3464`)**: Jim opened PR #3464 adding native OpenAI Images API generation and editing (`images/generations`, `images/edits`, `gpt-image-2.6-sunburst`) into Artistry settings and bridge, allowing cloud image generation alongside existing providers.
+- **Desktop Daily Routines & Reminders Proposal (`#3455`)**: Contributor Itthiago034 submitted a significant desktop feature PR (+3220 lines) introducing daily routine imports (via maru-ichinichi), background reminder scheduling in Electron main, chat tools (`routine_query`, `routine_propose_change`), and agenda widgets.
+- **Cloud Observability & Telemetry Push (`#3458`, `#3454`, `#3450`, `#3457`)**: Upstream continues consolidating telemetry and hosted services: PR #3458 integrates Sentry error reporting, PR #3454 returns product analytics to PostHog, PR #3450 reports GenAI metrics via OTel semantic conventions in `@proj-airi/trace-kit`, and PR #3457 indexes `llm_request_log.created_at` in Postgres.
+
+#### 💬 Discussion & Community Buzz
+- **#3433: `fix(web-extension): connect to the channel server and deliver notifications to the stage` (+6 new comments, total 42)**: High discussion velocity leading up to its successful merge, serving as the launchpad for FoolKc's YouTube perception suite (#3461, #3462, #3463).
+- **#3027: `feat(stage-tamagotchi): add opt-in local AI HTTP proxy` (+1 new comments, total 18)**: Ongoing architectural evaluation of an embedded opt-in HTTP reverse proxy in Electron.
+- **#3455: `feat(stage-tamagotchi): add daily routines with reminders and agenda widgets` (3 comments)**: High initial community interest around desktop routine management and confirmation-gated model routine mutations.
+- **#3464: `feat(artistry): add native OpenAI image generation` (4 comments)**: Rapid initial discussion on Artistry provider dimension controls and OpenAI Images API configuration.
+- **#3458 & #3454: Sentry Error Reporting & PostHog Return (3 comments each)**: Maintainer discussion with @luoling8192 around centralized crash reporting and analytics scopes.
+- **#3440, #3375, #3356, #3318**: Minor discussion activity on Volcengine Agent Plan, Spine typing, MediaPipe typing, and Simplified Chinese localization.
+
+#### 🍒 Cherry-Pick Candidates
+- **`92905ec1b` (PR #3375)** — `refactor(stage-ui-spine): type versioned world transform calls`: **High Priority / Avatar Runtime Safety**. Encapsulates version-specific Spine world transform invocations (`updateSpineWorldTransform`) for Spine 4.0/4.1 (no arguments) and 4.2 (`Physics.update`), rejecting cross-runtime skeletons. Cleanly eliminates `as any` casts and ESLint suppressions in `Model.vue` and `spine-preview.ts`. Our fork natively supports Spine 2D as one of our 4 avatar engines; this is a clean, zero-risk stability enhancement.
+- **`bf5f52468` (PR #3356)** — `refactor(model-driver-mediapipe): type VRM bone lookups`: **Medium-High Priority / Clean Type Safety**. Replaces untyped `as any` bone lookups with SDK-owned `VRMHumanBoneName` across candidate tables and bone chains in `packages/model-driver-mediapipe/src/three/apply-pose-to-vrm.ts`. Zero runtime divergence, strict typing.
+- **`156597ed7` (PR #3452)** — `fix(stage-ui): resolve a picked display model once`: **Medium Priority / Concurrency Pattern**. Solves the double-resolution bug where picking a model simultaneously triggers the picker resolve and the selection watcher resolve. While our `stage-model.ts` has diverged heavily (supporting Control Strip and 4 avatar engines), adopting the `activeStageModelUpdate` in-flight promise sharing pattern prevents duplicate loading and race conditions during fast avatar switching.
+- **`e677264de` (PR #3366 revert)** — `model-driver-mediapipe asset build-time preparation`: **Informational / Validation**. Reverts runtime asset fetching in favor of build-time asset bundling, validating our fork's local-first packaging approach.
+
+#### ⚠️ Divergence / Collision Warnings
+- **`#3458` & `#3454` (Sentry Error Reporting & PostHog Analytics)**: **Permanent Auto-Reject**. Our fork enforces strict privacy invariants: 100% offline-first, zero telemetry, zero crash beacons, and zero cloud accounts. Do not port.
+- **`#3450` & `#3457` (OTel GenAI Metrics & Drizzle Postgres Migrations in API Server)**: **Permanent Auto-Reject**. Server-side infrastructure for hosted `/v1/responses` gateways and Postgres request logging. Our fork is strictly client/local-first and does not run `server/apps/api`.
+- **`#3453` & `#3449` (Cloud Model Upload Progress & Capacitor Subscriptions)**: **Permanent Auto-Reject**. Relies on hosted cloud model storage and commercial billing. Our fork uses local storage and BYOS (S3/R2/Google Drive).
+- **`#3455` (Daily Routines, Tamagotchi Reminders & Agenda Widgets)**: **Major Divergence / Collision Warning**. Touches `apps/stage-tamagotchi` main services, IPC contracts, and `InteractiveArea.vue`. Our fork has cleanly decoupled desktop architecture into Control Strip + transparent Actor Stage, and handles proactive sensory telemetry and generative widgets differently.
+- **`#3462` (Stripping ACT Tokens in Chat Session Storage)**: **Divergence Warning**. Upstream strips `<|ACT ...|>` tokens before saving assistant reaction messages to chat history. In our fork, ACT emotion/motion cues and `<|ACTOR|>` tokens are preserved via specialized marker parsers and rawContent preservation to maintain character acting continuity and memory fidelity.
+
+### 📋 Upstream Commits
+- `528a31de6` release: v0.15.2  _(Neko Ayaka, 2026-11-09)_
+- `e677264de` Revert "fix(model-driver-mediapipe): load MediaPipe assets at runtime instead of on install (#3366)" [#3366](https://github.com/moeru-ai/airi/pull/3366) _(Neko Ayaka, 2026-11-09)_
+- `d79b6597c` fix(web-extension): connect to the channel server and deliver notifications to the stage (#3433) [#3433](https://github.com/moeru-ai/airi/pull/3433) _(Fool, 2026-11-09)_
+- `92905ec1b` refactor(stage-ui-spine): type versioned world transform calls (#3375) [#3375](https://github.com/moeru-ai/airi/pull/3375) _(Grapecoe, 2026-11-09)_
+- `bf5f52468` refactor(model-driver-mediapipe): type VRM bone lookups (#3356) [#3356](https://github.com/moeru-ai/airi/pull/3356) _(Grapecoe, 2026-11-09)_
+- `fe0b8fa73` feat(api-server): index llm_request_log by created_at (#3457) [#3457](https://github.com/moeru-ai/airi/pull/3457) _(RainbowBird, 2026-11-09)_
+- `a0d1b2ce0` feat(api-server): report GenAI metrics with the OTel semantic convention names (#3450) [#3450](https://github.com/moeru-ai/airi/pull/3450) _(RainbowBird, 2026-11-09)_
+- `8878ffcee` feat(stage-ui,i18n): show the upload progress of a display model (#3453) [#3453](https://github.com/moeru-ai/airi/pull/3453) _(RainbowBird, 2026-11-09)_
+- `156597ed7` fix(stage-ui): resolve a picked display model once (#3452) [#3452](https://github.com/moeru-ai/airi/pull/3452) _(RainbowBird, 2026-11-09)_
+- `b51672dc8` feat(i18n): call the Capacitor entry and page "Subscription" (#3449) [#3449](https://github.com/moeru-ai/airi/pull/3449) _(RainbowBird, 2026-11-09)_
+- `9b30098ae` chore(nix): update pnpmDeps hash (#3448) [#3448](https://github.com/moeru-ai/airi/pull/3448) _(Weathercold, 2026-11-08)_
+
+### 🔬 Subsystem Breakdown
+#### Other / Uncategorized (`🔍 inspect`) — 30 file(s) (+1665/-139)
+- `.gitignore` *(+3/-0)*
+- `eslint-suppressions.json` *(+0/-15)*
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/model-driver-mediapipe/src/backends/mediapipe.ts` *(+8/-30)*
+- `packages/model-driver-mediapipe/src/three/apply-pose-to-vrm.ts` *(+9/-9)*
+- `packages/model-driver-mediapipe/tasks/error-message.ts` *(+17/-0)*
+- `packages/model-driver-mediapipe/tasks/prepare-tasks.ts` *(+101/-0)*
+- `packages/model-driver-mediapipe/tasks/tasks.ts` *(+13/-0)*
+- `packages/stage-ui-spine/src/components/scenes/spine/Model.vue` *(+3/-10)*
+- `packages/stage-ui-spine/src/utils/spine-preview.ts` *(+2/-5)*
+- `packages/stage-ui-spine/src/utils/spine-runtime.test.ts` *(+69/-0)*
+- `packages/stage-ui-spine/src/utils/spine-runtime.ts` *(+22/-0)*
+- `packages/stage-ui-spine/vitest.config.ts` *(+7/-0)*
+- `packages/stage-ui/src/components/scenarios/dialogs/model-selector/model-selector.vue` *(+18/-3)*
+- `packages/stage-ui/src/composables/capacitor-settings-page.browser.test.ts` *(+3/-3)*
+- `packages/stage-ui/src/stores/display-model-cloud.ts` *(+32/-1)*
+- `packages/stage-ui/src/stores/display-models.test.ts` *(+34/-0)*
+- `packages/stage-ui/src/stores/display-models.ts` *(+3/-0)*
+- `packages/stage-ui/src/stores/settings/stage-model.test.ts` *(+60/-0)*
+- `packages/stage-ui/src/stores/settings/stage-model.ts` *(+17/-2)*
+- `packages/trace-kit/scripts/semconv/generate.ts` *(+27/-0)*
+- `packages/trace-kit/scripts/semconv/render.test.ts` *(+45/-0)*
+- `packages/trace-kit/scripts/semconv/render.ts` *(+95/-0)*
+- `packages/trace-kit/src/conventions/semconv.test.ts` *(+0/-21)*
+- `packages/trace-kit/src/conventions/semconv.ts` *(+995/-34)*
+- `packages/trace-kit/tsdown.config.ts` *(+1/-0)*
+- `packages/trace-kit/vitest.config.ts` *(+1/-1)*
+- `plugins/airi-plugin-web-extension/src/background/client.test.ts` *(+67/-0)*
+- `plugins/airi-plugin-web-extension/src/background/client.ts` *(+3/-4)*
+- `plugins/airi-plugin-web-extension/vitest.config.ts` *(+9/-0)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 4 file(s) (+12/-13)
+- `AGENTS.md` *(+0/-3)*
+- `packages/model-driver-mediapipe/README.md` *(+0/-6)*
+- `packages/stage-ui-spine/README.md` *(+5/-0)*
+- `packages/trace-kit/README.md` *(+7/-4)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 2 file(s) (+6/-6)
+- `apps/stage-pocket/android/app-version.properties` *(+2/-2)*
+- `apps/stage-pocket/ios/App/App.xcodeproj/project.pbxproj` *(+4/-4)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 2 file(s) (+2/-2)
+- `apps/stage-tamagotchi-kirie/package.json` *(+1/-1)*
+- `apps/stage-tamagotchi/package.json` *(+1/-1)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 52 file(s) (+100/-57)
+- `engines/stage-tamagotchi-godot/package.json` *(+1/-1)*
+- `integrations/twitter-services/package.json` *(+1/-1)*
+- `integrations/vscode/airi-plugin-vscode/package.json` *(+1/-1)*
+- `integrations/vscode/vscode-airi/package.json` *(+1/-1)*
+- `package.json` *(+1/-1)*
+- `packages/agents/package.json` *(+1/-1)*
+- `packages/better-ws/package.json` *(+1/-1)*
+- `packages/cap-vite/package.json` *(+1/-1)*
+- `packages/cloud-client/package.json` *(+1/-1)*
+- `packages/core-character/package.json` *(+1/-1)*
+- `packages/electron-eventa/package.json` *(+1/-1)*
+- `packages/electron-native-backdrop/package.json` *(+1/-1)*
+- `packages/electron-screen-capture/package.json` *(+1/-1)*
+- `packages/electron-vueuse/package.json` *(+1/-1)*
+- `packages/extension-protocol/package.json` *(+1/-1)*
+- `packages/input-gamepad-vueuse/package.json` *(+1/-1)*
+- `packages/input-gamepad/package.json` *(+1/-1)*
+- `packages/input-playstation-dualsense-5/package.json` *(+1/-1)*
+- `packages/mathjson/package.json` *(+1/-1)*
+- `packages/memory-pgvector/package.json` *(+1/-1)*
+- `packages/model-driver-lipsync/package.json` *(+1/-1)*
+- `packages/model-driver-magic-live2d/package.json` *(+1/-1)*
+- `packages/model-driver-mediapipe/package.json` *(+6/-2)*
+- `packages/model-driver-mediapipe/tsconfig.json` *(+2/-4)*
+- `packages/motion-driver-magic/package.json` *(+1/-1)*
+- `packages/pipelines-audio/package.json` *(+1/-1)*
+- `packages/plugin-protocol/package.json` *(+1/-1)*
+- `packages/plugin-sdk-tamagotchi/package.json` *(+1/-1)*
+- `packages/plugin-sdk/package.json` *(+1/-1)*
+- `packages/provider-inference/package.json` *(+1/-1)*
+- `packages/scenarios-stage-tamagotchi-browser/package.json` *(+1/-1)*
+- `packages/scenarios-stage-tamagotchi-electron/package.json` *(+1/-1)*
+- `packages/server-runtime/package.json` *(+1/-1)*
+- `packages/server-sdk/package.json` *(+1/-1)*
+- `packages/server-shared/package.json` *(+1/-1)*
+- `packages/speech-transformer-chem/package.json` *(+1/-1)*
+- `packages/speech-transformer-math/package.json` *(+1/-1)*
+- `packages/stage-ui-spine/package.json` *(+1/-0)*
+- `packages/stage-ui/package.json` *(+1/-1)*
+- `packages/stream-kit/package.json` *(+1/-1)*
+- `packages/testing-audio/package.json` *(+1/-1)*
+- `packages/timeline-canvas/package.json` *(+1/-1)*
+- `packages/trace-kit/package.json` *(+10/-3)*
+- `packages/trace-kit/scripts/tsconfig.json` *(+14/-0)*
+- `packages/unocss-preset-fonts/package.json` *(+1/-1)*
+- `packages/vitest-plugin-fakemic/package.json` *(+1/-1)*
+- `plugins/airi-plugin-bilibili-laplace/package.json` *(+1/-1)*
+- `plugins/airi-plugin-claude-code/package.json` *(+1/-1)*
+- `plugins/airi-plugin-game-chess/package.json` *(+1/-1)*
+- `plugins/airi-plugin-web-extension/package.json` *(+2/-1)*
+- `pnpm-lock.yaml` *(+20/-2)*
+- `services/computer-use-mcp/package.json` *(+1/-1)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 1 file(s) (+1/-1)
+- `packages/core-agent/package.json` *(+1/-1)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 2 file(s) (+17/-13)
+- `packages/i18n/src/locales/en/settings.yaml` *(+8/-7)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+9/-6)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 2 file(s) (+2/-2)
+- `packages/stage-pages/src/pages/settings/account/account-settings-page.browser.test.ts` *(+1/-1)*
+- `packages/ui/package.json` *(+1/-1)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 23 file(s) (+4550/-75)
+- `packages/stage-ui/src/libs/file-transfer/transfer.browser.test.ts` *(+41/-0)*
+- `packages/stage-ui/src/libs/file-transfer/transfer.ts` *(+40/-5)*
+- `server/apps/api/Dockerfile` *(+5/-0)*
+- `server/apps/api/drizzle/0034_llm_request_log_created_index.sql` *(+1/-0)*
+- `server/apps/api/drizzle/meta/0034_snapshot.json` *(+4343/-0)*
+- `server/apps/api/drizzle/meta/_journal.json` *(+7/-0)*
+- `server/apps/api/package.json` *(+2/-1)*
+- `server/apps/api/production/railway/Dockerfile` *(+5/-0)*
+- `server/apps/api/src/otel/index.ts` *(+56/-23)*
+- `server/apps/api/src/routes/audio-speech-ws/route.test.ts` *(+2/-4)*
+- `server/apps/api/src/routes/audio-speech-ws/session.ts` *(+6/-5)*
+- `server/apps/api/src/routes/openai/v1/middlewares/billing.ts` *(+5/-3)*
+- `server/apps/api/src/routes/openai/v1/operations/chat-completions/index.ts` *(+3/-3)*
+- `server/apps/api/src/routes/openai/v1/operations/responses/index.ts` *(+1/-1)*
+- `server/apps/api/src/routes/openai/v1/route.test.ts` *(+15/-7)*
+- `server/apps/api/src/schemas/llm-request-log.ts` *(+2/-0)*
+- `server/apps/api/src/scripts/otel/smoke.ts` *(+1/-1)*
+- `server/apps/api/src/services/domain/openai-speech/index.ts` *(+7/-5)*
+- `server/apps/api/src/utils/observability.ts` *(+4/-13)*
+- `server/apps/auth/package.json` *(+1/-1)*
+- `server/packages/auth-shared/package.json` *(+1/-1)*
+- `server/packages/http-error-shared/package.json` *(+1/-1)*
+- `server/packages/server-sdk-shared/package.json` *(+1/-1)*
+
+#### Telemetry & Analytics (`⚪ ignore / rejected in fork`) — 2 file(s) (+135/-44)
+- `server/apps/api/src/routes/openai/v1/middlewares/telemetry.test.ts` *(+74/-5)*
+- `server/apps/api/src/routes/openai/v1/middlewares/telemetry.ts` *(+61/-39)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (15)
+- [PR] [#3464](https://github.com/moeru-ai/airi/pull/3464) `feat(artistry): add native OpenAI image generation` by **@jim139129** *(4 comments)*
+- [PR] [#3463](https://github.com/moeru-ai/airi/pull/3463) `fix(web-extension): read the playing video on YouTube Shorts` by **@FoolKc** *(4 comments)*
+- [PR] [#3462](https://github.com/moeru-ai/airi/pull/3462) `feat(stage-ui): store spark notify reactions in the chat session` by **@FoolKc** *(4 comments)*
+- [PR] [#3461](https://github.com/moeru-ai/airi/pull/3461) `fix(web-extension): notify the stage once per watched video` by **@FoolKc** *(4 comments)*
+- [PR] [#3460](https://github.com/moeru-ai/airi/pull/3460) `fix(ci): skip preview approval when preparation fails` by **@starvingarc** *(4 comments)*
+- [PR] [#3458](https://github.com/moeru-ai/airi/pull/3458) `feat(stage-tamagotchi,stage-web,stage-pocket,ui-server-auth): send error reports to Sentry` by **@luoling8192** *(3 comments)*
+- [PR] [#3459](https://github.com/moeru-ai/airi/pull/3459) `test(stage-tamagotchi): align width assertion with focus behavior` by **@nayounsang** *(Draft)* *(1 comments)*
+- [PR] [#3457](https://github.com/moeru-ai/airi/pull/3457) `feat(api-server): index llm_request_log by created_at` by **@luoling8192** *(3 comments)*
+- [PR] [#3455](https://github.com/moeru-ai/airi/pull/3455) `feat(stage-tamagotchi): add daily routines with reminders and agenda widgets` by **@Itthiago034** *(3 comments)*
+- [PR] [#3450](https://github.com/moeru-ai/airi/pull/3450) `feat(api-server): report GenAI metrics with the OTel semantic convention names` by **@luoling8192** *(3 comments)*
+- [PR] [#3454](https://github.com/moeru-ai/airi/pull/3454) `refactor(analytics): move product analytics back to PostHog` by **@luoling8192** *(3 comments)*
+- [PR] [#3453](https://github.com/moeru-ai/airi/pull/3453) `feat(stage-ui,i18n): show the upload progress of a display model` by **@luoling8192** *(3 comments)*
+- [PR] [#3452](https://github.com/moeru-ai/airi/pull/3452) `fix(stage-ui): resolve a picked display model once` by **@luoling8192** *(3 comments)*
+- [PR] [#3449](https://github.com/moeru-ai/airi/pull/3449) `feat(i18n): call the Capacitor entry and page "Subscription"` by **@luoling8192** *(3 comments)*
+- [PR] [#3448](https://github.com/moeru-ai/airi/pull/3448) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(3 comments)*
+
+#### 🔄 Status & Lifecycle Changes (4)
+- [PR] [#3433](https://github.com/moeru-ai/airi/pull/3433) `fix(web-extension): connect to the channel server and deliver notifications to the stage` — `OPEN` ➔ `MERGED`
+- [PR] [#2887](https://github.com/moeru-ai/airi/pull/2887) `fix(stage-ui): unify speech configuration for settings and chat` — `OPEN` ➔ `CLOSED`
+- [PR] [#3375](https://github.com/moeru-ai/airi/pull/3375) `refactor(stage-ui-spine): type versioned world transform calls` — `OPEN` ➔ `MERGED`
+- [PR] [#3356](https://github.com/moeru-ai/airi/pull/3356) `refactor(model-driver-mediapipe): type VRM bone lookups` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (6)
+- [PR] [#3440](https://github.com/moeru-ai/airi/pull/3440) `fix(provider-inference): support Volcengine Agent Plan` — *+1 comments (3 ➔ 4 total)*
+- [PR] [#3433](https://github.com/moeru-ai/airi/pull/3433) `fix(web-extension): connect to the channel server and deliver notifications to the stage` — *+6 comments (36 ➔ 42 total)*
+- [PR] [#3375](https://github.com/moeru-ai/airi/pull/3375) `refactor(stage-ui-spine): type versioned world transform calls` — *+1 comments (6 ➔ 7 total)*
+- [PR] [#3356](https://github.com/moeru-ai/airi/pull/3356) `refactor(model-driver-mediapipe): type VRM bone lookups` — *+1 comments (5 ➔ 6 total)*
+- [PR] [#3318](https://github.com/moeru-ai/airi/pull/3318) `fix(i18n): refine Simplified Chinese translations` — *+1 comments (3 ➔ 4 total)*
+- [PR] [#3027](https://github.com/moeru-ai/airi/pull/3027) `feat(stage-tamagotchi): add opt-in local AI HTTP proxy` — *+1 comments (17 ➔ 18 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [Draft] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+
+---
 ## [2026-11-08] Upstream Delta: `407d959b..cbc49a88` (11 commits, 69 files, 25 update(s))
 
 ### 🎯 Executive Highlights

@@ -528,6 +528,7 @@ const artistryProviderOptions = computed(() => {
     { value: 'comfyui', label: 'ComfyUI (Local)' },
     { value: 'nanobanana', label: 'Nano Banana (Google AI Studio)' },
     { value: 'replicate', label: 'Replicate (Cloud)' },
+    { value: 'openai-image', label: 'OpenAI GPT Image (Cloud)' },
   ]
 })
 

@@ -8,6 +8,7 @@ import { useLogg } from '@guiiai/logg'
 
 import { ComfyUIProvider } from './providers/comfyui'
 import { NanoBananaProvider } from './providers/nanobanana'
+import { OpenAIImageProvider } from './providers/openai-image'
 import { PollinationsProvider } from './providers/pollinations'
 import { ReplicateProvider } from './providers/replicate'
 
@@ -58,6 +59,7 @@ export const artistryProviders = new Map<string, ArtistryProvider>()
 artistryProviders.set('comfyui', new ComfyUIProvider())
 artistryProviders.set('replicate', new ReplicateProvider())
 artistryProviders.set('nanobanana', new NanoBananaProvider())
+artistryProviders.set('openai-image', new OpenAIImageProvider())
 artistryProviders.set('pollinations', new PollinationsProvider())
 
 // Deduplication map for headless requests
@@ -275,6 +277,8 @@ async function handleArtistryTrigger(params: {
       const request: ArtistryRequest = {
         prompt: configToUse.promptPrefix ? `${configToUse.promptPrefix} ${prompt}` : prompt,
         model: configToUse.model,
+        width: typeof options.width === 'number' ? options.width : undefined,
+        height: typeof options.height === 'number' ? options.height : undefined,
         extra: {
           ...props.payload,
           ...options,

@@ -1,3 +1,4 @@
+import { OPENAI_IMAGE_DEFAULTS } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
 import { computed, isRef } from 'vue'
@@ -57,6 +58,19 @@ export const useArtistryStore = defineStore('artistry', () => {
     'artistry-nanobanana-resolution',
     '1K',
   )
+
+  // --- OpenAI GPT Image provider settings ---
+  const openaiImageApiKey = useLocalStorageManualReset<string>('artistry-openai-image-api-key', '')
+  const openaiImageBaseUrl = useLocalStorageManualReset<string>(
+    'artistry-openai-image-base-url',
+    OPENAI_IMAGE_DEFAULTS.baseUrl,
+  )
+  const openaiImageModel = useLocalStorageManualReset<string>(
+    'artistry-openai-image-model',
+    OPENAI_IMAGE_DEFAULTS.model,
+  )
+  const openaiImageWidth = useLocalStorageManualReset<string>('artistry-openai-image-width', '')
+  const openaiImageHeight = useLocalStorageManualReset<string>('artistry-openai-image-height', '')
 
   // --- Pollinations AI provider settings ---
   const pollinationsApiKey = useLocalStorageManualReset<string>('artistry-pollinations-api-key', '')
@@ -122,6 +136,11 @@ export const useArtistryStore = defineStore('artistry', () => {
     nanobananaApiKey.reset()
     nanobananaModel.reset()
     nanobananaResolution.reset()
+    openaiImageApiKey.reset()
+    openaiImageBaseUrl.reset()
+    openaiImageModel.reset()
+    openaiImageWidth.reset()
+    openaiImageHeight.reset()
     pollinationsApiKey.reset()
     pollinationsModel.reset()
     pollinationsWidth.reset()
@@ -145,6 +164,10 @@ export const useArtistryStore = defineStore('artistry', () => {
       return !!nanobananaApiKey.value
     }
 
+    if (activeProvider.value === 'openai-image') {
+      return !!openaiImageApiKey.value.trim() && !!openaiImageBaseUrl.value.trim() && !!openaiImageModel.value.trim()
+    }
+
     if (activeProvider.value === 'pollinations') {
       return true
     }
@@ -163,6 +186,11 @@ export const useArtistryStore = defineStore('artistry', () => {
     nanobananaApiKey: nanobananaApiKey.value,
     nanobananaModel: nanobananaModel.value,
     nanobananaResolution: nanobananaResolution.value,
+    openaiImageApiKey: openaiImageApiKey.value,
+    openaiImageBaseUrl: openaiImageBaseUrl.value,
+    openaiImageModel: openaiImageModel.value,
+    openaiImageWidth: openaiImageWidth.value,
+    openaiImageHeight: openaiImageHeight.value,
     pollinationsApiKey: pollinationsApiKey.value,
     pollinationsModel: pollinationsModel.value,
     pollinationsWidth: pollinationsWidth.value,
@@ -193,6 +221,13 @@ export const useArtistryStore = defineStore('artistry', () => {
     nanobananaApiKey,
     nanobananaModel,
     nanobananaResolution,
+
+    // OpenAI GPT Image provider config
+    openaiImageApiKey,
+    openaiImageBaseUrl,
+    openaiImageModel,
+    openaiImageWidth,
+    openaiImageHeight,
 
     // Pollinations AI provider config
     pollinationsApiKey,

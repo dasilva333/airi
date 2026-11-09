@@ -1,5 +1,11 @@
 import { defineInvokeEventa } from '@moeru/eventa'
 
+/** Shared defaults for the independent OpenAI Images provider in settings and the desktop runtime. */
+export const OPENAI_IMAGE_DEFAULTS = {
+  baseUrl: 'https://api.openai.com/v1/',
+  model: 'gpt-image-2.6-sunburst',
+} as const
+
 export const artistryGenerateHeadless = defineInvokeEventa<{ imageUrl?: string, base64?: string, error?: string }, { prompt: string, model?: string, provider?: string, options?: Record<string, any>, globals?: Record<string, any> }>('eventa:invoke:electron:artistry:generate-headless')
 
 export const artistryComfyHealthCheck = defineInvokeEventa<{ gpus: string, vramStr: string }, { url: string }>('eventa:invoke:electron:artistry:comfy-health-check')

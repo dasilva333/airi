@@ -40,6 +40,8 @@ export const imageJournalParams = z.object({
   query: z.string().nullish().describe('Search term when applying an existing image, or prompt when creating.'),
   title: z.string().nullish().describe('Label or title for the image entry (optional).'),
   mode: z.enum(['inline', 'widget', 'bg', 'bg_widget']).nullish().describe('Display mode: "inline" (in chat), "widget" (overlay), "bg" (environment), or "bg_widget" (both). Defaults to character preference.'),
+  width: z.number().int().positive().nullish().describe('Output width in pixels. Set with height to override saved dimensions, including retries. OpenAI requires positive multiples of 16. Null uses defaults.'),
+  height: z.number().int().positive().nullish().describe('Output height in pixels. Set with width to override saved dimensions, including retries. OpenAI requires positive multiples of 16. Null uses defaults.'),
 })
 
 function tryGetLastUserMessage(): string | undefined {
@@ -73,6 +75,8 @@ export async function executeCreateImageJournalEntry(params: {
   prompt?: string
   title?: string
   mode?: 'inline' | 'widget' | 'bg' | 'bg_widget'
+  width?: number | null
+  height?: number | null
 }) {
   try {
     let prompt = params.prompt?.trim()
@@ -86,6 +90,9 @@ export async function executeCreateImageJournalEntry(params: {
 
     if (!prompt)
       return 'Error: prompt is required for image_journal.create. Please provide a description of the image.'
+
+    if ((params.width != null) !== (params.height != null))
+      throw new Error('Set both width and height to override the image size, or leave both empty to use defaults.')
 
     const backgroundStore = useBackgroundStore()
     const cardStore = useAiriCardStore()
@@ -107,11 +114,16 @@ export async function executeCreateImageJournalEntry(params: {
     const spawnMode = activeCard?.extensions?.airi?.artistry?.spawnMode
     const mode = params.mode || spawnMode || 'inline'
 
+    const optionsToUse = {
+      ...artistryConfig.options,
+      ...(params.width != null && params.height != null ? { width: params.width, height: params.height } : {}),
+    }
+
     const artistryResult = await generateHeadless({
       prompt: artistryConfig.promptPrefix ? `${artistryConfig.promptPrefix} ${prompt}` : prompt,
       model: artistryConfig.model as string,
       provider: artistryConfig.provider as string,
-      options: JSON.parse(JSON.stringify(artistryConfig.options || {})),
+      options: JSON.parse(JSON.stringify(optionsToUse)),
       globals: JSON.parse(JSON.stringify(artistryConfig.Globals || {})),
     })
 
@@ -293,6 +305,8 @@ export async function executeImageJournalAction(params: any) {
     title: rawParams.title ? String(rawParams.title).trim() : undefined,
     query: resolvedQuery || undefined,
     mode: rawParams.mode ?? undefined,
+    width: rawParams.width != null ? Number(rawParams.width) : undefined,
+    height: rawParams.height != null ? Number(rawParams.height) : undefined,
   }
 
   if (normalizedParams.action === 'create')

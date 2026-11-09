@@ -28,6 +28,10 @@ const {
   replicateAspectRatio,
   comfyuiActiveWorkflow,
   comfyuiSavedWorkflows,
+  openaiImageModel,
+  openaiImageApiKey,
+  openaiImageWidth,
+  openaiImageHeight,
 } = storeToRefs(artistryStore)
 
 const generateInvoke = useElectronEventaInvoke(artistryGenerateHeadless)
@@ -71,6 +75,15 @@ const providers = [
     configRoute: '/settings/providers/artistry/replicate',
   },
   {
+    id: 'openai-image',
+    name: 'OpenAI GPT Image',
+    badge: 'OpenAI API',
+    badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    description: 'Generate and edit images with native OpenAI Images API.',
+    icon: 'i-solar:gallery-bold-duotone',
+    configRoute: '/settings/providers/artistry/openai-image',
+  },
+  {
     id: 'none',
     name: 'None (Disabled)',
     badge: 'Disabled',
@@ -112,6 +125,19 @@ const nanobananaModelOptions = [
   { label: 'Nano Banana Pro (Gemini 3 Pro Image)', value: 'gemini-3-pro-image-preview' },
   { label: 'Nano Banana (Gemini 2.5 Flash Image)', value: 'gemini-2.5-flash-image' },
 ]
+
+// --- OpenAI Image Models ---
+const openaiImageModelOptions = computed(() => {
+  const base = [
+    { label: 'GPT Image 2.6 Sunburst (Default)', value: 'gpt-image-2.6-sunburst' },
+    { label: 'DALL-E 3 (High Quality)', value: 'dall-e-3' },
+    { label: 'DALL-E 2 (Fast)', value: 'dall-e-2' },
+  ]
+  if (openaiImageModel.value && !base.some(m => m.value === openaiImageModel.value)) {
+    base.unshift({ label: `${openaiImageModel.value} (Custom)`, value: openaiImageModel.value })
+  }
+  return base
+})
 
 // --- Replicate Models ---
 const replicateModelOptions = computed(() => {
@@ -285,6 +311,11 @@ async function generatePreviewImage() {
     }
     else if (providerId === 'comfyui') {
       modelId = comfyuiActiveWorkflow.value
+    }
+    else if (providerId === 'openai-image') {
+      modelId = openaiImageModel.value || 'gpt-image-2.6-sunburst'
+      width = Number(openaiImageWidth.value) || 1024
+      height = Number(openaiImageHeight.value) || 1024
     }
 
     generationStatusLabel.value = `Dispatching to ${providerId.toUpperCase()}...`
@@ -598,6 +629,23 @@ onMounted(() => {
                 placeholder="Select a workflow..."
                 class="w-full text-xs"
               />
+            </div>
+          </div>
+
+          <!-- OpenAI GPT Image -->
+          <div v-else-if="activeProvider === 'openai-image'" class="border-t border-neutral-100 pt-3 space-y-3 dark:border-neutral-800">
+            <div class="w-full flex flex-col gap-1.5">
+              <label class="text-xs text-neutral-600 font-medium dark:text-neutral-300">
+                OpenAI Image Model
+              </label>
+              <Select
+                v-model="openaiImageModel"
+                :options="openaiImageModelOptions"
+                class="w-full text-xs"
+              />
+            </div>
+            <div v-if="!openaiImageApiKey" class="rounded-lg bg-amber-500/10 p-2.5 text-[11px] text-amber-600 dark:text-amber-400">
+              API key not configured. Click "Provider Settings & Keys" below to configure credentials.
             </div>
           </div>
 

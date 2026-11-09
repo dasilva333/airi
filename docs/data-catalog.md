@@ -1023,6 +1023,11 @@ interface VoiceProfile {
 | `artistry-nanobanana-api-key` | `stores/modules/artistry.ts` |
 | `artistry-nanobanana-model` | `stores/modules/artistry.ts` |
 | `artistry-nanobanana-resolution` | `stores/modules/artistry.ts` |
+| `artistry-openai-image-api-key` | `stores/modules/artistry.ts` |
+| `artistry-openai-image-base-url` | `stores/modules/artistry.ts` |
+| `artistry-openai-image-model` | `stores/modules/artistry.ts` |
+| `artistry-openai-image-width` | `stores/modules/artistry.ts` |
+| `artistry-openai-image-height` | `stores/modules/artistry.ts` |
 
 ### 4.9 Sync Engine
 

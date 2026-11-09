@@ -26,6 +26,7 @@ import { useMcpStore } from '../stores/mcp'
 import { useShortTermMemoryStore } from '../stores/memory-short-term'
 import { useTextJournalStore } from '../stores/memory-text-journal'
 import { useAiriCardStore } from '../stores/modules/airi-card'
+import { useArtistryStore } from '../stores/modules/artistry'
 import { useConsciousnessStore } from '../stores/modules/consciousness'
 import { useDiscordStore } from '../stores/modules/discord'
 import { useFactorioStore } from '../stores/modules/gaming-factorio'
@@ -77,6 +78,7 @@ export function useDataMaintenance() {
   const mcpStore = useMcpStore()
   const onboardingStore = useOnboardingStore()
   const airiCardStore = useAiriCardStore()
+  const artistryStore = useArtistryStore()
   const shortTermMemoryStore = useShortTermMemoryStore()
   const textJournalStore = useTextJournalStore()
   const backgroundStore = useBackgroundStore()
@@ -95,6 +97,7 @@ export function useDataMaintenance() {
     hearingStore.resetState()
     speechStore.resetState()
     consciousnessStore.resetState()
+    artistryStore.resetState()
     twitterStore.resetState()
     discordStore.resetState()
     factorioStore.resetState()
