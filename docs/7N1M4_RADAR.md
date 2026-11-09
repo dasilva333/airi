@@ -18,6 +18,96 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-09] 7n1m4 Fork Delta: `2b0703f1..e8c9f7bf` (1 commits, 14 files, 2 update(s))
+
+### 🚨 Action Required: Direct Mentions & Maintainer Inquiries
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6382505252)):
+  > "@dasilva333  — thank you for putting together such a comprehensive blueprint! Having reviewed it end-to-end, the proposed 4-layer inversion aligns perfectly with our architecture and integrates seamlessly into the components we have already deployed without any structural rework. ### Architecture Ma"
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@anlmabot** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6442783645)):
+  > "Phase 6 PR 1 landed: ported `packages/stage-shared/src/peers.ts` (+12 tests) as the Universal Friends & Peers domain substrate. Transport-agnostic, sovereign-adapted (libp2p multiaddrs, no Cloudflare relay). PR: https://github.com/dasilva333/airi/pull/30. Next: reconciler (libp2p-based same-account "
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@anlmabot** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6453934222)):
+  > "## 2026-10-28 — feat/nap-chat-substrate-unify (PR #22) Opened PR #22 unifying fork nap-chat substrate onto upstream (dasilva333/airi) design to eliminate code silos. Shipped on branch `feat/nap-chat-substrate-unify` (commit b23152b4a):"
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6473559133)):
+  > "--- ## Milestone: Fork-upstream alignment (devlog #24) We’re kicking off a focused effort to stay closely aligned with upstream (dasilva333/airi) for painless porting of features/improvements."
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6476456954)):
+  > "Progress checkpoint summary: - Ported peers vault sync (peers-reconciler + store methods) committed as b99f02811. - Restored peers tests."
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6477119522)):
+  > "Upstream contract alignment progress: ported peers vault sync, cadence delivery + libs + speech bus, dsl-snapshot, composer-draft-bridge, message-sanitizer, compaction exports, cloudflare-auth + cors-proxy-worker-script, stickers + image-convert + background-removal, sandbox libs, ming3, perf/tracer"
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6477379397)):
+  > "Typecheck clean (exit 0). All upstream contract alignment work complete. Commits: ba2d6c370 (contract alignment, 73 files), ad0e53485 (remaining typecheck fixes, 33 files). Removed dead sandbox module (no external callers). Working tree clean. Ready for next task. --- _Posted by **Beam from Anima La"
+
+### 🎯 Executive Highlights
+Sister Fork Intelligence Briefing & Testing Parity Expansion:
+
+• **Executive Highlights**:
+  - **Measure-First Test Coverage & Vitest Root Wiring (PR #38, commit `e8c9f7bf7`)**: 7n1m4 executed a major test coverage sprint across the monorepo. Crucially, they wired `packages/nan0-runtime`, `packages/speech-transformer-chem`, and `packages/speech-transformer-math` into root `vitest.config.ts` projects, surfacing **42 test suites and 739 tests** previously excluded from root `pnpm test` and CI runs.
+  - **Shared Layered-Memory Mock Contract (`mock-layered-memory.ts` + `mock-layered-memory.test.ts`)**: Established a standardized, contract-tested mock factory for `layeredMemory` in `packages/stage-ui/src/test-utils/`. Eliminates hand-rolled mock drift across 5 store suites (`agentic-guard`, `echo-chips`, `nap-chat-surface`, and `memory-text-journal` x2) and permanently silences the ~42 unhandled promise rejections previously caused by missing methods like `fetchStatus`.
+  - **Compaction Distillation End-to-End Suite (`compaction.test.ts`)**: Expanded `useCompactionStore` tests to validate the `strategy === "distill"` branch across multiple day buckets, asserting that short-term memory (STMM) blocks are persisted and sessions are pruned to system + active tail without corrupting System-1 winnowing.
+  - **Background Builtin Seeding Resilience (`background.test.ts`)**: Added unit test suite covering `useBackgroundStore.initializeStore()`, testing successful blob retrieval and localforage persistence for `builtin:cozy-tea-corner` and `builtin:cute-streaming-room`, graceful single-error logging on network drop, and prevention of redundant fetches for cached wallpapers.
+  - **New High-Coverage Unit Suites**: Added full coverage suites for `libs/providers/tool-call-budget.ts` (100% lines, 7 tests; enforces `DEFAULT_MAX_TOOL_STEPS = 20` and round caps), `libs/search/turn-chunker.ts` (100% lines, 5 tests; sliding window turn chunking), and `utils/math-speech.ts` (~93% lines, 15 tests; BCP 47 mapping, dominant script detection, bare LaTeX parsing).
+  - **Test Parity Catalog Reconciliation (`docs/project-testing-parity.md`)**: Reconciled 176 uncataloged suites into the canonical document, raising the verified monorepo baseline to 372 root-collected suites / 4,437 tests with 0 failures.
+
+• **Discussion Velocity**:
+  - **Issue #17 ([CI] Cross-WAN rendezvous)**: High-frequency automated CI coordination added +18 new comments (total 369 comments), maintaining the multiaddr signaling bus for isolated runner mesh tests.
+  - **PR #38 (`test(coverage): measure-first pass`)**: Authored and merged by @7n1m4, integrating the full test-coverage improvement plan and establishing coverage thresholds (32/24/31/33).
+
+• **Cherry-Pick Candidates**:
+  - **Root `vitest.config.ts` Package Wiring (`vitest.config.ts`)**: **High Priority / Zero Risk**. Add `packages/nan0-runtime`, `packages/speech-transformer-chem`, and `packages/speech-transformer-math` to projects array to immediately run all 739 nan0 and speech transformer tests during root `pnpm test`.
+  - **Layered-Memory Shared Mock Factory (`packages/stage-ui/src/test-utils/mock-layered-memory.ts` & test)**: **High Priority / Test Quality**. Centralizes `layeredMemory` mocks and provides contract verification to prevent test suite mock drift and unhandled rejection noise.
+  - **Turn Chunker & Tool-Call Budget Test Suites (`packages/stage-ui/src/libs/search/turn-chunker.test.ts`, `packages/stage-ui/src/libs/providers/tool-call-budget.test.ts`)**: **High Priority / Immediate Port**. 100% coverage suites for pure utility logic with zero application dependencies.
+  - **Math Speech & Background Seeding Test Suites (`packages/stage-ui/src/utils/math-speech.test.ts`, `packages/stage-ui/src/stores/background.test.ts`)**: **High Priority / Immediate Port**. Comprehensive unit tests validating speech translation helpers and background wallpaper cache lifecycle.
+  - **Compaction Distill Verification Test (`packages/stage-ui/src/stores/chat/compaction.test.ts`)**: **High Priority / Immediate Port**. Exercises end-to-end multi-day STMM bucket distillation.
+
+• **Collision Warnings**:
+  - **Store Test Migration Parity (`memory-text-journal.background-index.test.ts`)**: 7n1m4 preserved a verbatim live-getter override for `lastIndexState` because plain property replacement breaks two indexing tests. Ensure this live-getter override is retained when porting the mock factory into `dasilva333/airi`.
+  - **Vitest Coverage Thresholds**: 7n1m4's root coverage thresholds require careful validation when ported to ensure existing `dasilva333/airi` custom modules do not trigger unexpected threshold failures in CI.
+
+### 📋 7n1m4 Fork Commits
+- `e8c9f7bf7` test(coverage): measure-first pass — root wiring, mock contract, distill + seeding + 3 suites, catalog reconciled (#38) [#38](https://github.com/7n1m4/airi/pull/38) _(ヴィオレット, 2026-11-09)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 1 file(s) (+223/-12)
+- `docs/project-testing-parity.md` *(+223/-12)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 9 file(s) (+421/-34)
+- `packages/stage-ui/src/libs/providers/tool-call-budget.test.ts` *(+87/-0)*
+- `packages/stage-ui/src/libs/search/turn-chunker.test.ts` *(+74/-0)*
+- `packages/stage-ui/src/stores/agentic-guard.test.ts` *(+4/-7)*
+- `packages/stage-ui/src/stores/echo-chips.test.ts` *(+23/-20)*
+- `packages/stage-ui/src/stores/nap-chat-surface.test.ts` *(+4/-7)*
+- `packages/stage-ui/src/test-utils/mock-layered-memory.test.ts` *(+57/-0)*
+- `packages/stage-ui/src/test-utils/mock-layered-memory.ts` *(+49/-0)*
+- `packages/stage-ui/src/utils/math-speech.test.ts` *(+120/-0)*
+- `vitest.config.ts` *(+3/-0)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 1 file(s) (+157/-0)
+- `packages/stage-ui/src/stores/background.test.ts` *(+157/-0)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 3 file(s) (+76/-20)
+- `packages/stage-ui/src/stores/chat/compaction.test.ts` *(+55/-1)*
+- `packages/stage-ui/src/stores/memory-text-journal.background-index.test.ts` *(+17/-12)*
+- `packages/stage-ui/src/stores/memory-text-journal.test.ts` *(+4/-7)*
+
+### 📬 7n1m4 Fork Activity Radar
+#### 🆕 New Items Opened (1)
+- [PR] [#38](https://github.com/anlmalabs/airi/pull/38) `test(coverage): measure-first pass — root wiring, mock contract, distill + seeding + 3 suites, catalog reconciled` by **@7n1m4** *(0 comments)*
+
+#### 💬 Discussion Activity (1)
+- [Issue] [#17](https://github.com/anlmalabs/airi/issues/17) `[CI] Cross-WAN rendezvous (auto-managed, do not close)` — *+18 comments (351 ➔ 369 total)*
+
+### 👁️ Watched 7n1m4 Fork Monitor
+- [PR] [#7](https://github.com/anlmalabs/airi/pull/7) `feat(agentic): presence single source + nap & companion nap-chat` [MERGED] — *(1 comments)*
+  - *Focus*: Presence-derived idle state triggering autonomous peer-to-peer companion nap-chat over libp2p with memory write-back & recap
+- [PR] [#6](https://github.com/anlmalabs/airi/pull/6) `feat(libp2p): complete pairing over the wire and paired-device management` [MERGED] — *(0 comments)*
+  - *Focus*: Wire pairing negotiation, multiaddr identity storage, and eventa message transport
+- [PR] [#8](https://github.com/anlmalabs/airi/pull/8) `fix: migrate zod imports to default for Node 26 Vite SSR interop` [MERGED] — *(0 comments)*
+  - *Focus*: Vite SSR interop for Node 26 runtime
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` [OPEN] — *(33 comments)*
+  - *Focus*: Violet's master roadmap and architectural milestone tracker
+- [Issue] [#4](https://github.com/anlmalabs/airi/issues/4) `Phase 3: Agentic OS Integration` [CLOSED] — *(0 comments)*
+  - *Focus*: Autonomous mode toggle, memory-driven proactive intentions, Jev decision loop
+
+---
 ## [2026-11-08] 7n1m4 Fork Delta: `3c58f428..2b0703f1` (26 commits, 427 files, 8 update(s))
 
 ### 🚨 Action Required: Direct Mentions & Maintainer Inquiries

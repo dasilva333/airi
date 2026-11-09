@@ -120,7 +120,7 @@ describe('compaction pure helpers', () => {
   })
 })
 
-describe('useCompactionStore: prune & winnow strategies', () => {
+describe('useCompactionStore: prune, winnow & distill strategies', () => {
   function seedSession(strategy: string, contextWidth = 200) {
     shared.activeCard = {
       name: 'Airi',
@@ -205,6 +205,60 @@ describe('useCompactionStore: prune & winnow strategies', () => {
     expect(shared.runWinnowTurnCompaction).not.toHaveBeenCalled()
 
     // Fell back cleanly to prune (keeping only minKeepTurns = 2 + system message)
+    const remaining = shared.sessionMessages.get('s1')!
+    expect(remaining.map(m => m.id)).toEqual(['sys-0', 'p1', 'p2'])
+  })
+
+  it('distills toCompact into one short-term-memory block per day bucket, then prunes to system + preserved tail', async () => {
+    seedSession('distill', 120)
+    // Distill reads windows from card extensions; default windowSize (3) would
+    // cover both seeded days, so no override is needed — but make it explicit.
+    shared.activeCard.extensions.airi.shortTermMemory = { windowSize: 3, tokenBudgetPerDay: 1000 }
+    // Overwrite seeded messages with createdAt spread over two past days so
+    // the distill bucketer sees two distinct day buckets.
+    const day1 = new Date('2026-09-01T10:00:00Z').getTime()
+    const day2 = new Date('2026-09-02T10:00:00Z').getTime()
+    const messages = [
+      { id: 'sys-0', role: 'system', content: 'You are Airi.' },
+      { id: 'c1', role: 'user', content: 'Day one question about ships?', createdAt: day1 },
+      { id: 'c2', role: 'assistant', content: 'Day one answer about ships.', createdAt: day1 + 60_000 },
+      { id: 'c3', role: 'user', content: 'Day two question about ramen?', createdAt: day2 },
+      { id: 'c4', role: 'assistant', content: 'Day two answer about ramen.', createdAt: day2 + 60_000 },
+      { id: 'p1', role: 'user', content: 'Recent turn 1', createdAt: Date.now() },
+      { id: 'p2', role: 'assistant', content: 'Recent turn 2', createdAt: Date.now() },
+    ]
+    shared.sessionMessages.set('s1', messages)
+    shared.summarizeBucket.mockReset()
+    shared.summarizeBucket.mockImplementation(async (_characterId: string, _card: any, _provider: any, modelId: string, bucket: any) => ({
+      characterId: 'char-1',
+      date: bucket.date,
+      summary: `Distilled ${bucket.date} from ${bucket.messageCount} messages via ${modelId}`,
+      importance: 5,
+      embedding: Array.from({ length: 384 }, () => 0.1),
+    }))
+    shared.persistStmm.mockReset()
+
+    setActivePinia(createPinia())
+    const store = useCompactionStore()
+    await store.executeCompaction('s1')
+
+    // 1. Archive session created in the session's universe, with every message.
+    expect(shared.createdArchives).toHaveLength(1)
+    expect(shared.createdArchives[0].universeId).toBe('cyberpunk-au')
+    expect(shared.createdArchives[0].messages).toHaveLength(7)
+
+    // 2. One LLM distillation per day bucket (two buckets), never touching System 1.
+    expect(shared.summarizeBucket).toHaveBeenCalledTimes(2)
+    expect(shared.runWinnowTurnCompaction).not.toHaveBeenCalled()
+
+    // 3. Distilled blocks persisted to the short-term-memory store.
+    expect(shared.persistStmm).toHaveBeenCalledTimes(1)
+    const persisted = shared.persistStmm.mock.calls[0][0]
+    expect(persisted.map((b: any) => b.date).sort()).toEqual(['2026-09-01', '2026-09-02'])
+    expect(persisted.every((b: any) => b.summary.startsWith('Distilled'))).toBe(true)
+
+    // 4. Active session reduced to system message + preserved tail; compacted
+    // turns survive only inside the STMM blocks, not verbatim.
     const remaining = shared.sessionMessages.get('s1')!
     expect(remaining.map(m => m.id)).toEqual(['sys-0', 'p1', 'p2'])
   })

@@ -19,17 +19,10 @@ vi.mock('../database/repos/text-journal.repo', () => ({
 // posts a message to a real Web Worker spawned from a Vite `?worker` module —
 // an environment the Node test runner cannot answer, so every test hung. Same
 // seam the sibling store suite (echo-chips) already mocks.
-vi.mock('../libs/search/layered-memory', () => ({
-  LAST_INDEXED_TURN_KEY: 'airi:search:last-indexed-turn',
-  layeredMemory: {
-    init: vi.fn(async () => ({ stale: false, reason: null })),
-    indexDocuments: vi.fn(async () => undefined),
-    persist: vi.fn(async () => undefined),
-    fetchStatus: vi.fn(async () => null),
-    lastIndexState: { stale: false, lastIndexedTurnAt: 0 },
-    search: vi.fn(async () => []),
-  },
-}))
+vi.mock('../libs/search/layered-memory', async () => {
+  const { createMockLayeredMemoryModule } = await import('../test-utils/mock-layered-memory')
+  return createMockLayeredMemoryModule()
+})
 
 // NOTICE: Pinia v3's storeToRefs iterates all keys and does `value.effect` before
 // isRef/isReactive — it crashes on null/primitive values. The correct pattern is to

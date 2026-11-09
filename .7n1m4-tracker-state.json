@@ -1,6 +1,6 @@
 {
-  "last_inspected_sha": "2b0703f19b0f22e2a8bac321615b2023791cef9a",
-  "last_run_timestamp": "2026-11-08T16:05:17.866Z",
+  "last_inspected_sha": "e8c9f7bf7a1c3c01f10ce6fe8e10ab5bc14dab0c",
+  "last_run_timestamp": "2026-11-09T16:08:26.773Z",
   "remote": "7n1m4",
   "branch": "main",
   "tracked_prs": {
@@ -179,8 +179,8 @@
       "state": "OPEN",
       "isDraft": false,
       "author": "anlmabot",
-      "commentsCount": 351,
-      "updatedAt": "2026-11-08T12:24:40Z",
+      "commentsCount": 369,
+      "updatedAt": "2026-11-09T05:10:20Z",
       "url": "https://github.com/anlmalabs/airi/issues/17",
       "type": "Issue"
     },
@@ -373,6 +373,16 @@
       "updatedAt": "2026-11-07T21:57:54Z",
       "url": "https://github.com/anlmalabs/airi/pull/34",
       "type": "PR"
+    },
+    "PR:38": {
+      "title": "test(coverage): measure-first pass — root wiring, mock contract, distill + seeding + 3 suites, catalog reconciled",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-09T05:09:09Z",
+      "url": "https://github.com/anlmalabs/airi/pull/38",
+      "type": "PR"
     }
   },
   "history": [
@@ -471,6 +481,14 @@
       "commits_count": 26,
       "files_count": 427,
       "pr_changes_count": 8
+    },
+    {
+      "date": "2026-11-09T16:08:26.773Z",
+      "from_sha": "2b0703f19b0f22e2a8bac321615b2023791cef9a",
+      "to_sha": "e8c9f7bf7a1c3c01f10ce6fe8e10ab5bc14dab0c",
+      "commits_count": 1,
+      "files_count": 14,
+      "pr_changes_count": 2
     }
   ],
   "acknowledged_mentions": [

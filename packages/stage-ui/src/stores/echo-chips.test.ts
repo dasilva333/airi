@@ -40,26 +40,29 @@ vi.mock('../database/repos/chat-sessions.repo', () => ({
   },
 }))
 
-vi.mock('../libs/search/layered-memory', () => ({
-  layeredMemory: {
-    search: vi.fn(async () => [
-      {
-        id: 'hist-1',
-        layer: 'long_term',
-        date: '2026-07-15',
-        observed_text: 'Alice and user explored the abandoned lighthouse during a thunderstorm.',
-        timestamp: 500, // Historical: before window
-      },
-      {
-        id: 'window-turn',
-        layer: 'dialogue',
-        date: '2026-08-01',
-        observed_text: 'Do you remember our adventure at the old lighthouse?',
-        timestamp: 1000, // Inside window: should be filtered out
-      },
-    ]),
-  },
-}))
+vi.mock('../libs/search/layered-memory', async () => {
+  const { createMockLayeredMemoryModule } = await import('../test-utils/mock-layered-memory')
+  return createMockLayeredMemoryModule({
+    layeredMemory: {
+      search: vi.fn(async () => [
+        {
+          id: 'hist-1',
+          layer: 'long_term',
+          date: '2026-07-15',
+          observed_text: 'Alice and user explored the abandoned lighthouse during a thunderstorm.',
+          timestamp: 500, // Historical: before window
+        },
+        {
+          id: 'window-turn',
+          layer: 'dialogue',
+          date: '2026-08-01',
+          observed_text: 'Do you remember our adventure at the old lighthouse?',
+          timestamp: 1000, // Inside window: should be filtered out
+        },
+      ]),
+    },
+  })
+})
 
 const h = vi.hoisted(() => ({
   userId: { r: null as any },

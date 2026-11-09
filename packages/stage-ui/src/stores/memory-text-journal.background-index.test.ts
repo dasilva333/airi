@@ -39,19 +39,24 @@ const h = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('../libs/search/layered-memory', () => ({
-  LAST_INDEXED_TURN_KEY: 'airi:search:last-indexed-turn',
-  layeredMemory: {
-    init: vi.fn(async () => h.lastIndexState),
-    indexDocuments: h.indexDocuments,
-    persist: h.persist,
-    fetchStatus: h.fetchStatus,
-    get lastIndexState() {
-      return h.lastIndexState
+vi.mock('../libs/search/layered-memory', async () => {
+  const { createMockLayeredMemoryModule } = await import('../test-utils/mock-layered-memory')
+  const mod = createMockLayeredMemoryModule({
+    layeredMemory: {
+      init: vi.fn(async () => h.lastIndexState),
+      indexDocuments: h.indexDocuments,
+      persist: h.persist,
+      fetchStatus: h.fetchStatus,
+      search: vi.fn(async () => []),
     },
-    search: vi.fn(async () => []),
-  },
-}))
+  })
+  Object.defineProperty(mod.layeredMemory, 'lastIndexState', {
+    get: () => h.lastIndexState,
+    enumerable: true,
+    configurable: true,
+  })
+  return mod
+})
 
 vi.mock('../utils/memory-sentinel', () => ({
   shouldDegradeBackgroundWork: () => false,
