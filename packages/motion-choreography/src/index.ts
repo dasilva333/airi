@@ -1,3 +1,4 @@
+export * from './conductor/index.js'
 export * from './dsp/index.js'
 export * from './kinematics/index.js'
 export * from './synthesizer.js'

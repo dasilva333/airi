@@ -149,3 +149,73 @@ export interface KeyPoseExtractionOptions {
   /** Whether to decode 6D rotations to quaternions for joints (default: true) */
   decodeJointRotations?: boolean
 }
+
+/**
+ * Options configuring beat-to-keypoint alignment ("The Conductor").
+ */
+export interface BeatAlignmentOptions {
+  /** Musical metric structure hint (e.g. 'waltz_triple', 'four_on_the_floor') */
+  rhythmStructure?: RhythmStructure
+  /** Cadence targeting: align to every beat, downbeats only, or adaptively based on rhythm */
+  cadence?: 'all_beats' | 'downbeats_only' | 'adaptive'
+  /** Maximum allowed elastic time-warp stretch factor (default: 2.5) */
+  maxWarpRatio?: number
+  /** Minimum allowed elastic time-warp compress factor (default: 0.4) */
+  minWarpRatio?: number
+}
+
+/**
+ * Mapping connecting an extracted anchor keyframe to a specific audio beat timestamp.
+ */
+export interface AlignedKeyframeMapping {
+  /** Index into danceSheet.keyframes */
+  keyframeIndex: number
+  /** Frame index in original sequence */
+  frameIndex: number
+  /** Original timestamp in seconds */
+  originalTimeSeconds: number
+  /** Target beat timestamp in seconds where this pose will land */
+  targetBeatSeconds: number
+  /** Associated pose type */
+  poseType: PoseType
+  /** Saliency score */
+  salienceScore: number
+  /** Time warp scale for this segment (targetInterval / sourceInterval) */
+  warpRatio: number
+}
+
+/**
+ * Overall result of the Conductor's beat alignment pass.
+ */
+export interface ConductorAlignmentResult {
+  /** Ordered list of aligned keyframe mappings */
+  mappings: AlignedKeyframeMapping[]
+  /** Total aligned duration in seconds */
+  totalDurationSeconds: number
+  /** Average time warp ratio across all segments */
+  averageWarpRatio: number
+  /** Metric ratio range [minWarp, maxWarp] */
+  warpRange: [number, number]
+}
+
+/**
+ * Interpolated 3D pose frame evaluated at a specific playback second.
+ */
+export interface WarpedPoseFrame {
+  /** Current playback time in seconds */
+  timeSeconds: number
+  /** Interpolated root translation [x, y, z] */
+  rootTranslation: [number, number, number]
+  /** Interpolated root rotation quaternion [x, y, z, w] */
+  rootRotation: [number, number, number, number]
+  /** Interpolated joint rotations by joint name */
+  jointRotations: Record<string, [number, number, number, number]>
+  /** Active / nearest keyframe index */
+  activeKeyframeIndex: number
+  /** Index of preceding keyframe mapping */
+  precedingKeyframeIndex: number
+  /** Index of succeeding keyframe mapping */
+  succeedingKeyframeIndex: number
+  /** Phase progress between preceding and succeeding keyframes (0.0 to 1.0) */
+  phaseProgress: number
+}

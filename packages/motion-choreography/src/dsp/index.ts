@@ -1,4 +1,5 @@
 export * from './analyzer.js'
 export * from './fft.js'
 export * from './jev-genre-resolver.js'
+export * from './synthetic-audio.js'
 export * from './wav.js'

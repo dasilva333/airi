@@ -716,8 +716,12 @@ pages:
         figurines from images
     code-assistant:
       title: Code Assistant Notifications
-      description: Let your companion react when your coding assistant is working, needs
-        you, or finishes
+      description: Let your companion react when your coding assistant is working,
+        needs you, or finishes
+    motion_choreography:
+      title: Motion Choreography
+      description: Acoustic DSP rhythm analysis, FlowMDM 3D dance synthesis, and elastic
+        beat-warp conductor
   providers:
     explained:
       chat: Text generation model providers. e.g. OpenRouter, OpenAI, Ollama.

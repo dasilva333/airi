@@ -2607,6 +2607,9 @@ importers:
       '@proj-airi/i18n':
         specifier: workspace:*
         version: link:../i18n
+      '@proj-airi/motion-choreography':
+        specifier: workspace:*
+        version: link:../motion-choreography
       '@proj-airi/server-sdk':
         specifier: workspace:*
         version: link:../server-sdk

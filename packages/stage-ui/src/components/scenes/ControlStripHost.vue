@@ -551,7 +551,7 @@ specialTokenQueue.onHandlerEvent('emotion', (emotion) => {
 specialTokenQueue.onHandlerEvent('delay', (delay) => {
   debug('[Stage] Delay token detected:', delay)
 })
-specialTokenQueue.onHandlerEvent('actor', (actorId) => {
+specialTokenQueue.onHandlerEvent('actor', (actorId: any) => {
   // NOTICE: Parser-level actor events fire for EVERY ACTOR token during streaming —
   // both the ones about to speak and the ones still queued. Writing the model here
   // pre-speech settles the stage on the LAST-token actor seconds before their audio

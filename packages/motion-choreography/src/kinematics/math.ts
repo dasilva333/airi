@@ -61,12 +61,12 @@ export function quatSlerp(qa: Quat, qb: Quat, t: number): Quat {
   const ratioA = Math.sin((1 - t) * halfTheta) / sinHalfTheta
   const ratioB = Math.sin(t * halfTheta) / sinHalfTheta
 
-  return [
+  return quatNormalize([
     qa[0] * ratioA + bx * ratioB,
     qa[1] * ratioA + by * ratioB,
     qa[2] * ratioA + bz * ratioB,
     qa[3] * ratioA + bw * ratioB,
-  ]
+  ])
 }
 
 export function vec3Lerp(a: Vec3, b: Vec3, t: number): Vec3 {

@@ -182,6 +182,15 @@ export function useModulesList() {
       category: 'essential',
     },
     {
+      id: 'motion-choreography',
+      name: t('settings.pages.modules.motion_choreography.title', 'Motion Choreography'),
+      description: t('settings.pages.modules.motion_choreography.description', 'Acoustic DSP rhythm analysis, FlowMDM 3D dance synthesis, and elastic beat-warp conductor'),
+      icon: 'i-solar:music-library-2-bold-duotone',
+      to: '/settings/modules/motion-choreography',
+      configured: true,
+      category: 'essential',
+    },
+    {
       id: 'cloud-sync',
       name: 'Cloud Sync',
       description: 'Synchronize database and assets.',
