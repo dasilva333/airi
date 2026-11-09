@@ -24,7 +24,7 @@ Own connections between ingestion, inference, response processing, and output. S
 
 `stores/modules/live-session.ts` is a parallel Gemini Live implementation; active Live text bypasses `performSend`.
 
-Use [speech runtime](../airi-speech-runtime/SKILL.md) for intent scheduling/host lifecycle, [pacing](../airi-conversational-pacing/SKILL.md) for fillers, [audio pipeline](../airi-audio-pipeline/SKILL.md) for synthesis/devices, and [LLM dispatch](../airi-llm-dispatch-gateway/SKILL.md) for provider requests. Do not duplicate these subsystems inside an ingestion fix.
+Use [speech runtime](../airi-speech-runtime/SKILL.md) for intent scheduling/host lifecycle, [pacing](../airi-conversational-pacing/SKILL.md) for fillers, [speech pipeline](../airi-speech-pipeline/SKILL.md) for synthesis/devices, [hearing pipeline](../airi-hearing-pipeline/SKILL.md) for STT/mic ingestion, and [LLM dispatch](../airi-llm-dispatch-gateway/SKILL.md) for provider requests. Do not duplicate these subsystems inside an ingestion fix.
 
 Read `docs/arch-chat-stt-proactivity-pipelines.md` for architecture, then verify source. Its historical cancellation audit predates `stopCurrentGeneration`: Stop is implemented. All source paths in references are repository-relative; symbol anchors replace stale line numbers.
 

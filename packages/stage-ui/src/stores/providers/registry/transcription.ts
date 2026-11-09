@@ -28,6 +28,7 @@ import { isBrowserAndMemoryEnough, logWarn, validateProviderBaseUrl } from '../h
 import { buildOpenAICompatibleProvider } from '../openai-compatible-builder'
 import { createWebSpeechAPIProvider } from '../web-speech-api'
 import { createWhisperLocalTranscriptionProvider } from '../whisper-local'
+import { createWhistleLocalTranscriptionProvider } from '../whistle-local'
 
 const ALIYUN_NLS_REGIONS = [
   'cn-shanghai',
@@ -89,6 +90,45 @@ export const transcriptionMetadata = {
         downloadBytes: m.downloadBytes,
         vramBytes: m.vramBytes,
       })),
+      listVoices: async () => [],
+    },
+    validators: {
+      validateProviderConfig: () => ({
+        errors: [],
+        reason: '',
+        valid: true,
+      }),
+    },
+  },
+  'whistle-local': {
+    id: 'whistle-local',
+    name: 'Whistle (Local)',
+    nameKey: 'settings.pages.providers.provider.whistle-local.title',
+    descriptionKey: 'settings.pages.providers.provider.whistle-local.description',
+    icon: 'i-solar:microphone-2-bold-duotone',
+    description: 'Private & Ultra-Fast - In-browser transcription via Cactus (16.9 MB)',
+    category: 'transcription',
+    pricing: 'free',
+    deployment: 'local',
+    beginnerRecommended: true,
+    tasks: ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'],
+    requiresCredentials: false,
+    isAvailableBy: () => true,
+    defaultOptions: () => ({
+      model: 'whistle-base',
+      language: 'en',
+    }),
+    createProvider: async (config?: any) => createWhistleLocalTranscriptionProvider(config),
+    capabilities: {
+      listModels: async () => [{
+        id: 'whistle-base',
+        name: 'Whistle (16.9 MB, CPU)',
+        provider: 'whistle-local',
+        tasks: ['speech-to-text'],
+        description: 'Cactus Whistle on-device ASR (11ms TTFT, 7 languages)',
+        downloadBytes: 17 * 1024 * 1024,
+        vramBytes: 0,
+      }],
       listVoices: async () => [],
     },
     validators: {

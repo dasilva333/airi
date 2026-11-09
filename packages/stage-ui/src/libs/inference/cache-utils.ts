@@ -14,6 +14,7 @@ const MING3_OPFS_DIR_NAME = 'ming-tts-parts'
 // `cacheBackend` is `"cache"`; see `createScopedArtifactCache` in the library).
 const WEBLLM_CACHE_NAMES = ['webllm/model', 'webllm/wasm', 'webllm/config'] as const
 export const NEEDLE_CACHE_NAME = 'needle-cache'
+export const WHISTLE_CACHE_NAME = 'whistle-cache'
 export const LAYA_CACHE_NAME = 'laya-cache'
 export const BG_REMOVAL_CACHE_NAME = 'bg-removal-cache'
 
@@ -413,7 +414,7 @@ async function isOpfsModelCached(modelUrl: string): Promise<boolean> {
  * Returns 0 if no caches exist or all are empty.
  */
 export async function getModelCacheSize(): Promise<number> {
-  const [transformersSize, opfsSize, mossSize, pocketSize, ming3Size, webLlmSize, needleSize, layaSize, openjevSize, nativeSize] = await Promise.all([
+  const [transformersSize, opfsSize, mossSize, pocketSize, ming3Size, webLlmSize, needleSize, whistleSize, layaSize, openjevSize, nativeSize] = await Promise.all([
     getTransformersCacheSize(),
     getOpfsCacheSize(),
     getMossOpfsCacheSize(),
@@ -421,12 +422,13 @@ export async function getModelCacheSize(): Promise<number> {
     getMing3OpfsCacheSize(),
     getWebLlmCacheSize(),
     getNeedleCacheSize(),
+    getWhistleCacheSize(),
     getLayaCacheSize(),
     getOpenJevCacheSize(),
     NativeAI.listCachedModels().then(res => res.totalSizeBytes).catch(() => 0),
   ])
 
-  return transformersSize + opfsSize + mossSize + pocketSize + ming3Size + webLlmSize + needleSize + layaSize + openjevSize + nativeSize
+  return transformersSize + opfsSize + mossSize + pocketSize + ming3Size + webLlmSize + needleSize + whistleSize + layaSize + openjevSize + nativeSize
 }
 
 async function getTransformersCacheSize(): Promise<number> {
@@ -508,6 +510,10 @@ export async function clearSingleModelCache(modelId: string): Promise<void> {
   }
   if (modelId === 'needle-2' || modelId.includes('needle2') || modelId.includes('needle')) {
     await clearNeedleCache()
+    return
+  }
+  if (modelId === 'whistle-local' || modelId.includes('whistle')) {
+    await clearWhistleCache()
     return
   }
   if (modelId.includes('openjev') || modelId.includes('rlcd-modernbert')) {
@@ -844,6 +850,69 @@ export async function isNeedleModelCached(): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
+// Cactus Whistle Speech-to-Text Model (Cache Storage API, `whistle-cache` scope)
+// ---------------------------------------------------------------------------
+
+export async function getWhistleCacheSize(): Promise<number> {
+  if (typeof caches === 'undefined')
+    return 0
+
+  try {
+    const has = await caches.has(WHISTLE_CACHE_NAME)
+    if (!has)
+      return 0
+    const cache = await caches.open(WHISTLE_CACHE_NAME)
+    const keys = await cache.keys()
+    let totalSize = 0
+    for (const request of keys) {
+      const response = await cache.match(request)
+      if (response) {
+        const cl = response.headers.get('content-length')
+        if (cl) {
+          totalSize += Number.parseInt(cl, 10)
+        }
+        else {
+          const blob = await response.blob()
+          totalSize += blob.size
+        }
+      }
+    }
+    return totalSize
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to get Whistle cache size', error)
+    return 0
+  }
+}
+
+export async function clearWhistleCache(): Promise<void> {
+  if (typeof caches === 'undefined')
+    return
+  try {
+    await caches.delete(WHISTLE_CACHE_NAME)
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to clear Whistle cache', error)
+  }
+}
+
+export async function isWhistleModelCached(): Promise<boolean> {
+  if (typeof caches === 'undefined')
+    return false
+  try {
+    const has = await caches.has(WHISTLE_CACHE_NAME)
+    if (!has)
+      return false
+    const cache = await caches.open(WHISTLE_CACHE_NAME)
+    const keys = await cache.keys()
+    return keys.length > 0
+  }
+  catch {
+    return false
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Laya & OpenJev System 1 Models (Cache Storage API, `laya-cache` scope)
 // ---------------------------------------------------------------------------
 
@@ -1097,6 +1166,9 @@ export async function isModelCached(modelId: string): Promise<boolean> {
   if (modelId === 'needle-2' || modelId.includes('needle2') || modelId.includes('needle')) {
     return isNeedleModelCached()
   }
+  if (modelId === 'whistle-local' || modelId.includes('whistle')) {
+    return isWhistleModelCached()
+  }
   if (modelId.includes('openjev') || modelId.includes('rlcd-modernbert')) {
     return isOpenJevModelCached()
   }
@@ -1227,6 +1299,16 @@ export async function getDetailedModelCacheMap(): Promise<ModelCacheStatusMap> {
   }
   catch {
     result['needle-2'] = { cached: false, sizeBytes: 0 }
+  }
+
+  // 5b. Whistle STT (Cache Storage API)
+  try {
+    const whistleCached = await isWhistleModelCached()
+    const whistleSize = whistleCached ? await getWhistleCacheSize() : 0
+    result['whistle-local'] = { cached: whistleCached, sizeBytes: whistleSize }
+  }
+  catch {
+    result['whistle-local'] = { cached: false, sizeBytes: 0 }
   }
 
   // 6. Laya (Cache Storage API)

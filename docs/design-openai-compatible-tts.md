@@ -219,4 +219,4 @@ AIRI filters the model list to entries whose `id` contains `tts`, `speech`, `aud
 
 ## Relevant Skills
 
-- [[airi-audio-pipeline]]
+- [[airi-speech-pipeline]]

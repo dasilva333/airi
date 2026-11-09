@@ -179,4 +179,4 @@ The Voice Playground serves as an all-in-one testing harness:
 
 ## Relevant Skills
 
-- [[airi-audio-pipeline]]
+- [[airi-speech-pipeline]]

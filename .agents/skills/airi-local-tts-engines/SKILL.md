@@ -6,7 +6,7 @@ description: >-
 
 # AIRI Local TTS Engines (Kokoro · Pocket · MOSS · Ming)
 
-This skill owns AIRI's on-device text-to-speech engines: browser workers, thin adapters, provider wiring, voice-clone/design profiles, per-language model bundles, and on-device cache/eviction. Speech *requests* (intents, queueing, playback ordering) belong to [airi-speech-runtime](../airi-speech-runtime/SKILL.md); text *transformation* before synthesis (UST, VoiceProfiles) belongs to [airi-audio-pipeline](../airi-audio-pipeline/SKILL.md); generic worker machinery (protocol, load queues, `GpuResourceCoordinator`, OOM handling) belongs to [airi-local-inference-engines](../airi-local-inference-engines/SKILL.md). Deep per-model evaluations live in `docs/` analysis files (linked below), not here.
+This skill owns AIRI's on-device text-to-speech engines: browser workers, thin adapters, provider wiring, voice-clone/design profiles, per-language model bundles, and on-device cache/eviction. Speech *requests* (intents, queueing, playback ordering) belong to [airi-speech-runtime](../airi-speech-runtime/SKILL.md); text *transformation* before synthesis (UST, VoiceProfiles) belongs to [airi-speech-pipeline](../airi-speech-pipeline/SKILL.md); generic worker machinery (protocol, load queues, `GpuResourceCoordinator`, OOM handling) belongs to [airi-local-inference-engines](../airi-local-inference-engines/SKILL.md). Deep per-model evaluations live in `docs/` analysis files (linked below), not here.
 
 ## 1. Engine Map
 

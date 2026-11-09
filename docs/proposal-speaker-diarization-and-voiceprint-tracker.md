@@ -16,7 +16,7 @@
 > - Upstream PR [#2998](https://github.com/moeru-ai/airi/pull/2998): `feat(stage-ui,stage-tamagotchi): fade live voice text in and animate rewrites` *(Merged into upstream/main at commit `efa42d2ebd`)* — Animated live voice text fade-in and rewrite animations (`PoppinText` blur-fade, `rewrite-text.vue`).
 > - Upstream PR [#3268](https://github.com/moeru-ai/airi/pull/3268): `fix(stage-tamagotchi,stage-pages): bundle the voiceprint model, explain its download failures, and remove the dead resources store` *(Merged into upstream/main at commit `dc5865d1eb`)* — Bundles the 28 MB CAM++ speaker model into Electron builds via `Sherpaw` bundler in `electron.vite.config.ts`, pre-warming cache to eliminate runtime network download failures during enrollment.
 > **Related Fork Skills & Specs**:
-> - [`airi-audio-pipeline`](../.agents/skills/airi-audio-pipeline/SKILL.md) & [`airi-speech-runtime`](../.agents/skills/airi-speech-runtime/SKILL.md)
+> - [`airi-speech-pipeline`](../.agents/skills/airi-speech-pipeline/SKILL.md) & [`airi-speech-runtime`](../.agents/skills/airi-speech-runtime/SKILL.md)
 > - [`airi-acting-cue-act-tokens`](../.agents/skills/airi-acting-cue-act-tokens/SKILL.md) *(Distinct output manifestation boundary)*
 > - [`docs/project-selective-upstream-sync-protocol.md`](./project-selective-upstream-sync-protocol.md)
 

@@ -77,5 +77,5 @@ The "Manco Fork" demonstrates that AIRI is no longer just a "chat wrapper." It i
 
 ## Relevant Skills
 
-- [[airi-audio-pipeline]]
+- [[airi-speech-pipeline]]
 - [[airi-gemini-live-api]]

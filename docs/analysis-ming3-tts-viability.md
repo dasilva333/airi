@@ -241,7 +241,7 @@ Storage and lifecycle rules:
 
 ## Relevant Skills & References
 
-- [[airi-audio-pipeline]]
+- [[airi-speech-pipeline]]
 - [[airi-local-inference-engines]]
 - [[analysis-pocket-tts-viability]]
 - [[analysis-gpt-sovits-onnx-webgpu-viability]]

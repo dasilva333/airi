@@ -6,6 +6,7 @@
 - Shared web/pocket input: `packages/stage-ui/src/composables/use-chat-composer.ts`. Inspect its consuming surface before changing behavior.
 - WhisperDock shell: `packages/stage-ui/src/components/scenarios/chat/WhisperDock.vue`; composer controls live in `WhisperComposerBar.vue`.
 - Shared suggestions: `packages/stage-ui/src/composables/use-producer.ts`.
+- Microphone input, VAD speech detection, composer dictation, and the `VoiceInputHoverCard` popover belong to [airi-hearing-pipeline](../../airi-hearing-pipeline/SKILL.md).
 - Landscape layout and transcript hosting: `packages/stage-layouts/src/components/Widgets/ChatArea.vue` and its layout consumers.
 
 Shared `useChatComposer` also owns listening/auto-send, trash confirmation, and Imagine mode. Its Imagine branch calls `runArtistTask` instead of ordinary chat ingestion; preserve that branch when refactoring Send.

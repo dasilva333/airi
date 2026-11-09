@@ -20,7 +20,7 @@ Ordinary ingestion captures session generation and enqueues `performSend`. Prese
 
 ## Voice and autonomous inputs
 
-Desktop microphone handling includes live media-stream and recorded-take transcription; inspect each app page before claiming equivalent support on web. Device/VAD issues belong to `airi-audio-pipeline`.
+Desktop microphone handling includes live media-stream and recorded-take transcription; inspect each app page before claiming equivalent support on web. Microphone capture, VAD, and STT transcription belong to `airi-hearing-pipeline`.
 
 Discord classic capture starts in `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts`: Opus audio is converted for transcription, then renderer ingestion carries voice-source metadata. Do not lose metadata and accidentally play a remote reply locally.
 

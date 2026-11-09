@@ -1,7 +1,7 @@
 ---
 name: airi-gemini-live-api
 description: >-
-  Implement/debug Gemini Live bidirectional sessions: google-genai/Bidi WebSocket, PCM audio, AUDIO response modality, live markers, native tool calls, Search Grounding, duplicate TTS suppression. Conventional TTS/STT uses airi-audio-pipeline.
+  Implement/debug Gemini Live bidirectional sessions: google-genai/Bidi WebSocket, PCM audio, AUDIO response modality, live markers, native tool calls, Search Grounding, duplicate TTS suppression. Conventional TTS uses airi-speech-pipeline; conventional STT uses airi-hearing-pipeline.
 ---
 
 # AIRI Gemini Live API Integration

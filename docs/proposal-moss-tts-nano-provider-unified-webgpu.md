@@ -472,5 +472,5 @@ Register `moss-nano-local` with tags to let the providers UI detect its capabili
 
 ## Relevant Skills
 
-- [[airi-audio-pipeline]]
+- [[airi-speech-pipeline]]
 - [[airi-local-inference-engines]]

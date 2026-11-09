@@ -8,7 +8,7 @@
 > - [`design-act-token-expression-system.md`](./design-act-token-expression-system.md) — ACT token formats + parser pipeline (actuation side).
 > - [`design-acting-tab-and-chatterbox.md`](./design-acting-tab-and-chatterbox.md) — Acting tab authoring surface + Chatterbox capabilities (Tier 1 upstream).
 > - [`proposal-conversational-pacing-thinking-fillers.md`](./proposal-conversational-pacing-thinking-fillers.md) — owns the speech lane; single-owner rule applies (see §5).
-> - [`airi-acting-cue-act-tokens/SKILL.md`](../.agents/skills/airi-acting-cue-act-tokens/SKILL.md), [`airi-audio-pipeline/SKILL.md`](../.agents/skills/airi-audio-pipeline/SKILL.md), [`airi-speech-runtime/SKILL.md`](../.agents/skills/airi-speech-runtime/SKILL.md)
+> - [`airi-acting-cue-act-tokens/SKILL.md`](../.agents/skills/airi-acting-cue-act-tokens/SKILL.md), [`airi-speech-pipeline/SKILL.md`](../.agents/skills/airi-speech-pipeline/SKILL.md), [`airi-speech-runtime/SKILL.md`](../.agents/skills/airi-speech-runtime/SKILL.md)
 
 ---
 

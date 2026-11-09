@@ -221,4 +221,4 @@ Higgs TTS server receives: "That was incredible. <|emotion:awe|> I didn't expect
 
 ## Relevant Skills
 
-- [[airi-audio-pipeline]]
+- [[airi-speech-pipeline]]

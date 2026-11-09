@@ -89,6 +89,14 @@ const knownModels: KnownModelItem[] = [
     description: 'Multilingual automatic speech recognition',
   },
   {
+    id: 'whistle-local',
+    name: 'Whistle STT (Cactus 16.9 MB)',
+    category: 'audio',
+    runtime: 'WASM / CPU',
+    icon: 'i-solar:microphone-2-bold-duotone',
+    description: 'Ultra-fast on-device speech recognition · 11ms TTFT, 7 languages',
+  },
+  {
     id: 'moss-tts-nano',
     name: 'MOSS TTS (Nano)',
     category: 'audio',

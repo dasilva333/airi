@@ -289,7 +289,7 @@ Each module typically follows:
 LLM output text → VoiceProfile (effects + UST transforms) → SpeechProvider.speech().fetch() → Worker inference → PCM → WAV → Playback
 ```
 
-Implementation guides: [speech runtime](../.agents/skills/airi-speech-runtime/SKILL.md) owns intents, host lifetime, cancellation and playback ordering; [conversational pacing](../.agents/skills/airi-conversational-pacing/SKILL.md) owns filler policy, preparation and answer handoff.
+Implementation guides: [speech runtime](../.agents/skills/airi-speech-runtime/SKILL.md) owns intents, host lifetime, cancellation and playback ordering; [conversational pacing](../.agents/skills/airi-conversational-pacing/SKILL.md) owns filler policy, preparation and answer handoff; [speech pipeline](../.agents/skills/airi-speech-pipeline/SKILL.md) owns voice synthesis, UST transforms, and physical playback; [hearing pipeline](../.agents/skills/airi-hearing-pipeline/SKILL.md) owns STT transcription, VAD activity detection, and the composer microphone popover.
 
 ### Thinking filler recovery
 
@@ -304,7 +304,9 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 | Concept | Path |
 | :--- | :--- |
 | **Speech provider selection** | `packages/stage-ui/src/stores/modules/speech.ts` — active provider, model, voice, pitch, rate, SSML, language |
-| **Hearing provider selection** | `packages/stage-ui/src/stores/modules/hearing.ts` — active provider, model, auto-send, detection mode (VAD/manual), device settings |
+| **Hearing provider selection** | `packages/stage-ui/src/stores/modules/hearing.ts` (`hearing-store.ts`) — active provider, model, auto-send, detection mode (VAD/manual), device settings |
+| **Hearing speech input pipeline** | `packages/stage-ui/src/stores/modules/hearing-speech-input-pipeline.ts` — streaming vs batch turn STT routing |
+| **Composer voice popover** | `packages/stage-ui/src/components/scenarios/chat/VoiceInputHoverCard.vue` — microphone popover card across all chatboxes |
 | **Speech runtime** | `packages/stage-ui/src/stores/speech-runtime.ts` — wraps `createSpeechPipelineRuntime()` |
 | **Audio context / character speaking** | `packages/stage-ui/src/stores/audio.ts` — `audio-context` and `character-speaking` stores |
 | **Audio input devices** | `packages/stage-ui/src/stores/settings/audio-device.ts` |

@@ -73,4 +73,4 @@ Use a recognizable AWS or Polly-specific icon to distinguish it from generic Ope
 
 ## Relevant Skills
 
-- [[airi-audio-pipeline]]
+- [[airi-speech-pipeline]]

@@ -1,12 +1,12 @@
 ---
 name: airi-speech-runtime
 description: >-
-  Trace/debug speech intents, host registration, queue/interrupt/replace behavior, playback ordering, actor timing, cross-window replay, cancellation and cleanup. Voice synthesis uses airi-audio-pipeline; fillers use airi-conversational-pacing.
+  Trace/debug speech intents, host registration, queue/interrupt/replace behavior, playback ordering, actor timing, cross-window replay, cancellation and cleanup. Voice synthesis uses airi-speech-pipeline; fillers use airi-conversational-pacing.
 ---
 
 # Speech Runtime
 
-Own the lifecycle between chat hooks and audible playback. Use [audio pipeline](../airi-audio-pipeline/SKILL.md) for synthesis/voice/device configuration, [pacing](../airi-conversational-pacing/SKILL.md) for fillers, and [interaction pipelines](../airi-interaction-pipelines/SKILL.md) for stopping inference.
+Own the lifecycle between chat hooks and audible playback. Use [speech pipeline](../airi-speech-pipeline/SKILL.md) for synthesis/voice/device configuration, [pacing](../airi-conversational-pacing/SKILL.md) for fillers, and [interaction pipelines](../airi-interaction-pipelines/SKILL.md) for stopping inference.
 
 ## Source map
 

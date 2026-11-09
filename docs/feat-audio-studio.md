@@ -153,5 +153,5 @@ The `audio-studio.vue` page serves as a creative console for voice design. It fe
 
 ## Relevant Skills
 
-- [[airi-audio-pipeline]]
+- [[airi-speech-pipeline]]
 - [[airi-interaction-pipelines]]

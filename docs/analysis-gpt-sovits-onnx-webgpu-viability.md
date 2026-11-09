@@ -65,4 +65,4 @@ GPT-SoVITS **is viable** for browser-native integration under AIRI's updated arc
 
 ## Relevant Skills
 
-- [[airi-audio-pipeline]]
+- [[airi-speech-pipeline]]

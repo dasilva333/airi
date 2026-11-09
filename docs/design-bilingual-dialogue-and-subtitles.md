@@ -78,7 +78,7 @@ Bilingual dialogue fundamentally affects **dialogue delivery, TTS audio strippin
 - **Translation Subtitle Language**: e.g., English (`en-US`), Spanish (`es-ES`).
 - **Delimiter Format**: `Square Brackets [ ]` (Default, paired with UST mute), `Parentheses ( )`.
 
-### 2.2 Modules Tab > Voice / Speech (`airi-audio-pipeline`)
+### 2.2 Modules Tab > Voice / Speech (`airi-speech-pipeline`)
 **Why here:** The physical voice engine (Kokoro, Edge TTS, OpenAI TTS) and VoiceProfile UST rules live in the Modules tab.
 
 **Controls & Guarantees:**

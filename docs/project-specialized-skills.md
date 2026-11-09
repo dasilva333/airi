@@ -22,7 +22,7 @@ Example:
 name: airi-speech-runtime
 description: >-
   Trace/debug speech intents, host registration, playback ordering, cross-window
-  replay, cancellation and cleanup. Voice synthesis uses airi-audio-pipeline;
+  replay, cancellation and cleanup. Voice synthesis uses airi-speech-pipeline;
   fillers use airi-conversational-pacing.
 ---
 ```
@@ -54,7 +54,7 @@ The five groups below organize navigation. Historical “Phase” labels do not 
 
 ## 3. Domain skill catalog
 
-The catalog contains 76 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
+The catalog contains 77 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
 
 ### 🟢 Phase 1: Core Plumbing & Infrastructure
 
@@ -117,10 +117,15 @@ The catalog contains 76 discoverable skills. Desktop chatbox and interaction pip
 - **Key Paths**: `packages/stage-ui-three/`, `packages/stage-ui-live2d/`, `packages/stage-ui-spine/`, `packages/stage-ui-mmd/`.
 - **Content**: Rendering pipelines for VRM (Three.js), Live2D (Canvas & DSL VM adapter), Spine, and MMD. Expression mappings, parameter controls, motion triggers, and `displayModelsStore` binary fetching.
 
-#### 2.2 `airi-audio-pipeline`
-- **Target Domain**: TTS Speech Output, STT Hearing Input, Audio Studio & UST.
-- **Key Paths**: `packages/stage-ui/src/stores/modules/speech.ts`, `hearing.ts`, `stores/audio.ts`, `packages/audio-pipelines-transcribe/`.
-- **Content**: Physical synthesis and transcription, VoiceProfile resolution, UST transformations, empty-input handling, format/decode/device failures, permission and stream cleanup. Speech intents belong to airi-speech-runtime; filler preparation belongs to airi-conversational-pacing.
+#### 2.2 `airi-speech-pipeline`
+- **Target Domain**: TTS Speech Synthesis Output, Audio Studio, VoiceProfiles, & UST.
+- **Key Paths**: `packages/stage-ui/src/stores/modules/speech.ts`, `packages/stage-ui/src/stores/audio.ts`, `packages/stage-ui/src/components/scenarios/settings/model-settings/audio-studio.vue`, `packages/pipelines-audio/src/speech-pipeline.ts`.
+- **Content**: Physical voice synthesis, VoiceProfile resolution, UST transformations, empty-input handling, format/decode/device output failures, permission and audio context management. Speech intents belong to `airi-speech-runtime`; filler preparation belongs to `airi-conversational-pacing`; hearing and microphone ingestion belong to `airi-hearing-pipeline`.
+
+#### 2.2b `airi-hearing-pipeline`
+- **Target Domain**: STT Speech-to-Text Ingestion, Composer Microphone Controller, VAD Activity Detection, & Dual Streaming/Turn Pipelines.
+- **Key Paths**: `packages/stage-ui/src/stores/modules/hearing-store.ts`, `packages/stage-ui/src/stores/modules/hearing-speech-input-pipeline.ts`, `packages/stage-ui/src/components/scenarios/chat/VoiceInputHoverCard.vue`, `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue`, `packages/stage-ui/src/stores/providers/registry/transcription.ts`.
+- **Content**: Microphone capture, the universal composer `VoiceInputHoverCard` popover, the single-owner `micOwner` authority pact (`'composer' | 'ambient' | null`), dual ingestion pathways (`transcribeForMediaStream` for live streaming vs `useVAD` + `useAudioRecorder` -> `transcribeForRecording` for batch/turn), auto-send debouncing, and STT provider registration checklist.
 
 #### 2.3 `airi-local-inference-engines`
 - **Target Domain**: Local WebGPU & WASM Inference (Whisper STT, WebLLM, Web-RWKV, Moondream VLM, Embeddings search worker, Laya & OpenJev System-1 decisions, Automated VRAM Eviction & Standby Hibernation). Local TTS engines moved to `airi-local-tts-engines` (2.17).
@@ -160,7 +165,7 @@ The catalog contains 76 discoverable skills. Desktop chatbox and interaction pip
 #### 2.10 `airi-caption-subsystem`
 - **Target Domain**: Captions/subtitles across all render surfaces — standalone Electron caption window, DatingSim inline panel, head-tethered comic-bubble plank, and the shared `'airi-caption-overlay'` BroadcastChannel streaming protocol.
 - **Key Paths**: `apps/stage-tamagotchi/src/main/windows/caption/`, `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `packages/stage-ui/src/components/scenes/CaptionPanel.vue`, `packages/stage-ui/src/components/scenes/HeadTetheredCaption.vue`, `packages/stage-ui/src/composables/use-speech-caption-player.ts`, `packages/stage-ui/src/stores/settings/captions.ts`.
-- **Content**: The segment/isActive streaming protocol, CaptionPanel segment highlighting, Live2D baked-in motion Text captions, Sentence-Sync TTS player, caption settings (docking, follow-stage, head-tether, opacity, layout mode), and the desktop-only-with-shared-in-scene-behavior distinction. Peer skills: `airi-broadcast-channels`, `airi-audio-pipeline`.
+- **Content**: The segment/isActive streaming protocol, CaptionPanel segment highlighting, Live2D baked-in motion Text captions, Sentence-Sync TTS player, caption settings (docking, follow-stage, head-tether, opacity, layout mode), and the desktop-only-with-shared-in-scene-behavior distinction. Peer skills: `airi-broadcast-channels`, `airi-speech-pipeline`.
 
 #### 2.11 `airi-stage-mate-unity`
 - **Target Domain**: Stage-Mate — the Unity/VRM native sidecar (`apps/stage-mate`): workspace purity rules, harness WebSocket protocol, C# sidecar runtime, upstream patches, batch builds.
@@ -195,7 +200,7 @@ The catalog contains 76 discoverable skills. Desktop chatbox and interaction pip
 #### 2.17 `airi-local-tts-engines`
 - **Target Domain**: Local neural TTS engines end-to-end — Kokoro, Pocket TTS, MOSS-TTS-Nano, Ming browser workers, adapters, voice-clone/design profiles, per-language bundles, cache eviction.
 - **Key Paths**: `packages/stage-ui/src/workers/{kokoro,pocket-tts,moss,ming3}/`, `packages/stage-ui/src/libs/inference/adapters/{kokoro,pocket-tts,ming3}.ts`, `packages/stage-ui/src/stores/providers/{moss,pocket,ming3}-audio-utils.ts`, `packages/stage-ui/src/stores/providers/registry/speech.ts`, `packages/stage-ui/src/stores/providers/ming3-catalog.ts`, `packages/stage-ui/src/libs/inference/cache-utils.ts` (per-engine trio + `evictOther*` single-slot), `packages/stage-ui/src/components/scenarios/settings/ModelCacheManager.vue`, `packages/stage-pages/src/pages/settings/providers/speech/`, `docs/analysis-ming3-tts-viability.md`, `docs/analysis-pocket-tts-viability.md`, `docs/research-moss-tts-nano-report.md`.
-- **Content**: Engine-by-engine worker/adapter contracts, voice-profile persistence (content-hash ids, conditioned-artifact caching in metadata, no blob store for text-only designs), per-language bundle layouts, single-active-variant eviction rules, per-engine input sanitizers (strip vs preserve brackets), UST/tag interplay, settings search ranking, onboarding recognition lists. Generic worker machinery stays in airi-local-inference-engines; synthesis intents in airi-speech-runtime; UST/transforms in airi-audio-pipeline.
+- **Content**: Engine-by-engine worker/adapter contracts, voice-profile persistence (content-hash ids, conditioned-artifact caching in metadata, no blob store for text-only designs), per-language bundle layouts, single-active-variant eviction rules, per-engine input sanitizers (strip vs preserve brackets), UST/tag interplay, settings search ranking, onboarding recognition lists. Generic worker machinery stays in airi-local-inference-engines; synthesis intents in airi-speech-runtime; UST/transforms in airi-speech-pipeline.
 
 #### 2.18 `airi-stage-radial-menu`
 - **Target Domain**: Stage Radial Menu — right-click in-scene circular quick-action wheel, head/torso spatial tethering across 4 avatar engines, polar slice geometry, SVG annular paths, 3D parallax tilt, nested sub-wheels (size, snap, mode, layers, monitor), auto-scaling, and Web Audio feedback.
@@ -482,7 +487,8 @@ Use these examples when reviewing overlapping descriptions. They are expected ow
 | Speech continues after Stop in another window | airi-interaction-pipelines | Trace cancellation; then speech-runtime for intent cleanup |
 | Next actor appears before previous voice finishes | airi-speech-runtime | Playback timing; Director for concept activation |
 | Director steals a Layer actor's model | airi-director-orchestration | Base/Layer ownership |
-| VoiceProfile bracket rules remove all speech | airi-audio-pipeline | Transformation and empty synthesis |
+| VoiceProfile bracket rules remove all speech | airi-speech-pipeline | Transformation and empty synthesis |
+| Composer mic capture hallucinating on silence or STT model failing | airi-hearing-pipeline | VAD activity gating, turn recording, and streaming pipelines |
 | Add a desktop workspace route | airi-desktop-chatbox | Workspace reference only |
 | Mount a generated news or weather component into the sidepanel | airi-generative-widgets | In-memory sandbox widget lifecycle; ComfyUI uses artistry-comfyui-widgets |
 | Bash script or Node code fails inside virtual workspace RAM disk | airi-sandbox-virtual-workstation | POSIX sandbox runtime; widget mounting uses airi-generative-widgets |

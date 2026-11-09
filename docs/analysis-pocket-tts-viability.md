@@ -164,4 +164,4 @@ Download path in `pocket_model_store.ts`: `ensurePredefinedVoiceEmbedding(langFo
 
 ## Relevant Skills
 
-- [[airi-audio-pipeline]]
+- [[airi-speech-pipeline]]

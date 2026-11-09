@@ -498,7 +498,7 @@ export async function autoMatchCharacterVoiceWithJev(character: CharacterItem) {
 ---
 
 ### Domain F: Dual-Duty Ninja-Swap Interceptor: Real-Time Speech Tags & ACT Tokens
-*Relevant Docs: [`airi-acting-cue-act-tokens/SKILL.md`](../.agents/skills/airi-acting-cue-act-tokens/SKILL.md), [`airi-character-rendering/SKILL.md`](../.agents/skills/airi-character-rendering/SKILL.md), [`airi-audio-pipeline/SKILL.md`](../.agents/skills/airi-audio-pipeline/SKILL.md)*
+*Relevant Docs: [`airi-acting-cue-act-tokens/SKILL.md`](../.agents/skills/airi-acting-cue-act-tokens/SKILL.md), [`airi-character-rendering/SKILL.md`](../.agents/skills/airi-character-rendering/SKILL.md), [`airi-speech-pipeline/SKILL.md`](../.agents/skills/airi-speech-pipeline/SKILL.md)*
 
 #### 1. The Bottleneck: The Voice-Face Emotional Disconnect & Prompt Pollution
 
