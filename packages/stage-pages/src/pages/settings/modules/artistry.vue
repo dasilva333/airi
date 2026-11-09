@@ -30,6 +30,7 @@ const {
   comfyuiSavedWorkflows,
   openaiImageModel,
   openaiImageApiKey,
+  openaiImageBaseUrl,
   openaiImageWidth,
   openaiImageHeight,
 } = storeToRefs(artistryStore)
@@ -129,14 +130,52 @@ const nanobananaModelOptions = [
 // --- OpenAI Image Models ---
 const openaiImageModelOptions = computed(() => {
   const base = [
-    { label: 'GPT Image 2.6 Sunburst (Default)', value: 'gpt-image-2.6-sunburst' },
-    { label: 'DALL-E 3 (High Quality)', value: 'dall-e-3' },
-    { label: 'DALL-E 2 (Fast)', value: 'dall-e-2' },
+    { label: 'GPT Image (Auto / Latest)', value: 'gpt-image' },
+    { label: 'GPT Image 2.6 Sunburst', value: 'gpt-image-2.6-sunburst' },
   ]
   if (openaiImageModel.value && !base.some(m => m.value === openaiImageModel.value)) {
-    base.unshift({ label: `${openaiImageModel.value} (Custom)`, value: openaiImageModel.value })
+    base.push({ label: `${openaiImageModel.value} (Custom)`, value: openaiImageModel.value })
   }
   return base
+})
+
+const openaiResolutionOptions = computed(() => {
+  const base = [
+    { label: 'Auto (Model Default / 1024×1024)', value: 'auto' },
+    { label: '1024 × 1024 (Square 1:1)', value: '1024x1024' },
+    { label: '1792 × 1024 (Landscape 16:9 · DALL-E 3)', value: '1792x1024' },
+    { label: '1024 × 1792 (Portrait 9:16 · DALL-E 3)', value: '1024x1792' },
+    { label: '512 × 512 (Fast Preview 1:1)', value: '512x512' },
+  ]
+  if (openaiImageWidth.value && openaiImageHeight.value) {
+    const key = `${openaiImageWidth.value}x${openaiImageHeight.value}`
+    if (!base.some(o => o.value === key)) {
+      base.push({ label: `${openaiImageWidth.value} × ${openaiImageHeight.value} (Custom)`, value: key })
+    }
+  }
+  return base
+})
+
+const openaiResolutionPreset = computed({
+  get: () => {
+    if (!openaiImageWidth.value && !openaiImageHeight.value)
+      return 'auto'
+    const key = `${openaiImageWidth.value}x${openaiImageHeight.value}`
+    return key
+  },
+  set: (val: string) => {
+    if (val === 'auto') {
+      openaiImageWidth.value = ''
+      openaiImageHeight.value = ''
+    }
+    else {
+      const [w, h] = val.split('x')
+      if (w && h) {
+        openaiImageWidth.value = w
+        openaiImageHeight.value = h
+      }
+    }
+  },
 })
 
 // --- Replicate Models ---
@@ -265,6 +304,78 @@ async function fetchDirectPollinations(prompt: string, model: string, width: num
   return { imageUrl, base64 }
 }
 
+async function fetchDirectOpenAIImage(prompt: string, model: string, width?: number, height?: number) {
+  const apiKey = openaiImageApiKey.value?.trim()
+  if (!apiKey) {
+    throw new Error('OpenAI Image API key is not configured. Please enter your API key in Settings > Providers > OpenAI Image.')
+  }
+
+  const rawBaseUrl = (openaiImageBaseUrl.value || 'https://api.openai.com/v1').trim().replace(/\/+$/, '')
+  const endpoint = new URL('images/generations', `${rawBaseUrl}/`)
+  const url = formatCorsProxyUrl(endpoint.toString())
+
+  const size = (width && height) ? `${width}x${height}` : undefined
+
+  const payload: Record<string, any> = {
+    model: model || openaiImageModel.value || 'gpt-image',
+    prompt,
+    n: 1,
+    output_format: 'png',
+  }
+  if (size) {
+    payload.size = size
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    let errorDetail = ''
+    try {
+      const errorData = await response.json()
+      if (errorData?.error?.message) {
+        const code = errorData.error.code || errorData.error.type || 'error'
+        const msg = String(errorData.error.message).trim().replace(/\.+$/, '')
+        errorDetail = ` (${code}): ${msg}`
+      }
+    }
+    catch {
+      // Body was not JSON; fallback to status text
+    }
+    throw new Error(`OpenAI Images API returned HTTP ${response.status}${errorDetail || `: ${response.statusText}`}.`)
+  }
+
+  const data = await response.json()
+  const firstItem = data.data?.[0]
+  if (!firstItem) {
+    throw new Error('OpenAI Images API returned an empty data list.')
+  }
+
+  let imageUrl = ''
+  let base64 = ''
+
+  if (firstItem.b64_json) {
+    base64 = firstItem.b64_json
+    imageUrl = base64.startsWith('data:image/')
+      ? base64
+      : `data:image/png;base64,${base64}`
+  }
+  else if (firstItem.url) {
+    imageUrl = firstItem.url
+  }
+  else {
+    throw new Error('OpenAI Images API returned neither b64_json nor an image URL.')
+  }
+
+  return { imageUrl, base64 }
+}
+
 // --- Live Generation Runner ---
 async function generatePreviewImage() {
   if (activeProvider.value === 'none') {
@@ -313,15 +424,21 @@ async function generatePreviewImage() {
       modelId = comfyuiActiveWorkflow.value
     }
     else if (providerId === 'openai-image') {
-      modelId = openaiImageModel.value || 'gpt-image-2.6-sunburst'
+      modelId = openaiImageModel.value || 'gpt-image'
       width = Number(openaiImageWidth.value) || 1024
       height = Number(openaiImageHeight.value) || 1024
     }
 
     generationStatusLabel.value = `Dispatching to ${providerId.toUpperCase()}...`
 
+    // Direct Renderer Fetch for Web & DevTools Network Observability (OpenAI Image)
+    if (providerId === 'openai-image') {
+      const directRes = await fetchDirectOpenAIImage(testPrompt.value, modelId, width, height)
+      resultImageUrl = directRes.imageUrl
+      resultBase64 = directRes.base64
+    }
     // Electron Eventa Dispatch with Renderer Fallback
-    if (generateInvoke) {
+    else if (generateInvoke) {
       try {
         const optionsPayload = JSON.parse(JSON.stringify({
           width,
@@ -641,6 +758,16 @@ onMounted(() => {
               <Select
                 v-model="openaiImageModel"
                 :options="openaiImageModelOptions"
+                class="w-full text-xs"
+              />
+            </div>
+            <div class="w-full flex flex-col gap-1.5">
+              <label class="text-xs text-neutral-600 font-medium dark:text-neutral-300">
+                Resolution & Aspect Ratio
+              </label>
+              <Select
+                v-model="openaiResolutionPreset"
+                :options="openaiResolutionOptions"
                 class="w-full text-xs"
               />
             </div>

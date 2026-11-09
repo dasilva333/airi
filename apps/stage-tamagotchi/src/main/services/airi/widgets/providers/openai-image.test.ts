@@ -35,7 +35,7 @@ describe('openAI Images provider', () => {
       const init = request.mock.calls[0]![1]!
       expect(init.headers).toEqual({ 'authorization': 'Bearer image-key', 'content-type': 'application/json' })
       expect(JSON.parse(String(init.body))).toEqual({
-        model: 'gpt-image-2.6-sunburst',
+        model: 'gpt-image',
         prompt: 'A small cat.',
         n: 1,
         output_format: 'png',
@@ -66,7 +66,7 @@ describe('openAI Images provider', () => {
     expect(init.headers).toEqual({ authorization: 'Bearer image-key' })
     expect(init.body).toBeInstanceOf(FormData)
     const body = init.body as FormData
-    expect(body.get('model')).toBe('gpt-image-2.6-sunburst')
+    expect(body.get('model')).toBe('gpt-image')
     expect(body.get('prompt')).toBe('Make the sky blue.')
     expect(body.get('response_format')).toBeNull()
     expect(body.get('size')).toBeNull()
@@ -80,6 +80,22 @@ describe('openAI Images provider', () => {
     await provider.initialize({ openaiImageApiKey: 'image-key' })
     const job = await provider.generate({ prompt: 'A cat.' })
     expect(await completed(job.jobId)).toEqual({ status: 'failed', error: `OpenAI Images API returned HTTP ${status}.` })
+  })
+
+  it('reports structured OpenAI error message when returned by the API', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({
+      error: {
+        message: 'You exceeded your current quota, please check your plan and billing details.',
+        type: 'insufficient_quota',
+        code: 'insufficient_quota',
+      },
+    }, { status: 429 })))
+    await provider.initialize({ openaiImageApiKey: 'image-key' })
+    const job = await provider.generate({ prompt: 'A cat.' })
+    expect(await completed(job.jobId)).toEqual({
+      status: 'failed',
+      error: 'OpenAI Images API returned HTTP 429 (insufficient_quota): You exceeded your current quota, please check your plan and billing details.',
+    })
   })
 
   it.each([{ data: [] }, { data: [{ url: 'https://example.com/image.png' }] }, { data: [{ b64_json: '' }] }])(

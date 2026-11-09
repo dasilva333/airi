@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
-import { Alert, Button, FieldInput } from '@proj-airi/ui'
+import { Alert, Button, FieldInput, FieldSelect } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -9,9 +9,92 @@ const { t } = useI18n()
 const store = useArtistryStore()
 const { openaiImageApiKey, openaiImageBaseUrl, openaiImageModel, openaiImageWidth, openaiImageHeight } = storeToRefs(store)
 
-// Dimension edits stay local until a complete valid pair is explicitly saved.
+const modelOptions = [
+  { label: 'GPT Image (Auto / Latest)', value: 'gpt-image' },
+  { label: 'GPT Image 2.6 Sunburst', value: 'gpt-image-2.6-sunburst' },
+  { label: 'Custom Model...', value: 'custom' },
+]
+
+const isCustomModel = ref(false)
+
+const selectedModel = computed({
+  get: () => {
+    if (isCustomModel.value)
+      return 'custom'
+    if (openaiImageModel.value === 'gpt-image' || !openaiImageModel.value)
+      return 'gpt-image'
+    if (openaiImageModel.value === 'gpt-image-2.6-sunburst')
+      return 'gpt-image-2.6-sunburst'
+    return 'custom'
+  },
+  set: (val: string) => {
+    if (val === 'custom') {
+      isCustomModel.value = true
+      return
+    }
+    isCustomModel.value = false
+    openaiImageModel.value = val
+  },
+})
+
+watch(openaiImageModel, (val) => {
+  if (val && !['gpt-image', 'gpt-image-2.6-sunburst'].includes(val)) {
+    isCustomModel.value = true
+  }
+}, { immediate: true })
+
+const resolutionOptions = [
+  { label: 'Auto (Model Default / 1024×1024)', value: 'auto' },
+  { label: '1024 × 1024 — Square (1:1)', value: '1024x1024' },
+  { label: '1792 × 1024 — Landscape (16:9 · DALL-E 3)', value: '1792x1024' },
+  { label: '1024 × 1792 — Portrait (9:16 · DALL-E 3)', value: '1024x1792' },
+  { label: '512 × 512 — Fast Preview (1:1 · DALL-E 2)', value: '512x512' },
+  { label: '256 × 256 — Thumbnail (1:1 · DALL-E 2)', value: '256x256' },
+  { label: 'Custom Dimensions...', value: 'custom' },
+]
+
+const isCustom = ref(false)
 const widthDraft = ref<string | number>(openaiImageWidth.value)
 const heightDraft = ref<string | number>(openaiImageHeight.value)
+
+const selectedResolution = computed({
+  get: () => {
+    if (isCustom.value)
+      return 'custom'
+    if (!openaiImageWidth.value && !openaiImageHeight.value)
+      return 'auto'
+    const key = `${openaiImageWidth.value}x${openaiImageHeight.value}`
+    if (['1024x1024', '1792x1024', '1024x1792', '512x512', '256x256'].includes(key))
+      return key
+    return 'custom'
+  },
+  set: (val: string) => {
+    if (val === 'custom') {
+      isCustom.value = true
+      if (!widthDraft.value)
+        widthDraft.value = '1024'
+      if (!heightDraft.value)
+        heightDraft.value = '1024'
+      return
+    }
+    isCustom.value = false
+    if (val === 'auto') {
+      store.$patch({ openaiImageWidth: '', openaiImageHeight: '' })
+      widthDraft.value = ''
+      heightDraft.value = ''
+    }
+    else {
+      const [w, h] = val.split('x')
+      if (w && h) {
+        store.$patch({ openaiImageWidth: w, openaiImageHeight: h })
+        widthDraft.value = w
+        heightDraft.value = h
+      }
+    }
+  },
+})
+
+// Dimension edits stay local until a complete valid pair is explicitly saved.
 const invalidDimensions = computed(() => {
   if (widthDraft.value === '' && heightDraft.value === '')
     return false
@@ -24,7 +107,11 @@ const dimensionsChanged = computed(() => String(widthDraft.value) !== openaiImag
 watch([openaiImageWidth, openaiImageHeight], ([width, height]) => {
   widthDraft.value = width
   heightDraft.value = height
-})
+  const key = `${width}x${height}`
+  if (!['', '1024x1024', '1792x1024', '1024x1792', '512x512', '256x256'].includes(key)) {
+    isCustom.value = true
+  }
+}, { immediate: true })
 
 function saveDimensions() {
   if (invalidDimensions.value)
@@ -63,40 +150,59 @@ function saveDimensions() {
         :description="t('settings.pages.providers.provider.openai-image.base-url.description')"
         placeholder="https://api.openai.com/v1/"
       />
-      <FieldInput
-        v-model="openaiImageModel"
+      <FieldSelect
+        v-model="selectedModel"
         :label="t('settings.pages.providers.provider.openai-image.model.label')"
-        :description="t('settings.pages.providers.provider.openai-image.model.description')"
-        placeholder="gpt-image-2.6-sunburst"
+        description="Select the generation model. 'GPT Image' automatically targets the latest available model."
+        :options="modelOptions"
       />
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+      <div v-if="selectedModel === 'custom'" class="border border-neutral-200/80 rounded-xl bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30">
         <FieldInput
-          v-model="widthDraft"
-          type="number"
-          :label="t('settings.pages.providers.provider.openai-image.dimensions.width')"
-          :description="t('settings.pages.providers.provider.openai-image.dimensions.description')"
-          :placeholder="t('settings.pages.providers.provider.openai-image.dimensions.placeholder')"
-        />
-        <FieldInput
-          v-model="heightDraft"
-          type="number"
-          :label="t('settings.pages.providers.provider.openai-image.dimensions.height')"
-          :placeholder="t('settings.pages.providers.provider.openai-image.dimensions.placeholder')"
+          v-model="openaiImageModel"
+          label="Custom Model Identifier"
+          description="Enter a custom GPT Image model identifier supported by your endpoint."
+          placeholder="gpt-image"
         />
       </div>
-      <Alert
-        v-if="invalidDimensions"
-        tone="warning"
-        :title="t('settings.pages.providers.provider.openai-image.dimensions.invalid')"
+
+      <FieldSelect
+        v-model="selectedResolution"
+        label="Resolution & Aspect Ratio"
+        description="Choose a preset aspect ratio (Square 1:1, Landscape 16:9, Portrait 9:16) or custom dimensions."
+        :options="resolutionOptions"
       />
-      <div class="flex justify-end">
-        <Button
-          variant="primary"
-          :disabled="invalidDimensions || !dimensionsChanged"
-          @click="saveDimensions"
-        >
-          {{ t('settings.pages.providers.provider.openai-image.dimensions.save') }}
-        </Button>
+
+      <div v-if="selectedResolution === 'custom'" class="border border-neutral-200/80 rounded-xl bg-neutral-50/50 p-4 space-y-3 dark:border-neutral-800 dark:bg-neutral-900/30">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FieldInput
+            v-model="widthDraft"
+            type="number"
+            :label="t('settings.pages.providers.provider.openai-image.dimensions.width')"
+            :description="t('settings.pages.providers.provider.openai-image.dimensions.description')"
+            :placeholder="t('settings.pages.providers.provider.openai-image.dimensions.placeholder')"
+          />
+          <FieldInput
+            v-model="heightDraft"
+            type="number"
+            :label="t('settings.pages.providers.provider.openai-image.dimensions.height')"
+            :placeholder="t('settings.pages.providers.provider.openai-image.dimensions.placeholder')"
+          />
+        </div>
+        <Alert
+          v-if="invalidDimensions"
+          tone="warning"
+          :title="t('settings.pages.providers.provider.openai-image.dimensions.invalid')"
+        />
+        <div class="flex justify-end">
+          <Button
+            variant="primary"
+            :disabled="invalidDimensions || !dimensionsChanged"
+            @click="saveDimensions"
+          >
+            {{ t('settings.pages.providers.provider.openai-image.dimensions.save') }}
+          </Button>
+        </div>
       </div>
     </div>
   </div>

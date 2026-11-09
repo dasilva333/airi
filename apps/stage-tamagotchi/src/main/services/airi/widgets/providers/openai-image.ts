@@ -138,8 +138,21 @@ export class OpenAIImageProvider implements ArtistryProvider {
         body,
         signal: state.controller.signal,
       })
-      if (!response.ok)
-        throw new Error(`OpenAI Images API returned HTTP ${response.status}.`)
+      if (!response.ok) {
+        let errorDetail = ''
+        try {
+          const errorData: any = await response.json()
+          if (errorData?.error?.message) {
+            const code = errorData.error.code || errorData.error.type || 'error'
+            const msg = String(errorData.error.message).trim().replace(/\.+$/, '')
+            errorDetail = ` (${code}): ${msg}`
+          }
+        }
+        catch {
+          // Ignore parse errors on error responses to preserve HTTP status
+        }
+        throw new Error(`OpenAI Images API returned HTTP ${response.status}${errorDetail}.`)
+      }
       const json: unknown = await response.json().catch(() => {
         throw new Error('OpenAI Images API returned an invalid JSON response.')
       })
