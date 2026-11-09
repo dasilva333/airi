@@ -8,3 +8,11 @@ declare module '*.vue' {
   const component: DefineComponent<Record<string, any>, Record<string, any>, any>
   export default component
 }
+
+declare module '@mkkellogg/gaussian-splats-3d' {
+  export const DropInViewer: any
+  export const Viewer: any
+  export const LogLevel: any
+  export const SplatMesh: any
+  export const SceneFormat: any
+}

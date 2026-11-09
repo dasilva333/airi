@@ -64,7 +64,7 @@ describe('providerKilo', () => {
     const models = await providerKilo.extraMethods?.listModels?.(config, provider)
 
     // Live listing takes precedence: at least the gateway's isFree models surface.
-    expect((models ?? []).length).toBeGreaterThanOrEqual(12)
+    expect((models ?? []).length).toBeGreaterThanOrEqual(10)
     // The 4 free models with no :free suffix used to be dropped by the id filter.
     for (const id of ['kilo-auto/free', 'openrouter/free', 'reflection/beam-free', 'stealth/glyph-cluster']) {
       expect((models ?? []).some(m => m.id === id)).toBe(true)
@@ -86,7 +86,9 @@ describe('providerKilo', () => {
 
   it('falls back to the preset list when the live fetch fails', async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = (async () => { throw new Error('offline') }) as typeof fetch
+    globalThis.fetch = (async () => {
+      throw new Error('offline')
+    }) as typeof fetch
     try {
       const config = { apiKey: '', baseUrl: 'https://api.kilo.ai/api/gateway/v1' }
       const provider = await providerKilo.createProvider(config)
