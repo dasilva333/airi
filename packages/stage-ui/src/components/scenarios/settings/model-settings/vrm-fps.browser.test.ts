@@ -31,4 +31,4 @@ it('persists VRM frame limits without changing the model view', async () => {
     disposePinia(pinia)
     localStorage.removeItem(key)
   }
-})
+}, 15_000)

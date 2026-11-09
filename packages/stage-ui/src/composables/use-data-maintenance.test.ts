@@ -72,6 +72,12 @@ vi.mock('../stores/modules/airi-card', () => ({
   useAiriCardStore: () => mockAiriCardStore,
 }))
 
+vi.mock('../stores/modules/artistry', () => ({
+  useArtistryStore: () => ({
+    resetState: vi.fn(),
+  }),
+}))
+
 vi.mock('../stores/chat/session-store', () => ({
   useChatSessionStore: () => ({
     ready: true,

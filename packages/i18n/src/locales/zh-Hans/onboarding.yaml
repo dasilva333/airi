@@ -800,6 +800,7 @@ steps:
         llama-3-2-1b-instruct-q4f32-1-mlc: 适用于低端硬件的极速轻量 1.2B 指令模型。
         llama-3-2-3b-instruct-q4f32-1-mlc: 采用标准 FP32 精度的通用指令与聊天模型。
         phi-4-mini-instruct-q4f32-1-mlc: 采用标准 WebGPU FP32 计算的新一代小型通用模型。
+        lfm3-1-7b-q6f16-a-mlc: Liquid AI 三混合架构（短卷积 + 滑动窗口 + 全局注意力）。超快速的 1.7B 端侧大脑。
     verification:
       failed: 连接测试失败，请检查 API 密钥、模型 ID 和网络。
       latencyPlain: 首字延迟 {latency} 毫秒
@@ -1440,7 +1441,8 @@ steps:
     mingModelNote: ~850 MB download · Runs locally after setup.
     mingModelReadyTitle: Model ready on this device
     mingModelReadyDesc: Ming 3.0 is downloaded and ready to use.
-    mingSampleDefault: Hey, welcome back! I was just thinking about what we could make together today.
+    mingSampleDefault: Hey, welcome back! I was just thinking about what we could
+      make together today.
   thinking:
     label: 思考节奏
     subtitle: 节奏把控与潜意识旁白
