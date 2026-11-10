@@ -6,17 +6,97 @@
  * - Prepares and caches needle assets (34 MB weights + 1.2 MB WASM) in Cache Storage API ('needle3-cache')
  * - Task 2: Fast-path probe on user prompt at t = 0 (racing against TTFT)
  * - Task 3: Background extraction on streaming CoT reasoning buffer ahead of interval tick
+ * - Task 4: Native 3,072-dimensional vector embeddings for local zero-GPU RAG
+ * - Task 5: Multi-turn memory fragments and subconscious beat extraction
  */
 
 const NEEDLE_CACHE_NAME = 'needle3-cache'
-const NEEDLE_WASM_URL = 'https://huggingface.co/Cactus-Compute/cactus/resolve/main/releases/4.1.0/wasm/cactus.wasm'
-const _NEEDLE_WEIGHTS_URL = 'https://huggingface.co/Cactus-Compute/needle3/resolve/main/needle3.cact'
+const CACTUS_WASM_URL = 'https://huggingface.co/Cactus-Compute/cactus/resolve/main/releases/4.1.0/wasm/cactus.wasm'
+const CACTUS_JS_URL = 'https://huggingface.co/Cactus-Compute/cactus/resolve/main/releases/4.1.0/wasm/cactus.js'
+const NEEDLE_WEIGHTS_URL = 'https://huggingface.co/Cactus-Compute/needle3/resolve/main/needle3.cact'
 
-// Estimated total bundle size: ~35 MB (34 MB weights + 1.2 MB WASM)
-const ESTIMATED_TOTAL_BYTES = 35 * 1024 * 1024
+// Estimated total bundle size: ~36 MB (34 MB weights + 1.2 MB WASM + 61 KB JS loader)
+const ESTIMATED_TOTAL_BYTES = 36 * 1024 * 1024
 
 let isInitialized = false
-let _wasmInstance: WebAssembly.Instance | null = null
+let _cactusInstance: any = null
+let _cfuncs: {
+  cactus_load: (ptr: number, len: bigint) => number
+  cactus_init: (sys: string, tools: string, opt: string) => number
+  cactus_complete: (input: string, pcm: number, samples: number, maxTokens: number, out: number, cap: number) => number
+  cactus_embed: (input: string, pcm: number, samples: number, out: number, cap: number) => number
+  cactus_reset: () => void
+  cactus_models: () => number
+  cactus_last_error: () => string
+} | null = null
+
+let _outBufferPtr = 0
+const OUT_BUFFER_CAPACITY = 16384
+
+let _embedBufferPtr = 0
+const EMBED_BUFFER_CAPACITY = 4096
+
+const INITIAL_REACTION_TOOL = {
+  name: 'record_initial_reaction',
+  description: 'Select an immediate natural 2-6 word spoken thinking filler or acknowledgment matching the user prompt.',
+  parameters: {
+    type: 'object',
+    properties: {
+      filler: {
+        type: 'string',
+        description: 'Short 2 to 6 word natural spoken aside, e.g. "Let me see...", "Let\'s break this down step by step...", "Hmm, let me think about that...", "Hold on, looking into this now..."',
+      },
+    },
+    required: ['filler'],
+  },
+}
+
+const COT_PIVOT_TOOL = {
+  name: 'record_cot_pivot',
+  description: 'Extract a concise 2-8 word turning point or realization from internal reasoning.',
+  parameters: {
+    type: 'object',
+    properties: {
+      pivot: {
+        type: 'string',
+        description: 'Short 2 to 8 word pivot phrase, e.g. "Wait, actually...", "The key nuance is...", "Hold on, let me reconsider..."',
+      },
+    },
+    required: ['pivot'],
+  },
+}
+
+const EXTRACT_MEMORY_FRAGMENTS_TOOL = {
+  name: 'extract_memory_fragments',
+  description: 'Copy mentions and factual or contextual fragments from the target passage. Keep uncertainty, negation and plans.',
+  parameters: {
+    type: 'object',
+    properties: {
+      mentions: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Names of people, animals/pets, places, organizations, or objects directly mentioned.',
+      },
+      temporal_phrase: {
+        type: 'string',
+        description: 'Relative or absolute time expression if present (e.g. "last week", "yesterday", "in April 2022").',
+      },
+      claims: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            quote: { type: 'string' },
+            polarity: { type: 'string', enum: ['positive', 'negative', 'unknown'] },
+            mode: { type: 'string', enum: ['asserted', 'question', 'plan', 'hypothetical', 'quoted', 'fragment', 'unknown'] },
+          },
+          required: ['quote'],
+        },
+      },
+    },
+    required: ['mentions'],
+  },
+}
 
 /**
  * Intelligent neural-grammar fallback extractor for initial reaction (Task 2).
@@ -71,7 +151,6 @@ function extractCotPivotFallback(snippet: string): string | null {
   if (!snippet || snippet.length < 15)
     return null
 
-  // Pivot trigger patterns representing internal shift, reflection, or realization
   const pivotPatterns = [
     /\b(?:no\s+)?wait[,\s—-]+([^.\n?!]{4,80})/i,
     /\b(?:actually|in\s+fact)[,\s—-]+([^.\n?!]{4,80})/i,
@@ -89,7 +168,6 @@ function extractCotPivotFallback(snippet: string): string | null {
     const match = snippet.match(regex)
     if (match && match[0]) {
       let phrase = match[0].trim()
-      // Clean up punctuation and limit length to succinct spoken aside (max 8 words)
       phrase = phrase.replace(/[^\w\s',.-]/g, ' ')
       const words = phrase.split(/\s+/).filter(Boolean)
       if (words.length > 8) {
@@ -119,92 +197,284 @@ function hashString(str: string): number {
 async function prepareNeedleAssets(
   onProgress: (ratio: number, message: string) => void,
 ): Promise<boolean> {
-  if (typeof caches === 'undefined') {
-    onProgress(1.0, 'Cache Storage API unavailable, using fallback runtime')
-    isInitialized = true
-    return true
+  let wasmBinary: ArrayBuffer | null = null
+  let cactusJsText: string | null = null
+  let weightsBuffer: ArrayBuffer | null = null
+
+  // 1. Check browser Cache Storage API first
+  if (typeof caches !== 'undefined') {
+    try {
+      const cache = await caches.open(NEEDLE_CACHE_NAME)
+      const [wasmRes, jsRes, weightsRes] = await Promise.all([
+        cache.match(CACTUS_WASM_URL),
+        cache.match(CACTUS_JS_URL),
+        cache.match(NEEDLE_WEIGHTS_URL),
+      ])
+
+      if (wasmRes && jsRes && weightsRes) {
+        onProgress(0.1, 'Loading cached Needle 3 assets...')
+        const [wBin, jTxt, wtBin] = await Promise.all([
+          wasmRes.arrayBuffer(),
+          jsRes.text(),
+          weightsRes.arrayBuffer(),
+        ])
+        wasmBinary = wBin
+        cactusJsText = jTxt
+        weightsBuffer = wtBin
+      }
+    }
+    catch (cacheReadErr) {
+      console.warn('[NeedleWorker] Cache read failed, proceeding to network fetch:', cacheReadErr)
+    }
   }
 
-  const cache = await caches.open(NEEDLE_CACHE_NAME)
-  const existingKeys = await cache.keys()
+  // 2. Network downloads if not cached
+  if (!wasmBinary || !cactusJsText || !weightsBuffer) {
+    onProgress(0.05, 'Starting download of Needle 3 assets...')
 
-  if (existingKeys.length > 0) {
-    onProgress(1.0, 'Needle 3 assets already cached')
-    isInitialized = true
-    return true
-  }
+    try {
+      // 2a. Download JS loader
+      if (!cactusJsText) {
+        onProgress(0.08, 'Downloading Cactus JS loader...')
+        const jsRes = await fetch(CACTUS_JS_URL)
+        if (!jsRes.ok)
+          throw new Error(`Failed to download Cactus JS: HTTP ${jsRes.status}`)
+        cactusJsText = await jsRes.text()
 
-  // Assets need downloading
-  onProgress(0.05, 'Starting download of Needle 3 (35 MB)...')
-
-  try {
-    const response = await fetch(NEEDLE_WASM_URL)
-    if (response.ok && response.body) {
-      const contentLength = Number(response.headers.get('content-length')) || ESTIMATED_TOTAL_BYTES
-      const reader = response.body.getReader()
-      let receivedBytes = 0
-      const chunks: BlobPart[] = []
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done)
-          break
-        chunks.push(value)
-        receivedBytes += value.length
-        const ratio = Math.min(0.95, receivedBytes / contentLength)
-        onProgress(ratio, `Downloading Needle 3: ${Math.round(ratio * 100)}%`)
+        if (typeof caches !== 'undefined') {
+          const cache = await caches.open(NEEDLE_CACHE_NAME)
+          await cache.put(CACTUS_JS_URL, new Response(cactusJsText, { headers: { 'content-type': 'text/javascript' } }))
+        }
       }
 
-      // Combine chunks and cache
-      const fullBlob = new Blob(chunks, { type: 'application/wasm' })
-      const cachedResponse = new Response(fullBlob, {
-        headers: {
-          'content-length': fullBlob.size.toString(),
-          'content-type': 'application/wasm',
-        },
-      })
-      await cache.put(NEEDLE_WASM_URL, cachedResponse)
+      // 2b. Download WASM binary
+      if (!wasmBinary) {
+        onProgress(0.12, 'Downloading Cactus WASM engine (1.2 MB)...')
+        const wasmRes = await fetch(CACTUS_WASM_URL)
+        if (!wasmRes.ok)
+          throw new Error(`Failed to download Cactus WASM: HTTP ${wasmRes.status}`)
+        wasmBinary = await wasmRes.arrayBuffer()
 
-      // Try WASM compilation
-      try {
-        const wasmModule = await WebAssembly.compile(await fullBlob.arrayBuffer())
-        _wasmInstance = await WebAssembly.instantiate(wasmModule, {})
-      }
-      catch (wasmErr) {
-        console.warn('[NeedleWorker] WASM compilation skipped, using neural-grammar fallback:', wasmErr)
+        if (typeof caches !== 'undefined') {
+          const cache = await caches.open(NEEDLE_CACHE_NAME)
+          await cache.put(CACTUS_WASM_URL, new Response(wasmBinary, { headers: { 'content-type': 'application/wasm' } }))
+        }
       }
 
-      onProgress(1.0, 'Needle 3 ready')
+      // 2c. Download model weights
+      if (!weightsBuffer) {
+        onProgress(0.2, 'Downloading Needle 3 model weights (34 MB)...')
+        const weightsRes = await fetch(NEEDLE_WEIGHTS_URL)
+        if (!weightsRes.ok || !weightsRes.body)
+          throw new Error(`Failed to download Needle 3 weights: HTTP ${weightsRes.status}`)
+
+        const contentLength = Number(weightsRes.headers.get('content-length')) || (34 * 1024 * 1024)
+        const reader = weightsRes.body.getReader()
+        let receivedBytes = 0
+        const chunks: BlobPart[] = []
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done)
+            break
+          chunks.push(value)
+          receivedBytes += value.length
+          const ratio = Math.min(0.92, 0.2 + (receivedBytes / contentLength) * 0.72)
+          onProgress(ratio, `Downloading Needle 3: ${Math.round(ratio * 100)}%`)
+        }
+
+        const weightsBlob = new Blob(chunks, { type: 'application/octet-stream' })
+        weightsBuffer = await weightsBlob.arrayBuffer()
+
+        if (typeof caches !== 'undefined') {
+          const cache = await caches.open(NEEDLE_CACHE_NAME)
+          await cache.put(NEEDLE_WEIGHTS_URL, new Response(weightsBlob, {
+            headers: {
+              'content-length': weightsBlob.size.toString(),
+              'content-type': 'application/octet-stream',
+            },
+          }))
+        }
+      }
+    }
+    catch (fetchErr) {
+      console.warn('[NeedleWorker] Network download failed, falling back to rule heuristics:', fetchErr)
       isInitialized = true
+      onProgress(1.0, 'Needle 3 ready (offline fallback)')
       return true
     }
   }
-  catch (fetchErr) {
-    console.warn('[NeedleWorker] Network fetch failed, caching synthetic baseline:', fetchErr)
-  }
 
-  // In offline or sandbox environments, store synthetic bundle to satisfy cache status
+  // 3. Instantiate Cactus WebAssembly runtime using cactus.js factory
+  onProgress(0.94, 'Initializing Cactus WebAssembly runtime...')
+  let createCactus: any
   try {
-    const stubBlob = new Blob(['needle-v3-laddered-runtime-bundle'], { type: 'application/octet-stream' })
-    const stubResponse = new Response(stubBlob, {
-      headers: {
-        'content-length': (35 * 1024 * 1024).toString(),
-        'content-type': 'application/octet-stream',
-      },
-    })
-    await cache.put(NEEDLE_WASM_URL, stubResponse)
+    createCactus = new Function(`${cactusJsText}\nreturn createCactus;`)()
   }
-  catch (cacheErr) {
-    console.warn('[NeedleWorker] Failed to write synthetic bundle to cache:', cacheErr)
+  catch (fnErr) {
+    console.warn('[NeedleWorker] new Function evaluation failed, attempting blob module import:', fnErr)
+    const blob = new Blob([`${cactusJsText}\nexport default createCactus;`], { type: 'text/javascript' })
+    const blobUrl = URL.createObjectURL(blob)
+    try {
+      const mod = await import(/* @vite-ignore */ blobUrl)
+      createCactus = mod.default
+    }
+    finally {
+      URL.revokeObjectURL(blobUrl)
+    }
   }
 
-  onProgress(1.0, 'Needle 3 ready')
-  isInitialized = true
-  return true
+  if (typeof createCactus !== 'function') {
+    console.warn('[NeedleWorker] Failed to create Cactus factory, using rule heuristics')
+    isInitialized = true
+    onProgress(1.0, 'Needle 3 ready (fallback runtime)')
+    return true
+  }
+
+  try {
+    _cactusInstance = await createCactus({ wasmBinary })
+    console.info('[NeedleWorker] Cactus WebAssembly engine instantiated')
+
+    // 4. Load Needle 3 weights into linear memory
+    onProgress(0.97, 'Loading Needle 3 neural graph into Cactus...')
+    const weightsBytes = new Uint8Array(weightsBuffer)
+    const weightsPtr = _cactusInstance._malloc(weightsBytes.byteLength)
+    _cactusInstance.HEAPU8.set(weightsBytes, weightsPtr)
+    const loadRet = _cactusInstance._cactus_load(weightsPtr, BigInt(weightsBytes.byteLength))
+    _cactusInstance._free(weightsPtr)
+
+    if (loadRet !== 0) {
+      const errPtr = _cactusInstance._cactus_last_error?.()
+      const errMsg = errPtr ? _cactusInstance.UTF8ToString(errPtr) : `Code ${loadRet}`
+      console.warn(`[NeedleWorker] Cactus weights loading returned code: ${errMsg}`)
+    }
+
+    // Bind typed C function wrappers
+    _cfuncs = {
+      cactus_load: _cactusInstance.cwrap('cactus_load', 'number', ['number', 'number']),
+      cactus_init: _cactusInstance.cwrap('cactus_init', 'number', ['string', 'string', 'string']),
+      cactus_complete: _cactusInstance.cwrap('cactus_complete', 'number', ['string', 'number', 'number', 'number', 'number', 'number']),
+      cactus_embed: _cactusInstance.cwrap('cactus_embed', 'number', ['string', 'number', 'number', 'number', 'number']),
+      cactus_reset: _cactusInstance.cwrap('cactus_reset', 'void', []),
+      cactus_models: _cactusInstance.cwrap('cactus_models', 'number', []),
+      cactus_last_error: _cactusInstance.cwrap('cactus_last_error', 'string', []),
+    }
+
+    // Allocate persistent response and embedding buffers
+    _outBufferPtr = _cactusInstance._malloc(OUT_BUFFER_CAPACITY)
+    _embedBufferPtr = _cactusInstance._malloc(EMBED_BUFFER_CAPACITY * 4)
+
+    // 5. Initialize tool schemas for pacing and memory extraction
+    const sysPrompt = 'You are an on-device assistant specialized in conversational pacing, thinking fillers, and memory fragment extraction.'
+    const toolsJson = JSON.stringify([INITIAL_REACTION_TOOL, COT_PIVOT_TOOL, EXTRACT_MEMORY_FRAGMENTS_TOOL])
+    _cfuncs.cactus_init(sysPrompt, toolsJson, '')
+
+    onProgress(1.0, 'Needle 3 ready')
+    isInitialized = true
+    return true
+  }
+  catch (initErr) {
+    console.warn('[NeedleWorker] Failed to initialize WASM instance, falling back to heuristics:', initErr)
+    isInitialized = true
+    onProgress(1.0, 'Needle 3 ready (fallback runtime)')
+    return true
+  }
+}
+
+/**
+ * Execute live Needle-3 WASM inference for initial reaction filler.
+ */
+function runInitialReactionProbe(prompt: string): string {
+  if (!_cactusInstance || !_cfuncs || !_outBufferPtr) {
+    return extractInitialReactionFallback(prompt)
+  }
+
+  try {
+    _cfuncs.cactus_reset()
+    const query = `User Prompt: ${prompt}\n\nTask: Output a 2 to 6 word spoken reaction filler before answering using record_initial_reaction.`
+    _cfuncs.cactus_complete(query, 0, 0, 32, _outBufferPtr, OUT_BUFFER_CAPACITY)
+    const outStr = _cactusInstance.UTF8ToString(_outBufferPtr)
+
+    const parsed = JSON.parse(outStr)
+    const calls = (Array.isArray(parsed?.function_calls) && parsed.function_calls.length > 0)
+      ? parsed.function_calls
+      : (Array.isArray(parsed?.suppressed_calls) && parsed.suppressed_calls.length > 0)
+          ? parsed.suppressed_calls
+          : []
+
+    if (calls.length > 0 && calls[0].arguments?.filler) {
+      const filler = String(calls[0].arguments.filler).trim()
+      if (filler.length >= 3)
+        return filler
+    }
+  }
+  catch (e) {
+    console.warn('[NeedleWorker] WASM probe failed, using fallback:', e)
+  }
+
+  return extractInitialReactionFallback(prompt)
+}
+
+/**
+ * Execute live Needle-3 WASM inference for CoT reasoning pivot extraction.
+ */
+function runCotPivotProbe(snippet: string): string | null {
+  if (!snippet || snippet.length < 15)
+    return null
+
+  if (!_cactusInstance || !_cfuncs || !_outBufferPtr) {
+    return extractCotPivotFallback(snippet)
+  }
+
+  try {
+    _cfuncs.cactus_reset()
+    const query = `Reasoning text: ${snippet}\n\nTask: Extract a concise spoken pivot phrase using record_cot_pivot.`
+    _cfuncs.cactus_complete(query, 0, 0, 32, _outBufferPtr, OUT_BUFFER_CAPACITY)
+    const outStr = _cactusInstance.UTF8ToString(_outBufferPtr)
+
+    const parsed = JSON.parse(outStr)
+    const calls = (Array.isArray(parsed?.function_calls) && parsed.function_calls.length > 0)
+      ? parsed.function_calls
+      : (Array.isArray(parsed?.suppressed_calls) && parsed.suppressed_calls.length > 0)
+          ? parsed.suppressed_calls
+          : []
+
+    if (calls.length > 0 && calls[0].arguments?.pivot) {
+      const pivot = String(calls[0].arguments.pivot).trim()
+      if (pivot.length >= 4) {
+        return `${pivot.charAt(0).toUpperCase() + pivot.slice(1).replace(/[.,]+$/, '')}...`
+      }
+    }
+  }
+  catch (e) {
+    console.warn('[NeedleWorker] WASM pivot failed, using fallback:', e)
+  }
+
+  return extractCotPivotFallback(snippet)
+}
+
+/**
+ * Generate 3,072-dimensional normalized unit vector embedding via CPU WASM.
+ */
+function runEmbed(text: string): Float32Array | null {
+  if (!text || !_cactusInstance || !_cfuncs || !_embedBufferPtr)
+    return null
+
+  try {
+    const dim = _cfuncs.cactus_embed(text, 0, 0, _embedBufferPtr, EMBED_BUFFER_CAPACITY)
+    if (dim > 0) {
+      return new Float32Array(_cactusInstance.HEAPU8.buffer, _embedBufferPtr, dim).slice()
+    }
+  }
+  catch (err) {
+    console.warn('[NeedleWorker] Embed generation failed:', err)
+  }
+
+  return null
 }
 
 self.onmessage = async (event: MessageEvent) => {
-  const { type, requestId, prompt, snippet } = event.data || {}
+  const { type, requestId, prompt, snippet, text } = event.data || {}
 
   switch (type) {
     case 'prepare': {
@@ -222,7 +492,7 @@ self.onmessage = async (event: MessageEvent) => {
 
     case 'probe_initial_reaction': {
       try {
-        const reaction = extractInitialReactionFallback(prompt || '')
+        const reaction = runInitialReactionProbe(prompt || '')
         self.postMessage({ type: 'response', requestId, text: reaction })
       }
       catch (err: any) {
@@ -233,7 +503,7 @@ self.onmessage = async (event: MessageEvent) => {
 
     case 'probe_cot_pivot': {
       try {
-        const pivot = extractCotPivotFallback(snippet || '')
+        const pivot = runCotPivotProbe(snippet || '')
         self.postMessage({ type: 'response', requestId, text: pivot })
       }
       catch (err: any) {
@@ -242,8 +512,24 @@ self.onmessage = async (event: MessageEvent) => {
       break
     }
 
+    case 'embed': {
+      try {
+        const vector = runEmbed(text || '')
+        self.postMessage({ type: 'response', requestId, vector })
+      }
+      catch (err: any) {
+        self.postMessage({ type: 'error', requestId, message: err?.message || 'Embedding failed' })
+      }
+      break
+    }
+
     case 'ping': {
-      self.postMessage({ type: 'pong', requestId, isInitialized })
+      self.postMessage({
+        type: 'pong',
+        requestId,
+        isInitialized,
+        hasWasm: Boolean(_cactusInstance),
+      })
       break
     }
 

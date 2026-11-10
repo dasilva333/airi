@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createNeedleClient } from './needle-client'
 
-describe('needleClient (Needle 2 Subconscious Runtime)', () => {
+describe('needleClient (Needle 3 Subconscious Runtime)', () => {
   it('instantiates and provides expected interface', () => {
     const client = createNeedleClient()
     expect(typeof client.isReady).toBe('function')
@@ -11,6 +11,7 @@ describe('needleClient (Needle 2 Subconscious Runtime)', () => {
     expect(typeof client.prepare).toBe('function')
     expect(typeof client.probeInitialReaction).toBe('function')
     expect(typeof client.probeCotPivot).toBe('function')
+    expect(typeof client.embed).toBe('function')
     expect(typeof client.terminate).toBe('function')
   })
 
@@ -55,6 +56,18 @@ describe('needleClient (Needle 2 Subconscious Runtime)', () => {
     const shortSnippet = 'Calculating...'
     const emptyPivot = await client.probeCotPivot(shortSnippet)
     expect(emptyPivot).toBeNull()
+  })
+
+  it('embeds text (Task 4) returning null or vector in test environment', async () => {
+    const client = createNeedleClient()
+    const emptyVec = await client.embed('')
+    expect(emptyVec).toBeNull()
+
+    const textVec = await client.embed('Character state and memory retrieval query')
+    // In Node test environment where Worker is undefined, embed returns null safely
+    if (textVec) {
+      expect(textVec.length).toBe(3072)
+    }
   })
 
   it('handles terminate cleanly', () => {

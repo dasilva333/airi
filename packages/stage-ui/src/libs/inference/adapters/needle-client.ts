@@ -16,6 +16,7 @@ export interface NeedleClient {
   prepare: (onProgress?: (ratio: number) => void) => Promise<boolean>
   probeInitialReaction: (userPrompt: string, budgetMs?: number) => Promise<string | null>
   probeCotPivot: (reasoningSnippet: string, budgetMs?: number) => Promise<string | null>
+  embed: (text: string, budgetMs?: number) => Promise<Float32Array | null>
   terminate: () => void
 }
 
@@ -227,6 +228,55 @@ export function createNeedleClient(): NeedleClient {
     })
   }
 
+  async function embed(text: string, budgetMs: number = 2000): Promise<Float32Array | null> {
+    if (!text || !text.trim())
+      return null
+
+    const worker = ensureWorker()
+    if (!worker) {
+      return null
+    }
+
+    if (!isInitialized) {
+      return null
+    }
+
+    const requestId = createRequestId()
+
+    return new Promise<Float32Array | null>((resolve) => {
+      let timeoutId: any
+
+      const cleanup = () => {
+        if (timeoutId)
+          clearTimeout(timeoutId)
+        worker.removeEventListener('message', handler)
+      }
+
+      const handler = (event: MessageEvent) => {
+        const data = event.data || {}
+        if (data.requestId !== requestId)
+          return
+
+        if (data.type === 'response') {
+          cleanup()
+          resolve(data.vector || null)
+        }
+        else if (data.type === 'error') {
+          cleanup()
+          resolve(null)
+        }
+      }
+
+      worker.addEventListener('message', handler)
+      worker.postMessage({ type: 'embed', requestId, text })
+
+      timeoutId = setTimeout(() => {
+        cleanup()
+        resolve(null)
+      }, budgetMs)
+    })
+  }
+
   function terminate(): void {
     if (workerInstance) {
       workerInstance.terminate()
@@ -244,6 +294,7 @@ export function createNeedleClient(): NeedleClient {
     prepare,
     probeInitialReaction,
     probeCotPivot,
+    embed,
     terminate,
   }
 }
