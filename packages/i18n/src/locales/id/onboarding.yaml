@@ -919,8 +919,9 @@ steps:
         llama-3-2-1b-instruct-q4f32-1-mlc: Ultra-fast, lightweight 1.2B instruction model for low-end hardware.
         llama-3-2-3b-instruct-q4f32-1-mlc: Strong general instruction & chat model with standard FP32 precision.
         phi-4-mini-instruct-q4f32-1-mlc: Next-gen compact generalist running with standard WebGPU FP32 compute.
-        lfm3-1-7b-q6f16-a-mlc: Arsitektur tri-hibrida Liquid AI (konvolusi pendek + jendela geser +
-          atensi global). Otak pada perangkat 1.7B yang sangat cepat.
+        lfm3-1-7b-q6f16-a-mlc: Arsitektur tri-hibrida Liquid AI (konvolusi pendek +
+          jendela geser + atensi global). Otak pada perangkat 1.7B yang sangat
+          cepat.
     verification:
       failed: Connection test failed. Check API key, model ID, and network.
       latencyPlain: '{latency}ms TTFT'
@@ -951,7 +952,8 @@ steps:
     noModel: No model
     apiKeyPlaceholder: Enter API Key
     connectedAccountSummary: Connected account · {account}
-    providerChatUnavailable: 'Provider "{provider}" does not expose chat completions. Check credentials.'
+    providerChatUnavailable: 'Provider "{provider}" does not expose chat
+      completions. Check credentials.'
     emptyModelResponse: Empty response received from LLM.
     localWebllmShort: Local WebLLM
   persona:
@@ -1242,6 +1244,7 @@ steps:
       noTranscriptionReturnedFromProviderPleaseCheckMicrophoneInputVolumeA:
         No transcription returned from provider. Please check microphone input
         volume and model status.
+      downloadingWhistleModel: Mengunduh bobot Cactus Whistle (16.9 MB)…
     download:
       warmingUp: Compiling WebGPU shaders and warming up model…
       cancel: Cancel
@@ -1294,6 +1297,17 @@ steps:
       local: Local
       free: Free
       paid: Paid
+    whistleLocal: Whistle (Lokal)
+    recommendedLocal: Direkomendasikan · CPU
+    fastCpuOffline: 17 MB · CPU Cepat
+    whistleLocalDescription: Pengenalan cepat di perangkat melalui Cactus WASM.
+      Tidak memerlukan GPU atau VRAM.
+    whistleCpuModel: Cactus Whistle Base (CPU / WASM)
+    whistleCpuModelDescription: Bobot akustik terkuantisasi ringkas 16.9 MB di-cache
+      secara lokal di penyimpanan OPFS peramban. Latensi token pertama di bawah
+      20ms.
+    whistleReadyMessage: Bobot akustik Whistle telah di-cache secara lokal dan
+      diinisialisasi dalam memori. Siap untuk dikte instan.
   speech:
     label: Speech
     subtitle: Neural Voice Studio (TTS)
@@ -2754,6 +2768,7 @@ quickStart:
     synthesizingKokoro82mVoiceEngine: Synthesizing Kokoro 82M voice engine...
     soulManifestation: Soul Manifestation
     seedingCompanionPersonaMemory: Seeding companion persona & memory...
+    verifyingWhistleLocalOnDeviceModel: Memverifikasi model lokal Whistle di perangkat…
   brainDescription: Connect your AI provider to power {companionName}'s consciousness.
   voiceDescription: Give {companionName} a clear voice.
   hearingDescription: Let {companionName} hear your voice.
@@ -2783,6 +2798,11 @@ quickStart:
     webLlmFailed: Failed to load WebLLM model
     whisperFailed: Failed to load Whisper STT
     kokoroFailed: Failed to load Kokoro TTS
+    checkingWhistle: Memverifikasi bobot lokal Whistle (16.9 MB)...
+    whistleProgress: Mengunduh Whistle ({percent}%)...
+    whistleReady: Mesin akustik lokal Whistle siap
+    whistleFailed: Gagal memuat Whistle STT
+    webSpeechReady: Web Speech API peramban siap
   greetingDefaultName: there
   connection:
     connected: Connected! {elapsed}ms TTFT
@@ -2807,6 +2827,7 @@ quickStart:
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
   ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
+  whistleLocalCpuOnDevice: Whistle Lokal (17 MB · CPU Sangat Cepat)
 onboarding:
   steps:
     appearance:

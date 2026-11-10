@@ -1097,6 +1097,7 @@ steps:
       recording3Seconds: 正在录制 3 秒音频…
       transcribing: 正在转写…
       noTranscriptionReturnedFromProviderPleaseCheckMicrophoneInputVolumeA: 服务商未返回转写文本。请检查麦克风输入音量和模型状态。
+      downloadingWhistleModel: 正在下载 Cactus Whistle 权重 (16.9 MB)…
     download:
       warmingUp: 正在编译 WebGPU 着色器并预热模型…
       cancel: 取消
@@ -1145,6 +1146,13 @@ steps:
       local: 本地
       free: 免费
       paid: 付费
+    whistleLocal: Whistle (本地)
+    recommendedLocal: 推荐 · CPU
+    fastCpuOffline: 17 MB · 高速 CPU
+    whistleLocalDescription: 通过 Cactus WASM 实现快速端侧识别。无需 GPU 或显存。
+    whistleCpuModel: Cactus Whistle Base (CPU / WASM)
+    whistleCpuModelDescription: 紧凑的 16.9 MB 量化声学权重，本地缓存在浏览器 OPFS 存储中。首个 token 延迟低于 20ms。
+    whistleReadyMessage: Whistle 声学权重已在本地缓存并加载至内存。随时可以开始即时听写。
   speech:
     label: 发音能力
     subtitle: 神经拟真语音 (TTS)
@@ -2494,6 +2502,7 @@ quickStart:
     soulManifestation: 人格与角色呈现
     seedingCompanionPersonaMemory: 正在初始化伴侣人格和记忆…
     balanced: 均衡
+    verifyingWhistleLocalOnDeviceModel: 正在验证 Whistle 端侧本地模型…
   brainDescription: 连接 AI 提供商，启用 {companionName} 的意识核心。
   voiceDescription: 让 {companionName} 拥有清晰的声音。
   hearingDescription: 让 {companionName} 听见你的声音。
@@ -2523,6 +2532,11 @@ quickStart:
     webLlmFailed: Failed to load WebLLM model
     whisperFailed: Failed to load Whisper STT
     kokoroFailed: Failed to load Kokoro TTS
+    checkingWhistle: 正在验证 Whistle 本地权重 (16.9 MB)...
+    whistleProgress: 正在下载 Whistle ({percent}%)...
+    whistleReady: Whistle 本地声学引擎就绪
+    whistleFailed: 加载 Whistle STT 失败
+    webSpeechReady: 浏览器 Web Speech API 就绪
   greetingDefaultName: 朋友
   connection:
     connected: 连接成功！首字延迟 {elapsed} 毫秒
@@ -2548,6 +2562,7 @@ quickStart:
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
   ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
+  whistleLocalCpuOnDevice: Whistle 本地 (17 MB · 超快 CPU)
 onboarding:
   steps:
     appearance:

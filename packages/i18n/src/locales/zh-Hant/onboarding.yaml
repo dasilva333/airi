@@ -895,7 +895,8 @@ steps:
     noModel: No model
     apiKeyPlaceholder: Enter API Key
     connectedAccountSummary: Connected account · {account}
-    providerChatUnavailable: 'Provider "{provider}" does not expose chat completions. Check credentials.'
+    providerChatUnavailable: 'Provider "{provider}" does not expose chat
+      completions. Check credentials.'
     emptyModelResponse: Empty response received from LLM.
     localWebllmShort: Local WebLLM
   persona:
@@ -1184,6 +1185,7 @@ steps:
       noTranscriptionReturnedFromProviderPleaseCheckMicrophoneInputVolumeA:
         No transcription returned from provider. Please check microphone input
         volume and model status.
+      downloadingWhistleModel: 正在下載 Cactus Whistle 權重 (16.9 MB)…
     download:
       warmingUp: Compiling WebGPU shaders and warming up model…
       cancel: Cancel
@@ -1236,6 +1238,13 @@ steps:
       local: Local
       free: Free
       paid: Paid
+    whistleLocal: Whistle (本機)
+    recommendedLocal: 推薦 · CPU
+    fastCpuOffline: 17 MB · 高速 CPU
+    whistleLocalDescription: 透過 Cactus WASM 實現快速端側語音識別。無需 GPU 或顯存。
+    whistleCpuModel: Cactus Whistle Base (CPU / WASM)
+    whistleCpuModelDescription: 緊湊的 16.9 MB 量化聲學權重，本機快取在瀏覽器 OPFS 儲存中。首個 token 延遲低於 20ms。
+    whistleReadyMessage: Whistle 聲學權重已在本機快取並載入至記憶體。隨時可以開始即時語音輸入。
   speech:
     label: 發音能力
     subtitle: 神經擬真語音 (TTS)
@@ -2674,6 +2683,7 @@ quickStart:
     synthesizingKokoro82mVoiceEngine: Synthesizing Kokoro 82M voice engine...
     soulManifestation: Soul Manifestation
     seedingCompanionPersonaMemory: Seeding companion persona & memory...
+    verifyingWhistleLocalOnDeviceModel: 正在驗證 Whistle 端側本機模型…
   brainDescription: Connect your AI provider to power {companionName}'s consciousness.
   voiceDescription: Give {companionName} a clear voice.
   hearingDescription: Let {companionName} hear your voice.
@@ -2703,6 +2713,11 @@ quickStart:
     webLlmFailed: Failed to load WebLLM model
     whisperFailed: Failed to load Whisper STT
     kokoroFailed: Failed to load Kokoro TTS
+    checkingWhistle: 正在驗證 Whistle 本機權重 (16.9 MB)...
+    whistleProgress: 正在下載 Whistle ({percent}%)...
+    whistleReady: Whistle 本機聲學引擎就緒
+    whistleFailed: 載入 Whistle STT 失敗
+    webSpeechReady: 瀏覽器 Web Speech API 就緒
   greetingDefaultName: there
   connection:
     connected: Connected! {elapsed}ms TTFT
@@ -2727,6 +2742,7 @@ quickStart:
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
   ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
+  whistleLocalCpuOnDevice: Whistle 本機 (17 MB · 超快 CPU)
 onboarding:
   steps:
     appearance:

@@ -944,7 +944,8 @@ steps:
     noModel: No model
     apiKeyPlaceholder: Enter API Key
     connectedAccountSummary: Connected account · {account}
-    providerChatUnavailable: 'Provider "{provider}" does not expose chat completions. Check credentials.'
+    providerChatUnavailable: 'Provider "{provider}" does not expose chat
+      completions. Check credentials.'
     emptyModelResponse: Empty response received from LLM.
     localWebllmShort: Local WebLLM
 
@@ -1237,6 +1238,7 @@ steps:
       noTranscriptionReturnedFromProviderPleaseCheckMicrophoneInputVolumeA:
         No transcription returned from provider. Please check microphone input
         volume and model status.
+      downloadingWhistleModel: กำลังดาวน์โหลดน้ำหนักโมเดล Cactus Whistle (16.9 MB)…
     download:
       warmingUp: Compiling WebGPU shaders and warming up model…
       cancel: Cancel
@@ -1289,6 +1291,15 @@ steps:
       local: Local
       free: Free
       paid: Paid
+    whistleLocal: Whistle (ภายในเครื่อง)
+    recommendedLocal: แนะนำ · CPU
+    fastCpuOffline: 17 MB · CPU ความเร็วสูง
+    whistleLocalDescription: การรู้จำเสียงความเร็วสูงบนอุปกรณ์ผ่าน Cactus WASM ไม่ต้องใช้ GPU หรือ VRAM
+    whistleCpuModel: Cactus Whistle Base (CPU / WASM)
+    whistleCpuModelDescription: น้ำหนักโมเดลอะคูสติกควอนไทซ์ขนาด 16.9 MB
+      แคชไว้ในที่เก็บข้อมูล OPFS ของเบราว์เซอร์ เวลาแฝงโทเค็นแรกต่ำกว่า 20ms
+    whistleReadyMessage: น้ำหนักโมเดลอะคูสติก Whistle
+      ถูกแคชไว้ในเครื่องและโหลดเข้าหน่วยความจำแล้ว พร้อมสำหรับการป้อนข้อมูลทันที
 
   speech:
     label: Speech
@@ -1598,7 +1609,8 @@ steps:
     mingModelNote: ~850 MB download · Runs locally after setup.
     mingModelReadyTitle: Model ready on this device
     mingModelReadyDesc: Ming 3.0 is downloaded and ready to use.
-    mingSampleDefault: Hey, welcome back! I was just thinking about what we could make together today.
+    mingSampleDefault: Hey, welcome back! I was just thinking about what we could
+      make together today.
   thinking:
     label: Thinking
     subtitle: Pacing & Subconscious Asides
@@ -2352,7 +2364,10 @@ steps:
 
     screenSnapshotsPack: Screen Snapshots Pack
     desktopOnly: Desktop Only
-    screenshotDescription: Lets the companion capture your screen or a specific window with {code} whenever it needs to see what you are looking at. The image goes to the chat model directly or is described by your Vision model first.
+    screenshotDescription: Lets the companion capture your screen or a specific
+      window with {code} whenever it needs to see what you are looking at. The
+      image goes to the chat model directly or is described by your Vision model
+      first.
     screenOrAnyWindow: Screen or any window
     usesVisionSettings: Uses Vision settings
     takeScreenshotDesktop: take_screenshot (Desktop)
@@ -2753,6 +2768,7 @@ quickStart:
     synthesizingKokoro82mVoiceEngine: Synthesizing Kokoro 82M voice engine...
     soulManifestation: Soul Manifestation
     seedingCompanionPersonaMemory: Seeding companion persona & memory...
+    verifyingWhistleLocalOnDeviceModel: กำลังตรวจสอบโมเดล Whistle บนอุปกรณ์ในเครื่อง…
   brainDescription: Connect your AI provider to power {companionName}'s consciousness.
   voiceDescription: Give {companionName} a clear voice.
   hearingDescription: Let {companionName} hear your voice.
@@ -2782,6 +2798,11 @@ quickStart:
     webLlmFailed: Failed to load WebLLM model
     whisperFailed: Failed to load Whisper STT
     kokoroFailed: Failed to load Kokoro TTS
+    checkingWhistle: กำลังตรวจสอบน้ำหนักโมเดล Whistle ในเครื่อง (16.9 MB)...
+    whistleProgress: กำลังดาวน์โหลด Whistle ({percent}%)...
+    whistleReady: เครื่องยนต์อะคูสติก Whistle ในเครื่องพร้อมแล้ว
+    whistleFailed: โหลด Whistle STT ล้มเหลว
+    webSpeechReady: Web Speech API ของเบราว์เซอร์พร้อมแล้ว
   greetingDefaultName: there
   connection:
     connected: Connected! {elapsed}ms TTFT
@@ -2807,6 +2828,7 @@ quickStart:
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
   ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
+  whistleLocalCpuOnDevice: Whistle ในเครื่อง (17 MB · CPU เร็วพิเศษ)
 onboarding:
   steps:
     appearance:

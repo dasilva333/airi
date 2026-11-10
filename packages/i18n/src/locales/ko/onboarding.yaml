@@ -876,8 +876,8 @@ steps:
         llama-3-2-1b-instruct-q4f32-1-mlc: Ultra-fast, lightweight 1.2B instruction model for low-end hardware.
         llama-3-2-3b-instruct-q4f32-1-mlc: Strong general instruction & chat model with standard FP32 precision.
         phi-4-mini-instruct-q4f32-1-mlc: Next-gen compact generalist running with standard WebGPU FP32 compute.
-        lfm3-1-7b-q6f16-a-mlc: Liquid AI 트라이 하이브리드 아키텍처(단기 합성곱 + 슬라이딩 윈도우 + 글로벌 어텐션). 초고속 1.7B 온디바이스
-          두뇌.
+        lfm3-1-7b-q6f16-a-mlc: Liquid AI 트라이 하이브리드 아키텍처(단기 합성곱 + 슬라이딩 윈도우 + 글로벌 어텐션).
+          초고속 1.7B 온디바이스 두뇌.
     verification:
       failed: Connection test failed. Check API key, model ID, and network.
       latencyPlain: '{latency}ms TTFT'
@@ -908,7 +908,8 @@ steps:
     noModel: No model
     apiKeyPlaceholder: Enter API Key
     connectedAccountSummary: Connected account · {account}
-    providerChatUnavailable: 'Provider "{provider}" does not expose chat completions. Check credentials.'
+    providerChatUnavailable: 'Provider "{provider}" does not expose chat
+      completions. Check credentials.'
     emptyModelResponse: Empty response received from LLM.
     localWebllmShort: Local WebLLM
   persona:
@@ -1197,6 +1198,7 @@ steps:
       noTranscriptionReturnedFromProviderPleaseCheckMicrophoneInputVolumeA:
         No transcription returned from provider. Please check microphone input
         volume and model status.
+      downloadingWhistleModel: Cactus Whistle 가중치 다운로드 중 (16.9MB)…
     download:
       warmingUp: Compiling WebGPU shaders and warming up model…
       cancel: Cancel
@@ -1249,6 +1251,13 @@ steps:
       local: Local
       free: Free
       paid: Paid
+    whistleLocal: Whistle (로컬)
+    recommendedLocal: 권장 · CPU
+    fastCpuOffline: 17MB · 빠른 CPU
+    whistleLocalDescription: Cactus WASM을 통한 기기 내 고속 음성 인식. GPU나 VRAM이 필요하지 않습니다.
+    whistleCpuModel: Cactus Whistle Base (CPU / WASM)
+    whistleCpuModelDescription: 브라우저 OPFS 저장소에 로컬 캐시되는 컴팩트한 16.9MB 양자화 음향 가중치. 20ms 미만의 첫 번째 토큰 지연 시간.
+    whistleReadyMessage: Whistle 음향 가중치가 로컬에 캐시되고 메모리에 초기화되었습니다. 즉시 음성 입력 준비가 완료되었습니다.
   speech:
     label: 발화
     subtitle: 신경망 음성 합성 (TTS)
@@ -2688,6 +2697,7 @@ quickStart:
     synthesizingKokoro82mVoiceEngine: Synthesizing Kokoro 82M voice engine...
     soulManifestation: Soul Manifestation
     seedingCompanionPersonaMemory: Seeding companion persona & memory...
+    verifyingWhistleLocalOnDeviceModel: Whistle 로컬 온디바이스 모델 확인 중…
   brainDescription: Connect your AI provider to power {companionName}'s consciousness.
   voiceDescription: Give {companionName} a clear voice.
   hearingDescription: Let {companionName} hear your voice.
@@ -2717,6 +2727,11 @@ quickStart:
     webLlmFailed: Failed to load WebLLM model
     whisperFailed: Failed to load Whisper STT
     kokoroFailed: Failed to load Kokoro TTS
+    checkingWhistle: Whistle 로컬 가중치 확인 중 (16.9MB)...
+    whistleProgress: Whistle 다운로드 중 ({percent}%)...
+    whistleReady: Whistle 로컬 음향 엔진 준비 완료
+    whistleFailed: Whistle STT 로드 실패
+    webSpeechReady: 브라우저 Web Speech API 준비 완료
   greetingDefaultName: there
   connection:
     connected: Connected! {elapsed}ms TTFT
@@ -2741,6 +2756,7 @@ quickStart:
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
   ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
+  whistleLocalCpuOnDevice: Whistle 로컬 (17MB · 초고속 CPU)
 onboarding:
   steps:
     appearance:

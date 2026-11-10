@@ -922,8 +922,8 @@ steps:
         llama-3-2-1b-instruct-q4f32-1-mlc: Ultra-fast, lightweight 1.2B instruction model for low-end hardware.
         llama-3-2-3b-instruct-q4f32-1-mlc: Strong general instruction & chat model with standard FP32 precision.
         phi-4-mini-instruct-q4f32-1-mlc: Next-gen compact generalist running with standard WebGPU FP32 compute.
-        lfm3-1-7b-q6f16-a-mlc: Kiến trúc ba lai của Liquid AI (tích chập ngắn + cửa sổ trượt + chú ý
-          toàn cục). Bộ não 1.7B trên thiết bị siêu nhanh.
+        lfm3-1-7b-q6f16-a-mlc: Kiến trúc ba lai của Liquid AI (tích chập ngắn + cửa sổ
+          trượt + chú ý toàn cục). Bộ não 1.7B trên thiết bị siêu nhanh.
     verification:
       failed: Connection test failed. Check API key, model ID, and network.
       latencyPlain: '{latency}ms TTFT'
@@ -954,7 +954,8 @@ steps:
     noModel: No model
     apiKeyPlaceholder: Enter API Key
     connectedAccountSummary: Connected account · {account}
-    providerChatUnavailable: 'Provider "{provider}" does not expose chat completions. Check credentials.'
+    providerChatUnavailable: 'Provider "{provider}" does not expose chat
+      completions. Check credentials.'
     emptyModelResponse: Empty response received from LLM.
     localWebllmShort: Local WebLLM
   persona:
@@ -1245,6 +1246,7 @@ steps:
       noTranscriptionReturnedFromProviderPleaseCheckMicrophoneInputVolumeA:
         No transcription returned from provider. Please check microphone input
         volume and model status.
+      downloadingWhistleModel: Đang tải trọng số Cactus Whistle (16.9 MB)…
     download:
       warmingUp: Compiling WebGPU shaders and warming up model…
       cancel: Cancel
@@ -1297,6 +1299,17 @@ steps:
       local: Local
       free: Free
       paid: Paid
+    whistleLocal: Whistle (Cục bộ)
+    recommendedLocal: Khuyên dùng · CPU
+    fastCpuOffline: 17 MB · CPU Nhanh
+    whistleLocalDescription: Nhận dạng giọng nói trên thiết bị nhanh chóng qua
+      Cactus WASM. Không cần GPU hay VRAM.
+    whistleCpuModel: Cactus Whistle Base (CPU / WASM)
+    whistleCpuModelDescription: Trọng số âm học lượng tử hóa nhỏ gọn 16.9 MB được
+      lưu cục bộ trong bộ nhớ OPFS của trình duyệt. Độ trễ token đầu tiên dưới
+      20ms.
+    whistleReadyMessage: Trọng số âm học của Whistle đã được lưu cục bộ và khởi tạo
+      trong bộ nhớ. Sẵn sàng nhập liệu ngay lập tức.
   speech:
     label: Phát âm
     subtitle: Tổng hợp giọng nói nơ-ron (TTS)
@@ -2765,6 +2778,7 @@ quickStart:
     synthesizingKokoro82mVoiceEngine: Synthesizing Kokoro 82M voice engine...
     soulManifestation: Soul Manifestation
     seedingCompanionPersonaMemory: Seeding companion persona & memory...
+    verifyingWhistleLocalOnDeviceModel: Đang xác minh mô hình Whistle cục bộ trên thiết bị…
   brainDescription: Connect your AI provider to power {companionName}'s consciousness.
   voiceDescription: Give {companionName} a clear voice.
   hearingDescription: Let {companionName} hear your voice.
@@ -2794,6 +2808,11 @@ quickStart:
     webLlmFailed: Failed to load WebLLM model
     whisperFailed: Failed to load Whisper STT
     kokoroFailed: Failed to load Kokoro TTS
+    checkingWhistle: Đang xác minh trọng số Whistle cục bộ (16.9 MB)...
+    whistleProgress: Đang tải Whistle ({percent}%)...
+    whistleReady: Động cơ âm học Whistle cục bộ đã sẵn sàng
+    whistleFailed: Tải Whistle STT thất bại
+    webSpeechReady: Web Speech API của trình duyệt đã sẵn sàng
   greetingDefaultName: there
   connection:
     connected: Connected! {elapsed}ms TTFT
@@ -2818,6 +2837,7 @@ quickStart:
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
   ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
+  whistleLocalCpuOnDevice: Whistle Cục bộ (17 MB · CPU Siêu nhanh)
 onboarding:
   steps:
     appearance:

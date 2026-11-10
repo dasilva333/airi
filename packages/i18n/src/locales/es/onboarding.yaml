@@ -933,9 +933,9 @@ steps:
         llama-3-2-1b-instruct-q4f32-1-mlc: Ultra-fast, lightweight 1.2B instruction model for low-end hardware.
         llama-3-2-3b-instruct-q4f32-1-mlc: Strong general instruction & chat model with standard FP32 precision.
         phi-4-mini-instruct-q4f32-1-mlc: Next-gen compact generalist running with standard WebGPU FP32 compute.
-        lfm3-1-7b-q6f16-a-mlc: Arquitectura tri-híbrida de Liquid AI (convs cortas + ventana
-          deslizante + atención global). Cerebro en dispositivo ultra rápido de
-          1.7B.
+        lfm3-1-7b-q6f16-a-mlc: Arquitectura tri-híbrida de Liquid AI (convs cortas +
+          ventana deslizante + atención global). Cerebro en dispositivo ultra
+          rápido de 1.7B.
     verification:
       failed: Connection test failed. Check API key, model ID, and network.
       latencyPlain: '{latency}ms TTFT'
@@ -966,7 +966,8 @@ steps:
     noModel: No model
     apiKeyPlaceholder: Enter API Key
     connectedAccountSummary: Connected account · {account}
-    providerChatUnavailable: 'Provider "{provider}" does not expose chat completions. Check credentials.'
+    providerChatUnavailable: 'Provider "{provider}" does not expose chat
+      completions. Check credentials.'
     emptyModelResponse: Empty response received from LLM.
     localWebllmShort: Local WebLLM
   persona:
@@ -1257,6 +1258,7 @@ steps:
       noTranscriptionReturnedFromProviderPleaseCheckMicrophoneInputVolumeA:
         No transcription returned from provider. Please check microphone input
         volume and model status.
+      downloadingWhistleModel: Descargando pesos de Cactus Whistle (16.9 MB)…
     download:
       warmingUp: Compiling WebGPU shaders and warming up model…
       cancel: Cancel
@@ -1309,6 +1311,16 @@ steps:
       local: Local
       free: Free
       paid: Paid
+    whistleLocal: Whistle (Local)
+    recommendedLocal: Recomendado · CPU
+    fastCpuOffline: 17 MB · CPU rápido
+    whistleLocalDescription: Reconocimiento rápido en el dispositivo mediante Cactus
+      WASM. No requiere GPU ni VRAM.
+    whistleCpuModel: Cactus Whistle Base (CPU / WASM)
+    whistleCpuModelDescription: Pesos acústicos cuantizados compactos de 16.9 MB en
+      caché local OPFS del navegador. Latencia de primer token menor a 20 ms.
+    whistleReadyMessage: Los pesos acústicos de Whistle están almacenados localmente
+      e inicializados en memoria. Listo para dictado instantáneo.
   speech:
     label: Habla
     subtitle: Síntesis de voz neuronal (TTS)
@@ -2776,6 +2788,7 @@ quickStart:
     synthesizingKokoro82mVoiceEngine: Synthesizing Kokoro 82M voice engine...
     soulManifestation: Soul Manifestation
     seedingCompanionPersonaMemory: Seeding companion persona & memory...
+    verifyingWhistleLocalOnDeviceModel: Verificando el modelo local de Whistle en el dispositivo…
   brainDescription: Connect your AI provider to power {companionName}'s consciousness.
   voiceDescription: Give {companionName} a clear voice.
   hearingDescription: Let {companionName} hear your voice.
@@ -2805,6 +2818,11 @@ quickStart:
     webLlmFailed: Failed to load WebLLM model
     whisperFailed: Failed to load Whisper STT
     kokoroFailed: Failed to load Kokoro TTS
+    checkingWhistle: Verificando pesos locales de Whistle (16.9 MB)...
+    whistleProgress: Descargando Whistle ({percent}%)...
+    whistleReady: Motor acústico local de Whistle listo
+    whistleFailed: Error al cargar Whistle STT
+    webSpeechReady: API de Web Speech del navegador lista
   greetingDefaultName: there
   connection:
     connected: Connected! {elapsed}ms TTFT
@@ -2829,6 +2847,7 @@ quickStart:
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
   ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
+  whistleLocalCpuOnDevice: Whistle Local (17 MB · CPU ultra rápido)
 onboarding:
   steps:
     appearance:
