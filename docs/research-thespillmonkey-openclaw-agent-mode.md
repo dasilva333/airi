@@ -9,6 +9,7 @@ A technical dissection and evaluation of the OpenClaw Stage integration implemen
 
 - **Repository**: [thespillmonkey/airi](https://github.com/thespillmonkey/airi)
 - **Primary Feature Branch**: [`thespillmonkey/feat/openclaw-agent-mode`](https://github.com/thespillmonkey/airi/tree/thespillmonkey/feat/openclaw-agent-mode)
+- **Companion Swarm Visualizer**: [`thespillmonkey/pixel-agents`](https://github.com/thespillmonkey/pixel-agents) (OpenClaw multi-agent virtual office provider)
 - **Base Version**: AIRI `0.13.0` (commit `13eef81f02261281a35d1ec21c834ede8c786fa3`)
 - **Target OpenClaw Version**: `2026.10.3`
 - **Related Upstream Threads**: PR [#1040](https://github.com/moeru-ai/airi/pull/1040) (*feat(openclaw): add OpenClaw bridge and Stage integration*), Issue [#1127](https://github.com/moeru-ai/airi/issues/1127)
@@ -31,28 +32,75 @@ In [`thespillmonkey/airi`](https://github.com/thespillmonkey/airi), developer Ga
 
 ---
 
+## The Complete Ecosystem: Multi-Agent Corporate Hierarchy
+
+Understanding Gary's work requires placing it within his actual multi-agent operational setup. Rather than running a single isolated chatbot, Gary operates an **autonomous multi-agent organization with 14+ specialized agents** managed by OpenClaw.
+
+Running 14 full-sized Live2D or 3D VRM avatars simultaneously would overwhelm both system GPU resources and desktop screen real estate. To solve this, the architecture splits embodiment and telemetry into two complementary layers:
+
+```
+                            ┌────────────────────────────────────────┐
+                            │               USER (Gary)              │
+                            └───────────────────┬────────────────────┘
+                                                │ Spoken Voice & Eye-to-Eye
+                                                ▼
+     ┌────────────────────────────────────────────────────────────────────────────────────────┐
+     │  TIER 1: THE FRONT DESK / EXECUTIVE SECRETARY (AIRI Stage)                             │
+     │  • Agent: "Mitsuki Takasawa"                                                           │
+     │  • Medium: High-fidelity Live2D (.moc3) / 3D VRM desktop avatar                        │
+     │  • Role: Speech-to-text, conversational voice, facial expressions, executive gateway   │
+     └──────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                                │ Delegates subtasks & issues tool calls
+                                                ▼
+     ┌────────────────────────────────────────────────────────────────────────────────────────┐
+     │  TIER 2: THE COGNITIVE ENGINE & SWARM RUNTIME (OpenClaw Gateway)                       │
+     │  • Core reasoning, memory, persistent state, workspace execution, & security policy   │
+     │  • Orchestrates 13+ specialized background sub-agents:                                 │
+     │    Gitbert (git ops), Javathan & Bashley (script execution), Bugatha (bug triage),     │
+     │    Crawlerton (web scraping), High Archivist Mektharion (docs/memory), Codeelia, etc.  │
+     └──────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                                │ Broadcasts live activity & state metadata
+                                                ▼
+     ┌────────────────────────────────────────────────────────────────────────────────────────┐
+     │  TIER 3: THE BACK OFFICE / AMBIENT TELEMETRY (Pixel Agents)                            │
+     │  • Medium: Retro 2D pixel-art virtual office canvas (thespillmonkey/pixel-agents)      │
+     │  • Role: Ambient operational dashboard: see sprite workers typing at desks,           │
+     │    gathering at conference tables, or wandering to the lounge when idle                │
+     └────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### The Three Roles in Practice:
+
+1. **AIRI Stage = The 1-on-1 Embodied Companion (Front Desk)**:
+   - When the user wants to interact, they do not manage 14 CLI terminal tabs. They speak directly to **Mitsuki Takasawa** (the executive secretary).
+   - AIRI provides Mitsuki with high-fidelity embodiment: microphone audio capture (VAD/STT), real-time speech response (TTS), viseme-synchronized mouth movement, and Live2D/VRM emotional expressions.
+   - When the user says *"Check open issues and start the refactor"*, they speak to Mitsuki.
+
+2. **OpenClaw = The Autonomous Brain & Workforce (Middle Tier)**:
+   - Mitsuki acts as the coordinator in OpenClaw. She breaks down the user's high-level request into tasks and delegates them to specialized sub-agents (`Gitbert` for branch management, `Bugatha` for test debugging, `Bashley` for shell builds).
+
+3. **Pixel Agents = Ambient Macro-Telemetry (Back Office)**:
+   - Built on Gary's fork of [`thespillmonkey/pixel-agents`](https://github.com/thespillmonkey/pixel-agents) (a fork of `pixel-agents-hq/pixel-agents`), this renders an isometric/top-down retro 2D pixel-art office (RPG / Stardew Valley style).
+   - As OpenClaw agents execute tasks, their corresponding pixel sprites animate: walking to desks, typing furiously when executing bash/file tools (*"Working"*), or sitting in the lounge (*"Idle"*).
+   - Status badges hover above each sprite in real time:
+     - `Mitsuki Takasawa`: *"Running a command"*
+     - `Bugatha · subtask`: *"Working"*
+     - `Gitbert · subtask`: *"Working"*
+     - `Codeelia`: *"Idle"*
+     - `Doctor Tae Takemi`: *"Idle"*
+   - This provides the user with an ambient, glanceable overview of the entire swarm on a side monitor without desktop clutter.
+
+---
+
 ## System Architecture
 
 ```mermaid
 flowchart TB
-    subgraph OpenClaw["OpenClaw Host (Cognitive Harness & Gateway)"]
-        Agent["OpenClaw Agent Runtime\n(Identity, Memory, Tools, Skills)"]
-        ToolRegistry["Tool Registry\n(airi_presentation, bash, etc.)"]
-        Plugin["@proj-airi/openclaw-plugin\n(/plugins/airi/v1 Endpoint)"]
-        Journal["Plugin Journal (0600)\n(Deduplication & Replay)"]
-        Secrets["SecretRef / tokenFile (0600)\n(32+ Char Bearer Token)"]
-
-        Agent <--> ToolRegistry
-        Agent <--> Plugin
-        Plugin <--> Journal
-        Secrets -.-> Plugin
+    subgraph UserInteraction["User Interaction"]
+        U["User (Spoken Voice & Visual Presence)"]
     end
 
-    subgraph Transport["Bi-directional Transport (TLS WebSocket)"]
-        WS["Eventa RPC Bridge\n(airi:openclaw:v1:client / server)\nwss://host/plugins/airi/v1"]
-    end
-
-    subgraph AIRI["AIRI Desktop / Web (Stage & Sensory Peripheral)"]
+    subgraph Tier1["Tier 1: AIRI Stage (Embodied Executive Interface)"]
         subgraph StageUI["packages/stage-ui"]
             AgentModeStore["Agent Mode Store\n(src/stores/agent-mode.ts)"]
             PresentationComposable["Agent Presentation Composable\n(src/composables/agent-presentation.ts)"]
@@ -68,7 +116,7 @@ flowchart TB
         subgraph PhysicalStage["Sensory & Visual Layer"]
             MicSTT["Microphone & Local/Cloud STT\n(Transcripts -> user.message)"]
             TTSPlayback["TTS Audio & Speaker Playback\n(WAV Chunks -> AudioContext)"]
-            Avatars["Avatar Renderers\n(Live2D .moc3 / 3D VRM / Spine)"]
+            Avatars["Avatar Renderers\n(Live2D Mitsuki .moc3 / 3D VRM)"]
         end
 
         BridgeClient <--> Contracts
@@ -80,7 +128,33 @@ flowchart TB
         BridgeClient --> AudioPipeline --> TTSPlayback
     end
 
-    Plugin <==> WS <==> BridgeClient
+    subgraph Tier2["Tier 2: OpenClaw Host (Cognitive Swarm & Gateway)"]
+        ExecutiveAgent["Executive Secretary Agent\n('Mitsuki Takasawa')"]
+        SubAgents["13+ Worker Sub-agents\n(Gitbert, Bugatha, Bashley, Javathan, etc.)"]
+        ToolRegistry["Tool Registry\n(airi_presentation, bash, git, etc.)"]
+        Plugin["@proj-airi/openclaw-plugin\n(/plugins/airi/v1 Endpoint)"]
+        Journal["Plugin Journal (0600)\n(Deduplication & Replay)"]
+        Secrets["SecretRef / tokenFile (0600)\n(32+ Char Bearer Token)"]
+
+        ExecutiveAgent <--> ToolRegistry
+        ExecutiveAgent <--> SubAgents
+        ExecutiveAgent <--> Plugin
+        Plugin <--> Journal
+        Secrets -.-> Plugin
+    end
+
+    subgraph Tier3["Tier 3: Pixel Agents (Ambient Back-Office Telemetry)"]
+        OfficeCanvas["2D Retro Pixel-Art Canvas\n(thespillmonkey/pixel-agents)"]
+        SpriteWorkers["Animated Worker Sprites\n(Typing, Sitting, Walking, Idle)"]
+        StatusBadges["Live Status Overlays\n('Working', 'Running a command', 'Idle')"]
+
+        OfficeCanvas --> SpriteWorkers --> StatusBadges
+    end
+
+    U <== "Microphone Audio & Eye-to-Eye" ==> PhysicalStage
+    U -. "Ambient Glance at Side Monitor" .-> OfficeCanvas
+    Plugin <== "Bi-directional TLS WebSocket (Eventa RPC)" ==> BridgeClient
+    Tier2 == "Agent Session & Activity Telemetry" ==> Tier3
 ```
 
 ---
@@ -488,6 +562,8 @@ By copying the clean boundary packages (`openclaw-bridge`, `openclaw-plugin`, an
 ## References & Authority
 
 - GitHub Branch: [`thespillmonkey/airi@thespillmonkey/feat/openclaw-agent-mode`](https://github.com/thespillmonkey/airi/tree/thespillmonkey/feat/openclaw-agent-mode)
+- Swarm Visualizer: [`thespillmonkey/pixel-agents`](https://github.com/thespillmonkey/pixel-agents) (OpenClaw Multi-Agent Provider & Relay)
+- Upstream Visualizer: [`pixel-agents-hq/pixel-agents`](https://github.com/pixel-agents-hq/pixel-agents)
 - OpenClaw Official Documentation: [https://openclaw.ai](https://openclaw.ai)
 - Upstream Pull Request: [moeru-ai/airi#1040](https://github.com/moeru-ai/airi/pull/1040)
 - Upstream Tracking Issue: [moeru-ai/airi#1127](https://github.com/moeru-ai/airi/issues/1127)
