@@ -23,6 +23,17 @@ export interface ExtractedMemoryFragments {
   }>
 }
 
+export interface SubconsciousBeat {
+  vibe: 'affectionate' | 'flustered' | 'playful' | 'tense' | 'melancholy' | 'routine'
+  inner_thought?: string
+  active_topics: Array<{ topic: string, weight: number }>
+  daydream_chip?: {
+    text: string
+    type: 'flavor' | 'mood' | 'milestone'
+    salience_score: number
+  }
+}
+
 export interface NeedleClient {
   isReady: () => boolean
   isPreparing: () => boolean
@@ -32,6 +43,7 @@ export interface NeedleClient {
   probeCotPivot: (reasoningSnippet: string, budgetMs?: number) => Promise<string | null>
   embed: (text: string, budgetMs?: number) => Promise<Float32Array | null>
   extractMemoryFragments: (passage: string, budgetMs?: number) => Promise<ExtractedMemoryFragments | null>
+  extractSubconsciousBeat: (turns: Array<{ role: string, content: string }>, budgetMs?: number) => Promise<SubconsciousBeat | null>
   terminate: () => void
 }
 
@@ -341,6 +353,58 @@ export function createNeedleClient(): NeedleClient {
     })
   }
 
+  async function extractSubconsciousBeat(
+    turns: Array<{ role: string, content: string }>,
+    budgetMs: number = 3000,
+  ): Promise<SubconsciousBeat | null> {
+    if (!turns || turns.length === 0)
+      return null
+
+    const worker = ensureWorker()
+    if (!worker) {
+      return null
+    }
+
+    if (!isInitialized) {
+      return null
+    }
+
+    const requestId = createRequestId()
+
+    return new Promise<SubconsciousBeat | null>((resolve) => {
+      let timeoutId: any
+
+      const cleanup = () => {
+        if (timeoutId)
+          clearTimeout(timeoutId)
+        worker.removeEventListener('message', handler)
+      }
+
+      const handler = (event: MessageEvent) => {
+        const data = event.data || {}
+        if (data.requestId !== requestId)
+          return
+
+        if (data.type === 'response') {
+          cleanup()
+          resolve(data.beat || null)
+        }
+        else if (data.type === 'error') {
+          cleanup()
+          resolve(null)
+        }
+      }
+
+      worker.addEventListener('message', handler)
+      worker.postMessage({ type: 'subconscious_beat', requestId, turns })
+
+      timeoutId = setTimeout(() => {
+        cleanup()
+        resolve(null)
+      }, budgetMs)
+    })
+  }
+
   function terminate(): void {
     if (workerInstance) {
       workerInstance.terminate()
@@ -360,6 +424,7 @@ export function createNeedleClient(): NeedleClient {
     probeCotPivot,
     embed,
     extractMemoryFragments,
+    extractSubconsciousBeat,
     terminate,
   }
 }

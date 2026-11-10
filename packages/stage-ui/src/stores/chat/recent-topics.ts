@@ -1,6 +1,8 @@
 import type { ChatHistoryItem } from '../../types/chat'
 
 import { echoChipsRepo } from '../../database/repos/echo-chips.repo'
+import { needleClient } from '../../libs/inference/adapters/needle-client'
+import { useDaydreamStore } from '../daydream'
 import { useAiriCardStore } from '../modules/airi-card'
 
 const STOPWORDS = new Set([
@@ -341,8 +343,51 @@ export async function updateRecentTopics(
     }
   }
 
-  // 1. Raw Chat Turns (Current session messages)
+  // 0. Multi-Turn Ingestion via Needle 3 Subconscious Beat (Domain 2)
   const textMessages = (messages || []).filter(m => m.role === 'user' || m.role === 'assistant')
+  if (needleClient.isReady()) {
+    try {
+      const turns = textMessages.slice(-10).map(m => ({
+        role: m.role,
+        content: typeof m.content === 'string'
+          ? m.content
+          : Array.isArray(m.content)
+            ? m.content.map(p => (typeof p === 'string' ? p : (p && typeof p === 'object' && 'text' in p ? String(p.text) : ''))).join(' ')
+            : '',
+      })).filter(t => t.content.trim().length > 0)
+
+      if (turns.length > 0) {
+        const beat = await needleClient.extractSubconsciousBeat(turns, 2000)
+        if (beat) {
+          // Feed Cadence Governor in Daydream store
+          try {
+            const daydreamStore = useDaydreamStore()
+            daydreamStore.recordBeat(beat, characterId, universeId, sessionId)
+          }
+          catch (daydreamErr) {
+            console.warn('[RecentTopics] Daydream store recordBeat error:', daydreamErr)
+          }
+
+          // Inject active topics from Needle 3 with high priority (2.5)
+          if (Array.isArray(beat.active_topics) && beat.active_topics.length > 0) {
+            for (const item of beat.active_topics) {
+              if (item.topic && typeof item.weight === 'number') {
+                const phrase = cleanPhrase(item.topic)
+                if (phrase && !STOPWORDS.has(phrase)) {
+                  topicScores[phrase] = (topicScores[phrase] || 0) + item.weight * 2.5
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    catch (needleErr) {
+      console.warn('[RecentTopics] Needle 3 subconscious beat extraction failed, falling back to lexical analysis:', needleErr)
+    }
+  }
+
+  // 1. Raw Chat Turns (Current session messages)
   const totalTurns = textMessages.length
   textMessages.forEach((msg, index) => {
     const distance = totalTurns - 1 - index
@@ -400,7 +445,7 @@ export async function updateRecentTopics(
     .slice(0, 10)
 
   // Update card extensions
-  cardStore.updateCard(characterId, {
+  await cardStore.updateCard(characterId, {
     extensions: {
       ...card.extensions,
       airi: {

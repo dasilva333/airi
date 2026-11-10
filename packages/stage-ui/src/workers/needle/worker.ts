@@ -15,9 +15,6 @@ const CACTUS_WASM_URL = 'https://huggingface.co/Cactus-Compute/cactus/resolve/ma
 const CACTUS_JS_URL = 'https://huggingface.co/Cactus-Compute/cactus/resolve/main/releases/4.1.0/wasm/cactus.js'
 const NEEDLE_WEIGHTS_URL = 'https://huggingface.co/Cactus-Compute/needle3/resolve/main/needle3.cact'
 
-// Estimated total bundle size: ~36 MB (34 MB weights + 1.2 MB WASM + 61 KB JS loader)
-const ESTIMATED_TOTAL_BYTES = 36 * 1024 * 1024
-
 let isInitialized = false
 let _cactusInstance: any = null
 let _cfuncs: {
@@ -97,6 +94,121 @@ const EXTRACT_MEMORY_FRAGMENTS_TOOL = {
     required: ['mentions'],
   },
 }
+
+const SUBCONSCIOUS_BEAT_TOOL = {
+  name: 'record_subconscious_beat',
+  description: 'Extract the immediate subconscious reaction, active topics, and memory anchor for this turn.',
+  parameters: {
+    type: 'object',
+    properties: {
+      vibe: {
+        type: 'string',
+        enum: ['affectionate', 'flustered', 'playful', 'tense', 'melancholy', 'routine'],
+      },
+      inner_thought: {
+        type: 'string',
+        description: 'Short 3 to 6 word internal murmur or reaction',
+      },
+      active_topics: {
+        type: 'array',
+        description: 'Top 1 to 4 active conceptual threads for Toggle 4 grounding',
+        items: {
+          type: 'object',
+          properties: {
+            topic: { type: 'string' },
+            weight: { type: 'number' },
+          },
+          required: ['topic', 'weight'],
+        },
+      },
+      daydream_chip: {
+        type: 'object',
+        description: 'Candidate memory pill for the visual memories ribbon',
+        properties: {
+          text: { type: 'string', description: 'Evocative 2-5 word memory anchor phrase' },
+          type: { type: 'string', enum: ['flavor', 'mood', 'milestone'] },
+          salience_score: { type: 'number', description: 'Significance from 0.00 to 1.00' },
+        },
+        required: ['text', 'salience_score'],
+      },
+    },
+    required: ['vibe', 'active_topics'],
+  },
+}
+
+const COMMON_STOPWORDS = new Set([
+  'the',
+  'and',
+  'but',
+  'for',
+  'not',
+  'you',
+  'was',
+  'this',
+  'that',
+  'with',
+  'have',
+  'your',
+  'about',
+  'from',
+  'they',
+  'what',
+  'then',
+  'them',
+  'some',
+  'there',
+  'their',
+  'would',
+  'could',
+  'should',
+  'will',
+  'are',
+  'were',
+  'been',
+  'has',
+  'had',
+  'its',
+  'into',
+  'just',
+  'more',
+  'only',
+  'other',
+  'than',
+  'these',
+  'those',
+  'very',
+  'when',
+  'where',
+  'which',
+  'who',
+  'why',
+  'how',
+  'here',
+  'now',
+  'any',
+  'each',
+  'such',
+  'out',
+  'our',
+  'his',
+  'her',
+  'she',
+  'him',
+  'can',
+  'like',
+  'going',
+  'think',
+  'know',
+  'want',
+  'well',
+  'really',
+  'yeah',
+  'okay',
+  'right',
+  'please',
+  'thanks',
+  'hello',
+])
 
 /**
  * Intelligent neural-grammar fallback extractor for initial reaction (Task 2).
@@ -364,9 +476,14 @@ async function prepareNeedleAssets(
     _outBufferPtr = _cactusInstance._malloc(OUT_BUFFER_CAPACITY)
     _embedBufferPtr = _cactusInstance._malloc(EMBED_BUFFER_CAPACITY * 4)
 
-    // 5. Initialize tool schemas for pacing and memory extraction
-    const sysPrompt = 'You are an on-device assistant specialized in conversational pacing, thinking fillers, and memory fragment extraction.'
-    const toolsJson = JSON.stringify([INITIAL_REACTION_TOOL, COT_PIVOT_TOOL, EXTRACT_MEMORY_FRAGMENTS_TOOL])
+    // 5. Initialize tool schemas for pacing, memory extraction, and subconscious daydreaming
+    const sysPrompt = 'You are an on-device assistant specialized in conversational pacing, thinking fillers, memory fragment extraction, and subconscious daydreaming.'
+    const toolsJson = JSON.stringify([
+      INITIAL_REACTION_TOOL,
+      COT_PIVOT_TOOL,
+      EXTRACT_MEMORY_FRAGMENTS_TOOL,
+      SUBCONSCIOUS_BEAT_TOOL,
+    ])
     _cfuncs.cactus_init(sysPrompt, toolsJson, '')
 
     onProgress(1.0, 'Needle 3 ready')
@@ -524,8 +641,163 @@ function runExtractFragments(passage: string): {
   return { mentions: [], temporal_phrase: null, claims: [] }
 }
 
+export interface SubconsciousBeatOutput {
+  vibe: 'affectionate' | 'flustered' | 'playful' | 'tense' | 'melancholy' | 'routine'
+  inner_thought?: string
+  active_topics: Array<{ topic: string, weight: number }>
+  daydream_chip?: {
+    text: string
+    type: 'flavor' | 'mood' | 'milestone'
+    salience_score: number
+  }
+}
+
+/**
+ * Intelligent neural-grammar fallback extractor for subconscious beats (Task 5 / Domain 2).
+ */
+function extractSubconsciousBeatFallback(turns: Array<{ role: string, content: string }>): SubconsciousBeatOutput {
+  if (!turns || turns.length === 0) {
+    return {
+      vibe: 'routine',
+      active_topics: [],
+    }
+  }
+
+  const combined = turns.map(t => t.content).join(' ').toLowerCase()
+  const lastUserTurn = [...turns].reverse().find(t => t.role === 'user')?.content.toLowerCase() || combined
+
+  // 1. Detect Vibe & Inner Thought
+  let vibe: SubconsciousBeatOutput['vibe'] = 'routine'
+  let innerThought = 'Taking this all in...'
+
+  if (/love|sweetheart|darling|warm|miss you|hug|adore|care about/i.test(combined)) {
+    vibe = 'affectionate'
+    innerThought = 'My heart feels warm...'
+  }
+  else if (/blush|shy|stammer|wait what|embarrass|nervous|gosh/i.test(combined)) {
+    vibe = 'flustered'
+    innerThought = 'Wait, don\'t tease me...'
+  }
+  else if (/joke|tease|haha|hehe|playful|dare|silly|mischief/i.test(combined)) {
+    vibe = 'playful'
+    innerThought = 'Oh, what a clever angle...'
+  }
+  else if (/danger|alert|warning|careful|stress|panic|trouble|urgent/i.test(combined)) {
+    vibe = 'tense'
+    innerThought = 'Need to stay alert...'
+  }
+  else if (/sad|lonely|alone|sigh|tear|cry|gloomy|quiet/i.test(combined)) {
+    vibe = 'melancholy'
+    innerThought = 'A soft, quiet stillness...'
+  }
+
+  // 2. Extract Active Topics (nouns / phrases)
+  const words = lastUserTurn
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .split(/\s+/)
+    .map(w => w.trim())
+    .filter(w => w.length >= 3 && !COMMON_STOPWORDS.has(w))
+
+  const activeTopics: Array<{ topic: string, weight: number }> = []
+  const seen = new Set<string>()
+
+  // Bi-grams first
+  for (let i = 0; i < words.length - 1; i++) {
+    const bigram = `${words[i]} ${words[i + 1]}`
+    if (!seen.has(bigram)) {
+      seen.add(bigram)
+      activeTopics.push({ topic: bigram, weight: 0.9 })
+      if (activeTopics.length >= 2)
+        break
+    }
+  }
+
+  // Single words
+  for (const w of words) {
+    if (!seen.has(w)) {
+      seen.add(w)
+      activeTopics.push({ topic: w, weight: 0.75 })
+      if (activeTopics.length >= 4)
+        break
+    }
+  }
+
+  // 3. Candidate Daydream Chip
+  let daydreamChip: SubconsciousBeatOutput['daydream_chip'] | undefined
+  if (activeTopics.length > 0) {
+    const primaryTopic = activeTopics[0].topic
+    const salience = vibe !== 'routine' ? 0.85 : 0.74
+    daydreamChip = {
+      text: primaryTopic.length <= 25 ? primaryTopic : primaryTopic.slice(0, 25),
+      type: vibe === 'affectionate' || vibe === 'melancholy' ? 'mood' : 'flavor',
+      salience_score: salience,
+    }
+  }
+
+  return {
+    vibe,
+    inner_thought: innerThought,
+    active_topics: activeTopics,
+    daydream_chip: daydreamChip,
+  }
+}
+
+/**
+ * Execute Needle-3 WASM inference for extracting a subconscious beat.
+ */
+function runSubconsciousBeat(turns: Array<{ role: string, content: string }>): SubconsciousBeatOutput {
+  if (!turns || turns.length === 0) {
+    return { vibe: 'routine', active_topics: [] }
+  }
+
+  if (!_cactusInstance || !_cfuncs || !_outBufferPtr) {
+    return extractSubconsciousBeatFallback(turns)
+  }
+
+  try {
+    _cfuncs.cactus_reset()
+    const transcript = turns.slice(-10).map(t => `${t.role === 'user' ? 'User' : 'Assistant'}: ${t.content}`).join('\n')
+    const query = `Transcript:\n${transcript}\n\nTask: Extract the subconscious beat (vibe, inner_thought, active_topics, daydream_chip) using record_subconscious_beat.`
+    _cfuncs.cactus_complete(query, 0, 0, 192, _outBufferPtr, OUT_BUFFER_CAPACITY)
+    const outStr = _cactusInstance.UTF8ToString(_outBufferPtr)
+
+    const parsed = JSON.parse(outStr)
+    const calls = (Array.isArray(parsed?.function_calls) && parsed.function_calls.length > 0)
+      ? parsed.function_calls
+      : (Array.isArray(parsed?.suppressed_calls) && parsed.suppressed_calls.length > 0)
+          ? parsed.suppressed_calls
+          : []
+
+    if (calls.length > 0 && calls[0].arguments) {
+      const args = calls[0].arguments
+      const vibe = args.vibe || 'routine'
+      const inner_thought = args.inner_thought ? String(args.inner_thought).trim() : undefined
+      const active_topics = Array.isArray(args.active_topics) ? args.active_topics : []
+      const daydream_chip = args.daydream_chip && typeof args.daydream_chip === 'object'
+        ? {
+            text: String(args.daydream_chip.text || '').trim(),
+            type: args.daydream_chip.type || 'flavor',
+            salience_score: Number(args.daydream_chip.salience_score) || 0.75,
+          }
+        : undefined
+
+      return {
+        vibe,
+        inner_thought,
+        active_topics,
+        daydream_chip,
+      }
+    }
+  }
+  catch (e) {
+    console.warn('[NeedleWorker] WASM subconscious beat failed, using fallback:', e)
+  }
+
+  return extractSubconsciousBeatFallback(turns)
+}
+
 self.onmessage = async (event: MessageEvent) => {
-  const { type, requestId, prompt, snippet, text, passage } = event.data || {}
+  const { type, requestId, prompt, snippet, text, passage, turns } = event.data || {}
 
   switch (type) {
     case 'prepare': {
@@ -581,6 +853,17 @@ self.onmessage = async (event: MessageEvent) => {
       }
       catch (err: any) {
         self.postMessage({ type: 'error', requestId, message: err?.message || 'Extract fragments failed' })
+      }
+      break
+    }
+
+    case 'subconscious_beat': {
+      try {
+        const beat = runSubconsciousBeat(turns || [])
+        self.postMessage({ type: 'response', requestId, beat })
+      }
+      catch (err: any) {
+        self.postMessage({ type: 'error', requestId, message: err?.message || 'Subconscious beat failed' })
       }
       break
     }
