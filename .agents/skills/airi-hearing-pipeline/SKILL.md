@@ -134,6 +134,11 @@ Mounted on the microphone button in all chat composer bars (`InteractiveArea.vue
    - `autoSendEnabled` (`settings/hearing/auto-send-enabled`): Automatically submits message on speech-end.
    - `voiceInputMode` (`settings/hearing/voice-input-mode`): `'dictation'` (transcribes to text) vs `'voice-message'` (attaches audio clip).
    - **Global Desktop Hotkeys**: In Electron, binds push-to-talk / toggle hotkeys (`Caps`, `Scroll`, `Num`) using `electronGetMicToggleHotkey` and `electronSetMicToggleHotkey`.
+4. **Microphone Stream Acquisition Invariant**:
+   - When a composer mic button is clicked, `stream.value` is initially `undefined`.
+   - Never check `if (!stream.value) return` synchronously without awaiting stream acquisition.
+   - Always await `ensureAudioStream()`: `settingsAudioDeviceStore.askPermission()` + `settingsAudioDeviceStore.startStream()` + `until(stream).toBeTruthy()`.
+   - Always route the ingestion pathway based on provider capability `supportsStreamInput.value` rather than synchronous `stream.value` existence.
 
 ---
 

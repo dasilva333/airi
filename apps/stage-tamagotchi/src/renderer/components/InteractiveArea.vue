@@ -42,7 +42,7 @@ import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsAudioDevice, useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
 import { BasicTextarea, Button } from '@proj-airi/ui'
-import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
+import { until, useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, PopoverAnchor, PopoverContent, PopoverPortal, PopoverRoot } from 'reka-ui'
 import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
@@ -121,7 +121,6 @@ const isListening = ref(false)
 const isRecording = ref(false)
 const isDictating = computed(() => isListening.value || isRecording.value)
 const { supportsStreamInput } = storeToRefs(hearingPipeline)
-const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
 
 const voiceRecorder = useAudioRecorder(stream)
 
@@ -305,23 +304,40 @@ const stopVoiceHook = voiceRecorder.onStopRecord(async (recording) => {
   }
 })
 
+async function ensureAudioStream(): Promise<boolean> {
+  if (stream.value)
+    return true
+
+  try {
+    await settingsAudioDeviceStore.askPermission()
+    await settingsAudioDeviceStore.startStream()
+    if (!stream.value) {
+      await until(stream).toBeTruthy({ timeout: 4000 }).catch(() => {})
+    }
+    return Boolean(stream.value)
+  }
+  catch (err) {
+    console.error('[DesktopComposer] Failed to acquire audio stream:', err)
+    return false
+  }
+}
+
 async function startDictationRecording() {
   if (isRecording.value)
     return
-  if (!stream.value) {
-    await settingsAudioDeviceStore.askPermission()
-    if (!stream.value && settingsAudioDeviceStore.enabled) {
-      settingsAudioDeviceStore.startStream()
-    }
-  }
-  if (!stream.value)
+  const hasStream = await ensureAudioStream()
+  if (!hasStream || !stream.value) {
+    console.warn('[DesktopComposer] Cannot record: audio stream unavailable')
     return
+  }
   try {
     await voiceRecorder.startRecord()
     isRecording.value = true
   }
-  catch {
+  catch (err) {
+    console.error('[DesktopComposer] startDictationRecording error:', err)
     isRecording.value = false
+    toast.error('Failed to start audio recording')
   }
 }
 
@@ -352,7 +368,7 @@ function updateDictationDraft() {
 }
 
 async function startDictationListening() {
-  if (!shouldUseStreamInput.value || !stream.value)
+  if (!supportsStreamInput.value || !stream.value)
     return
   // Single-shot session: tap-to-talk on. These sessions end themselves
   // (provider continuous=false) and go cold; gate off stays hot. Deliberately
@@ -427,7 +443,14 @@ async function stopDictationListening() {
 }
 
 async function startDictation() {
-  if (shouldUseStreamInput.value) {
+  const hasStream = await ensureAudioStream()
+  if (!hasStream || !stream.value) {
+    console.warn('[DesktopComposer] Cannot start dictation: audio stream unavailable')
+    toast.error('Microphone unavailable or permission denied')
+    return
+  }
+
+  if (supportsStreamInput.value) {
     await startDictationListening()
     return
   }
@@ -457,7 +480,7 @@ async function toggleDictation() {
   if (tapToTalk.value) {
     await startVadWatch('single-shot')
   }
-  else if (!shouldUseStreamInput.value) {
+  else if (!supportsStreamInput.value) {
     continuousSession.value = true
     await startVadWatch('segment')
   }

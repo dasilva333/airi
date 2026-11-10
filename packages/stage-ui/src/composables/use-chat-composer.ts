@@ -2,6 +2,7 @@ import type { ChatProvider } from '@xsai-ext/providers/utils'
 
 import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 
+import { until } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, isRef, nextTick, onUnmounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -114,7 +115,6 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   }
 
   const isListening = ref(false)
-  const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
 
   // Auto-send timers
   let autoSendTimeout: ReturnType<typeof setTimeout> | undefined
@@ -528,17 +528,12 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
           return
         }
       }
-      if (!stream.value) {
-        await settingsAudioDevice.askPermission()
-        if (!stream.value && enabled.value) {
-          settingsAudioDevice.startStream()
-        }
-      }
-      if (!stream.value) {
+      const hasStream = await ensureAudioStream()
+      if (!hasStream || !stream.value) {
         isListening.value = false
         return
       }
-      if (!shouldUseStreamInput.value) {
+      if (!supportsStreamInput.value) {
         await stopStreamingTranscription(true)
         isListening.value = false
         return
@@ -751,22 +746,35 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     }
   })
 
+  async function ensureAudioStream(): Promise<boolean> {
+    if (stream.value)
+      return true
+    try {
+      await settingsAudioDevice.askPermission()
+      await settingsAudioDevice.startStream()
+      if (!stream.value) {
+        await until(stream).toBeTruthy({ timeout: 4000 }).catch(() => {})
+      }
+      return Boolean(stream.value)
+    }
+    catch (err) {
+      console.error('[ChatComposer] Failed to acquire audio stream:', err)
+      return false
+    }
+  }
+
   async function startVoiceRecording() {
     if (isRecording.value)
       return
-    if (!stream.value) {
-      await settingsAudioDevice.askPermission()
-      if (!stream.value && enabled.value) {
-        settingsAudioDevice.startStream()
-      }
-    }
-    if (!stream.value)
+    const hasStream = await ensureAudioStream()
+    if (!hasStream || !stream.value)
       return
     try {
       await voiceRecorder.startRecord()
       isRecording.value = true
     }
-    catch {
+    catch (err) {
+      console.error('[ChatComposer] startVoiceRecording error:', err)
       isRecording.value = false
     }
   }
@@ -804,7 +812,11 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   // into the composer; otherwise record-then-transcribe into the input.
   // Either way the composer stays on screen and the mic button is the stop.
   async function startDictation() {
-    if (shouldUseStreamInput.value) {
+    const hasStream = await ensureAudioStream()
+    if (!hasStream || !stream.value)
+      return
+
+    if (supportsStreamInput.value) {
       await startListening()
       return
     }
@@ -835,7 +847,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
       // Tap mode: one tap captures one utterance and stops itself.
       await startVadWatch('single-shot')
     }
-    else if (!shouldUseStreamInput.value) {
+    else if (!supportsStreamInput.value) {
       // Open line, non-streaming: VAD segments utterances automatically
       // until the next tap closes the session. (Streaming providers
       // segment on their own, so no watch is needed.)
