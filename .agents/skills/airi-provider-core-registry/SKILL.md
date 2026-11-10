@@ -44,7 +44,7 @@ In [`cache-utils.ts`](packages/stage-ui/src/libs/inference/cache-utils.ts) and n
 | **OPFS** | `nano-reader-browser-model-store` | **MOSS TTS** | `moss-tts-nano-100m` weights |
 | **Cache Storage API** | `transformers-cache` | **Transformers.js / ONNX Runtime** | Kokoro TTS, Whisper STT, FlowMDM, BLIP Vision, WD14, Moondream2, MODNet, CLIP |
 | **Cache Storage API** | `webllm/model`, `webllm/wasm`, `webllm/config` | **WebLLM** (`@mlc-ai/web-llm`) | Qwen 3.5 (0.8B/4B), Gemma 3 (1B), Ministral 3 Reasoning (3B), Phi 4 Mini (3.8B) |
-| **Cache Storage API** | `needle3-cache` | **Needle 3 (WASM/CPU)** | 8–29 MB Cactus SAN Laddered model for conversational pacing, 8k entity extraction, and 3072d vector embeddings |
+| **Cache Storage API** | `needle3-cache` | **Needle 3 (WASM/CPU)** | 8–29 MB Cactus SAN Laddered model for conversational pacing, 8k entity extraction, 3072d vector embeddings, Toggle 4 subconscious daydreaming beats, and Nan0 pragmatic shadow assessment |
 
 ### 2.2 Global Model Cache Manager (`ModelCacheManager.vue`)
 

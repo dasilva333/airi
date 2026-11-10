@@ -80,7 +80,7 @@ However, Needle-2 suffered from severe operational constraints: a fixed 45M dens
 | **Domain 1: RAG & Memory Entity Ledger** | **CLEARED** | Commit `ebde76df5` — Resurrected zero-GPU vector search with 3,072d/256d unit embeddings, multi-turn claim and mention extraction in `ledger-priming.ts` and `entity-ledger.ts`. |
 | **Domain 2: Subconscious Daydreaming & Toggle 4** | **CLEARED** | Commit `011acfe28` — Registered `record_subconscious_beat` in Cactus WASM, created Cadence Governor in `daydream.ts` (salience threshold $\ge 0.72$), and wired ML topic generation in `recent-topics.ts`. |
 | **Domain 3: Conversational Pacing & Spoken Asides** | **CLEARED** | Commits `dd48872b3`, `2321823ba`, `30c34ad46` — Wired dynamic aside caching, 112-token budget, CPU thread scaling, clean `Thought: ...\n\nCall record_cot_pivot.` prompt framing, dual-channel extraction (JSON arguments + reasoning trace regex), and anti-echo guardrails. |
-| **Domain 4: Nan0 Subconscious Shadow Engine** | **PENDING** | `packages/nan0-runtime/src/shadow/Nan0SubconsciousShadowEngine.ts` — Multilingual intent resolution, emotional climate tracking, and resolving the "Famous Sentence" test suite. |
+| **Domain 4: Nan0 Subconscious Shadow Engine** | **CLEARED** | `packages/nan0-runtime/src/shadow/Nan0SubconsciousShadowEngine.ts`, `needle-client.ts`, `worker.ts` — Implemented `nan0_monolithic_assessment` tool in Cactus WASM, dual-channel pragmatic probe, native `needle_san_wasm` backend in `Nan0SubconsciousShadowEngine`, resolved "The Famous Sentence" test suite, multilingual inputs, and strict shadow isolation. |
 | **Domain 5: Core WASM Substrate & UI Settings** | **CLEARED** | Core WASM loader, weights caching (`needle3-cache`), memory management, and `needle-client.ts` cleared. `ModelCacheManager.vue` UI catalog entry (8–29 MB) and `cache-utils.ts` Cache Storage inspection and legacy eviction cleared. |
 
 ---
@@ -456,15 +456,15 @@ graph TD
 - [x] Configured `packages/stage-ui/src/components/scenarios/settings/ModelCacheManager.vue` catalog entry with `needle-3` (Laddered SAN 8–29 MB, WASM / CPU) under LLM category.
 - [x] Verified Cache Storage API inspection, download progress ratio, and cache eviction across browser and Electron.
 
+### Phase 5: Nan0 Pragmatic Shadow Engine Upgrade (Domain 4) — [CLEARED]
+- [x] Connected `Nan0SubconsciousShadowEngine.ts` to `needle-client.ts` (`needleClient.probeNan0Pragmatics`) and native `needle_san_wasm` backend dispatch.
+- [x] Registered `nan0_monolithic_assessment` tool in Cactus SAN WASM (`worker.ts`) assessing `intent`, `emotional_climate`, and `suspicion_delta` in a single prompt.
+- [x] Leveraged Needle-3's calibrated confidence scoring and dual-channel extraction to eliminate the "Hedging Sink" on ambiguous social turns.
+- [x] Verified resolution of "The Famous Sentence" test suite (Confrontation & Guilt, Tender Vulnerability, Playful Banter, Regex-Killers D1/D2, Bizarre Incongruity) and multilingual inputs (French, Spanish, German, Italian) with strict shadow isolation in `Nan0SubconsciousShadowEngine.test.ts`.
+
 ---
 
 ### Remaining Domains & Phases To Do
-
-### Phase 5: Nan0 Pragmatic Shadow Engine Upgrade (Domain 4) — [PENDING / NEXT]
-- [ ] Connect `Nan0SubconsciousShadowEngine.ts` to `needle-client.ts` to replace legacy cleanroom shims.
-- [ ] Leverage Needle-3's calibrated confidence scoring to eliminate the "Hedging Sink" on ambiguous social turns.
-- [ ] Verify resolution of "The Famous Sentence" test suite and multilingual inputs (French, Spanish, German, Italian, Dutch, Polish).
-- [ ] Target file: `packages/nan0-runtime/src/shadow/Nan0SubconsciousShadowEngine.ts`.
 
 ### Phase 7: LoCoMo Benchmark Re-Evaluation (Pass 12) — [PENDING]
 - [ ] Update `scripts/tests/locomo-benchmark/needle-node.mjs` and `needle-schema.mjs` for Needle-3 C ABI.

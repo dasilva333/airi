@@ -54,6 +54,18 @@ export type Nan0SystemOneProvider = (
   model?: string,
 ) => Promise<Nan0SystemOneResponse>
 
+export interface Nan0PragmaticAssessment {
+  intent: 'unverified_future_pledge' | 'earnest_reassurance' | 'playful_sarcasm' | 'defensive_evasion' | 'bizarre_incongruity' | 'casual_dialogue'
+  emotional_climate: 'confrontation_and_guilt' | 'tender_vulnerability' | 'playful_banter' | 'transactional_routine'
+  suspicion_delta: 'spike_suspicion' | 'lower_suspicion' | 'neutral'
+  confidence?: number
+}
+
+export type Nan0NeedlePragmaticProvider = (
+  text: string,
+  context?: string,
+) => Promise<Nan0PragmaticAssessment | null>
+
 export type Nan0SpeakerModality
   = | 'directly_asserted'
     | 'negated_or_denied'

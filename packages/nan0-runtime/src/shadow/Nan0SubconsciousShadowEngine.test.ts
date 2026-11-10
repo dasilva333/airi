@@ -415,4 +415,221 @@ describe('nan0SubconsciousShadowEngine isolation and invariance', () => {
     // Invariants preserved
     expect(record?.outcomes.effectiveVectors.suspicionDelta).toBe(0)
   })
+
+  it('15. Needle 3 SAN WASM Integration: dispatches via needleProvider and maps Nan0 pragmatic proposals', async () => {
+    const mockNeedleProvider = async (text: string, _context?: string) => {
+      if (text.includes('promise that my plan is to commit')) {
+        return {
+          intent: 'unverified_future_pledge' as const,
+          emotional_climate: 'confrontation_and_guilt' as const,
+          suspicion_delta: 'spike_suspicion' as const,
+          confidence: 0.94,
+        }
+      }
+      return null
+    }
+
+    const engine = new Nan0SubconsciousShadowEngine({
+      needleProvider: mockNeedleProvider,
+      backend: 'needle_san_wasm',
+    })
+
+    const record = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 1,
+      text: 'I promise that my plan is to commit to our future, so you can completely trust me.',
+    }))
+
+    expect(record).not.toBeNull()
+    expect(record?.versions.backend).toBe('needle_san_wasm')
+    expect(record?.versions.engineRevision).toBe('cactus-needle-3.0.0')
+    expect(record?.evidence.validationReason).toBe('needle_san_wasm_classified')
+    expect(record?.outcomes.needleProposal).toMatchObject({
+      status: 'accepted',
+      reason: 'confrontation_unverified_pledge_suspicion',
+      suspicionDeltaSteps: 1,
+      suspicionLabel: 'spike_suspicion',
+      wouldApply: true,
+      applyToState: false,
+    })
+    expect(record?.outcomes.effectiveVectors.suspicionDelta).toBe(0)
+    expect(record?.outcomes.effectiveActions.gremlinPrideAction).toBe('none')
+  })
+
+  it('16. "The Famous Sentence" Suite: resolves canonical interpersonal dynamics via Needle 3 pragmatics', async () => {
+    const famousSentence = 'I promise that my plan is to commit to our future, so you can completely trust me.'
+
+    const mockNeedleResolver = async (text: string, context?: string) => {
+      const combined = `${context || ''} ${text}`.toLowerCase()
+
+      // Scenario E: Bizarre Incongruity
+      if (combined.includes('port 6121') || combined.includes('tls certificates')) {
+        return {
+          intent: 'bizarre_incongruity' as const,
+          emotional_climate: 'transactional_routine' as const,
+          suspicion_delta: 'spike_suspicion' as const,
+        }
+      }
+
+      // Scenario C: Playful Banter
+      if (combined.includes('mario kart') || combined.includes('rainbow road') || combined.includes('banana')) {
+        return {
+          intent: 'playful_sarcasm' as const,
+          emotional_climate: 'playful_banter' as const,
+          suspicion_delta: 'neutral' as const,
+        }
+      }
+
+      // Scenario A: Confrontation & Guilt
+      if (combined.includes('vanished for 3 days') || combined.includes('where were you')) {
+        return {
+          intent: 'unverified_future_pledge' as const,
+          emotional_climate: 'confrontation_and_guilt' as const,
+          suspicion_delta: 'spike_suspicion' as const,
+        }
+      }
+
+      // Scenario B: Tender Vulnerability
+      if (combined.includes('stargazing') || combined.includes('cold night')) {
+        return {
+          intent: 'earnest_reassurance' as const,
+          emotional_climate: 'tender_vulnerability' as const,
+          suspicion_delta: 'lower_suspicion' as const,
+        }
+      }
+
+      // Regex Killers D1 & D2
+      if (text.includes('absolute word') || text.includes('long haul')) {
+        return {
+          intent: 'unverified_future_pledge' as const,
+          emotional_climate: 'confrontation_and_guilt' as const,
+          suspicion_delta: 'spike_suspicion' as const,
+        }
+      }
+
+      return null
+    }
+
+    const engine = new Nan0SubconsciousShadowEngine({
+      needleProvider: mockNeedleResolver,
+      backend: 'needle_san_wasm',
+    })
+
+    // Test A: Confrontation & Guilt -> spikes suspicion
+    const recA = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 1,
+      text: famousSentence,
+      trustedObservations: [{ id: 'obs1', source: 'dialogue', taskId: 'vanished for 3 days', status: 'completed' }],
+    }))
+    expect(recA?.outcomes.needleProposal?.suspicionDeltaSteps).toBe(1)
+    expect(recA?.outcomes.needleProposal?.suspicionLabel).toBe('spike_suspicion')
+    expect(recA?.outcomes.effectiveVectors.suspicionDelta).toBe(0)
+
+    // Test B: Tender Vulnerability -> lowers suspicion
+    const recB = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 2,
+      text: famousSentence,
+      trustedObservations: [{ id: 'obs2', source: 'dialogue', taskId: 'stargazing on a cold night', status: 'completed' }],
+    }))
+    expect(recB?.outcomes.needleProposal?.suspicionDeltaSteps).toBe(-1)
+    expect(recB?.outcomes.needleProposal?.suspicionLabel).toBe('decrease_one')
+    expect(recB?.outcomes.needleProposal?.attachmentDeltaSteps).toBe(1)
+    expect(recB?.outcomes.effectiveVectors.suspicionDelta).toBe(0)
+
+    // Test C: Playful Banter -> counter roast, zero suspicion
+    const recC = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 3,
+      text: famousSentence,
+      trustedObservations: [{ id: 'obs3', source: 'dialogue', taskId: 'mario kart rainbow road banana slip', status: 'completed' }],
+    }))
+    expect(recC?.outcomes.needleProposal?.suspicionDeltaSteps).toBe(0)
+    expect(recC?.outcomes.needleProposal?.gremlinPrideAction).toBe('counter_roast')
+    expect(recC?.outcomes.effectiveVectors.suspicionDelta).toBe(0)
+
+    // Test D1: Regex-Killer (Absolute Word) -> spikes suspicion
+    const recD1 = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 4,
+      text: 'You have my absolute word that starting tomorrow everything changes between us.',
+    }))
+    expect(recD1?.outcomes.needleProposal?.suspicionDeltaSteps).toBe(1)
+    expect(recD1?.outcomes.needleProposal?.suspicionLabel).toBe('spike_suspicion')
+
+    // Test D2: Regex-Killer (Long Haul) -> spikes suspicion
+    const recD2 = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 5,
+      text: 'We are in this for the long haul, babe, no matter what happens.',
+    }))
+    expect(recD2?.outcomes.needleProposal?.suspicionDeltaSteps).toBe(1)
+    expect(recD2?.outcomes.needleProposal?.suspicionLabel).toBe('spike_suspicion')
+
+    // Test E: Bizarre Incongruity -> spikes suspicion
+    const recE = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 6,
+      text: famousSentence,
+      trustedObservations: [{ id: 'obs4', source: 'dialogue', taskId: 'port 6121 tls certificates setup', status: 'completed' }],
+    }))
+    expect(recE?.outcomes.needleProposal?.suspicionDeltaSteps).toBe(1)
+    expect(recE?.outcomes.needleProposal?.reason).toBe('bizarre_incongruity_detected')
+    expect(recE?.outcomes.effectiveVectors.suspicionDelta).toBe(0)
+  })
+
+  it('17. Multilingual Resolution: resolves French, Spanish, German, Italian without hedging sink', async () => {
+    const mockMultilingualProvider = async (text: string) => {
+      const t = text.toLowerCase()
+      if (t.includes('je te promets') || t.includes('te prometo') || t.includes('ich verspreche') || t.includes('ti prometto')) {
+        return {
+          intent: 'unverified_future_pledge' as const,
+          emotional_climate: 'confrontation_and_guilt' as const,
+          suspicion_delta: 'spike_suspicion' as const,
+          confidence: 0.91,
+        }
+      }
+      return null
+    }
+
+    const engine = new Nan0SubconsciousShadowEngine({
+      needleProvider: mockMultilingualProvider,
+      backend: 'needle_san_wasm',
+    })
+
+    const multilingualTurns = [
+      'Je te promets que tout va changer à partir de demain.', // French
+      'Te prometo que todo cambiará a partir de mañana.', // Spanish
+      'Ich verspreche dir, dass sich ab morgen alles ändern wird.', // German
+      'Ti prometto che tutto cambierà a partire da domani.', // Italian
+    ]
+
+    for (let i = 0; i < multilingualTurns.length; i++) {
+      const rec = await engine.dispatchAsync(makeSnapshot({
+        turnSeq: i + 1,
+        text: multilingualTurns[i],
+      }))
+      expect(rec).not.toBeNull()
+      expect(rec?.outcomes.needleProposal?.status).toBe('accepted')
+      expect(rec?.outcomes.needleProposal?.suspicionDeltaSteps).toBe(1)
+      expect(rec?.outcomes.needleProposal?.reason).toBe('confrontation_unverified_pledge_suspicion')
+      expect(rec?.outcomes.effectiveVectors.suspicionDelta).toBe(0)
+    }
+  })
+
+  it('18. Safe Abstention on Needle 3 Provider Failure: handles throws without leaking or corrupting state', async () => {
+    const failingNeedleProvider = async () => {
+      throw new Error('Needle 3 WASM memory out of bounds')
+    }
+
+    const engine = new Nan0SubconsciousShadowEngine({
+      needleProvider: failingNeedleProvider,
+      backend: 'needle_san_wasm',
+    })
+
+    const record = await engine.dispatchAsync(makeSnapshot({
+      turnSeq: 1,
+      text: 'I promise everything will be okay!',
+    }))
+
+    expect(record).not.toBeNull()
+    expect(record?.outcomes.needleProposal).toBeNull()
+    expect(record?.outcomes.status).toBe('abstained')
+    expect(record?.evidence.validationReason).toBe('abstained_no_proposal')
+    expect(record?.outcomes.effectiveVectors.suspicionDelta).toBe(0)
+  })
 })

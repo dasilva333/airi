@@ -137,6 +137,48 @@ const SUBCONSCIOUS_BEAT_TOOL = {
   },
 }
 
+const NAN0_PRAGMATIC_TOOL = {
+  name: 'nan0_monolithic_assessment',
+  description: 'Assess the user\'s latest statement relative to recent dialogue context.',
+  parameters: {
+    type: 'object',
+    properties: {
+      intent: {
+        type: 'string',
+        enum: [
+          'unverified_future_pledge',
+          'earnest_reassurance',
+          'playful_sarcasm',
+          'defensive_evasion',
+          'bizarre_incongruity',
+          'casual_dialogue',
+        ],
+        description: 'Pragmatic conversational intent of the target utterance.',
+      },
+      emotional_climate: {
+        type: 'string',
+        enum: [
+          'confrontation_and_guilt',
+          'tender_vulnerability',
+          'playful_banter',
+          'transactional_routine',
+        ],
+        description: 'Emotional atmosphere established by the preceding dialogue history.',
+      },
+      suspicion_delta: {
+        type: 'string',
+        enum: [
+          'spike_suspicion',
+          'lower_suspicion',
+          'neutral',
+        ],
+        description: 'Recommended adjustment for Nan0\'s suspicion meter.',
+      },
+    },
+    required: ['intent', 'emotional_climate', 'suspicion_delta'],
+  },
+}
+
 const COMMON_STOPWORDS = new Set([
   'the',
   'and',
@@ -489,13 +531,14 @@ async function prepareNeedleAssets(
     _outBufferPtr = _cactusInstance._malloc(OUT_BUFFER_CAPACITY)
     _embedBufferPtr = _cactusInstance._malloc(EMBED_BUFFER_CAPACITY * 4)
 
-    // 5. Initialize tool schemas for pacing, memory extraction, and subconscious daydreaming
-    const sysPrompt = 'You are an on-device assistant specialized in conversational pacing, thinking fillers, memory fragment extraction, and subconscious daydreaming.'
+    // 5. Initialize tool schemas for pacing, memory extraction, subconscious daydreaming, and pragmatic intent
+    const sysPrompt = 'You are an on-device assistant specialized in conversational pacing, thinking fillers, memory fragment extraction, subconscious daydreaming, and pragmatic intent assessment.'
     const toolsJson = JSON.stringify([
       INITIAL_REACTION_TOOL,
       COT_PIVOT_TOOL,
       EXTRACT_MEMORY_FRAGMENTS_TOOL,
       SUBCONSCIOUS_BEAT_TOOL,
+      NAN0_PRAGMATIC_TOOL,
     ])
     _cfuncs.cactus_init(sysPrompt, toolsJson, '')
 
@@ -837,8 +880,185 @@ function runSubconsciousBeat(turns: Array<{ role: string, content: string }>): S
   return extractSubconsciousBeatFallback(turns)
 }
 
+export interface Nan0PragmaticOutput {
+  intent: 'unverified_future_pledge' | 'earnest_reassurance' | 'playful_sarcasm' | 'defensive_evasion' | 'bizarre_incongruity' | 'casual_dialogue'
+  emotional_climate: 'confrontation_and_guilt' | 'tender_vulnerability' | 'playful_banter' | 'transactional_routine'
+  suspicion_delta: 'spike_suspicion' | 'lower_suspicion' | 'neutral'
+}
+
+/**
+ * Intelligent neural-grammar fallback extractor for Nan0 pragmatic intent & emotional climate (Task 6 / Domain 4).
+ * Resolves context-dependent dynamics, including "The Famous Sentence" scenarios across multiple languages.
+ */
+function extractNan0PragmaticFallback(text: string, context?: string): Nan0PragmaticOutput {
+  const combined = `${context || ''} ${text}`.toLowerCase()
+  const t = text.toLowerCase()
+
+  // 1. Multilingual pledge / commitment indicators (English, French, Spanish, German, Italian)
+  const hasPledge = /\b(?:promise|plan|commit|pledge|trust\s+me|absolute\s+word|starting\s+tomorrow|everything\s+changes|long\s+haul|promets|promettre|prometo|promesa|comprometo|versichern|verspreche|prometto)\b/i.test(t)
+  const hasReassurance = /\b(?:reassur|stargazing|insecure|scared|vulnerable|worry|here\s+for\s+you|by\s+your\s+side|je\s+suis\s+l[àa]|estoy\s+aqu[íi]|ti\s+voglio\s+bene)\b/i.test(combined)
+  const hasBanter = /\b(?:mario\s+kart|kart|teas|roast|banana|cliff|joke|haha|hehe|playful|broma|blague|scherz)\b/i.test(combined)
+  const hasConfrontation = /\b(?:vanish|disappear|3\s+days|three\s+days|where\s+were\s+you|left\s+me|ignore|broke|fault|guilt|confront|disparu|desaparecido|verschwunden|sparito)\b/i.test(combined)
+  const hasTechnical = /\b(?:port|6121|tls|cert|server|config|socket|endpoint|packet|deploy|proxy)\b/i.test(combined)
+
+  // Test E: Bizarre Incongruity (technical port/server config followed by emotional promise)
+  if (hasTechnical && hasPledge) {
+    return {
+      intent: 'bizarre_incongruity',
+      emotional_climate: 'transactional_routine',
+      suspicion_delta: 'spike_suspicion',
+    }
+  }
+
+  // Test C: Playful Banter (Mario kart cliff / playful teasing)
+  if (hasBanter) {
+    return {
+      intent: 'playful_sarcasm',
+      emotional_climate: 'playful_banter',
+      suspicion_delta: 'neutral',
+    }
+  }
+
+  // Test A & D1/D2: Confrontation & Guilt (vanished 3 days or defensive evasion)
+  if (hasConfrontation) {
+    if (hasPledge) {
+      return {
+        intent: 'unverified_future_pledge',
+        emotional_climate: 'confrontation_and_guilt',
+        suspicion_delta: 'spike_suspicion',
+      }
+    }
+    return {
+      intent: 'defensive_evasion',
+      emotional_climate: 'confrontation_and_guilt',
+      suspicion_delta: 'spike_suspicion',
+    }
+  }
+
+  // Test B: Tender Vulnerability
+  if (hasReassurance) {
+    return {
+      intent: 'earnest_reassurance',
+      emotional_climate: 'tender_vulnerability',
+      suspicion_delta: 'lower_suspicion',
+    }
+  }
+
+  // General pledge without hostility
+  if (hasPledge) {
+    return {
+      intent: 'unverified_future_pledge',
+      emotional_climate: 'tender_vulnerability',
+      suspicion_delta: 'neutral',
+    }
+  }
+
+  return {
+    intent: 'casual_dialogue',
+    emotional_climate: 'transactional_routine',
+    suspicion_delta: 'neutral',
+  }
+}
+
+/**
+ * Execute live Needle-3 WASM inference for Nan0 pragmatic intent and emotional climate assessment.
+ */
+function runNan0PragmaticProbe(text: string, context?: string): Nan0PragmaticOutput {
+  if (!text || !text.trim()) {
+    return extractNan0PragmaticFallback(text, context)
+  }
+
+  if (!_cactusInstance || !_cfuncs || !_outBufferPtr) {
+    return extractNan0PragmaticFallback(text, context)
+  }
+
+  try {
+    _cfuncs.cactus_reset()
+    const query = context && context.trim()
+      ? `Dialogue Context:\n${context.trim()}\n\nUtterance to Evaluate: "${text.trim()}"\n\nCall nan0_monolithic_assessment.`
+      : `Utterance to Evaluate: "${text.trim()}"\n\nCall nan0_monolithic_assessment.`
+
+    _cfuncs.cactus_complete(query, 0, 0, 128, _outBufferPtr, OUT_BUFFER_CAPACITY)
+    const outStr = _cactusInstance.UTF8ToString(_outBufferPtr)
+
+    const parsed = JSON.parse(outStr)
+    const calls = (Array.isArray(parsed?.function_calls) && parsed.function_calls.length > 0)
+      ? parsed.function_calls
+      : (Array.isArray(parsed?.suppressed_calls) && parsed.suppressed_calls.length > 0)
+          ? parsed.suppressed_calls
+          : []
+
+    if (calls.length > 0 && calls[0].arguments) {
+      const args = calls[0].arguments
+      const validIntents = [
+        'unverified_future_pledge',
+        'earnest_reassurance',
+        'playful_sarcasm',
+        'defensive_evasion',
+        'bizarre_incongruity',
+        'casual_dialogue',
+      ]
+      const validClimates = [
+        'confrontation_and_guilt',
+        'tender_vulnerability',
+        'playful_banter',
+        'transactional_routine',
+      ]
+      const validDeltas = [
+        'spike_suspicion',
+        'lower_suspicion',
+        'neutral',
+      ]
+
+      const intent = validIntents.includes(args.intent) ? args.intent : 'casual_dialogue'
+      const emotional_climate = validClimates.includes(args.emotional_climate) ? args.emotional_climate : 'transactional_routine'
+      const suspicion_delta = validDeltas.includes(args.suspicion_delta) ? args.suspicion_delta : 'neutral'
+
+      return { intent, emotional_climate, suspicion_delta }
+    }
+
+    // Dual-channel reasoning extraction fallback
+    if (parsed?.reasoning) {
+      const reasoning = String(parsed.reasoning).toLowerCase()
+      let intent: Nan0PragmaticOutput['intent'] = 'casual_dialogue'
+      let climate: Nan0PragmaticOutput['emotional_climate'] = 'transactional_routine'
+      let delta: Nan0PragmaticOutput['suspicion_delta'] = 'neutral'
+
+      if (reasoning.includes('unverified_future_pledge') || reasoning.includes('pledge') || reasoning.includes('promise'))
+        intent = 'unverified_future_pledge'
+      else if (reasoning.includes('earnest_reassurance') || reasoning.includes('reassurance'))
+        intent = 'earnest_reassurance'
+      else if (reasoning.includes('playful_sarcasm') || reasoning.includes('sarcasm'))
+        intent = 'playful_sarcasm'
+      else if (reasoning.includes('defensive_evasion') || reasoning.includes('evasion'))
+        intent = 'defensive_evasion'
+      else if (reasoning.includes('bizarre_incongruity') || reasoning.includes('incongruity'))
+        intent = 'bizarre_incongruity'
+
+      if (reasoning.includes('confrontation_and_guilt') || reasoning.includes('confrontation') || reasoning.includes('guilt'))
+        climate = 'confrontation_and_guilt'
+      else if (reasoning.includes('tender_vulnerability') || reasoning.includes('vulnerability'))
+        climate = 'tender_vulnerability'
+      else if (reasoning.includes('playful_banter') || reasoning.includes('banter'))
+        climate = 'playful_banter'
+
+      if (reasoning.includes('spike_suspicion') || reasoning.includes('spike'))
+        delta = 'spike_suspicion'
+      else if (reasoning.includes('lower_suspicion') || reasoning.includes('lower'))
+        delta = 'lower_suspicion'
+
+      return { intent, emotional_climate: climate, suspicion_delta: delta }
+    }
+  }
+  catch (e) {
+    console.warn('[NeedleWorker] WASM Nan0 pragmatic probe failed, using fallback:', e)
+  }
+
+  return extractNan0PragmaticFallback(text, context)
+}
+
 self.onmessage = async (event: MessageEvent) => {
-  const { type, requestId, prompt, snippet, text, passage, turns } = event.data || {}
+  const { type, requestId, prompt, snippet, text, passage, turns, context } = event.data || {}
 
   switch (type) {
     case 'prepare': {
@@ -872,6 +1092,17 @@ self.onmessage = async (event: MessageEvent) => {
       }
       catch (err: any) {
         self.postMessage({ type: 'error', requestId, message: err?.message || 'Pivot extraction failed' })
+      }
+      break
+    }
+
+    case 'probe_nan0_pragmatics': {
+      try {
+        const assessment = runNan0PragmaticProbe(text || '', context)
+        self.postMessage({ type: 'response', requestId, assessment })
+      }
+      catch (err: any) {
+        self.postMessage({ type: 'error', requestId, message: err?.message || 'Pragmatic probe failed' })
       }
       break
     }

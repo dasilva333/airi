@@ -13,6 +13,8 @@ describe('needleClient (Needle 3 Subconscious Runtime)', () => {
     expect(typeof client.probeCotPivot).toBe('function')
     expect(typeof client.embed).toBe('function')
     expect(typeof client.extractMemoryFragments).toBe('function')
+    expect(typeof client.extractSubconsciousBeat).toBe('function')
+    expect(typeof client.probeNan0Pragmatics).toBe('function')
     expect(typeof client.terminate).toBe('function')
   })
 
@@ -80,6 +82,36 @@ describe('needleClient (Needle 3 Subconscious Runtime)', () => {
     // In Node test environment where Worker is undefined, returns null safely
     if (frags) {
       expect(Array.isArray(frags.mentions)).toBe(true)
+    }
+  })
+
+  it('extracts subconscious beats (Domain 2) returning null or beat in test environment', async () => {
+    const client = createNeedleClient()
+    const emptyBeat = await client.extractSubconsciousBeat([])
+    expect(emptyBeat).toBeNull()
+
+    const beat = await client.extractSubconsciousBeat([
+      { role: 'user', content: 'You are so wonderful, thank you for being here with me!' },
+    ])
+    if (beat) {
+      expect(beat.vibe).toBeDefined()
+      expect(Array.isArray(beat.active_topics)).toBe(true)
+    }
+  })
+
+  it('probes Nan0 pragmatic assessment (Domain 4) returning null or assessment in test environment', async () => {
+    const client = createNeedleClient()
+    const emptyAssessment = await client.probeNan0Pragmatics('')
+    expect(emptyAssessment).toBeNull()
+
+    const assessment = await client.probeNan0Pragmatics(
+      'I promise that my plan is to commit to our future, so you can completely trust me.',
+      'User vanished for 3 days without answering.',
+    )
+    if (assessment) {
+      expect(assessment.intent).toBeDefined()
+      expect(assessment.emotional_climate).toBeDefined()
+      expect(assessment.suspicion_delta).toBeDefined()
     }
   })
 

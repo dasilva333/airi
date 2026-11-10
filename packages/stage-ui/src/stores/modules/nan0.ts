@@ -30,6 +30,7 @@ import { useBroadcastChannel } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, toRaw, watch } from 'vue'
 
+import { needleClient } from '../../libs/inference/adapters/needle-client'
 import { useEntityLedgerStore } from '../entity-ledger'
 import { useLLM } from '../llm'
 import { useTextJournalStore } from '../memory-text-journal'
@@ -618,7 +619,9 @@ export const useNan0Store = defineStore('nan0-cognition', () => {
 
     // Initialize shadow engine for reflex observation
     shadowEngine.value = new Nan0SubconsciousShadowEngine({
-      systemOneProvider,
+      systemOneProvider: systemOneStore.configured ? systemOneProvider : undefined,
+      needleClient,
+      backend: systemOneStore.configured ? 'system_one_jev' : 'needle_san_wasm',
       jevModel: systemOneStore.activeModel || undefined,
       telemetrySink: (record) => {
         const proposal = record.outcomes?.needleProposal

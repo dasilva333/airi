@@ -34,6 +34,13 @@ export interface SubconsciousBeat {
   }
 }
 
+export interface Nan0PragmaticAssessment {
+  intent: 'unverified_future_pledge' | 'earnest_reassurance' | 'playful_sarcasm' | 'defensive_evasion' | 'bizarre_incongruity' | 'casual_dialogue'
+  emotional_climate: 'confrontation_and_guilt' | 'tender_vulnerability' | 'playful_banter' | 'transactional_routine'
+  suspicion_delta: 'spike_suspicion' | 'lower_suspicion' | 'neutral'
+  confidence?: number
+}
+
 export interface NeedleClient {
   isReady: () => boolean
   isPreparing: () => boolean
@@ -44,6 +51,7 @@ export interface NeedleClient {
   embed: (text: string, budgetMs?: number) => Promise<Float32Array | null>
   extractMemoryFragments: (passage: string, budgetMs?: number) => Promise<ExtractedMemoryFragments | null>
   extractSubconsciousBeat: (turns: Array<{ role: string, content: string }>, budgetMs?: number) => Promise<SubconsciousBeat | null>
+  probeNan0Pragmatics: (text: string, context?: string, budgetMs?: number) => Promise<Nan0PragmaticAssessment | null>
   terminate: () => void
 }
 
@@ -405,6 +413,59 @@ export function createNeedleClient(): NeedleClient {
     })
   }
 
+  async function probeNan0Pragmatics(
+    text: string,
+    context?: string,
+    budgetMs: number = 3000,
+  ): Promise<Nan0PragmaticAssessment | null> {
+    if (!text || !text.trim())
+      return null
+
+    const worker = ensureWorker()
+    if (!worker) {
+      return null
+    }
+
+    if (!isInitialized) {
+      return null
+    }
+
+    const requestId = createRequestId()
+
+    return new Promise<Nan0PragmaticAssessment | null>((resolve) => {
+      let timeoutId: any
+
+      const cleanup = () => {
+        if (timeoutId)
+          clearTimeout(timeoutId)
+        worker.removeEventListener('message', handler)
+      }
+
+      const handler = (event: MessageEvent) => {
+        const data = event.data || {}
+        if (data.requestId !== requestId)
+          return
+
+        if (data.type === 'response') {
+          cleanup()
+          resolve(data.assessment || null)
+        }
+        else if (data.type === 'error') {
+          cleanup()
+          resolve(null)
+        }
+      }
+
+      worker.addEventListener('message', handler)
+      worker.postMessage({ type: 'probe_nan0_pragmatics', requestId, text, context })
+
+      timeoutId = setTimeout(() => {
+        cleanup()
+        resolve(null)
+      }, budgetMs)
+    })
+  }
+
   function terminate(): void {
     if (workerInstance) {
       workerInstance.terminate()
@@ -425,6 +486,7 @@ export function createNeedleClient(): NeedleClient {
     embed,
     extractMemoryFragments,
     extractSubconsciousBeat,
+    probeNan0Pragmatics,
     terminate,
   }
 }
