@@ -506,7 +506,7 @@ pages:
             no_models: No models available
             no_models_description: No models were found for this provider
             no_search_results: No matching models
-            no_search_results_description: No models match '{query}'. Try a different search term.
+            no_search_results_description: "No models match '{query}'. Try a different search term."
             not_supported: Model listing not supported
             not_supported_description: This provider doesn't support model listing functionality
             search_placeholder: Search models...
@@ -698,7 +698,7 @@ pages:
       registry:
         loading: Loading registry...
         stars: '{count} stars'
-        no-results: No servers found for "{query}"
+        no-results: 'No servers found for "{query}"'
     cloud-sync:
       title: Cloud Sync (BYOS)
       description: Active state cloud sync, S3/R2 storage, and multi-device

@@ -407,7 +407,7 @@ pages:
             no_models: Không có mô hình
             no_models_description: Không tìm thấy mô hình nào cho nhà cung cấp này
             no_search_results: Không có kết quả phù hợp
-            no_search_results_description: Không có mô hình nào khớp với '{query}'. Thử từ khóa khác.
+            no_search_results_description: "Không có mô hình nào khớp với '{query}'. Thử từ khóa khác."
             not_supported: Không hỗ trợ liệt kê mô hình
             not_supported_description: Nhà cung cấp này không hỗ trợ chức năng liệt kê mô hình
             search_placeholder: Tìm mô hình...
@@ -593,7 +593,7 @@ pages:
       registry:
         loading: Đang tải sổ đăng ký...
         stars: '{count} sao'
-        no-results: Không tìm thấy máy chủ nào cho "{query}"
+        no-results: 'Không tìm thấy máy chủ nào cho "{query}"'
     artistry:
       description: Tạo hình ảnh tự động, studio ComfyUI và minh họa kỷ niệm
       title: Nghệ thuật & Studio hình ảnh

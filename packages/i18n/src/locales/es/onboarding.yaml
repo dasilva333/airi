@@ -720,10 +720,10 @@ steps:
       nextModel: Next Model
     invalidModelFile: Invalid model file
     failedToLoadAvatarValue: 'Failed to load avatar: {messageInvalidmodelfile}'
-    loadedAvatarValue: Loaded avatar "{name}"!
-    importingValue: Importing {name}...
-    mountedValueAsCompanionVessel: Mounted {name} as companion vessel!
-    openingDownloadPageForValue: Opening download page for {name}...
+    loadedAvatarValue: 'Loaded avatar "{name}"!'
+    importingValue: 'Importing {name}...'
+    mountedValueAsCompanionVessel: 'Mounted {name} as companion vessel!'
+    openingDownloadPageForValue: 'Opening download page for {name}...'
     importCustom: + Import custom
     spine2d: Spine (2D)
     dropYourCustomModelHereVrmOrZip: Drop your custom model here (.vrm or .zip)
@@ -966,7 +966,7 @@ steps:
     noModel: No model
     apiKeyPlaceholder: Enter API Key
     connectedAccountSummary: Connected account · {account}
-    providerChatUnavailable: Provider "{provider}" does not expose chat completions. Check credentials.
+    providerChatUnavailable: 'Provider "{provider}" does not expose chat completions. Check credentials.'
     emptyModelResponse: Empty response received from LLM.
     localWebllmShort: Local WebLLM
   persona:
@@ -999,10 +999,10 @@ steps:
     avatarImageUploaded: Avatar image uploaded!
     pleaseUploadAnImageFilePngJpgWebp: Please upload an image file (PNG, JPG, WebP)
     clearedImportedCardRevertedToReluPreset: Cleared imported card; reverted to ReLU preset.
-    mountedCustomCardValueToDraft: Mounted custom card "{importedName}" to draft!
+    mountedCustomCardValueToDraft: 'Mounted custom card "{importedName}" to draft!'
     importFailedValue: 'Import failed: {importError}'
     openingCardPreviewForValue: Opening card preview for {name}...
-    interceptedCharacterCardValue: Intercepted character card "{filename}"!
+    interceptedCharacterCardValue: 'Intercepted character card "{filename}"!'
     aiCharacterCreator: AI Character Creator
     personality: 'Personality:'
     scenario: 'Scenario:'
@@ -1328,15 +1328,15 @@ steps:
     voicePlaybackFailed: Voice playback failed
     audioPlaybackError: Audio playback error
     synthesizingValueSVoice: Synthesizing {value}'s voice...
-    speechProviderValueIsNotConfigured: Speech provider "{providerId}" is not configured.
+    speechProviderValueIsNotConfigured: 'Speech provider "{providerId}" is not configured.'
     downloadingVoiceEngineWeightsFirst: Downloading voice engine weights first...
     speechEngineReady: Speech engine ready!
     voiceCatalogRefreshed: Voice catalog refreshed
     failedToDeleteClonedVoice: Failed to delete cloned voice
     clonedVoiceDeleted: Cloned voice deleted
     failedToCloneVoiceFromSample: Failed to clone voice from sample.
-    voiceValueClonedAndActivated: Voice "{name}" cloned and activated!
-    cloningVocalTimbreFromValue: Cloning vocal timbre from "{name}"...
+    voiceValueClonedAndActivated: 'Voice "{name}" cloned and activated!'
+    cloningVocalTimbreFromValue: 'Cloning vocal timbre from "{name}"...'
     switchedToValueOfflineStarterVoicesDoNotNeedAnHfToken: Switched to
       "{namevoiceId}". Offline starter voices do not need an HF token!
     pasteYourApiKeyHere: Paste your API key here...
@@ -1766,8 +1766,8 @@ steps:
         name: Extended
         desc: More room for longer waits.
     provider:
-      noChat: Provider "{providerId}" does not expose chat completions.
-      initializationFailed: Unable to initialize provider "{providerId}".
+      noChat: 'Provider "{providerId}" does not expose chat completions.'
+      initializationFailed: 'Unable to initialize provider "{providerId}".'
     preview:
       latency: '{latency}ms TTFT'
       sentences: '{count} sentences'
@@ -1890,7 +1890,7 @@ steps:
     noProvider: No provider
     noVisualDescription: '[No visual description generated]'
     dropImage: Drop an image or {action}
-    providerInitError: Unable to initialize vision provider "{provider}".
+    providerInitError: 'Unable to initialize vision provider "{provider}".'
   screen:
     label: Pantalla
     subtitle: Observación del escritorio
@@ -2118,8 +2118,8 @@ steps:
         timeout: Timeout waiting for Electron generation response
         emptyResult: No image was returned from generator.
         failed: Image generation failed. Please check your provider settings.
-        desktopRequired: Direct browser testing for '{provider}' is not supported.
-          Please run inside the AIRI Electron app.
+        desktopRequired: "Direct browser testing for '{provider}' is not supported.
+          Please run inside the AIRI Electron app."
     workflow:
       configureComfyuiWorkflow: Configure ComfyUI Workflow
       mapPromptAndImageInjectionPointsIntoTheWorkflowGraph: Map prompt and image injection points into the workflow graph
@@ -2168,7 +2168,7 @@ steps:
     comfyuiWorkflowOptions:
       '': {}
     messages:
-      connectedValue: Connected — {value0}
+      connectedValue: 'Connected — {value0}'
       failedValue: 'Failed: {value0}'
       invalidJsonValue: 'Invalid JSON: {value0}'
     reactionDescription: 'Evaluates what the companion replied: {code}. Best for
@@ -2288,7 +2288,7 @@ steps:
       desc: Crea animaciones 3D a medida y clips VRMA al vuelo según el tono de la
         conversación.
     loadingClipEncoderOnnxDenoiser: Loading CLIP Encoder & ONNX Denoiser...
-    downloadingShardsValue: Downloading Shards ({percentage15}%)...
+    downloadingShardsValue: 'Downloading Shards ({percentage15}%)...'
     preWarmedCached: Pre-warmed & Cached
     preWarmDownloadEngine: Pre-warm & Download Engine
     primedReady: Primed & Ready
@@ -2796,7 +2796,7 @@ quickStart:
     hearingMuted: Hearing disabled (muted)
     checkingKokoro: Synthesizing Kokoro 82M voice weights...
     kokoroProgress: Loading Kokoro weights ({percent}%)...
-    kokoroReady: Kokoro 82M ready with voice "{voice}"
+    kokoroReady: 'Kokoro 82M ready with voice "{voice}"'
     loadingPocket: Loading Pocket-TTS weights...
     speechConnected: Connected {provider} speech provider
     speechMuted: Vocal synthesis muted

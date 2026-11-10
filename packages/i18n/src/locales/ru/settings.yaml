@@ -405,7 +405,7 @@ pages:
             no_models: Моделей нет
             no_models_description: Для этого провайдера модели не найдены
             no_search_results: Совпадений нет
-            no_search_results_description: Моделей, соответствующих '{query}', не найдено.
+            no_search_results_description: "Моделей, соответствующих '{query}', не найдено."
             not_supported: Список моделей не поддерживается
             not_supported_description: Этот провайдер не поддерживает вывод списка моделей
             search_placeholder: Поиск моделей...
@@ -594,7 +594,7 @@ pages:
       registry:
         loading: Загрузка реестра...
         stars: '{count} звезд'
-        no-results: Серверы для "{query}" не найдены
+        no-results: 'Серверы для "{query}" не найдены'
     artistry:
       description: Автономная генерация изображений, студия ComfyUI и иллюстрации
         воспоминаний

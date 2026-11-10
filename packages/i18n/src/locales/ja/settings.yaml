@@ -397,7 +397,7 @@ pages:
             no_models: 利用可能なモデルがありません
             no_models_description: このプロバイダーのモデルが見つかりませんでした
             no_search_results: 一致するモデルがありません
-            no_search_results_description: ワード「{query}」に一致するモデルがありません。別の検索語を試してください。
+            no_search_results_description: 'ワード「{query}」に一致するモデルがありません。別の検索語を試してください。'
             not_supported: モデルリストはサポートされていません
             not_supported_description: このプロバイダーはモデルリスト機能をサポートしていません
             search_placeholder: モデルを検索…

@@ -206,7 +206,7 @@ profile-switcher:
   save-as-new: บันทึกเป็นโปรไฟล์ใหม่
   new-profile-name: ชื่อโปรไฟล์
   manage: จัดการโปรไฟล์
-waiting: กำลังรอ
+waiting: 'กำลังรอ'
 websocket-status:
   connected: เชื่อมต่อแล้ว
   disconnected: ไม่มีการเชื่อมต่อ

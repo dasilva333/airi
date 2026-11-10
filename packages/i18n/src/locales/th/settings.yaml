@@ -764,7 +764,7 @@ pages:
             no_models: ไม่มีโมเดลที่ใช้ได้
             no_models_description: ไม่พบโมเดลสำหรับผู้ให้บริการนี้
             no_search_results: ไม่มีโมเดลที่ตรงกัน
-            no_search_results_description: ไม่มีโมเดลที่ตรงกับ '{query}' ลองใช้คำค้นหาอื่น
+            no_search_results_description: "ไม่มีโมเดลที่ตรงกับ '{query}' ลองใช้คำค้นหาอื่น"
             not_supported: ไม่รองรับการแสดงรายการโมเดล
             not_supported_description: ผู้ให้บริการนี้ไม่รองรับฟังก์ชันแสดงรายการโมเดล
             search_placeholder: ค้นหาโมเดล...
@@ -825,7 +825,7 @@ pages:
         title: สถานะขณะทำงานที่ตรวจพบ
         connection: การเชื่อมต่อ
         latest-context: บริบทล่าสุดของบอต
-        waiting: กำลังรอการส่งบริบทใหม่จากบอต
+        waiting: 'กำลังรอการส่งบริบทใหม่จากบอต'
         unknown: ไม่ทราบ
       debug:
         title: ทราฟฟิกของ Minecraft
@@ -1409,7 +1409,7 @@ pages:
         failure: การเชื่อมต่อล้มเหลวหลังผ่านไป {ms} ms
       errors:
         empty-identifier: เซิร์ฟเวอร์ # {index} ไม่มีตัวระบุ
-        duplicate-identifier: ตัวระบุ "{name}" ถูกใช้มากกว่าหนึ่งครั้ง ชื่อต้องไม่ซ้ำกัน
+        duplicate-identifier: 'ตัวระบุ "{name}" ถูกใช้มากกว่าหนึ่งครั้ง ชื่อต้องไม่ซ้ำกัน'
         empty-command: '"{name}" ไม่มีคำสั่ง'
         empty-url: '"{name}" ไม่มี URL'
         invalid-url: '"{name}" ต้องใช้ URL แบบ http หรือ https ที่สมบูรณ์'

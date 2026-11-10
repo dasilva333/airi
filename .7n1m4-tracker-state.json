@@ -1,6 +1,6 @@
 {
-  "last_inspected_sha": "e8c9f7bf7a1c3c01f10ce6fe8e10ab5bc14dab0c",
-  "last_run_timestamp": "2026-11-09T16:08:26.773Z",
+  "last_inspected_sha": "bee21ea5c50686fa6a1d0173b1bbec028dd3a6e1",
+  "last_run_timestamp": "2026-11-10T16:39:42.625Z",
   "remote": "7n1m4",
   "branch": "main",
   "tracked_prs": {
@@ -49,8 +49,8 @@
       "state": "OPEN",
       "isDraft": false,
       "author": "7n1m4",
-      "commentsCount": 33,
-      "updatedAt": "2026-11-08T08:57:26Z",
+      "commentsCount": 34,
+      "updatedAt": "2026-11-10T04:51:18Z",
       "url": "https://github.com/anlmalabs/airi/issues/1",
       "type": "Issue"
     },
@@ -179,8 +179,8 @@
       "state": "OPEN",
       "isDraft": false,
       "author": "anlmabot",
-      "commentsCount": 369,
-      "updatedAt": "2026-11-09T05:10:20Z",
+      "commentsCount": 387,
+      "updatedAt": "2026-11-10T01:40:35Z",
       "url": "https://github.com/anlmalabs/airi/issues/17",
       "type": "Issue"
     },
@@ -488,6 +488,14 @@
       "to_sha": "e8c9f7bf7a1c3c01f10ce6fe8e10ab5bc14dab0c",
       "commits_count": 1,
       "files_count": 14,
+      "pr_changes_count": 2
+    },
+    {
+      "date": "2026-11-10T16:39:42.625Z",
+      "from_sha": "e8c9f7bf7a1c3c01f10ce6fe8e10ab5bc14dab0c",
+      "to_sha": "bee21ea5c50686fa6a1d0173b1bbec028dd3a6e1",
+      "commits_count": 3,
+      "files_count": 45,
       "pr_changes_count": 2
     }
   ],

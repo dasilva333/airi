@@ -41,7 +41,7 @@ profile-switcher:
   no-profiles: No profiles yet
   save-as-new: Save as New Profile
   manage: Manage Profiles
-waiting: Waiting
+waiting: 'Waiting'
 startup:
   milestones:
     core_services: Initializing core system services...

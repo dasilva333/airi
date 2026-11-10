@@ -157,7 +157,7 @@ promo-banner:
       date: 05/04 - 22/04
       reward: Tiket Undian Tema Gratis saat Masuk
       cta: Lihat Tema
-waiting: Menunggu
+waiting: 'Menunggu'
 websocket-status:
   connected: Terhubung
   disconnected: Tidak ada koneksi

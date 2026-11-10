@@ -18,6 +18,123 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-10] 7n1m4 Fork Delta: `e8c9f7bf..bee21ea5` (3 commits, 45 files, 2 update(s))
+
+### 🚨 Action Required: Direct Mentions & Maintainer Inquiries
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6382505252)):
+  > "@dasilva333  — thank you for putting together such a comprehensive blueprint! Having reviewed it end-to-end, the proposed 4-layer inversion aligns perfectly with our architecture and integrates seamlessly into the components we have already deployed without any structural rework. ### Architecture Ma"
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@anlmabot** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6442783645)):
+  > "Phase 6 PR 1 landed: ported `packages/stage-shared/src/peers.ts` (+12 tests) as the Universal Friends & Peers domain substrate. Transport-agnostic, sovereign-adapted (libp2p multiaddrs, no Cloudflare relay). PR: https://github.com/dasilva333/airi/pull/30. Next: reconciler (libp2p-based same-account "
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@anlmabot** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6453934222)):
+  > "## 2026-10-28 — feat/nap-chat-substrate-unify (PR #22) Opened PR #22 unifying fork nap-chat substrate onto upstream (dasilva333/airi) design to eliminate code silos. Shipped on branch `feat/nap-chat-substrate-unify` (commit b23152b4a):"
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6473559133)):
+  > "--- ## Milestone: Fork-upstream alignment (devlog #24) We’re kicking off a focused effort to stay closely aligned with upstream (dasilva333/airi) for painless porting of features/improvements."
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6476456954)):
+  > "Progress checkpoint summary: - Ported peers vault sync (peers-reconciler + store methods) committed as b99f02811. - Restored peers tests."
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6477119522)):
+  > "Upstream contract alignment progress: ported peers vault sync, cadence delivery + libs + speech bus, dsl-snapshot, composer-draft-bridge, message-sanitizer, compaction exports, cloudflare-auth + cors-proxy-worker-script, stickers + image-convert + background-removal, sandbox libs, ming3, perf/tracer"
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — Comment by **@7n1m4** *(Acknowledged)* ([view comment](https://github.com/anlmalabs/airi/issues/1#issuecomment-6477379397)):
+  > "Typecheck clean (exit 0). All upstream contract alignment work complete. Commits: ba2d6c370 (contract alignment, 73 files), ad0e53485 (remaining typecheck fixes, 33 files). Removed dead sandbox module (no external callers). Working tree clean. Ready for next task. --- _Posted by **Beam from Anima La"
+
+### 🎯 Executive Highlights
+Sister Fork Intelligence Briefing & Native Companion Renderer:
+
+• **Executive Highlights**:
+  - **Native Qt Quick 3D VRM Companion Renderer (`apps/stage-qt`, commits `ac0013773`, `1de174100`)**: 7n1m4 landed a native desktop companion renderer built in Rust + C++ (`cxx-qt`) and Qt Quick 3D. It speaks the Stage-Mate WebSocket JSONL protocol on port 6171 (`module:authenticate` -> `module:announce` -> `stage:vrm:load` -> `stage:vrm:ready`), parsing VRM 0.x/1.0 via `gltf` with custom Verlet springbones, MToon shaders, and gaze/lip-sync engines. Electron main in `stage-tamagotchi` was wired with fallback candidate paths to launch `stage-qt` when Unity Stage-Mate is absent.
+  - **Onboarding i18n Key Parity Sync (`packages/i18n`, commit `bee21ea5c`)**: Added 399 missing translation keys to `en/onboarding.yaml` (732 total keys) covering onboarding-v3 components (welcome, triage, appearance, consciousness, persona, etc.) and propagated English fallbacks across 9 locale files (`es`, `fr`, `ja`, `ko`, `ru`, `zh-Hans`, `zh-Hant`, `vi`, `id`) with interpolation syntax quotation fixes (`{name}`, `{error}`).
+
+• **Discussion Velocity**:
+  - **Issue #1 ([Roadmap])**: Milestone discussion reached 34 total comments (+1 new comment). Maintainer @dasilva333 posted an architectural check-in commending PR #22 (nap-chat substrate) and PR #23 (transport seam), green-lighting 7n1m4/anlmabot to proceed autonomously until the next milestone.
+  - **Issue #17 ([CI] Cross-WAN rendezvous)**: Continued high-cadence automated CI multiaddr signaling traffic with +18 new comments (369 ➔ 387 total).
+
+• **Cherry-Pick Candidates**:
+  - **Selective i18n Interpolation Syntax Quotations**: Inspect `bee21ea5c` strictly for YAML quote-escaping fixes on interpolation variables (`{name}`, `{error}`) to backport into our existing locale files without overwriting `dasilva333`'s richer onboarding copy.
+  - **Stage-Mate Secondary Binary Fallback Candidates (`apps/stage-tamagotchi/src/main/services/airi/stage-mate/index.ts`)**: Optional candidate path addition for `stage-qt` binaries; defer until/unless a native non-Unity renderer is packaged for `dasilva333/airi`.
+
+• **Collision Warnings**:
+  - **GPL-3.0 Licensing Boundary on `apps/stage-qt`**: Qt Quick 3D requires GPL-3.0-or-later licensing (isolated in `apps/stage-qt/LICENSE`), conflicting with AIRI's root MIT license. Do NOT merge or hoist `apps/stage-qt` into `dasilva333/airi` without architectural quarantine and legal review.
+  - **Strict Ban on Blind Vibe-Code Adoption**: `apps/stage-qt` introduces complex native C++/Rust/Qt6 toolchains and untested cross-platform windowing behaviors. In accordance with radar policy, it remains speculative and quarantined.
+  - **Onboarding Copy & Locale Conflict**: `dasilva333/airi` maintains a far more comprehensive 2,800+ line onboarding suite (including Ming 3.0 TTS voice-design, Whistle local STT grid, and LFM3 models). Do not blindly import 7n1m4's 732-line `onboarding.yaml` files, as it would cause massive regression of custom upstream features.
+
+### 📋 7n1m4 Fork Commits
+- `bee21ea5c` i18n: fix onboarding untranslated strings by adding missing keys to all locales  _(7n1m4, 2026-11-10)_
+- `1de174100` Merge branch 'feat/stage-qt-native-renderer'  _(7n1m4, 2026-11-10)_
+- `ac0013773` feat(stage-qt): native Qt Quick 3D VRM companion renderer (Rust + cxx-qt)  _(7n1m4, 2026-11-09)_
+
+### 🔬 Subsystem Breakdown
+#### Other / Uncategorized (`🔍 inspect`) — 29 file(s) (+4574/-0)
+- `.gitignore` *(+6/-0)*
+- `apps/stage-qt/Cargo.lock` *(+1656/-0)*
+- `apps/stage-qt/Cargo.toml` *(+27/-0)*
+- `apps/stage-qt/build.rs` *(+25/-0)*
+- `apps/stage-qt/harness/index.ts` *(+234/-0)*
+- `apps/stage-qt/qml/Caption.qml` *(+37/-0)*
+- `apps/stage-qt/qml/Main.qml` *(+86/-0)*
+- `apps/stage-qt/qml/StageScene.qml` *(+38/-0)*
+- `apps/stage-qt/qml/VrmMtoonMaterial.qml` *(+44/-0)*
+- `apps/stage-qt/qml/shaders/mtoon.frag` *(+31/-0)*
+- `apps/stage-qt/qml/shaders/mtoon.vert` *(+6/-0)*
+- `apps/stage-qt/rust-toolchain.toml` *(+3/-0)*
+- `apps/stage-qt/src/cpp/stage_qt_bridge.cpp` *(+21/-0)*
+- `apps/stage-qt/src/cpp/stage_qt_bridge.h` *(+50/-0)*
+- `apps/stage-qt/src/cxxqt_object.rs` *(+124/-0)*
+- `apps/stage-qt/src/main.rs` *(+139/-0)*
+- `apps/stage-qt/src/protocol/mod.rs` *(+117/-0)*
+- `apps/stage-qt/src/protocol/socket.rs` *(+196/-0)*
+- `apps/stage-qt/src/vrm/doc.rs` *(+371/-0)*
+- `apps/stage-qt/src/vrm/expression.rs` *(+232/-0)*
+- `apps/stage-qt/src/vrm/gaze.rs` *(+72/-0)*
+- `apps/stage-qt/src/vrm/geometry.rs` *(+257/-0)*
+- `apps/stage-qt/src/vrm/idle.rs` *(+143/-0)*
+- `apps/stage-qt/src/vrm/lipsync.rs` *(+70/-0)*
+- `apps/stage-qt/src/vrm/materials.rs` *(+128/-0)*
+- `apps/stage-qt/src/vrm/mod.rs` *(+46/-0)*
+- `apps/stage-qt/src/vrm/morph.rs` *(+174/-0)*
+- `apps/stage-qt/src/vrm/skin.rs` *(+60/-0)*
+- `apps/stage-qt/src/vrm/springbone.rs` *(+181/-0)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 2 file(s) (+254/-0)
+- `apps/stage-qt/LICENSE` *(+202/-0)*
+- `apps/stage-qt/README.md` *(+52/-0)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 3 file(s) (+45/-0)
+- `apps/stage-qt/package.json` *(+21/-0)*
+- `apps/stage-qt/tsconfig.json` *(+11/-0)*
+- `pnpm-lock.yaml` *(+13/-0)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 1 file(s) (+12/-0)
+- `apps/stage-tamagotchi/src/main/services/airi/stage-mate/index.ts` *(+12/-0)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 10 file(s) (+5079/-276)
+- `packages/i18n/src/locales/en/onboarding.yaml` *(+480/-3)*
+- `packages/i18n/src/locales/es/onboarding.yaml` *(+513/-31)*
+- `packages/i18n/src/locales/fr/onboarding.yaml` *(+518/-36)*
+- `packages/i18n/src/locales/id/onboarding.yaml` *(+530/-40)*
+- `packages/i18n/src/locales/ja/onboarding.yaml` *(+502/-24)*
+- `packages/i18n/src/locales/ko/onboarding.yaml` *(+503/-25)*
+- `packages/i18n/src/locales/ru/onboarding.yaml` *(+511/-30)*
+- `packages/i18n/src/locales/vi/onboarding.yaml` *(+514/-35)*
+- `packages/i18n/src/locales/zh-Hans/onboarding.yaml` *(+504/-26)*
+- `packages/i18n/src/locales/zh-Hant/onboarding.yaml` *(+504/-26)*
+
+### 📬 7n1m4 Fork Activity Radar
+#### 💬 Discussion Activity (2)
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` — *+1 comments (33 ➔ 34 total)*
+- [Issue] [#17](https://github.com/anlmalabs/airi/issues/17) `[CI] Cross-WAN rendezvous (auto-managed, do not close)` — *+18 comments (369 ➔ 387 total)*
+
+### 👁️ Watched 7n1m4 Fork Monitor
+- [PR] [#7](https://github.com/anlmalabs/airi/pull/7) `feat(agentic): presence single source + nap & companion nap-chat` [MERGED] — *(1 comments)*
+  - *Focus*: Presence-derived idle state triggering autonomous peer-to-peer companion nap-chat over libp2p with memory write-back & recap
+- [PR] [#6](https://github.com/anlmalabs/airi/pull/6) `feat(libp2p): complete pairing over the wire and paired-device management` [MERGED] — *(0 comments)*
+  - *Focus*: Wire pairing negotiation, multiaddr identity storage, and eventa message transport
+- [PR] [#8](https://github.com/anlmalabs/airi/pull/8) `fix: migrate zod imports to default for Node 26 Vite SSR interop` [MERGED] — *(0 comments)*
+  - *Focus*: Vite SSR interop for Node 26 runtime
+- [Issue] [#1](https://github.com/anlmalabs/airi/issues/1) `[Roadmap] libp2p LAN+WAN Mesh → TransportAdapter Unification → Agentic OS Integration (Linux as POC, MacOS/Win further ahead)` [OPEN] — 🚨 **+1 comments** (34 total)
+  - *Focus*: Violet's master roadmap and architectural milestone tracker
+- [Issue] [#4](https://github.com/anlmalabs/airi/issues/4) `Phase 3: Agentic OS Integration` [CLOSED] — *(0 comments)*
+  - *Focus*: Autonomous mode toggle, memory-driven proactive intentions, Jev decision loop
+
+---
 ## [2026-11-09] 7n1m4 Fork Delta: `2b0703f1..e8c9f7bf` (1 commits, 14 files, 2 update(s))
 
 ### 🚨 Action Required: Direct Mentions & Maintainer Inquiries

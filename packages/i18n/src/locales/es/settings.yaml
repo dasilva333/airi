@@ -416,8 +416,8 @@ pages:
             no_models: No hay modelos disponibles
             no_models_description: No se encontraron modelos para este proveedor
             no_search_results: No hay modelos coincidentes
-            no_search_results_description: Ningún modelo coincide con '{query}'. Prueba un
-              término de búsqueda diferente.
+            no_search_results_description: "Ningún modelo coincide con '{query}'. Prueba un
+              término de búsqueda diferente."
             not_supported: Listado de modelos no soportado
             not_supported_description: Este proveedor no soporta la funcionalidad de listado de modelos
             search_placeholder: Buscar modelos...
@@ -607,7 +607,7 @@ pages:
       registry:
         loading: Cargando registro...
         stars: '{count} estrellas'
-        no-results: No se encontraron servidores para "{query}"
+        no-results: 'No se encontraron servidores para "{query}"'
     artistry:
       description: Generación autónoma de imágenes, estudio ComfyUI e ilustraciones de
         recuerdos

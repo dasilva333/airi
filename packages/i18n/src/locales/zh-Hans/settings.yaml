@@ -420,7 +420,7 @@ pages:
             no_models: 没有任何可用的模型
             no_models_description: 该服务来源的模型列表没有返回任何的数据
             no_search_results: 没有匹配的模型
-            no_search_results_description: 没有模型匹配 '{query}' 关键字，请尝试一下别的关键词呢
+            no_search_results_description: "没有模型匹配 '{query}' 关键字，请尝试一下别的关键词呢"
             not_supported: 无法列出模型
             not_supported_description: 此服务来源不支持列出模型的功能
             search_placeholder: 搜索模型...
@@ -603,7 +603,7 @@ pages:
       registry:
         loading: 正在加载注册表...
         stars: '{count} 颗星'
-        no-results: 未找到匹配 "{query}" 的服务器
+        no-results: '未找到匹配 "{query}" 的服务器'
     artistry:
       description: 自主图像生成、ComfyUI 工作室与记忆插图
       title: 艺术创作与图像工作室

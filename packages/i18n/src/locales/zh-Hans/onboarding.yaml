@@ -610,11 +610,11 @@ steps:
       previousModel: 上一个模型
       nextModel: 下一个模型
     invalidModelFile: 模型文件无效
-    failedToLoadAvatarValue: 加载角色失败：{messageInvalidmodelfile}
-    loadedAvatarValue: 角色“{name}”已加载！
-    importingValue: 正在导入 {name}…
-    mountedValueAsCompanionVessel: 已将 {name} 应用为伴侣躯体！
-    openingDownloadPageForValue: 正在打开 {name} 的下载页面…
+    failedToLoadAvatarValue: '加载角色失败：{messageInvalidmodelfile}'
+    loadedAvatarValue: '角色“{name}”已加载！'
+    importingValue: '正在导入 {name}…'
+    mountedValueAsCompanionVessel: '已将 {name} 应用为伴侣躯体！'
+    openingDownloadPageForValue: '正在打开 {name} 的下载页面…'
     importCustom: + 导入自定义模型
     spine2d: Spine（二维）
     dropYourCustomModelHereVrmOrZip: 将自定义模型拖到这里（.vrm 或 .zip）
@@ -829,7 +829,7 @@ steps:
     noModel: 未选择模型
     apiKeyPlaceholder: 输入 API 密钥
     connectedAccountSummary: 已连接账户 · {account}
-    providerChatUnavailable: 服务商“{provider}”未提供聊天补全接口，请检查凭据。
+    providerChatUnavailable: '服务商“{provider}”未提供聊天补全接口，请检查凭据。'
     emptyModelResponse: 语言模型返回了空回复。
     localWebllmShort: 本地 WebLLM
   persona:
@@ -861,10 +861,10 @@ steps:
     avatarImageUploaded: 角色图片已上传！
     pleaseUploadAnImageFilePngJpgWebp: 请上传图片文件（PNG、JPG 或 WebP）
     clearedImportedCardRevertedToReluPreset: 已清除导入的角色卡，并恢复 ReLU 预设。
-    mountedCustomCardValueToDraft: 已将自定义角色卡“{importedName}”应用到草稿！
+    mountedCustomCardValueToDraft: '已将自定义角色卡“{importedName}”应用到草稿！'
     importFailedValue: 导入失败：{importError}
     openingCardPreviewForValue: 正在打开 {name} 的角色卡预览…
-    interceptedCharacterCardValue: 已接收角色卡“{filename}”！
+    interceptedCharacterCardValue: '已接收角色卡“{filename}”！'
     aiCharacterCreator: AI 角色创建器
     personality: 性格：
     scenario: 场景：
@@ -1163,15 +1163,15 @@ steps:
     voicePlaybackFailed: 声音播放失败
     audioPlaybackError: 音频播放出错
     synthesizingValueSVoice: 正在合成 {value} 的声音…
-    speechProviderValueIsNotConfigured: 尚未配置语音服务商“{providerId}”。
+    speechProviderValueIsNotConfigured: '尚未配置语音服务商“{providerId}”。'
     downloadingVoiceEngineWeightsFirst: 正在先下载语音引擎权重…
     speechEngineReady: 语音引擎已就绪！
     voiceCatalogRefreshed: 声音目录已刷新
     failedToDeleteClonedVoice: 删除克隆声音失败
     clonedVoiceDeleted: 克隆声音已删除
     failedToCloneVoiceFromSample: 从样本克隆声音失败。
-    voiceValueClonedAndActivated: 声音“{name}”已克隆并启用！
-    cloningVocalTimbreFromValue: 正在从“{name}”克隆音色…
+    voiceValueClonedAndActivated: '声音“{name}”已克隆并启用！'
+    cloningVocalTimbreFromValue: '正在从“{name}”克隆音色…'
     switchedToValueOfflineStarterVoicesDoNotNeedAnHfToken: 已切换到“{namevoiceId}”。离线入门声音无需 Hugging Face 令牌！
     pasteYourApiKeyHere: 在此粘贴 API 密钥……
     selectTheUnderlyingNeuralCheckpointOrSpeechSynthesisModel: 选择使用的神经网络权重或语音合成模型。
@@ -1572,8 +1572,8 @@ steps:
         name: 延长
         desc: 为更长的等待留出空间。
     provider:
-      noChat: 提供方“{providerId}”未提供聊天补全接口。
-      initializationFailed: 无法初始化提供方“{providerId}”。
+      noChat: '提供方“{providerId}”未提供聊天补全接口。'
+      initializationFailed: '无法初始化提供方“{providerId}”。'
     preview:
       latency: 首 token 用时 {latency} 毫秒
       sentences: '{count} 句'
@@ -1686,7 +1686,7 @@ steps:
     noProvider: 未选择服务商
     noVisualDescription: '[未生成视觉描述]'
     dropImage: 拖入图片或{action}
-    providerInitError: 无法初始化视觉服务商“{provider}”。
+    providerInitError: '无法初始化视觉服务商“{provider}”。'
   screen:
     label: 桌面观察
     subtitle: 屏幕动态捕捉
@@ -1846,7 +1846,7 @@ steps:
       processingLocation: 处理位置取决于你的视觉、分类器和大脑设置。
       downloading: 正在下载模型（{percent}%）…
       downloadSuccess: 本机场景理解模型已下载，可以使用！
-      downloadFailure: 视觉模型下载失败：{error}
+      downloadFailure: '视觉模型下载失败：{error}'
     adjustLater: 稍后可在角色设置中调整。
     setUpLater: 稍后设置
     companionGreeting: 选择我什么时候主动开口，以及如何了解你的日常。
@@ -1944,9 +1944,9 @@ steps:
     comfyuiWorkflowOptions:
       '': {}
     messages:
-      connectedValue: 已连接 — {value0}
-      failedValue: 失败：{value0}
-      invalidJsonValue: JSON 无效：{value0}
+      connectedValue: '已连接 — {value0}'
+      failedValue: '失败：{value0}'
+      invalidJsonValue: 'JSON 无效：{value0}'
     reactionDescription: 根据伴侣的回答进行评估：{code}。适合自然地根据对话变化生成场景。
     style:
       preview: 预览
@@ -2054,7 +2054,7 @@ steps:
       title: 生成式 3D 动作 (FlowMDM)
       desc: 根据对白含义实时生成量身定制的 3D 角色动作与 VRMA 动画切片。
     loadingClipEncoderOnnxDenoiser: 正在加载 CLIP 编码器与 ONNX 去噪器…
-    downloadingShardsValue: 正在下载模型分片（{percentage15}%）…
+    downloadingShardsValue: '正在下载模型分片（{percentage15}%）…'
     preWarmedCached: 已预热并缓存
     preWarmDownloadEngine: 预热并下载引擎
     primedReady: 已准备就绪
@@ -2514,7 +2514,7 @@ quickStart:
     hearingMuted: 听觉已关闭（静音）
     checkingKokoro: 正在加载 Kokoro 82M 语音权重…
     kokoroProgress: 正在加载 Kokoro 权重（{percent}%）…
-    kokoroReady: Kokoro 82M 已就绪，使用声线“{voice}”
+    kokoroReady: 'Kokoro 82M 已就绪，使用声线“{voice}”'
     loadingPocket: 正在加载 Pocket-TTS 权重…
     speechConnected: 已连接 {provider} 语音提供商
     speechMuted: 语音合成已静音

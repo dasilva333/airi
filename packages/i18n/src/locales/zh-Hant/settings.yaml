@@ -387,7 +387,7 @@ pages:
             no_models: 沒有任何可用的模型
             no_models_description: 該服務來源的模型清單沒有回傳任何資料
             no_search_results: 沒有符合的模型
-            no_search_results_description: 沒有模型符合「{query}」關鍵字，請嘗試別的關鍵字
+            no_search_results_description: '沒有模型符合「{query}」關鍵字，請嘗試別的關鍵字'
             not_supported: 無法列出模型
             not_supported_description: 此服務來源不支援列出模型的功能
             search_placeholder: 搜尋模型...
@@ -570,7 +570,7 @@ pages:
       registry:
         loading: 正在載入註冊表...
         stars: '{count} 顆星'
-        no-results: 找不到符合 "{query}" 的伺服器
+        no-results: '找不到符合 "{query}" 的伺服器'
     artistry:
       description: 自主圖像生成、ComfyUI 工作室與記憶插圖
       title: 藝術創作與圖像工作室

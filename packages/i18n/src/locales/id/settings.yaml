@@ -672,7 +672,7 @@ pages:
             no_models: Tidak ada model yang ditemukan
             no_models_description: No models were found for this provider
             no_search_results: No matching models
-            no_search_results_description: No models match '{query}'. Try a different search term.
+            no_search_results_description: "No models match '{query}'. Try a different search term."
             not_supported: Model listing not supported
             not_supported_description: This provider doesn't support model listing functionality
             search_placeholder: Search models...
@@ -737,7 +737,7 @@ pages:
         title: Waktu proses (Runtime)
         connection: Connection
         latest-context: Latest bot context
-        waiting: Waiting for a fresh bot-originated context push.
+        waiting: 'Waiting for a fresh bot-originated context push.'
         unknown: Unknown
         description: Status bot Minecraft saat ini
       debug:
@@ -954,7 +954,7 @@ pages:
         failed: 'Koneksi gagal: {error}'
       errors:
         empty-identifier: Server
-        duplicate-identifier: Identifier "{name}" is used more than once — names need to be unique.
+        duplicate-identifier: 'Identifier "{name}" is used more than once — names need to be unique.'
         empty-command: '"{name}" is missing a command.'
         invalid-shape: That doesn't look like a valid mcp.json — the root needs an
           "mcpServers" field.

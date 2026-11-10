@@ -39,7 +39,7 @@ widgets:
     title: Tidak ada widget aktif
     description: Widget akan muncul di sini saat alat atau plugin memunculkannya.
   loading: Memuat widget…
-  waiting: Menunggu data widget untuk "{id}"…
+  waiting: 'Menunggu data widget untuk "{id}"…'
 
 inlay:
   close: Tutup

@@ -79,7 +79,7 @@ devtools:
       main-window-note: Perubahan akan muncul di jendela utama AIRI.
       diagnostics:
         title: Diagnostik tangkapan
-        waiting: Menunggu diagnostik dari jendela utama AIRI.
+        waiting: 'Menunggu diagnostik dari jendela utama AIRI.'
         status:
           disabled: Dinonaktifkan
           starting: Memulai
@@ -379,7 +379,7 @@ devtools:
           output-change: MAE perubahan terfilter
           cutoff-tracks: Saluran tertahan
         status:
-          waiting: Menunggu generator
+          waiting: 'Menunggu generator'
           filtering: Menyaring keluaran generator
           bypassed: Meneruskan keluaran mentah generator
       breath:
