@@ -119,9 +119,25 @@ Integration should model it as a first-class stateful field, not a demo-only rad
 - Ming's only durable differentiator over the local trio is **7-language + dialect synthesis with SOTA-adjacent ZH quality** at 0.5B scale, plus **free-form voice design** ("describe a voice in words") with no reference audio at all. Neither Kokoro (fixed bank), Pocket (EN/FR/ES/DE/IT/PT, no JA/ZH/KO), nor MOSS (ZH/EN) covers this.
 - 44.1 kHz output is audibly cleaner than 24 kHz local engines for headphones-forward users — at the cost of ~1.8x PCM bytes per second through the playback path.
 
-### 3.2 Voice Cloning Friction: The AIRI-Shaped Hole
+### 3.2 Voice Cloning Friction: The AIRI-Shaped Hole & In-Browser Technical Debt
 
-ming-wasm v0.1 explicitly does **not** support cloning from a recording. Upstream needs `prompt_wav + prompt_text + use_spk_emb`, i.e. the Audio8 pattern of **mandatory exact transcripts**. AIRI's Audio Studio / AnimaDex flows assume drop-a-WAV cloning (Pocket/MOSS). Until the audio encoder + speaker model lands in the browser build, Ming cannot serve AIRI's custom-voice path — only built-ins + voice design.
+ming-wasm v0.1 explicitly does **not** support cloning from a recording. In the upstream Python codebase (`ming_tts.py`), zero-shot voice cloning is a composite pipeline requiring three distinct steps:
+1. **CAM++ ONNX Speaker Embedding Model** (`campplus.onnx`, 16 kHz): Extracts the 192-dim speaker vector `spk_emb`.
+2. **Audio Tokenizer / VAE Encoder** (`audio_tokenizer`): Compresses the reference waveform into latent patch vectors (`prompt_latent`).
+3. **Mandatory Exact Transcript**: Unlike Pocket or MOSS (which support transcript-free drop-a-WAV cloning), upstream Ming-3.0 strictly requires `prompt_wav + prompt_text + use_spk_emb`.
+
+In the current browser WASM build (`fusorlabs/ming-wasm`), the Rust/WASM binary only compiles the Qwen2.5 text backbone, DiT flow head, and streaming vocoder decoder. The `VoiceChoice` enum strictly only implements `Builtin(String)`, `Design(String)`, and `Freeform(String)` — the audio encoder was omitted from the 850 MB bundle.
+
+#### Future In-Browser Voice Cloning (Option B Architecture & Effort Assessment)
+If we ever decide to support dual conditioning (**Voice Design** *and* **Voice Clone**) completely in-browser without external server dependencies, the roadmap and realistic engineering friction are as follows:
+
+- **Architectural Designation**: **High Effort / High Risk (MOSS-grade trench war)**. Do not underestimate this task; while reference Python code exists, porting neural audio encoders into WebAssembly/WebGPU without official upstream wasm-bindgen glue is historically grueling (e.g. debugging incoherent audio and tensor mismatch for days during the MOSS port).
+- **Core Components Required**:
+  1. **In-Browser CAM++ Extraction**: Run CAM++ via `onnxruntime-web` (leveraging our `@sherpaw/speaker-diarization` / voiceprint infrastructure) to extract the 192-dim `spk_emb` in a Web Worker.
+  2. **Audio Tokenizer ONNX/WASM Export**: Export Ming's PyTorch `audio_tokenizer` (VAE encoder) to ONNX, quantize/split for browser consumption, and build a Web Worker graph runner to generate `prompt_latent`.
+  3. **Runtime Conditioning Bridge**: Either upstream `fusor-rs/ming-wasm` v0.2 lands with audio-encoder hooks and `VoiceChoice::Clone { prompt_latent, spk_emb }` exposed, or custom WASM runtime patching is required to inject external audio codes into the DiT flow head.
+  4. **Dual Conditioning UI**: Add a clean segmented switch in `ming3-local.vue` and `useSpeechStore` (`Design (Text Prompt)` vs `Clone (Audio Clip + Transcript)`), storing clone metadata in localforage (`ming-clone-profiles-metadata`).
+- **Verdict on Sidecars**: External native sidecars (Option A: Python server / binary) are **permanently rejected** per AIRI's strict 100% in-process local-first architectural invariants. If voice cloning is ever added to Ming, it must be via **Option B (100% in-browser)** or deferred until upstream `fusorlabs/ming-wasm` officially distributes the browser-side audio encoder.
 
 ### 3.3 Download, Memory, and CPU Contention Reality
 
