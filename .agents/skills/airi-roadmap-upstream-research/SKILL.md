@@ -115,6 +115,10 @@ Maintain an active rolling monitor of high-impact upstream PRs during scheduled 
   - **Author**: `@CatakikiFish` | **State**: Open (10 comments)
   - **Focus**: Pure Chromium canvas WebP-to-PNG decoder via Eventa contract (`shared/eventa/webp-decoder.ts`). Companion tool to `computer_use` squatted in fork capability packs (`docs/design-capability-packs.md`).
   - **Monitoring Objective**: Monitor where upstream lands upon closure and evaluate final decoder implementation for porting.
+- **PR #3468: `feat(ui): use generated beam avatars as the default user avatar`**
+  - **Author**: `@luoling8192` | **State**: Merged (3 comments)
+  - **Focus**: Procedural SVG beam avatar generator with OKLCH lightness and dynamic `--chromatic-hue` binding.
+  - **Monitoring Objective**: Track follow-up PRs and maintain blueprint in `docs/design-procedural-beam-avatars-and-user-profile-identity.md` for selective port into `@proj-airi/ui` and `user-profile.vue`.
 
 ## Upstream Radar vs. Cherry-Pick Triage SOP
 

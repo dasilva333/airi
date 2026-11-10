@@ -28,11 +28,169 @@
 | [#3054](https://github.com/moeru-ai/airi/pull/3054) / [#3058](https://github.com/moeru-ai/airi/pull/3058) | `feat(core-agent,stage-ui): now speech formula, math, chem correctly` | `@nekomeowww` | `Merged` | 🟢 **Acoustic Intelligence** | **Planned for Fork UST** in [`docs/blueprint-tts-universal-speech-transformer.md`](./blueprint-tts-universal-speech-transformer.md) as optional toggles (Currency default ON; Math/Chem default OFF). |
 | [#3060](https://github.com/moeru-ai/airi/pull/3060) | `feat(stage-tamagotchi): rework the floating chat dock and its styles` | `@chiba233` | `Open` (3 comments) | 🟢 **Visual & Desktop Ergonomics** | **Incorporated into Blueprint** in [`docs/design-native-glass-and-generative-tool-cards.md`](./design-native-glass-and-generative-tool-cards.md) (Pillar IV: dynamic backdrop gating, edge resizing). |
 | [#3121](https://github.com/moeru-ai/airi/pull/3121) | `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` | `@CatakikiFish` | `Open` (10 comments) | 🟢 **MCP & Capability Packs** (Screenshot Ingestion) | Upstream decoding WebP screenshots via Chromium OffscreenCanvas over Eventa contract. **Directive**: Companion tool squatted in fork capability packs (`docs/design-capability-packs.md`); monitor where upstream lands upon closure and evaluate final decoder implementation for porting. |
+| [#3468](https://github.com/moeru-ai/airi/pull/3468) | `feat(ui): use generated beam avatars as the default user avatar` | `@luoling8192` | `Merged` (3 comments) | 🟢 **UI Identity & Primitives** (Procedural Beam Avatars) | Pure Vue SVG port of `boring-avatars` beam variant dynamically colored with OKLCH theme `--chromatic-hue`. **Directive**: Design spec in [`docs/design-procedural-beam-avatars-and-user-profile-identity.md`](./design-procedural-beam-avatars-and-user-profile-identity.md); adapt into `@proj-airi/ui` and integrate with local-first User Profile settings (`user-profile.vue`) and chat identity. |
+| [#3472](https://github.com/moeru-ai/airi/pull/3472) | `fix(stage-layouts): safely fallback undefined route.meta in settings layout` | `@neverbiasu` | `Open` (3 comments) | 🟡 **Routing & Navigation Guard** | Fallback for undefined `route.meta` during route hydration (#3220). **Directive**: Evaluated against fork; `packages/stage-layouts` Master-Detail rewrite does not read `route.meta`. Triage notes documented in [`docs/design-procedural-beam-avatars-and-user-profile-identity.md`](./design-procedural-beam-avatars-and-user-profile-identity.md). |
 
 ---
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-10] Upstream Delta: `528a31de..822243de` (5 commits, 62 files, 10 update(s))
+
+### 🎯 Executive Highlights
+- **Sentry Crash Reporting Infrastructure Merge (`5ad377967`, PR #3458)**: RainbowBird merged the comprehensive Sentry telemetry rollout across `stage-tamagotchi`, `stage-web`, `stage-pocket`, and `ui-server-auth`. The integration wires `@sentry/electron`, `@sentry/capacitor`, and `@sentry/browser` into a centralized `product-signals` data collection layer, toggled via Settings > System > General and gated by build-time `VITE_ENABLE_ANALYTICS`.
+- **Dynamic Procedural Beam Avatars (`201e965d4`, PR #3468)**: RainbowBird ported `boring-avatars` beam generator to Vue as `packages/ui/src/components/misc/beam-avatar.vue`. It deterministically generates SVGs from stable user seed strings using an OKLCH palette anchored to the dynamic theme CSS variable `--chromatic-hue` (with 3.6:1 contrast ratio compliance). Added `seed` prop to `avatar.vue` as default fallback.
+- **Settings Layout Navigation Guard (`#3472` by @neverbiasu)**: Opened fix for #3220 to prevent uncaught `TypeError` crashes when `route.meta` is undefined upon returning from external OAuth callbacks into `/settings/account`. Safely defaults to `(route?.meta ?? {})` and adds `@vitejs/plugin-vue` to `stage-layouts` for layout unit tests.
+- **README & Release Artifact Sync (`9cb44d1a7`, PR #3470)**: Neko updated README badges and release download artifacts to reflect the `v0.15.2` release.
+- **Nix Tooling Hashes (`822243de3`, `d0f25cd1e`, PRs #3466, #3467)**: Weathercold refreshed nix derivation hashes for `pnpmDeps` and static assets.
+
+#### 💬 Discussion & Community Buzz
+- **#3461: `fix(web-extension): notify the stage once per watched video` (+6 new comments, total 10)**: Fast-paced exchange between @FoolKc and collaborator @leaft on splitting browser extension messages into full-context logs (`context:update`) vs curated stage triggers (`spark:notify`). Introduced `navigation: { id, phase }` payload matching YouTube's `yt-navigate-start` / `yt-navigate-finish` events, with fallback title settling on Bilibili and closed-tab eviction (`forgetTab`).
+- **#2351: `feat(stage-ui): add MiniMax voice design support` (+3 new comments, total 8)**: Contributor @octo-patch updated branch and ported voice-design functionality into `packages/provider-inference` following maintainer @0xSelenicDove's architectural guidance.
+- **#3463: `fix(web-extension): read the playing video on YouTube Shorts` (+1 new comments, total 5)**: @FoolKc added `resolveVideoTitle` helper to ensure subtitle payloads and vision frames utilize uniform `document.title` fallbacks across Shorts and watch pages.
+- **#3369: `fix(stage-ui): serialize speech playback groups` (+1 new comments, total 4)**: Human attestation recorded for speech playback group serialization fix.
+
+#### 🍒 Cherry-Pick Candidates
+- **`201e965d4` (PR #3468) — `feat(ui): use generated beam avatars as the default user avatar`**: **High Priority / UI Primitives**. Self-contained, dependency-free Vue port of boring-avatars beam generator (`packages/ui/src/components/misc/beam-avatar.vue`) utilizing pure SVG and CSS OKLCH calculations dynamically driven by `--chromatic-hue`. Replaces static anonymous icons with colorful deterministic user avatars. Pure UI component with zero architectural coupling; ideal for our `@proj-airi/ui` primitive set.
+- **PR #3472 — `fix(stage-layouts): safely fallback undefined route.meta in settings layout (#3220)`**: **Medium Priority / Defensive Routing Fix**. Resolves route destructuring crashes in `packages/stage-layouts/src/layouts/settings.vue` by safely falling back to empty object when `route.meta` is undefined during initial hydration. Directly relevant to our settings layout stability.
+
+#### ⚠️ Divergence / Collision Warnings
+- **`5ad377967` (PR #3458) — Sentry Error Reporting & Telemetry**: **Permanent Auto-Reject**. Touches 41 files across Electron main (`apps/stage-tamagotchi/src/main/index.ts`, `error-reporting.ts`), electron configs, and renderer entry points. Violates this fork's foundational privacy invariant: 100% offline-first, zero telemetry, zero crash beacons, and zero phone-home services.
+- **`controls-island-auth-button.*` Modifications**: **Permanent Auto-Reject**. Touched in both PR #3458 and PR #3468. Upstream continues patching `controls-island`, whereas this fork deprecated and completely deleted `controls-island` in favor of the decoupled Control Strip and transparent Actor Stage.
+- **Cloud Auth & OIDC Routes (`server/apps/auth/src/routes.ts`)**: **Permanent Auto-Reject**. Touched in PR #3468 for cloud profile sync. This fork uses strictly local persistence with Bring Your Own Storage (BYOS).
+
+### 📋 Upstream Commits
+- `822243de3` chore(nix): update pnpmDeps hash (#3466) [#3466](https://github.com/moeru-ai/airi/pull/3466) _(Weathercold, 2026-11-09)_
+- `201e965d4` feat(ui): use generated beam avatars as the default user avatar (#3468) [#3468](https://github.com/moeru-ai/airi/pull/3468) _(RainbowBird, 2026-11-10)_
+- `9cb44d1a7` chore: update README release artifacts to v0.15.2 (#3470) [#3470](https://github.com/moeru-ai/airi/pull/3470) _(Neko, 2026-11-10)_
+- `d0f25cd1e` chore(nix): update assets hash (#3467) [#3467](https://github.com/moeru-ai/airi/pull/3467) _(Weathercold, 2026-11-09)_
+- `5ad377967` feat(stage-tamagotchi,stage-web,stage-pocket,ui-server-auth): send error reports to Sentry (#3458) [#3458](https://github.com/moeru-ai/airi/pull/3458) _(RainbowBird, 2026-11-10)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 13 file(s) (+162/-14)
+- `.github/workflows/deploy-cloudflare-auth-ui.yml` *(+2/-0)*
+- `.github/workflows/deploy-cloudflare-workers.yml` *(+2/-0)*
+- `.github/workflows/release-pocket-android.yml` *(+2/-0)*
+- `.github/workflows/release-pocket-ios.yml` *(+2/-0)*
+- `.github/workflows/release-tamagotchi.yml` *(+4/-0)*
+- `README.md` *(+2/-2)*
+- `docs/README.fr.md` *(+2/-2)*
+- `docs/README.ja-JP.md` *(+2/-2)*
+- `docs/README.ko-KR.md` *(+2/-2)*
+- `docs/README.ru-RU.md` *(+2/-2)*
+- `docs/README.vi.md` *(+2/-2)*
+- `docs/README.zh-CN.md` *(+2/-2)*
+- `docs/ai/adr/2026-11-09-sentry-error-reports.md` *(+136/-0)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 12 file(s) (+109/-4)
+- `apps/stage-pocket/android/app/capacitor.build.gradle` *(+1/-0)*
+- `apps/stage-pocket/android/capacitor.settings.gradle` *(+3/-0)*
+- `apps/stage-pocket/ios/App/CapApp-SPM/Package.swift` *(+2/-0)*
+- `apps/stage-pocket/package.json` *(+1/-0)*
+- `apps/stage-pocket/src/main.ts` *(+9/-2)*
+- `apps/stage-pocket/src/modules/sentry.ts` *(+24/-0)*
+- `apps/stage-pocket/vite.config.ts` *(+2/-0)*
+- `apps/stage-web/package.json` *(+1/-0)*
+- `apps/stage-web/src/main.ts` *(+9/-2)*
+- `apps/stage-web/src/modules/sentry.browser.test.ts` *(+45/-0)*
+- `apps/stage-web/src/modules/sentry.ts` *(+10/-0)*
+- `apps/stage-web/vite.config.ts` *(+2/-0)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 8 file(s) (+121/-3)
+- `apps/stage-tamagotchi/electron.vite.config.ts` *(+24/-0)*
+- `apps/stage-tamagotchi/package.json` *(+1/-0)*
+- `apps/stage-tamagotchi/src/main/app/error-reporting.ts` *(+39/-0)*
+- `apps/stage-tamagotchi/src/main/configs/global.ts` *(+2/-0)*
+- `apps/stage-tamagotchi/src/main/index.ts` *(+13/-1)*
+- `apps/stage-tamagotchi/src/renderer/main.ts` *(+9/-2)*
+- `apps/stage-tamagotchi/src/renderer/modules/sentry.ts` *(+28/-0)*
+- `apps/stage-tamagotchi/src/shared/eventa/index.ts` *(+5/-0)*
+
+#### Deprecated Surfaces (Control Island / Chat Floating / Fullscreen Island) (`⚪ ignore / rejected in fork (decoupled into Control Strip & Dedicated Chat Workspace)`) — 2 file(s) (+13/-1)
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-auth-button.test.ts` *(+12/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-auth-button.vue` *(+1/-0)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 3 file(s) (+639/-4)
+- `apps/ui-server-auth/package.json` *(+1/-0)*
+- `packages/stage-shared/package.json` *(+3/-0)*
+- `pnpm-lock.yaml` *(+635/-4)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 12 file(s) (+230/-12)
+- `apps/ui-server-auth/src/main.ts` *(+9/-1)*
+- `apps/ui-server-auth/src/modules/profile.ts` *(+5/-5)*
+- `apps/ui-server-auth/src/modules/sentry.ts` *(+16/-0)*
+- `apps/ui-server-auth/src/pages/profile.vue` *(+3/-2)*
+- `apps/ui-server-auth/vite.config.ts` *(+3/-0)*
+- `nix/assets-hash.txt` *(+1/-1)*
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/stage-ui/src/components/misc/avatar.story.vue` *(+5/-0)*
+- `packages/stage-ui/src/libs/product-signals/error-reporting.browser.test.ts` *(+47/-0)*
+- `packages/stage-ui/src/libs/product-signals/error-reporting.ts` *(+123/-0)*
+- `packages/stage-ui/src/libs/product-signals/index.ts` *(+12/-2)*
+- `pnpm-workspace.yaml` *(+5/-0)*
+
+#### Telemetry & Analytics (`⚪ ignore / rejected in fork`) — 4 file(s) (+102/-0)
+- `apps/ui-server-auth/src/modules/analytics.ts` *(+3/-0)*
+- `packages/stage-shared/src/analytics/sentry-vite.ts` *(+38/-0)*
+- `packages/stage-shared/src/analytics/sentry.test.ts` *(+18/-0)*
+- `packages/stage-shared/src/analytics/sentry.ts` *(+43/-0)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 1 file(s) (+6/-6)
+- `packages/i18n/src/locales/en/settings.yaml` *(+6/-6)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 2 file(s) (+3/-1)
+- `packages/stage-layouts/src/components/Layouts/HeaderAvatar.vue` *(+1/-0)*
+- `packages/stage-layouts/src/components/Layouts/mobile-settings-drawer.vue` *(+2/-1)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 3 file(s) (+151/-1)
+- `packages/stage-pages/src/pages/settings/account/account-settings-page.vue` *(+1/-0)*
+- `packages/ui/src/components/misc/avatar.vue` *(+13/-1)*
+- `packages/ui/src/components/misc/beam-avatar.vue` *(+137/-0)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 2 file(s) (+17/-1)
+- `server/apps/auth/src/routes.ts` *(+3/-1)*
+- `server/apps/auth/src/tests/routes-oidc-token-auth.test.ts` *(+14/-0)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (5)
+- [PR] [#3472](https://github.com/moeru-ai/airi/pull/3472) `fix(stage-layouts): safely fallback undefined route.meta in settings layout (#3220)` by **@neverbiasu** *(3 comments)*
+- [PR] [#3466](https://github.com/moeru-ai/airi/pull/3466) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(3 comments)*
+- [PR] [#3468](https://github.com/moeru-ai/airi/pull/3468) `feat(ui): use generated beam avatars as the default user avatar` by **@luoling8192** *(3 comments)*
+- [PR] [#3470](https://github.com/moeru-ai/airi/pull/3470) `chore: update README release artifacts to v0.15.2` by **@nekomeowww** *(2 comments)*
+- [PR] [#3467](https://github.com/moeru-ai/airi/pull/3467) `chore(nix): update assets hash` by **@Weathercold** *(3 comments)*
+
+#### 🔄 Status & Lifecycle Changes (1)
+- [PR] [#3458](https://github.com/moeru-ai/airi/pull/3458) `feat(stage-tamagotchi,stage-web,stage-pocket,ui-server-auth): send error reports to Sentry` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (4)
+- [PR] [#3461](https://github.com/moeru-ai/airi/pull/3461) `fix(web-extension): notify the stage once per watched video` — *+6 comments (4 ➔ 10 total)*
+- [PR] [#3463](https://github.com/moeru-ai/airi/pull/3463) `fix(web-extension): read the playing video on YouTube Shorts` — *+1 comments (4 ➔ 5 total)*
+- [PR] [#2351](https://github.com/moeru-ai/airi/pull/2351) `feat(stage-ui): add MiniMax voice design support` — *+3 comments (5 ➔ 8 total)*
+- [PR] [#3369](https://github.com/moeru-ai/airi/pull/3369) `fix(stage-ui): serialize speech playback groups` — *+1 comments (3 ➔ 4 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [Draft] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+
+---
 ## [2026-11-09] Upstream Delta: `cbc49a88..528a31de` (11 commits, 120 files, 25 update(s))
 
 ### 🎯 Executive Highlights

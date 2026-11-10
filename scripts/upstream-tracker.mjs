@@ -97,6 +97,16 @@ const WATCHED_UPSTREAM_PRS = [
     title: 'fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image',
     focus: 'Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.',
   },
+  {
+    number: 3468,
+    title: 'feat(ui): use generated beam avatars as the default user avatar',
+    focus: 'Procedural beam avatars with dynamic chromatic hue & user profile identity; tracked for selective port per docs/design-procedural-beam-avatars-and-user-profile-identity.md',
+  },
+  {
+    number: 3472,
+    title: 'fix(stage-layouts): safely fallback undefined route.meta in settings layout',
+    focus: 'Route meta fallback during settings navigation (#3220); evaluated against fork Master-Detail topology and desktop Electron shell',
+  },
 ]
 
 const WATCHED_7N1M4_ITEMS = [
