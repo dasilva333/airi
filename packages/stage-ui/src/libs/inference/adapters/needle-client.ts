@@ -9,6 +9,20 @@
 
 import { isNeedleModelCached } from '../cache-utils'
 
+export interface ExtractedMemoryFragments {
+  mentions: string[]
+  temporal_phrase: string | null
+  claims: Array<{
+    quote: string
+    polarity: 'positive' | 'negative' | 'unknown'
+    mode: 'asserted' | 'question' | 'plan' | 'hypothetical' | 'quoted' | 'fragment' | 'unknown'
+    subject_span?: string
+    predicate_span?: string
+    object_span?: string
+    time_span?: string
+  }>
+}
+
 export interface NeedleClient {
   isReady: () => boolean
   isPreparing: () => boolean
@@ -17,6 +31,7 @@ export interface NeedleClient {
   probeInitialReaction: (userPrompt: string, budgetMs?: number) => Promise<string | null>
   probeCotPivot: (reasoningSnippet: string, budgetMs?: number) => Promise<string | null>
   embed: (text: string, budgetMs?: number) => Promise<Float32Array | null>
+  extractMemoryFragments: (passage: string, budgetMs?: number) => Promise<ExtractedMemoryFragments | null>
   terminate: () => void
 }
 
@@ -277,6 +292,55 @@ export function createNeedleClient(): NeedleClient {
     })
   }
 
+  async function extractMemoryFragments(passage: string, budgetMs: number = 3000): Promise<ExtractedMemoryFragments | null> {
+    if (!passage || !passage.trim())
+      return null
+
+    const worker = ensureWorker()
+    if (!worker) {
+      return null
+    }
+
+    if (!isInitialized) {
+      return null
+    }
+
+    const requestId = createRequestId()
+
+    return new Promise<ExtractedMemoryFragments | null>((resolve) => {
+      let timeoutId: any
+
+      const cleanup = () => {
+        if (timeoutId)
+          clearTimeout(timeoutId)
+        worker.removeEventListener('message', handler)
+      }
+
+      const handler = (event: MessageEvent) => {
+        const data = event.data || {}
+        if (data.requestId !== requestId)
+          return
+
+        if (data.type === 'response') {
+          cleanup()
+          resolve(data.fragments || null)
+        }
+        else if (data.type === 'error') {
+          cleanup()
+          resolve(null)
+        }
+      }
+
+      worker.addEventListener('message', handler)
+      worker.postMessage({ type: 'extract_fragments', requestId, passage })
+
+      timeoutId = setTimeout(() => {
+        cleanup()
+        resolve(null)
+      }, budgetMs)
+    })
+  }
+
   function terminate(): void {
     if (workerInstance) {
       workerInstance.terminate()
@@ -295,6 +359,7 @@ export function createNeedleClient(): NeedleClient {
     probeInitialReaction,
     probeCotPivot,
     embed,
+    extractMemoryFragments,
     terminate,
   }
 }

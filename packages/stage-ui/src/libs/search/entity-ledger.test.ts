@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { EntityLedger, normalizeCanonicalEntityLabel } from './entity-ledger'
+import { cosineSimilarity, EntityLedger, normalizeCanonicalEntityLabel } from './entity-ledger'
 
 describe('normalizeCanonicalEntityLabel', () => {
   it('handles empty', () => {
@@ -263,5 +263,52 @@ describe('entity-ledger uncovered branches3', () => {
     l.entities.delete(e.entityId)
     const e2 = l.getOrCreateEntity('Foo')
     expect(e2.entityId).toBe(e.entityId)
+  })
+
+  it('calculates cosineSimilarity and handles edge cases', () => {
+    expect(cosineSimilarity(null, null)).toBe(0)
+    expect(cosineSimilarity([], [])).toBe(0)
+    expect(cosineSimilarity([0, 0], [1, 1])).toBe(0)
+
+    const vecA = new Float32Array([1, 0, 0])
+    const vecB = new Float32Array([1, 0, 0])
+    expect(cosineSimilarity(vecA, vecB)).toBeCloseTo(1.0)
+
+    const vecC = new Float32Array([0, 1, 0])
+    expect(cosineSimilarity(vecA, vecC)).toBeCloseTo(0.0)
+  })
+
+  it('performs zero-GPU vector search over claims and entities', () => {
+    const L = new EntityLedger()
+    const vecA = new Float32Array([1, 0, 0])
+    const vecB = new Float32Array([0.9, 0.1, 0])
+    const vecC = new Float32Array([0, 1, 0])
+
+    const e1 = L.getOrCreateEntity('Dog', 'animal', {}, vecA)
+    const e2 = L.getOrCreateEntity('Cat', 'animal', {}, vecC)
+
+    const c1 = L.addClaim({ subject: 'James', predicate: 'owns', object: 'Dog', embedding: vecA })
+    const c2 = L.addClaim({ subject: 'James', predicate: 'likes', object: 'Pizza', embedding: vecC })
+
+    // Query with vector matching Dog
+    const claimMatches = L.searchClaimsByVector(vecB, 5, 0.5)
+    expect(claimMatches.length).toBe(1)
+    expect(claimMatches[0].claim.claimId).toBe(c1.claimId)
+    expect(claimMatches[0].score).toBeGreaterThan(0.9)
+
+    const entityMatches = L.searchEntitiesByVector(vecB, 5, 0.5)
+    expect(entityMatches.length).toBe(1)
+    expect(entityMatches[0].entity.entityId).toBe(e1.entityId)
+
+    // Serialization preserves embeddings as Float32Array
+    const json = L.toJSON()
+    const roundtrip = EntityLedger.fromJSON(json)
+    const rtClaim = roundtrip.claims.get(c1.claimId)
+    expect(rtClaim?.embedding).toBeInstanceOf(Float32Array)
+    expect(rtClaim?.embedding?.[0]).toBeCloseTo(1)
+
+    // Empty query returns empty array
+    expect(L.searchClaimsByVector(null)).toEqual([])
+    expect(L.searchEntitiesByVector(null)).toEqual([])
   })
 })

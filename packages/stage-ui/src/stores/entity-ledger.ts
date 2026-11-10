@@ -7,8 +7,9 @@ import { computed, ref } from 'vue'
 import { chatSessionsRepo } from '../database/repos/chat-sessions.repo'
 import { entityLedgerRepo } from '../database/repos/entity-ledger.repo'
 import { textJournalRepo } from '../database/repos/text-journal.repo'
+import { needleClient } from '../libs/inference/adapters/needle-client'
 import { EntityLedger } from '../libs/search/entity-ledger'
-import { collectUniqueCandidateMentions, extractTurnKnowledge } from '../libs/search/ledger-priming'
+import { collectUniqueCandidateMentions, extractTurnKnowledgeAsync } from '../libs/search/ledger-priming'
 import { useAuthStore } from './auth'
 import { useChatSessionStore } from './chat/session-store'
 import { useSystemOneStore } from './modules/system-one'
@@ -448,7 +449,7 @@ export const useEntityLedgerStore = defineStore('entity-ledger', () => {
         const startIdx = Math.max(0, i - 2)
         const windowText = deduplicatedTurns.slice(startIdx, i + 1).map(t => `${t.speaker}: ${t.text}`).join('\n')
 
-        extractTurnKnowledge(
+        await extractTurnKnowledgeAsync(
           windowText,
           {
             id: turn.id,
@@ -459,6 +460,7 @@ export const useEntityLedgerStore = defineStore('entity-ledger', () => {
           },
           ledger,
           classificationMap,
+          { needleClient, embedClaims: true },
         )
 
         if (deduplicatedTurns.length > 0) {

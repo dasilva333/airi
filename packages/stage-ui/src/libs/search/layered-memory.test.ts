@@ -3,6 +3,7 @@ import type { TriageDecision } from './query-analyzer'
 
 import { describe, expect, it, vi } from 'vitest'
 
+import { EntityLedger } from './entity-ledger'
 import { formatEvidenceContextBlock, layeredMemory } from './layered-memory'
 import { analyzeQuery, decomposeQuery } from './query-analyzer'
 
@@ -200,5 +201,31 @@ describe('layeredMemory', () => {
       expect.anything(),
       expect.anything(),
     )
+  })
+
+  it('searches claims using zero-GPU vector embeddings when needleClient or queryEmbedding is provided', async () => {
+    const vecA = new Float32Array([1, 0, 0])
+    const ledger = new EntityLedger()
+    const c1 = ledger.addClaim({
+      subject: 'James',
+      predicate: 'adopted',
+      object: 'Max the puppy',
+      embedding: vecA,
+    })
+
+    const mockNeedle = {
+      isReady: () => true,
+      embed: vi.fn().mockResolvedValue(vecA),
+    }
+
+    const out = await layeredMemory.search('did James get a pet?', 10, undefined, {
+      ledger,
+      needleClient: mockNeedle as any,
+    })
+
+    expect(Array.isArray(out)).toBe(true)
+    const claimHit = out.find(h => h.id === `claim:${c1.claimId}`)
+    expect(claimHit).toBeTruthy()
+    expect(claimHit?.isKgClaim).toBe(true)
   })
 })

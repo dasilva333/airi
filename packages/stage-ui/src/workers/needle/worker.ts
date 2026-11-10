@@ -473,8 +473,59 @@ function runEmbed(text: string): Float32Array | null {
   return null
 }
 
+/**
+ * Execute Needle-3 WASM inference for extracting memory fragments (mentions, temporal relations, claims).
+ */
+function runExtractFragments(passage: string): {
+  mentions: string[]
+  temporal_phrase: string | null
+  claims: Array<{
+    quote: string
+    polarity: 'positive' | 'negative' | 'unknown'
+    mode: 'asserted' | 'question' | 'plan' | 'hypothetical' | 'quoted' | 'fragment' | 'unknown'
+    subject_span?: string
+    predicate_span?: string
+    object_span?: string
+  }>
+} {
+  if (!passage || !passage.trim()) {
+    return { mentions: [], temporal_phrase: null, claims: [] }
+  }
+
+  if (!_cactusInstance || !_cfuncs || !_outBufferPtr) {
+    return { mentions: [], temporal_phrase: null, claims: [] }
+  }
+
+  try {
+    _cfuncs.cactus_reset()
+    const query = `Passage:\n${passage}\n\nTask: Extract candidate entity mentions, temporal relations, and factual claims using extract_memory_fragments.`
+    _cfuncs.cactus_complete(query, 0, 0, 192, _outBufferPtr, OUT_BUFFER_CAPACITY)
+    const outStr = _cactusInstance.UTF8ToString(_outBufferPtr)
+
+    const parsed = JSON.parse(outStr)
+    const calls = (Array.isArray(parsed?.function_calls) && parsed.function_calls.length > 0)
+      ? parsed.function_calls
+      : (Array.isArray(parsed?.suppressed_calls) && parsed.suppressed_calls.length > 0)
+          ? parsed.suppressed_calls
+          : []
+
+    if (calls.length > 0 && calls[0].arguments) {
+      const args = calls[0].arguments
+      const mentions = Array.isArray(args.mentions) ? args.mentions.map((m: any) => String(m).trim()).filter(Boolean) : []
+      const temporal_phrase = args.temporal_phrase ? String(args.temporal_phrase).trim() : null
+      const claims = Array.isArray(args.claims) ? args.claims : []
+      return { mentions, temporal_phrase, claims }
+    }
+  }
+  catch (e) {
+    console.warn('[NeedleWorker] WASM extract fragments failed:', e)
+  }
+
+  return { mentions: [], temporal_phrase: null, claims: [] }
+}
+
 self.onmessage = async (event: MessageEvent) => {
-  const { type, requestId, prompt, snippet, text } = event.data || {}
+  const { type, requestId, prompt, snippet, text, passage } = event.data || {}
 
   switch (type) {
     case 'prepare': {
@@ -519,6 +570,17 @@ self.onmessage = async (event: MessageEvent) => {
       }
       catch (err: any) {
         self.postMessage({ type: 'error', requestId, message: err?.message || 'Embedding failed' })
+      }
+      break
+    }
+
+    case 'extract_fragments': {
+      try {
+        const fragments = runExtractFragments(passage || '')
+        self.postMessage({ type: 'response', requestId, fragments })
+      }
+      catch (err: any) {
+        self.postMessage({ type: 'error', requestId, message: err?.message || 'Extract fragments failed' })
       }
       break
     }

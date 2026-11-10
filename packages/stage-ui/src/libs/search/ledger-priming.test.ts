@@ -1,6 +1,6 @@
 import type { ExtractedFragments } from './ledger-priming'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { EntityLedger } from './entity-ledger'
 import {
@@ -8,6 +8,7 @@ import {
   CONVERSATIONAL_STOPWORDS,
   extractFragmentsFromText,
   extractTurnKnowledge,
+  extractTurnKnowledgeAsync,
   isConversationalArtifactOrNoise,
   LEADING_GRAMMATICAL_WORDS,
   validateExtractionSpans,
@@ -250,5 +251,46 @@ describe('ledger-priming extra', () => {
     const ledger = new EntityLedger()
     extractTurnKnowledge('p', { id: '1', speaker: 'User', text: 'the and', timestamp: 1 }, ledger)
     expect(true).toBe(true)
+  })
+
+  it('extractTurnKnowledgeAsync with mock Needle 3 multi-turn extraction and embeddings', async () => {
+    const ledger = new EntityLedger()
+    const mockNeedle = {
+      isReady: () => true,
+      extractMemoryFragments: vi.fn().mockResolvedValue({
+        mentions: ['Max', 'James'],
+        temporal_phrase: 'yesterday',
+        claims: [{
+          quote: 'adopted a new puppy named Max',
+          polarity: 'positive',
+          mode: 'asserted',
+          subject_span: 'James',
+          predicate_span: 'adopted',
+          object_span: 'Max',
+        }],
+      }),
+      embed: vi.fn().mockResolvedValue(new Float32Array([0.1, 0.2, 0.3])),
+    }
+
+    const passage = 'James: I adopted a new puppy named Max yesterday.\nAiri: That is wonderful!'
+    await extractTurnKnowledgeAsync(
+      passage,
+      { id: 'turn-1', speaker: 'James', text: 'I adopted a new puppy named Max yesterday.', timestamp: 12345 },
+      ledger,
+      undefined,
+      { needleClient: mockNeedle as any, embedClaims: true },
+    )
+
+    expect(ledger.sources.size).toBe(1)
+    expect(mockNeedle.extractMemoryFragments).toHaveBeenCalled()
+    expect(mockNeedle.embed).toHaveBeenCalled()
+
+    const max = [...ledger.entities.values()].find(e => e.label === 'Max')
+    expect(max).toBeTruthy()
+    expect(max?.embedding).toBeInstanceOf(Float32Array)
+
+    const claims = [...ledger.claims.values()]
+    expect(claims.length).toBeGreaterThan(0)
+    expect(claims[0].embedding).toBeInstanceOf(Float32Array)
   })
 })

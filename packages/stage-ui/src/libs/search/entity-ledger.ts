@@ -30,6 +30,7 @@ export interface EntityRecord {
   type: EntityType
   attributes: Record<string, any>
   mentions: Set<string>
+  embedding?: number[] | Float32Array
 }
 
 export interface DateInfo {
@@ -47,6 +48,7 @@ export interface ClaimRecord {
   qualifiers?: Record<string, any>
   evidence: string[]
   dateInfo?: DateInfo | null
+  embedding?: number[] | Float32Array
 }
 
 export interface EventRecord {
@@ -96,7 +98,7 @@ export function normalizeCanonicalEntityLabel(rawLabel: string): CanonicalEntity
 
   // 2. Strip Japanese honorific suffixes with arbitrary vowel repetitions (e.g. -chan, -chaaaan, -sama, -saaaan, -kuuuun, -senseeei)
   // Hyphenated/underscored suffix: e.g. "Nords-sama", "Evil-chaaaan", "Neuro-chaaaan", "Hiyori-sama", "Neko-sama"
-  const hyphenHonorificRegex = /^(.*?)(?:[-_]+)(?:c+h+a+n+|s+a+m+a+|s+a+n+|k+u+n+|s+e+n+[ps]+a+i+|s+e+n+s+e+i+|d+o+n+o+|t+a+n+)$/i
+  const hyphenHonorificRegex = /^(.*?)[-_]+(?:c+h+a+n+|s+a+m+a+|s+a+n+|k+u+n+|s+e+n+[ps]+a+i+|s+e+n+s+e+i+|d+o+n+o+|t+a+n+)$/i
   const hyphenMatch = cleaned.match(hyphenHonorificRegex)
   if (hyphenMatch && hyphenMatch[1] && hyphenMatch[1].trim().length >= 2) {
     cleaned = hyphenMatch[1].trim()
@@ -127,6 +129,38 @@ export function normalizeCanonicalEntityLabel(rawLabel: string): CanonicalEntity
   }
 }
 
+/**
+ * Fast cosine similarity between two dense vectors (Float32Array or number[]).
+ * Used for zero-GPU semantic retrieval over entities and claims on CPU threads.
+ */
+export function cosineSimilarity(
+  a?: Float32Array | number[] | null,
+  b?: Float32Array | number[] | null,
+): number {
+  if (!a || !b)
+    return 0
+  const len = Math.min(a.length, b.length)
+  if (len === 0)
+    return 0
+
+  let dot = 0
+  let normA = 0
+  let normB = 0
+
+  for (let i = 0; i < len; i++) {
+    const ai = a[i]
+    const bi = b[i]
+    dot += ai * bi
+    normA += ai * ai
+    normB += bi * bi
+  }
+
+  if (normA <= 0 || normB <= 0)
+    return 0
+
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB))
+}
+
 export class EntityLedger {
   sources = new Map<string, SourceRecord>()
   mentions = new Map<string, MentionRecord>()
@@ -149,7 +183,12 @@ export class EntityLedger {
     }
   }
 
-  getOrCreateEntity(label: string, type: EntityType = 'unknown', attributes: Record<string, any> = {}): EntityRecord {
+  getOrCreateEntity(
+    label: string,
+    type: EntityType = 'unknown',
+    attributes: Record<string, any> = {},
+    embedding?: number[] | Float32Array,
+  ): EntityRecord {
     const resolution = normalizeCanonicalEntityLabel(label)
     const norm = label.trim().toLowerCase()
     const canonicalNorm = resolution.normalizedKey
@@ -172,6 +211,8 @@ export class EntityLedger {
       if (ent) {
         if (type !== 'unknown' && ent.type === 'unknown')
           ent.type = type
+        if (embedding && !ent.embedding)
+          ent.embedding = embedding
         Object.assign(ent.attributes, attributes)
 
         // Register alias in attributes if newly observed
@@ -202,6 +243,7 @@ export class EntityLedger {
         aliases: [label.trim()],
       },
       mentions: new Set(),
+      embedding,
     }
     this.entities.set(entityId, entity)
 
@@ -235,6 +277,7 @@ export class EntityLedger {
     qualifiers?: Record<string, any>
     evidence?: string[]
     dateInfo?: DateInfo | null
+    embedding?: number[] | Float32Array
   }): ClaimRecord {
     const id = claim.claimId || `claim_${this.claims.size + 1}`
     const record: ClaimRecord = {
@@ -245,6 +288,7 @@ export class EntityLedger {
       qualifiers: claim.qualifiers || {},
       evidence: claim.evidence || [],
       dateInfo: claim.dateInfo || null,
+      embedding: claim.embedding,
     }
     this.claims.set(id, record)
 
@@ -335,6 +379,56 @@ export class EntityLedger {
       list = list.filter(c => c.predicate.toLowerCase() === p)
     }
     return list
+  }
+
+  /**
+   * Search claims using zero-GPU cosine similarity against vector embeddings.
+   */
+  searchClaimsByVector(
+    queryEmbedding?: Float32Array | number[] | null,
+    topK = 10,
+    minScore = 0.35,
+  ): Array<{ claim: ClaimRecord, score: number }> {
+    if (!queryEmbedding || queryEmbedding.length === 0)
+      return []
+
+    const matches: Array<{ claim: ClaimRecord, score: number }> = []
+    for (const claim of this.claims.values()) {
+      if (!claim.embedding)
+        continue
+      const score = cosineSimilarity(queryEmbedding, claim.embedding)
+      if (score >= minScore) {
+        matches.push({ claim, score })
+      }
+    }
+
+    matches.sort((a, b) => b.score - a.score)
+    return matches.slice(0, topK)
+  }
+
+  /**
+   * Search entities using zero-GPU cosine similarity against vector embeddings.
+   */
+  searchEntitiesByVector(
+    queryEmbedding?: Float32Array | number[] | null,
+    topK = 5,
+    minScore = 0.40,
+  ): Array<{ entity: EntityRecord, score: number }> {
+    if (!queryEmbedding || queryEmbedding.length === 0)
+      return []
+
+    const matches: Array<{ entity: EntityRecord, score: number }> = []
+    for (const entity of this.entities.values()) {
+      if (!entity.embedding)
+        continue
+      const score = cosineSimilarity(queryEmbedding, entity.embedding)
+      if (score >= minScore) {
+        matches.push({ entity, score })
+      }
+    }
+
+    matches.sort((a, b) => b.score - a.score)
+    return matches.slice(0, topK)
   }
 
   applyPCLClaim(claim: {
@@ -458,13 +552,17 @@ export class EntityLedger {
       entities: Array.from(this.entities.values()).map(e => ({
         ...e,
         mentions: Array.from(e.mentions),
+        embedding: e.embedding instanceof Float32Array ? Array.from(e.embedding) : (Array.isArray(e.embedding) ? e.embedding : undefined),
       })),
       mentions: Array.from(this.mentions.values()),
       events: Array.from(this.events.values()).map(e => ({
         ...e,
         claimIds: Array.from(e.claimIds || []),
       })),
-      claims: Array.from(this.claims.values()),
+      claims: Array.from(this.claims.values()).map(c => ({
+        ...c,
+        embedding: c.embedding instanceof Float32Array ? Array.from(c.embedding) : (Array.isArray(c.embedding) ? c.embedding : undefined),
+      })),
       ingestion: Array.from(this.ingestion.entries()),
     }
   }
@@ -482,7 +580,11 @@ export class EntityLedger {
     }
     if (Array.isArray(data.entities)) {
       for (const e of data.entities) {
-        ledger.entities.set(e.entityId, { ...e, mentions: new Set(e.mentions || []) })
+        ledger.entities.set(e.entityId, {
+          ...e,
+          mentions: new Set(e.mentions || []),
+          embedding: e.embedding ? (Array.isArray(e.embedding) ? new Float32Array(e.embedding) : e.embedding) : undefined,
+        })
         const norm = e.label.trim().toLowerCase()
         if (!ledger.byAlias.has(norm))
           ledger.byAlias.set(norm, new Set())
@@ -502,7 +604,10 @@ export class EntityLedger {
     }
     if (Array.isArray(data.claims)) {
       for (const c of data.claims) {
-        ledger.addClaim(c)
+        ledger.addClaim({
+          ...c,
+          embedding: c.embedding ? (Array.isArray(c.embedding) ? new Float32Array(c.embedding) : c.embedding) : undefined,
+        })
       }
     }
     if (Array.isArray(data.ingestion)) {

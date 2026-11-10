@@ -675,3 +675,150 @@ export function extractTurnKnowledge(
     })
   }
 }
+
+export interface IngestTurnOptions {
+  needleClient?: {
+    isReady: () => boolean
+    extractMemoryFragments: (passage: string, budgetMs?: number) => Promise<ExtractedFragments | null>
+    embed: (text: string, budgetMs?: number) => Promise<Float32Array | null>
+  } | null
+  embedClaims?: boolean
+}
+
+/**
+ * Ingest turn knowledge into EntityLedger asynchronously using System 1 classification
+ * and optional Needle 3 WASM multi-turn extraction & vector embedding.
+ */
+export async function extractTurnKnowledgeAsync(
+  passage: string,
+  turn: DialogueTurn,
+  ledger: EntityLedger,
+  classificationMap?: Map<string, any>,
+  options?: IngestTurnOptions,
+): Promise<void> {
+  const text = turn.text.trim()
+  if (!text)
+    return
+
+  // 1. Record Source
+  ledger.addSource({
+    turnId: turn.id,
+    text: turn.text,
+    speaker: turn.speaker,
+    timestamp: turn.timestamp,
+    sessionDate: turn.sessionDate,
+    session: turn.session,
+  })
+
+  // 2. Register Speaker as a Person entity
+  if (turn.speaker && turn.speaker !== 'Unknown' && !/^[\w-]{16,}$/.test(turn.speaker)) {
+    const speakerEnt = ledger.getOrCreateEntity(turn.speaker, 'person')
+    ledger.addMention({ span: turn.speaker, turnId: turn.id, entityId: speakerEnt.entityId })
+  }
+
+  // 3. Extract Fragments (Needle 3 WASM multi-turn extraction if ready, fallback to heuristic extraction)
+  let extraction: ExtractedFragments = extractFragmentsFromText(text)
+
+  if (options?.needleClient && options.needleClient.isReady() && passage && passage.trim().length > 10) {
+    try {
+      const needleResult = await options.needleClient.extractMemoryFragments(passage)
+      if (needleResult) {
+        const validated = validateExtractionSpans(passage, needleResult)
+        const mergedMentions = Array.from(new Set([...extraction.mentions, ...validated.mentions]))
+        const mergedClaims = [...extraction.claims, ...validated.claims]
+        extraction = {
+          mentions: mergedMentions,
+          temporal_phrase: validated.temporal_phrase || extraction.temporal_phrase,
+          claims: mergedClaims,
+        }
+      }
+    }
+    catch (err) {
+      console.warn('[LedgerPriming] Needle fragment extraction failed, using heuristic extraction:', err)
+    }
+  }
+
+  // 4. Bind Entities strictly via System 1 Classification
+  for (const m of extraction.mentions) {
+    if (isConversationalArtifactOrNoise(m))
+      continue
+
+    const resolution = normalizeCanonicalEntityLabel(m)
+    const canonicalKey = resolution.normalizedKey || m.toLowerCase()
+    if (isConversationalArtifactOrNoise(canonicalKey))
+      continue
+
+    const audit = classificationMap?.get(m)
+      || classificationMap?.get(m.toLowerCase())
+      || classificationMap?.get(resolution.canonical)
+      || classificationMap?.get(canonicalKey)
+
+    const classified = typeof audit === 'object' && audit !== null && 'choice' in audit ? audit.choice : audit
+
+    if (classified === 'conversational_artifact')
+      continue
+
+    let type: EntityType = 'unknown'
+
+    if (classified && classified !== 'unknown') {
+      type = classified
+    }
+    else if (m === turn.speaker || canonicalKey === (turn.speaker || '').toLowerCase() || canonicalKey === 'user') {
+      type = 'person'
+    }
+    else {
+      type = 'unknown'
+    }
+
+    const attributes: Record<string, any> = {}
+    if (typeof audit === 'object' && audit !== null) {
+      attributes.systemOne = audit
+    }
+
+    let entityEmbedding: Float32Array | undefined
+    if (options?.embedClaims && options.needleClient && options.needleClient.isReady()) {
+      try {
+        const vec = await options.needleClient.embed(m)
+        if (vec)
+          entityEmbedding = vec
+      }
+      catch {}
+    }
+
+    const ent = ledger.getOrCreateEntity(m, type, attributes, entityEmbedding)
+    ent.mentions.add(turn.id)
+    ledger.addMention({ span: m, turnId: turn.id, entityId: ent.entityId })
+  }
+
+  // 5. Ingest Extracted Claims with optional vector embeddings
+  for (const c of extraction.claims) {
+    const subject = c.subject_span || turn.speaker
+    const predicate = c.predicate_span || 'stated'
+    const object = c.object_span || c.quote
+
+    let claimEmbedding: Float32Array | undefined
+    if (options?.embedClaims && options.needleClient && options.needleClient.isReady()) {
+      try {
+        const claimText = `${subject} ${predicate} ${object}`
+        const vec = await options.needleClient.embed(claimText)
+        if (vec)
+          claimEmbedding = vec
+      }
+      catch {}
+    }
+
+    ledger.addClaim({
+      subject,
+      predicate,
+      object,
+      qualifiers: {
+        quote: c.quote,
+        polarity: c.polarity,
+        mode: c.mode,
+        time_span: c.time_span,
+      },
+      evidence: [turn.id],
+      embedding: claimEmbedding,
+    })
+  }
+}

@@ -12,6 +12,7 @@ describe('needleClient (Needle 3 Subconscious Runtime)', () => {
     expect(typeof client.probeInitialReaction).toBe('function')
     expect(typeof client.probeCotPivot).toBe('function')
     expect(typeof client.embed).toBe('function')
+    expect(typeof client.extractMemoryFragments).toBe('function')
     expect(typeof client.terminate).toBe('function')
   })
 
@@ -67,6 +68,18 @@ describe('needleClient (Needle 3 Subconscious Runtime)', () => {
     // In Node test environment where Worker is undefined, embed returns null safely
     if (textVec) {
       expect(textVec.length).toBe(3072)
+    }
+  })
+
+  it('extracts memory fragments (Task 5) returning null or fragments in test environment', async () => {
+    const client = createNeedleClient()
+    const emptyFrags = await client.extractMemoryFragments('')
+    expect(emptyFrags).toBeNull()
+
+    const frags = await client.extractMemoryFragments('James adopted a dog named Max last week.')
+    // In Node test environment where Worker is undefined, returns null safely
+    if (frags) {
+      expect(Array.isArray(frags.mentions)).toBe(true)
     }
   })
 

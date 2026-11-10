@@ -67,6 +67,11 @@ export interface LayeredSearchOptions {
   anaphoraEnabled?: boolean
   temporalBoost?: boolean
   ledger?: EntityLedger
+  queryEmbedding?: Float32Array | number[]
+  needleClient?: {
+    isReady: () => boolean
+    embed: (text: string, budgetMs?: number) => Promise<Float32Array | null>
+  }
   triage?: TriageDecision
   universeId?: string
   signal?: AbortSignal
@@ -447,7 +452,28 @@ export const layeredMemory = {
         }
       }
 
-      // B. Substring claim matching on subject, predicate, or object
+      // B. Substring & Vector claim matching on subject, predicate, or object
+      const matchedClaimsWithScores = new Map<string, { claim: ClaimRecord, score: number }>()
+
+      // B0. Zero-GPU Cosine Vector Search over claims if query vector or Needle-3 client is available
+      if (options?.queryEmbedding || (options?.needleClient && options.needleClient.isReady())) {
+        let qVec = options.queryEmbedding
+        if (!qVec && options.needleClient) {
+          try {
+            const embedRes = await options.needleClient.embed(matchQuery)
+            if (embedRes)
+              qVec = embedRes
+          }
+          catch {}
+        }
+        if (qVec) {
+          const vectorClaimMatches = ledger.searchClaimsByVector(qVec, 15, 0.40)
+          for (const { claim, score } of vectorClaimMatches) {
+            matchedClaimsWithScores.set(claim.claimId, { claim, score })
+          }
+        }
+      }
+
       // NOTICE: cap scan depth so large graph histories do not block the event loop with O(claims) scans.
       const MAX_UNINDEXED_CLAIMS_TO_SCAN = 100
       let scannedCount = 0
@@ -455,8 +481,6 @@ export const layeredMemory = {
       const claimMatchTokens = (triage?.focusKeywords && triage.focusKeywords.length > 0)
         ? triage.focusKeywords.map(k => k.toLowerCase())
         : searchTokens.filter(t => t.length > 2 && !CONVERSATIONAL_STOPWORDS.has(t))
-
-      const matchedClaimsWithScores = new Map<string, { claim: ClaimRecord, score: number }>()
 
       // Scan newest claims first
       for (let i = allClaims.length - 1; i >= 0; i--) {
@@ -496,7 +520,8 @@ export const layeredMemory = {
               : matchCount >= 2
                 ? 0.55
                 : 0.40
-          matchedClaimsWithScores.set(c.claimId, { claim: c, score: claimScore })
+          const existing = matchedClaimsWithScores.get(c.claimId)
+          matchedClaimsWithScores.set(c.claimId, { claim: c, score: Math.max(existing?.score || 0, claimScore) })
         }
       }
 
