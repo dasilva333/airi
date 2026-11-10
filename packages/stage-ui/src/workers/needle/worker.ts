@@ -559,10 +559,12 @@ function runCotPivotProbe(snippet: string): string | null {
   try {
     _cfuncs.cactus_reset()
     const targetSnippet = snippet.length > 500 ? snippet.slice(-500) : snippet
-    const query = `Reasoning text: ${targetSnippet}\n\nTask: Extract a concise spoken pivot phrase using record_cot_pivot.`
+    // Framing tested to eliminate prompt-echo and prevent action-intent misclassification
+    const query = `Thought: ${targetSnippet}\n\nCall record_cot_pivot.`
     _cfuncs.cactus_complete(query, 0, 0, 112, _outBufferPtr, OUT_BUFFER_CAPACITY)
     const outStr = _cactusInstance.UTF8ToString(_outBufferPtr)
 
+    let candidate: string | null = null
     const parsed = JSON.parse(outStr)
     const calls = (Array.isArray(parsed?.function_calls) && parsed.function_calls.length > 0)
       ? parsed.function_calls
@@ -571,9 +573,34 @@ function runCotPivotProbe(snippet: string): string | null {
           : []
 
     if (calls.length > 0 && calls[0].arguments?.pivot) {
-      const pivot = String(calls[0].arguments.pivot).trim()
-      if (pivot.length >= 4) {
-        return `${pivot.charAt(0).toUpperCase() + pivot.slice(1).replace(/[.,]+$/, '')}...`
+      candidate = String(calls[0].arguments.pivot).trim()
+    }
+
+    // Dual-channel extraction: if function argument is missing or suppressed, inspect the reasoning trace
+    if (!candidate && parsed?.reasoning) {
+      const reasoning = String(parsed.reasoning)
+      const match = reasoning.match(/pivot\s+['"]([^'"]{3,120})['"]/i)
+        || reasoning.match(/['"]([^'"]{4,120})['"]\s*->\s*record_cot_pivot/i)
+      if (match && match[1]) {
+        candidate = match[1].trim()
+      }
+    }
+
+    // Anti-echo filter: reject if candidate captured prompt scaffolding
+    if (candidate) {
+      const echoPatterns = [
+        /record_cot_pivot/i,
+        /call record_cot_pivot/i,
+        /thought/i,
+        /^pivot$/i,
+        /turning point/i,
+        /spoken aside/i,
+      ]
+      const isEcho = echoPatterns.some(p => p.test(candidate!))
+      if (!isEcho && candidate.length >= 4) {
+        const words = candidate.split(/\s+/).filter(Boolean)
+        const trimmed = words.length > 8 ? words.slice(0, 8).join(' ') : words.join(' ')
+        return `${trimmed.charAt(0).toUpperCase() + trimmed.slice(1).replace(/[.,]+$/, '')}...`
       }
     }
   }
