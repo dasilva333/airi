@@ -88,7 +88,12 @@ async function load({ modelUrl, threads, build: requested }: {
   })
 }
 
-async function generate(request: { text: string, voice: { builtin: string } | { design: string }, preset: string }): Promise<void> {
+async function generate(request: {
+  text: string
+  voice: { builtin: string } | { design: string }
+  preset: string
+  language?: string
+}): Promise<void> {
   if (!runtime)
     throw new Error('Ming worker: no model loaded.')
   const { rt } = runtime

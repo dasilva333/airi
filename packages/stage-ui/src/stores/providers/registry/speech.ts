@@ -935,6 +935,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         voiceId: '',
         preset: 'quality',
         threads: 'auto',
+        language: 'auto',
       }),
       createProvider: async (_config) => {
         const adapter = await getMing3AdapterInstance()
@@ -975,6 +976,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                   const wavBuffer = await adapter.generate(text, voiceId, {
                     preset: (typeof _config.preset === 'string' ? _config.preset : undefined) || 'quality',
                     threads: (_config.threads as number | 'auto' | undefined) ?? 'auto',
+                    language: (typeof _config.language === 'string' ? _config.language : undefined) || (typeof body.language === 'string' ? body.language : undefined),
                   })
 
                   return new Response(wavBuffer, {

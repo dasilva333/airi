@@ -1157,6 +1157,10 @@ pages:
           quality: Quality
           balanced: Balanced
           fast: Fast
+        language:
+          label: Target language
+          caption: Target language for synthesis and phonetic modeling. Auto-detect senses Spanish, German, French, Chinese, Japanese, Korean, and English.
+          auto: Auto-detect
         threads:
           label: CPU threads
           caption: More threads can improve synthesis speed.

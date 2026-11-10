@@ -16,10 +16,12 @@ import { Mutex } from 'async-mutex'
 import { removeInferenceStatus, updateInferenceStatus } from '../../../composables/use-inference-status'
 import { encodeMing3Wav, sanitizeMing3InputText } from '../../../stores/providers/ming3-audio-utils'
 import {
+  detectMing3Language,
   getMingDesignVoice,
   isMingDesignVoiceId,
   MING3_BUNDLE_BASE,
   MING3_MODEL_ID,
+  normalizeMing3Language,
 } from '../../../stores/providers/ming3-catalog'
 import { evictOtherMing3Models, formatBytes } from '../cache-utils'
 import { MODEL_NAMES } from '../constants'
@@ -37,6 +39,7 @@ export interface Ming3Adapter {
     options: {
       preset?: string
       threads?: number | 'auto'
+      language?: string
       signal?: AbortSignal
       /** Called with each streamed PCM chunk (44.1 kHz mono) as it arrives. */
       onAudioChunk?: (samples: Float32Array<ArrayBuffer>) => void
@@ -433,6 +436,7 @@ export function createMing3Adapter(): Ming3Adapter {
     options: {
       preset?: string
       threads?: number | 'auto'
+      language?: string
       signal?: AbortSignal
       onAudioChunk?: (samples: Float32Array<ArrayBuffer>) => void
       designPrompt?: string
@@ -448,6 +452,9 @@ export function createMing3Adapter(): Ming3Adapter {
 
       if (state !== 'ready')
         await doLoadModel({ threads: options.threads })
+
+      // Resolve target language: explicit option > auto-detection
+      const targetLanguage = normalizeMing3Language(options.language) || detectMing3Language(input)
 
       // Resolve design voices to their stored prompt; built-ins pass through.
       // An explicit draft prompt (unsaved "try this draft" flow) wins over lookup.
@@ -498,7 +505,12 @@ export function createMing3Adapter(): Ming3Adapter {
         }
         w.postMessage({
           type: 'generate',
-          request: { text: input, voice, preset: options.preset || 'quality' },
+          request: {
+            text: input,
+            voice,
+            preset: options.preset || 'quality',
+            language: targetLanguage,
+          },
         })
       })
 

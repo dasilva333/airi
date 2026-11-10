@@ -13,6 +13,7 @@ import {
   MING3_EXPRESSION_TAGS,
   MING3_MODEL_ID,
   MING3_MODEL_NAME,
+  MING3_SUPPORTED_LANGUAGES,
   MING_DESIGNS_STORE_NAME,
   mingDesignIdForPrompt,
 } from '@proj-airi/stage-ui/stores/providers/ming3-catalog'
@@ -85,6 +86,22 @@ const threads = computed({
   },
 })
 
+const language = computed({
+  get(): string {
+    return (getLiveOptions().language as string) || 'auto'
+  },
+  set(val: string) {
+    getLiveOptions().language = val
+  },
+})
+
+const languageOptions = computed(() => {
+  return MING3_SUPPORTED_LANGUAGES.map(l => ({
+    label: l.code === 'auto' ? t('settings.pages.providers.provider.ming3-local.language.auto') : l.label,
+    value: l.code,
+  }))
+})
+
 const selectedVoiceId = ref('')
 const voiceTab = ref<'all' | 'builtin' | 'designs'>('all')
 const voiceSearch = ref('')
@@ -117,9 +134,12 @@ const expressionKey = ref('')
 const pendingSampleKey = ref('')
 
 const SAMPLE_TEXTS = [
-  { id: 'welcome', label: 'Welcome back', text: 'Welcome back. Let\u2019s make something wonderful together.' },
-  { id: 'evening', label: 'Evening wind', text: 'The evening wind drifted down from the mountain pass, and the distant clouds slowly turned gold.' },
-  { id: 'reminder', label: 'Reminder', text: 'Please remember to water the plants on Tuesday, and call the dentist about the appointment at three o\u2019clock.' },
+  { id: 'welcome', label: 'Welcome back (English)', text: 'Welcome back. Let\u2019s make something wonderful together.' },
+  { id: 'spanish', label: 'Bienvenido (Spanish)', text: '¡Hola! Qué alegría verte de nuevo. ¿Qué vamos a crear juntos hoy?' },
+  { id: 'chinese', label: '欢迎 (Chinese)', text: '欢迎回来！今天想和我一起聊点什么呢？' },
+  { id: 'japanese', label: 'お帰り (Japanese)', text: 'おかえりなさい！今日も一緒に楽しい時間を過ごしましょう。' },
+  { id: 'evening', label: 'Evening wind (English)', text: 'The evening wind drifted down from the mountain pass, and the distant clouds slowly turned gold.' },
+  { id: 'reminder', label: 'Reminder (English)', text: 'Please remember to water the plants on Tuesday, and call the dentist about the appointment at three o\u2019clock.' },
 ]
 
 const isTesting = ref(false)
@@ -593,6 +613,7 @@ async function handleTestVoice(designPrompt?: string) {
     const wav = await adapter.generate(text, voiceId, {
       preset: preset.value,
       threads: threads.value === 'auto' ? 'auto' : Number(threads.value),
+      language: language.value !== 'auto' ? language.value : undefined,
       ...(designPrompt ? { designPrompt } : {}),
     })
     if (audioUrl.value)
@@ -835,6 +856,14 @@ onUnmounted(() => {
               </div>
               <p class="m-0 text-[11px] text-neutral-400">
                 {{ t('settings.pages.providers.provider.ming3-local.preset.caption') }}
+              </p>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold">{{ t('settings.pages.providers.provider.ming3-local.language.label') }}</label>
+              <Select v-model="language" :options="languageOptions" :disabled="isBusy" />
+              <p class="m-0 text-[11px] text-neutral-400">
+                {{ t('settings.pages.providers.provider.ming3-local.language.caption') }}
               </p>
             </div>
 

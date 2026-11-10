@@ -85,7 +85,125 @@ export const MING3_BUILTIN_VOICES: Ming3BuiltinVoice[] = [
     languageCode: 'en-GB',
     languageTitle: 'English (UK)',
   },
+  {
+    id: '灵小柔',
+    name: '灵小柔 (Ling Xiaorou)',
+    description: 'Bright, young Chinese female voice for conversation and storytelling.',
+    gender: 'female',
+    languageCode: 'zh-CN',
+    languageTitle: 'Chinese (Mandarin)',
+  },
+  {
+    id: '灵楷',
+    name: '灵楷 (Ling Kai)',
+    description: 'Warm, young Chinese male voice for dialogue and narration.',
+    gender: 'male',
+    languageCode: 'zh-CN',
+    languageTitle: 'Chinese (Mandarin)',
+  },
 ]
+
+export type Ming3Language = 'Spanish' | 'French' | 'German' | 'Korean' | 'Japanese' | 'English' | 'Chinese'
+
+export interface Ming3LanguageOption {
+  code: string
+  name: Ming3Language
+  label: string
+}
+
+export const MING3_SUPPORTED_LANGUAGES: Ming3LanguageOption[] = [
+  { code: 'auto', name: 'English', label: 'Auto-detect' },
+  { code: 'es', name: 'Spanish', label: 'Spanish (Español)' },
+  { code: 'en', name: 'English', label: 'English' },
+  { code: 'zh', name: 'Chinese', label: 'Chinese (中文)' },
+  { code: 'ja', name: 'Japanese', label: 'Japanese (日本語)' },
+  { code: 'ko', name: 'Korean', label: 'Korean (한국어)' },
+  { code: 'de', name: 'German', label: 'German (Deutsch)' },
+  { code: 'fr', name: 'French', label: 'French (Français)' },
+]
+
+/**
+ * Maps language code, name, or BCP-47 tag to the canonical Ming-3.0 WASM language variant.
+ * If unrecognized or falsy, returns undefined.
+ */
+export function normalizeMing3Language(lang?: string | null): Ming3Language | undefined {
+  if (!lang || typeof lang !== 'string')
+    return undefined
+  const cleaned = lang.trim().toLowerCase().replace('_', '-')
+  const primary = cleaned.split('-')[0]
+
+  switch (primary) {
+    case 'es':
+    case 'spanish':
+      return 'Spanish'
+    case 'fr':
+    case 'french':
+      return 'French'
+    case 'de':
+    case 'german':
+      return 'German'
+    case 'ko':
+    case 'korean':
+      return 'Korean'
+    case 'ja':
+    case 'japanese':
+      return 'Japanese'
+    case 'zh':
+    case 'chinese':
+    case 'cmn':
+    case 'yue':
+      return 'Chinese'
+    case 'en':
+    case 'english':
+      return 'English'
+    default: {
+      // Check exact PascalCase matches
+      if (['Spanish', 'French', 'German', 'Korean', 'Japanese', 'English', 'Chinese'].includes(lang))
+        return lang as Ming3Language
+      return undefined
+    }
+  }
+}
+
+/**
+ * Detect language from text content for Ming synthesis when no explicit language is set.
+ */
+export function detectMing3Language(text: string): Ming3Language {
+  if (!text || typeof text !== 'string')
+    return 'English'
+
+  // Japanese Hiragana / Katakana
+  if (/[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text))
+    return 'Japanese'
+
+  // Korean Hangul
+  if (/\p{Script=Hangul}/u.test(text))
+    return 'Korean'
+
+  // Chinese Han ideographs (without kana)
+  if (/\p{Script=Han}/u.test(text))
+    return 'Chinese'
+
+  // Spanish characteristic markers: inverted punctuation or distinctive accented characters
+  // ¿ ¡ á é í ó ú ñ ü
+  if (/[¿¡áéíóúñü]/i.test(text))
+    return 'Spanish'
+
+  // German distinctive umlauts/eszett: ä ö ü ß
+  if (/[äöüß]/i.test(text))
+    return 'German'
+
+  // French distinctive accents: ç œ à è ù â ê î ô û ë ï ÿ
+  if (/[çœàèùâêîôûëïÿ]/i.test(text))
+    return 'French'
+
+  // Spanish common words heuristic if ASCII-only (e.g. "hola", "buenos dias", "como estas")
+  const spanishWords = /\b(?:hola|buenos|buenas|dias|tardes|noches|gracias|por|favor|amigo|amiga|como|estas|bien|pero|este|esta|para|que|con|una|uno|los|las|del)\b/i
+  if (spanishWords.test(text))
+    return 'Spanish'
+
+  return 'English'
+}
 
 export interface Ming3ExpressionTag {
   tag: string
