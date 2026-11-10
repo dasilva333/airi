@@ -290,8 +290,8 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     artistryImageJournalToolEnabled: false,
     personaCardId: 'relu',
     personaSource: 'creator',
-    sttProvider: 'whisper-local',
-    sttModel: 'onnx-community/whisper-tiny',
+    sttProvider: 'whistle-local',
+    sttModel: 'whistle-base',
     sttTriggerKey: 'Caps',
     ttsProvider: 'kokoro-local',
     ttsModel: 'q4',
@@ -326,8 +326,8 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
     state.value.personaSource = 'creator'
   }
   if (!state.value.sttProvider) {
-    state.value.sttProvider = 'whisper-local'
-    state.value.sttModel = 'onnx-community/whisper-tiny'
+    state.value.sttProvider = 'whistle-local'
+    state.value.sttModel = 'whistle-base'
     state.value.sttTriggerKey = 'Caps'
   }
   if (!state.value.ttsProvider) {

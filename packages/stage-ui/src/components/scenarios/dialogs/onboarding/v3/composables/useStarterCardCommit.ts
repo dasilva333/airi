@@ -22,6 +22,7 @@ import { useChatSessionStore } from '../../../../../../stores/chat/session-store
 import { useDisplayModelsStore } from '../../../../../../stores/display-models'
 import { ensureMcpServersForAllowedTools } from '../../../../../../stores/mcp-tool-bridge'
 import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
+import { useHearingStore } from '../../../../../../stores/modules/hearing-store'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useVisionStore } from '../../../../../../stores/modules/vision'
 import { useOnboardingStore } from '../../../../../../stores/onboarding'
@@ -615,6 +616,7 @@ export function compileCardPayload(
 export function useStarterCardCommit() {
   const userProfileStore = useSettingsUserProfile()
   const cardStore = useAiriCardStore()
+  const hearingStore = useHearingStore()
   const speechStore = useSpeechStore()
   const visionStore = useVisionStore()
   const displayModelsStore = useDisplayModelsStore()
@@ -715,6 +717,19 @@ export function useStarterCardCommit() {
       }
       catch (err) {
         console.warn('[useStarterCardCommit] Vision persistence warning:', err)
+      }
+    }
+
+    // 4. Persist Hearing Provider & Model
+    if (draft.modules?.hearing) {
+      try {
+        if (draft.sttProvider)
+          hearingStore.activeTranscriptionProvider = draft.sttProvider
+        if (draft.sttModel)
+          hearingStore.activeTranscriptionModel = draft.sttModel
+      }
+      catch (err) {
+        console.warn('[useStarterCardCommit] Hearing persistence warning:', err)
       }
     }
 

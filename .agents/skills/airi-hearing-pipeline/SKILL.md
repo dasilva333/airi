@@ -173,6 +173,11 @@ When integrating a new STT model or service (e.g. Cactus Whistle):
 4. **Composer Verification**:
    - Verify provider is selectable in `VoiceInputHoverCard.vue` and `Settings > Inference Providers > Hearing`.
    - Verify speech recording and dictation ingestion in `InteractiveArea.vue`.
+5. **Onboarding V3 & Quick Start Integration**:
+   - Elevate the engine in `heroProviderIds` in `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/steps/step-hearing.vue` (3-column Hero Grid: Whistle Local, Whisper Local, Web Speech API).
+   - Configure as default STT engine in `useOnboardingV3Draft.ts` (`sttProvider: 'whistle-local'`).
+   - Wire pre-warming and model preparation into `quick-start.vue` via `getWhistleClient().prepare()`.
+   - Ensure `useStarterCardCommit.ts` atomically persists `sttProvider` and `sttModel` to `hearingStore.activeTranscriptionProvider` and `activeTranscriptionModel`.
 
 ---
 

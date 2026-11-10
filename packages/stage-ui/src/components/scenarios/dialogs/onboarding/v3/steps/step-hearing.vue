@@ -21,6 +21,7 @@ import StepProviderConfiguration from '../../step-provider-configuration.vue'
 import AssistantBubble from '../components/assistant-bubble.vue'
 
 import { getWhisperAdapter } from '../../../../../../libs/inference/adapters/whisper'
+import { getWhistleClient } from '../../../../../../libs/inference/adapters/whistle-client'
 import { WHISPER_MODELS } from '../../../../../../libs/inference/constants'
 import { useAudioContext } from '../../../../../../stores/audio'
 import { useHearingSpeechInputPipeline } from '../../../../../../stores/modules/hearing'
@@ -73,6 +74,31 @@ const activeMicLabel = computed(() => {
   return t('onboarding.steps.hearing.defaultMicrophoneInput')
 })
 
+// --- Whistle CPU/WASM Management ---
+type WhistleDL = 'idle' | 'downloading' | 'ready' | 'error'
+const whistleDownloadState = ref<WhistleDL>('idle')
+const whistleProgress = ref(0)
+const whistleErrorMessage = ref('')
+
+async function startWhistleDownload(force = false) {
+  whistleDownloadState.value = 'downloading'
+  whistleProgress.value = 0
+  whistleErrorMessage.value = ''
+  try {
+    const client = getWhistleClient()
+    await client.prepare((ratio) => {
+      whistleProgress.value = Math.min(100, Math.round(ratio * 100))
+    })
+    whistleProgress.value = 100
+    whistleDownloadState.value = 'ready'
+  }
+  catch (err) {
+    whistleDownloadState.value = 'error'
+    whistleErrorMessage.value = err instanceof Error ? err.message : String(err)
+    console.error('[V3 Hearing] Whistle preparation failed:', err)
+  }
+}
+
 // --- Whisper WebGPU Management ---
 type WhisperDL = 'idle' | 'downloading' | 'ready' | 'error'
 const whisperDownloadState = ref<WhisperDL>('idle')
@@ -101,10 +127,11 @@ function isLocalWhisperProvider(providerId?: string) {
   return providerId === 'whisper-local'
 }
 
+const isWhistleSelected = computed(() => draft.state.sttProvider === 'whistle-local')
 const isWhisperSelected = computed(() => isLocalWhisperProvider(draft.state.sttProvider))
 const isWebSpeechSelected = computed(() => draft.state.sttProvider === 'browser-web-speech-api')
 
-const heroProviderIds = ['browser-web-speech-api', 'whisper-local']
+const heroProviderIds = ['whistle-local', 'whisper-local', 'browser-web-speech-api']
 const cloudProviders = computed(() => {
   return allAudioTranscriptionProvidersMetadata.value.filter(p => !heroProviderIds.includes(p.id))
 })
@@ -128,15 +155,26 @@ function getWhisperModelSpec(id: string) {
   return '~800 MB DL · ~3 GB VRAM'
 }
 
+function selectWhistleLocal() {
+  draft.setHearing({ provider: 'whistle-local', model: 'whistle-base' })
+  verification.value = 'idle'
+  whisperDownloadState.value = 'idle'
+  if (whistleDownloadState.value === 'idle') {
+    void startWhistleDownload()
+  }
+}
+
 function selectWebSpeech() {
   draft.setHearing({ provider: 'browser-web-speech-api', model: 'web-speech-api' })
   verification.value = 'idle'
   whisperDownloadState.value = 'idle'
+  whistleDownloadState.value = 'idle'
 }
 
 function selectLocalWhisper() {
   draft.setHearing({ provider: 'whisper-local', model: selectedWhisperModel.value })
   verification.value = 'idle'
+  whistleDownloadState.value = 'idle'
   if (whisperDownloadState.value === 'idle') {
     void startWhisperDownload()
   }
@@ -146,6 +184,7 @@ function onSelectCloudProvider(provider: ProviderMetadata) {
   draft.setHearing({ provider: provider.id, model: '' })
   verification.value = 'idle'
   whisperDownloadState.value = 'idle'
+  whistleDownloadState.value = 'idle'
 }
 
 function cancelWhisperDownload() {
@@ -352,11 +391,15 @@ const canStartTest = computed(() => {
     return false
   if (isWhisperSelected.value && whisperDownloadState.value !== 'ready')
     return false
+  if (isWhistleSelected.value && whistleDownloadState.value !== 'ready')
+    return false
   return true
 })
 
 // Effective engine summary for the listening-check panel (bound to committed draft state)
 const effectiveEngineLabel = computed(() => {
+  if (isWhistleSelected.value)
+    return t('onboarding.steps.hearing.whistleLocal')
   if (isWebSpeechSelected.value)
     return t('onboarding.steps.hearing.webSpeechApi')
   if (isWhisperSelected.value)
@@ -366,6 +409,8 @@ const effectiveEngineLabel = computed(() => {
 })
 
 const effectiveModelLabel = computed(() => {
+  if (isWhistleSelected.value)
+    return 'whistle-base (16.9 MB CPU)'
   if (isWebSpeechSelected.value)
     return 'web-speech-api'
   return (draft.state.sttModel || '').trim() || t('onboarding.steps.hearing.noModel')
@@ -387,6 +432,13 @@ const checkStatus = computed<CheckStatus>(() => {
     if (whisperDownloadState.value === 'downloading')
       return 'listening'
     if (whisperDownloadState.value === 'error')
+      return 'failed'
+    return 'not-ready'
+  }
+  if (isWhistleSelected.value && whistleDownloadState.value !== 'ready') {
+    if (whistleDownloadState.value === 'downloading')
+      return 'listening'
+    if (whistleDownloadState.value === 'error')
       return 'failed'
     return 'not-ready'
   }
@@ -524,6 +576,23 @@ onBeforeUnmount(async () => {
 })
 
 onMounted(() => {
+  void (async () => {
+    try {
+      const client = getWhistleClient()
+      const cached = await client.isCached()
+      if (cached || client.isReady()) {
+        whistleDownloadState.value = 'ready'
+        whistleProgress.value = 100
+      }
+      else if (isWhistleSelected.value) {
+        void startWhistleDownload()
+      }
+    }
+    catch (err) {
+      console.debug('[V3 Hearing] Whistle probe on mount:', err)
+    }
+  })()
+
   void (async () => {
     try {
       const adapter = await getWhisperAdapter()
@@ -701,45 +770,45 @@ watch(selectedAudioInput, async () => {
             <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
               {{ t('onboarding.steps.hearing.speechRecognition') }}
             </span>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <!-- Hero Card 1: Web Speech API -->
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <!-- Hero Card 1: Whistle (Local) -->
               <div
                 :class="[
                   'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
                   'backdrop-blur-md',
-                  isWebSpeechSelected
+                  isWhistleSelected
                     ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
                     : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
                 ]"
-                @click="selectWebSpeech"
+                @click="selectWhistleLocal"
               >
                 <div class="flex items-start justify-between gap-3">
                   <div class="flex items-center gap-3">
                     <div
                       :class="[
                         'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
-                        isWebSpeechSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+                        isWhistleSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
                       ]"
                     >
-                      <div class="i-solar:microphone-3-bold-duotone h-5 w-5" />
+                      <div class="i-solar:bolt-bold-duotone h-5 w-5" />
                     </div>
-                    <div class="flex flex-col">
-                      <div class="flex items-center gap-2">
-                        <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.steps.hearing.webSpeechApi') }}</span>
-                        <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400">
-                          {{ t('onboarding.steps.hearing.builtIn') }}
+                    <div class="min-w-0 flex flex-col">
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.steps.hearing.whistleLocal') }}</span>
+                        <span class="whitespace-nowrap rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400">
+                          {{ t('onboarding.steps.hearing.recommendedLocal') }}
                         </span>
                       </div>
-                      <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ t('onboarding.steps.hearing.zeroSetupNoDownload') }}</span>
+                      <span class="truncate text-xs text-neutral-500 dark:text-neutral-400">{{ t('onboarding.steps.hearing.fastCpuOffline') }}</span>
                     </div>
                   </div>
                   <div
-                    v-if="isWebSpeechSelected"
+                    v-if="isWhistleSelected"
                     class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
                   />
                 </div>
                 <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
-                  {{ t('onboarding.steps.hearing.browserRecognitionDescription') }}
+                  {{ t('onboarding.steps.hearing.whistleLocalDescription') }}
                 </p>
               </div>
 
@@ -764,14 +833,14 @@ watch(selectedAudioInput, async () => {
                     >
                       <div class="i-solar:cpu-bolt-bold-duotone h-5 w-5" />
                     </div>
-                    <div class="flex flex-col">
-                      <div class="flex items-center gap-2">
+                    <div class="min-w-0 flex flex-col">
+                      <div class="flex flex-wrap items-center gap-1.5">
                         <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.steps.hearing.localWhisper') }}</span>
-                        <span class="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-600 font-medium dark:text-purple-400">
+                        <span class="whitespace-nowrap rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-600 font-medium dark:text-purple-400">
                           {{ t('onboarding.steps.hearing.webgpuOffline') }}
                         </span>
                       </div>
-                      <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ t('onboarding.steps.hearing.processedOnDevice') }}</span>
+                      <span class="truncate text-xs text-neutral-500 dark:text-neutral-400">{{ t('onboarding.steps.hearing.processedOnDevice') }}</span>
                     </div>
                   </div>
                   <div
@@ -783,6 +852,126 @@ watch(selectedAudioInput, async () => {
                   {{ t('onboarding.steps.hearing.localWhisperDescription') }}
                 </p>
               </div>
+
+              <!-- Hero Card 3: Web Speech API -->
+              <div
+                :class="[
+                  'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
+                  'backdrop-blur-md',
+                  isWebSpeechSelected
+                    ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
+                    : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
+                ]"
+                @click="selectWebSpeech"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <div
+                      :class="[
+                        'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
+                        isWebSpeechSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+                      ]"
+                    >
+                      <div class="i-solar:microphone-3-bold-duotone h-5 w-5" />
+                    </div>
+                    <div class="min-w-0 flex flex-col">
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.steps.hearing.webSpeechApi') }}</span>
+                        <span class="whitespace-nowrap rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-600 font-medium dark:text-sky-400">
+                          {{ t('onboarding.steps.hearing.builtIn') }}
+                        </span>
+                      </div>
+                      <span class="truncate text-xs text-neutral-500 dark:text-neutral-400">{{ t('onboarding.steps.hearing.zeroSetupNoDownload') }}</span>
+                    </div>
+                  </div>
+                  <div
+                    v-if="isWebSpeechSelected"
+                    class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
+                  />
+                </div>
+                <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
+                  {{ t('onboarding.steps.hearing.browserRecognitionDescription') }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Whistle In-Context Download & Cache Panel -->
+          <div
+            v-if="isWhistleSelected"
+            :class="['p-4 sm:p-5 rounded-[20px]', 'bg-white/70 dark:bg-neutral-900/60', 'border border-neutral-200/80 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3.5']"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex flex-col gap-1">
+                <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ t('onboarding.steps.hearing.whistleCpuModel') }}</span>
+                <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                  {{ t('onboarding.steps.hearing.whistleCpuModelDescription') }}
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <Button
+                  v-if="whistleDownloadState === 'idle'"
+                  variant="primary"
+                  class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
+                  @click="startWhistleDownload(false)"
+                >
+                  <div class="i-solar:cloud-download-bold-duotone text-base" />
+                  <span>{{ t('onboarding.steps.hearing.downloadModel') }}</span>
+                </Button>
+
+                <Button
+                  v-else-if="whistleDownloadState === 'ready'"
+                  variant="secondary"
+                  class="h-[38px] flex items-center gap-1.5 px-3.5 text-xs font-medium"
+                  @click="startWhistleDownload(true)"
+                >
+                  <div class="i-solar:refresh-circle-bold-duotone text-base" />
+                  <span>{{ t('onboarding.steps.hearing.reDownload') }}</span>
+                </Button>
+
+                <Button
+                  v-else-if="whistleDownloadState === 'error'"
+                  variant="primary"
+                  class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
+                  @click="startWhistleDownload(true)"
+                >
+                  <div class="i-solar:restart-bold-duotone text-base" />
+                  <span>{{ t('onboarding.steps.hearing.retryDownload') }}</span>
+                </Button>
+              </div>
+            </div>
+
+            <!-- Download Progress Display -->
+            <div v-if="whistleDownloadState === 'downloading'" class="flex flex-col gap-2 border border-primary-500/20 rounded-xl bg-primary-500/5 p-3">
+              <div class="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-300">
+                <div class="flex items-center gap-1.5">
+                  <div class="i-solar:cloud-download-bold-duotone animate-pulse text-primary-500" />
+                  <span>{{ t('onboarding.steps.hearing.messages.downloadingWhistleModel') }}</span>
+                </div>
+                <span class="font-medium font-mono">
+                  {{ Math.floor(whistleProgress) }}% (16.9 MB)
+                </span>
+              </div>
+              <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+                <div class="h-full rounded-full from-emerald-500 to-primary-500 bg-gradient-to-r transition-all duration-150" :style="{ width: `${whistleProgress}%` }" />
+              </div>
+            </div>
+
+            <!-- Ready Status -->
+            <div v-else-if="whistleDownloadState === 'ready'" class="flex items-center gap-2 border border-emerald-500/20 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-700 font-medium dark:text-emerald-300">
+              <div class="i-solar:check-circle-bold-duotone h-4 w-4 flex-shrink-0 text-emerald-500" />
+              <span>{{ t('onboarding.steps.hearing.whistleReadyMessage') }}</span>
+            </div>
+
+            <!-- Error Status -->
+            <div v-else-if="whistleDownloadState === 'error'" class="flex flex-col gap-1 border border-red-500/20 rounded-xl bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-300">
+              <div class="flex items-center gap-2 font-bold">
+                <div class="i-solar:danger-circle-bold-duotone h-4 w-4 text-red-500" />
+                <span>{{ t('onboarding.steps.hearing.downloadFailedOrConnectionInterrupted') }}</span>
+              </div>
+              <span v-if="whistleErrorMessage" class="break-all text-[11px] text-red-600/80 dark:text-red-400/80">
+                {{ whistleErrorMessage }}
+              </span>
             </div>
           </div>
 

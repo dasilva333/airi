@@ -92,7 +92,7 @@ Directory: `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v3/`
 | 5 | `vessel` | `step-vessel.vue` | Unified 3D Vessel Coverflow (Live2D, VRM, MMD, Spine) with instant preview. |
 | 6 | `consciousness` | `step-consciousness.vue` | LLM mind (WebLLM WebGPU or 77+ Cloud providers). |
 | 7 | `persona` | `step-persona.vue` | Character card & soul selection (`STARTER_CHARACTERS`, SillyTavern imports). |
-| 8 | `hearing` | `step-hearing.vue` | Microphone capture, VAD threshold, STT engine (Whisper WebGPU / Web Speech). |
+| 8 | `hearing` | `step-hearing.vue` | Microphone capture, VAD threshold, STT engine (Whistle CPU / Whisper WebGPU / Web Speech). |
 | 9 | `speech` | `step-speech.vue` | Neural TTS (Kokoro WebGPU, Cloud TTS, ElevenLabs) with pitch/rate controls. |
 | 10 | `thinking` | `step-thinking.vue` | Conversational pacing presets (*Snappy*, *Balanced*, *Deep CoT*) & subconscious asides. |
 | 11 | `emotions` | `step-emotions.vue` | 2-pass ACT Expression Bridge (normalizing morphs to `<\|ACT:*\|>` tokens). |

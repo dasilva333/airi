@@ -914,8 +914,8 @@ steps:
         llama-3-2-1b-instruct-q4f32-1-mlc: Ultra-fast, lightweight 1.2B instruction model for low-end hardware.
         llama-3-2-3b-instruct-q4f32-1-mlc: Strong general instruction & chat model with standard FP32 precision.
         phi-4-mini-instruct-q4f32-1-mlc: Next-gen compact generalist running with standard WebGPU FP32 compute.
-        lfm3-1-7b-q6f16-a-mlc: Liquid AI tri-hybrid architecture (short convs + sliding window +
-          global attention). Ultra-fast 1.7B on-device brain.
+        lfm3-1-7b-q6f16-a-mlc: Liquid AI tri-hybrid architecture (short convs + sliding
+          window + global attention). Ultra-fast 1.7B on-device brain.
     verification:
       failed: Connection test failed. Check API key, model ID, and network.
       latencyPlain: '{latency}ms TTFT'
@@ -1239,6 +1239,7 @@ steps:
       noTranscriptionReturnedFromProviderPleaseCheckMicrophoneInputVolumeA:
         No transcription returned from provider. Please check microphone input
         volume and model status.
+      downloadingWhistleModel: Downloading Cactus Whistle weights (16.9 MB)…
     download:
       warmingUp: Compiling WebGPU shaders and warming up model…
       cancel: Cancel
@@ -1255,13 +1256,13 @@ steps:
     microphoneDescription: Choose the microphone you’ll use to talk with your companion.
     speechRecognition: Speech recognition
     webSpeechApi: Web Speech API
-    zeroSetupNoDownload: Zero Setup · No Download
-    browserRecognitionDescription: Uses speech recognition provided by your browser
-      or operating system. No model download or API key required.
+    zeroSetupNoDownload: 0 MB · Cloud Dictation
+    browserRecognitionDescription: Uses your operating system or browser native
+      speech recognition. Zero setup required.
     localWhisper: Local Whisper
-    processedOnDevice: Speech processed on your device
-    localWhisperDescription: Runs OpenAI Whisper locally in your browser/app. Speech
-      processed on your device.
+    processedOnDevice: 75–800 MB · Heavy GPU
+    localWhisperDescription: High-accuracy multilingual neural recognition via
+      WebGPU. Best for complex speech.
     deployment: Deployment
     pricing: Pricing
     listeningCheck: Listening check
@@ -1291,6 +1292,15 @@ steps:
       local: Local
       free: Free
       paid: Paid
+    whistleLocal: Whistle (Local)
+    recommendedLocal: Recommended · CPU
+    fastCpuOffline: 17 MB · Fast CPU
+    whistleLocalDescription: Fast on-device recognition via Cactus WASM. Zero GPU or VRAM required.
+    whistleCpuModel: Cactus Whistle Base (CPU / WASM)
+    whistleCpuModelDescription: Compact 16.9 MB quantized acoustic weights cached
+      locally in browser OPFS storage. Sub-20ms first-token latency.
+    whistleReadyMessage: Whistle acoustic weights are cached locally and initialized
+      in memory. Ready for instant dictation.
 
   speech:
     label: Speech
@@ -2759,6 +2769,7 @@ quickStart:
     synthesizingKokoro82mVoiceEngine: Synthesizing Kokoro 82M voice engine...
     soulManifestation: Soul Manifestation
     seedingCompanionPersonaMemory: Seeding companion persona & memory...
+    verifyingWhistleLocalOnDeviceModel: Verifying Whistle local on-device model…
   brainDescription: Connect your AI provider to power {companionName}'s consciousness.
   voiceDescription: Give {companionName} a clear voice.
   hearingDescription: Let {companionName} hear your voice.
@@ -2788,6 +2799,11 @@ quickStart:
     webLlmFailed: Failed to load WebLLM model
     whisperFailed: Failed to load Whisper STT
     kokoroFailed: Failed to load Kokoro TTS
+    checkingWhistle: Verifying Whistle Local weights (16.9 MB)...
+    whistleProgress: Downloading Whistle ({percent}%)...
+    whistleReady: Whistle Local acoustic engine ready
+    whistleFailed: Failed to load Whistle STT
+    webSpeechReady: Browser Web Speech API ready
   greetingDefaultName: there
   connection:
     connected: Connected! {elapsed}ms TTFT
@@ -2813,3 +2829,4 @@ quickStart:
     selectVoiceEngine: Please select a voice engine
     selectSttEngine: Please select a speech-to-text engine
   ming3LocalPilot: Ming 3.0 Local (Pilot · 0.5B)
+  whistleLocalCpuOnDevice: Whistle Local (17 MB · Ultra-Fast CPU)

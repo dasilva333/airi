@@ -7,6 +7,7 @@ import { toast } from 'vue-sonner'
 import { getStarterCharacter } from '../../../../../constants/prompts/character-defaults'
 import { STARTER_VOICE_CATALOG } from '../../../../../constants/voices/starter-voice-catalog'
 import { getKokoroAdapter } from '../../../../../libs/inference/adapters/kokoro'
+import { getWhistleClient } from '../../../../../libs/inference/adapters/whistle-client'
 import { DEFAULT_WEB_LLM_MODEL, WEB_LLM_MODELS } from '../../../../../libs/inference/constants'
 import { NativeAI } from '../../../../../libs/native-ai'
 import { useSpeechStore } from '../../../../../stores/modules/speech'
@@ -636,8 +637,13 @@ const isHearingEnabled = computed({
 })
 
 const sttEngine = computed({
-  get: () => draftStore.state.sttProvider || 'whisper-local',
-  set: val => draftStore.setHearing({ provider: val }),
+  get: () => draftStore.state.sttProvider || 'whistle-local',
+  set: (val) => {
+    const defaultModel = val === 'whistle-local'
+      ? 'whistle-base'
+      : (val === 'whisper-local' ? 'onnx-community/whisper-tiny' : '')
+    draftStore.setHearing({ provider: val, model: defaultModel })
+  },
 })
 
 const whisperModelOptions = [
@@ -647,7 +653,7 @@ const whisperModelOptions = [
 ]
 
 const sttModel = computed({
-  get: () => draftStore.state.sttModel || 'onnx-community/whisper-tiny',
+  get: () => draftStore.state.sttModel || (sttEngine.value === 'whistle-local' ? 'whistle-base' : 'onnx-community/whisper-tiny'),
   set: val => draftStore.setHearing({ model: val }),
 })
 
@@ -770,7 +776,9 @@ const prepSteps = ref<PrepStep[]>([
     id: 'hearing',
     label: t('onboarding.quickStart.messages.hearingAcoustics'),
     labelKey: 'onboarding.quickStart.prepSteps.hearing.label',
-    desc: t('onboarding.quickStart.messages.verifyingWhisperLocalOnDeviceModel'),
+    desc: sttEngine.value === 'whistle-local'
+      ? t('onboarding.quickStart.messages.verifyingWhistleLocalOnDeviceModel')
+      : t('onboarding.quickStart.messages.verifyingWhisperLocalOnDeviceModel'),
     icon: 'i-solar:microphone-3-bold-duotone',
     status: 'pending',
   },
@@ -951,7 +959,26 @@ async function handleStartChatting() {
     // ----------------------------------------------------
     prepSteps.value[1].status = 'active'
     if (isHearingEnabled.value) {
-      if (sttEngine.value === 'whisper-local') {
+      if (sttEngine.value === 'whistle-local') {
+        prepSteps.value[1].desc = t('onboarding.quickStart.preparation.checkingWhistle')
+        try {
+          const whistleClient = getWhistleClient()
+          await whistleClient.prepare((ratio) => {
+            const percent = Math.round(ratio * 100)
+            prepSteps.value[1].desc = t('onboarding.quickStart.preparation.whistleProgress', { percent })
+            preparationProgress.value = Math.max(25, Math.min(49, Math.round(25 + (ratio * 24))))
+          })
+          prepSteps.value[1].desc = t('onboarding.quickStart.preparation.whistleReady')
+        }
+        catch (err: any) {
+          console.warn('[QuickStart] Whistle initialization notice:', err)
+          prepSteps.value[1].status = 'error'
+          prepSteps.value[1].desc = err?.message || t('onboarding.quickStart.preparation.whistleFailed')
+          toast.error(err?.message || t('onboarding.quickStart.preparation.whistleFailed'))
+          return
+        }
+      }
+      else if (sttEngine.value === 'whisper-local') {
         prepSteps.value[1].desc = t('onboarding.quickStart.preparation.checkingWhisper')
         try {
           await ensureWhisperLoaded({
@@ -977,7 +1004,7 @@ async function handleStartChatting() {
         }
       }
       else {
-        prepSteps.value[1].desc = t('onboarding.quickStart.preparation.microphoneReady')
+        prepSteps.value[1].desc = t('onboarding.quickStart.preparation.webSpeechReady')
         await new Promise(resolve => setTimeout(resolve, 200))
       }
     }
@@ -1635,13 +1662,16 @@ function continueAnywayIntoStage() {
         </div>
 
         <div :class="['space-y-2.5 text-xs', !isHearingEnabled && 'opacity-50 pointer-events-none']">
-          <!-- Engine Selector (Whisper Local Default) -->
+          <!-- Engine Selector (Whistle Local Default) -->
           <div :class="['flex items-center justify-between gap-3']">
             <span :class="['text-neutral-500 dark:text-neutral-400 w-20 shrink-0']">{{ t('onboarding.quickStart.engine') }}</span>
             <select
               v-model="sttEngine"
               :class="['flex-1 h-8 px-2.5 rounded-xl border border-neutral-300/80 dark:border-white/10 bg-white dark:bg-neutral-800/90 text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer']"
             >
+              <option value="whistle-local">
+                {{ t('onboarding.quickStart.whistleLocalCpuOnDevice') }}
+              </option>
               <option value="whisper-local">
                 {{ t('onboarding.quickStart.whisperLocalWebgpuOnDevice') }}
               </option>
@@ -1649,6 +1679,14 @@ function continueAnywayIntoStage() {
                 {{ t('onboarding.quickStart.browserWebSpeech') }}
               </option>
             </select>
+          </div>
+
+          <!-- Whistle Model Info -->
+          <div v-if="sttEngine === 'whistle-local'" :class="['flex items-center justify-between gap-3 text-[11px] text-neutral-500 dark:text-neutral-400']">
+            <span :class="['w-20 shrink-0']">{{ t('onboarding.quickStart.providers.modelLabel') }}</span>
+            <span :class="['flex-1 font-mono text-[11px] text-neutral-700 dark:text-neutral-300 truncate']">
+              Cactus Whistle (16.9 MB CPU · Sub-20ms TTFT)
+            </span>
           </div>
 
           <!-- Model Picker (When Whisper Local selected, defaults to tiny) -->
