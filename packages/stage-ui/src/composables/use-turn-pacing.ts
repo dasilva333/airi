@@ -322,7 +322,7 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       lastCotExtractionAtMs = now
       const windowSnippet = activeReasoningBuffer.slice(-600)
       const currentGen = activeCoordinator.generation
-      void needleClient.probeCotPivot(windowSnippet, 1500).then((pivot) => {
+      void needleClient.probeCotPivot(windowSnippet, 2000).then((pivot) => {
         if (pivot && activeCoordinator && activeCoordinator.generation === currentGen && !activeCoordinator.pacingClosed && activeCoordinator.state !== 'SETTLED') {
           console.log(`[TurnPacing:Needle] Task 3 CoT pivot yielded candidate: "${pivot}"`)
           activeCoordinator.submitAsideCandidate({

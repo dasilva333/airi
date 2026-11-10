@@ -25,6 +25,7 @@ let _cfuncs: {
   cactus_reset: () => void
   cactus_models: () => number
   cactus_last_error: () => string
+  cactus_set_threads: (threads: number) => void
 } | null = null
 
 let _outBufferPtr = 0
@@ -470,6 +471,18 @@ async function prepareNeedleAssets(
       cactus_reset: _cactusInstance.cwrap('cactus_reset', 'void', []),
       cactus_models: _cactusInstance.cwrap('cactus_models', 'number', []),
       cactus_last_error: _cactusInstance.cwrap('cactus_last_error', 'string', []),
+      cactus_set_threads: _cactusInstance.cwrap('cactus_set_threads', 'void', ['number']),
+    }
+
+    // Configure CPU thread parallelism
+    try {
+      const defaultThreads = typeof navigator !== 'undefined' && navigator.hardwareConcurrency
+        ? Math.min(4, Math.max(2, Math.floor(navigator.hardwareConcurrency / 2)))
+        : 2
+      _cfuncs.cactus_set_threads(defaultThreads)
+    }
+    catch (threadErr) {
+      console.warn('[NeedleWorker] Failed to set thread parallelism:', threadErr)
     }
 
     // Allocate persistent response and embedding buffers
@@ -509,7 +522,7 @@ function runInitialReactionProbe(prompt: string): string {
   try {
     _cfuncs.cactus_reset()
     const query = `User Prompt: ${prompt}\n\nTask: Output a 2 to 6 word spoken reaction filler before answering using record_initial_reaction.`
-    _cfuncs.cactus_complete(query, 0, 0, 32, _outBufferPtr, OUT_BUFFER_CAPACITY)
+    _cfuncs.cactus_complete(query, 0, 0, 80, _outBufferPtr, OUT_BUFFER_CAPACITY)
     const outStr = _cactusInstance.UTF8ToString(_outBufferPtr)
 
     const parsed = JSON.parse(outStr)
@@ -545,8 +558,9 @@ function runCotPivotProbe(snippet: string): string | null {
 
   try {
     _cfuncs.cactus_reset()
-    const query = `Reasoning text: ${snippet}\n\nTask: Extract a concise spoken pivot phrase using record_cot_pivot.`
-    _cfuncs.cactus_complete(query, 0, 0, 32, _outBufferPtr, OUT_BUFFER_CAPACITY)
+    const targetSnippet = snippet.length > 500 ? snippet.slice(-500) : snippet
+    const query = `Reasoning text: ${targetSnippet}\n\nTask: Extract a concise spoken pivot phrase using record_cot_pivot.`
+    _cfuncs.cactus_complete(query, 0, 0, 112, _outBufferPtr, OUT_BUFFER_CAPACITY)
     const outStr = _cactusInstance.UTF8ToString(_outBufferPtr)
 
     const parsed = JSON.parse(outStr)
