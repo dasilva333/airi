@@ -15,6 +15,7 @@ const MING3_OPFS_DIR_NAME = 'ming-tts-parts'
 const WEBLLM_CACHE_NAMES = ['webllm/model', 'webllm/wasm', 'webllm/config'] as const
 export const NEEDLE_CACHE_NAME = 'needle3-cache'
 export const WHISTLE_CACHE_NAME = 'whistle-cache'
+export const MIRAGE_CACHE_NAME = 'mirage-cache'
 export const LAYA_CACHE_NAME = 'laya-cache'
 export const BG_REMOVAL_CACHE_NAME = 'bg-removal-cache'
 
@@ -414,7 +415,7 @@ async function isOpfsModelCached(modelUrl: string): Promise<boolean> {
  * Returns 0 if no caches exist or all are empty.
  */
 export async function getModelCacheSize(): Promise<number> {
-  const [transformersSize, opfsSize, mossSize, pocketSize, ming3Size, webLlmSize, needleSize, whistleSize, layaSize, openjevSize, nativeSize] = await Promise.all([
+  const [transformersSize, opfsSize, mossSize, pocketSize, ming3Size, webLlmSize, needleSize, whistleSize, mirageSize, layaSize, openjevSize, nativeSize] = await Promise.all([
     getTransformersCacheSize(),
     getOpfsCacheSize(),
     getMossOpfsCacheSize(),
@@ -423,12 +424,13 @@ export async function getModelCacheSize(): Promise<number> {
     getWebLlmCacheSize(),
     getNeedleCacheSize(),
     getWhistleCacheSize(),
+    getMirageCacheSize(),
     getLayaCacheSize(),
     getOpenJevCacheSize(),
     NativeAI.listCachedModels().then(res => res.totalSizeBytes).catch(() => 0),
   ])
 
-  return transformersSize + opfsSize + mossSize + pocketSize + ming3Size + webLlmSize + needleSize + whistleSize + layaSize + openjevSize + nativeSize
+  return transformersSize + opfsSize + mossSize + pocketSize + ming3Size + webLlmSize + needleSize + whistleSize + mirageSize + layaSize + openjevSize + nativeSize
 }
 
 async function getTransformersCacheSize(): Promise<number> {
@@ -514,6 +516,10 @@ export async function clearSingleModelCache(modelId: string): Promise<void> {
   }
   if (modelId === 'whistle-local' || modelId.includes('whistle')) {
     await clearWhistleCache()
+    return
+  }
+  if (modelId === 'mirage-local' || modelId.includes('mirage')) {
+    await clearMirageCache()
     return
   }
   if (modelId.includes('openjev') || modelId.includes('rlcd-modernbert')) {
@@ -917,6 +923,71 @@ export async function isWhistleModelCached(): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
+// Cactus Mirage Vision Coprocessor Model (Cache Storage API, `mirage-cache` scope)
+// ---------------------------------------------------------------------------
+
+export async function getMirageCacheSize(): Promise<number> {
+  if (typeof caches === 'undefined')
+    return 0
+
+  try {
+    const has = await caches.has(MIRAGE_CACHE_NAME)
+    if (!has)
+      return 0
+
+    const cache = await caches.open(MIRAGE_CACHE_NAME)
+    const keys = await cache.keys()
+    let totalSize = 0
+
+    for (const request of keys) {
+      const response = await cache.match(request)
+      if (response) {
+        const contentLength = response.headers.get('content-length')
+        if (contentLength) {
+          totalSize += Number.parseInt(contentLength, 10) || 0
+        }
+        else {
+          const blob = await response.clone().blob()
+          totalSize += blob.size
+        }
+      }
+    }
+    return totalSize
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to get Mirage cache size', error)
+    return 0
+  }
+}
+
+export async function clearMirageCache(): Promise<void> {
+  if (typeof caches === 'undefined')
+    return
+  try {
+    await caches.delete(MIRAGE_CACHE_NAME)
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to clear Mirage cache', error)
+  }
+}
+
+export async function isMirageModelCached(): Promise<boolean> {
+  if (typeof caches === 'undefined')
+    return false
+  try {
+    const has = await caches.has(MIRAGE_CACHE_NAME)
+    if (!has)
+      return false
+    const cache = await caches.open(MIRAGE_CACHE_NAME)
+    const keys = await cache.keys()
+    return keys.length > 0
+  }
+  catch {
+    return false
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Laya & OpenJev System 1 Models (Cache Storage API, `laya-cache` scope)
 // ---------------------------------------------------------------------------
 
@@ -1173,6 +1244,9 @@ export async function isModelCached(modelId: string): Promise<boolean> {
   if (modelId === 'whistle-local' || modelId.includes('whistle')) {
     return isWhistleModelCached()
   }
+  if (modelId === 'mirage-local' || modelId.includes('mirage')) {
+    return isMirageModelCached()
+  }
   if (modelId.includes('openjev') || modelId.includes('rlcd-modernbert')) {
     return isOpenJevModelCached()
   }
@@ -1315,6 +1389,16 @@ export async function getDetailedModelCacheMap(): Promise<ModelCacheStatusMap> {
   }
   catch {
     result['whistle-local'] = { cached: false, sizeBytes: 0 }
+  }
+
+  // 5c. Mirage Vision Coprocessor (Cache Storage API)
+  try {
+    const mirageCached = await isMirageModelCached()
+    const mirageSize = mirageCached ? await getMirageCacheSize() : 0
+    result['mirage-local'] = { cached: mirageCached, sizeBytes: mirageSize }
+  }
+  catch {
+    result['mirage-local'] = { cached: false, sizeBytes: 0 }
   }
 
   // 6. Laya (Cache Storage API)

@@ -4,7 +4,7 @@ import { isApplePlatform, isStageTamagotchi, isStageWeb } from '@proj-airi/stage
 import { detectWebGPU, isWebGPUSupported } from '@proj-airi/stage-shared/webgpu'
 import { computed } from 'vue'
 
-import { createLocalVisionAdapter, DEFAULT_LOCAL_VISION_MODEL, LOCAL_VISION_MODELS } from '../../../libs/inference'
+import { createLocalVisionAdapter, DEFAULT_LOCAL_VISION_MODEL, getMirageClient, LOCAL_VISION_MODELS } from '../../../libs/inference'
 import { DEFAULT_WEB_LLM_MODEL, DEFAULT_WEB_RWKV_MODEL, WEB_LLM_MODELS, WEB_RWKV_MODELS } from '../../../libs/inference/constants'
 import { NativeAI } from '../../../libs/native-ai'
 import { createAppleCoreAIChatProvider, DEFAULT_APPLE_CORE_AI_MODEL } from '../apple-core-ai'
@@ -260,6 +260,63 @@ export const localEngineMetadata: Record<string, ProviderMetadata> = {
       chatPingCheckAvailable: false,
       validateProviderConfig: (config) => {
         const model = (config.model as string) || 'Xenova/moondream2'
+        if (!model) {
+          return { errors: [new Error('No model configured')], reason: 'A model is required.', valid: false }
+        }
+        return { errors: [], reason: '', valid: true }
+      },
+    },
+  },
+  'mirage-local': {
+    id: 'mirage-local',
+    category: 'vision',
+    tasks: ['vision', 'image-to-text'],
+    nameKey: 'settings.pages.providers.provider.mirage-local.title',
+    name: 'Cactus Mirage (Local Vision)',
+    descriptionKey: 'settings.pages.providers.provider.mirage-local.description',
+    description: 'Ultra-fast on-device multi-task vision coprocessor powered by Cactus WASM (22 MB). Zero WebGPU requirement.',
+    icon: 'i-solar:eye-scan-bold-duotone',
+    pricing: 'free',
+    deployment: 'local',
+    beginnerRecommended: true,
+    requiresCredentials: false,
+    isAvailableBy: () => true,
+    defaultOptions: () => ({
+      model: 'mirage-base',
+    }),
+    createProvider: async (_config) => {
+      const client = getMirageClient()
+      return {
+        client,
+        captionImage: async (url: string, opts?: any) => {
+          const res = await client.analyzeFrame(url, opts)
+          return res.sceneDescription || res.ocrSnippet || ''
+        },
+        analyze: async (image: any, opts?: any) => client.analyzeFrame(image, opts),
+        detectTarget: async (image: any, target: any, opts?: any) => client.detectTarget(image, target, opts),
+        loadModel: async (onProgress?: any) => client.prepare(onProgress),
+        isModelLoaded: computed(() => client.isReady()),
+        state: computed(() => client.isReady() ? 'ready' : (client.isPreparing() ? 'loading' : 'idle')),
+        terminate: () => client.terminate(),
+      } as any
+    },
+    capabilities: {
+      listModels: async () => [
+        {
+          id: 'mirage-base',
+          name: 'Cactus Mirage (22 MB)',
+          provider: 'mirage-local',
+          description: 'Multi-task WASM vision coprocessor: OCR, bounding boxes, scene perception (22 MB)',
+          contextLength: 0,
+          capabilities: ['vision'],
+          deprecated: false,
+        },
+      ],
+    },
+    validators: {
+      chatPingCheckAvailable: false,
+      validateProviderConfig: (config) => {
+        const model = (config.model as string) || 'mirage-base'
         if (!model) {
           return { errors: [new Error('No model configured')], reason: 'A model is required.', valid: false }
         }

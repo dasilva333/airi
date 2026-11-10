@@ -526,7 +526,7 @@ const providerBlocks = computed(() => {
           :icon="provider.icon"
           :icon-color="provider.iconColor"
           :icon-image="provider.iconImage"
-          :to="`/settings/providers/${activeTabId === 'system1' ? 'system1' : provider.category === 'vision' ? 'chat' : provider.category}/${provider.id}`"
+          :to="`/settings/providers/${activeTabId === 'system1' ? 'system1' : provider.category === 'vision' ? (provider.id === 'mirage-local' ? 'vision' : 'chat') : provider.category}/${provider.id}`"
           :configured="provider.configured"
           :pricing="provider.pricing as any"
           :deployment="provider.deployment as any"

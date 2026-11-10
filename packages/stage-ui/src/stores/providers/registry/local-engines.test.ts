@@ -23,6 +23,14 @@ vi.mock('../../../libs/inference', () => ({
     deviceLossCount: 0,
     terminate: () => {},
   })),
+  getMirageClient: vi.fn(() => ({
+    isReady: () => true,
+    isPreparing: () => false,
+    prepare: async () => true,
+    analyzeFrame: async () => ({}),
+    detectTarget: async () => null,
+    terminate: () => {},
+  })),
   DEFAULT_LOCAL_VISION_MODEL: '',
   LOCAL_VISION_MODELS: [{ id: 'm', name: 'M', description: 'd' }],
 }))
@@ -84,6 +92,7 @@ describe('localEngineMetadata', () => {
     expect(Object.keys(localEngineMetadata).sort()).toEqual([
       'apple-core-ai',
       'blip-local',
+      'mirage-local',
       'moondream-local',
       'web-llm',
       'web-rwkv',

@@ -146,6 +146,14 @@ const knownModels: KnownModelItem[] = [
     icon: 'i-solar:magic-stick-bold-duotone',
     description: 'Anime-native foreground segmentation for stickers and artwork',
   },
+  {
+    id: 'mirage-local',
+    name: 'Cactus Mirage (22 MB Local Vision)',
+    category: 'vision',
+    runtime: 'WASM / CPU',
+    icon: 'i-solar:eye-scan-bold-duotone',
+    description: 'Ultra-fast on-device multi-task vision coprocessor · OCR, spatial bounding boxes, and face/bust detection',
+  },
 
   // 4. Miscellaneous & System 1 (Motion, Decisions, Embeddings)
   {

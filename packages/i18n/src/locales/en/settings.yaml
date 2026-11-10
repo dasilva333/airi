@@ -1567,6 +1567,10 @@ pages:
         title: Whistle (Local)
         description: Local ultra-fast speech-to-text using Cactus Whistle (16.9 MB,
           CPU/WASM)
+      mirage-local:
+        title: Cactus Mirage (Local Vision)
+        description: Local ultra-fast multi-task vision coprocessor powered by Cactus WASM
+          (22 MB, CPU)
     title: Inference Providers
     cache:
       title: Model Cache

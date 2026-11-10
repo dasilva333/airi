@@ -2,14 +2,29 @@ export { createLocalVisionAdapter } from './adapters/blip'
 export type { LocalVisionAdapter } from './adapters/blip'
 export { createLayaAdapter, getLayaAdapter } from './adapters/laya'
 export type { LayaAdapter, LayaDecideOptions, LayaPrecision } from './adapters/laya'
+export { createMirageClient, getMirageClient } from './adapters/mirage-client'
+export type {
+  MirageAnalysisOptions,
+  MirageAnalysisResult,
+  MirageBoundingBox,
+  MirageClient,
+} from './adapters/mirage-client'
 export { createLocalMoondreamAdapter, getMoondreamAdapter } from './adapters/moondream'
 export type { LocalMoondreamAdapter } from './adapters/moondream'
 export { createNeedleClient, needleClient } from './adapters/needle-client'
 export type { NeedleClient } from './adapters/needle-client'
 export { createWebRwkvAdapter, getWebRwkvAdapter } from './adapters/web-rwkv'
 export type { WebRwkvAdapter, WebRwkvGenerateOptions } from './adapters/web-rwkv'
+export { createWhistleClient, getWhistleClient } from './adapters/whistle-client'
+export type {
+  WhistleClient,
+  WhistleTranscribeOptions,
+  WhistleTranscribeResult,
+  WhistleWordTimestamp,
+} from './adapters/whistle-client'
 export {
   clearLayaCache,
+  clearMirageCache,
   clearModelCache,
   clearNeedleCache,
   clearOpenJevCache,
@@ -17,6 +32,7 @@ export {
   clearWdTaggerCache,
   clearWebLlmCache,
   clearWebRwkvCache,
+  clearWhistleCache,
   evictOtherMing3Models,
   evictOtherPocketModels,
   evictOtherWdTaggerModels,
@@ -24,11 +40,14 @@ export {
   formatBytes,
   getDetailedModelCacheMap,
   getLayaCacheSize,
+  getMirageCacheSize,
   getModelCacheSize,
   getNeedleCacheSize,
   getOpenJevCacheSize,
   getWebLlmCacheSize,
+  getWhistleCacheSize,
   isLayaModelCached,
+  isMirageModelCached,
   isModelCached,
   isNeedleModelCached,
   isOpenJevModelCached,
@@ -36,7 +55,10 @@ export {
   isWdTaggerCached,
   isWebLlmModelCached,
   isWebRwkvSlotOccupied,
+  isWhistleModelCached,
   LAYA_CACHE_NAME,
+  MIRAGE_CACHE_NAME,
+  WHISTLE_CACHE_NAME,
 } from './cache-utils'
 export type { ModelCacheItemStatus, ModelCacheStatusMap } from './cache-utils'
 export {
