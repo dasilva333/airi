@@ -195,7 +195,7 @@ async function handleClearCache() {
   await refreshCacheStatuses()
 }
 
-// Needle 2 Subconscious Runtime (Tier 2 Semantic Extractor)
+// Needle 3 Subconscious Runtime (Tier 2 Semantic Extractor)
 const isNeedlePrepared = ref(false)
 const isNeedleDownloading = ref(false)
 const needleDownloadProgress = ref(0)
@@ -221,7 +221,7 @@ async function downloadAndPrepareNeedle() {
     isNeedlePrepared.value = ok || await isNeedleModelCached()
   }
   catch (err) {
-    console.warn('[ActingTab] Failed to prepare Needle 2:', err)
+    console.warn('[ActingTab] Failed to prepare Needle 3:', err)
   }
   finally {
     isNeedleDownloading.value = false
@@ -699,7 +699,7 @@ defineExpose({
               </div>
             </div>
 
-            <!-- Tier 2: Cognitive Gating & Semantic Extraction (System 1 + Needle 2) -->
+            <!-- Tier 2: Cognitive Gating & Semantic Extraction (System 1 + Needle 3) -->
             <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3 dark:border-neutral-700/80 dark:bg-neutral-950/30">
               <div class="flex items-start justify-between gap-2">
                 <div class="flex items-start gap-2.5">
@@ -711,10 +711,10 @@ defineExpose({
                   >
                   <div class="flex flex-col gap-0.5">
                     <label for="tier-2-semantic-toggle" class="cursor-pointer text-xs text-neutral-800 font-semibold dark:text-neutral-200">
-                      Tier 2: Cognitive Gating &amp; Subconscious Extraction (System 1 + Needle 2)
+                      Tier 2: Cognitive Gating &amp; Subconscious Extraction (System 1 + Needle 3)
                     </label>
                     <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
-                      Universal System 1 (Jev / local ONNX / provider) classifies cognitive eligibility and hesitation shifts, while Needle 2 WebAssembly extracts the concise 2–8 word pivot span.
+                      Universal System 1 (Jev / local ONNX / provider) classifies cognitive eligibility and hesitation shifts, while Needle 3 WebAssembly extracts the concise 2–8 word pivot span.
                     </p>
                   </div>
                 </div>
@@ -740,7 +740,7 @@ defineExpose({
                     </span>
                   </div>
 
-                  <!-- Needle 2 WASM Span Extractor -->
+                  <!-- Needle 3 WASM Span Extractor -->
                   <div class="flex items-center justify-between border border-neutral-200/60 rounded-lg bg-white/70 p-2 dark:border-neutral-800/60 dark:bg-neutral-900/60">
                     <div class="flex items-center gap-2">
                       <div
@@ -749,7 +749,7 @@ defineExpose({
                       />
                       <div class="flex flex-col">
                         <span class="text-[10px] text-neutral-400 font-semibold uppercase">Span Extractor</span>
-                        <span class="text-[11px] text-neutral-700 font-medium dark:text-neutral-200">{{ isNeedlePrepared ? 'Needle 2 WASM (14 MB)' : 'Needle 2 (Not in cache)' }}</span>
+                        <span class="text-[11px] text-neutral-700 font-medium dark:text-neutral-200">{{ isNeedlePrepared ? 'Needle 3 WASM (Laddered SAN)' : 'Needle 3 (Not in cache)' }}</span>
                       </div>
                     </div>
                     <button
@@ -781,7 +781,7 @@ defineExpose({
                 <div class="mt-2.5 flex items-start gap-2 border border-amber-200/70 rounded-lg bg-amber-50/70 p-2.5 text-[11px] text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/20 dark:text-amber-300">
                   <div class="i-solar:danger-triangle-bold mt-0.5 shrink-0 text-xs text-amber-600 dark:text-amber-400" />
                   <p class="leading-relaxed">
-                    <strong class="font-semibold">Performance Architecture:</strong> System 1 evaluates cognitive category and hesitation shifts at defined cadence intervals (~15s), while Needle 2 WebAssembly pinpoints the 2–8 word pivot span. If Needle is uninitialized, the engine automatically falls back to Tier 3 heuristic pattern extraction without blocking inference or stuttering UI.
+                    <strong class="font-semibold">Performance Architecture:</strong> System 1 evaluates cognitive category and hesitation shifts at defined cadence intervals (~15s), while Needle 3 WebAssembly pinpoints the 2–8 word pivot span. If Needle is uninitialized, the engine automatically falls back to Tier 3 heuristic pattern extraction without blocking inference or stuttering UI.
                   </p>
                 </div>
               </div>

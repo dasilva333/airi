@@ -1,7 +1,7 @@
 /**
- * Needle 2 inference client adapter.
+ * Needle 3 inference client adapter.
  *
- * Provides a typed interface to the Needle 2 Web Worker:
+ * Provides a typed interface to the Needle 3 Web Worker:
  * - Cache status and manual pre-warming / preparation with progress reporting
  * - Task 2: Fast-path probe on user prompt at t = 0 racing against TTFT
  * - Task 3: Background extraction on streaming CoT reasoning buffer ahead of interval cadence
@@ -140,7 +140,7 @@ export function createNeedleClient(): NeedleClient {
       return 'Let me see...'
     }
 
-    // Active inference bailout: If Needle is not prepared yet, do not kick off heavy 14MB download and WASM
+    // Active inference bailout: If Needle is not prepared yet, do not kick off heavy 35MB download and WASM
     // compilation during an active streaming turn. Return null and let Tier 3 (heuristics/regex) handle it.
     if (!isInitialized) {
       return null

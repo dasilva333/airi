@@ -63,12 +63,12 @@ const knownModels: KnownModelItem[] = [
     description: 'In-browser WebGPU transformer execution engine',
   },
   {
-    id: 'needle-2',
-    name: 'Needle 2 (Cactus SAN 45M)',
+    id: 'needle-3',
+    name: 'Needle 3 (Laddered SAN)',
     category: 'llm',
     runtime: 'WASM / CPU',
     icon: 'i-solar:magic-stick-3-bold-duotone',
-    description: '14 MB on-device semantic extractor for real-time aside generation & conversational pacing',
+    description: '8–29 MB on-device laddered SLM for conversational pacing, 8k entity extraction, and 3072d vector embeddings',
   },
 
   // 2. Audio & Speech

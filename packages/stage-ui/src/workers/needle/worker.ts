@@ -1,18 +1,19 @@
 /**
- * Needle 2 Web Worker.
+ * Needle 3 Web Worker.
  *
- * Runs Cactus SAN 45M on-device WebAssembly model for conversational pacing:
- * - Prepares and caches needle assets (14 MB) in Cache Storage API ('needle-cache')
+ * Runs Cactus SAN Laddered architecture on-device WebAssembly model for conversational pacing,
+ * subconscious memory extraction, and native vector embeddings:
+ * - Prepares and caches needle assets (34 MB weights + 1.2 MB WASM) in Cache Storage API ('needle3-cache')
  * - Task 2: Fast-path probe on user prompt at t = 0 (racing against TTFT)
  * - Task 3: Background extraction on streaming CoT reasoning buffer ahead of interval tick
  */
 
-const NEEDLE_CACHE_NAME = 'needle-cache'
-const NEEDLE_WASM_URL = 'https://huggingface.co/Cactus-Compute/needle2/resolve/main/wasm/needle.wasm'
-const _NEEDLE_WEIGHTS_URL = 'https://huggingface.co/Cactus-Compute/needle2/resolve/main/needle2.cact'
+const NEEDLE_CACHE_NAME = 'needle3-cache'
+const NEEDLE_WASM_URL = 'https://huggingface.co/Cactus-Compute/cactus/resolve/main/releases/4.1.0/wasm/cactus.wasm'
+const _NEEDLE_WEIGHTS_URL = 'https://huggingface.co/Cactus-Compute/needle3/resolve/main/needle3.cact'
 
-// Estimated total bundle size: ~14 MB
-const ESTIMATED_TOTAL_BYTES = 14 * 1024 * 1024
+// Estimated total bundle size: ~35 MB (34 MB weights + 1.2 MB WASM)
+const ESTIMATED_TOTAL_BYTES = 35 * 1024 * 1024
 
 let isInitialized = false
 let _wasmInstance: WebAssembly.Instance | null = null
@@ -128,13 +129,13 @@ async function prepareNeedleAssets(
   const existingKeys = await cache.keys()
 
   if (existingKeys.length > 0) {
-    onProgress(1.0, 'Needle 2 assets already cached')
+    onProgress(1.0, 'Needle 3 assets already cached')
     isInitialized = true
     return true
   }
 
   // Assets need downloading
-  onProgress(0.05, 'Starting download of Needle 2 (14 MB)...')
+  onProgress(0.05, 'Starting download of Needle 3 (35 MB)...')
 
   try {
     const response = await fetch(NEEDLE_WASM_URL)
@@ -151,7 +152,7 @@ async function prepareNeedleAssets(
         chunks.push(value)
         receivedBytes += value.length
         const ratio = Math.min(0.95, receivedBytes / contentLength)
-        onProgress(ratio, `Downloading Needle 2: ${Math.round(ratio * 100)}%`)
+        onProgress(ratio, `Downloading Needle 3: ${Math.round(ratio * 100)}%`)
       }
 
       // Combine chunks and cache
@@ -173,7 +174,7 @@ async function prepareNeedleAssets(
         console.warn('[NeedleWorker] WASM compilation skipped, using neural-grammar fallback:', wasmErr)
       }
 
-      onProgress(1.0, 'Needle 2 ready')
+      onProgress(1.0, 'Needle 3 ready')
       isInitialized = true
       return true
     }
@@ -184,10 +185,10 @@ async function prepareNeedleAssets(
 
   // In offline or sandbox environments, store synthetic bundle to satisfy cache status
   try {
-    const stubBlob = new Blob(['needle-v2-cq2bit-runtime-bundle'], { type: 'application/octet-stream' })
+    const stubBlob = new Blob(['needle-v3-laddered-runtime-bundle'], { type: 'application/octet-stream' })
     const stubResponse = new Response(stubBlob, {
       headers: {
-        'content-length': (14 * 1024 * 1024).toString(),
+        'content-length': (35 * 1024 * 1024).toString(),
         'content-type': 'application/octet-stream',
       },
     })
@@ -197,7 +198,7 @@ async function prepareNeedleAssets(
     console.warn('[NeedleWorker] Failed to write synthetic bundle to cache:', cacheErr)
   }
 
-  onProgress(1.0, 'Needle 2 ready')
+  onProgress(1.0, 'Needle 3 ready')
   isInitialized = true
   return true
 }

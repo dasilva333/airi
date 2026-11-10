@@ -44,7 +44,7 @@ In [`cache-utils.ts`](packages/stage-ui/src/libs/inference/cache-utils.ts) and n
 | **OPFS** | `nano-reader-browser-model-store` | **MOSS TTS** | `moss-tts-nano-100m` weights |
 | **Cache Storage API** | `transformers-cache` | **Transformers.js / ONNX Runtime** | Kokoro TTS, Whisper STT, FlowMDM, BLIP Vision, WD14, Moondream2, MODNet, CLIP |
 | **Cache Storage API** | `webllm/model`, `webllm/wasm`, `webllm/config` | **WebLLM** (`@mlc-ai/web-llm`) | Qwen 3.5 (0.8B/4B), Gemma 3 (1B), Ministral 3 Reasoning (3B), Phi 4 Mini (3.8B) |
-| **Cache Storage API** | `needle-cache` | **Needle 2 (WASM/CPU)** | 14 MB Cactus SAN 45M aside generator for conversational pacing |
+| **Cache Storage API** | `needle3-cache` | **Needle 3 (WASM/CPU)** | 8–29 MB Cactus SAN Laddered model for conversational pacing, 8k entity extraction, and 3072d vector embeddings |
 
 ### 2.2 Global Model Cache Manager (`ModelCacheManager.vue`)
 
@@ -56,7 +56,7 @@ const knownModels = [
   { id: 'okayuji/Gemma-4-E2B-it-coreml-speculative', name: 'Gemma 4 E2B IT (Speculative CoreML)', runtime: 'CoreML / ANE' },
   { id: DEFAULT_WEB_RWKV_MODEL, name: 'RWKV-7 "Goose" (Web-RWKV)', runtime: 'Browser OPFS' },
   { id: 'web-llm', name: 'WebLLM (Ministral 3 / Qwen 2.5 / Llama 3.2)', runtime: 'WebGPU (Cache API)' },
-  { id: 'needle-2', name: 'Needle 2 (Cactus SAN 45M)', runtime: 'WASM / CPU' },
+  { id: 'needle-3', name: 'Needle 3 (Laddered SAN)', runtime: 'WASM / CPU' },
 
   // 2. Audio & Speech
   { id: 'aoiandroid/kokoro-82m-coreml-ios', name: 'Kokoro 82M TTS (CoreML iOS)', runtime: 'CoreML / ANE' },

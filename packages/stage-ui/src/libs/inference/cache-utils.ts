@@ -13,7 +13,7 @@ const MING3_OPFS_DIR_NAME = 'ming-tts-parts'
 // browser Cache Storage API under these scoped cache names (its default
 // `cacheBackend` is `"cache"`; see `createScopedArtifactCache` in the library).
 const WEBLLM_CACHE_NAMES = ['webllm/model', 'webllm/wasm', 'webllm/config'] as const
-export const NEEDLE_CACHE_NAME = 'needle-cache'
+export const NEEDLE_CACHE_NAME = 'needle3-cache'
 export const WHISTLE_CACHE_NAME = 'whistle-cache'
 export const LAYA_CACHE_NAME = 'laya-cache'
 export const BG_REMOVAL_CACHE_NAME = 'bg-removal-cache'
@@ -508,7 +508,7 @@ export async function clearSingleModelCache(modelId: string): Promise<void> {
     await clearWebLlmCache()
     return
   }
-  if (modelId === 'needle-2' || modelId.includes('needle2') || modelId.includes('needle')) {
+  if (modelId === 'needle-3' || modelId === 'needle-2' || modelId.includes('needle3') || modelId.includes('needle2') || modelId.includes('needle')) {
     await clearNeedleCache()
     return
   }
@@ -827,6 +827,10 @@ export async function clearNeedleCache(): Promise<void> {
     return
   try {
     await caches.delete(NEEDLE_CACHE_NAME)
+    // Also evict legacy Needle 2 cache scope if present
+    if (await caches.has('needle-cache')) {
+      await caches.delete('needle-cache')
+    }
   }
   catch (error) {
     console.warn('[cache-utils] failed to clear Needle cache', error)
@@ -1163,7 +1167,7 @@ export async function isModelCached(modelId: string): Promise<boolean> {
   if (modelId === 'web-llm') {
     return isWebLlmModelCached()
   }
-  if (modelId === 'needle-2' || modelId.includes('needle2') || modelId.includes('needle')) {
+  if (modelId === 'needle-3' || modelId === 'needle-2' || modelId.includes('needle3') || modelId.includes('needle2') || modelId.includes('needle')) {
     return isNeedleModelCached()
   }
   if (modelId === 'whistle-local' || modelId.includes('whistle')) {
@@ -1291,13 +1295,15 @@ export async function getDetailedModelCacheMap(): Promise<ModelCacheStatusMap> {
     result['web-llm'] = { cached: false, sizeBytes: 0 }
   }
 
-  // 5. Needle 2 (Cache Storage API)
+  // 5. Needle 3 (Cache Storage API)
   try {
     const needleCached = await isNeedleModelCached()
     const needleSize = needleCached ? await getNeedleCacheSize() : 0
+    result['needle-3'] = { cached: needleCached, sizeBytes: needleSize }
     result['needle-2'] = { cached: needleCached, sizeBytes: needleSize }
   }
   catch {
+    result['needle-3'] = { cached: false, sizeBytes: 0 }
     result['needle-2'] = { cached: false, sizeBytes: 0 }
   }
 
