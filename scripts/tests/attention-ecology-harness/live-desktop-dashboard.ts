@@ -6,9 +6,9 @@ import readline from 'node:readline'
 import { DesktopCaptureManager } from './engine/screen-capture.js'
 import { computeImageDelta } from './engine/stage0-phash.js'
 import { calculateCosineSimilarity, disposeVisionEncoder, getVisionEmbedding, loadVisionEncoder, normalizeVector } from './engine/stage1-vision-embed.js'
-import { analyzeDeltaRegion, disposeOcrEngine, loadOcrEngine } from './engine/stage2-ocr.js'
+import { analyzeDeltaRegion, disposeOcrEngine, loadOcrEngine, setOcrProgressListener } from './engine/stage2-ocr.js'
 import { classifyZeroShot, disposeTextEncoder, evaluateSalience, loadTextEncoder } from './engine/stage2-salience-eval.js'
-import { disposeVlmForwarder, runForwarder } from './engine/stage3-vlm-forwarder.js'
+import { disposeMirageEngine, loadMirageEngine, runMirageForwarder } from './engine/stage3-mirage.js'
 
 const TEMP_CAPTURE_PATH = path.join(os.tmpdir(), 'airi-live-screen-capture.png')
 const TEMP_PREV_PATH = path.join(os.tmpdir(), 'airi-live-screen-prev.png')
@@ -35,6 +35,8 @@ interface PromotedEvent {
   timeStr: string
   windowName: string
   caption: string
+  ocrMs: number
+  vlmMs: number
 }
 
 const MAX_EVENT_STREAM = 5
@@ -67,7 +69,7 @@ function renderWarmupScreen(step: string, detail: string, percent?: number) {
     + `│    • Stage 0: 32x32 aHash Luma Perceptual Delta (CPU)                       │\n`
     + `│    • Stage 1: Fast CLIP Vision Model (Xenova/clip-vit-base-patch32)         │\n`
     + `│    • Stage 2: Localized Tesseract WASM OCR + Zero-Shot Salience Gate        │\n`
-    + `│    • Stage 3: Vision-Language Model Forwarder (Moondream2 / Heuristic)      │\n`
+    + `│    • Stage 3: Cactus Mirage 4.0.0 WASM Coprocessor (22 MB)                  │\n`
     + `│                                                                             │\n`
     + `└─────────────────────────────────────────────────────────────────────────────┘\n`
   process.stdout.write(ui)
@@ -88,7 +90,8 @@ function renderDashboard() {
   else {
     const formattedBlocks: string[] = []
     for (const evt of eventStream.slice(-MAX_EVENT_STREAM)) {
-      const headerLine = `[${evt.timeStr}] ${evt.windowName}`
+      const timingTag = `[${evt.timeStr} · OCR: ${evt.ocrMs}ms | VLM: ${evt.vlmMs}ms]`
+      const headerLine = `${timingTag} ${evt.windowName}`
       const capLine1 = `└─► ${evt.caption.slice(0, 68)}`
       const capLine2 = evt.caption.length > 68 ? `    ${evt.caption.slice(68, 136)}` : ''
 
@@ -117,7 +120,7 @@ function renderDashboard() {
     + `│ ─── STAGE 2: Localized WASM OCR Error Gate ──────────────────────────────── │\n`
     + `│    ${stage2Status.padEnd(72, ' ')} │\n`
     + `│                                                                             │\n`
-    + `│ ─── STAGE 3: WebGPU VLM Semantic Forwarder (Moondream2) ─────────────────── │\n`
+    + `│ ─── STAGE 3: Cactus Mirage WASM Coprocessor (22 MB) ─────────────────────── │\n`
     + `│    ${stage3Status.padEnd(72, ' ')} │\n`
     + `│                                                                             │\n`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
@@ -156,39 +159,45 @@ function captureDesktopScreen(): boolean {
 }
 
 async function warmUpPipeline() {
-  renderWarmupScreen('[1/4] Stage 1 CLIP Vision Model', 'Initializing weights...', 0)
+  renderWarmupScreen('[1/5] Stage 1 CLIP Vision Model', 'Initializing weights...', 0)
 
   await loadVisionEncoder(
     (msg) => {
-      renderWarmupScreen('[1/4] Stage 1 CLIP Vision Model', msg)
+      renderWarmupScreen('[1/5] Stage 1 CLIP Vision Model', msg)
     },
     (info) => {
       const pct = info.progress ?? (info.loaded && info.total ? (info.loaded / info.total) * 100 : undefined)
       const file = info.file ? ` (${path.basename(info.file)})` : ''
-      renderWarmupScreen('[1/4] Stage 1 CLIP Vision Model', `Downloading ${info.name || 'model'}${file}`, pct)
+      renderWarmupScreen('[1/5] Stage 1 CLIP Vision Model', `Downloading ${info.name || 'model'}${file}`, pct)
     },
   )
 
-  renderWarmupScreen('[2/4] Stage 2 CLIP Text & Salience Model', 'Loading tokenizer & embeddings...', 30)
+  renderWarmupScreen('[2/5] Stage 2 CLIP Text & Salience Model', 'Loading tokenizer & embeddings...', 25)
   await loadTextEncoder(
     (msg) => {
-      renderWarmupScreen('[2/4] Stage 2 CLIP Text & Salience Model', msg)
+      renderWarmupScreen('[2/5] Stage 2 CLIP Text & Salience Model', msg)
     },
     (info) => {
       const pct = info.progress ?? (info.loaded && info.total ? (info.loaded / info.total) * 100 : undefined)
-      renderWarmupScreen('[2/4] Stage 2 CLIP Text & Salience Model', `Downloading ${info.name || 'tokenizer'}`, pct)
+      renderWarmupScreen('[2/5] Stage 2 CLIP Text & Salience Model', `Downloading ${info.name || 'tokenizer'}`, pct)
     },
   )
 
-  renderWarmupScreen('[3/4] Stage 2 Local WASM OCR Engine', 'Initializing Tesseract worker...', 60)
+  renderWarmupScreen('[3/5] Stage 2 Local WASM OCR Engine', 'Initializing Tesseract worker...', 50)
   await loadOcrEngine((m) => {
     if (m && typeof m.progress === 'number') {
       const pct = Math.round(m.progress * 100)
-      renderWarmupScreen('[3/4] Stage 2 Local WASM OCR Engine', `${m.status || 'Loading traineddata'}`, pct)
+      renderWarmupScreen('[3/5] Stage 2 Local WASM OCR Engine', `${m.status || 'Loading traineddata'}`, pct)
     }
   })
+  setOcrProgressListener(null)
 
-  renderWarmupScreen('[4/4] Stage 0 Desktop Capture & Centroid', 'Capturing initial screen baseline...', 90)
+  renderWarmupScreen('[4/5] Stage 3 Cactus Mirage Coprocessor', 'Loading 22 MB WASM model...', 75)
+  await loadMirageEngine((msg) => {
+    renderWarmupScreen('[4/5] Stage 3 Cactus Mirage Coprocessor', msg, 85)
+  })
+
+  renderWarmupScreen('[5/5] Stage 0 Desktop Capture & Centroid', 'Capturing initial screen baseline...', 95)
   const initialCaptureOk = captureDesktopScreen()
   if (initialCaptureOk && fs.existsSync(TEMP_CAPTURE_PATH)) {
     const { embedding } = await getVisionEmbedding(TEMP_CAPTURE_PATH)
@@ -260,7 +269,19 @@ async function runLiveTick() {
       ? `🎯 [NOVELTY SPIKE] novelty=${novelty.toFixed(4)} │ Tag: ${topTag} (${topScore})`
       : `📝 [STABLE NOVELTY] novelty=${novelty.toFixed(4)} │ Tag: ${topTag} (${topScore})`
 
-    const ocrEvidence = await analyzeDeltaRegion(TEMP_PREV_PATH, TEMP_CAPTURE_PATH)
+    stage2Status = `⏳ [OCR RUNNING] Recognizing text ${renderProgressBar(0, 14)}`
+    renderDashboard()
+
+    const ocrEvidence = await analyzeDeltaRegion(TEMP_PREV_PATH, TEMP_CAPTURE_PATH, {
+      onProgress: (m) => {
+        if (m && typeof m.progress === 'number' && m.status === 'recognizing text') {
+          const pct = Math.min(100, Math.max(0, Math.round(m.progress * 100)))
+          stage2Status = `⏳ [OCR RUNNING] Recognizing text ${renderProgressBar(pct, 14)}`
+          renderDashboard()
+        }
+      },
+    })
+    const ocrMs = Math.round(ocrEvidence.ocrMs)
 
     const salience = evaluateSalience(
       `dashboard-tick-${tickCount}`,
@@ -272,42 +293,39 @@ async function runLiveTick() {
     )
 
     if (ocrEvidence.errorPatternHits >= 2) {
-      stage2Status = `🚨 [ERROR CASCADE] errors=${ocrEvidence.errorPatternHits}/2 (${ocrEvidence.errorPatterns.join(', ')})`
+      stage2Status = `🚨 [ERROR CASCADE] (${ocrMs}ms) errors=${ocrEvidence.errorPatternHits}/2 (${ocrEvidence.errorPatterns.join(', ')})`
     }
     else if (ocrEvidence.interestKeywordHits >= 1) {
-      stage2Status = `🎯 [INTEREST MATCH] (${ocrEvidence.interestKeywords.join(', ')})`
+      stage2Status = `🎯 [INTEREST MATCH] (${ocrMs}ms) [${ocrEvidence.interestKeywords.join(', ')}]`
     }
     else {
-      stage2Status = `🟢 [QUIET] errors=0/2 | interest=0`
+      stage2Status = `🟢 [QUIET] (${ocrMs}ms) errors=0/2 | interest=0`
     }
 
     if (salience.decision === 'PROMOTE') {
       overallStatus = ocrEvidence.errorPatternHits >= 2
         ? '🚨 HIGH SALIENCE ERROR PROMOTED'
         : `🎯 PROJECT INTEREST EVENT: [${ocrEvidence.interestKeywords.join(', ')}]`
-      stage3Status = '📷 [VLM RUNNING] Synthesizing Visual Event Summary...'
+      stage3Status = '📷 [MIRAGE RUNNING] Running Cactus Mirage WASM Describe...'
       renderDashboard()
 
-      const summaryResult = await runForwarder(
+      const mirageResult = await runMirageForwarder(
         TEMP_CAPTURE_PATH,
-        zeroShot,
-        ocrEvidence,
+        topTag,
+        'dark',
       )
-      const roundedVlmMs = Math.round(summaryResult.vlmMs)
-      stage3Status = `📷 [VLM OK] Summary Synthesized (${roundedVlmMs}ms) [Tick #${tickCount}]`
+      const roundedVlmMs = Math.round(mirageResult.latencyMs)
+      stage3Status = `📷 [MIRAGE OK] (${roundedVlmMs}ms) [Tick #${tickCount}]`
 
-      // Extract window name and VLM caption tag
-      const summaryLines = summaryResult.summary.split('\n')
-      const windowLine = summaryLines.find(l => l.startsWith('Active Window:')) || 'Active Window: Desktop'
-      const captionLine = summaryLines.find(l => l.startsWith('Screen Content Tags:')) || ''
-
-      const windowName = windowLine.replace('Active Window:', '').replace(' mode)', ')').trim().slice(0, 24)
-      const caption = captionLine.replace('Screen Content Tags:', '').trim()
+      const windowName = topTag.slice(0, 24)
+      const caption = mirageResult.result.reasoning || mirageResult.result.ocrText || 'Visual scene updated.'
 
       eventStream.push({
         timeStr: formatTime12h(),
         windowName,
-        caption: caption || 'Visual scene updated.',
+        caption,
+        ocrMs,
+        vlmMs: roundedVlmMs,
       })
       if (eventStream.length > MAX_EVENT_STREAM) {
         eventStream.shift()
@@ -403,7 +421,7 @@ async function cleanExit() {
       disposeVisionEncoder(),
       disposeTextEncoder(),
       disposeOcrEngine(),
-      disposeVlmForwarder(),
+      disposeMirageEngine(),
     ])
     captureManager.dispose()
     if (fs.existsSync(TEMP_CAPTURE_PATH))

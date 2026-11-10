@@ -1,8 +1,8 @@
 # Architectural Design: Needle-3 On-Device Runtime — Subconscious Cognition, Conversational Pacing & RAG Resurrection
 
-**Status:** Proposed Architecture & Technical Design Specification
+**Status:** Active Implementation (4 of 5 Domains Cleared — Core WASM, RAG Ledger, Daydreaming, Pacing & Cache UI Shipped)
 **Authors:** AIRI Architecture Team & AI Assistant
-**Date:** 2026-11-09
+**Date:** 2026-11-10 (Updated with Implementation Checkpoints)
 **Target Workspaces & Packages:**
 - `airi_dasilva333/packages/stage-ui/src/workers/needle/` (WASM worker host & C ABI bridge)
 - `airi_dasilva333/packages/stage-ui/src/libs/inference/adapters/` (`needle-client.ts` typed interface)
@@ -64,13 +64,24 @@ However, Needle-2 suffered from severe operational constraints: a fixed 45M dens
 │ RAG & Memory │     │ Subconscious │              │ Conversational│       │     Nan0     │
 │Entity Ledger │     │ Daydreaming  │              │    Pacing    │        │ Shadow Engine│
 ├──────────────┤     ├──────────────┤              ├──────────────┤        ├──────────────┤
+│ [CLEARED]    │     │ [CLEARED]    │              │ [CLEARED]    │        │ [PENDING]    │
 │• 8k Ingest   │     │• Toggle 4    │              │• t=0 Probe   │        │• Pragmatic   │
 │• Native 256d │     │  active_topic│              │  (<40ms TTFT)│        │  Intent      │
 │  Embeddings  │     │• Daydream    │              │• CoT Pivot   │        │• Emotional   │
 │• Span Claims │     │  Chips       │              │  Extraction  │        │  Climate     │
-│• 0-GPU RAG   │     │• Vibe Shifts │              │• No Regex    │        │• Multilingual│
+│• 0-GPU RAG   │     │• Vibe Shifts │              │• Dual-Channel│        │• Multilingual│
 └──────────────┘     └──────────────┘              └──────────────┘        └──────────────┘
 ```
+
+### Domain Implementation Status Summary
+
+| Domain | Status | Key Components & Shipped Checkpoints |
+| :--- | :--- | :--- |
+| **Domain 1: RAG & Memory Entity Ledger** | **CLEARED** | Commit `ebde76df5` — Resurrected zero-GPU vector search with 3,072d/256d unit embeddings, multi-turn claim and mention extraction in `ledger-priming.ts` and `entity-ledger.ts`. |
+| **Domain 2: Subconscious Daydreaming & Toggle 4** | **CLEARED** | Commit `011acfe28` — Registered `record_subconscious_beat` in Cactus WASM, created Cadence Governor in `daydream.ts` (salience threshold $\ge 0.72$), and wired ML topic generation in `recent-topics.ts`. |
+| **Domain 3: Conversational Pacing & Spoken Asides** | **CLEARED** | Commits `dd48872b3`, `2321823ba`, `30c34ad46` — Wired dynamic aside caching, 112-token budget, CPU thread scaling, clean `Thought: ...\n\nCall record_cot_pivot.` prompt framing, dual-channel extraction (JSON arguments + reasoning trace regex), and anti-echo guardrails. |
+| **Domain 4: Nan0 Subconscious Shadow Engine** | **PENDING** | `packages/nan0-runtime/src/shadow/Nan0SubconsciousShadowEngine.ts` — Multilingual intent resolution, emotional climate tracking, and resolving the "Famous Sentence" test suite. |
+| **Domain 5: Core WASM Substrate & UI Settings** | **CLEARED** | Core WASM loader, weights caching (`needle3-cache`), memory management, and `needle-client.ts` cleared. `ModelCacheManager.vue` UI catalog entry (8–29 MB) and `cache-utils.ts` Cache Storage inspection and legacy eviction cleared. |
 
 ---
 
@@ -404,43 +415,58 @@ The following table serves as the authoritative source map for all codebase entr
 
 ```mermaid
 graph TD
-    P1["Phase 1: WASM Worker Substrate & C ABI Bindings"] --> P2["Phase 2: Conversational Pacing Wire-Up (Real WASM replacing regex)"]
-    P2 --> P3["Phase 3: Subconscious Daydreaming & Toggle 4 Pre-Flight"]
-    P3 --> P4["Phase 4: Entity Ledger Ingestion & Dual-Head RAG Resurrection"]
-    P4 --> P5["Phase 5: Nan0 Pragmatic Shadow Engine Upgrade"]
-    P5 --> P6["Phase 6: UI Settings & Cache Storage Manager Verification"]
-    P6 --> P7["Phase 7: LoCoMo Benchmark Re-Evaluation (Pass 12)"]
+    P1["Phase 1: WASM Worker Substrate & C ABI Bindings [CLEARED]"] --> P2["Phase 2: Conversational Pacing Wire-Up [CLEARED]"]
+    P2 --> P3["Phase 3: Subconscious Daydreaming & Toggle 4 Pre-Flight [CLEARED]"]
+    P3 --> P4["Phase 4: Entity Ledger Ingestion & Dual-Head RAG Resurrection [CLEARED]"]
+    P4 --> P6["Phase 6: UI Settings & Cache Storage Manager Verification [CLEARED]"]
+    P6 --> P5["Phase 5: Nan0 Pragmatic Shadow Engine Upgrade [NEXT]"]
+    P5 --> P7["Phase 7: LoCoMo Benchmark Re-Evaluation (Pass 12) [PENDING]"]
 ```
 
-### Phase 1: WASM Worker Substrate & C ABI Bindings
-* Place `needle3.wasm` into `packages/stage-ui/src/workers/needle/`.
-* Implement `worker.ts` with WASM C ABI bindings (`needle_load`, `needle_init`, `needle_complete`, `needle_embed`, `needle_reset`).
-* Verify 100% grammar compliance with the `record_subconscious_beat` schema on CPU threads.
-* Validate dynamic layer slicing (`layers: 4` for ~8 MB vs `layers: 20` for ~29 MB).
+### Phase 1: WASM Worker Substrate & C ABI Bindings — [CLEARED]
+- [x] Implemented `worker.ts` with Cactus WASM C ABI bindings (`cactus_load`, `cactus_init`, `cactus_complete`, `cactus_embed`, `cactus_set_threads`, `cactus_reset`).
+- [x] Streamed weights (34 MB `needle3.cact`) and WASM runtime directly into Cache Storage API (`'needle3-cache'`).
+- [x] Dynamic multi-threaded CPU parallelization (`cactus_set_threads` bound to `navigator.hardwareConcurrency`, 2–4 threads).
+- [x] Shipped in commits `dd48872b3` and `2321823ba`.
 
-### Phase 2: Conversational Pacing Wire-Up
-* Wire `probeInitialReaction` in `needle-client.ts` directly into `use-turn-pacing.ts`.
-* Eliminate the hardcoded string hash heuristic in `worker.ts` and confirm true WASM generation in $<40\text{ ms}$.
-* Test CoT reasoning pivot extraction on streaming private monologue buffers.
+### Phase 2: Conversational Pacing Wire-Up (Domain 3) — [CLEARED]
+- [x] Wired `probeInitialReaction` and `probeCotPivot` in `needle-client.ts` directly into `use-turn-pacing.ts`.
+- [x] Expanded token generation budget from 32 to 112 tokens, eliminating premature reasoning truncation.
+- [x] Implemented uncontaminated prompt framing (`Thought: ...\n\nCall record_cot_pivot.`) to eliminate the prompt-echo bug and action-intent misclassifications.
+- [x] Dual-channel extraction (JSON arguments + reasoning trace regex extraction) with anti-echo guardrails.
+- [x] Bounded inference to trailing 500-character context slice for sub-900ms to 1.3s response time.
+- [x] Validated with side-by-side synthetic CoT benchmark (`scripts/tests/pacing-benchmark.mjs`) and 122 Vitest tests.
+- [x] Shipped in commits `dd48872b3`, `2321823ba`, and `30c34ad46`.
 
-### Phase 3: Subconscious Daydreaming & Toggle 4 Pre-Flight
-* Connect turn finalization hook in chat orchestrator to dispatch the last 6–8 dialogue turns to Needle-3.
-* Wire extracted `active_topics` into `recent-topics.ts` and verify appearance in the amber `PRE-FLIGHT GROUNDING ACTIVE` panel.
-* Connect high-salience chips ($\ge 0.72$) to the `ChatMemoriesRibbon.vue` stream.
+### Phase 3: Subconscious Daydreaming & Toggle 4 Pre-Flight (Domain 2) — [CLEARED]
+- [x] Registered `record_subconscious_beat` schema in Cactus WASM linear memory.
+- [x] Added `SubconsciousBeat` typed contract and `extractSubconsciousBeat()` to `needle-client.ts`.
+- [x] Built Cadence Governor in `packages/stage-ui/src/stores/daydream.ts` (salience threshold $\ge 0.72$, turn gap pacer $\ge 2$ turns unless milestone $\ge 0.92$, token overlap deduplication).
+- [x] Connected multi-turn turn finalization in `recent-topics.ts` for Toggle 4 `[RECENT TOPICS]` grounding.
+- [x] Shipped in commit `011acfe28` with 8 Daydream store tests and 3 Recent Topics tests passing.
 
-### Phase 4: Entity Ledger Ingestion & Dual-Head RAG Resurrection
-* Update `ledger-priming.ts` to extract mentions, temporal phrases, and claims via Needle-3.
-* Store Needle-3's 256-dimensional embeddings directly in `entity-ledger.ts`.
-* Validate zero-GPU local vector search over character memory without `@xenova/transformers`.
+### Phase 4: Entity Ledger Ingestion & Dual-Head RAG Resurrection (Domain 1) — [CLEARED]
+- [x] Registered `extract_memory_fragments` schema (mentions, temporal relations, claims) in Cactus WASM.
+- [x] Wired normalized unit vector embeddings (`cactus_embed`) in `needle-client.ts` for zero-GPU cosine similarity.
+- [x] Updated `ledger-priming.ts` and `entity-ledger.ts` to consume Needle-3 fragments and vector search.
+- [x] Shipped in commit `ebde76df5`.
 
-### Phase 5: Nan0 Pragmatic Shadow Engine Upgrade
-* Update `Nan0SubconsciousShadowEngine.ts` to leverage Needle-3’s multilingual support.
-* Verify resolution of the "Famous Sentence" test suite without hedging collapse.
+### Phase 6: UI Settings & Cache Storage Manager Verification — [CLEARED]
+- [x] Updated `packages/stage-ui/src/libs/inference/cache-utils.ts` with `NEEDLE_CACHE_NAME = 'needle3-cache'`, `isNeedleModelCached()`, `getNeedleCacheSize()`, and `clearNeedleCache()` with legacy `needle-cache` eviction.
+- [x] Configured `packages/stage-ui/src/components/scenarios/settings/ModelCacheManager.vue` catalog entry with `needle-3` (Laddered SAN 8–29 MB, WASM / CPU) under LLM category.
+- [x] Verified Cache Storage API inspection, download progress ratio, and cache eviction across browser and Electron.
 
-### Phase 6: UI Settings & Cache Storage Manager Verification
-* Update `cache-utils.ts` and `ModelCacheManager.vue` to display and manage `needle-3`.
-* Verify download, caching progress bar, and cache eviction in Chrome and Electron.
+---
 
-### Phase 7: LoCoMo Benchmark Re-Evaluation (Pass 12)
-* Update `scripts/tests/locomo-benchmark/needle-node.mjs` to run Pass 12 against `conv-47`.
-* Measure token F1, evidence recall, and latency improvements over legacy Pass 2 and Pass 3 baselines.
+### Remaining Domains & Phases To Do
+
+### Phase 5: Nan0 Pragmatic Shadow Engine Upgrade (Domain 4) — [PENDING / NEXT]
+- [ ] Connect `Nan0SubconsciousShadowEngine.ts` to `needle-client.ts` to replace legacy cleanroom shims.
+- [ ] Leverage Needle-3's calibrated confidence scoring to eliminate the "Hedging Sink" on ambiguous social turns.
+- [ ] Verify resolution of "The Famous Sentence" test suite and multilingual inputs (French, Spanish, German, Italian, Dutch, Polish).
+- [ ] Target file: `packages/nan0-runtime/src/shadow/Nan0SubconsciousShadowEngine.ts`.
+
+### Phase 7: LoCoMo Benchmark Re-Evaluation (Pass 12) — [PENDING]
+- [ ] Update `scripts/tests/locomo-benchmark/needle-node.mjs` and `needle-schema.mjs` for Needle-3 C ABI.
+- [ ] Execute Pass 12 against benchmark dataset `conv-47` (31 sessions, 689 turns).
+- [ ] Measure Token F1, evidence recall, and latency improvements over Pass 2 and Pass 3 baselines.

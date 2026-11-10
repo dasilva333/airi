@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^3.0.0",
+    "@proj-airi/stage-shared": "workspace:*",
     "onnxruntime-node": "^1.19.0",
     "sharp": "^0.34.2",
     "tesseract.js": "^7.0.0",

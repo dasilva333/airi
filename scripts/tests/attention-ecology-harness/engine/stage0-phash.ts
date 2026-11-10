@@ -10,27 +10,16 @@
  * (aHash) with Hamming distance, which is robust to PNG encoder noise.
  */
 
+import type { PerceptualHash, PixelDeltaResult } from '@proj-airi/stage-shared/attention'
+
 import fs from 'node:fs'
 
 import sharp from 'sharp'
 
-const HASH_GRID = 32 // 32x32 luma grid -> 1024-bit hash
-const HASH_BITS = HASH_GRID * HASH_GRID
+import { computeAHash, hammingDistance, HASH_BITS, HASH_GRID } from '@proj-airi/stage-shared/attention'
 
-export interface PerceptualHash {
-  bits: Uint8Array
-  hex: string
-}
-
-export interface PixelDeltaResult {
-  hasChanged: boolean
-  /** Absolute Hamming distance between the two 1024-bit hashes. */
-  hammingDistance: number
-  /** Hamming distance normalized to [0, 1] by hash length. */
-  normalizedDistance: number
-  hashA: string
-  hashB: string
-}
+export { hammingDistance, HASH_BITS, HASH_GRID }
+export type { PerceptualHash, PixelDeltaResult }
 
 /**
  * Computes a 1024-bit average-hash (aHash): decode -> 32x32 luma -> bit set
@@ -43,39 +32,7 @@ export async function computePerceptualHash(imagePath: string): Promise<Perceptu
     .raw()
     .toBuffer({ resolveWithObject: true })
 
-  let mean = 0
-  for (let i = 0; i < data.length; i++) mean += data[i]
-  mean /= data.length
-
-  const bits = new Uint8Array(HASH_BITS)
-  const hexBytes: number[] = []
-  let byteAcc = 0
-  for (let i = 0; i < HASH_BITS; i++) {
-    const bit = data[i] >= mean ? 1 : 0
-    bits[i] = bit
-    byteAcc = (byteAcc << 1) | bit
-    if (i % 8 === 7) {
-      hexBytes.push(byteAcc)
-      byteAcc = 0
-    }
-  }
-
-  return {
-    bits,
-    hex: hexBytes.map(b => b.toString(16).padStart(2, '0')).join(''),
-  }
-}
-
-export function hammingDistance(a: Uint8Array, b: Uint8Array): number {
-  if (a.length !== b.length) {
-    throw new Error(`Hash length mismatch: ${a.length} vs ${b.length}`)
-  }
-  let dist = 0
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i])
-      dist++
-  }
-  return dist
+  return computeAHash(new Uint8Array(data))
 }
 
 /**

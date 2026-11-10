@@ -22,6 +22,19 @@ import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 
 import { AutoProcessor, CLIPVisionModelWithProjection, env, RawImage } from '@huggingface/transformers'
+import {
+  calculateCosineDistance,
+  calculateCosineSimilarity,
+  centroidOf,
+  normalizeVector,
+} from '@proj-airi/stage-shared/attention'
+
+export {
+  calculateCosineDistance,
+  calculateCosineSimilarity,
+  centroidOf,
+  normalizeVector,
+}
 
 // Model weights cache lives next to the harness (gitignored), not in the OS home dir.
 const HARNESS_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -79,15 +92,6 @@ export async function disposeVisionEncoder(): Promise<void> {
   processorPromise = null
 }
 
-export function normalizeVector(vec: Float32Array): Float32Array {
-  let norm = 0
-  for (let i = 0; i < vec.length; i++) norm += vec[i] * vec[i]
-  norm = Math.sqrt(norm) + 1e-9
-  const out = new Float32Array(vec.length)
-  for (let i = 0; i < vec.length; i++) out[i] = vec[i] / norm
-  return out
-}
-
 /**
  * Encodes an image file into a unit-norm 512-dim CLIP vision embedding.
  * Decoding goes through sharp -> RawImage so no image-backend magic inside
@@ -108,45 +112,4 @@ export async function getVisionEmbedding(imagePath: string, onLog?: (msg: string
 
   const embedding = normalizeVector(image_embeds.data as Float32Array)
   return { embedding, dims: embedding.length, encodeMs: performance.now() - started }
-}
-
-/** Cosine similarity in [-1, 1]. */
-export function calculateCosineSimilarity(vecA: Float32Array, vecB: Float32Array): number {
-  if (vecA.length !== vecB.length) {
-    throw new Error(`Dimension mismatch: ${vecA.length} vs ${vecB.length}`)
-  }
-
-  let dot = 0
-  let normA = 0
-  let normB = 0
-
-  for (let i = 0; i < vecA.length; i++) {
-    dot += vecA[i] * vecB[i]
-    normA += vecA[i] * vecA[i]
-    normB += vecB[i] * vecB[i]
-  }
-
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-9)
-}
-
-/** Cosine distance (1.0 - cosine similarity) in [0, 2]. */
-export function calculateCosineDistance(vecA: Float32Array, vecB: Float32Array): number {
-  return 1.0 - calculateCosineSimilarity(vecA, vecB)
-}
-
-/** Unit-norm mean of a set of embeddings (rolling context centroid). */
-export function centroidOf(embeddings: Float32Array[]): Float32Array {
-  if (embeddings.length === 0) {
-    throw new Error('centroidOf() requires at least one embedding')
-  }
-  const dims = embeddings[0].length
-  const acc = new Float32Array(dims)
-  for (const emb of embeddings) {
-    if (emb.length !== dims) {
-      throw new Error(`Dimension mismatch in centroid: ${emb.length} vs ${dims}`)
-    }
-    for (let i = 0; i < dims; i++) acc[i] += emb[i]
-  }
-  for (let i = 0; i < dims; i++) acc[i] /= embeddings.length
-  return normalizeVector(acc)
 }

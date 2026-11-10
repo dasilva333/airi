@@ -24,7 +24,7 @@ import { computeImageDelta } from './engine/stage0-phash.js'
 import { calculateCosineDistance, centroidOf, disposeVisionEncoder, getVisionEmbedding } from './engine/stage1-vision-embed.js'
 import { analyzeDeltaRegion, disposeOcrEngine } from './engine/stage2-ocr.js'
 import { classifyZeroShot, computeRedAlertRatio, disposeTextEncoder, evaluateSalience } from './engine/stage2-salience-eval.js'
-import { disposeVlmForwarder, runForwarder } from './engine/stage3-vlm-forwarder.js'
+import { disposeMirageEngine, runMirageForwarder } from './engine/stage3-mirage.js'
 
 const SCREENSHOT_DIR = path.resolve(import.meta.dirname, 'test-screenshots')
 
@@ -172,16 +172,15 @@ async function runAttentionEcologyEval() {
     const evaluation = evaluateSalience(entry.file, novelty, ocr, zeroShot, redAlertRatio, GATE_THRESHOLDS)
 
     if (evaluation.decision === 'PROMOTE' && evaluation.packet) {
-      // Stage 3: WebGPU vision semantic forwarder synthesizes the [Visual
-      // Event] summary block attached to the promotion packet (VLM caption is
-      // best-effort; deterministic fields always present).
-      const forwarder = await runForwarder(framePath, zeroShot, ocr, msg => console.log(`  Stage3 ${msg}`))
+      // Stage 3: Cactus Mirage 4.0.0 WASM vision coprocessor synthesizes the
+      // [Visual Event] summary block attached to the promotion packet.
+      const forwarder = await runMirageForwarder(framePath, zeroShot.topLabel, 'light')
       evaluation.packet.summary = forwarder.summary
       packets.push(evaluation.packet)
       diary.push(`[${entry.file}] PROMOTED (ocrHits=${ocr.errorPatternHits}, novelty=${novelty.toFixed(4)}) -> cloud LLM reaction requested`)
       console.log('  Stage3 [Visual Event] summary:')
       forwarder.summary.split('\n').forEach(line => console.log(`    ${line}`))
-      console.log(`  Stage3 VLM status: ${forwarder.vlmStatus}${forwarder.note ? ` (${forwarder.note})` : ''}`)
+      console.log(`  Stage3 Cactus Mirage latency: ${forwarder.latencyMs}ms (22 MB WASM)`)
     }
     else {
       acceptedEmbeddings.push(embedding)
@@ -324,7 +323,7 @@ async function runAttentionEcologyEval() {
   await disposeVisionEncoder()
   await disposeTextEncoder()
   await disposeOcrEngine()
-  await disposeVlmForwarder()
+  await disposeMirageEngine()
   process.exitCode = failed.length === 0 ? 0 : 1
 }
 

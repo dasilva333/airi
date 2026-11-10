@@ -74,13 +74,23 @@ export interface OcrEvidence {
 }
 
 let workerPromise: Promise<Worker> | null = null
+let progressListener: ((m: any) => void) | null = null
+
+export function setOcrProgressListener(listener: ((m: any) => void) | null): void {
+  progressListener = listener
+}
 
 export async function getWorker(onProgress?: (m: any) => void): Promise<Worker> {
+  if (onProgress) {
+    progressListener = onProgress
+  }
   if (!workerPromise) {
     workerPromise = createWorker('eng', 1, {
       cachePath: TESSDATA_CACHE,
       cacheMethod: 'write',
-      logger: typeof onProgress === 'function' ? onProgress : () => {},
+      logger: (m: any) => {
+        progressListener?.(m)
+      },
     })
   }
   return workerPromise
@@ -165,7 +175,12 @@ export async function computeDeltaBBox(fileA: string, fileB: string): Promise<De
 }
 
 /** Extracts OCR text from a pixel region of an image via tesseract.js. */
-export async function extractTextFromRegion(imagePath: string, bbox: DeltaBBox): Promise<{ text: string, ocrMs: number }> {
+export async function extractTextFromRegion(
+  imagePath: string,
+  bbox: DeltaBBox,
+  onProgress?: (m: any) => void,
+): Promise<{ text: string, ocrMs: number }> {
+  progressListener = onProgress ?? null
   const started = performance.now()
   const worker = await getWorker()
   const buffer = await sharp(imagePath)
@@ -173,6 +188,7 @@ export async function extractTextFromRegion(imagePath: string, bbox: DeltaBBox):
     .png()
     .toBuffer()
   const { data: { text } } = await worker.recognize(buffer)
+  progressListener = null
   return { text, ocrMs: performance.now() - started }
 }
 
@@ -220,6 +236,7 @@ export async function analyzeDeltaRegion(
   options?: {
     errorPatterns?: RegExp[]
     interestKeywords?: RegExp[]
+    onProgress?: (m: any) => void
   },
 ): Promise<OcrEvidence> {
   const bbox = await computeDeltaBBox(prevPath, currPath)
@@ -236,7 +253,7 @@ export async function analyzeDeltaRegion(
     }
   }
 
-  const { text, ocrMs } = await extractTextFromRegion(currPath, bbox)
+  const { text, ocrMs } = await extractTextFromRegion(currPath, bbox, options?.onProgress)
   const errPatterns = options?.errorPatterns ?? DEFAULT_ERROR_PATTERNS
   const kwPatterns = options?.interestKeywords ?? DEFAULT_INTEREST_KEYWORDS
 

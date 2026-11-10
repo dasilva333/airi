@@ -80,7 +80,7 @@ const whistleDownloadState = ref<WhistleDL>('idle')
 const whistleProgress = ref(0)
 const whistleErrorMessage = ref('')
 
-async function startWhistleDownload(force = false) {
+async function startWhistleDownload(_force = false) {
   whistleDownloadState.value = 'downloading'
   whistleProgress.value = 0
   whistleErrorMessage.value = ''

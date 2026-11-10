@@ -7,7 +7,7 @@ import { computeImageDelta } from './engine/stage0-phash.js'
 import { calculateCosineSimilarity, disposeVisionEncoder, getVisionEmbedding, normalizeVector } from './engine/stage1-vision-embed.js'
 import { analyzeDeltaRegion, disposeOcrEngine } from './engine/stage2-ocr.js'
 import { disposeTextEncoder, evaluateSalience } from './engine/stage2-salience-eval.js'
-import { disposeVlmForwarder, runForwarder } from './engine/stage3-vlm-forwarder.js'
+import { disposeMirageEngine, runMirageForwarder } from './engine/stage3-mirage.js'
 
 const TEMP_CAPTURE_PATH = path.join(os.tmpdir(), 'airi-live-screen-capture.png')
 const TEMP_PREV_PATH = path.join(os.tmpdir(), 'airi-live-screen-prev.png')
@@ -100,6 +100,7 @@ async function runLiveTick() {
       { ocrErrorPatternsMin: 2, interestKeywordsMin: 1 },
     )
 
+    const ocrMs = Math.round(ocrEvidence.ocrMs)
     const totalMs = Date.now() - startMs
     const decisionBadge = salience.decision === 'PROMOTE'
       ? (ocrEvidence.errorPatternHits >= 2 ? '🚨 PROMOTED (ERROR CASCADE)' : `🎯 PROMOTED (INTEREST: ${ocrEvidence.interestKeywords.join(', ')})`)
@@ -107,22 +108,22 @@ async function runLiveTick() {
         ? '📝 NOTE (WINDOW / CONTEXT SHIFT)'
         : '💤 IGNORED (QUIET FRAME)'
 
-    console.log(`[${timestamp}] Ticker #${tickCount} | Latency: ${totalMs}ms | ${decisionBadge}`)
+    console.log(`[${timestamp} · OCR: ${ocrMs}ms] Ticker #${tickCount} | Latency: ${totalMs}ms | ${decisionBadge}`)
     console.log(`  ├─ Stage 0 aHash:  norm=${stage0.normalizedDistance.toFixed(4)} (CHANGED)`)
     console.log(`  ├─ Stage 1 CLIP:   novelty=${novelty.toFixed(4)} (threshold: 0.0200)`)
-    console.log(`  └─ Stage 2 OCR:    errorHits=${ocrEvidence.errorPatternHits} | interestHits=${ocrEvidence.interestKeywordHits} [${ocrEvidence.interestKeywords.join(', ')}]`)
+    console.log(`  └─ Stage 2 OCR:    (${ocrMs}ms) errorHits=${ocrEvidence.errorPatternHits} | interestHits=${ocrEvidence.interestKeywordHits} [${ocrEvidence.interestKeywords.join(', ')}]`)
 
     if (salience.decision === 'PROMOTE') {
       console.log('\n  ┌────────────────────────────────────────────────────────────┐')
-      console.log('  │  PROMOTED ATTENTION EVENT - SYNTHESIZING VISUAL SUMMARY...  │')
+      console.log('  │  PROMOTED ATTENTION EVENT - RUNNING CACTUS MIRAGE WASM...  │')
       console.log('  └────────────────────────────────────────────────────────────┘')
-      const summaryResult = await runForwarder(
+      const mirageResult = await runMirageForwarder(
         TEMP_CAPTURE_PATH,
-        { scores: { terminal_error: 0, terminal_normal: 0, code_editor: 0, video_player: 0 }, topLabel: 'code_editor', errorMargin: 0 },
-        ocrEvidence,
+        'Desktop',
+        'dark',
       )
-      console.log(summaryResult.summary)
-      console.log('')
+      console.log(mirageResult.summary)
+      console.log(`  └─ Mirage Latency: ${mirageResult.latencyMs}ms | Total Pipeline: ${Date.now() - startMs}ms\n`)
     }
     else {
       // Update centroid on quiet shift
@@ -156,7 +157,7 @@ process.on('SIGINT', async () => {
       disposeVisionEncoder(),
       disposeTextEncoder(),
       disposeOcrEngine(),
-      disposeVlmForwarder(),
+      disposeMirageEngine(),
     ])
     captureManager.dispose()
     if (fs.existsSync(TEMP_CAPTURE_PATH))

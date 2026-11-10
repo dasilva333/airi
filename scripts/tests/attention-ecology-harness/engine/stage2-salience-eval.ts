@@ -13,6 +13,7 @@ import type { OcrEvidence } from './stage2-ocr.js'
 import sharp from 'sharp'
 
 import { AutoTokenizer, CLIPTextModelWithProjection } from '@huggingface/transformers'
+import { evaluateSalience as evaluateSharedSalience } from '@proj-airi/stage-shared/attention'
 
 import { calculateCosineSimilarity, CLIP_MODEL_ID, normalizeVector } from './stage1-vision-embed.js'
 
@@ -165,52 +166,14 @@ export function evaluateSalience(
   redAlertRatio: number,
   thresholds: SalienceThresholds = {},
 ): SalienceEvaluation {
-  const errorMin = thresholds.ocrErrorPatternsMin ?? 2
-  const interestMin = thresholds.interestKeywordsMin ?? 1
-
-  const isErrorCascade = ocr.errorPatternHits >= errorMin
-  const isInterestMatch = ocr.interestKeywordHits >= interestMin
-
-  if (isErrorCascade || isInterestMatch) {
-    const reason = isErrorCascade
-      ? `OCR error evidence: ${ocr.errorPatternHits} distinct pattern(s) [${ocr.errorPatterns.join(', ')}] >= ${errorMin}`
-      : `Semantic project interest match: [${ocr.interestKeywords.join(', ')}]`
-
-    const caption: SalienceLabel = isErrorCascade ? 'terminal_error' : zeroShot.topLabel
-
-    return {
-      decision: 'PROMOTE',
-      reason,
-      packet: {
-        type: 'PROMOTION_PACKET',
-        frameId,
-        timestamp: new Date().toISOString(),
-        caption,
-        novelty,
-        signals: {
-          ocrErrorPatternHits: ocr.errorPatternHits,
-          ocrErrorPatterns: ocr.errorPatterns,
-          interestKeywordHits: ocr.interestKeywordHits,
-          interestKeywords: ocr.interestKeywords,
-          ocrSnippet: ocr.text.replace(/\s+/g, ' ').trim().slice(0, 200),
-          errorMargin: zeroShot.errorMargin,
-          redAlertRatio,
-          zeroShotScores: zeroShot.scores,
-        },
-        reason,
-      },
-    }
-  }
-
-  if (ocr.errorPatternHits === 1) {
-    return {
-      decision: 'NOTE',
-      reason: `minor error evidence (1 pattern: ${ocr.errorPatterns[0]}) below promotion floor ${errorMin}; monitoring in diary`,
-    }
-  }
-
-  return {
-    decision: 'NOTE',
-    reason: 'routine event (no error cascade or interest keywords); writing to diary buffer only',
-  }
+  return evaluateSharedSalience({
+    frameId,
+    novelty,
+    ocrText: ocr.text,
+    errorPatterns: ocr.errorPatterns,
+    interestKeywords: ocr.interestKeywords,
+    zeroShot,
+    redAlertRatio,
+    thresholds,
+  }) as SalienceEvaluation
 }

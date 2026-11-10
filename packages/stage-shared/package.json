@@ -16,6 +16,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./attention": "./src/attention/index.ts",
     "./vite": "./src/vite.ts",
     "./beat-sync": "./src/beat-sync/index.ts",
     "./electron-renderer": "./src/electron-renderer.d.ts",
