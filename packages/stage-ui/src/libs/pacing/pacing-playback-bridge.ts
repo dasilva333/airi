@@ -305,57 +305,79 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
       return false
     }
 
-    if (!this.synthesizeAudio) {
-      this.coordinator.notifyCacheMiss({
-        reason: 'synthesis_failed',
-        error: 'synthesizeAudio handler unavailable',
-        elapsedMs: 0,
-      })
-      return false
-    }
-
-    const budgetMs = this.coordinator.policy.maxSynthesisBudgetMs ?? 3200
-    const abortController = new AbortController()
-    this.activeAbortController = abortController
     const startSynthesizeAt = this.clock.now()
+    const params = this.voiceParams ? { ...this.voiceParams, text: candidate.text } : null
 
-    let rawBuffer: ArrayBuffer
-    let timerHandle: any = null
-    let timedOut = false
-    let onAbort!: () => void
+    let rawBuffer: ArrayBuffer | undefined
+    let synthesized = false
+    let cached: Awaited<ReturnType<typeof getThinkingAudio>> = null
 
-    try {
-      const aborted = new Promise<never>((_resolve, reject) => {
-        onAbort = () => reject(abortController.signal.reason)
-        abortController.signal.addEventListener('abort', onAbort, { once: true })
-        timerHandle = this.clock.setTimeout(() => {
-          timedOut = true
-          abortController.abort(new Error(`Dynamic aside synthesis timed out after ${budgetMs}ms`))
-        }, budgetMs)
-      })
-      rawBuffer = await Promise.race([this.synthesizeAudio(candidate.text, abortController.signal), aborted])
-    }
-    catch (err) {
-      if (isCurrent()) {
-        this.coordinator.notifyCacheMiss({
-          reason: timedOut ? 'synthesis_timeout' : 'synthesis_failed',
-          error: err instanceof Error ? err.message : String(err),
-          elapsedMs: this.clock.now() - startSynthesizeAt,
-        })
+    if (params) {
+      try {
+        cached = await getThinkingAudio(params)
       }
-      return false
-    }
-    finally {
-      if (timerHandle != null)
-        this.clock.clearTimeout(timerHandle)
-      abortController.signal.removeEventListener('abort', onAbort)
-      if (this.activeAbortController === abortController)
-        this.activeAbortController = null
+      catch {}
+      if (!isCurrent())
+        return false
+
+      if (cached?.audio && cached.audio.byteLength > 0) {
+        rawBuffer = cached.audio
+      }
     }
 
-    // Post-synthesis validity checks
-    if (abortController.signal.aborted || !isCurrent()) {
-      return false
+    if (!rawBuffer) {
+      if (!this.synthesizeAudio) {
+        this.coordinator.notifyCacheMiss({
+          reason: 'synthesis_failed',
+          error: 'synthesizeAudio handler unavailable',
+          elapsedMs: 0,
+        })
+        return false
+      }
+
+      const budgetMs = this.coordinator.policy.maxSynthesisBudgetMs ?? 3200
+      const abortController = new AbortController()
+      this.activeAbortController = abortController
+
+      let timerHandle: any = null
+      let timedOut = false
+      let onAbort!: () => void
+
+      timerHandle = this.clock.setTimeout(() => {
+        timedOut = true
+        abortController.abort(new Error(`Dynamic aside synthesis timed out after ${budgetMs}ms`))
+      }, budgetMs)
+
+      try {
+        const aborted = new Promise<never>((_resolve, reject) => {
+          onAbort = () => reject(abortController.signal.reason)
+          abortController.signal.addEventListener('abort', onAbort, { once: true })
+        })
+        rawBuffer = await Promise.race([this.synthesizeAudio(candidate.text, abortController.signal), aborted])
+        synthesized = true
+      }
+      catch (err) {
+        if (isCurrent()) {
+          this.coordinator.notifyCacheMiss({
+            reason: timedOut ? 'synthesis_timeout' : 'synthesis_failed',
+            error: err instanceof Error ? err.message : String(err),
+            elapsedMs: this.clock.now() - startSynthesizeAt,
+          })
+        }
+        return false
+      }
+      finally {
+        if (timerHandle != null)
+          this.clock.clearTimeout(timerHandle)
+        abortController.signal.removeEventListener('abort', onAbort)
+        if (this.activeAbortController === abortController)
+          this.activeAbortController = null
+      }
+
+      // Post-synthesis validity checks
+      if (abortController.signal.aborted || !isCurrent()) {
+        return false
+      }
     }
 
     if (this.clock.now() >= candidate.expiresAtMs) {
@@ -419,6 +441,10 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
         elapsedMs: this.clock.now() - startSynthesizeAt,
       })
       return false
+    }
+
+    if (synthesized && params && rawBuffer) {
+      await saveThinkingAudio(params, rawBuffer, durationMs).catch(() => {})
     }
 
     this.coordinator.metrics.prepareLatencyMs = this.clock.now() - startSynthesizeAt

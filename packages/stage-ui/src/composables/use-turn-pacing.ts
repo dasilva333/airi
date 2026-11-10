@@ -3,7 +3,7 @@ import type { Ref } from 'vue'
 
 import type { AiriThinkingFiller } from '../types/card.schema'
 import type { ChatStreamEventContext } from '../types/chat'
-import type { AsideCandidate, PacingMetrics, PacingPolicyConfig } from '../types/pacing'
+import type { AsideCandidate, PacingMetrics, PacingPolicyConfig, PacingProfileId } from '../types/pacing'
 
 import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { readonly, ref, toRaw } from 'vue'
@@ -15,6 +15,7 @@ import { TurnPacingCoordinator } from '../libs/pacing/turn-pacing-coordinator'
 import { useAudioContext } from '../stores/audio'
 import { useConsciousnessStore } from '../stores/modules/consciousness'
 import { useSpeechStore } from '../stores/modules/speech'
+import { PACING_PROFILES } from '../types/pacing'
 
 export interface UseTurnPacingOptions {
   activeCard: Ref<any>
@@ -106,24 +107,40 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
     const providerKey = `${llmProvider}:${llmModel}`
     const samples = ttftSamplesByProvider.get(providerKey) || []
 
+    const profileId = (pacingConfig.pacingProfile as PacingProfileId) || 'balanced'
+    const presetSettings = (profileId in PACING_PROFILES)
+      ? PACING_PROFILES[profileId as Exclude<PacingProfileId, 'custom'>].settings
+      : undefined
+
+    const dynamicAsidesEnabled = pacingConfig.dynamicAsidesEnabled ?? presetSettings?.dynamicAsidesEnabled ?? false
+    const semanticExtractorEnabled = pacingConfig.semanticExtractorEnabled ?? presetSettings?.semanticExtractorEnabled ?? dynamicAsidesEnabled
+
     const policy: PacingPolicyConfig = {
       enabled: pacingConfig.enabled,
-      armMinMs: pacingConfig.armMinMs ?? 900,
-      armMaxMs: pacingConfig.armMaxMs ?? 3500,
-      maxFillerDurationMs: pacingConfig.maxFillerDurationMs ?? 3000,
+      armMinMs: pacingConfig.armMinMs ?? presetSettings?.armMinMs ?? 900,
+      armMaxMs: pacingConfig.armMaxMs ?? presetSettings?.armMaxMs ?? 3500,
+      maxFillerDurationMs: pacingConfig.maxFillerDurationMs ?? presetSettings?.maxFillerDurationMs ?? 3000,
       reasoningWindowMs: pacingConfig.reasoningWindowMs ?? 900,
       categoryThreshold: pacingConfig.categoryThreshold ?? 2,
       kFast: pacingConfig.kFast ?? 0.5,
-      maxFillersPerTurn: pacingConfig.maxFillersPerTurn ?? 3,
-      pacingIntervalMs: pacingConfig.pacingIntervalMs ?? 15000,
-      dynamicAsidesEnabled: pacingConfig.dynamicAsidesEnabled ?? false,
-      semanticExtractorEnabled: pacingConfig.semanticExtractorEnabled ?? false,
-      dynamicAfterMs: pacingConfig.dynamicAfterMs ?? 15000,
-      candidateTtlMs: pacingConfig.candidateTtlMs ?? 15000,
-      maxFillerSynthesisBudgetMs: pacingConfig.maxFillerSynthesisBudgetMs ?? 3200,
-      maxSynthesisBudgetMs: pacingConfig.maxSynthesisBudgetMs ?? 3200,
+      maxFillersPerTurn: pacingConfig.maxFillersPerTurn ?? presetSettings?.maxFillersPerTurn ?? 3,
+      pacingIntervalMs: pacingConfig.pacingIntervalMs ?? presetSettings?.pacingIntervalMs ?? 15000,
+      dynamicAsidesEnabled,
+      semanticExtractorEnabled,
+      dynamicAfterMs: pacingConfig.dynamicAfterMs ?? presetSettings?.dynamicAfterMs ?? 15000,
+      candidateTtlMs: pacingConfig.candidateTtlMs ?? presetSettings?.candidateTtlMs ?? 15000,
+      maxFillerSynthesisBudgetMs: pacingConfig.maxFillerSynthesisBudgetMs ?? presetSettings?.maxFillerSynthesisBudgetMs ?? 3200,
+      maxSynthesisBudgetMs: pacingConfig.maxSynthesisBudgetMs ?? presetSettings?.maxSynthesisBudgetMs ?? 3200,
       pacingProfile: pacingConfig.pacingProfile,
       experimentalOrganicPivots: pacingConfig.experimentalOrganicPivots ?? false,
+    }
+
+    if (policy.semanticExtractorEnabled && !needleClient.isReady() && !needleClient.isPreparing()) {
+      void needleClient.isCached().then((cached) => {
+        if (cached && !needleClient.isReady()) {
+          void needleClient.prepare().catch(() => {})
+        }
+      }).catch(() => {})
     }
 
     const coordinator = new TurnPacingCoordinator({

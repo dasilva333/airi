@@ -415,9 +415,9 @@ describe('pacing-playback-bridge (Phase 1)', () => {
       }
 
       const armedPromise = bridge.handleDynamicAsideArmed(candidate)
+      await vi.waitFor(() => expect(synthesizeAudio).toHaveBeenCalled())
       // Advance clock past maxSynthesisBudgetMs (500ms)
       clock.advance(600)
-
       const success = await armedPromise
       expect(success).toBe(false)
       expect((capturedSignal as any)?.aborted).toBe(true)
