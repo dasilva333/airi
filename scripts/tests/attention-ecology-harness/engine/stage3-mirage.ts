@@ -104,6 +104,13 @@ export interface MirageForwarderResult {
   result: MirageVisionResult
   summary: string
   latencyMs: number
+  resolution: string
+}
+
+export interface MirageResolutionOptions {
+  targetWidth?: number
+  targetHeight?: number
+  isNative?: boolean
 }
 
 /**
@@ -114,20 +121,29 @@ export async function runMirageForwarder(
   activeWindow = 'Desktop',
   theme = 'light',
   prompt?: string,
+  options?: MirageResolutionOptions,
 ): Promise<MirageForwarderResult> {
   if (!cactusInstance || !isInitialized) {
     await loadMirageEngine()
   }
 
-  const targetWidth = 384
-  const targetHeight = 384
+  let pipeline = sharp(imagePath).removeAlpha()
 
-  // Decode to raw 384x384 RGB buffer using sharp
-  const { data } = await sharp(imagePath)
-    .resize(targetWidth, targetHeight, { fit: 'fill' })
-    .removeAlpha()
+  if (!options?.isNative && options?.targetWidth && options?.targetHeight) {
+    pipeline = pipeline.resize(options.targetWidth, options.targetHeight, { fit: 'fill' })
+  }
+  else if (!options?.isNative) {
+    // Default 384x384
+    pipeline = pipeline.resize(384, 384, { fit: 'fill' })
+  }
+
+  // Decode to raw RGB buffer using sharp
+  const { data, info } = await pipeline
     .raw()
     .toBuffer({ resolveWithObject: true })
+
+  const targetWidth = info.width
+  const targetHeight = info.height
 
   const rgbPtr = cactusInstance._malloc(data.byteLength)
   cactusInstance.HEAPU8.set(data, rgbPtr)
@@ -177,6 +193,7 @@ export async function runMirageForwarder(
     result: visionResult,
     summary,
     latencyMs,
+    resolution: `${targetWidth}x${targetHeight}`,
   }
 }
 

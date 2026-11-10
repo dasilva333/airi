@@ -37,7 +37,24 @@ interface PromotedEvent {
   caption: string
   ocrMs: number
   vlmMs: number
+  resolution: string
 }
+
+export interface ResolutionPreset {
+  id: '384' | '768' | '1536' | 'native'
+  label: string
+  width?: number
+  height?: number
+}
+
+const RESOLUTION_PRESETS: ResolutionPreset[] = [
+  { id: '384', label: '384x384 (1x)', width: 384, height: 384 },
+  { id: '768', label: '768x768 (2x)', width: 768, height: 768 },
+  { id: '1536', label: '1536x1536 (4x)', width: 1536, height: 1536 },
+  { id: 'native', label: 'Native' },
+]
+
+let currentResolutionIndex = 0
 
 const MAX_EVENT_STREAM = 5
 const eventStream: PromotedEvent[] = []
@@ -83,6 +100,11 @@ function renderDashboard() {
 
   const captureTag = `[${lastCaptureSource}]`
 
+  const activeRes = RESOLUTION_PRESETS[currentResolutionIndex].label
+  const stage3Label = `STAGE 3: Cactus Mirage WASM Coprocessor [${activeRes}]`
+  const dashesNeeded = Math.max(2, 68 - stage3Label.length)
+  const stage3Bar = `─── ${stage3Label} ${'─'.repeat(dashesNeeded)}`
+
   let streamBoxLines = ''
   if (eventStream.length === 0) {
     streamBoxLines = `│  [No promoted events yet - waiting for high-salience screen activity...]   │\n`
@@ -90,7 +112,8 @@ function renderDashboard() {
   else {
     const formattedBlocks: string[] = []
     for (const evt of eventStream.slice(-MAX_EVENT_STREAM)) {
-      const timingTag = `[${evt.timeStr} · OCR: ${evt.ocrMs}ms | VLM: ${evt.vlmMs}ms]`
+      const resTag = evt.resolution ? `${evt.resolution} · ` : ''
+      const timingTag = `[${evt.timeStr} · ${resTag}OCR: ${evt.ocrMs}ms | VLM: ${evt.vlmMs}ms]`
       const headerLine = `${timingTag} ${evt.windowName}`
       const capLine1 = `└─► ${evt.caption.slice(0, 68)}`
       const capLine2 = evt.caption.length > 68 ? `    ${evt.caption.slice(68, 136)}` : ''
@@ -104,11 +127,14 @@ function renderDashboard() {
     streamBoxLines = `${formattedBlocks.join('\n')}\n`
   }
 
+  const statusText = overallStatus.length > 34 ? `${overallStatus.slice(0, 31)}...` : overallStatus
+  const footerBar = `  ⌨️  [S] Res: ${activeRes.padEnd(14, ' ')} │  [R] Reset Centroid  │  [Q] Exit`
+
   const ui = `\x1B[H\x1B[J`
     + `┌─────────────────────────────────────────────────────────────────────────────┐\n`
     + `│ 👁️  AIRI ATTENTION ECOLOGY :: REAL-TIME DESKTOP MONITOR                     │\n`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
-    + `│ STATUS: ${overallStatus.padEnd(36, ' ')} SOURCE: ${lastCaptureSource.padEnd(14, ' ')} ⏱️ ${latencyStr.padEnd(7, ' ')} ${spinner} │\n`
+    + `│ STATUS: ${statusText.padEnd(34, ' ')} SOURCE: ${lastCaptureSource.padEnd(14, ' ')} ⏱️ ${latencyStr.padEnd(7, ' ')} ${spinner} │\n`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
     + `│                                                                             │\n`
     + `│ ─── STAGE 0: Perceptual Hash (aHash \\mu s) ──────────────────────────────── │\n`
@@ -120,7 +146,7 @@ function renderDashboard() {
     + `│ ─── STAGE 2: Localized WASM OCR Error Gate ──────────────────────────────── │\n`
     + `│    ${stage2Status.padEnd(72, ' ')} │\n`
     + `│                                                                             │\n`
-    + `│ ─── STAGE 3: Cactus Mirage WASM Coprocessor (22 MB) ─────────────────────── │\n`
+    + `│ ${stage3Bar.padEnd(73, ' ')} │\n`
     + `│    ${stage3Status.padEnd(72, ' ')} │\n`
     + `│                                                                             │\n`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
@@ -128,7 +154,7 @@ function renderDashboard() {
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
     + `${streamBoxLines}`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
-    + `│  ⌨️  [R] Reset Baseline Centroid  │  [Q / ^C] Clean Exit                    │\n`
+    + `│ ${footerBar.padEnd(74, ' ')}│\n`
     + `└─────────────────────────────────────────────────────────────────────────────┘\n`
 
   process.stdout.write(ui)
@@ -309,13 +335,20 @@ async function runLiveTick() {
       stage3Status = '📷 [MIRAGE RUNNING] Running Cactus Mirage WASM Describe...'
       renderDashboard()
 
+      const activePreset = RESOLUTION_PRESETS[currentResolutionIndex]
       const mirageResult = await runMirageForwarder(
         TEMP_CAPTURE_PATH,
         topTag,
         'dark',
+        undefined,
+        {
+          targetWidth: activePreset.width,
+          targetHeight: activePreset.height,
+          isNative: activePreset.id === 'native',
+        },
       )
       const roundedVlmMs = Math.round(mirageResult.latencyMs)
-      stage3Status = `📷 [MIRAGE OK] (${roundedVlmMs}ms) [Tick #${tickCount}]`
+      stage3Status = `📷 [MIRAGE OK] (${mirageResult.resolution} · ${roundedVlmMs}ms) [Tick #${tickCount}]`
 
       const windowName = topTag.slice(0, 24)
       const caption = mirageResult.result.reasoning || mirageResult.result.ocrText || 'Visual scene updated.'
@@ -326,6 +359,7 @@ async function runLiveTick() {
         caption,
         ocrMs,
         vlmMs: roundedVlmMs,
+        resolution: mirageResult.resolution,
       })
       if (eventStream.length > MAX_EVENT_STREAM) {
         eventStream.shift()
@@ -347,6 +381,7 @@ async function runLiveTick() {
           interestHits: ocrEvidence.interestKeywordHits,
           interestKeywords: ocrEvidence.interestKeywords,
           vlmMs: roundedVlmMs,
+          resolution: mirageResult.resolution,
         })
         fs.appendFileSync(logPath, `${entry}\n`, 'utf-8')
       }
@@ -356,7 +391,7 @@ async function runLiveTick() {
     }
     else {
       overallStatus = novelty > 0.02 ? '📝 CONTEXT SHIFT RECORDED IN DIARY' : '💤 NO PROMOTION EVENT'
-      if (!stage3Status.includes('VLM OK')) {
+      if (!stage3Status.includes('MIRAGE OK')) {
         stage3Status = '💤 IDLE (No VLM Pass Required)'
       }
       if (currentCentroid && novelty > 0.01) {
@@ -392,12 +427,18 @@ const timer = setInterval(runLiveTick, 2000)
 if (process.stdin.isTTY) {
   readline.emitKeypressEvents(process.stdin)
   process.stdin.setRawMode(true)
-  process.stdin.on('keypress', (_str, key) => {
+  process.stdin.on('keypress', (str, key) => {
     if (key.ctrl && key.name === 'c') {
       cleanExit()
     }
     else if (key.name === 'q') {
       cleanExit()
+    }
+    else if (key.name === 's' || str === 's' || str === 'S') {
+      currentResolutionIndex = (currentResolutionIndex + 1) % RESOLUTION_PRESETS.length
+      const preset = RESOLUTION_PRESETS[currentResolutionIndex]
+      stage3Status = `⚡ RESOLUTION SWITCHED -> ${preset.label}`
+      renderDashboard()
     }
     else if (key.name === 'r') {
       currentCentroid = null
