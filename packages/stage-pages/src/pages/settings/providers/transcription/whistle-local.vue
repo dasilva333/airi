@@ -123,6 +123,7 @@ const language = computed({
 })
 
 const languageOptions = [
+  { label: 'Auto Detect', value: 'auto' },
   { label: 'English', value: 'en' },
   { label: 'German (Deutsch)', value: 'de' },
   { label: 'Spanish (Español)', value: 'es' },

@@ -17,6 +17,7 @@ This skill provides comprehensive guidelines and exact code paths for local brow
 AIRI executes local neural models directly in the browser via dedicated Web Worker threads:
 - **Local TTS engines (Kokoro, Pocket TTS, MOSS-TTS-Nano, Ming)**: owned end-to-end by [airi-local-tts-engines](../airi-local-tts-engines/SKILL.md) — workers, adapters, voice-clone profiles, per-language bundles, cache eviction. This skill is not their owner; it provides only the shared machinery below.
 - **Whisper STT Worker**: Local speech-to-text inference with Eventa server streaming (`packages/stage-ui/src/libs/workers/worker.ts`, adapter at `packages/stage-ui/src/libs/inference/adapters/whisper.ts`, provider `whisper-local`).
+- **Cactus Whistle STT Worker**: Ultra-lightweight (16.9 MB weights) on-device speech-to-text inference running in WebAssembly (`cactus.wasm` via `cactus.js`) on CPU with zero WebGPU or 8 GB RAM requirement (`packages/stage-ui/src/workers/whistle/worker.ts`, adapter at `packages/stage-ui/src/libs/inference/adapters/whistle-client.ts`, provider `whistle-local`). Detailed STT pipeline and audio routing belong to [airi-hearing-pipeline](../airi-hearing-pipeline/SKILL.md).
 - **WebLLM Worker**: Local LLM text generation (`packages/stage-ui/src/workers/web-llm/`).
 - **Web-RWKV Worker**: Local RWKV-7 RNN model execution (`packages/stage-ui/src/workers/web-rwkv/`).
 - **Moondream VLM Worker**: Local 1.6B vision-language model inference (`packages/stage-ui/src/workers/moondream/`, adapter at `packages/stage-ui/src/libs/inference/adapters/moondream.ts`, provider `moondream-local`).
@@ -39,6 +40,7 @@ VRAM budget accounting, WebGPU hardware feature detection, memory pressure telem
 
 ### Local Worker Locations
 - `packages/stage-ui/src/libs/workers/worker.ts` — Eventa WebGPU/WASM Whisper STT worker.
+- `packages/stage-ui/src/workers/whistle/worker.ts` — Cactus Whistle WebAssembly STT worker (16.9 MB acoustic graph, sub-20ms TTFT, multi-language, keyword biasing, word-level timestamps).
 - `packages/stage-ui/src/workers/web-llm/` — WebLLM (TVM WebGPU) worker implementation.
 - `packages/stage-ui/src/workers/web-rwkv/` — Web-RWKV WebGPU worker implementation.
 - `packages/stage-ui/src/workers/moondream/` — Moondream2 (`Xenova/moondream2`) WebGPU/WASM VLM worker (`Moondream1ForConditionalGeneration`). Adapter at `packages/stage-ui/src/libs/inference/adapters/moondream.ts`, chat provider with `/chat/completions` interception at `packages/stage-ui/src/stores/providers/moondream/index.ts`.

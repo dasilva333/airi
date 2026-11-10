@@ -77,7 +77,49 @@ flowchart TD
 
 ---
 
-## 3. Universal Composer Microphone Popover (`VoiceInputHoverCard.vue`)
+## 3. On-Device Speech Engines: Cactus Whistle (CPU/WASM)
+
+In addition to Whisper (transformers.js / WebGPU), AIRI supports **Cactus Whistle** (`whistle-local`):
+- **Ultra-lightweight**: 16.9 MB model weights (`whistle.cact`), ~1.2 MB WASM engine (`cactus.wasm`), ~63 KB JS runtime (`cactus.js`).
+- **Zero-WebGPU requirement**: Runs directly on CPU/WASM without requiring WebGPU or 8 GB RAM, making it universally available on all desktop and browser platforms.
+- **Sub-20ms TTFT**: Optimized ARM NEON / SIMD WebAssembly execution with keyword boosting (`keywords`) and word-level timestamps (`words`).
+
+### Critical WASM & Audio Invariants for Whistle
+1. **Emscripten Runtime Factory Requirement**:
+   `cactus.wasm` is compiled with Emscripten. Invoking raw `WebAssembly.instantiate(module, {})` will fail immediately with `TypeError: Import #0 "a": module is not an object or function`.
+   It **must** be instantiated using the `createCactus({ wasmBinary })` factory from `cactus.js`.
+2. **Strict 16 kHz Mono Float32Array PCM**:
+   Whistle strictly expects 16,000 Hz mono float audio. Most browser microphones and `AudioContext` pipelines record at 44.1 kHz or 48 kHz.
+   `decodeToWhistleAudio` in `whistle-local/index.ts` must pass the decoded audio through `resampleTo16k` before delivering it to the worker; otherwise, audio is interpreted as slow-motion garble and results in blank transcriptions.
+3. **Cactus Transcribe Signature & JSON Protocol**:
+   ```ts
+   // In packages/stage-ui/src/workers/whistle/worker.ts
+   _cactusInstance._cactus_transcribe(
+     pcmPtr,
+     samplesCount,
+     langPtr,
+     kwPtr,
+     wordTimestamps ? 1 : 0,
+     outPtr,
+     outCapacity
+   )
+   ```
+   Output is an Emscripten UTF-8 JSON string read via `UTF8ToString(outPtr)`:
+   `{"text":"...","language":"...","words":[{"word":"...","start":0.0,"end":0.5,"probability":0.9}],"ttft_ms":172.5,"decode_tps":182.9}`.
+   All heap allocations (`_malloc`) must be cleanly deallocated in a `finally` block (`_free`).
+4. **Settings Page Layout Contract**:
+   Any dedicated transcription provider page in `packages/stage-pages/src/pages/settings/providers/transcription/<provider>.vue` must declare:
+   ```yaml
+   <route lang="yaml">
+   meta:
+     layout: settings
+   </route>
+   ```
+   to render inside the standard settings shell (with sidebar and header).
+
+---
+
+## 4. Universal Composer Microphone Popover (`VoiceInputHoverCard.vue`)
 
 Mounted on the microphone button in all chat composer bars (`InteractiveArea.vue`, `WhisperComposerBar.vue`):
 
@@ -95,7 +137,7 @@ Mounted on the microphone button in all chat composer bars (`InteractiveArea.vue
 
 ---
 
-## 4. The Shared Mic Authority Pact
+## 5. The Shared Mic Authority Pact
 
 Multiple surfaces in AIRI can request the microphone: the desktop composer, the mobile control strip, global hotkeys, and ambient page listening loops.
 To prevent audio device contention, echo, and duplicate transcription:
@@ -109,7 +151,7 @@ To prevent audio device contention, echo, and duplicate transcription:
 
 ---
 
-## 5. SOP: Adding a New STT Provider (Checklist)
+## 6. SOP: Adding a New STT Provider (Checklist)
 
 When integrating a new STT model or service (e.g. Cactus Whistle):
 
@@ -129,7 +171,7 @@ When integrating a new STT model or service (e.g. Cactus Whistle):
 
 ---
 
-## 6. Verification Workflows
+## 7. Verification Workflows
 
 - **Voice Popover Tests**: `pnpm -F @proj-airi/stage-ui test packages/stage-ui/src/components/scenarios/chat/VoiceInputHoverCard.test.ts`
 - **Hearing Store Unit Tests**: `pnpm -F @proj-airi/stage-ui test packages/stage-ui/src/stores/modules/hearing.test.ts`

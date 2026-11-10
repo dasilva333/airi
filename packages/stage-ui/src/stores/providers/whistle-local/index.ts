@@ -6,6 +6,28 @@ import { getWhistleClient } from '../../../libs/inference/adapters/whistle-clien
 const WHISTLE_SAMPLE_RATE = 16000
 
 /**
+ * Resample Float32Array PCM from sourceSampleRate to 16000 Hz.
+ */
+function resampleTo16k(input: Float32Array, sourceSampleRate: number): Float32Array {
+  if (sourceSampleRate === WHISTLE_SAMPLE_RATE)
+    return input
+
+  const ratio = sourceSampleRate / WHISTLE_SAMPLE_RATE
+  const targetLength = Math.round(input.length / ratio)
+  const output = new Float32Array(targetLength)
+
+  for (let i = 0; i < targetLength; i++) {
+    const sourceIdx = i * ratio
+    const idxFloor = Math.floor(sourceIdx)
+    const idxCeil = Math.min(input.length - 1, idxFloor + 1)
+    const weight = sourceIdx - idxFloor
+    output[i] = input[idxFloor] * (1 - weight) + input[idxCeil] * weight
+  }
+
+  return output
+}
+
+/**
  * Decode an audio Blob to 16 kHz mono Float32Array PCM for Whistle.
  */
 async function decodeToWhistleAudio(blob: Blob): Promise<Float32Array> {
@@ -13,15 +35,30 @@ async function decodeToWhistleAudio(blob: Blob): Promise<Float32Array> {
   try {
     const arrayBuffer = await blob.arrayBuffer()
     const decoded = await audioContext.decodeAudioData(arrayBuffer)
-    if (decoded.numberOfChannels === 1)
-      return decoded.getChannelData(0)
+    let mono: Float32Array
 
-    const left = decoded.getChannelData(0)
-    const right = decoded.getChannelData(1)
-    const mono = new Float32Array(left.length)
-    for (let i = 0; i < left.length; i++)
-      mono[i] = (left[i] + right[i]) / 2
-    return mono
+    if (decoded.numberOfChannels === 1) {
+      mono = decoded.getChannelData(0)
+    }
+    else {
+      const left = decoded.getChannelData(0)
+      const right = decoded.getChannelData(1)
+      mono = new Float32Array(left.length)
+      for (let i = 0; i < left.length; i++)
+        mono[i] = (left[i] + right[i]) / 2
+    }
+
+    const finalPcm = resampleTo16k(mono, decoded.sampleRate)
+
+    console.info('[Whistle Local Provider] Audio file decoded:', {
+      originalSampleRate: decoded.sampleRate,
+      targetSampleRate: WHISTLE_SAMPLE_RATE,
+      originalDurationSec: Number(decoded.duration.toFixed(2)),
+      finalSamples: finalPcm.length,
+      finalDurationSec: Number((finalPcm.length / WHISTLE_SAMPLE_RATE).toFixed(2)),
+    })
+
+    return finalPcm
   }
   finally {
     await audioContext.close()
@@ -56,10 +93,18 @@ export function createWhistleLocalTranscriptionProvider(config: WhistleLocalProv
           throw new Error('No audio file provided for transcription.')
 
         const language = (formData?.get('language') as string) || defaultLanguage
+
+        console.info('[Whistle Local Provider] Starting transcription pipeline:', {
+          fileSize: file.size,
+          fileType: file.type,
+          language,
+        })
+
         const audioFloat32 = await decodeToWhistleAudio(file)
 
         const client = getWhistleClient()
         if (!client.isReady()) {
+          console.info('[Whistle Local Provider] Client not ready, running prepare...')
           await client.prepare()
         }
 
@@ -69,7 +114,9 @@ export function createWhistleLocalTranscriptionProvider(config: WhistleLocalProv
           signal: init?.signal ?? undefined,
         })
 
-        return new Response(JSON.stringify({ text: res.text }), {
+        console.info('[Whistle Local Provider] Client transcription result:', res)
+
+        return new Response(JSON.stringify({ text: res.text, words: res.words, latencyMs: res.latencyMs }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
