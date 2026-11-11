@@ -171,10 +171,12 @@ MotionBricks solves the physical interaction problem:
   - Implemented elastic beat-to-keypoint alignment (`alignDanceSheetToBeats`) with monotonic time-warping constraints and cadence filters (`downbeats_only`, `all_beats`, `adaptive`).
   - Implemented non-linear phase shaping (`smooth_step`, `cubic_elastic`, `linear`), quaternion SLERP, and loop boundary crossfades (`evaluateWarpedPoseAt`).
   - **Dual-Layer Real-Time Kinematic Runtime**:
-    1. *Tier 1 (Instant Beat-Sync Sway)*: Rawdogging 60 FPS humanoid bone driving via ThreeScene `setVrmFrameHook(vrm)` for immediate hip sway, beat bounce, torso counter-rotation, and head bop with 0ms latency and 0 bytes disk writes.
+    1. *Tier 1 (Instant Beat-Sync Sway)*: Rawdogging 60 FPS humanoid bone driving via ThreeScene `setVrmFrameHook(vrm)` for immediate hip sway, beat bounce, torso counter-rotation, and tempo-locked head bop with 0ms latency and 0 bytes disk writes.
     2. *Tier 2 (FlowMDM On-Device Diffusion)*: On-demand WebGPU 50-step DDIM diffusion generating authentic 3D choreography from acoustic DSP prompts, loaded into ThreeScene via ephemeral `blob:` URLs with zero IndexedDB/localforage pollution.
-    3. *Deterministic In-Memory Session Cache*: Keyed by `dance:${trackId}_${bpm}bpm_${meter}_${persona}` avoiding duplicate diffusion runs when switching tracks or archetypes.
-    4. *Opt-in Permanent Storage*: User can explicitly choose to persist favorite generated dance routines into their Custom Animations library.
+    3. *Zero-Click Proactive Choreography*: Hitting Play or uploading audio immediately starts the kinematic groove and proactively synthesizes the FlowMDM 3D dance routine in the background, smoothly cross-fading into the 3D dance routine as soon as diffusion denoises.
+    4. *Unbroken Acoustic Layering & Looping*: FlowMDM transient motions play in continuous seamless loops (`LoopRepeat`), with real-time head-bops and acoustic rhythm bounce layered on top so the dancer never freezes or goes lifeless.
+    5. *Deterministic In-Memory Session Cache*: Keyed by `dance:${trackId}_${bpm}bpm_${meter}_${persona}` avoiding duplicate diffusion runs when switching tracks or archetypes.
+    6. *Opt-in Permanent Storage*: User can explicitly choose to persist favorite generated dance routines into their Custom Animations library.
 - [ ] **Milestone 4: MotionBricks Ingestion & Stage-Mate Driver**
   - Benchmark 800 MB MotionBricks ONNX checkpoint in Unity Sentis (<5ms target).
   - Implement `MotionBricksDriver.cs` in `apps/stage-mate/unity-src/` executing continuous inbetweening between selected key-poses.

@@ -11,7 +11,7 @@ import type { VRM } from '@pixiv/three-vrm'
 import type { TresContext } from '@tresjs/core'
 import type { DirectionalLight, Scene, SphericalHarmonics3, Texture, WebGLRenderer, WebGLRenderTarget } from 'three'
 
-import type { Vec3 } from '../stores/model-store'
+import type { TriggerMotionOptions, Vec3 } from '../stores/model-store'
 
 import { computeDirectionalLightOrbit } from '@proj-airi/stage-shared'
 import { Screen } from '@proj-airi/ui'
@@ -405,8 +405,8 @@ defineExpose({
   setExpression: (expression: string, intensity = 1, resetMs?: number) => {
     modelRef.value?.setExpression(expression, intensity, resetMs)
   },
-  playTransientAnimation: (key: string) => {
-    modelRef.value?.playTransientAnimation(key)
+  playTransientAnimation: (key: string, options?: TriggerMotionOptions) => {
+    modelRef.value?.playTransientAnimation(key, options)
   },
   setVrmFrameHook: (hook?: (vrm: VRM, delta: number) => void) => {
     externalVrmFrameHook.value = hook

@@ -17,7 +17,7 @@ import type {
 } from 'three'
 import type { Ref, WatchStopHandle } from 'vue'
 
-import type { DiscoveredMeshNode, Vec3 } from '../../stores/model-store'
+import type { DiscoveredMeshNode, TriggerMotionOptions, Vec3 } from '../../stores/model-store'
 
 import { VRMUtils } from '@pixiv/three-vrm'
 import { useLoop, useTres, useTresContext } from '@tresjs/core'
@@ -458,7 +458,7 @@ function onAnimationFinished(e: any) {
   }
 }
 
-async function playTransientAnimation(key: string) {
+async function playTransientAnimation(key: string, options?: TriggerMotionOptions) {
   if (!vrm.value || !vrmAnimationMixer)
     return
 
@@ -471,7 +471,10 @@ async function playTransientAnimation(key: string) {
     return
   }
 
-  const url = customVrmAnimationsStore.resolveAnimationUrl(key)
+  const isLooping = options?.loop ?? key.includes('#loop')
+  const cleanKey = key.replace('#loop', '')
+
+  const url = customVrmAnimationsStore.resolveAnimationUrl(cleanKey)
   if (!url)
     return
 
@@ -493,10 +496,17 @@ async function playTransientAnimation(key: string) {
       return
 
     const newAction = vrmAnimationMixer.clipAction(clip)
-    const fadeDuration = 0.5
+    const fadeDuration = options?.fadeDuration ?? 0.5
 
-    newAction.setLoop(LoopOnce, 1)
-    newAction.clampWhenFinished = true
+    if (isLooping) {
+      newAction.setLoop(LoopRepeat, Infinity)
+      newAction.clampWhenFinished = false
+    }
+    else {
+      newAction.setLoop(LoopOnce, 1)
+      newAction.clampWhenFinished = true
+    }
+
     newAction.reset()
     newAction.setEffectiveWeight(1)
     newAction.play()
@@ -527,7 +537,10 @@ async function playTransientAnimation(key: string) {
         }
       }
     }
-    vrmAnimationMixer.addEventListener('finished', onFinished)
+
+    if (!isLooping) {
+      vrmAnimationMixer.addEventListener('finished', onFinished)
+    }
   }
   catch (err) {
     console.error('[VRMModel] Failed to play transient animation:', err)
@@ -904,8 +917,8 @@ onMounted(async () => {
   await loadModel()
 
   // Register motion trigger listener (from modelStore / BroadcastChannel)
-  modelStore.onTriggerMotion((key) => {
-    void playTransientAnimation(key)
+  modelStore.onTriggerMotion((key, options) => {
+    void playTransientAnimation(key, options)
   })
 
   /*
@@ -1060,8 +1073,8 @@ defineExpose({
       vrmEmote.value?.setEmotion(expression, intensity)
     }
   },
-  playTransientAnimation(key: string) {
-    void playTransientAnimation(key)
+  playTransientAnimation(key: string, options?: TriggerMotionOptions) {
+    void playTransientAnimation(key, options)
   },
   setVrmFrameHook(hook?: VrmFrameHook) {
     vrmFrameHook.value = hook

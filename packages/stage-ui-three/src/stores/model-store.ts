@@ -79,9 +79,15 @@ interface BroadcastChannelEventTriggerEmotion {
   intensity: number
 }
 
+export interface TriggerMotionOptions {
+  loop?: boolean
+  fadeDuration?: number
+}
+
 interface BroadcastChannelEventTriggerMotion {
   type: 'trigger-motion'
   name: string
+  options?: TriggerMotionOptions
 }
 
 interface BroadcastChannelEventTriggerVfx {
@@ -103,7 +109,7 @@ export const useModelStore = defineStore('modelStore', () => {
   const { post, data } = useBroadcastChannel<BroadcastChannelEvents, BroadcastChannelEvents>({ name: 'airi-stores-live2d' })
   const shouldUpdateViewHooks = ref(new Set<(reason?: string) => void>())
   const triggerEmotionHooks = ref(new Set<(name: string, intensity: number) => void>())
-  const triggerMotionHooks = ref(new Set<(name: string) => void>())
+  const triggerMotionHooks = ref(new Set<(name: string, options?: TriggerMotionOptions) => void>())
   const triggerVfxHooks = ref(new Set<(name: string, duration?: number) => void>())
 
   const onShouldUpdateView = (hook: (reason?: string) => void) => {
@@ -130,16 +136,16 @@ export const useModelStore = defineStore('modelStore', () => {
     triggerEmotionHooks.value.forEach(hook => hook(name, intensity))
   }
 
-  const onTriggerMotion = (hook: (name: string) => void) => {
+  const onTriggerMotion = (hook: (name: string, options?: TriggerMotionOptions) => void) => {
     triggerMotionHooks.value.add(hook)
     return () => {
       triggerMotionHooks.value.delete(hook)
     }
   }
 
-  function triggerMotion(name: string) {
-    post({ type: 'trigger-motion', name })
-    triggerMotionHooks.value.forEach(hook => hook(name))
+  function triggerMotion(name: string, options?: TriggerMotionOptions) {
+    post({ type: 'trigger-motion', name, options })
+    triggerMotionHooks.value.forEach(hook => hook(name, options))
   }
 
   const onTriggerVfx = (hook: (name: string, duration?: number) => void) => {
@@ -284,7 +290,7 @@ export const useModelStore = defineStore('modelStore', () => {
       triggerEmotionHooks.value.forEach(hook => hook(event.name, event.intensity))
     }
     else if (event.type === 'trigger-motion') {
-      triggerMotionHooks.value.forEach(hook => hook(event.name))
+      triggerMotionHooks.value.forEach(hook => hook(event.name, event.options))
     }
     else if (event.type === 'trigger-vfx') {
       triggerVfxHooks.value.forEach(hook => hook(event.name, event.duration))

@@ -211,8 +211,8 @@ function handleVrmFrame(vrm: any) {
     }
   }
 
-  // When not playing or when full FlowMDM diffusion motion is active, restore hips and let mixer take over
-  if (!isPlaying.value || !currentPose.value || isMotionActiveOnStage.value) {
+  // When not playing, restore hips to resting position and exit
+  if (!isPlaying.value) {
     if (hips && restHipsPos !== null && !isMotionActiveOnStage.value) {
       hips.position.x = restHipsPos.x
       hips.position.y = restHipsPos.y
@@ -221,9 +221,28 @@ function handleVrmFrame(vrm: any) {
     return
   }
 
-  const [swayX] = currentPose.value.rootTranslation
   const bpm = acousticFeatures.value?.bpm || 120
   const beatFreq = bpm / 60
+
+  // If full FlowMDM diffusion motion is active on stage:
+  // The Three.js AnimationMixer drives the humanoid body on an infinite loop.
+  // We layer continuous additive acoustic rhythm on top:
+  // 1. Rhythmic head-bop synced to tempo
+  // 2. Subtle rhythmic beat bounce on the hips
+  if (isMotionActiveOnStage.value) {
+    if (head) {
+      head.rotation.x += Math.sin(currentTime.value * Math.PI * 2 * beatFreq) * 0.035
+    }
+    if (hips) {
+      hips.position.y += Math.sin(currentTime.value * Math.PI * 2 * beatFreq) * 0.008
+    }
+    return
+  }
+
+  if (!currentPose.value)
+    return
+
+  const [swayX] = currentPose.value.rootTranslation
 
   if (hips && restHipsPos !== null) {
     // Relative groove bounce: subtle 1.2cm (0.012m) rhythm modulation relative to rest height
@@ -358,12 +377,18 @@ function togglePlayback() {
   else {
     audioElement.value.play().then(() => {
       isPlaying.value = true
-      // If we have a cached diffusion routine for this preset, play it!
+      // If we have a cached diffusion routine for this preset, play it on loop!
       const cacheKey = getDanceCacheKey()
       const cachedUrl = sessionBlobCache.get(cacheKey) || activeMotionBlobUrl.value
       if (cachedUrl) {
         isMotionActiveOnStage.value = true
-        modelStore.triggerMotion(cachedUrl)
+        modelStore.triggerMotion(cachedUrl, { loop: true })
+      }
+      else {
+        // Zero-click auto-choreography: synthesize dance in the background.
+        // She starts grooving to the beat immediately via kinematics,
+        // and cross-fades into the full 3D FlowMDM dance as soon as it's ready!
+        void generateFlowMDMDance({ autoPlayOnArrival: true })
       }
     }).catch(() => {
       isPlaying.value = false
@@ -408,28 +433,27 @@ function onAudioEnded() {
 }
 
 function handleAnimationFinished() {
-  // If audio is still playing and we have an active motion, loop it!
   if (isPlaying.value && activeMotionBlobUrl.value) {
-    modelStore.triggerMotion(activeMotionBlobUrl.value)
+    modelStore.triggerMotion(activeMotionBlobUrl.value, { loop: true })
   }
 }
 
 // FlowMDM Diffusion Generation with In-Memory Deterministic Session Cache
-async function generateFlowMDMDance() {
+async function generateFlowMDMDance(options?: { autoPlayOnArrival?: boolean, forceRegenerate?: boolean }) {
   const prompt = synthesizedPrompt.value.trim()
   if (!prompt || isGeneratingMotion.value)
     return
 
   const cacheKey = getDanceCacheKey()
 
-  // 1. Check in-memory deterministic session cache
-  if (sessionBlobCache.has(cacheKey)) {
+  // 1. Check in-memory deterministic session cache unless forceRegenerate is set
+  if (!options?.forceRegenerate && sessionBlobCache.has(cacheKey)) {
     const cachedUrl = sessionBlobCache.get(cacheKey)!
     activeMotionBlobUrl.value = cachedUrl
     toast.success('Dance routine loaded from session cache!')
-    if (isPlaying.value) {
+    if (isPlaying.value || options?.autoPlayOnArrival) {
       isMotionActiveOnStage.value = true
-      modelStore.triggerMotion(cachedUrl)
+      modelStore.triggerMotion(cachedUrl, { loop: true })
     }
     return
   }
@@ -459,10 +483,10 @@ async function generateFlowMDMDance() {
 
       toast.success('3D dance generated with FlowMDM!')
 
-      // If playing, immediately trigger on the 3D avatar
-      if (isPlaying.value) {
+      // If playing or autoPlay requested, smoothly cross-fade to the 3D dance on loop
+      if (isPlaying.value || options?.autoPlayOnArrival) {
         isMotionActiveOnStage.value = true
-        modelStore.triggerMotion(blobUrl)
+        modelStore.triggerMotion(blobUrl, { loop: true })
       }
     }
   }
@@ -502,12 +526,7 @@ function resetToBeatSync() {
   activeMotionBlobUrl.value = null
   activeMotionResult.value = null
   isMotionActiveOnStage.value = false
-  if (isPlaying.value) {
-    rendererStageRef.value?.vrmViewerRef?.stopAnimations()
-  }
-  else {
-    modelStore.triggerMotion('__STOP__')
-  }
+  modelStore.triggerMotion('__STOP__')
   toast.info('Switched to real-time kinematic beat-sync sway.')
 }
 
@@ -540,6 +559,7 @@ function handleCustomFileUpload(event: Event) {
       activeMotionBlobUrl.value = null
       activeMotionResult.value = null
       isMotionActiveOnStage.value = false
+      modelStore.triggerMotion('__STOP__')
 
       const features = analyzeAudioBuffer(decoded.channelData, decoded.sampleRate)
       acousticFeatures.value = features
@@ -573,13 +593,20 @@ watch(selectedPersona, () => {
     activeMotionBlobUrl.value = cachedUrl
     if (isPlaying.value) {
       isMotionActiveOnStage.value = true
-      modelStore.triggerMotion(cachedUrl)
+      modelStore.triggerMotion(cachedUrl, { loop: true })
     }
   }
   else {
     activeMotionBlobUrl.value = null
     activeMotionResult.value = null
-    isMotionActiveOnStage.value = false
+    if (isPlaying.value) {
+      isMotionActiveOnStage.value = false
+      modelStore.triggerMotion('__STOP__')
+      void generateFlowMDMDance({ autoPlayOnArrival: true })
+    }
+    else {
+      isMotionActiveOnStage.value = false
+    }
   }
 })
 
@@ -1024,7 +1051,7 @@ onUnmounted(() => {
                 type="button"
                 :disabled="isGeneratingMotion || !synthesizedPrompt"
                 class="flex items-center gap-2 px-4 py-2 text-xs font-bold shadow-sm"
-                @click="generateFlowMDMDance"
+                @click="generateFlowMDMDance({ forceRegenerate: true, autoPlayOnArrival: true })"
               >
                 <div :class="[isGeneratingMotion ? 'i-solar:restart-bold animate-spin' : 'i-solar:magic-stick-3-bold', 'text-sm']" />
                 <span>{{ isGeneratingMotion ? 'Generating Motion (WebGPU)...' : activeMotionBlobUrl ? 'Regenerate FlowMDM Dance' : 'Generate Dance with FlowMDM' }}</span>
