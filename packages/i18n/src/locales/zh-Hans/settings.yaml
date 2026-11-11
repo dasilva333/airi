@@ -1260,6 +1260,9 @@ pages:
       whisper-local:
         description: 使用 Whisper 的本地语音识别（在浏览器中运行，无需 API 密钥）
         title: Whisper (本地)
+      wiro-ai:
+        title: Wiro AI
+        description: 高速兼容 OpenAI 的 LLM 网关，支持内置视觉模型
     title: 服务来源
     filters:
       all: 全部

@@ -41,6 +41,7 @@ import './typesafe-ai'
 import './laya-local'
 import './openjev-local'
 import './cloudflare-workers-ai'
+import './wiro-ai'
 
 export {
   getDefinedProvider,

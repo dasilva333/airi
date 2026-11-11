@@ -1159,7 +1159,8 @@ pages:
           fast: Fast
         language:
           label: Target language
-          caption: Target language for synthesis and phonetic modeling. Auto-detect senses Spanish, German, French, Chinese, Japanese, Korean, and English.
+          caption: Target language for synthesis and phonetic modeling. Auto-detect senses
+            Spanish, German, French, Chinese, Japanese, Korean, and English.
           auto: Auto-detect
         threads:
           label: CPU threads
@@ -1573,8 +1574,11 @@ pages:
           CPU/WASM)
       mirage-local:
         title: Cactus Mirage (Local Vision)
-        description: Local ultra-fast multi-task vision coprocessor powered by Cactus WASM
-          (22 MB, CPU)
+        description: Local ultra-fast multi-task vision coprocessor powered by Cactus
+          WASM (22 MB, CPU)
+      wiro-ai:
+        title: Wiro AI
+        description: Fast OpenAI-compatible LLM gateway with built-in vision models
     title: Inference Providers
     cache:
       title: Model Cache
