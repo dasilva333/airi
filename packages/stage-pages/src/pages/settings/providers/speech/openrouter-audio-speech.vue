@@ -16,7 +16,7 @@ const providersStore = useProvidersStore()
 const { providers } = storeToRefs(providersStore)
 
 const providerId = 'openrouter-audio-speech'
-const defaultModel = 'openai/gpt-audio-mini'
+const defaultModel = 'elevenlabs/eleven-v4'
 
 const model = computed({
   get: () => providers.value[providerId]?.model as string | undefined || defaultModel,
@@ -37,7 +37,10 @@ const availableVoices = computed(() => {
 
 onMounted(async () => {
   await providersStore.fetchModelsForProvider(providerId)
-  await speechStore.loadVoicesForProvider(providerId)
+  if (model.value === 'openai/gpt-audio-mini' || (providerModels.value.length > 0 && !providerModels.value.some(m => m.id === model.value))) {
+    model.value = providerModels.value[0]?.id || defaultModel
+  }
+  await speechStore.loadVoicesForProvider(providerId, model.value)
 })
 
 async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: boolean) {
@@ -55,9 +58,10 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
   )
 }
 
-watch(model, async () => {
+watch(model, async (newModel) => {
   const providerConfig = providersStore.getProviderConfig(providerId)
-  providerConfig.model = model.value
+  providerConfig.model = newModel
+  await speechStore.loadVoicesForProvider(providerId, newModel)
 })
 </script>
 
@@ -86,6 +90,7 @@ watch(model, async () => {
         :available-voices="availableVoices"
         :generate-speech="handleGenerateSpeech"
         :api-key-configured="apiKeyConfigured"
+        :voices-loading="speechStore.isLoadingSpeechProviderVoices"
         default-text="Hello! This is a test of OpenRouter Speech."
       />
     </template>

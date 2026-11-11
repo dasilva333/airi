@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BracketAction, CodeBlockAction, NotationAction, VoiceProfile } from '../../../../stores/providers/types'
+import type { BracketAction, CodeBlockAction, NotationAction, VoiceInfo, VoiceProfile } from '../../../../stores/providers/types'
 
 import { createAudioBlob } from '@proj-airi/stage-shared'
 import {
@@ -145,9 +145,17 @@ async function loadBaseProviderModelsAndVoices() {
     const models = await providersStore.getModelsForProvider(providerId) || []
     availableModels.value = models
 
+    if (models.length > 0 && (!form.value.baseModel || !models.some(m => m.id === form.value.baseModel))) {
+      form.value.baseModel = models[0]?.id || ''
+    }
+
     // Attempt to load and fetch voices for base provider
-    const voices = await speechStore.loadVoicesForProvider(providerId) || []
+    const voices: VoiceInfo[] = await speechStore.loadVoicesForProvider(providerId, form.value.baseModel) || []
     availableVoices.value = voices
+
+    if (voices.length > 0 && (!form.value.baseVoice || !voices.some(v => v.id === form.value.baseVoice))) {
+      form.value.baseVoice = voices[0]?.id || ''
+    }
   }
   catch (e) {
     console.error('Failed to load base provider choices:', e)
@@ -160,6 +168,30 @@ async function loadBaseProviderModelsAndVoices() {
 
 watch(() => form.value.baseProvider, () => {
   void loadBaseProviderModelsAndVoices()
+})
+
+watch(() => form.value.baseModel, async (newModel, oldModel) => {
+  if (newModel === oldModel)
+    return
+  const providerId = form.value.baseProvider
+  if (!providerId || providerId === 'speech-noop')
+    return
+
+  isLoadingVoices.value = true
+  try {
+    const voices: VoiceInfo[] = await speechStore.loadVoicesForProvider(providerId, newModel) || []
+    availableVoices.value = voices
+    if (voices.length > 0 && (!form.value.baseVoice || !voices.some(v => v.id === form.value.baseVoice))) {
+      form.value.baseVoice = voices[0]?.id || ''
+      saveProfile()
+    }
+  }
+  catch (e) {
+    console.error('Failed to reload voices for model:', e)
+  }
+  finally {
+    isLoadingVoices.value = false
+  }
 })
 
 // Helper to determine if an action matches pass-through (handles legacy 'ignore')
@@ -223,6 +255,7 @@ watch(activeProfile, (newProfile) => {
       loaded.ust.formulaLanguage = 'auto'
 
     form.value = loaded
+    void loadBaseProviderModelsAndVoices()
   }
 }, { immediate: true })
 

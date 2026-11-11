@@ -43,8 +43,13 @@ const rtf = ref<number | null>(null)
 watch(
   () => props.availableVoices,
   (newVoices) => {
-    if (newVoices.length > 0 && !selectedVoice.value) {
-      selectedVoice.value = newVoices[0]?.id || ''
+    if (newVoices.length > 0) {
+      if (!selectedVoice.value || !newVoices.some(v => v.id === selectedVoice.value)) {
+        selectedVoice.value = newVoices[0]?.id || ''
+      }
+    }
+    else {
+      selectedVoice.value = ''
     }
   },
   { immediate: true },

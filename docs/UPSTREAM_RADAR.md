@@ -35,6 +35,187 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-11] Upstream Delta: `822243de..1e3d4df4` (10 commits, 58 files, 25 update(s))
+
+### 🎯 Executive Highlights
+- **Architectural ADR Execution — Character Session Decoupling & Module Defaults (`6ebb9142b`, `70939ba63`, PRs #3481, #3487)**: RainbowBird is actively executing on two core ADRs. PR #3481 completes Step 2 of `2026-10-09-character-as-chat-member.md` by exposing `characterMembersOf(sessionId)` to pave the way for group chat. PR #3487 adds Step 1 of `2026-11-11-module-defaults-and-character-values.md`, resolving the session character in turn paths (`activeChatReady`, `selectionOf(sessionId)`, tool rerun) so character activation ceases mutating global module stores. Follow-up PR #3492 moves global module defaults directly into the module stores.
+- **Hosted Cloud Auth, Session & Token Hardening (`02cafe892`, `2b64320dd`, `2d9d4d91c`, `766e86f51`, `8f2a0de09`, `1e3d4df4a`, PRs #3475, #3477, #3478, #3479, #3489, #3490)**: Extensive security sprint by RainbowBird hardening cloud auth: 401 token refresh loops, active session verification for account linking, refresh token revocation on sign-out, Steam OpenID return_to verification, and JWT identity recovery without active sid.
+- **Web Extension Smart Video Dwell & Cooldown (`663636378`, PR #3461)**: Fool merged a refined video notification pipeline featuring `VideoNotifyGate`, splitting context logging from stage prompts, adding 3-second dwell protection on Shorts, 30-second inter-video cooldowns, and YouTube navigation phase tracking (`yt-navigate-start`/`yt-page-data-updated`).
+- **Desktop About & Release Notes Redesign (`936008404`, PR #3485)**: Neko overhauled `apps/stage-tamagotchi/src/renderer/pages/about.vue`, redesigning the update status presentation and release note layouts. *(Adopted & Integrated in fork's latest build via Ergosphere OTA updater UI)*.
+- **Hosted Subscriptions & Realtime Call Protocols (PRs #3486, #3483, #3488)**: Luoling opened PR #3486 to prioritize subscription tiers and Flux account status, alongside draft contracts for realtime device calls and server relay routes.
+
+#### 💬 Discussion & Community Buzz
+- **#3461: `fix(web-extension): notify the stage once per watched video` (+5 comments, 15 total)**: Deep discussion between @FoolKc and collaborators finalizing Shorts dwell timing, tab forget queues, and title settling before merge.
+- **#3486: `feat(stage-ui,stage-pages,stage-layouts): put the subscription first and show Flux by account state` (12 comments)**: High discussion velocity regarding subscription hierarchy and billing state surfaces.
+- **#3482: `fix(ci): gate review labels on human attestation` (7 comments)**: Debate around CI automation and mandatory human review attestations.
+- **#3485: `feat(stage-tamagotchi): redesign the update status and release notes` (5 comments)**: Feedback on desktop updater states and release note cards.
+- **#3474: `fix(provider-inference): support OpenRouter speech models` (4 comments)**: Ingestion discussion on OpenRouter speech endpoint schema.
+- **#3480: `feat(provider-inference): add Wiro AI provider` (4 comments)**: Community integration discussions for Wiro AI provider.
+- **#3492: `refactor(stage-ui,stage-pages): keep the global module defaults in the module stores` (4 comments)**: Architectural feedback on ADR Step 2 module store isolation.
+- **#3491: `fix(stage-ui): read the voice of a character from the voices of its own speech selection` (4 comments)**: Speech selection resolution within session turns.
+- **#3472: `fix(stage-layouts): safely fallback undefined route.meta in settings layout` (+1 comments, 4 total)**: Defensive navigation guard triage.
+- **#3455: `feat(stage-tamagotchi): add daily routines with reminders and agenda widgets` (+1 comments, 4 total)**: Routine and agenda widget designs.
+
+#### 🍒 Cherry-Pick Candidates
+- **`663636378` (PR #3461) — `fix(web-extension): notify the stage once per watched video`**: **Medium/High Priority (Web Extension)**. Self-contained TypeScript logic in `plugins/airi-plugin-web-extension` implementing `VideoNotifyGate` and YouTube navigation tracking (`yt-navigate-start`/`yt-page-data-updated`). Eliminates notification storms during fast Shorts scrolling (3s dwell gate) and tab switches (30s cooldown). Backed by 40 unit tests; zero coupling to desktop runtime.
+- **PR #3474 — `fix(provider-inference): support OpenRouter speech models`**: **Low/Medium Priority (Provider Inference)**. Adds OpenRouter speech models into `packages/provider-inference`. Clean addition if fork users request OpenRouter audio/TTS capabilities.
+- **PR #3480 — `feat(provider-inference): add Wiro AI provider`**: **Low Priority (Provider Inference)**. Clean community provider integration for Wiro AI in `packages/provider-inference`.
+- **`6ebb9142b` (PR #3481) & `70939ba63` (PR #3487) — Character Session Resolution Concepts**: **Architectural Concept (Do NOT direct cherry-pick)**. High educational value in `docs/ai/adr/2026-11-11-module-defaults-and-character-values.md` for decoupling character module values from global runtime defaults, though our fork already solved multi-actor runtime switching via `<|ACTOR|>` tokens and LRU model caching.
+
+#### ⚠️ Divergence / Collision Warnings
+- **Cloud Auth, Billing & Session PRs (`02cafe892`, `2b64320dd`, `2d9d4d91c`, `766e86f51`, `8f2a0de09`, `1e3d4df4a`, PRs #3475, #3477, #3478, #3479, #3486, #3489, #3490)**: **Permanent Auto-Reject**. Upstream continues aggressive investment in hosted auth, session tokens, Steam OpenID, and Flux subscription billing. Incompatible with this fork's foundational local-first architecture (BYOS, zero remote accounts).
+- **Controls Island PR #3484 (`replace the controls Island grid with one app menu`)**: **Permanent Auto-Reject**. Touches `controls-island`. This fork deleted `controls-island` in favor of the decoupled Control Strip ribbon and transparent Actor Stage.
+- **Realtime Server Relay Protocol (PRs #3483, #3488)**: **Permanent Auto-Reject**. Hosted server-side WebRTC/realtime relays in `server/apps/api`. Fork relies strictly on client-side and direct peer-to-peer/provider connections.
+- **Cognitive & Chat Session Store Changes (`packages/stage-ui/src/stores/chat.ts`, `InteractiveArea.vue`, `useChatToolCallRerun.ts`)**: **Hand-Merge Conflict Warning**. Commits `6ebb9142b` and `70939ba63` modify `chat.ts` and `InteractiveArea.vue`. In our fork, `chat.ts` is customized for multi-actor staging, Sacred Journal LTMM, and Echo chips, and `InteractiveArea.vue` is embedded solely in the desktop chat workspace. Never blindly merge upstream's `chat.ts`.
+
+### 📋 Upstream Commits
+- `1e3d4df4a` fix(stage-ui,stage-pages): refresh account requests on 401 and retry the session request (#3490) [#3490](https://github.com/moeru-ai/airi/pull/3490) _(RainbowBird, 2026-11-11)_
+- `8f2a0de09` fix(auth,stage-ui): require an active session to link an account (#3489) [#3489](https://github.com/moeru-ai/airi/pull/3489) _(RainbowBird, 2026-11-11)_
+- `936008404` feat(stage-tamagotchi): redesign the update status and release notes (#3485) [#3485](https://github.com/moeru-ai/airi/pull/3485) _(Neko, 2026-11-11)_
+- `70939ba63` refactor(stage-ui,stage-layouts,stage-tamagotchi): resolve the session character in the turn paths (#3487) [#3487](https://github.com/moeru-ai/airi/pull/3487) _(RainbowBird, 2026-11-11)_
+- `766e86f51` fix(auth,stage-ui): revoke the refresh token on sign-out (#3479) [#3479](https://github.com/moeru-ai/airi/pull/3479) _(RainbowBird, 2026-11-11)_
+- `6ebb9142b` refactor(stage-ui): read the characters of a session through one function (#3481) [#3481](https://github.com/moeru-ai/airi/pull/3481) _(RainbowBird, 2026-11-11)_
+- `663636378` fix(web-extension): notify the stage once per watched video (#3461) [#3461](https://github.com/moeru-ai/airi/pull/3461) _(Fool, 2026-11-11)_
+- `2d9d4d91c` fix(stage-ui): keep credentials on transient refresh failures (#3478) [#3478](https://github.com/moeru-ai/airi/pull/3478) _(RainbowBird, 2026-11-11)_
+- `2b64320dd` fix(auth): verify Steam OpenID return_to (#3477) [#3477](https://github.com/moeru-ai/airi/pull/3477) _(RainbowBird, 2026-11-11)_
+- `02cafe892` fix(auth): let session middleware read JWT identity without an active sid (#3475) [#3475](https://github.com/moeru-ai/airi/pull/3475) _(RainbowBird, 2026-11-11)_
+
+### 🔬 Subsystem Breakdown
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 3 file(s) (+282/-269)
+- `apps/stage-tamagotchi-kirie/src-web/src/renderer/components/InteractiveArea.vue` *(+1/-2)*
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` *(+1/-2)*
+- `apps/stage-tamagotchi/src/renderer/pages/about.vue` *(+280/-265)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 2 file(s) (+111/-4)
+- `docs/ai/adr/2026-10-09-character-as-chat-member.md` *(+4/-4)*
+- `docs/ai/adr/2026-11-11-module-defaults-and-character-values.md` *(+107/-0)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 4 file(s) (+24/-2)
+- `packages/i18n/src/locales/en/settings.yaml` *(+2/-0)*
+- `packages/i18n/src/locales/en/tamagotchi/stage.yaml` *(+10/-1)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+2/-0)*
+- `packages/i18n/src/locales/zh-Hans/tamagotchi/stage.yaml` *(+10/-1)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 3 file(s) (+4/-7)
+- `packages/stage-layouts/src/components/Layouts/MobileInteractiveArea.vue` *(+1/-2)*
+- `packages/stage-layouts/src/components/Widgets/ChatArea.vue` *(+2/-2)*
+- `packages/stage-layouts/src/composables/useChatToolCallRerun.ts` *(+1/-3)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 2 file(s) (+158/-5)
+- `packages/stage-pages/src/pages/settings/account/account-settings-page.browser.test.ts` *(+116/-1)*
+- `packages/stage-pages/src/pages/settings/account/account-settings-page.vue` *(+42/-4)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 31 file(s) (+1863/-187)
+- `packages/stage-ui/src/components/scenarios/about/about-content.vue` *(+2/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-drafts.vue` *(+1/-1)*
+- `packages/stage-ui/src/components/scenarios/chat/components/voice-presence.vue` *(+1/-1)*
+- `packages/stage-ui/src/composables/use-linked-accounts.test.ts` *(+47/-0)*
+- `packages/stage-ui/src/composables/use-linked-accounts.ts` *(+56/-8)*
+- `packages/stage-ui/src/composables/vision/use-chat-vision.ts` *(+46/-9)*
+- `packages/stage-ui/src/libs/auth-client.ts` *(+9/-1)*
+- `packages/stage-ui/src/libs/auth-fetch.ts` *(+9/-2)*
+- `packages/stage-ui/src/libs/auth-oidc.ts` *(+72/-15)*
+- `packages/stage-ui/src/libs/steam-auth-client.test.ts` *(+17/-0)*
+- `packages/stage-ui/src/libs/steam-auth-client.ts` *(+4/-1)*
+- `packages/stage-ui/src/stores/auth.browser.test.ts` *(+166/-16)*
+- `packages/stage-ui/src/stores/auth.test.ts` *(+255/-1)*
+- `packages/stage-ui/src/stores/auth.ts` *(+247/-66)*
+- `packages/stage-ui/src/stores/character/orchestrator/store.ts` *(+1/-1)*
+- `packages/stage-ui/src/stores/modules/artistry-autonomous.ts` *(+1/-1)*
+- `packages/stage-ui/src/stores/modules/consciousness.test.ts` *(+15/-3)*
+- `packages/stage-ui/src/stores/modules/consciousness.ts` *(+12/-8)*
+- `packages/stage-ui/src/stores/modules/speech.test.ts` *(+38/-0)*
+- `packages/stage-ui/src/stores/modules/speech.ts` *(+16/-0)*
+- `plugins/airi-plugin-web-extension/entrypoints/background.ts` *(+15/-17)*
+- `plugins/airi-plugin-web-extension/src/background/client.test.ts` *(+31/-10)*
+- `plugins/airi-plugin-web-extension/src/background/client.ts` *(+26/-24)*
+- `plugins/airi-plugin-web-extension/src/background/video-notify.test.ts` *(+388/-0)*
+- `plugins/airi-plugin-web-extension/src/background/video-notify.ts` *(+223/-0)*
+- `plugins/airi-plugin-web-extension/src/content/index.ts` *(+31/-0)*
+- `plugins/airi-plugin-web-extension/src/content/youtube-navigation.test.ts` *(+41/-0)*
+- `plugins/airi-plugin-web-extension/src/content/youtube-navigation.ts` *(+42/-0)*
+- `plugins/airi-plugin-web-extension/src/shared/sites.test.ts` *(+28/-0)*
+- `plugins/airi-plugin-web-extension/src/shared/sites.ts` *(+9/-2)*
+- `plugins/airi-plugin-web-extension/src/shared/types.ts` *(+14/-0)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 1 file(s) (+16/-1)
+- `packages/stage-ui/src/components/scenes/Stage.vue` *(+16/-1)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 5 file(s) (+94/-16)
+- `packages/stage-ui/src/stores/chat.contract.test.ts` *(+16/-3)*
+- `packages/stage-ui/src/stores/chat.ts` *(+30/-13)*
+- `packages/stage-ui/src/stores/chat/session-members.test.ts` *(+23/-0)*
+- `packages/stage-ui/src/stores/chat/session-members.ts` *(+18/-0)*
+- `packages/stage-ui/src/stores/chat/session-store.ts` *(+7/-0)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 7 file(s) (+502/-54)
+- `server/apps/auth/src/plugins/oidc-jwt-bearer.ts` *(+50/-20)*
+- `server/apps/auth/src/plugins/steam.ts` *(+63/-5)*
+- `server/apps/auth/src/routes.ts` *(+0/-1)*
+- `server/apps/auth/src/tests/oidc-jwt-bearer.test.ts` *(+179/-24)*
+- `server/apps/auth/src/tests/routes-oidc-token-auth.test.ts` *(+24/-1)*
+- `server/apps/auth/src/tests/steam.test.ts` *(+76/-2)*
+- `server/docs/ai/adr/2026-09-20-oidc-jwt-session-boundary.md` *(+110/-1)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (19)
+- [PR] [#3482](https://github.com/moeru-ai/airi/pull/3482) `fix(ci): gate review labels on human attestation` by **@jim139129** *(7 comments)*
+- [PR] [#3486](https://github.com/moeru-ai/airi/pull/3486) `feat(stage-ui,stage-pages,stage-layouts): put the subscription first and show Flux by account state` by **@luoling8192** *(12 comments)*
+- [PR] [#3492](https://github.com/moeru-ai/airi/pull/3492) `refactor(stage-ui,stage-pages): keep the global module defaults in the module stores` by **@luoling8192** *(4 comments)*
+- [PR] [#3491](https://github.com/moeru-ai/airi/pull/3491) `fix(stage-ui): read the voice of a character from the voices of its own speech selection` by **@luoling8192** *(4 comments)*
+- [PR] [#3490](https://github.com/moeru-ai/airi/pull/3490) `fix(stage-ui,stage-pages): refresh account requests on 401 and retry the session request` by **@luoling8192** *(2 comments)*
+- [PR] [#3489](https://github.com/moeru-ai/airi/pull/3489) `fix(auth,stage-ui): require an active session to link an account` by **@luoling8192** *(2 comments)*
+- [PR] [#3473](https://github.com/moeru-ai/airi/pull/3473) `fix(mcp): avoid redispatch after tool call failures` by **@3361559784** *(3 comments)*
+- [PR] [#3485](https://github.com/moeru-ai/airi/pull/3485) `feat(stage-tamagotchi): redesign the update status and release notes` by **@nekomeowww** *(5 comments)*
+- [PR] [#3487](https://github.com/moeru-ai/airi/pull/3487) `refactor(stage-ui,stage-layouts,stage-tamagotchi): resolve the session character in the turn paths` by **@luoling8192** *(4 comments)*
+- [PR] [#3488](https://github.com/moeru-ai/airi/pull/3488) `feat(api-server): add the realtime relay and call access routes` by **@luoling8192** *(Draft)* *(2 comments)*
+- [PR] [#3483](https://github.com/moeru-ai/airi/pull/3483) `feat(realtime-protocol): add device and call contracts for realtime calls` by **@luoling8192** *(Draft)* *(2 comments)*
+- [PR] [#3479](https://github.com/moeru-ai/airi/pull/3479) `fix(auth,stage-ui): revoke the refresh token on sign-out` by **@luoling8192** *(3 comments)*
+- [PR] [#3484](https://github.com/moeru-ai/airi/pull/3484) `feat(stage-tamagotchi): replace the controls Island grid with one app menu` by **@luoling8192** *(4 comments)*
+- [PR] [#3481](https://github.com/moeru-ai/airi/pull/3481) `refactor(stage-ui): read the characters of a session through one function` by **@luoling8192** *(2 comments)*
+- [PR] [#3478](https://github.com/moeru-ai/airi/pull/3478) `fix(stage-ui): keep credentials on transient refresh failures` by **@luoling8192** *(3 comments)*
+- [PR] [#3477](https://github.com/moeru-ai/airi/pull/3477) `fix(auth): verify Steam OpenID return_to` by **@luoling8192** *(3 comments)*
+- [PR] [#3480](https://github.com/moeru-ai/airi/pull/3480) `feat(provider-inference): add Wiro AI provider` by **@EminBudak** *(4 comments)*
+- [PR] [#3475](https://github.com/moeru-ai/airi/pull/3475) `fix(auth): let session middleware read JWT identity without an active sid` by **@luoling8192** *(3 comments)*
+- [PR] [#3474](https://github.com/moeru-ai/airi/pull/3474) `fix(provider-inference): support OpenRouter speech models` by **@shenxi200-eng** *(4 comments)*
+
+#### 🔄 Status & Lifecycle Changes (2)
+- [PR] [#3461](https://github.com/moeru-ai/airi/pull/3461) `fix(web-extension): notify the stage once per watched video` — `OPEN` ➔ `MERGED`
+- [PR] [#3445](https://github.com/moeru-ai/airi/pull/3445) `feat(chat): add conversation feature preferences and execution gates` — `OPEN` ➔ `CLOSED`
+
+#### 💬 Discussion Activity (4)
+- [PR] [#3472](https://github.com/moeru-ai/airi/pull/3472) `fix(stage-layouts): safely fallback undefined route.meta in settings layout (#3220)` — *+2 comments (3 ➔ 5 total)*
+- [PR] [#3461](https://github.com/moeru-ai/airi/pull/3461) `fix(web-extension): notify the stage once per watched video` — *+5 comments (10 ➔ 15 total)*
+- [PR] [#3445](https://github.com/moeru-ai/airi/pull/3445) `feat(chat): add conversation feature preferences and execution gates` — *+1 comments (1 ➔ 2 total)*
+- [PR] [#3455](https://github.com/moeru-ai/airi/pull/3455) `feat(stage-tamagotchi): add daily routines with reminders and agenda widgets` — *+1 comments (3 ➔ 4 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [Draft] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+- [PR] [#3468](https://github.com/moeru-ai/airi/pull/3468) `feat(ui): use generated beam avatars as the default user avatar` [MERGED] — *(3 comments)*
+  - *Focus*: Procedural beam avatars with dynamic chromatic hue & user profile identity; tracked for selective port per docs/design-procedural-beam-avatars-and-user-profile-identity.md
+- [PR] [#3472](https://github.com/moeru-ai/airi/pull/3472) `fix(stage-layouts): safely fallback undefined route.meta in settings layout (#3220)` [OPEN] — 🚨 **+2 comments** (5 total)
+  - *Focus*: Route meta fallback during settings navigation (#3220); evaluated against fork Master-Detail topology and desktop Electron shell
+
+---
 ## [2026-11-10] Upstream Delta: `528a31de..822243de` (5 commits, 62 files, 10 update(s))
 
 ### 🎯 Executive Highlights

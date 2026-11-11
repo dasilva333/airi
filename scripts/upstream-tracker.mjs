@@ -268,7 +268,7 @@ const SUBSYSTEM_RULES = [
   },
   {
     name: 'Auto-Updater & Packaging Infrastructure',
-    risk: '⚪ ignore / rejected in fork (offline/local distribution)',
+    risk: '📦 import / inspect',
     patterns: [
       /services\/electron\/auto-updater/,
       /windows\/main\/hide-on-close/,

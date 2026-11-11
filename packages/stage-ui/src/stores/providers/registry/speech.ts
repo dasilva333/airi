@@ -2542,7 +2542,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         const provider: SpeechProvider = {
           speech: (model?: string) => ({
             baseURL: baseUrl,
-            model: model || 'openai/gpt-audio-mini',
+            model: model || 'openai/tts-1',
             fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
               if (!init?.body || typeof init.body !== 'string')
                 throw new Error('Invalid request body')
@@ -2551,71 +2551,49 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
               const text = body.input
               const voice = body.voice
 
-              const sseResponse = await globalThis.fetch(new URL('chat/completions', baseUrl), {
+              const response = await globalThis.fetch(new URL('audio/speech', baseUrl), {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${apiKey}`,
                   'Content-Type': 'application/json',
+                  'HTTP-Referer': 'https://airi.moeru.ai',
+                  'X-Title': 'AIRI',
                 },
                 body: JSON.stringify({
-                  model: model || 'openai/gpt-audio-mini',
-                  messages: [
-                    { role: 'user', content: `Read this text aloud exactly as written, without any commentary or extra words:\n\n${text}` },
-                  ],
-                  modalities: ['text', 'audio'],
-                  audio: { voice, format: 'pcm16' },
-                  stream: true,
+                  model: model || 'openai/tts-1',
+                  input: text,
+                  voice: voice || 'alloy',
+                  response_format: 'mp3',
                 }),
+                signal: init?.signal,
               })
 
-              if (!sseResponse.ok) {
-                const errorText = await sseResponse.text()
-                throw new Error(`OpenRouter audio request failed: ${sseResponse.status} ${errorText}`)
+              if (!response.ok) {
+                const errorText = await response.text()
+                throw new Error(`OpenRouter audio request failed: ${response.status} ${errorText}`)
               }
 
-              const reader = sseResponse.body!.getReader()
-              const decoder = new TextDecoder()
-              const audioDataChunks: string[] = []
-              let buffer = ''
+              const contentType = response.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase() || 'audio/mpeg'
+              const arrayBuffer = await response.arrayBuffer()
+              const bytes = new Uint8Array(arrayBuffer)
 
-              while (true) {
-                const { done, value } = await reader.read()
-                if (done)
-                  break
+              if (!bytes.length)
+                throw new Error('OpenRouter audio response contains no audio')
 
-                buffer += decoder.decode(value, { stream: true })
-                const lines = buffer.split('\n')
-                buffer = lines.pop()!
+              // Check if response is already WAV or MP3
+              const isWav = bytes.byteLength >= 44
+                && new TextDecoder().decode(bytes.subarray(0, 4)) === 'RIFF'
+                && new TextDecoder().decode(bytes.subarray(8, 12)) === 'WAVE'
 
-                for (const line of lines) {
-                  if (!line.startsWith('data: '))
-                    continue
-                  const data = line.slice('data: '.length).trim()
-                  if (data === '[DONE]')
-                    break
-
-                  try {
-                    const chunk = JSON.parse(data)
-                    const audio = chunk.choices?.[0]?.delta?.audio
-                    if (audio?.data)
-                      audioDataChunks.push(audio.data)
-                  }
-                  catch (e) {
-                  // skip malformed chunks, but log them for debugging
-                    console.warn('Skipping malformed SSE chunk from OpenRouter audio stream:', data, e)
-                  }
-                }
+              if (isWav || contentType === 'audio/mpeg' || contentType === 'audio/wav') {
+                return new Response(bytes, {
+                  status: 200,
+                  headers: { 'Content-Type': isWav ? 'audio/wav' : contentType },
+                })
               }
 
-              // Decode base64 PCM16 data
-              const fullBase64 = audioDataChunks.join('')
-              const binaryString = atob(fullBase64)
-              const pcmBytes = new Uint8Array(binaryString.length)
-              for (let i = 0; i < binaryString.length; i++)
-                pcmBytes[i] = binaryString.charCodeAt(i)
-
-              // Wrap raw PCM16 in a WAV header so the browser can play it
-              const sampleRate = 24000
+              // Fallback for raw PCM (wrap in standard WAV header)
+              const sampleRate = (model?.includes('elevenlabs') ? 22050 : 24000)
               const numChannels = 1
               const bitsPerSample = 16
               const byteRate = sampleRate * numChannels * (bitsPerSample / 8)
@@ -2627,28 +2605,23 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                   view.setUint8(offset + i, str.charCodeAt(i))
               }
 
-              // RIFF chunk descriptor
-              writeStr(0, 'RIFF') // ChunkID
-              view.setUint32(4, 36 + pcmBytes.length, true) // ChunkSize
-              writeStr(8, 'WAVE') // Format
+              writeStr(0, 'RIFF')
+              view.setUint32(4, 36 + bytes.length, true)
+              writeStr(8, 'WAVE')
+              writeStr(12, 'fmt ')
+              view.setUint32(16, 16, true)
+              view.setUint16(20, 1, true)
+              view.setUint16(22, numChannels, true)
+              view.setUint32(24, sampleRate, true)
+              view.setUint32(28, byteRate, true)
+              view.setUint16(32, blockAlign, true)
+              view.setUint16(34, bitsPerSample, true)
+              writeStr(36, 'data')
+              view.setUint32(40, bytes.length, true)
 
-              // "fmt " sub-chunk
-              writeStr(12, 'fmt ') // Subchunk1ID
-              view.setUint32(16, 16, true) // Subchunk1Size (16 for PCM)
-              view.setUint16(20, 1, true) // AudioFormat (1 for PCM)
-              view.setUint16(22, numChannels, true) // NumChannels
-              view.setUint32(24, sampleRate, true) // SampleRate
-              view.setUint32(28, byteRate, true) // ByteRate
-              view.setUint16(32, blockAlign, true) // BlockAlign
-              view.setUint16(34, bitsPerSample, true) // BitsPerSample
-
-              // "data" sub-chunk
-              writeStr(36, 'data') // Subchunk2ID
-              view.setUint32(40, pcmBytes.length, true) // Subchunk2Size
-
-              const wavBytes = new Uint8Array(44 + pcmBytes.length)
+              const wavBytes = new Uint8Array(44 + bytes.length)
               wavBytes.set(new Uint8Array(wavHeader), 0)
-              wavBytes.set(pcmBytes, 44)
+              wavBytes.set(bytes, 44)
 
               return new Response(wavBytes.buffer, {
                 status: 200,
@@ -2666,7 +2639,12 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
             baseUrl += '/'
 
           try {
-            const res = await fetch(`${baseUrl}models?output_modality=audio`)
+            const res = await fetch(`${baseUrl}models?output_modalities=speech`, {
+              headers: {
+                'HTTP-Referer': 'https://airi.moeru.ai',
+                'X-Title': 'AIRI',
+              },
+            })
             if (!res.ok)
               return []
 
@@ -2685,12 +2663,58 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
             return []
           }
         },
-        listVoices: async () => {
-        // OpenRouter audio models support standard OpenAI voices
+        listVoices: async (config: Record<string, unknown>, modelId?: string) => {
+          let baseUrl = (typeof config.baseUrl === 'string' && config.baseUrl.trim()) || 'https://openrouter.ai/api/v1/'
+          if (!baseUrl.endsWith('/'))
+            baseUrl += '/'
+
+          const effectiveModel = modelId || (config.model as string | undefined)
+
+          try {
+            const res = await fetch(`${baseUrl}models?output_modalities=speech`, {
+              headers: {
+                'HTTP-Referer': 'https://airi.moeru.ai',
+                'X-Title': 'AIRI',
+              },
+            })
+            if (res.ok) {
+              const json = await res.json()
+              const models: any[] = json.data || []
+              const target = effectiveModel
+                ? models.find((m: any) => m.id === effectiveModel)
+                : models.find((m: any) => Array.isArray(m.supported_voices) && m.supported_voices.length > 0)
+
+              if (target) {
+                if (Array.isArray(target.supported_voices) && target.supported_voices.length > 0) {
+                  return target.supported_voices.map((id: string) => ({
+                    id,
+                    name: id
+                      .split(/[-_]/)
+                      .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+                      .join(' '),
+                    provider: 'openrouter-audio-speech',
+                    languages: [],
+                  } satisfies VoiceInfo))
+                }
+
+                // Model has no discrete voice catalog (e.g. prompt-guided or single default speaker)
+                return [{
+                  id: 'default',
+                  name: 'Default',
+                  provider: 'openrouter-audio-speech',
+                  languages: [],
+                } satisfies VoiceInfo]
+              }
+            }
+          }
+          catch {
+            // fallback to standard voice list below
+          }
+
+          // OpenRouter native audio models support standard OpenAI voices by default
           return [
             'alloy',
             'ash',
-            'ballad',
             'coral',
             'echo',
             'fable',

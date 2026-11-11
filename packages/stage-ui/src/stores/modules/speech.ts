@@ -517,7 +517,7 @@ export const useSpeechStore = defineStore('speech', () => {
     return false
   })
 
-  async function loadVoicesForProvider(provider: string) {
+  async function loadVoicesForProvider(provider: string, modelId?: string) {
     if (!provider) {
       return []
     }
@@ -538,7 +538,8 @@ export const useSpeechStore = defineStore('speech', () => {
         }
       }
 
-      const voices = await metadata.capabilities.listVoices?.(config) || []
+      const effectiveModel = modelId || (config.model as string | undefined) || (provider === activeSpeechProvider.value ? activeSpeechModel.value : undefined)
+      const voices = await metadata.capabilities.listVoices?.(config, effectiveModel) || []
       // Reassign to trigger reactivity when adding/updating provider entries
       availableVoices.value = {
         ...availableVoices.value,
@@ -565,10 +566,17 @@ export const useSpeechStore = defineStore('speech', () => {
   watch(activeSpeechProvider, async (newProvider, oldProvider) => {
     if (newProvider && oldProvider !== undefined && newProvider !== oldProvider) {
       await Promise.all([
-        loadVoicesForProvider(newProvider),
+        loadVoicesForProvider(newProvider, activeSpeechModel.value),
         providersStore.fetchModelsForProvider(newProvider),
       ])
       // Don't reset voice settings when changing providers to allow for persistence
+    }
+  })
+
+  // Watch for model changes and refresh provider voices
+  watch(activeSpeechModel, async (newModel) => {
+    if (activeSpeechProvider.value && activeSpeechProvider.value !== 'speech-noop') {
+      await loadVoicesForProvider(activeSpeechProvider.value, newModel)
     }
   })
 
@@ -602,7 +610,7 @@ export const useSpeechStore = defineStore('speech', () => {
   }
 
   onMounted(() => {
-    loadVoicesForProvider(activeSpeechProvider.value).then(() => {
+    loadVoicesForProvider(activeSpeechProvider.value, activeSpeechModel.value).then(() => {
       if (activeSpeechVoiceId.value) {
         activeSpeechVoice.value = availableVoices.value[activeSpeechProvider.value]?.find(voice => voice.id === activeSpeechVoiceId.value)
       }
@@ -613,8 +621,8 @@ export const useSpeechStore = defineStore('speech', () => {
     const voiceId = activeSpeechVoiceId.value
     const voices = availableVoices.value
     if (voiceId) {
-      // For OpenAI Compatible, create a custom voice object if no voices were discovered
-      if (activeSpeechProvider.value === 'openai-compatible-audio-speech') {
+      // For OpenAI Compatible or OpenRouter, create a custom voice object if no voices were discovered
+      if (activeSpeechProvider.value === 'openai-compatible-audio-speech' || activeSpeechProvider.value === 'openrouter-audio-speech') {
         const foundVoice = voices[activeSpeechProvider.value]?.find(voice => voice.id === voiceId)
         if (foundVoice) {
           activeSpeechVoice.value = foundVoice
@@ -625,7 +633,7 @@ export const useSpeechStore = defineStore('speech', () => {
             name: voiceId,
             description: voiceId,
             previewURL: '',
-            languages: [{ code: 'en', title: 'English' }],
+            languages: activeSpeechProvider.value === 'openrouter-audio-speech' ? [] : [{ code: 'en', title: 'English' }],
             provider: activeSpeechProvider.value,
             gender: 'neutral',
           }
