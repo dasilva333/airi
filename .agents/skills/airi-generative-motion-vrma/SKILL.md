@@ -94,10 +94,12 @@ The shipped `flow_mdm.onnx` was produced and verified by committed Python toolin
 - **Procedural-path provider coupling**: the procedural engine uses the *active consciousness* provider/model, not a dedicated override (the design doc's §2.2 override dropdowns are unshipped); if the chat model can't do structured output, procedural motion fails.
 - **ACT-first scope**: auto-gen only fires on *library-miss motion cues* on a VRM renderer with the Kinetic pack on. It never re-synthesizes a cached slug, never generates for the `stop` sentinel, and a corrupt first clip stays corrupt until overwritten — test reuse with a fresh id to isolate poisoning.
 - **HumanML3D denormalization**: `vrmaExporter.ts` must apply `hmlMean`/`hmlStd` from `constants.ts`; a skipped denorm produces near-zero poses ("frozen T-pose").
+- **Cervical Hyperextension ("Crooked Neck") & SMPL Cranial Forward Offset**: In HumanML3D / SMPL, Joint 15 (facial center) is forward of Joint 12 (nape of neck) along $[0, 0.440359, 0.897821]$ ($63.9^\circ$ forward), while VRM rest neck is vertical $[0, 1, 0]$. Energetic diffusion outputs (like "Idol") that predict an upright head cause `solveParentSwing` to rotate the VRM neck bone $-58^\circ$ backward, bending the neck into the ceiling. Always clamp local pitch via `clampQuaternionPitch(local, -15 * PI / 180, 25 * PI / 180)` in `vrmaExporter.ts` and synchronize `clampedWorld` to both Node 4 (`neck`) and Node 5 (`head`) to guarantee upright posture without drift or secondary hyperextension (enforced by Integration Gate 9).
 
 ## 8. Cross-Citations (Pull Before Broad Changes)
 
-- `docs/design-text-to-motion.md` — **canonical, current architecture doc**. Supersedes the founding proposal. Covers dual engine, provider/module/settings integration, three-tier roadmap (FlowMDM core → TMR-SOMA retrieval cache → Kimodo next-gen), ONNX export workarounds, and multi-format decoders (VRMA / VMD / Live2D motion.json).
+- `docs/design-motion-choreography.md` — **canonical architecture doc for Beat-Conductor, Hermite loop closure, and dynamic musical phrasing**.
+- `docs/design-text-to-motion.md` — **canonical, current architecture doc for text-to-motion**. Supersedes the founding proposal. Covers dual engine, provider/module/settings integration, three-tier roadmap (FlowMDM core → TMR-SOMA retrieval cache → Kimodo next-gen), ONNX export workarounds, and multi-format decoders (VRMA / VMD / Live2D motion.json).
 - `docs/proposal-text-to-vrma-system.md` — original Text-to-VRMA founding proposal (historic reference for the procedural/keyframe lineage).
 - `docs/text-to-motion.md` — academic research survey.
 - `docs/mocap.md` — mocap companion reference.

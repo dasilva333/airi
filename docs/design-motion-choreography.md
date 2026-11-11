@@ -131,9 +131,56 @@ Pipeline:                                      â–¼                            â–
 
 ---
 
-## 5. Public API & Monorepo Integration
+## 5. Humanoid Skeletal Safety: Cervical Retargeting & The Idol Neck Invariant
 
-### 5.1 Package Exports (`@proj-airi/motion-choreography`)
+A major failure mode uncovered during neural dance playback was severe **cervical hyperextension ("crooked neck")**, where high-energy routines like the *Idol* persona caused the 3D VRM avatar's head to bend violently backward by up to $\sim 60^\circ$, chin pointing directly at the ceiling.
+
+### 5.1 The Root Cause: SMPL Facial Offset vs VRM Rest Alignment
+1. **The SMPL / HumanML3D Landmark Offset**:
+   - In the SMPL kinematic skeleton, **Joint 12 (Neck)** is located at the cervical base (nape of the neck near C7).
+   - **Joint 15 (Head)** is placed at the center of the face / nose.
+   - In the neutral dataset mean pose (`hmlMean`), the vector from Joint 12 to Joint 15 is $[0, 0.0296, 0.0605]\text{ m}$. Normalized, this cranial reference vector is:
+     $$\mathbf{v}_{\text{SMPL}} = [0, 0.440359, 0.897821]$$
+     Because $+Y$ is UP and $+Z$ is FORWARD, this vector points **$63.9^\circ$ forward** from the vertical axis.
+2. **The VRM Rest Pose Reality**:
+   - In standard glTF / VRM humanoid rigs, the rest neck bone connects vertically from the upper chest to the skull along **pure $+Y$ ($[0, 1, 0]$)**.
+3. **The Hyperextension Trap (Commit `1e716ee64`)**:
+   - An early fix attempted to eliminate a forward hunch by assigning $\mathbf{v}_{\text{SMPL}}$ ($63.9^\circ$ forward) as the rest direction in `solveParentSwing`.
+   - While this caused zero-filled test data to output an identity rotation, it created a severe inverse kinematic defect during actual neural diffusion:
+   - In upright, energetic routines like *Idol* ("cheerful idol stage dance, radiant expressive presence"), the neural network predicts an upright posture where the head is directly above the neck base ($\mathbf{p}_{15} - \mathbf{p}_{12} \approx [0, 1, 0]$).
+   - `solveParentSwing` calculated the delta required to swing from the $64^\circ$ forward reference to vertical:
+     $$\Delta \theta_{\text{pitch}} \approx -58.4^\circ \text{ to } -64^\circ$$
+   - Applying a $-60^\circ$ pitch to the VRM neck bone (which starts vertical) tilted the neck bone into the avatar's back, hyperextending her head straight into the ceiling.
+
+### 5.2 The Mathematical Solution: Anatomical Pitch Clamping & Child Sync
+To eliminate this failure mode permanently across all present and future diffusion models:
+
+1. **`clampQuaternionPitch` Primitive** ([`packages/stage-ui/src/utils/flowmdm/retargeting.ts`](../packages/stage-ui/src/utils/flowmdm/retargeting.ts)):
+   Decomposes local quaternion pitch around the humanoid $X$-axis and applies strict physiological human limits:
+   - **Cervical Extension (looking up/back)**: strictly bounded to $\ge -15^\circ$ ($-0.2618\text{ rad}$).
+   - **Cervical Flexion (looking down/forward)**: strictly bounded to $\le +25^\circ$ ($+0.4363\text{ rad}$).
+   Adjusts pitch via delta quaternion multiplication while preserving roll/yaw axes and quaternion hemisphere continuity:
+   ```typescript
+   export function clampQuaternionPitch(
+     q: Quat,
+     minPitchRad: number,
+     maxPitchRad: number,
+   ): Quat
+   ```
+2. **Cervical Child Synchronization** ([`packages/stage-ui/src/utils/flowmdm/vrmaExporter.ts`](../packages/stage-ui/src/utils/flowmdm/vrmaExporter.ts)):
+   When Node 4 (`neck`) is clamped, the clamped world orientation $\mathbf{q}_{\text{clamped}} = \mathbf{q}_{\text{parent}} \cdot \mathbf{q}_{\text{local}}$ is synchronized back to `worldQ[4]` and `worldQ[5]` (`head`). Node 5 inherits the clamped orientation with zero local drift, preventing secondary hyperextension or compounding errors across playback loops.
+3. **Integration Gate 9**:
+   Enshrined in [`vrmaExporter.test.ts`](../packages/stage-ui/src/utils/flowmdm/vrmaExporter.test.ts) as a mandatory regression test:
+   ```typescript
+   it('gate 9: Upright and energetic cranial postures are anatomically clamped against backward neck hyperextension')
+   ```
+   Guarantees that purely vertical cranial inputs ($\mathbf{p}_{15} - \mathbf{p}_{12} = [0, 1, 0]$) strictly respect $\ge -15.1^\circ$ extension bounds and can never regress to $-58^\circ$.
+
+---
+
+## 6. Public API & Monorepo Integration
+
+### 6.1 Package Exports (`@proj-airi/motion-choreography`)
 
 ```typescript
 export { alignDanceSheetToBeats } from './conductor/aligner'
@@ -155,14 +202,14 @@ export { synthesizeDanceBrief } from './synthesizer'
 export type { DanceBrief, PersonaArchetype } from './types'
 ```
 
-### 5.2 Store Integration Contracts
+### 6.2 Store Integration Contracts
 - `useModelStore`: Dispatches `triggerMotion(url, { loop: true, fadeDuration: 0.5 })` across BroadcastChannel (`airi-stores-live2d`).
 - `VRMModel.vue`: Binds `LoopRepeat` with `clampWhenFinished = false` when looping is requested, preventing animation freezing.
 - `ThreeScene.vue`: Exposes `setVrmFrameHook(hook)` enabling non-destructive frame callbacks after `vrmAnimationMixer.update(delta)`.
 
 ---
 
-## 6. Verification & Quality Invariants
+## 7. Verification & Quality Invariants
 
 1. **Zero-Binary In-Memory Test Suite**:
    All test cases run against pure mathematical PCM audio (`tests/synthetic-audio.ts`) and synthetic HumanML3D tensors (`tests/synthetic-motion.ts`). Vitest suite runs 31+ tests in under 500ms without committing binary audio to Git.
