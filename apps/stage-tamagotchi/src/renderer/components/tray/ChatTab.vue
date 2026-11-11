@@ -49,10 +49,10 @@ function handleSend() {
       ]"
     >
       <span class="flex items-center gap-1.5">
-        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span class="h-1.5 w-1.5 rounded-full bg-primary-500" />
         Synced with Desktop Chat
       </span>
-      <span class="cursor-pointer text-xs text-emerald-500 dark:text-emerald-400 hover:underline">
+      <span class="cursor-pointer text-xs text-primary-600 dark:text-primary-400 hover:underline">
         Open Full Chat
       </span>
     </div>
@@ -69,24 +69,24 @@ function handleSend() {
           <div
             :class="[
               'w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mt-0.5',
-              'bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-500/20',
+              'bg-primary-100 dark:bg-primary-950/60 border border-primary-500/20',
             ]"
           >
-            <div class="i-solar:ghost-bold h-full w-full p-0.5 text-emerald-500" />
+            <div class="i-solar:ghost-bold h-full w-full p-0.5 text-primary-500" />
           </div>
           <div
             :class="[
               'px-3.5 py-2.5 rounded-2xl rounded-tl-sm text-xs leading-relaxed',
-              'bg-emerald-50 text-neutral-800 border border-emerald-200/60',
-              'dark:bg-emerald-950/30 dark:text-emerald-100 dark:border-emerald-800/40',
+              'bg-primary-50/80 text-neutral-900 border border-primary-200/60',
+              'dark:bg-primary-950/30 dark:text-primary-100 dark:border-primary-800/40',
               'shadow-sm',
             ]"
           >
-            <div class="mb-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400">
+            <div class="mb-0.5 text-[10px] text-primary-600 font-bold dark:text-primary-400">
               AIRI
             </div>
             <div>{{ msg.text }}</div>
-            <div class="mt-1 text-right text-[9px] text-neutral-400 dark:text-emerald-400/60">
+            <div class="mt-1 text-right text-[9px] text-neutral-400 dark:text-primary-400/60">
               {{ msg.time }}
             </div>
           </div>
@@ -105,7 +105,7 @@ function handleSend() {
             <div>{{ msg.text }}</div>
             <div class="mt-1 flex items-center justify-end gap-1 text-[9px] text-neutral-400 dark:text-neutral-500">
               <span>{{ msg.time }}</span>
-              <span class="i-solar:check-read-linear text-xs text-emerald-500" />
+              <span class="i-solar:check-read-linear text-xs text-primary-500" />
             </div>
           </div>
         </div>
@@ -123,7 +123,7 @@ function handleSend() {
           'flex items-center gap-1.5 px-2.5 py-1.5',
           'bg-neutral-50 dark:bg-neutral-900/90',
           'border border-neutral-200/80 dark:border-neutral-700/60 rounded-xl',
-          'focus-within:border-emerald-500/70 transition shadow-sm',
+          'focus-within:border-primary-500/70 transition shadow-sm',
         ]"
       >
         <button
@@ -161,7 +161,7 @@ function handleSend() {
           type="button"
           title="Dictate"
           :class="[
-            'p-1 text-neutral-400 hover:text-emerald-500',
+            'p-1 text-neutral-400 hover:text-primary-500',
             'rounded transition',
           ]"
         >
@@ -171,7 +171,7 @@ function handleSend() {
           type="button"
           title="Send"
           :class="[
-            'p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white',
+            'p-1.5 rounded-lg bg-primary-500 hover:bg-primary-600 text-white',
             'transition shadow-sm flex items-center justify-center',
           ]"
           @click="handleSend"

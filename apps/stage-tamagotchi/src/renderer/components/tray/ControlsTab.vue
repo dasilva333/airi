@@ -13,16 +13,16 @@ interface ControlTile {
 }
 
 const tiles = ref<ControlTile[]>([
-  { id: 'mic', label: 'Mic', status: 'On', icon: 'i-solar:microphone-3-bold', active: true, highlightColor: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' },
-  { id: 'voice', label: 'Voice', status: '80%', icon: 'i-solar:volume-loud-bold', active: true, highlightColor: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' },
-  { id: 'tts', label: 'TTS', status: 'On', icon: 'i-solar:chat-round-line-bold', active: true, highlightColor: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' },
-  { id: 'vision', label: 'Vision', status: 'On', icon: 'i-solar:eye-bold', active: true, highlightColor: 'text-purple-500 bg-purple-50 dark:bg-purple-950/40' },
+  { id: 'mic', label: 'Mic', status: 'On', icon: 'i-solar:microphone-3-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'voice', label: 'Voice', status: '80%', icon: 'i-solar:volume-loud-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'tts', label: 'TTS', status: 'On', icon: 'i-solar:chat-round-line-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'vision', label: 'Vision', status: 'On', icon: 'i-solar:eye-bold', active: true, highlightColor: 'text-purple-600 bg-purple-50 dark:bg-purple-950/40 dark:text-purple-400' },
   { id: 'stage', label: 'Stage', status: 'Hidden', icon: 'i-solar:box-bold', active: false },
   { id: 'sleep', label: 'Sleep', status: 'Off', icon: 'i-solar:moon-bold', active: false },
   { id: 'outfit', label: 'Outfit', status: 'Airi Maid', icon: 'i-solar:t-shirt-bold', active: true },
   { id: 'motion', label: 'Motion', status: 'Auto', icon: 'i-solar:running-round-bold', active: true },
   { id: 'emotion', label: 'Emotion', status: 'Natural', icon: 'i-solar:smile-circle-bold', active: true },
-  { id: 'fx', label: 'FX / Aura', status: 'On', icon: 'i-solar:stars-minimalistic-bold', active: true, highlightColor: 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' },
+  { id: 'fx', label: 'FX / Aura', status: 'On', icon: 'i-solar:stars-minimalistic-bold', active: true, highlightColor: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400' },
   { id: 'record', label: 'Record', status: 'Off', icon: 'i-solar:record-circle-bold', active: false },
 ])
 
@@ -41,7 +41,7 @@ function toggleTile(tile: ControlTile) {
 </script>
 
 <template>
-  <div class="h-full flex flex-col space-y-3">
+  <div class="h-full flex flex-col space-y-2.5">
     <!-- Header banner -->
     <div
       :class="[
@@ -51,7 +51,7 @@ function toggleTile(tile: ControlTile) {
     >
       <div>
         <div class="flex items-center gap-1.5 text-xs text-neutral-800 font-bold dark:text-neutral-100">
-          <div class="i-solar:widget-2-bold text-sm text-emerald-500" />
+          <div class="i-solar:widget-2-bold text-sm text-primary-500" />
           Quick Controls
         </div>
         <div class="text-[10px] text-neutral-500 dark:text-neutral-400">
@@ -85,7 +85,7 @@ function toggleTile(tile: ControlTile) {
         type="button"
         :class="[
           'flex flex-col items-center justify-center',
-          'p-1.5 rounded-xl border transition group',
+          'p-2 rounded-xl border transition group min-h-[68px]',
           tile.active
             ? 'bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 shadow-sm'
             : 'bg-neutral-50/70 dark:bg-neutral-900/40 border-neutral-200/50 dark:border-neutral-800/50 opacity-70',
@@ -104,13 +104,13 @@ function toggleTile(tile: ControlTile) {
         >
           <div :class="[tile.icon, 'text-sm']" />
         </div>
-        <span class="text-[10px] text-neutral-700 font-bold leading-tight dark:text-neutral-200">
+        <span class="w-full truncate text-center text-[10px] text-neutral-700 font-bold leading-tight dark:text-neutral-200">
           {{ tile.label }}
         </span>
         <span
           :class="[
-            'text-[8px] font-mono leading-tight mt-0.5',
-            tile.active ? 'text-emerald-500 font-semibold' : 'text-neutral-400',
+            'text-[8px] font-mono leading-tight mt-0.5 truncate w-full text-center',
+            tile.active ? 'text-primary-600 dark:text-primary-400 font-semibold' : 'text-neutral-400',
           ]"
         >
           {{ tile.status }}
@@ -122,13 +122,13 @@ function toggleTile(tile: ControlTile) {
         type="button"
         :class="[
           'flex flex-col items-center justify-center',
-          'p-1.5 rounded-xl border border-dashed',
-          'border-neutral-300 dark:border-neutral-700 hover:border-emerald-500',
-          'bg-neutral-50/50 dark:bg-neutral-900/30 text-neutral-400 hover:text-emerald-500',
+          'p-2 rounded-xl border border-dashed min-h-[68px]',
+          'border-neutral-300 dark:border-neutral-700 hover:border-primary-500',
+          'bg-neutral-50/50 dark:bg-neutral-900/30 text-neutral-400 hover:text-primary-500',
           'transition group',
         ]"
       >
-        <div class="mb-1 h-7 w-7 flex items-center justify-center rounded-lg text-neutral-400 group-hover:text-emerald-500">
+        <div class="mb-1 h-7 w-7 flex items-center justify-center rounded-lg text-neutral-400 group-hover:text-primary-500">
           <div class="i-solar:add-circle-bold text-base" />
         </div>
         <span class="text-[10px] font-medium leading-tight">Add</span>
@@ -153,7 +153,7 @@ function toggleTile(tile: ControlTile) {
       <button
         type="button"
         :class="[
-          'text-[10px] text-emerald-500 font-semibold hover:underline',
+          'text-[10px] text-primary-600 dark:text-primary-400 font-semibold hover:underline',
           'flex items-center gap-0.5',
         ]"
       >

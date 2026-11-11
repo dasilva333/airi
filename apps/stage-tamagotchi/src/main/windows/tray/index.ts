@@ -22,6 +22,9 @@ import { createReusableWindow } from '../../libs/electron/window-manager'
 import { showWindowOnAllWorkspaces } from '../shared/app-icon'
 import { setupBaseWindowElectronInvokes, transparentWindowConfig } from '../shared/window'
 
+export const TRAY_WINDOW_WIDTH = 410
+export const TRAY_WINDOW_HEIGHT = 490
+
 export interface TrayWindowManager {
   getWindow: () => Promise<ElectronBrowserWindow>
   hasWindow: () => boolean
@@ -35,7 +38,7 @@ export interface TrayWindowManager {
 
 export function calculatePopoverPosition(
   trayBounds: Rectangle,
-  windowSize: { width: number, height: number } = { width: 390, height: 580 },
+  windowSize: { width: number, height: number } = { width: TRAY_WINDOW_WIDTH, height: TRAY_WINDOW_HEIGHT },
 ): { x: number, y: number, notchOffset: number } {
   const display = screen.getDisplayNearestPoint({ x: trayBounds.x, y: trayBounds.y })
   const { workArea, bounds } = display
@@ -69,8 +72,8 @@ export function calculatePopoverPosition(
 function createTrayWindow(options?: BrowserWindowConstructorOptions): ElectronBrowserWindow {
   const window = new ElectronBrowserWindow({
     title: 'AIRI Pocket',
-    width: 390,
-    height: 580,
+    width: TRAY_WINDOW_WIDTH,
+    height: TRAY_WINDOW_HEIGHT,
     show: false,
     icon,
     webPreferences: {
@@ -149,7 +152,7 @@ export function setupTrayWindowManager(params: {
   const show = async (bounds?: Rectangle) => {
     const window = await reusable.getWindow()
     if (bounds) {
-      const pos = calculatePopoverPosition(bounds, { width: 390, height: 580 })
+      const pos = calculatePopoverPosition(bounds, { width: TRAY_WINDOW_WIDTH, height: TRAY_WINDOW_HEIGHT })
       window.setPosition(pos.x, pos.y, false)
     }
     window.show()
@@ -171,6 +174,13 @@ export function setupTrayWindowManager(params: {
     }
     await show(bounds)
   }
+
+  // Pre-warm the window in the background shortly after startup so first click is instantaneous
+  setTimeout(() => {
+    void reusable.getWindow().catch((err) => {
+      console.warn('[TrayWindow] Background pre-warm failed:', err)
+    })
+  }, 1500)
 
   return {
     getWindow: reusable.getWindow,

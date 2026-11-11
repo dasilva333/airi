@@ -20,13 +20,13 @@ const selectedRange = ref('Last Week')
       >
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-1 text-[11px] text-neutral-800 font-bold dark:text-neutral-100">
-            <div class="i-solar:layers-minimalistic-bold text-emerald-500" />
+            <div class="i-solar:layers-minimalistic-bold text-primary-500" />
             Model & Tokens
           </div>
           <span
             :class="[
               'px-1.5 py-0.5 rounded-full text-[9px] font-bold',
-              'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400',
+              'bg-primary-100 text-primary-700 dark:bg-primary-950/80 dark:text-primary-400',
             ]"
           >
             Active
@@ -54,10 +54,10 @@ const selectedRange = ref('Last Week')
         <div class="space-y-1">
           <div class="flex items-center justify-between text-[10px]">
             <span class="text-neutral-500 dark:text-neutral-400">Context Usage</span>
-            <span class="text-emerald-600 font-bold font-mono dark:text-emerald-400">12.8%</span>
+            <span class="text-primary-600 font-bold font-mono dark:text-primary-400">12.8%</span>
           </div>
           <div class="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200/80 dark:bg-neutral-800">
-            <div class="h-full rounded-full bg-emerald-500" style="width: 12.8%" />
+            <div class="h-full rounded-full bg-primary-500" style="width: 12.8%" />
           </div>
           <div class="text-right text-[9px] text-neutral-400 font-mono">
             128,384 / 1,000,000
@@ -109,7 +109,7 @@ const selectedRange = ref('Last Week')
         ]"
       >
         <div class="flex items-center gap-1 text-[11px] text-neutral-800 font-bold dark:text-neutral-100">
-          <div class="i-solar:heart-pulse-bold text-emerald-500" />
+          <div class="i-solar:heart-pulse-bold text-primary-500" />
           Runtime & Health
         </div>
 
@@ -120,7 +120,7 @@ const selectedRange = ref('Last Week')
               <div class="i-solar:stopwatch-bold text-xs text-neutral-400" />
               Latency
             </span>
-            <span class="text-emerald-600 font-bold font-mono dark:text-emerald-400">420 ms</span>
+            <span class="text-primary-600 font-bold font-mono dark:text-primary-400">420 ms</span>
           </div>
 
           <div class="flex items-center justify-between">
@@ -144,24 +144,24 @@ const selectedRange = ref('Last Week')
         <div class="border-t border-neutral-200/60 pt-2 text-[10px] space-y-1.5 dark:border-neutral-800/60">
           <div class="flex items-center justify-between">
             <span class="text-neutral-500 dark:text-neutral-400">Stage Renderer</span>
-            <span class="flex items-center gap-1 text-[9px] text-emerald-600 font-medium font-mono dark:text-emerald-400">
-              <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span class="flex items-center gap-1 text-[9px] text-primary-600 font-medium font-mono dark:text-primary-400">
+              <span class="h-1.5 w-1.5 rounded-full bg-primary-500" />
               Idle
             </span>
           </div>
 
           <div class="flex items-center justify-between">
             <span class="text-neutral-500 dark:text-neutral-400">Voice / TTS</span>
-            <span class="flex items-center gap-1 text-[9px] text-emerald-600 font-medium font-mono dark:text-emerald-400">
-              <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span class="flex items-center gap-1 text-[9px] text-primary-600 font-medium font-mono dark:text-primary-400">
+              <span class="h-1.5 w-1.5 rounded-full bg-primary-500" />
               Ready
             </span>
           </div>
 
           <div class="flex items-center justify-between">
             <span class="text-neutral-500 dark:text-neutral-400">Vision (Capture)</span>
-            <span class="flex items-center gap-1 text-[9px] text-emerald-600 font-medium font-mono dark:text-emerald-400">
-              <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span class="flex items-center gap-1 text-[9px] text-primary-600 font-medium font-mono dark:text-primary-400">
+              <span class="h-1.5 w-1.5 rounded-full bg-primary-500" />
               On
             </span>
           </div>
@@ -173,8 +173,8 @@ const selectedRange = ref('Last Week')
             type="button"
             :class="[
               'w-full py-1.5 rounded-xl text-[10px] font-bold text-center',
-              'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400',
-              'border border-emerald-500/20 transition',
+              'bg-primary-500/10 hover:bg-primary-500/20 text-primary-600 dark:text-primary-400',
+              'border border-primary-500/20 transition',
               'flex items-center justify-center gap-1',
             ]"
           >

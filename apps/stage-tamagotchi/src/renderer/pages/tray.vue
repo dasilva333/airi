@@ -69,7 +69,7 @@ const vitalityStatus = computed(() => {
   }
   if (activeTab.value === 'chat') {
     return {
-      dotClass: 'bg-emerald-500 animate-pulse',
+      dotClass: 'bg-primary-500 animate-pulse',
       title: 'Listening • Curious ♡',
       desc: 'Ready to chat with you!',
     }
@@ -82,7 +82,7 @@ const vitalityStatus = computed(() => {
     }
   }
   return {
-    dotClass: 'bg-emerald-500',
+    dotClass: 'bg-primary-500',
     title: 'Idle • Comfy ♡',
     desc: 'Stage is ready.',
   }
@@ -92,16 +92,16 @@ const vitalityStatus = computed(() => {
 <template>
   <div
     :class="[
-      'w-[390px] h-[580px] p-1.5 select-none',
-      'flex flex-col relative',
+      'w-full h-full p-2 select-none',
+      'flex flex-col relative bg-transparent',
     ]"
   >
     <!-- Speech-Bubble Pointer / Caret Notch (points up to the tray icon) -->
     <div
       :class="[
-        'w-3 h-3 rotate-45 mx-auto -mb-1.5 z-20',
+        'w-3.5 h-3.5 rotate-45 mx-auto -mb-2 z-20',
         'bg-white dark:bg-neutral-900',
-        'border-t border-l border-neutral-200/80 dark:border-neutral-800/80',
+        'border-t border-l border-neutral-200/90 dark:border-neutral-800/90 shadow-sm',
       ]"
     />
 
@@ -111,7 +111,7 @@ const vitalityStatus = computed(() => {
         'flex-1 flex flex-col overflow-hidden',
         'bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl',
         'border border-neutral-200/90 dark:border-neutral-800/90',
-        'rounded-2xl shadow-2xl z-10',
+        'rounded-2xl shadow-xl z-10',
       ]"
     >
       <!-- 1. PERSISTENT COMPANION HEADER (~72px) -->
@@ -127,13 +127,13 @@ const vitalityStatus = computed(() => {
           <div
             :class="[
               'relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0',
-              'bg-gradient-to-tr from-emerald-500 to-teal-400 p-[1.5px] shadow-sm',
+              'bg-gradient-to-tr from-primary-500 to-primary-400 p-[1.5px] shadow-sm',
             ]"
           >
             <div
               :class="[
                 'w-full h-full rounded-full bg-white dark:bg-neutral-950',
-                'flex items-center justify-center text-emerald-600 dark:text-emerald-400',
+                'flex items-center justify-center text-primary-600 dark:text-primary-400',
               ]"
             >
               <div class="i-solar:ghost-bold text-2xl" />
@@ -154,7 +154,7 @@ const vitalityStatus = computed(() => {
               </span>
               <div class="i-solar:alt-arrow-down-linear cursor-pointer text-xs text-neutral-400" />
             </div>
-            <div class="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold dark:text-emerald-400">
+            <div class="flex items-center gap-1 text-[11px] text-primary-600 font-semibold dark:text-primary-400">
               <span>{{ vitalityStatus.title }}</span>
             </div>
             <div class="text-[9px] text-neutral-400 leading-tight dark:text-neutral-500">
@@ -172,7 +172,7 @@ const vitalityStatus = computed(() => {
             :class="[
               'p-1.5 rounded-full transition',
               micActive
-                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400'
+                ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
                 : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
             ]"
             @click="micActive = !micActive"
@@ -187,7 +187,7 @@ const vitalityStatus = computed(() => {
             :class="[
               'p-1.5 rounded-full transition',
               voiceActive
-                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400'
+                ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
                 : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
             ]"
             @click="voiceActive = !voiceActive"
@@ -234,7 +234,7 @@ const vitalityStatus = computed(() => {
             :class="[
               'p-1.5 rounded-lg transition',
               isPinned
-                ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/60'
+                ? 'text-primary-500 bg-primary-50 dark:bg-primary-950/60'
                 : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200',
             ]"
             @click="handleTogglePin"
@@ -276,7 +276,7 @@ const vitalityStatus = computed(() => {
             :class="[
               'py-1 rounded-lg transition flex items-center justify-center gap-1.5',
               activeTab === 'chat'
-                ? 'bg-white dark:bg-neutral-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-400 shadow-sm'
                 : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
             ]"
             @click="activeTab = 'chat'"
@@ -290,7 +290,7 @@ const vitalityStatus = computed(() => {
             :class="[
               'py-1 rounded-lg transition flex items-center justify-center gap-1.5',
               activeTab === 'controls'
-                ? 'bg-white dark:bg-neutral-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-400 shadow-sm'
                 : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
             ]"
             @click="activeTab = 'controls'"
@@ -304,7 +304,7 @@ const vitalityStatus = computed(() => {
             :class="[
               'py-1 rounded-lg transition flex items-center justify-center gap-1.5',
               activeTab === 'status'
-                ? 'bg-white dark:bg-neutral-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-400 shadow-sm'
                 : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
             ]"
             @click="activeTab = 'status'"
