@@ -4,6 +4,7 @@ import type {
   AlignedKeyframeMapping,
   DanceSheet,
   PersonaArchetype,
+  PhrasePlan,
   WarpedPoseFrame,
 } from '@proj-airi/motion-choreography'
 import type { MotionGenerationResult } from '@proj-airi/stage-ui/stores/modules/text-to-motion'
@@ -11,6 +12,7 @@ import type { MotionGenerationResult } from '@proj-airi/stage-ui/stores/modules/
 import {
   alignDanceSheetToBeats,
   analyzeAudioBuffer,
+  createPhrasePlan,
   decodeWav,
   encodeWav,
   evaluateWarpedPoseAt,
@@ -129,9 +131,22 @@ const stageFraming = ref<'full' | 'bust'>('full')
 
 // DSP analysis state
 const acousticFeatures = ref<AcousticFeatures | null>(null)
-const selectedPersona = ref<PersonaArchetype>('none')
+const selectedPersona = ref<PersonaArchetype | 'cycle'>('none')
 const selectedCadence = ref<'downbeats_only' | 'all_beats' | 'adaptive'>('downbeats_only')
 const selectedEasing = ref<'smooth_step' | 'cubic_elastic' | 'linear'>('smooth_step')
+
+// Dynamic Cycle Engine state (Milestone 2)
+const activePhrasePlan = ref<PhrasePlan | null>(null)
+const activeCyclePersona = ref<PersonaArchetype>('idol')
+const activeSegmentIndex = ref(0)
+const prewarmTriggeredForSegment = ref(-1)
+
+const effectivePersona = computed<PersonaArchetype>(() => {
+  if (selectedPersona.value === 'cycle') {
+    return activeCyclePersona.value
+  }
+  return selectedPersona.value
+})
 
 // Kinematics and Conductor state
 const activeDanceSheet = ref<DanceSheet | null>(null)
@@ -149,10 +164,10 @@ const isSavingToLibrary = ref(false)
 // In-memory deterministic cache: Map<danceKey, blobUrl> (0 disk writes, 0 DB spam)
 const sessionBlobCache = new Map<string, string>()
 
-function getDanceCacheKey(): string {
+function getDanceCacheKey(persona: PersonaArchetype = effectivePersona.value): string {
   if (!acousticFeatures.value)
-    return `dance:${selectedPresetId.value}:${selectedPersona.value}`
-  return `dance:${selectedPresetId.value}_${Math.round(acousticFeatures.value.bpm)}bpm_${acousticFeatures.value.rhythmStructure}_${selectedPersona.value}`
+    return `dance:${selectedPresetId.value}:${persona}`
+  return `dance:${selectedPresetId.value}_${Math.round(acousticFeatures.value.bpm)}bpm_${acousticFeatures.value.rhythmStructure}_${persona}`
 }
 
 // Synthesized FlowMDM prompt
@@ -160,7 +175,7 @@ const synthesizedPrompt = computed(() => {
   if (!acousticFeatures.value)
     return ''
   const brief = synthesizeDanceBrief(acousticFeatures.value, undefined, {
-    archetype: selectedPersona.value,
+    archetype: effectivePersona.value,
   })
   return brief.choreographerPrompt
 })
@@ -219,6 +234,45 @@ function handleVrmFrame(vrm: any) {
       hips.position.z = restHipsPos.z
     }
     return
+  }
+
+  // Frame-accurate audio time (without triggering continuous Vue reactive re-render storms)
+  const t = audioElement.value ? audioElement.value.currentTime : currentTime.value
+
+  // Milestone 2: Dynamic Cycle Engine Tick
+  if (selectedPersona.value === 'cycle' && activePhrasePlan.value && activePhrasePlan.value.segments.length > 0) {
+    const segments = activePhrasePlan.value.segments
+    const currIndex = activeSegmentIndex.value
+    const currSeg = segments[currIndex]
+    const nextSeg = segments[currIndex + 1]
+
+    // Phase 1: Background Pre-Warming at (T_phrase - 5s)
+    if (nextSeg && t >= currSeg.prewarmNextAtSec && prewarmTriggeredForSegment.value < nextSeg.index) {
+      prewarmTriggeredForSegment.value = nextSeg.index
+      const nextKey = getDanceCacheKey(nextSeg.persona)
+      if (!sessionBlobCache.has(nextKey) && !isGeneratingMotion.value) {
+        void generateFlowMDMDance({ persona: nextSeg.persona, autoPlayOnArrival: false })
+      }
+    }
+
+    // Phase 2 & 3: Downbeat Measure Snapping & 800ms Smooth Crossfade
+    if (currSeg && t >= currSeg.endTimeSec) {
+      const targetIndex = nextSeg ? currIndex + 1 : 0
+      const targetSeg = segments[targetIndex]
+      activeSegmentIndex.value = targetIndex
+      activeCyclePersona.value = targetSeg.persona
+      const targetKey = getDanceCacheKey(targetSeg.persona)
+      const targetBlob = sessionBlobCache.get(targetKey)
+      if (targetBlob) {
+        activeMotionBlobUrl.value = targetBlob
+        isMotionActiveOnStage.value = true
+        modelStore.triggerMotion(targetBlob, { loop: true, fadeDuration: 0.8 })
+        toast.success(`Choreography phrase switch: ${targetSeg.persona.replace('_', ' ')} (Movement ${targetSeg.index + 1})`)
+      }
+      else {
+        void generateFlowMDMDance({ persona: targetSeg.persona, autoPlayOnArrival: true })
+      }
+    }
   }
 
   const bpm = acousticFeatures.value?.bpm || 120
@@ -375,6 +429,13 @@ function togglePlayback() {
     }
   }
   else {
+    if (selectedPersona.value === 'cycle' && currentTime.value === 0) {
+      activeSegmentIndex.value = 0
+      prewarmTriggeredForSegment.value = -1
+      if (activePhrasePlan.value && activePhrasePlan.value.segments.length > 0) {
+        activeCyclePersona.value = activePhrasePlan.value.segments[0].persona
+      }
+    }
     audioElement.value.play().then(() => {
       isPlaying.value = true
       // If we have a cached diffusion routine for this preset, play it on loop!
@@ -382,7 +443,7 @@ function togglePlayback() {
       const cachedUrl = sessionBlobCache.get(cacheKey) || activeMotionBlobUrl.value
       if (cachedUrl) {
         isMotionActiveOnStage.value = true
-        modelStore.triggerMotion(cachedUrl, { loop: true })
+        modelStore.triggerMotion(cachedUrl, { loop: true, fadeDuration: 0.8 })
       }
       else {
         // Zero-click auto-choreography: synthesize dance in the background.
@@ -411,6 +472,24 @@ function onSeek(event: Event) {
     audioElement.value.currentTime = newTime
   }
   updatePoseAtTime(newTime)
+
+  if (selectedPersona.value === 'cycle' && activePhrasePlan.value) {
+    const segIndex = activePhrasePlan.value.segments.findIndex(s => newTime >= s.startTimeSec && newTime < s.endTimeSec)
+    if (segIndex !== -1 && segIndex !== activeSegmentIndex.value) {
+      activeSegmentIndex.value = segIndex
+      const seg = activePhrasePlan.value.segments[segIndex]
+      activeCyclePersona.value = seg.persona
+      const cacheKey = getDanceCacheKey(seg.persona)
+      const cachedUrl = sessionBlobCache.get(cacheKey)
+      if (cachedUrl && isPlaying.value) {
+        activeMotionBlobUrl.value = cachedUrl
+        modelStore.triggerMotion(cachedUrl, { loop: true, fadeDuration: 0.5 })
+      }
+      if (newTime < seg.prewarmNextAtSec) {
+        prewarmTriggeredForSegment.value = segIndex - 1
+      }
+    }
+  }
 }
 
 function onVolumeChange(event: Event) {
@@ -426,6 +505,13 @@ function onAudioEnded() {
   isPlaying.value = false
   currentTime.value = 0
   updatePoseAtTime(0)
+  if (selectedPersona.value === 'cycle') {
+    activeSegmentIndex.value = 0
+    prewarmTriggeredForSegment.value = -1
+    if (activePhrasePlan.value?.segments[0]) {
+      activeCyclePersona.value = activePhrasePlan.value.segments[0].persona
+    }
+  }
   if (isMotionActiveOnStage.value) {
     isMotionActiveOnStage.value = false
     modelStore.triggerMotion('__STOP__')
@@ -439,27 +525,35 @@ function handleAnimationFinished() {
 }
 
 // FlowMDM Diffusion Generation with In-Memory Deterministic Session Cache
-async function generateFlowMDMDance(options?: { autoPlayOnArrival?: boolean, forceRegenerate?: boolean }) {
-  const prompt = synthesizedPrompt.value.trim()
+async function generateFlowMDMDance(options?: {
+  autoPlayOnArrival?: boolean
+  forceRegenerate?: boolean
+  persona?: PersonaArchetype
+}) {
+  const targetPersona = options?.persona ?? effectivePersona.value
+  const brief = acousticFeatures.value
+    ? synthesizeDanceBrief(acousticFeatures.value, undefined, { archetype: targetPersona })
+    : null
+  const prompt = brief?.choreographerPrompt || synthesizedPrompt.value.trim()
   if (!prompt || isGeneratingMotion.value)
     return
 
-  const cacheKey = getDanceCacheKey()
+  const cacheKey = getDanceCacheKey(targetPersona)
 
   // 1. Check in-memory deterministic session cache unless forceRegenerate is set
   if (!options?.forceRegenerate && sessionBlobCache.has(cacheKey)) {
     const cachedUrl = sessionBlobCache.get(cacheKey)!
     activeMotionBlobUrl.value = cachedUrl
-    toast.success('Dance routine loaded from session cache!')
-    if (isPlaying.value || options?.autoPlayOnArrival) {
+    toast.success(`Dance routine for ${targetPersona.replace('_', ' ')} loaded from session cache!`)
+    if (isPlaying.value && (options?.autoPlayOnArrival ?? true)) {
       isMotionActiveOnStage.value = true
-      modelStore.triggerMotion(cachedUrl, { loop: true })
+      modelStore.triggerMotion(cachedUrl, { loop: true, fadeDuration: 0.8 })
     }
     return
   }
 
   isGeneratingMotion.value = true
-  generationStatus.value = 'Preparing WebGPU FlowMDM pipeline...'
+  generationStatus.value = `Preparing WebGPU FlowMDM pipeline for ${targetPersona.replace('_', ' ')}...`
 
   try {
     const result = await textToMotionStore.generateMotion(prompt, {
@@ -479,15 +573,19 @@ async function generateFlowMDMDance(options?: { autoPlayOnArrival?: boolean, for
 
       // Store in deterministic session cache (0 disk writes, 0 DB spam)
       sessionBlobCache.set(cacheKey, blobUrl)
-      activeMotionBlobUrl.value = blobUrl
       activeMotionResult.value = result
 
-      toast.success('3D dance generated with FlowMDM!')
-
-      // If playing or autoPlay requested, smoothly cross-fade to the 3D dance on loop
-      if (isPlaying.value || options?.autoPlayOnArrival) {
-        isMotionActiveOnStage.value = true
-        modelStore.triggerMotion(blobUrl, { loop: true })
+      // If autoPlayOnArrival requested or playing, update active and crossfade
+      if (options?.autoPlayOnArrival ?? true) {
+        activeMotionBlobUrl.value = blobUrl
+        toast.success(`3D dance generated for ${targetPersona.replace('_', ' ')}!`)
+        if (isPlaying.value) {
+          isMotionActiveOnStage.value = true
+          modelStore.triggerMotion(blobUrl, { loop: true, fadeDuration: 0.8 })
+        }
+      }
+      else {
+        toast.info(`Next movement (${targetPersona.replace('_', ' ')}) ready in memory!`)
       }
     }
   }
@@ -587,14 +685,43 @@ function handleCustomFileUpload(event: Event) {
 // Watchers
 watch(selectedCadence, () => recalculateAlignment())
 watch(selectedEasing, () => updatePoseAtTime(currentTime.value))
-watch(selectedPersona, () => {
+
+watch(acousticFeatures, (features) => {
+  if (!features) {
+    activePhrasePlan.value = null
+    return
+  }
+  activePhrasePlan.value = createPhrasePlan({
+    bpm: features.bpm,
+    rhythmStructure: features.rhythmStructure,
+    energyTier: features.energyTier,
+    durationSeconds: duration.value || features.durationSeconds || 120,
+    beatTimestamps: features.beatTimestamps,
+  })
+  activeSegmentIndex.value = 0
+  prewarmTriggeredForSegment.value = -1
+  if (activePhrasePlan.value.segments.length > 0) {
+    activeCyclePersona.value = activePhrasePlan.value.segments[0].persona
+  }
+}, { immediate: true })
+
+watch(selectedPersona, (newPersona) => {
+  if (newPersona === 'cycle') {
+    activeSegmentIndex.value = 0
+    prewarmTriggeredForSegment.value = -1
+    if (activePhrasePlan.value && activePhrasePlan.value.segments.length > 0) {
+      activeCyclePersona.value = activePhrasePlan.value.segments[0].persona
+    }
+    toast.info(`Cycle Mode activated: dynamic phrasing across ${activePhrasePlan.value?.barsPerPhrase || 16}-bar movements!`)
+  }
+
   const cacheKey = getDanceCacheKey()
   const cachedUrl = sessionBlobCache.get(cacheKey)
   if (cachedUrl) {
     activeMotionBlobUrl.value = cachedUrl
     if (isPlaying.value) {
       isMotionActiveOnStage.value = true
-      modelStore.triggerMotion(cachedUrl, { loop: true })
+      modelStore.triggerMotion(cachedUrl, { loop: true, fadeDuration: 0.8 })
     }
   }
   else {
@@ -996,21 +1123,53 @@ onUnmounted(() => {
             <span class="text-[10px] text-neutral-400 font-semibold tracking-wider uppercase dark:text-neutral-500">
               Persona Archetype Filter
             </span>
-            <div class="grid grid-cols-4 mt-1.5 gap-2">
+            <div class="grid grid-cols-2 mt-1.5 gap-2 sm:grid-cols-5">
               <button
-                v-for="persona in ['none', 'idol', 'gothic_maid', 'cool_android'] as const"
+                v-for="persona in ['none', 'idol', 'gothic_maid', 'cool_android', 'cycle'] as const"
                 :key="persona"
                 type="button"
                 :class="[
-                  'px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors capitalize',
+                  'px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors capitalize flex items-center justify-center gap-1.5',
                   selectedPersona === persona
                     ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400 dark:bg-primary-500/20'
                     : 'border-neutral-200 bg-neutral-50 text-neutral-600 hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-800/40 dark:text-neutral-400',
                 ]"
                 @click="selectedPersona = persona"
               >
-                {{ persona === 'none' ? 'Pure Beat' : persona.replace('_', ' ') }}
+                <div v-if="persona === 'cycle'" class="i-solar:refresh-circle-bold text-sm text-primary-500" />
+                <span>{{ persona === 'none' ? 'Pure Beat' : persona === 'cycle' ? 'Cycle (Auto)' : persona.replace('_', ' ') }}</span>
               </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Cycle Phrasing Telemetry (Shown when Cycle mode is selected) -->
+          <div
+            v-if="selectedPersona === 'cycle' && activePhrasePlan"
+            class="mt-2.5 flex flex-col gap-2 border border-primary-500/30 rounded-xl bg-primary-500/5 p-3 dark:bg-primary-500/10"
+          >
+            <div class="flex items-center justify-between text-xs">
+              <div class="flex items-center gap-1.5 text-primary-700 font-bold dark:text-primary-300">
+                <div class="i-solar:refresh-circle-bold text-sm text-primary-500" />
+                <span>Dynamic Phrasing: {{ activePhrasePlan.barsPerPhrase }} Bars per Movement ({{ activePhrasePlan.phraseDurationSec.toFixed(1) }}s)</span>
+              </div>
+              <span class="rounded bg-primary-500/20 px-1.5 py-0.5 text-[10px] text-primary-600 font-semibold font-mono dark:text-primary-400">
+                Phrase {{ activeSegmentIndex + 1 }} / {{ activePhrasePlan.segments.length }}
+              </span>
+            </div>
+
+            <div class="flex items-center gap-2 text-[11px] text-neutral-600 dark:text-neutral-300">
+              <span class="font-medium">Active:</span>
+              <span class="shadow-xs rounded bg-white px-2 py-0.5 text-primary-600 font-bold capitalize dark:bg-neutral-800 dark:text-primary-400">
+                {{ activeCyclePersona.replace('_', ' ') }}
+              </span>
+              <span class="text-neutral-400">→</span>
+              <span class="text-neutral-500 font-medium dark:text-neutral-400">Next:</span>
+              <span class="text-neutral-500 font-medium capitalize">
+                {{ activePhrasePlan.segments[activeSegmentIndex + 1]?.persona.replace('_', ' ') || activePhrasePlan.segments[0]?.persona.replace('_', ' ') }}
+              </span>
+              <span v-if="activePhrasePlan.segments[activeSegmentIndex]" class="ml-auto text-[10px] text-neutral-400 font-mono">
+                Pre-warm @ {{ activePhrasePlan.segments[activeSegmentIndex].prewarmNextAtSec.toFixed(1) }}s
+              </span>
             </div>
           </div>
 
