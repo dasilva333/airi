@@ -3,6 +3,8 @@ import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { useLocalStorage } from '@vueuse/core'
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 
+import stickerAvatar from '../assets/relu-sticker-wow.avif'
+
 import {
   electronTrayPopoverClose,
   electronTrayPopoverGetPinState,
@@ -41,7 +43,6 @@ async function handleTogglePin() {
 }
 
 // Rapid header pills state
-const micActive = ref(true)
 const voiceActive = ref(true)
 const visionActive = ref(true)
 const sleepActive = ref(false)
@@ -58,34 +59,11 @@ const activeTabComponent = computed(() => {
   }
 })
 
-// Dynamic vitality status subtitle based on tab or active engine state
-const vitalityStatus = computed(() => {
-  if (sleepActive.value) {
-    return {
-      dotClass: 'bg-neutral-400',
-      title: 'Sleeping • Engine Idle',
-      desc: '3D/2D animation loops paused to free VRAM.',
-    }
-  }
-  if (activeTab.value === 'chat') {
-    return {
-      dotClass: 'bg-primary-500 animate-pulse',
-      title: 'Listening • Curious ♡',
-      desc: 'Ready to chat with you!',
-    }
-  }
-  if (activeTab.value === 'status') {
-    return {
-      dotClass: 'bg-cyan-400',
-      title: 'Thinking • Telemetry Active',
-      desc: 'Gemini 2.5 Pro • 420ms ping',
-    }
-  }
-  return {
-    dotClass: 'bg-primary-500',
-    title: 'Idle • Comfy ♡',
-    desc: 'Stage is ready.',
-  }
+// Companion subtitle
+const companionSubtitle = computed(() => {
+  if (sleepActive.value)
+    return 'Sleeping • Engine Idle'
+  return 'Ready to chat with you!'
 })
 </script>
 
@@ -114,153 +92,146 @@ const vitalityStatus = computed(() => {
         'rounded-2xl shadow-xl z-10',
       ]"
     >
-      <!-- 1. PERSISTENT COMPANION HEADER (~72px) -->
+      <!-- 1. PERSISTENT COMPANION HEADER -->
       <div
         :class="[
-          'px-3.5 py-3 gap-2',
-          'border-b border-neutral-200/70 dark:border-neutral-800/70',
-          'flex flex-col',
+          'px-3.5 pt-2.5 pb-1',
+          'border-neutral-200/70 dark:border-neutral-800/70',
+          'flex items-start justify-between gap-2',
         ]"
       >
-        <!-- Character Avatar & Status -->
-        <div class="min-w-0 flex items-center gap-2.5">
+        <!-- Character Avatar & Identity -->
+        <div class="min-w-0 flex items-center gap-2.5 pt-0.5">
           <div
             :class="[
-              'relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0',
-              'bg-gradient-to-tr from-primary-500 to-primary-400 p-[1.5px] shadow-sm',
+              'relative w-18 h-18 rounded-full overflow-hidden flex-shrink-0',
+              'border-2 border-primary-500/70 shadow-sm',
+              'bg-neutral-100 dark:bg-neutral-800',
             ]"
           >
-            <div
-              :class="[
-                'w-full h-full rounded-full bg-white dark:bg-neutral-950',
-                'flex items-center justify-center text-primary-600 dark:text-primary-400',
-              ]"
+            <img
+              :src="stickerAvatar"
+              alt="AIRI"
+              class="h-full w-full object-cover object-center"
             >
-              <div class="i-solar:ghost-bold text-2xl" />
-            </div>
-            <span
-              :class="[
-                'absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2',
-                'border-white dark:border-neutral-900',
-                vitalityStatus.dotClass,
-              ]"
-            />
           </div>
 
           <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-1">
-              <span class="text-sm text-neutral-900 font-bold tracking-tight dark:text-neutral-100">
+            <div class="flex items-center gap-1.5">
+              <span class="text-base text-primary-600 font-bold tracking-tight dark:text-primary-400">
                 AIRI
               </span>
-              <div class="i-solar:alt-arrow-down-linear cursor-pointer text-xs text-neutral-400" />
+              <button
+                type="button"
+                title="Switch Character / Session"
+                :class="[
+                  'p-0.5 px-1 rounded-md transition flex items-center justify-center',
+                  'bg-neutral-100/90 hover:bg-neutral-200/80 dark:bg-neutral-800/90 dark:hover:bg-neutral-700/80',
+                  'border border-neutral-200/70 dark:border-neutral-700/70 shadow-xs',
+                  'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
+                ]"
+              >
+                <div class="i-solar:alt-arrow-down-linear text-xs" />
+              </button>
             </div>
-            <div class="flex items-center gap-1 text-[11px] text-primary-600 font-semibold dark:text-primary-400">
-              <span>{{ vitalityStatus.title }}</span>
-            </div>
-            <div class="text-[9px] text-neutral-400 leading-tight dark:text-neutral-500">
-              {{ vitalityStatus.desc }}
+            <div class="mt-0.5 text-xs text-neutral-500 leading-tight italic dark:text-neutral-400">
+              {{ companionSubtitle }}
             </div>
           </div>
         </div>
 
-        <!-- 4 Header Pills + Pin + Settings -->
-        <div class="w-full flex items-center justify-end gap-2 border-t border-neutral-200/50 pt-2 dark:border-neutral-800/60">
-          <!-- Rapid Pill 1: Mic -->
-          <button
-            type="button"
-            title="Toggle Mic"
-            :class="[
-              'p-2 rounded-full transition',
-              micActive
-                ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
-                : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
-            ]"
-            @click="micActive = !micActive"
-          >
-            <div class="i-solar:microphone-3-bold text-xs" />
-          </button>
+        <!-- Right: Pin/Close in top-right corner + Status Toggles Capsule below -->
+        <div class="flex flex-shrink-0 flex-col items-end gap-1.5">
+          <!-- Top-Right: Pin | Close sitting right on the top-right corner -->
+          <div class="flex items-center gap-1 -mr-1">
+            <!-- Pin button -->
+            <button
+              type="button"
+              title="Pin window"
+              :class="[
+                'p-1 rounded-md transition',
+                isPinned
+                  ? 'text-primary-500 bg-primary-50 dark:bg-primary-950/60'
+                  : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200',
+              ]"
+              @click="handleTogglePin"
+            >
+              <div class="i-solar:pin-bold text-xs" />
+            </button>
 
-          <!-- Rapid Pill 2: Voice -->
-          <button
-            type="button"
-            title="Toggle Voice"
-            :class="[
-              'p-1.5 rounded-full transition',
-              voiceActive
-                ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
-                : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
-            ]"
-            @click="voiceActive = !voiceActive"
-          >
-            <div class="i-solar:volume-loud-bold text-xs" />
-          </button>
+            <!-- Close button -->
+            <button
+              type="button"
+              title="Close"
+              :class="[
+                'p-1 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition',
+              ]"
+              @click="() => closeRpc()"
+            >
+              <div class="i-solar:close-square-linear text-xs" />
+            </button>
+          </div>
 
-          <!-- Rapid Pill 3: Vision -->
-          <button
-            type="button"
-            title="Toggle Vision"
+          <!-- Rapid Action Pills: Voice | Vision | Sleep -->
+          <div
             :class="[
-              'p-1.5 rounded-full transition',
-              visionActive
-                ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
-                : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
+              'flex items-center gap-1 p-0.5 rounded-full',
+              'bg-neutral-100/80 dark:bg-neutral-800/80',
+              'border border-neutral-200/60 dark:border-neutral-700/60',
             ]"
-            @click="visionActive = !visionActive"
           >
-            <div class="i-solar:eye-bold text-xs" />
-          </button>
+            <!-- Rapid Pill: Voice -->
+            <button
+              type="button"
+              title="Toggle Voice"
+              :class="[
+                'p-1.5 rounded-full transition',
+                voiceActive
+                  ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
+                  : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
+              ]"
+              @click="voiceActive = !voiceActive"
+            >
+              <div class="i-solar:volume-loud-bold text-xs" />
+            </button>
 
-          <!-- Rapid Pill 4: Sleep -->
-          <button
-            type="button"
-            title="Toggle Sleep Mode"
-            :class="[
-              'p-1.5 rounded-full transition',
-              sleepActive
-                ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
-                : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
-            ]"
-            @click="sleepActive = !sleepActive"
-          >
-            <div class="i-solar:moon-bold text-xs" />
-          </button>
+            <!-- Rapid Pill: Vision -->
+            <button
+              type="button"
+              title="Toggle Vision"
+              :class="[
+                'p-1.5 rounded-full transition',
+                visionActive
+                  ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
+                  : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
+              ]"
+              @click="visionActive = !visionActive"
+            >
+              <div class="i-solar:eye-bold text-xs" />
+            </button>
 
-          <div class="mx-0.5 h-3.5 w-px bg-neutral-200 dark:bg-neutral-800" />
-
-          <!-- Pin button -->
-          <button
-            type="button"
-            title="Pin window"
-            :class="[
-              'p-1.5 rounded-lg transition',
-              isPinned
-                ? 'text-primary-500 bg-primary-50 dark:bg-primary-950/60'
-                : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200',
-            ]"
-            @click="handleTogglePin"
-          >
-            <div class="i-solar:pin-bold text-xs" />
-          </button>
-
-          <!-- Close button -->
-          <button
-            type="button"
-            title="Close"
-            :class="[
-              'p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200',
-              'transition',
-            ]"
-            @click="() => closeRpc()"
-          >
-            <div class="i-solar:close-square-linear text-xs" />
-          </button>
+            <!-- Rapid Pill: Sleep -->
+            <button
+              type="button"
+              title="Toggle Sleep Mode"
+              :class="[
+                'p-1.5 rounded-full transition',
+                sleepActive
+                  ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
+                  : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
+              ]"
+              @click="sleepActive = !sleepActive"
+            >
+              <div class="i-solar:moon-bold text-xs" />
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- 2. SEGMENTED TAB SWITCHER (~38px) -->
       <div
         :class="[
-          'px-3 py-1.5 border-b border-neutral-200/60 dark:border-neutral-800/60',
+          'px-2 py-1.5',
           'bg-neutral-50/50 dark:bg-neutral-950/30',
         ]"
       >
@@ -268,7 +239,7 @@ const vitalityStatus = computed(() => {
           :class="[
             'grid grid-cols-3 gap-1 p-1 rounded-xl',
             'bg-neutral-100 dark:bg-neutral-800/80',
-            'text-xs font-semibold',
+            'text-sm font-semibold',
           ]"
         >
           <button

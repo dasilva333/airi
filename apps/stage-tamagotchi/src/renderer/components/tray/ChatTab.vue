@@ -40,23 +40,6 @@ function handleSend() {
 
 <template>
   <div class="h-full flex flex-col">
-    <!-- Synced notice -->
-    <div
-      :class="[
-        'flex items-center justify-between',
-        'px-1 py-1 mb-2',
-        'text-xs text-neutral-400 dark:text-neutral-500 font-medium',
-      ]"
-    >
-      <span class="flex items-center gap-1.5">
-        <span class="h-1.5 w-1.5 rounded-full bg-primary-500" />
-        Synced with Desktop Chat
-      </span>
-      <span class="cursor-pointer text-xs text-primary-600 dark:text-primary-400 hover:underline">
-        Open Full Chat
-      </span>
-    </div>
-
     <!-- Message Timeline -->
     <div
       :class="[

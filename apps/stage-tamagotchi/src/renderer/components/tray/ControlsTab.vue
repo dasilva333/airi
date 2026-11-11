@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
-const activePreset = ref('Tray (Compact)')
+type PresetType = 'Basic' | 'Fun' | 'Custom'
+const activePreset = ref<PresetType>('Basic')
 
 interface ControlTile {
   id: string
@@ -12,7 +13,8 @@ interface ControlTile {
   highlightColor?: string
 }
 
-const tiles = ref<ControlTile[]>([
+// 1. Basic preset: Full 11 original controls
+const basicTiles = ref<ControlTile[]>([
   { id: 'mic', label: 'Mic', status: 'On', icon: 'i-solar:microphone-3-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
   { id: 'voice', label: 'Voice', status: '80%', icon: 'i-solar:volume-loud-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
   { id: 'tts', label: 'TTS', status: 'On', icon: 'i-solar:chat-round-line-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
@@ -26,6 +28,44 @@ const tiles = ref<ControlTile[]>([
   { id: 'record', label: 'Record', status: 'Off', icon: 'i-solar:record-circle-bold', active: false },
 ])
 
+// 2. Fun preset: 11 expressive & playful controls
+const funTiles = ref<ControlTile[]>([
+  { id: 'outfit', label: 'Outfit', status: 'Airi Maid', icon: 'i-solar:t-shirt-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'motion', label: 'Motion', status: 'Auto', icon: 'i-solar:running-round-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'emotion', label: 'Emotion', status: 'Natural', icon: 'i-solar:smile-circle-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'fx', label: 'FX / Aura', status: 'On', icon: 'i-solar:stars-minimalistic-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'dance', label: 'Dance', status: 'Ready', icon: 'i-solar:music-note-2-bold', active: false },
+  { id: 'arcade', label: 'Arcade', status: 'Backseat', icon: 'i-solar:gamepad-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'selfie', label: 'Selfie', status: 'Snap', icon: 'i-solar:camera-bold', active: false },
+  { id: 'party', label: 'Cheer', status: 'Ready', icon: 'i-solar:confetti-bold', active: false },
+  { id: 'voice_pitch', label: 'Voice FX', status: 'Sweet', icon: 'i-solar:tuning-bold', active: true },
+  { id: 'minigame', label: 'Tamagotchi', status: 'Active', icon: 'i-solar:ghost-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'headpat', label: 'Tactile', status: 'Touch', icon: 'i-solar:heart-bold', active: false },
+])
+
+// 3. Custom preset: User customizable controls
+const customTiles = ref<ControlTile[]>([
+  { id: 'mic', label: 'Mic', status: 'On', icon: 'i-solar:microphone-3-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'voice', label: 'Voice', status: '80%', icon: 'i-solar:volume-loud-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'tts', label: 'TTS', status: 'On', icon: 'i-solar:chat-round-line-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'vision', label: 'Vision', status: 'On', icon: 'i-solar:eye-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'stage', label: 'Stage', status: 'Hidden', icon: 'i-solar:box-bold', active: false },
+  { id: 'sleep', label: 'Sleep', status: 'Off', icon: 'i-solar:moon-bold', active: false },
+  { id: 'outfit', label: 'Outfit', status: 'Airi Maid', icon: 'i-solar:t-shirt-bold', active: true },
+  { id: 'motion', label: 'Motion', status: 'Auto', icon: 'i-solar:running-round-bold', active: true },
+  { id: 'emotion', label: 'Emotion', status: 'Natural', icon: 'i-solar:smile-circle-bold', active: true },
+  { id: 'fx', label: 'FX / Aura', status: 'On', icon: 'i-solar:stars-minimalistic-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
+  { id: 'record', label: 'Record', status: 'Off', icon: 'i-solar:record-circle-bold', active: false },
+])
+
+const currentTiles = computed(() => {
+  if (activePreset.value === 'Fun')
+    return funTiles.value
+  if (activePreset.value === 'Custom')
+    return customTiles.value
+  return basicTiles.value
+})
+
 function toggleTile(tile: ControlTile) {
   tile.active = !tile.active
   if (tile.id === 'stage') {
@@ -37,6 +77,10 @@ function toggleTile(tile: ControlTile) {
   else if (tile.id === 'record') {
     tile.status = tile.active ? 'Rec' : 'Off'
   }
+}
+
+function handleCustomize() {
+  activePreset.value = 'Custom'
 }
 </script>
 
@@ -64,23 +108,24 @@ function toggleTile(tile: ControlTile) {
           'px-2 py-1 rounded-lg text-[10px] font-semibold',
           'bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700',
           'text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700',
-          'transition flex items-center gap-1',
+          'transition flex items-center gap-1 cursor-pointer',
         ]"
+        @click="handleCustomize"
       >
         <div class="i-solar:pen-new-square-linear text-xs" />
         Customize...
       </button>
     </div>
 
-    <!-- Four-column responsive-density control grid; more rows scroll inside the tab -->
+    <!-- Four-column, three-row responsive-density control grid (12 tiles total) -->
     <div
       :class="[
         'grid grid-cols-4 gap-2',
       ]"
     >
-      <!-- Standard Tiles -->
+      <!-- Standard Tiles (11 tiles) -->
       <button
-        v-for="tile in tiles"
+        v-for="tile in currentTiles"
         :key="tile.id"
         type="button"
         :class="[
@@ -117,7 +162,7 @@ function toggleTile(tile: ControlTile) {
         </span>
       </button>
 
-      <!-- + Add Button -->
+      <!-- 12th Tile: + Add Button (completes the 4-column x 3-row layout) -->
       <button
         type="button"
         :class="[
@@ -125,8 +170,9 @@ function toggleTile(tile: ControlTile) {
           'p-2 rounded-xl border border-dashed min-h-[84px] min-w-0',
           'border-neutral-300 dark:border-neutral-700 hover:border-primary-500',
           'bg-neutral-50/50 dark:bg-neutral-900/30 text-neutral-400 hover:text-primary-500',
-          'transition group',
+          'transition group cursor-pointer',
         ]"
+        @click="handleCustomize"
       >
         <div class="mb-1 h-7 w-7 flex items-center justify-center rounded-lg text-neutral-400 group-hover:text-primary-500">
           <div class="i-solar:add-circle-bold text-base" />
@@ -146,20 +192,33 @@ function toggleTile(tile: ControlTile) {
       ]"
     >
       <div class="flex items-center gap-1.5">
-        <div class="i-solar:layers-bold text-neutral-400" />
-        <span class="text-[11px] text-neutral-500 dark:text-neutral-400">Control Strip Preset:</span>
-        <span class="text-[11px] text-neutral-800 font-semibold dark:text-neutral-200">{{ activePreset }}</span>
+        <div class="i-solar:layers-bold text-xs text-neutral-400" />
+        <span class="text-[11px] text-neutral-600 font-medium dark:text-neutral-300">Quick Controls Preset</span>
       </div>
-      <button
-        type="button"
+
+      <!-- 3-Button Segmented Preset Switcher: Basic | Fun | Custom -->
+      <div
         :class="[
-          'text-[10px] text-primary-600 dark:text-primary-400 font-semibold hover:underline',
-          'flex items-center gap-0.5',
+          'flex items-center p-0.5 rounded-lg',
+          'bg-neutral-200/70 dark:bg-neutral-800/80',
+          'border border-neutral-200/60 dark:border-neutral-700/60',
         ]"
       >
-        Edit Strip...
-        <div class="i-solar:arrow-right-up-linear text-xs" />
-      </button>
+        <button
+          v-for="preset in (['Basic', 'Fun', 'Custom'] as const)"
+          :key="preset"
+          type="button"
+          :class="[
+            'px-2.5 py-0.5 rounded-md transition text-[10px] font-medium cursor-pointer',
+            activePreset === preset
+              ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-400 font-semibold shadow-xs'
+              : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
+          ]"
+          @click="activePreset = preset"
+        >
+          {{ preset }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
