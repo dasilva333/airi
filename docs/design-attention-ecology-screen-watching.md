@@ -555,69 +555,77 @@ Section 3 of `CardCreationTabProactivity.vue` is segmented into two operational 
 
 ---
 
-## 16. Developer Laboratory: The 3-Step Manual Attention Lab (`devtools/attention-lab.vue`)
+## 16. The Saccade & Foveal Attention Architecture (`devtools/attention-lab.vue`)
 
-To avoid "black-box" vibe-coding and provide developers with total, step-by-step transparency over the spatial decomposition and System-1 gating pipeline, AIRI establishes a dedicated inspection laboratory:
+To avoid "black-box" vibe-coding and provide developers with total, step-by-step transparency over the spatial decomposition and System-1 gating pipeline, AIRI establishes the **Attention Ecology & Spatial BBox Laboratory**:
 - **Route**: `#/settings/devtools/attention-lab`
 - **Location**: `apps/stage-tamagotchi/src/renderer/pages/devtools/attention-lab.vue`
 - **Navigation**: Dedicated card under `#/settings/devtools` ("System Preferences → Developer Laboratory → Attention Ecology & Spatial BBox Lab").
-- **Core Philosophy**: **Zero timers, zero automatic background polling.** Every step is an explicit manual button click that reveals its internal state, bounding boxes, and intermediate representations.
-
-### The 3-Step Manual Workflow
+- **Core Philosophy**: **Zero timers, zero automatic background polling during inspection.** Every stage is an explicit manual step that exposes its internal state, candidate graph, bounding boxes, OCR crops, and intermediate representations.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│  STEP 1: MANUAL SCREEN SNAPSHOT & SPATIAL DECOMPOSITION                                │
-│  [📸 Capture Snapshot] (Source: Display / Application Window)                          │
-│  ┌───────────────────────────────────────────┬──────────────────────────────────────┐  │
-│  │ Annotated Image Viewport                  │ Raw Mirage Spatial JSON              │  │
-│  │ • Interactive SVG/Canvas Bounding Boxes   │ • Tree view of raw WASM output:      │  │
-│  │   - 🟣 Windows & UI Panels (bbox/score)   │   - objects[] (id, name, bbox, score)│  │
-│  │   - 🟢 App Icons & Buttons (position)     │   - text[] (string, bbox, conf)      │  │
-│  │   - 🟠 Text Lines (hover to read snippet) │   - scene & relations                │  │
-│  └───────────────────────────────────────────┴──────────────────────────────────────┘  │
+│ PHASE 1: MACRO SCREEN DECOMPOSITION (Peripheral Vision)                               │
+│ [📸 Capture & Decompose Frame]                                                         │
+│ • Cactus Mirage WASM executes single-pass layout graph extraction (~2.9–3.7s, 0 VRAM)   │
+│ • Emits 40+ objects/windows + 30+ text blocks mapped into Pascal VOC bounding boxes    │
+│ • Pascal VOC 2D IoU deduplication (IoU >= 0.40) eliminates overlapping multi-class noise│
+│ • Synthesizes unified Spatial Candidate List (Window, Sub-panel, Action, Text banner)  │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
-│  STEP 2: SYSTEM-1 CANDIDATE SELECTION & TARGETED ZOOM                                  │
-│  [🧠 Run System-1 Triage] (Configurable Tripwires: Build Error, Chat, Social, etc.)    │
-│  ┌───────────────────────────────────────────┬──────────────────────────────────────┐  │
-│  │ Promoted "Winner" Bounding Box            │ Targeted Region Inspection           │  │
-│  │ • Highlighted in Neon Red on the main map │ • Cropped pixel preview of winner box│  │
-│  │ • System-1 confidence: 0.88               │ • Targeted Mirage / micro-OCR reading│  │
-│  │ • Reason: "Terminal compiler error"       │ • Isolated text snippet              │  │
-│  └───────────────────────────────────────────┴──────────────────────────────────────┘  │
+│ PHASE 2: BUDGETED TARGETED MICRO-OCR (Macular Grounding)                               │
+│ [⚡ Run Targeted OCR] (Selectable Budget: 500ms, 1000ms, 2000ms, 3000ms, 5000ms)       │
+│ • Crops clamped to max 600×140px (prevents WASM choking on multi-megapixel containers) │
+│ • Prioritizes text banners and interactive controls; deprioritizes macro containers     │
+│ • Tesseract WASM pre-warmed on load; recognizes verbatim glyphs in ~40–60ms per crop   │
+│ • Produces Final Verified Candidates list with 100% verbatim text ground truth         │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
-│  STEP 3: CHARACTER CONSCIOUSNESS & LLM REACTION                                        │
-│  [💬 Generate Character Commentary]                                                    │
-│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ Assembled [Visual Event] Context Payload forwarded to Character LLM              │  │
-│  │ ──────────────────────────────────────────────────────────────────────────────── │  │
-│  │ 🗨️ Character Response Bubble:                                                    │  │
-│  │   "Looks like your TypeScript build broke on line 42 with a missing import..."    │  │
-│  └──────────────────────────────────────────────────────────────────────────────────┘  │
+│ PHASE 3: SYSTEM-1 COGNITIVE SENTINEL (Attention Gating)                                │
+│ [🎯 Run System-1 Triage & Foveal Zoom] (Tripwires: Build Error, Chat, Video Watching) │
+│ • Non-autoregressive discrete scoring (<10ms) against natural language questions      │
+│ • Evaluates candidate text, tags, and spatial zones against sensitivity threshold (70%)│
+│ • Selects the Promoted Focal Winner (spotlighted in neon cyan/red on screen map)       │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ PHASE 4: FOVEAL ZOOM & 1:1 RE-INSPECTION (Foveal Fixation)                             │
+│ • Extracts a configurable foveal field (150px, 300px, 384px, 500px padding) around box │
+│ • Cactus Mirage runs in 1:1 describe mode without downscaling loss                     │
+│ • Assembles Structured [REAL-TIME SCREEN OBSERVATION] Payload Bundle                   │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ PHASE 5: CHARACTER CONSCIOUSNESS & LLM REACTION                                        │
+│ [💬 Generate Character Commentary]                                                    │
+│ • Assembled observation bundle injected into Character LLM system prompt               │
+│ • Renders authentic companion dialogue commentary bubble directly in the workbench     │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-1. **Step 1: Manual Snapshot & Spatial BBox Decomposition**:
-   - Developer selects a source (display or specific application window) and clicks `[📸 Capture Snapshot]`.
-   - The captured frame is rendered inside an annotated canvas.
-   - Cactus Mirage WASM executes a single-pass extraction, overlaying color-coded SVG bounding boxes:
-     - **Purple / Blue**: Window boundaries and primary application frames.
-     - **Green**: Interactive controls, buttons, and app icons.
-     - **Amber / Orange**: Recognized text blocks (with tooltips displaying detected strings).
-   - Side panel displays the raw formatted JSON output for inspection (`objects`, `text`, `reasoning`).
+### 16.1 Why Multi-Modal Synthesis Beats Single-Model Perception
 
-2. **Step 2: System-1 Candidate Selection & Targeted Zoom**:
-   - Developer selects or configures active sentinel tripwires (e.g. *"Did the user hit a compiler error or broken build?"*, *"Is the user chatting with a colleague?"*).
-   - Clicking `[🧠 Run System-1 Triage]` passes Mirage's extracted text and object entities to System-1 (TypeSafe Jev or Local Laya).
-   - System-1 evaluates non-autoregressive logits, selects the **Promoted Focal BBox**, and renders:
-     - The winner box highlighted with a pulsating neon red border on the main viewport.
-     - A high-resolution cropped pixel preview of that exact bounding box.
-     - The isolated text reading (with an optional micro-crop Tesseract comparison button to test character-level fidelity).
+Empirical testing during the development of the Attention Laboratory revealed a critical principle: **neither small vision models nor blind OCR engines are sufficient alone**:
+1. **Mirage WASM alone** understands spatial geometry, UI layouts, colors, figures, and scenes (e.g. *"White and blue poster with man in black shirt, red and white logo"*), but hallucinates small fonts and explicitly reports *"Cannot read the text or know the event"*.
+2. **Tesseract WASM alone** extracts verbatim glyphs in tens of milliseconds (`"Gemini 4 Carbon"`), but is completely blind to visual semantics (it does not know if the text is on a video thumbnail, an error log, a browser tab, or a spreadsheet).
+3. **The Saccade & Foveal Synthesis** unites both:
+   - Phase 1 & 2 establish the **spatial anchor** (`📍 Right Panel`) and **ground-truth text** (`"Gemini 4 Carbon"`).
+   - Phase 3 evaluates cognitive relevance (`"Did the user start watching a notable video...?"` $\rightarrow$ 92%).
+   - Phase 4 supplies the **high-resolution visual context** (*"Poster with man in black shirt"*).
 
-3. **Step 3: Character Consciousness & LLM Reaction**:
-   - Developer clicks `[💬 Generate Character Commentary]`.
-   - The formatted `[Visual Event]` summary (active window, promoted region, focused OCR snippet, and zero-shot tag) is bundled and dispatched to the active character LLM.
-   - The resulting speech response renders as a chat commentary bubble, verifying end-to-end character perception without running a background timer loop.
+### 16.2 Canonical Payload Schema
+
+The final structured payload injected into the Character LLM prompt follows this uniform schema:
+
+```markdown
+[REAL-TIME SCREEN OBSERVATION]
+• Focal Target: Text Section (text banner)
+• Spatial Anchor: 📍 Right Panel
+• Verbatim Text Evidence: "Gemini 4 Carbon"
+• Visual Scene Context: White and blue poster with man in black shirt, red and white logo, black text blocks, colorful images. Posters combine image and text for advertising. Logos identify brands. Text blocks carry the message.
+• Triggered Tripwire: "Did the user start watching a notable video, live stream, or music release?" (Confidence: 92% >= 70%)
+• Decision: PROMOTE
+```
+
+### 16.3 Engineering Invariants & Optimization Rules
+
+1. **Crop Dimension Clamping**: Tesseract WASM execution time scales superlinearly with image dimensions. When cropping spatial candidates, width MUST be clamped to $\le 600\text{px}$ and height to $\le 140\text{px}$. Giant desktop containers ($>10\%$ screen area) must be deprioritized to the end of the OCR queue.
+2. **WASM LSTM Pre-Warming**: Tesseract's Leptonica and LSTM recognition pipeline incurs a 300–500ms one-time initialization penalty upon its first recognize call. Pre-warming the worker with a blank $32\times 32$ canvas during initialization keeps runtime stopwatch budgets accurate.
+3. **Background Ticking Discipline**: While the manual Attention Lab runs on developer button triggers, background perception in the runtime loop (`useScreenWatcherStore`) must gate Phase 1 behind Stage 0 (aHash / pHash delta). If the desktop is idle or static, no WASM passes are executed.
 
 ---
 

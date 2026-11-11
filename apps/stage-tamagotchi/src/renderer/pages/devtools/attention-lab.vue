@@ -6,9 +6,15 @@ import type { SourcesOptions } from 'electron'
 import { useElectronScreenCapture } from '@proj-airi/electron-screen-capture/vue'
 import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
 import { getMirageClient } from '@proj-airi/stage-ui/libs/inference'
+import { useLLM } from '@proj-airi/stage-ui/stores/llm'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
+import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
+import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { Button, FieldCheckbox, FieldInput, FieldSelect, Select, SelectTab } from '@proj-airi/ui'
 import { useClipboard } from '@vueuse/core'
+import { storeToRefs } from 'pinia'
 import { createWorker } from 'tesseract.js'
 import { computed, onUnmounted, ref } from 'vue'
 
@@ -22,6 +28,34 @@ type SourceCategory = 'applications' | 'displays'
 const visionStore = useVisionStore()
 const mirageClient = getMirageClient()
 const { copy, copied } = useClipboard()
+
+const airiCardStore = useAiriCardStore()
+const { activeCard } = storeToRefs(airiCardStore)
+const consciousnessStore = useConsciousnessStore()
+const speechStore = useSpeechStore()
+const providersStore = useProvidersStore()
+const llmStore = useLLM()
+
+// Step 3: Character Consciousness & Reaction State
+const characterName = computed(() => activeCard.value?.name || 'AIRI')
+const activeCompanionAvatar = computed(() => {
+  return (activeCard.value?.extensions as any)?.airi?.avatar
+    || (activeCard.value as any)?.avatar
+    || ''
+})
+
+const isGeneratingStep3 = ref(false)
+const step3Error = ref<string | null>(null)
+const step3LatencyMs = ref(0)
+const step3Commentary = ref<string | null>(null)
+const step3RawPrompt = ref<string | null>(null)
+const step3EmittedNoReply = ref(false)
+const showPromptInspector = ref(false)
+const isSpeakingCommentary = ref(false)
+
+const customCommentaryInstruction = ref(
+  'Give a brief, natural, in-character reaction or comment (1-2 sentences) about what the user is doing or looking at based on these visual cues. Speak authentically in character. Do not announce that you are analyzing the screen or state robotic observations. If nothing warrants dialogue, emit NO_REPLY.',
+)
 
 // Sources selection
 const sources = ref<ScreenCaptureSource[]>([])
@@ -1103,6 +1137,123 @@ async function runSystemOneTriage() {
   }
 }
 
+async function generateCharacterReaction() {
+  if (isGeneratingStep3.value || !finalPayload.value)
+    return
+
+  isGeneratingStep3.value = true
+  step3Error.value = null
+  step3Commentary.value = null
+  step3EmittedNoReply.value = false
+  const t0 = performance.now()
+
+  try {
+    const activeProviderId = consciousnessStore.activeProvider
+    const activeModel = consciousnessStore.activeModel
+
+    if (!activeProviderId || !activeModel) {
+      throw new Error('No active LLM provider or model configured. Please select a model in System Settings → Intelligence → Inference Providers.')
+    }
+
+    const activeProvider = await providersStore.getProviderInstance(activeProviderId) as any
+    if (!activeProvider) {
+      throw new Error(`Failed to initialize LLM provider instance for "${activeProviderId}".`)
+    }
+
+    const systemPrompt = activeCard.value?.description
+      || (activeCard.value as any)?.data?.description
+      || (activeCard.value as any)?.systemPrompt
+      || `You are ${characterName.value}, an attentive AI desktop companion. Stay in character.`
+
+    const userMessage = `${finalPayload.value.formattedObservationText}\n\n${customCommentaryInstruction.value.trim()}`
+
+    step3RawPrompt.value = `[SYSTEM PROMPT]\n${systemPrompt}\n\n[USER MESSAGE]\n${userMessage}`
+
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: userMessage },
+    ]
+
+    console.log(`[Attention Lab] Dispatched Step 3 character reaction to ${activeProviderId}/${activeModel}...`)
+    const response = await llmStore.generate(activeModel, activeProvider, messages, {})
+    step3LatencyMs.value = Math.round(performance.now() - t0)
+
+    const rawReply = String(response?.text || '').trim()
+    if (!rawReply || rawReply === 'NO_REPLY' || rawReply.includes('NO_REPLY')) {
+      step3EmittedNoReply.value = true
+      step3Commentary.value = 'NO_REPLY'
+      return
+    }
+
+    // Clean up ACT tags or asterisks for pristine speech bubble display
+    const cleanReply = rawReply
+      .replace(/<\|ACT:[^>]*\|>/g, '')
+      .replace(/<\|[^>]*\|>/g, '')
+      .replace(/^"(.*)"$/, '$1')
+      .trim()
+
+    step3Commentary.value = cleanReply || rawReply
+  }
+  catch (err: any) {
+    step3Error.value = `Failed to generate commentary: ${err?.message || err}`
+  }
+  finally {
+    isGeneratingStep3.value = false
+  }
+}
+
+let currentAudioElement: HTMLAudioElement | null = null
+
+async function speakCommentary() {
+  if (isSpeakingCommentary.value || !step3Commentary.value || step3EmittedNoReply.value)
+    return
+
+  const speechProv = speechStore.activeSpeechProvider
+  if (!speechProv) {
+    console.warn('[Attention Lab] No active speech provider configured.')
+    return
+  }
+
+  isSpeakingCommentary.value = true
+  try {
+    const providerInstance = await providersStore.getProviderInstance(speechProv)
+    if (!providerInstance) {
+      isSpeakingCommentary.value = false
+      return
+    }
+
+    const model = speechStore.activeSpeechModel || ''
+    const voiceId = speechStore.activeSpeechVoiceId || ''
+    const buf = await speechStore.speech(providerInstance as any, model, step3Commentary.value, voiceId)
+    if (buf && buf.byteLength > 0) {
+      const blob = new Blob([buf], { type: 'audio/wav' })
+      const url = URL.createObjectURL(blob)
+      if (currentAudioElement) {
+        currentAudioElement.pause()
+        currentAudioElement = null
+      }
+      const audio = new Audio(url)
+      currentAudioElement = audio
+      audio.onended = () => {
+        isSpeakingCommentary.value = false
+        URL.revokeObjectURL(url)
+      }
+      audio.onerror = () => {
+        isSpeakingCommentary.value = false
+        URL.revokeObjectURL(url)
+      }
+      await audio.play()
+    }
+    else {
+      isSpeakingCommentary.value = false
+    }
+  }
+  catch (err) {
+    console.warn('[Attention Lab] Speech playback failed:', err)
+    isSpeakingCommentary.value = false
+  }
+}
+
 async function captureAndAnalyze() {
   if (isProcessing.value)
     return
@@ -1251,11 +1402,22 @@ void refetchSources()
 
         <div
           :class="[
-            'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium',
-            'text-neutral-400 dark:text-neutral-500 bg-neutral-200/30 dark:bg-neutral-800/30',
+            'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all',
+            step3Commentary
+              ? 'bg-emerald-500 text-white shadow-sm font-semibold'
+              : (finalPayload
+                ? 'bg-primary-500 text-white shadow-sm font-semibold'
+                : 'text-neutral-400 dark:text-neutral-500 bg-neutral-200/30 dark:bg-neutral-800/30'),
           ]"
         >
-          <span class="h-5 w-5 flex items-center justify-center rounded-full bg-neutral-400/20 text-xs">3</span>
+          <span
+            :class="[
+              'flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold',
+              step3Commentary ? 'bg-white/20' : (finalPayload ? 'bg-white/20' : 'bg-neutral-400/20'),
+            ]"
+          >
+            {{ step3Commentary ? '✓' : '3' }}
+          </span>
           <span>Character LLM Reaction</span>
         </div>
       </div>
@@ -2236,6 +2398,241 @@ void refetchSources()
               'bg-neutral-950 text-emerald-400 border border-emerald-500/30 shadow-inner',
             ]"
           >{{ finalPayload.formattedObservationText }}</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- STEP 3: CHARACTER CONSCIOUSNESS & REACTION -->
+    <!-- ========================================== -->
+    <section
+      v-if="finalPayload"
+      :class="[
+        'flex flex-col gap-4 p-5 rounded-2xl border transition-all duration-300',
+        step3Commentary
+          ? 'border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-950/15 ring-1 ring-emerald-500/20'
+          : 'border-primary-500/40 bg-primary-500/5 dark:bg-primary-950/15 ring-1 ring-primary-500/20',
+      ]"
+    >
+      <!-- Step 3 Header -->
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200/60 pb-3 dark:border-neutral-800/60">
+        <div class="flex items-center gap-3">
+          <div
+            :class="[
+              'flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold shadow-sm',
+              step3Commentary ? 'bg-emerald-500 text-white' : 'bg-primary-500 text-white',
+            ]"
+          >
+            {{ step3Commentary ? '✓' : '3' }}
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-xs text-neutral-800 font-bold tracking-wider uppercase dark:text-neutral-200">
+                Character Consciousness & LLM Reaction
+              </h3>
+              <span
+                :class="[
+                  'rounded-full px-2 py-0.5 text-[10px] font-bold font-mono',
+                  step3Commentary
+                    ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300'
+                    : 'bg-primary-500/20 text-primary-600 dark:text-primary-300',
+                ]"
+              >
+                {{ step3Commentary ? 'Reaction Generated' : 'Ready for Dialogue Reaction' }}
+              </span>
+            </div>
+            <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
+              Evaluates the assembled [REAL-TIME SCREEN OBSERVATION] payload through the character's active identity DNA to produce authentic dialogue commentary.
+            </p>
+          </div>
+        </div>
+
+        <!-- Companion & Model Badges -->
+        <div class="flex items-center gap-2 text-xs">
+          <div class="flex items-center gap-1.5 rounded-lg bg-neutral-200/50 px-2.5 py-1 text-neutral-700 font-medium dark:bg-neutral-800/70 dark:text-neutral-300">
+            <span class="i-solar:user-bold-duotone text-sm text-primary-500" />
+            <span>{{ characterName }}</span>
+          </div>
+
+          <div
+            v-if="consciousnessStore.activeModel"
+            class="flex items-center gap-1.5 rounded-lg bg-neutral-200/50 px-2.5 py-1 text-[11px] text-neutral-700 font-mono dark:bg-neutral-800/70 dark:text-neutral-300"
+          >
+            <span class="i-solar:cpu-bolt-bold-duotone text-sm text-emerald-500" />
+            <span>{{ consciousnessStore.activeProvider }}/{{ consciousnessStore.activeModel }}</span>
+          </div>
+          <div
+            v-else
+            class="flex items-center gap-1.5 border border-amber-500/30 rounded-lg bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-600 dark:text-amber-400"
+          >
+            <span class="i-solar:danger-triangle-bold-duotone text-sm" />
+            <span>No LLM Model Selected</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prompt Customization & Trigger Bar -->
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <label class="flex items-center gap-1.5 text-xs text-neutral-700 font-semibold dark:text-neutral-300">
+              <span class="i-solar:notes-bold-duotone text-sm text-primary-500" />
+              <span>In-Character Reaction Directive</span>
+            </label>
+            <button
+              type="button"
+              class="cursor-pointer text-[11px] text-primary-500 font-medium transition-colors hover:text-primary-600 dark:hover:text-primary-400"
+              @click="showPromptInspector = !showPromptInspector"
+            >
+              {{ showPromptInspector ? 'Hide Prompt Inspector' : '🔍 Inspect Full LLM Prompt' }}
+            </button>
+          </div>
+
+          <FieldInput
+            v-model="customCommentaryInstruction"
+            placeholder="Directive passed to the character LLM alongside the visual event..."
+          />
+        </div>
+
+        <!-- Collapsible Full Prompt Inspector -->
+        <div
+          v-if="showPromptInspector && step3RawPrompt"
+          class="flex flex-col gap-1.5 border border-neutral-800 rounded-xl bg-black/40 p-3 text-[11px] font-mono"
+        >
+          <div class="flex items-center justify-between border-b border-neutral-800 pb-1.5 text-neutral-400">
+            <span>FULL DISPATCHED PROMPT PREVIEW</span>
+            <button
+              type="button"
+              class="cursor-pointer hover:text-white"
+              @click="copy(step3RawPrompt)"
+            >
+              Copy Prompt
+            </button>
+          </div>
+          <pre class="max-h-48 overflow-x-auto whitespace-pre-wrap text-neutral-300 leading-relaxed">{{ step3RawPrompt }}</pre>
+        </div>
+
+        <!-- Action Row -->
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-[11px] text-neutral-500 dark:text-neutral-400">
+            Clicking will query the active character model with the structured observation context above.
+          </span>
+
+          <Button
+            size="md"
+            :label="isGeneratingStep3 ? 'Synthesizing Authentic Dialogue...' : '💬 Generate Character Commentary'"
+            :icon="isGeneratingStep3 ? 'i-svg-spinners:ring-resize' : 'i-solar:chat-round-line-bold-duotone'"
+            :disabled="isGeneratingStep3 || !consciousnessStore.activeModel"
+            class="px-5 py-2 font-semibold shadow-md"
+            @click="generateCharacterReaction"
+          />
+        </div>
+      </div>
+
+      <!-- Error Notification -->
+      <div
+        v-if="step3Error"
+        class="flex items-center gap-2 border border-red-500/30 rounded-xl bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400"
+      >
+        <span class="i-solar:danger-triangle-bold-duotone shrink-0 text-base" />
+        <span>{{ step3Error }}</span>
+      </div>
+
+      <!-- Character Dialogue Bubble Display -->
+      <div
+        v-if="step3Commentary"
+        class="mt-2 flex flex-col gap-3"
+      >
+        <!-- Case 1: Silent Decision (NO_REPLY) -->
+        <div
+          v-if="step3EmittedNoReply"
+          class="flex items-center gap-3 border border-neutral-300 rounded-xl bg-neutral-100/60 p-4 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800/40 dark:text-neutral-400"
+        >
+          <div class="h-9 w-9 flex shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-700">
+            <span class="i-solar:bell-off-bold-duotone text-lg" />
+          </div>
+          <div class="flex flex-col">
+            <span class="text-neutral-800 font-bold dark:text-neutral-200">
+              Companion Remained Silent (NO_REPLY)
+            </span>
+            <p class="text-[11px]">
+              The character observed the screen event, but evaluated that an interruption is unnecessary or out-of-character.
+            </p>
+          </div>
+          <span class="ml-auto text-[10px] text-neutral-400 font-mono">
+            ⏱️ {{ step3LatencyMs }}ms
+          </span>
+        </div>
+
+        <!-- Case 2: Active Dialogue Reaction -->
+        <div
+          v-else
+          class="flex items-start gap-3.5 border border-emerald-500/30 rounded-2xl bg-white/80 p-4 shadow-md backdrop-blur-sm dark:bg-neutral-900/80"
+        >
+          <!-- Companion Avatar -->
+          <div class="relative shrink-0">
+            <img
+              v-if="activeCompanionAvatar"
+              :src="activeCompanionAvatar"
+              :alt="characterName"
+              class="h-11 w-11 rounded-full object-cover shadow-sm ring-2 ring-emerald-500/40"
+            >
+            <div
+              v-else
+              class="h-11 w-11 flex items-center justify-center rounded-full bg-emerald-500/20 text-base text-emerald-600 font-bold shadow-sm ring-2 ring-emerald-500/40 dark:text-emerald-400"
+            >
+              {{ characterName.charAt(0) }}
+            </div>
+            <div class="absolute h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-white -bottom-0.5 -right-0.5 dark:ring-neutral-900" />
+          </div>
+
+          <!-- Dialogue Content -->
+          <div class="min-w-0 flex flex-1 flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-neutral-900 font-bold dark:text-neutral-100">
+                  {{ characterName }}
+                </span>
+                <span class="rounded bg-emerald-500/15 px-1.5 py-0.2 text-[10px] text-emerald-600 font-semibold font-mono dark:text-emerald-400">
+                  Spoken Reaction
+                </span>
+              </div>
+
+              <div class="flex items-center gap-2 text-[11px] text-neutral-400 font-mono">
+                <span>⏱️ {{ step3LatencyMs }}ms</span>
+                <Button
+                  :label="copied ? 'Copied' : 'Copy'"
+                  :icon="copied ? 'i-solar:check-circle-bold-duotone' : 'i-solar:copy-bold-duotone'"
+                  size="sm"
+                  variant="ghost"
+                  @click="copy(step3Commentary!)"
+                />
+              </div>
+            </div>
+
+            <!-- Speech Bubble Body -->
+            <div class="relative border border-neutral-200/80 rounded-2xl rounded-tl-sm bg-neutral-100 p-3.5 text-sm text-neutral-800 leading-relaxed font-sans shadow-inner dark:border-neutral-700/60 dark:bg-neutral-800/90 dark:text-neutral-100">
+              <p class="italic">
+                "{{ step3Commentary }}"
+              </p>
+            </div>
+
+            <!-- Speech Audio Button -->
+            <div class="flex items-center gap-2 pt-1">
+              <Button
+                size="sm"
+                variant="secondary"
+                :label="isSpeakingCommentary ? 'Speaking...' : '🔊 Play Voice Synthesis'"
+                :icon="isSpeakingCommentary ? 'i-svg-spinners:bars-scale-middle' : 'i-solar:volume-loud-bold-duotone'"
+                :disabled="isSpeakingCommentary || !step3Commentary"
+                class="text-xs"
+                @click="speakCommentary"
+              />
+              <span class="text-[10px] text-neutral-500 italic">
+                Uses active TTS engine: {{ speechStore.activeSpeechProvider || 'Default' }}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
