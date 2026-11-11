@@ -85,6 +85,10 @@ export const electronCustomizerToggleVisibility = defineInvokeEventa<void, boole
 export const electronGetCustomizerWindowState = defineInvokeEventa<boolean>('eventa:invoke:electron:windows:customizer:get-state')
 export const electronEnsureBeatSync = defineInvokeEventa<void, void>('eventa:invoke:electron:beat-sync:ensure')
 
+export const electronTrayPopoverTogglePin = defineInvokeEventa<boolean, boolean | undefined>('eventa:invoke:electron:windows:tray:toggle-pin')
+export const electronTrayPopoverGetPinState = defineInvokeEventa<boolean>('eventa:invoke:electron:windows:tray:get-pin-state')
+export const electronTrayPopoverClose = defineInvokeEventa<void>('eventa:invoke:electron:windows:tray:close')
+
 export interface StageMateEnsureModelPayload {
   modelId: string
   modelName?: string

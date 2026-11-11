@@ -88,6 +88,7 @@ import { setupSettingsWindowReusableFunc } from './windows/settings'
 import { ensureWindowInVisibleBounds } from './windows/shared/display'
 import { setupSplashWindowManager } from './windows/splash'
 import { getStageVisibleState, isStageDisabledByFlag, setStageVisibleState, setupActorStageWindowManager } from './windows/stage'
+import { setupTrayWindowManager } from './windows/tray'
 import { setupWidgetsWindowManager } from './windows/widgets'
 
 // Guard BrowserWindow prototype methods against destroyed window objects to prevent "Object has been destroyed" exceptions
@@ -468,8 +469,13 @@ app.whenReady().then(async () => {
     build: async ({ dependsOn }) => setupCustomizerWindowManager(dependsOn),
   })
 
+  const trayWindow = injeca.provide('windows:tray', {
+    dependsOn: { serverChannel, i18n },
+    build: async ({ dependsOn }) => setupTrayWindowManager(dependsOn),
+  })
+
   const tray = injeca.provide('app:tray', {
-    dependsOn: { mainWindow, settingsWindow, onboardingWindow: onboardingWindowManager, captionWindow, widgetsWindow: widgetsManager, serverChannel, beatSyncBgWindow: beatSync, aboutWindow, i18n, appConfig, chatWindow, stageWindow, customizerWindow },
+    dependsOn: { mainWindow, settingsWindow, onboardingWindow: onboardingWindowManager, captionWindow, widgetsWindow: widgetsManager, serverChannel, beatSyncBgWindow: beatSync, aboutWindow, i18n, appConfig, chatWindow, stageWindow, customizerWindow, trayWindow },
     build: async ({ dependsOn }) => {
       const configHelper = dependsOn.appConfig
       return setupTray({
@@ -481,7 +487,7 @@ app.whenReady().then(async () => {
   })
 
   injeca.invoke({
-    dependsOn: { mainWindow, autoUpdater, tray, serverChannel, pluginHost, mcpStdioManager, onboardingWindow: onboardingWindowManager, appConfig, i18n, captionWindow, stageWindow, splashWindow, chatWindow, customizerWindow, beatSync },
+    dependsOn: { mainWindow, autoUpdater, tray, serverChannel, pluginHost, mcpStdioManager, onboardingWindow: onboardingWindowManager, appConfig, i18n, captionWindow, stageWindow, splashWindow, chatWindow, customizerWindow, trayWindow, beatSync },
     callback: (deps) => {
       createServerChannelService({ serverChannel: deps.serverChannel })
       createMcpServersService({ context, manager: deps.mcpStdioManager })

@@ -127,6 +127,7 @@ catalog:
   std-env: ^4.0.0-rc.1
   sucrase: ^3.35.1
   superjson: ^2.2.6
+  tesseract.js: ^7.0.0
   three: ^0.183.1
   three-stdlib: ^2.36.1
   tsc-rs: ^0.2.0

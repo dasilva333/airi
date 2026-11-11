@@ -11,6 +11,7 @@ import type { CustomizerWindowManager } from '../windows/customizer'
 import type { OnboardingWindowManager } from '../windows/onboarding'
 import type { SettingsWindowManager } from '../windows/settings'
 import type { ActorStageWindowManager } from '../windows/stage'
+import type { TrayWindowManager } from '../windows/tray'
 import type { WidgetsWindowManager } from '../windows/widgets'
 
 import { defineInvokeHandler } from '@moeru/eventa'
@@ -39,6 +40,7 @@ export interface SetupTrayParams {
   chatWindow?: ChatWindowManager
   stageWindow?: ActorStageWindowManager | BrowserWindow | null
   customizerWindow: CustomizerWindowManager
+  trayWindow?: TrayWindowManager
   serverChannel: ServerChannel
   i18n: I18n
   appConfig: Config<typeof globalAppConfigSchema>
@@ -123,9 +125,15 @@ const setupTrayOnce = once((params: SetupTrayParams) => {
       { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.quit'), click: () => app.quit() },
     ])
 
-    appTray.setContextMenu(contextMenu)
+    cachedContextMenu = contextMenu
+    // NOTICE: On macOS, attaching setContextMenu directly to appTray causes AppKit
+    // to hijack single left-clicks. Keep context menu for right-click popup on macOS.
+    if (!isMacOS) {
+      appTray.setContextMenu(contextMenu)
+    }
   }, 50)
 
+  let cachedContextMenu: Menu | undefined
   rebuildContextMenu()
 
   effect(() => {
@@ -143,14 +151,26 @@ const setupTrayOnce = once((params: SetupTrayParams) => {
   })
 
   appTray.setToolTip('Project AIRI')
-  if (!isMacOS) {
-    appTray.addListener('click', () => {
+
+  // Left click toggles the rich Tray Popover window (AIRI Pocket)
+  appTray.addListener('click', (_event, bounds) => {
+    if (params.trayWindow) {
+      void params.trayWindow.toggle(bounds)
+    }
+    else {
       params.mainWindow.show()
       params.mainWindow.focus()
-    })
-  }
+    }
+  })
 
-  // On macOS, there's a special double-click event
+  // Right click pops the OS-native context menu (Emergency safety fallback)
+  appTray.addListener('right-click', () => {
+    if (cachedContextMenu) {
+      cachedContextMenu.popup()
+    }
+  })
+
+  // On macOS, preserve double-click to focus the primary Control Strip window
   if (isMacOS) {
     appTray.addListener('double-click', () => {
       params.mainWindow.show()
