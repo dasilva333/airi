@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { useLocalStorage } from '@vueuse/core'
+import { ChatWorkspacePopover } from '@proj-airi/stage-layouts'
+import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
+import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useDark, useLocalStorage, useToggle } from '@vueuse/core'
+import { storeToRefs } from 'pinia'
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 
 import stickerAvatar from '../assets/relu-sticker-wow.avif'
@@ -24,6 +29,32 @@ const togglePinRpc = useElectronEventaInvoke(electronTrayPopoverTogglePin)
 const getPinStateRpc = useElectronEventaInvoke(electronTrayPopoverGetPinState)
 const closeRpc = useElectronEventaInvoke(electronTrayPopoverClose)
 
+// Active character & workspace switcher
+const airiCardStore = useAiriCardStore()
+const { activeCard, activeCardId } = storeToRefs(airiCardStore)
+const isWorkspaceOpen = ref(false)
+
+const activeCharacterName = computed(() => {
+  const card = airiCardStore.cards.get(activeCardId.value) || activeCard.value
+  return card?.name || activeCardId.value || 'Character'
+})
+
+// Voice output master mute
+const chatOrchestrator = useChatOrchestratorStore()
+const chatSession = useChatSessionStore()
+const isVoiceMuted = useLocalStorage('airi:audio:voice-muted', false)
+
+function toggleVoiceMute() {
+  isVoiceMuted.value = !isVoiceMuted.value
+  if (isVoiceMuted.value) {
+    void chatOrchestrator.stopCurrentGeneration(chatSession.activeSessionId)
+  }
+}
+
+// Theme toggle
+const isDark = useDark({ disableTransition: false })
+const toggleDark = useToggle(isDark)
+
 onMounted(async () => {
   try {
     isPinned.value = await getPinStateRpc()
@@ -42,11 +73,6 @@ async function handleTogglePin() {
   }
 }
 
-// Rapid header pills state
-const voiceActive = ref(true)
-const visionActive = ref(true)
-const sleepActive = ref(false)
-
 const activeTabComponent = computed(() => {
   switch (activeTab.value) {
     case 'chat':
@@ -61,8 +87,6 @@ const activeTabComponent = computed(() => {
 
 // Companion subtitle
 const companionSubtitle = computed(() => {
-  if (sleepActive.value)
-    return 'Sleeping • Engine Idle'
   return 'Ready to chat with you!'
 })
 </script>
@@ -117,23 +141,35 @@ const companionSubtitle = computed(() => {
           </div>
 
           <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-1.5">
-              <span class="text-base text-primary-600 font-bold tracking-tight dark:text-primary-400">
-                AIRI
-              </span>
-              <button
-                type="button"
-                title="Switch Character / Session"
-                :class="[
-                  'p-0.5 px-1 rounded-md transition flex items-center justify-center',
-                  'bg-neutral-100/90 hover:bg-neutral-200/80 dark:bg-neutral-800/90 dark:hover:bg-neutral-700/80',
-                  'border border-neutral-200/70 dark:border-neutral-700/70 shadow-xs',
-                  'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
-                ]"
-              >
-                <div class="i-solar:alt-arrow-down-linear text-xs" />
-              </button>
-            </div>
+            <ChatWorkspacePopover
+              v-model:open="isWorkspaceOpen"
+              :character-id="activeCardId"
+            >
+              <template #trigger>
+                <button
+                  type="button"
+                  title="Switch Character / Session"
+                  :class="[
+                    'flex items-center gap-1.5 cursor-pointer select-none text-left rounded-lg p-0.5 -ml-1 transition',
+                    'hover:bg-neutral-100/80 dark:hover:bg-neutral-800/80',
+                  ]"
+                >
+                  <span class="text-base text-primary-600 font-bold tracking-tight dark:text-primary-400">
+                    {{ activeCharacterName }}
+                  </span>
+                  <div
+                    :class="[
+                      'p-0.5 px-1 rounded-md transition flex items-center justify-center',
+                      'bg-neutral-100/90 hover:bg-neutral-200/80 dark:bg-neutral-800/90 dark:hover:bg-neutral-700/80',
+                      'border border-neutral-200/70 dark:border-neutral-700/70 shadow-xs',
+                      'text-neutral-500 dark:text-neutral-400',
+                    ]"
+                  >
+                    <div class="i-solar:alt-arrow-down-linear text-xs" />
+                  </div>
+                </button>
+              </template>
+            </ChatWorkspacePopover>
             <div class="mt-0.5 text-xs text-neutral-500 leading-tight italic dark:text-neutral-400">
               {{ companionSubtitle }}
             </div>
@@ -172,7 +208,7 @@ const companionSubtitle = computed(() => {
             </button>
           </div>
 
-          <!-- Rapid Action Pills: Voice | Vision | Sleep -->
+          <!-- Rapid Action Pills: Voice Mute | Theme -->
           <div
             :class="[
               'flex items-center gap-1 p-0.5 rounded-full',
@@ -180,49 +216,34 @@ const companionSubtitle = computed(() => {
               'border border-neutral-200/60 dark:border-neutral-700/60',
             ]"
           >
-            <!-- Rapid Pill: Voice -->
+            <!-- Rapid Pill: Voice Mute -->
             <button
               type="button"
-              title="Toggle Voice"
+              :title="isVoiceMuted ? 'Unmute Voice' : 'Mute Voice'"
               :class="[
-                'p-1.5 rounded-full transition',
-                voiceActive
+                'p-1.5 rounded-full transition cursor-pointer',
+                !isVoiceMuted
                   ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
-                  : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
+                  : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 hover:text-neutral-600',
               ]"
-              @click="voiceActive = !voiceActive"
+              @click="toggleVoiceMute"
             >
-              <div class="i-solar:volume-loud-bold text-xs" />
+              <div :class="[!isVoiceMuted ? 'i-solar:volume-loud-bold' : 'i-solar:volume-cross-bold', 'text-xs']" />
             </button>
 
-            <!-- Rapid Pill: Vision -->
+            <!-- Rapid Pill: Theme Toggle (Moon / Sun) -->
             <button
               type="button"
-              title="Toggle Vision"
+              :title="isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
               :class="[
-                'p-1.5 rounded-full transition',
-                visionActive
+                'p-1.5 rounded-full transition cursor-pointer',
+                isDark
                   ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
-                  : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
+                  : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 hover:text-neutral-600',
               ]"
-              @click="visionActive = !visionActive"
+              @click="toggleDark()"
             >
-              <div class="i-solar:eye-bold text-xs" />
-            </button>
-
-            <!-- Rapid Pill: Sleep -->
-            <button
-              type="button"
-              title="Toggle Sleep Mode"
-              :class="[
-                'p-1.5 rounded-full transition',
-                sleepActive
-                  ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
-                  : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
-              ]"
-              @click="sleepActive = !sleepActive"
-            >
-              <div class="i-solar:moon-bold text-xs" />
+              <div :class="[isDark ? 'i-solar:moon-bold' : 'i-solar:sun-2-bold', 'text-xs']" />
             </button>
           </div>
         </div>
