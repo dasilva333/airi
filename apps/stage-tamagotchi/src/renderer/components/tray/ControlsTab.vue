@@ -16,13 +16,13 @@ const tiles = ref<ControlTile[]>([
   { id: 'mic', label: 'Mic', status: 'On', icon: 'i-solar:microphone-3-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
   { id: 'voice', label: 'Voice', status: '80%', icon: 'i-solar:volume-loud-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
   { id: 'tts', label: 'TTS', status: 'On', icon: 'i-solar:chat-round-line-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'vision', label: 'Vision', status: 'On', icon: 'i-solar:eye-bold', active: true, highlightColor: 'text-purple-600 bg-purple-50 dark:bg-purple-950/40 dark:text-purple-400' },
+  { id: 'vision', label: 'Vision', status: 'On', icon: 'i-solar:eye-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
   { id: 'stage', label: 'Stage', status: 'Hidden', icon: 'i-solar:box-bold', active: false },
   { id: 'sleep', label: 'Sleep', status: 'Off', icon: 'i-solar:moon-bold', active: false },
   { id: 'outfit', label: 'Outfit', status: 'Airi Maid', icon: 'i-solar:t-shirt-bold', active: true },
   { id: 'motion', label: 'Motion', status: 'Auto', icon: 'i-solar:running-round-bold', active: true },
   { id: 'emotion', label: 'Emotion', status: 'Natural', icon: 'i-solar:smile-circle-bold', active: true },
-  { id: 'fx', label: 'FX / Aura', status: 'On', icon: 'i-solar:stars-minimalistic-bold', active: true, highlightColor: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400' },
+  { id: 'fx', label: 'FX / Aura', status: 'On', icon: 'i-solar:stars-minimalistic-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
   { id: 'record', label: 'Record', status: 'Off', icon: 'i-solar:record-circle-bold', active: false },
 ])
 
@@ -72,10 +72,10 @@ function toggleTile(tile: ControlTile) {
       </button>
     </div>
 
-    <!-- 2x6 Control Grid -->
+    <!-- Four-column responsive-density control grid; more rows scroll inside the tab -->
     <div
       :class="[
-        'grid grid-cols-6 gap-1.5',
+        'grid grid-cols-4 gap-2',
       ]"
     >
       <!-- Standard Tiles -->
@@ -85,7 +85,7 @@ function toggleTile(tile: ControlTile) {
         type="button"
         :class="[
           'flex flex-col items-center justify-center',
-          'p-2 rounded-xl border transition group min-h-[68px]',
+          'p-2 rounded-xl border transition group min-h-[84px] min-w-0',
           tile.active
             ? 'bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 shadow-sm'
             : 'bg-neutral-50/70 dark:bg-neutral-900/40 border-neutral-200/50 dark:border-neutral-800/50 opacity-70',
@@ -94,7 +94,7 @@ function toggleTile(tile: ControlTile) {
       >
         <div
           :class="[
-            'w-7 h-7 rounded-lg flex items-center justify-center transition mb-1',
+            'w-9 h-9 rounded-lg flex items-center justify-center transition mb-1',
             tile.active && tile.highlightColor
               ? tile.highlightColor
               : tile.active
@@ -102,14 +102,14 @@ function toggleTile(tile: ControlTile) {
                 : 'text-neutral-400 bg-neutral-200/50 dark:bg-neutral-800',
           ]"
         >
-          <div :class="[tile.icon, 'text-sm']" />
+          <div :class="[tile.icon, 'text-lg']" />
         </div>
         <span class="w-full truncate text-center text-[10px] text-neutral-700 font-bold leading-tight dark:text-neutral-200">
           {{ tile.label }}
         </span>
         <span
           :class="[
-            'text-[8px] font-mono leading-tight mt-0.5 truncate w-full text-center',
+            'text-[10px] font-mono leading-tight mt-1 truncate w-full text-center',
             tile.active ? 'text-primary-600 dark:text-primary-400 font-semibold' : 'text-neutral-400',
           ]"
         >
@@ -122,7 +122,7 @@ function toggleTile(tile: ControlTile) {
         type="button"
         :class="[
           'flex flex-col items-center justify-center',
-          'p-2 rounded-xl border border-dashed min-h-[68px]',
+          'p-2 rounded-xl border border-dashed min-h-[84px] min-w-0',
           'border-neutral-300 dark:border-neutral-700 hover:border-primary-500',
           'bg-neutral-50/50 dark:bg-neutral-900/30 text-neutral-400 hover:text-primary-500',
           'transition group',
