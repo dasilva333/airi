@@ -69,6 +69,38 @@ export function localFromWorld(parentWorld: Quat, world: Quat, previousLocal?: Q
   return hemisphere(multiplyQuaternion(inverseUnit(parentWorld), normalizeQuaternion(world)), previousLocal)
 }
 
+/**
+ * Clamps local pitch (rotation around X-axis) of a quaternion between minPitchRad (backward tilt / extension)
+ * and maxPitchRad (forward tilt / flexion). Preserves roll/yaw axes and quaternion hemisphere continuity.
+ */
+export function clampQuaternionPitch(
+  q: Quat,
+  minPitchRad: number,
+  maxPitchRad: number,
+): Quat {
+  const [x, y, z, w] = q
+  const sinp = Math.max(-1, Math.min(1, 2 * (w * x - y * z)))
+  const cosp = 1 - 2 * (x * x + y * y)
+  const pitch = Math.atan2(sinp, cosp)
+
+  if (pitch >= minPitchRad && pitch <= maxPitchRad) {
+    return q
+  }
+
+  const clampedPitch = Math.max(minPitchRad, Math.min(maxPitchRad, pitch))
+  const delta = clampedPitch - pitch
+  const halfDelta = delta / 2
+  const dx = Math.sin(halfDelta)
+  const dw = Math.cos(halfDelta)
+
+  return normalizeQuaternion([
+    dw * x + dx * w,
+    dw * y - dx * z,
+    dw * z + dx * y,
+    dw * w - dx * x,
+  ])
+}
+
 export function slerp(a: Quat, b: Quat, t: number): Quat {
   const qa = normalizeQuaternion(a)
   let qb = normalizeQuaternion(b)

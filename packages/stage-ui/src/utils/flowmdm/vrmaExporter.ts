@@ -2,7 +2,7 @@ import type { Quat, Vec3 } from './retargeting'
 
 import { hmlMean, hmlStd, jointToNodeMap, NODE_BONES, refNodes } from './constants'
 import { quatSlerp, vec3Lerp } from './math'
-import { applyBipedContactIK, LEFT_LEG_CHAIN, localFromWorld, RIGHT_LEG_CHAIN, solveFrameDelta, solveParentSwing, sub } from './retargeting'
+import { applyBipedContactIK, clampQuaternionPitch, hemisphere, LEFT_LEG_CHAIN, localFromWorld, multiplyQuaternion, RIGHT_LEG_CHAIN, solveFrameDelta, solveParentSwing, sub } from './retargeting'
 
 export interface ExportVRMAOptions {
   loop?: boolean
@@ -193,11 +193,23 @@ export function exportFlowMDMToVRMA(
       worldQ[bone.node] = world
     }
 
-    // 4.5 Local rotations with hemisphere continuity
+    // 4.5 Local rotations with hemisphere continuity and anatomical bounds
     for (const bone of NODE_BONES) {
       const parentWorld = worldQ[bone.parent]
       const currentWorld = worldQ[bone.node]
-      const local = localFromWorld(parentWorld, currentWorld, prevLocalQ[bone.node])
+      let local = localFromWorld(parentWorld, currentWorld, prevLocalQ[bone.node])
+
+      // Anatomical pitch clamping for cervical spine
+      if (bone.node === 4) {
+        // Enforce physical limits on cervical extension (<= 15 deg backward)
+        // and flexion (<= 25 deg forward) to eliminate hyperextended "crooked neck"
+        local = clampQuaternionPitch(local, -15 * Math.PI / 180, 25 * Math.PI / 180)
+        local = hemisphere(local, prevLocalQ[bone.node])
+        const clampedWorld = multiplyQuaternion(parentWorld, local)
+        worldQ[4] = clampedWorld
+        worldQ[5] = clampedWorld
+      }
+
       prevLocalQ[bone.node] = local
       prevWorldQ[bone.node] = currentWorld
       localQuats[bone.node].push(local)

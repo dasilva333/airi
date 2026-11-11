@@ -7,6 +7,7 @@ import { describe, it } from 'vitest'
 import {
   add,
   advanceContact,
+  clampQuaternionPitch,
   cross,
   distance,
   dot,
@@ -125,6 +126,35 @@ describe('calibrated frame invariants', () => {
     const childLocal = normalizeQuaternion(multiplyQuaternion(axisAngle(FORWARD, 0.5), axisAngle(UP, -0.3)))
     const childWorld = multiplyQuaternion(parent, childLocal)
     sameRotation(localFromWorld(parent, childWorld), childLocal)
+  })
+
+  it('clamps quaternion pitch within anatomical flexion and extension bounds', () => {
+    // 30 deg forward pitch
+    const forward30 = axisAngle(RIGHT, 30 * Math.PI / 180)
+    // -60 deg backward pitch (hyperextension)
+    const backward60 = axisAngle(RIGHT, -60 * Math.PI / 180)
+
+    const minLimit = -15 * Math.PI / 180
+    const maxLimit = 25 * Math.PI / 180
+
+    // Backward hyperextension clamped to -15 deg
+    const clampedBack = clampQuaternionPitch(backward60, minLimit, maxLimit)
+    const sinpBack = 2 * (clampedBack[3] * clampedBack[0] - clampedBack[1] * clampedBack[2])
+    const cospBack = 1 - 2 * (clampedBack[0] * clampedBack[0] + clampedBack[1] * clampedBack[1])
+    const pitchBack = Math.atan2(sinpBack, cospBack)
+    near(pitchBack, minLimit, 1e-4)
+
+    // Forward pitch clamped to +25 deg
+    const clampedForward = clampQuaternionPitch(forward30, minLimit, maxLimit)
+    const sinpForward = 2 * (clampedForward[3] * clampedForward[0] - clampedForward[1] * clampedForward[2])
+    const cospForward = 1 - 2 * (clampedForward[0] * clampedForward[0] + clampedForward[1] * clampedForward[1])
+    const pitchForward = Math.atan2(sinpForward, cospForward)
+    near(pitchForward, maxLimit, 1e-4)
+
+    // In-bound angle (10 deg forward) passes through unchanged
+    const forward10 = axisAngle(RIGHT, 10 * Math.PI / 180)
+    const clamped10 = clampQuaternionPitch(forward10, minLimit, maxLimit)
+    sameRotation(clamped10, forward10)
   })
 })
 

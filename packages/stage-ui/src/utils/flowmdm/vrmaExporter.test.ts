@@ -623,5 +623,47 @@ describe('exportFlowMDMToVRMA', () => {
         expect(Math.abs(headQuats[t][3])).toBeCloseTo(1, 2)
       }
     })
+
+    it('gate 9: Upright and energetic cranial postures are anatomically clamped against backward neck hyperextension', () => {
+      const seqLen = 3
+      const data = new Float32Array(263 * seqLen)
+
+      // Simulate an energetic dance pose where joint 15 (head) is positioned directly above joint 12 (neck base)
+      // Joint 12 (neck) channels 37, 38, 39
+      // Joint 15 (head) channels 46, 47, 48
+      for (let t = 0; t < seqLen; t++) {
+        data[37 * seqLen + t] = (0.0 - hmlMean[37]) / hmlStd[37]
+        data[38 * seqLen + t] = (1.40 - hmlMean[38]) / hmlStd[38]
+        data[39 * seqLen + t] = (0.0 - hmlMean[39]) / hmlStd[39]
+
+        // Place head directly vertical at y = 1.55, z = 0.0 (upright cranial segment [0, 1, 0])
+        data[46 * seqLen + t] = (0.0 - hmlMean[46]) / hmlStd[46]
+        data[47 * seqLen + t] = (1.55 - hmlMean[47]) / hmlStd[47]
+        data[48 * seqLen + t] = (0.0 - hmlMean[48]) / hmlStd[48]
+      }
+
+      const glb = exportFlowMDMToVRMA(data, seqLen)
+      const { nodeRotations } = parseVRMATracks(glb, seqLen)
+
+      const neckQuats = nodeRotations[4]
+      const headQuats = nodeRotations[5]
+
+      for (let t = 0; t < seqLen; t++) {
+        const qx = neckQuats[t][0]
+        const qy = neckQuats[t][1]
+        const qz = neckQuats[t][2]
+        const qw = neckQuats[t][3]
+        const sinp = Math.max(-1, Math.min(1, 2 * (qw * qx - qy * qz)))
+        const cosp = 1 - 2 * (qx * qx + qy * qy)
+        const pitchDeg = (Math.atan2(sinp, cosp) * 180) / Math.PI
+
+        // The neck extension MUST be strictly bounded (>= -15.1 deg), NOT hyperextended backwards to -58 deg
+        expect(pitchDeg).toBeGreaterThanOrEqual(-15.1)
+        expect(pitchDeg).toBeLessThanOrEqual(25.1)
+
+        // Head bone must not introduce secondary hyperextension
+        expect(headQuats[t][0]).toBeCloseTo(0, 2)
+      }
+    })
   })
 })
