@@ -62,6 +62,41 @@ AIRI already includes a production-tested CLIP text encoder primitive in the cod
 
 When pairing Stage 1 visual frame embeddings with textual context prompts, the Attention Ecology pipeline should reuse `clipEncoder.ts` or its `@huggingface/transformers` model caching primitives to avoid duplicating tokenizer weights or model loading code.
 
+### 3.2 Dual Core Paradigms: Direct Commentary vs. Ambient Awareness
+
+AIRI's screen vision infrastructure serves two distinct, non-overlapping user experiences:
+
+```
+                                  ┌────────────────────────────────────────────────────────┐
+                                  │                  SCREEN PERCEPTION                     │
+                                  └──────────────────────────┬─────────────────────────────┘
+                                                             │
+                              ┌──────────────────────────────┴──────────────────────────────┐
+                              ▼                                                             ▼
+       ┌───────────────────────────────────────────────┐     ┌───────────────────────────────────────────────┐
+       │         DIRECT COMMENTARY (Continuous)        │     │         AMBIENT AWARENESS (Attention)         │
+       ├───────────────────────────────────────────────┤     ├───────────────────────────────────────────────┤
+       │ • Dumb pipe on an interval timer (e.g. 15–30s)│     │ • Silent 24/7 background perceptual loop      │
+       │ • VLM acts as an objective, rich describer:   │     │ • 4-stage cascaded gate (aHash -> CLIP ->     │
+       │   transcribes HUD, health, inventory, state   │     │   Mirage/System-1 -> Character LLM)           │
+       │ • Primary character LLM roleplays the reaction│     │ • Zero-VRAM Cactus Mirage 4.0 (22 MB WASM)    │
+       │ • Powered by: Moondream2 (Local WebGPU) or    │     │ • Zero chat spam; quiet diary logging unless  │
+       │   External Cloud VLMs (Gemini, Claude, GPT-4o)│     │   a high-salience event is promoted           │
+       │ • Future: Temporal contact sheets (N frames)  │     │ • Spatial bounding boxes & text extraction    │
+       └───────────────────────────────────────────────┘     └───────────────────────────────────────────────┘
+```
+
+1. **Direct Commentary (The Objective Eyeball)**:
+   - **Role of the VLM**: The VLM is explicitly **not** the conversational roleplay partner; it is an objective sensory describer. When watching gameplay or active window workflows, it generates rich, granular descriptive prose capturing game state, HUD numbers, player actions, and visual dynamics.
+   - **Role of the Character LLM**: The primary character LLM ingests the VLM's rich descriptive prose and synthesizes dialogue, commentary, or playful banter in the companion's authentic voice (or emits `NO_REPLY` if nothing warrants dialogue).
+   - **Supported Tiers**: **Premium Mode** (Moondream2 WebGPU, ~700MB–1.6GB) and **External VLM** (Cloud Vision Providers like Gemini 1.5 Pro / Claude 3.5 Sonnet / OpenRouter). These models possess larger autoregressive text generation heads capable of rich descriptive prose.
+   - **Future Evolution — Multi-Frame Temporal Contact Sheets**: For gameplay (e.g., set to 30s checks), the pipeline can capture $N$ sequential frames (e.g., 6–10 frames), stitch them into a single chronological mosaic contact sheet, and pass that single image to the VLM. This provides rich temporal continuity (action sequences, player movement) without linear token/API multiplication.
+
+2. **Ambient Awareness (The Attention Ecology)**:
+   - **Role of the Cascade**: A silent, non-intrusive 24/7 background loop. Runs on an aggressive 4-stage filter (aHash $\rightarrow$ CLIP novelty $\rightarrow$ Cactus Mirage spatial triage $\rightarrow$ System-1 Sentinel).
+   - **Role of Cactus Mirage 4.0**: Fast (1.8s CPU WASM, 22 MB download, 0 VRAM). Extracts 30+ text blocks with spatial bounding boxes and UI object classifications in a single forward pass, completely free of GPU resource contention.
+   - **Supported Tiers**: **Lightweight/Local** (Cactus Mirage Native + optional surgical micro-crop Tesseract), **Premium** (Moondream2), and **External VLM**.
+
 ---
 
 ## 4. Proposed Solution: The Cascaded Salience Gate
@@ -517,6 +552,74 @@ Section 3 of `CardCreationTabProactivity.vue` is segmented into two operational 
 | **Privacy Exposure** | Chat text only | Every frame uploaded | Local-by-default; captions-only promotion; exclusion lists |
 | **Calibration** | n/a | n/a | Trainable classifier + user feedback loop; measured precision/recall |
 | **Entity Feeling** | Passive assistant | Spammy bot | Continuity: a subconscious that persists, a diary that consolidates, soul-controlled animations |
+
+---
+
+## 16. Developer Laboratory: The 3-Step Manual Attention Lab (`devtools/attention-lab.vue`)
+
+To avoid "black-box" vibe-coding and provide developers with total, step-by-step transparency over the spatial decomposition and System-1 gating pipeline, AIRI establishes a dedicated inspection laboratory:
+- **Route**: `#/settings/devtools/attention-lab`
+- **Location**: `apps/stage-tamagotchi/src/renderer/pages/devtools/attention-lab.vue`
+- **Navigation**: Dedicated card under `#/settings/devtools` ("System Preferences → Developer Laboratory → Attention Ecology & Spatial BBox Lab").
+- **Core Philosophy**: **Zero timers, zero automatic background polling.** Every step is an explicit manual button click that reveals its internal state, bounding boxes, and intermediate representations.
+
+### The 3-Step Manual Workflow
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  STEP 1: MANUAL SCREEN SNAPSHOT & SPATIAL DECOMPOSITION                                │
+│  [📸 Capture Snapshot] (Source: Display / Application Window)                          │
+│  ┌───────────────────────────────────────────┬──────────────────────────────────────┐  │
+│  │ Annotated Image Viewport                  │ Raw Mirage Spatial JSON              │  │
+│  │ • Interactive SVG/Canvas Bounding Boxes   │ • Tree view of raw WASM output:      │  │
+│  │   - 🟣 Windows & UI Panels (bbox/score)   │   - objects[] (id, name, bbox, score)│  │
+│  │   - 🟢 App Icons & Buttons (position)     │   - text[] (string, bbox, conf)      │  │
+│  │   - 🟠 Text Lines (hover to read snippet) │   - scene & relations                │  │
+│  └───────────────────────────────────────────┴──────────────────────────────────────┘  │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│  STEP 2: SYSTEM-1 CANDIDATE SELECTION & TARGETED ZOOM                                  │
+│  [🧠 Run System-1 Triage] (Configurable Tripwires: Build Error, Chat, Social, etc.)    │
+│  ┌───────────────────────────────────────────┬──────────────────────────────────────┐  │
+│  │ Promoted "Winner" Bounding Box            │ Targeted Region Inspection           │  │
+│  │ • Highlighted in Neon Red on the main map │ • Cropped pixel preview of winner box│  │
+│  │ • System-1 confidence: 0.88               │ • Targeted Mirage / micro-OCR reading│  │
+│  │ • Reason: "Terminal compiler error"       │ • Isolated text snippet              │  │
+│  └───────────────────────────────────────────┴──────────────────────────────────────┘  │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│  STEP 3: CHARACTER CONSCIOUSNESS & LLM REACTION                                        │
+│  [💬 Generate Character Commentary]                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Assembled [Visual Event] Context Payload forwarded to Character LLM              │  │
+│  │ ──────────────────────────────────────────────────────────────────────────────── │  │
+│  │ 🗨️ Character Response Bubble:                                                    │  │
+│  │   "Looks like your TypeScript build broke on line 42 with a missing import..."    │  │
+│  └──────────────────────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **Step 1: Manual Snapshot & Spatial BBox Decomposition**:
+   - Developer selects a source (display or specific application window) and clicks `[📸 Capture Snapshot]`.
+   - The captured frame is rendered inside an annotated canvas.
+   - Cactus Mirage WASM executes a single-pass extraction, overlaying color-coded SVG bounding boxes:
+     - **Purple / Blue**: Window boundaries and primary application frames.
+     - **Green**: Interactive controls, buttons, and app icons.
+     - **Amber / Orange**: Recognized text blocks (with tooltips displaying detected strings).
+   - Side panel displays the raw formatted JSON output for inspection (`objects`, `text`, `reasoning`).
+
+2. **Step 2: System-1 Candidate Selection & Targeted Zoom**:
+   - Developer selects or configures active sentinel tripwires (e.g. *"Did the user hit a compiler error or broken build?"*, *"Is the user chatting with a colleague?"*).
+   - Clicking `[🧠 Run System-1 Triage]` passes Mirage's extracted text and object entities to System-1 (TypeSafe Jev or Local Laya).
+   - System-1 evaluates non-autoregressive logits, selects the **Promoted Focal BBox**, and renders:
+     - The winner box highlighted with a pulsating neon red border on the main viewport.
+     - A high-resolution cropped pixel preview of that exact bounding box.
+     - The isolated text reading (with an optional micro-crop Tesseract comparison button to test character-level fidelity).
+
+3. **Step 3: Character Consciousness & LLM Reaction**:
+   - Developer clicks `[💬 Generate Character Commentary]`.
+   - The formatted `[Visual Event]` summary (active window, promoted region, focused OCR snippet, and zero-shot tag) is bundled and dispatched to the active character LLM.
+   - The resulting speech response renders as a chat commentary bubble, verifying end-to-end character perception without running a background timer loop.
+
+---
 
 ## Relevant Skills
 

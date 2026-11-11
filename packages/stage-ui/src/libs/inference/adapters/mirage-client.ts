@@ -17,6 +17,8 @@ export interface MirageBoundingBox {
   right: number
   label?: string
   confidence?: number
+  type?: 'object' | 'text'
+  text?: string
 }
 
 export interface MirageAnalysisResult {
@@ -28,6 +30,8 @@ export interface MirageAnalysisResult {
   sceneDescription?: string
   tags?: string[]
   latencyMs: number
+  rawJson?: string
+  parsed?: any
 }
 
 export interface MirageAnalysisOptions {
@@ -36,6 +40,8 @@ export interface MirageAnalysisOptions {
   detectFace?: boolean
   prompt?: string
   signal?: AbortSignal
+  nativeResolution?: boolean
+  maxDimension?: number
 }
 
 export interface MirageClient {
@@ -199,6 +205,8 @@ export function createMirageClient(): MirageClient {
         sceneDescription: 'Visual scene evaluated locally by Cactus Mirage WASM engine',
         tags: [],
         latencyMs: 15,
+        rawJson: '{"scene":{"setting":"desktop"},"objects":[],"text":[]}',
+        parsed: { scene: { setting: 'desktop' }, objects: [], text: [] },
       }
     }
 
@@ -232,6 +240,8 @@ export function createMirageClient(): MirageClient {
             sceneDescription: data.sceneDescription,
             tags: Array.isArray(data.tags) ? data.tags : [],
             latencyMs: data.latencyMs || 0,
+            rawJson: data.rawJson || '',
+            parsed: data.parsed,
           })
         }
         else if (data.type === 'error') {

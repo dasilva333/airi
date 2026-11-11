@@ -26,6 +26,8 @@ export interface MirageBoundingBox {
   right: number
   label?: string
   confidence?: number
+  type?: 'object' | 'text'
+  text?: string
 }
 
 export interface MirageWorkerAnalysisOutput {
@@ -37,6 +39,8 @@ export interface MirageWorkerAnalysisOutput {
   sceneDescription?: string
   tags?: string[]
   latencyMs: number
+  rawJson?: string
+  parsed?: any
 }
 
 export interface MirageWorkerAnalysisOptions {
@@ -44,6 +48,8 @@ export interface MirageWorkerAnalysisOptions {
   locateFocalArea?: boolean
   detectFace?: boolean
   prompt?: string
+  nativeResolution?: boolean
+  maxDimension?: number
 }
 
 /**
@@ -233,13 +239,16 @@ async function prepareMirageAssets(
  * Decodes image payload into an RGB byte buffer (width * height * 3).
  * Cactus Mirage expects standard 3-channel RGB memory format.
  */
-async function extractRgbFromPayload(imagePayload: {
-  rgbaBuffer?: ArrayBuffer
-  width?: number
-  height?: number
-  dataUrl?: string
-  base64?: string
-}): Promise<{ rgb: Uint8Array, width: number, height: number } | null> {
+async function extractRgbFromPayload(
+  imagePayload: {
+    rgbaBuffer?: ArrayBuffer
+    width?: number
+    height?: number
+    dataUrl?: string
+    base64?: string
+  },
+  options?: MirageWorkerAnalysisOptions,
+): Promise<{ rgb: Uint8Array, width: number, height: number } | null> {
   const src = imagePayload.dataUrl || (imagePayload.base64 ? `data:image/png;base64,${imagePayload.base64}` : null)
 
   if (src && typeof fetch !== 'undefined') {
@@ -251,16 +260,18 @@ async function extractRgbFromPayload(imagePayload: {
         let targetWidth = bitmap.width
         let targetHeight = bitmap.height
 
-        // Downscale to max 384x384 for fast on-device WASM CPU evaluation
-        const MAX_DIM = 384
-        if (targetWidth > MAX_DIM || targetHeight > MAX_DIM) {
-          if (targetWidth > targetHeight) {
-            targetHeight = Math.max(32, Math.round((targetHeight / targetWidth) * MAX_DIM))
-            targetWidth = MAX_DIM
-          }
-          else {
-            targetWidth = Math.max(32, Math.round((targetWidth / targetHeight) * MAX_DIM))
-            targetHeight = MAX_DIM
+        // Downscale unless nativeResolution is requested
+        if (!options?.nativeResolution) {
+          const maxDim = options?.maxDimension || 384
+          if (targetWidth > maxDim || targetHeight > maxDim) {
+            if (targetWidth > targetHeight) {
+              targetHeight = Math.max(32, Math.round((targetHeight / targetWidth) * maxDim))
+              targetWidth = maxDim
+            }
+            else {
+              targetWidth = Math.max(32, Math.round((targetWidth / targetHeight) * maxDim))
+              targetHeight = maxDim
+            }
           }
         }
 
@@ -339,7 +350,7 @@ async function analyzeImage(
     const outCapacity = 65536
 
     try {
-      const decoded = await extractRgbFromPayload(imagePayload)
+      const decoded = await extractRgbFromPayload(imagePayload, options)
 
       if (decoded) {
         rgbPtr = _cactusInstance._malloc(decoded.rgb.byteLength)
@@ -404,9 +415,10 @@ async function analyzeImage(
   }
 
   // Synthesize structured output from Mirage JSON format
-  const textArr: string[] = Array.isArray(parsed.text)
-    ? parsed.text.map((t: any) => typeof t === 'string' ? t : (t.text || '')).filter(Boolean)
-    : []
+  const rawText = Array.isArray(parsed.text) ? parsed.text : []
+  const textArr: string[] = rawText
+    .map((t: any) => typeof t === 'string' ? t : (t.string || t.text || ''))
+    .filter(Boolean)
   const ocrSnippet = textArr.length > 0
     ? textArr.join('\n')
     : (parsed.ocrSnippet || parsed.ocrText || undefined)
@@ -415,8 +427,9 @@ async function analyzeImage(
   const hasError = allText.includes('error') || allText.includes('exception') || allText.includes('fail') || allText.includes('crash')
 
   const rawObjects = Array.isArray(parsed.objects) ? parsed.objects : []
-  const boxes: MirageBoundingBox[] = rawObjects.map((obj: any) => {
-    const [ymin, xmin, ymax, xmax] = Array.isArray(obj.bbox) ? obj.bbox : [0, 0, 1000, 1000]
+  const objectBoxes: MirageBoundingBox[] = rawObjects.map((obj: any) => {
+    // Cactus Mirage returns standard Pascal VOC [xmin, ymin, xmax, ymax] normalized to 0..1000
+    const [xmin, ymin, xmax, ymax] = Array.isArray(obj.bbox) ? obj.bbox : [0, 0, 1000, 1000]
     return {
       top: ymin / 1000,
       left: xmin / 1000,
@@ -424,8 +437,27 @@ async function analyzeImage(
       right: xmax / 1000,
       label: obj.name || obj.label || 'object',
       confidence: typeof obj.score === 'number' ? obj.score : 0.9,
+      type: 'object',
     }
   })
+
+  const textBoxes: MirageBoundingBox[] = rawText.map((t: any) => {
+    // Cactus Mirage returns standard Pascal VOC [xmin, ymin, xmax, ymax] normalized to 0..1000
+    const [xmin, ymin, xmax, ymax] = Array.isArray(t.bbox) ? t.bbox : [0, 0, 1000, 1000]
+    const textStr = typeof t === 'string' ? t : (t.string || t.text || '')
+    return {
+      top: ymin / 1000,
+      left: xmin / 1000,
+      bottom: ymax / 1000,
+      right: xmax / 1000,
+      label: 'text',
+      confidence: typeof t.score === 'number' ? t.score : 0.8,
+      type: 'text',
+      text: textStr,
+    }
+  })
+
+  const boxes: MirageBoundingBox[] = [...objectBoxes, ...textBoxes]
 
   const boundingBox: MirageBoundingBox | undefined = boxes.length > 0
     ? boxes[0]
@@ -483,6 +515,8 @@ async function analyzeImage(
     sceneDescription,
     tags,
     latencyMs: elapsedMs,
+    rawJson,
+    parsed,
   }
 }
 

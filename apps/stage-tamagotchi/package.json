@@ -114,6 +114,7 @@
     "replicate": "^1.0.1",
     "semver": "catalog:",
     "systeminformation": "^5.23.5",
+    "tesseract.js": "catalog:",
     "three": "^0.184.0",
     "tsc-rs": "catalog:",
     "unified": "^11.0.5",
