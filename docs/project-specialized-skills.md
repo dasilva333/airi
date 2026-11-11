@@ -54,7 +54,7 @@ The five groups below organize navigation. Historical “Phase” labels do not 
 
 ## 3. Domain skill catalog
 
-The catalog contains 77 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
+The catalog contains 78 discoverable skills. Desktop chatbox and interaction pipelines retain their entry points and load focused references; reference files are not additional skills.
 
 ### 🟢 Phase 1: Core Plumbing & Infrastructure
 
@@ -107,6 +107,11 @@ The catalog contains 77 discoverable skills. Desktop chatbox and interaction pip
 - **Target Domain**: In-Memory Virtual POSIX Workstation, WebAssembly Terminal (`just-bash`), RAM Disk (`/workspace`), Ambient State Projections, and Node Runtime.
 - **Key Paths**: `.agents/skills/airi-sandbox-virtual-workstation/SKILL.md`, `packages/stage-ui/src/libs/sandbox/manager.ts`, `packages/stage-ui/src/libs/sandbox/projections.ts`, `packages/stage-ui/src/libs/sandbox/compiler-bridge.ts`, `packages/stage-ui/src/libs/sandbox/mcp-bridge.ts`, `packages/stage-ui/src/libs/sandbox/jev.ts`, `docs/proposal-in-memory-sandboxes-and-edge-wasm.md`.
 - **Content**: `just-bash` execution in WebAssembly, isolated RAM disk `/workspace`, state mirrors in `/workspace/.airi/` (`session`, `cognition`, `telemetry`, `messages`), Node.js `customRequire` shims (`fs`, `path`, `mcp`, `jev`), `tsc-rs` vs Sucrase AST compilation, CLI tool suite (`mount_widget`, `mcp`, `jev`), and universal MCP dispatch. Interlocking trio with `airi-generative-widgets` and `airi-jev-decision-engine`.
+
+#### 1.11 `airi-desktop-system-tray`
+- **Target Domain**: Electron Main System Tray & macOS Status Bar Menu Integration.
+- **Key Paths**: `.agents/skills/airi-desktop-system-tray/SKILL.md`, `apps/stage-tamagotchi/src/main/tray/index.ts`, `apps/stage-tamagotchi/src/main/windows/shared/app-icon.ts`, `docs/design-desktop-tray-popover-menu.md`.
+- **Content**: Tray lifecycle initialization in `injeca`, macOS monochrome template image tinting (`setTemplateImage`), native context menu dispatch via `Menu.buildFromTemplate`, reactive i18n locale rebuilds (`alien-signals` + `es-toolkit` debounce), dock/taskbar visibility coordination (`AppIconVisibility`), and platform click differentiation (macOS NSMenu vs Windows click). Peer skills: `airi-app-entry-wiring` (process bootstrap), `airi-stage-ui-surfaces` (surface coordination).
 
 ---
 
