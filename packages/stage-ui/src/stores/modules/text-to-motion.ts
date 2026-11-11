@@ -194,6 +194,7 @@ export const useTextToMotionStore = defineStore('text-to-motion', () => {
     options?: {
       format?: 'vrma' | 'vmd' | 'motion_json'
       outputLength?: number
+      loop?: boolean
       onLog?: (msg: string) => void
       /**
        * Overrides the persisted engine selection for this call only. Callers
@@ -269,7 +270,10 @@ export const useTextToMotionStore = defineStore('text-to-motion', () => {
       }
 
       // Step 4: Export HumanML3D features to binary VRMA container
-      const buffer = exportFlowMDMToVRMA(denoisedFeatures, seqLen, log)
+      const buffer = exportFlowMDMToVRMA(denoisedFeatures, seqLen, {
+        loop: options?.loop,
+        onLog: log,
+      })
 
       downloadProgress.value = {
         percentage: 100,

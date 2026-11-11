@@ -56,3 +56,53 @@ export function shortestArcQuaternion(from: Vec3, to: Vec3): Quat {
   const cz = from[0] * to[1] - from[1] * to[0]
   return quatNormalize([cx, cy, cz, 1 + dot])
 }
+
+/**
+ * Spherical linear interpolation (slerp) between two quaternions.
+ */
+export function quatSlerp(qa: Quat, qb: Quat, t: number): Quat {
+  let cosHalfTheta = qa[0] * qb[0] + qa[1] * qb[1] + qa[2] * qb[2] + qa[3] * qb[3]
+
+  let bx = qb[0]
+  let by = qb[1]
+  let bz = qb[2]
+  let bw = qb[3]
+
+  if (cosHalfTheta < 0) {
+    cosHalfTheta = -cosHalfTheta
+    bx = -bx
+    by = -by
+    bz = -bz
+    bw = -bw
+  }
+
+  if (Math.abs(cosHalfTheta) >= 1.0 - 1e-5) {
+    return quatNormalize([
+      qa[0] + t * (bx - qa[0]),
+      qa[1] + t * (by - qa[1]),
+      qa[2] + t * (bz - qa[2]),
+      qa[3] + t * (bw - qa[3]),
+    ])
+  }
+
+  const halfTheta = Math.acos(cosHalfTheta)
+  const sinHalfTheta = Math.sqrt(1.0 - cosHalfTheta * cosHalfTheta)
+
+  const ratioA = Math.sin((1 - t) * halfTheta) / sinHalfTheta
+  const ratioB = Math.sin(t * halfTheta) / sinHalfTheta
+
+  return quatNormalize([
+    qa[0] * ratioA + bx * ratioB,
+    qa[1] * ratioA + by * ratioB,
+    qa[2] * ratioA + bz * ratioB,
+    qa[3] * ratioA + bw * ratioB,
+  ])
+}
+
+export function vec3Lerp(a: Vec3, b: Vec3, t: number): Vec3 {
+  return [
+    a[0] + t * (b[0] - a[0]),
+    a[1] + t * (b[1] - a[1]),
+    a[2] + t * (b[2] - a[2]),
+  ]
+}

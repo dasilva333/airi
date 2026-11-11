@@ -1,9 +1,24 @@
 import type { Quat, Vec3 } from './retargeting'
 
 import { hmlMean, hmlStd, jointToNodeMap, NODE_BONES, refNodes } from './constants'
+import { quatSlerp, vec3Lerp } from './math'
 import { applyBipedContactIK, LEFT_LEG_CHAIN, localFromWorld, RIGHT_LEG_CHAIN, solveFrameDelta, solveParentSwing, sub } from './retargeting'
 
-export function exportFlowMDMToVRMA(motionDataNormalized: Float32Array, seqLen: number = 60, onLog?: (msg: string) => void): Uint8Array {
+export interface ExportVRMAOptions {
+  loop?: boolean
+  seamFrames?: number
+  onLog?: (msg: string) => void
+}
+
+export function exportFlowMDMToVRMA(
+  motionDataNormalized: Float32Array,
+  seqLen: number = 60,
+  optionsOrLog?: ((msg: string) => void) | ExportVRMAOptions,
+): Uint8Array {
+  const onLog = typeof optionsOrLog === 'function' ? optionsOrLog : optionsOrLog?.onLog
+  const isLoop = typeof optionsOrLog === 'object' ? !!optionsOrLog.loop : false
+  const seamFrames = typeof optionsOrLog === 'object' ? optionsOrLog.seamFrames : undefined
+
   onLog?.('De-normalizing HumanML3D motion features...')
 
   // 1. De-normalize ONNX feature-major output [1, 263, 1, seqLen] into frame-major [seqLen, 263]
@@ -204,6 +219,35 @@ export function exportFlowMDMToVRMA(motionDataNormalized: Float32Array, seqLen: 
   })
   if (bipedIK.leftContactsActive > 0 || bipedIK.rightContactsActive > 0) {
     onLog?.(`Foot contact IK stabilized: ${bipedIK.leftContactsActive} left / ${bipedIK.rightContactsActive} right frames.`)
+  }
+
+  // 4.7 Hermite Seam Smoothing (Periodic Loop-Closure)
+  if (isLoop && seqLen >= 6) {
+    const kFrames = Math.max(3, Math.min(seamFrames ?? 10, Math.floor(seqLen / 3)))
+    const startFrame = seqLen - kFrames
+
+    onLog?.(`Applying Hermite seam smoothing over final ${kFrames} frames (${(kFrames / fps).toFixed(2)}s)...`)
+
+    for (let i = 0; i < kFrames; i++) {
+      const t = startFrame + i
+      const u = (i + 1) / kFrames
+      // Hermite S-curve smoothstep: 3u^2 - 2u^3
+      const alpha = 3 * u * u - 2 * u * u * u
+
+      // Blend root translation to Frame 0
+      rootTranslations[t] = vec3Lerp(rootTranslations[t], rootTranslations[0], alpha)
+
+      // Blend root rotation to Frame 0
+      rootRotations[t] = quatSlerp(rootRotations[t], rootRotations[0], alpha)
+
+      // Blend all joint local rotations to Frame 0
+      for (const bone of NODE_BONES) {
+        const track = localQuats[bone.node]
+        if (track && track.length === seqLen) {
+          track[t] = quatSlerp(track[t], track[0], alpha)
+        }
+      }
+    }
   }
 
   const animatedJointIndices = Object.keys(jointToNodeMap).map(Number)

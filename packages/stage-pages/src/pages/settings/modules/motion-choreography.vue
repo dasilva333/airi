@@ -466,6 +466,7 @@ async function generateFlowMDMDance(options?: { autoPlayOnArrival?: boolean, for
       engine: 'flowmdm',
       format: 'vrma',
       outputLength: 120, // ~6s diffusion motion
+      loop: true,
       onLog: (msg) => {
         generationStatus.value = msg
       },
