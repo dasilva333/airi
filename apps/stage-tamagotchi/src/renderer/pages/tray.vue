@@ -117,13 +117,13 @@ const vitalityStatus = computed(() => {
       <!-- 1. PERSISTENT COMPANION HEADER (~72px) -->
       <div
         :class="[
-          'px-3.5 py-2.5',
+          'px-3.5 py-3 gap-2',
           'border-b border-neutral-200/70 dark:border-neutral-800/70',
-          'flex items-center justify-between',
+          'flex flex-col',
         ]"
       >
         <!-- Character Avatar & Status -->
-        <div class="flex items-center gap-2.5">
+        <div class="min-w-0 flex items-center gap-2.5">
           <div
             :class="[
               'relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0',
@@ -147,7 +147,7 @@ const vitalityStatus = computed(() => {
             />
           </div>
 
-          <div>
+          <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1">
               <span class="text-sm text-neutral-900 font-bold tracking-tight dark:text-neutral-100">
                 AIRI
@@ -164,13 +164,13 @@ const vitalityStatus = computed(() => {
         </div>
 
         <!-- 4 Header Pills + Pin + Settings -->
-        <div class="flex items-center gap-1">
+        <div class="w-full flex items-center justify-end gap-2 border-t border-neutral-200/50 pt-2 dark:border-neutral-800/60">
           <!-- Rapid Pill 1: Mic -->
           <button
             type="button"
             title="Toggle Mic"
             :class="[
-              'p-1.5 rounded-full transition',
+              'p-2 rounded-full transition',
               micActive
                 ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
                 : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
@@ -202,7 +202,7 @@ const vitalityStatus = computed(() => {
             :class="[
               'p-1.5 rounded-full transition',
               visionActive
-                ? 'bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400'
+                ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
                 : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
             ]"
             @click="visionActive = !visionActive"
@@ -217,7 +217,7 @@ const vitalityStatus = computed(() => {
             :class="[
               'p-1.5 rounded-full transition',
               sleepActive
-                ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400'
+                ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
                 : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500',
             ]"
             @click="sleepActive = !sleepActive"

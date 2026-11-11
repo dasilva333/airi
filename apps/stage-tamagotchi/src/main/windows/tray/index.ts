@@ -22,8 +22,8 @@ import { createReusableWindow } from '../../libs/electron/window-manager'
 import { showWindowOnAllWorkspaces } from '../shared/app-icon'
 import { setupBaseWindowElectronInvokes, transparentWindowConfig } from '../shared/window'
 
-export const TRAY_WINDOW_WIDTH = 410
-export const TRAY_WINDOW_HEIGHT = 490
+export const TRAY_WINDOW_WIDTH = 420
+export const TRAY_WINDOW_HEIGHT = 620
 
 export interface TrayWindowManager {
   getWindow: () => Promise<ElectronBrowserWindow>
@@ -66,7 +66,11 @@ export function calculatePopoverPosition(
   const iconCenter = trayBounds.x + trayBounds.width / 2
   const notchOffset = Math.round(iconCenter - clampedX)
 
-  return { x: clampedX, y, notchOffset }
+  const minY = workArea.y + 4
+  const maxY = Math.max(minY, workArea.y + workArea.height - windowSize.height - 4)
+  const clampedY = Math.max(minY, Math.min(y, maxY))
+
+  return { x: clampedX, y: clampedY, notchOffset }
 }
 
 function createTrayWindow(options?: BrowserWindowConstructorOptions): ElectronBrowserWindow {
