@@ -11,6 +11,7 @@ import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import stickerAvatar from '../assets/relu-sticker-wow.avif'
 
 import {
+  electronOpenSettings,
   electronTrayPopoverClose,
   electronTrayPopoverGetPinState,
   electronTrayPopoverTogglePin,
@@ -28,6 +29,11 @@ const isPinned = ref(false)
 const togglePinRpc = useElectronEventaInvoke(electronTrayPopoverTogglePin)
 const getPinStateRpc = useElectronEventaInvoke(electronTrayPopoverGetPinState)
 const closeRpc = useElectronEventaInvoke(electronTrayPopoverClose)
+const openSettingsRpc = useElectronEventaInvoke(electronOpenSettings)
+
+function handleOpenSettings() {
+  void openSettingsRpc()
+}
 
 // Active character & workspace switcher
 const airiCardStore = useAiriCardStore()
@@ -178,14 +184,14 @@ const companionSubtitle = computed(() => {
 
         <!-- Right: Pin/Close in top-right corner + Status Toggles Capsule below -->
         <div class="flex flex-shrink-0 flex-col items-end gap-1.5">
-          <!-- Top-Right: Pin | Close sitting right on the top-right corner -->
+          <!-- Top-Right: Pin | Settings | Close sitting right on the top-right corner -->
           <div class="flex items-center gap-1 -mr-1">
             <!-- Pin button -->
             <button
               type="button"
               title="Pin window"
               :class="[
-                'p-1 rounded-md transition',
+                'p-1 rounded-md transition cursor-pointer',
                 isPinned
                   ? 'text-primary-500 bg-primary-50 dark:bg-primary-950/60'
                   : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200',
@@ -195,13 +201,21 @@ const companionSubtitle = computed(() => {
               <div class="i-solar:pin-bold text-xs" />
             </button>
 
+            <!-- Settings (Cog) button -->
+            <button
+              type="button"
+              title="Settings"
+              class="cursor-pointer rounded-md p-1 text-neutral-400 transition hover:text-neutral-700 dark:hover:text-neutral-200"
+              @click="handleOpenSettings"
+            >
+              <div class="i-solar:settings-linear text-xs" />
+            </button>
+
             <!-- Close button -->
             <button
               type="button"
               title="Close"
-              :class="[
-                'p-1 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition',
-              ]"
+              class="cursor-pointer rounded-md p-1 text-neutral-400 transition hover:text-neutral-700 dark:hover:text-neutral-200"
               @click="() => closeRpc()"
             >
               <div class="i-solar:close-square-linear text-xs" />

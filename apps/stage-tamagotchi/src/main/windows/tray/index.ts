@@ -2,6 +2,7 @@ import type { BrowserWindowConstructorOptions, Rectangle } from 'electron'
 
 import type { I18n } from '../../libs/i18n'
 import type { ServerChannel } from '../../services/airi/channel-server'
+import type { SettingsWindowManager } from '../settings'
 
 import { join, resolve } from 'node:path'
 
@@ -13,6 +14,7 @@ import { isMacOS } from 'std-env'
 import icon from '../../../../resources/icon.png?asset'
 
 import {
+  electronOpenSettings,
   electronTrayPopoverClose,
   electronTrayPopoverGetPinState,
   electronTrayPopoverTogglePin,
@@ -107,6 +109,7 @@ function createTrayWindow(options?: BrowserWindowConstructorOptions): ElectronBr
 export function setupTrayWindowManager(params: {
   serverChannel: ServerChannel
   i18n: I18n
+  settingsWindow?: SettingsWindowManager
 }): TrayWindowManager {
   let isPinned = false
   let currentWindow: ElectronBrowserWindow | undefined
@@ -121,6 +124,12 @@ export function setupTrayWindowManager(params: {
       window,
       serverChannel: params.serverChannel,
       i18n: params.i18n,
+    })
+
+    defineInvokeHandler(context, electronOpenSettings, async (payload) => {
+      if (params.settingsWindow) {
+        await params.settingsWindow.openWindow(payload?.route)
+      }
     })
 
     defineInvokeHandler(context, electronTrayPopoverTogglePin, (pinned) => {

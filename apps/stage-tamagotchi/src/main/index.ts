@@ -470,7 +470,7 @@ app.whenReady().then(async () => {
   })
 
   const trayWindow = injeca.provide('windows:tray', {
-    dependsOn: { serverChannel, i18n },
+    dependsOn: { serverChannel, i18n, settingsWindow },
     build: async ({ dependsOn }) => setupTrayWindowManager(dependsOn),
   })
 
