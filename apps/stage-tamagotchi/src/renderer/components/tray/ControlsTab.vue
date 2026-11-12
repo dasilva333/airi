@@ -1,8 +1,27 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
+import { useControlStripAction } from '@proj-airi/stage-ui/composables/use-control-strip-action'
+import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
+import {
+  useSettingsAudioDevice,
+  useSettingsControlStrip,
+  useSettingsStageModel,
+} from '@proj-airi/stage-ui/stores/settings'
+import { useSettingsControlsIsland } from '@proj-airi/stage-ui/stores/settings/controls-island'
+import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
 
-type PresetType = 'Basic' | 'Fun' | 'Custom'
-const activePreset = ref<PresetType>('Basic')
+import { electronCustomizerToggleVisibility } from '../../../shared/eventa'
+
+const controlStripStore = useSettingsControlStrip()
+const settingsAudioDeviceStore = useSettingsAudioDevice()
+const stageModelSettings = useSettingsStageModel()
+const controlsIslandStore = useSettingsControlsIsland()
+const liveSessionStore = useLiveSessionStore()
+const { dispatchAction } = useControlStripAction()
+
+const { trayPreset, activeTrayButtons } = storeToRefs(controlStripStore)
+const toggleCustomizerRpc = useElectronEventaInvoke(electronCustomizerToggleVisibility)
 
 interface ControlTile {
   id: string
@@ -13,74 +32,127 @@ interface ControlTile {
   highlightColor?: string
 }
 
-// 1. Basic preset: Full 11 original controls
-const basicTiles = ref<ControlTile[]>([
-  { id: 'mic', label: 'Mic', status: 'On', icon: 'i-solar:microphone-3-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'voice', label: 'Voice', status: '80%', icon: 'i-solar:volume-loud-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'tts', label: 'TTS', status: 'On', icon: 'i-solar:chat-round-line-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'vision', label: 'Vision', status: 'On', icon: 'i-solar:eye-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'stage', label: 'Stage', status: 'Hidden', icon: 'i-solar:box-bold', active: false },
-  { id: 'sleep', label: 'Sleep', status: 'Off', icon: 'i-solar:moon-bold', active: false },
-  { id: 'outfit', label: 'Outfit', status: 'Airi Maid', icon: 'i-solar:t-shirt-bold', active: true },
-  { id: 'motion', label: 'Motion', status: 'Auto', icon: 'i-solar:running-round-bold', active: true },
-  { id: 'emotion', label: 'Emotion', status: 'Natural', icon: 'i-solar:smile-circle-bold', active: true },
-  { id: 'fx', label: 'FX / Aura', status: 'On', icon: 'i-solar:stars-minimalistic-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'record', label: 'Record', status: 'Off', icon: 'i-solar:record-circle-bold', active: false },
-])
-
-// 2. Fun preset: 11 expressive & playful controls
-const funTiles = ref<ControlTile[]>([
-  { id: 'outfit', label: 'Outfit', status: 'Airi Maid', icon: 'i-solar:t-shirt-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'motion', label: 'Motion', status: 'Auto', icon: 'i-solar:running-round-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'emotion', label: 'Emotion', status: 'Natural', icon: 'i-solar:smile-circle-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'fx', label: 'FX / Aura', status: 'On', icon: 'i-solar:stars-minimalistic-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'dance', label: 'Dance', status: 'Ready', icon: 'i-solar:music-note-2-bold', active: false },
-  { id: 'arcade', label: 'Arcade', status: 'Backseat', icon: 'i-solar:gamepad-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'selfie', label: 'Selfie', status: 'Snap', icon: 'i-solar:camera-bold', active: false },
-  { id: 'party', label: 'Cheer', status: 'Ready', icon: 'i-solar:confetti-bold', active: false },
-  { id: 'voice_pitch', label: 'Voice FX', status: 'Sweet', icon: 'i-solar:tuning-bold', active: true },
-  { id: 'minigame', label: 'Tamagotchi', status: 'Active', icon: 'i-solar:ghost-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'headpat', label: 'Tactile', status: 'Touch', icon: 'i-solar:heart-bold', active: false },
-])
-
-// 3. Custom preset: User customizable controls
-const customTiles = ref<ControlTile[]>([
-  { id: 'mic', label: 'Mic', status: 'On', icon: 'i-solar:microphone-3-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'voice', label: 'Voice', status: '80%', icon: 'i-solar:volume-loud-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'tts', label: 'TTS', status: 'On', icon: 'i-solar:chat-round-line-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'vision', label: 'Vision', status: 'On', icon: 'i-solar:eye-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'stage', label: 'Stage', status: 'Hidden', icon: 'i-solar:box-bold', active: false },
-  { id: 'sleep', label: 'Sleep', status: 'Off', icon: 'i-solar:moon-bold', active: false },
-  { id: 'outfit', label: 'Outfit', status: 'Airi Maid', icon: 'i-solar:t-shirt-bold', active: true },
-  { id: 'motion', label: 'Motion', status: 'Auto', icon: 'i-solar:running-round-bold', active: true },
-  { id: 'emotion', label: 'Emotion', status: 'Natural', icon: 'i-solar:smile-circle-bold', active: true },
-  { id: 'fx', label: 'FX / Aura', status: 'On', icon: 'i-solar:stars-minimalistic-bold', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' },
-  { id: 'record', label: 'Record', status: 'Off', icon: 'i-solar:record-circle-bold', active: false },
-])
-
-const currentTiles = computed(() => {
-  if (activePreset.value === 'Fun')
-    return funTiles.value
-  if (activePreset.value === 'Custom')
-    return customTiles.value
-  return basicTiles.value
-})
-
-function toggleTile(tile: ControlTile) {
-  tile.active = !tile.active
-  if (tile.id === 'stage') {
-    tile.status = tile.active ? 'Visible' : 'Hidden'
-  }
-  else if (tile.id === 'sleep') {
-    tile.status = tile.active ? 'On' : 'Off'
-  }
-  else if (tile.id === 'record') {
-    tile.status = tile.active ? 'Rec' : 'Off'
+function getTileStatus(id: string): { status: string, active: boolean, highlightColor?: string } {
+  switch (id) {
+    case 'mic': {
+      const active = settingsAudioDeviceStore.enabled
+      return {
+        status: active ? 'On' : 'Off',
+        active,
+        highlightColor: active ? 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' : undefined,
+      }
+    }
+    case 'gemini-tts':
+    case 'voice': {
+      const isGemini = liveSessionStore.outputMode === 'gemini'
+      return {
+        status: isGemini ? 'Gemini' : 'TTS',
+        active: true,
+        highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400',
+      }
+    }
+    case 'chat': {
+      const active = controlStripStore.chatOpen
+      return {
+        status: active ? 'Open' : 'Closed',
+        active,
+        highlightColor: active ? 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' : undefined,
+      }
+    }
+    case 'stage': {
+      const active = controlStripStore.stageEnabled
+      return {
+        status: active ? 'Visible' : 'Hidden',
+        active,
+        highlightColor: active ? 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' : undefined,
+      }
+    }
+    case 'always-on-top':
+    case 'sleep': {
+      const active = controlsIslandStore.alwaysOnTop
+      return {
+        status: active ? 'Pinned' : 'Normal',
+        active,
+        highlightColor: active ? 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' : undefined,
+      }
+    }
+    case 'caption': {
+      const active = controlStripStore.captionOpen
+      return {
+        status: active ? 'On' : 'Off',
+        active,
+        highlightColor: active ? 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' : undefined,
+      }
+    }
+    case 'actor-gunslinger':
+    case 'arcade': {
+      const stance = stageModelSettings.gunslingerStance
+      const active = stance !== 'off'
+      return {
+        status: active ? stance : 'Off',
+        active,
+        highlightColor: active ? 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' : undefined,
+      }
+    }
+    case 'viewport-tactile': {
+      const active = controlStripStore.stageMode === 'tactileMode'
+      return {
+        status: 'Touch',
+        active,
+        highlightColor: active ? 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' : undefined,
+      }
+    }
+    case 'actor-wardrobe':
+      return { status: 'Airi Maid', active: true }
+    case 'actor-motion-playground':
+      return { status: 'Auto', active: true }
+    case 'actor-all-emotions':
+      return { status: 'Natural', active: true }
+    case 'actor-vfx':
+      return { status: 'Aura', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' }
+    case 'actor-motions':
+      return { status: 'Dance', active: false }
+    case 'actor-selfies':
+      return { status: 'Snap', active: false }
+    case 'stage-atmosphere':
+      return { status: 'Theme', active: true }
+    case 'actor-characters':
+      return { status: 'Cast', active: true }
+    case 'actor-macaron':
+      return { status: 'Active', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' }
+    case 'gemini-witness':
+    case 'vision':
+      return { status: 'On', active: true, highlightColor: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40 dark:text-primary-400' }
+    default:
+      return { status: 'Ready', active: false }
   }
 }
 
+const currentTiles = computed<ControlTile[]>(() => {
+  return activeTrayButtons.value
+    .filter(btn => btn.enabled)
+    .slice(0, 11)
+    .map((btn) => {
+      const state = getTileStatus(btn.id)
+      return {
+        id: btn.id,
+        label: btn.label,
+        icon: btn.icon,
+        status: state.status,
+        active: state.active,
+        highlightColor: state.highlightColor,
+      }
+    })
+})
+
+function handleTileClick(tile: ControlTile) {
+  dispatchAction(tile.id)
+}
+
 function handleCustomize() {
-  activePreset.value = 'Custom'
+  controlStripStore.setTrayPreset('Custom')
+  controlStripStore.setCustomizerPreset('Custom')
+  void toggleCustomizerRpc({ enabled: true, preset: 'Custom' })
 }
 </script>
 
@@ -129,13 +201,13 @@ function handleCustomize() {
         :key="tile.id"
         type="button"
         :class="[
-          'flex flex-col items-center justify-center',
+          'flex flex-col items-center justify-center cursor-pointer',
           'p-2 rounded-xl border transition group min-h-[84px] min-w-0',
           tile.active
             ? 'bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 shadow-sm'
             : 'bg-neutral-50/70 dark:bg-neutral-900/40 border-neutral-200/50 dark:border-neutral-800/50 opacity-70',
         ]"
-        @click="toggleTile(tile)"
+        @click="handleTileClick(tile)"
       >
         <div
           :class="[
@@ -210,11 +282,11 @@ function handleCustomize() {
           type="button"
           :class="[
             'px-2.5 py-0.5 rounded-md transition text-[10px] font-medium cursor-pointer',
-            activePreset === preset
+            trayPreset === preset
               ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-400 font-semibold shadow-xs'
               : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
           ]"
-          @click="activePreset = preset"
+          @click="controlStripStore.setTrayPreset(preset)"
         >
           {{ preset }}
         </button>

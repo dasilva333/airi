@@ -695,7 +695,7 @@ onUnmounted(() => {
 async function handleOpenCustomizer(e?: Event) {
   const group = (e as CustomEvent)?.detail?.group
   console.info('[Main Page] [Control Strip Action] Toggling Customizer Window with group:', group)
-  await toggleCustomizerVisibility({ enabled: true, group })
+  await toggleCustomizerVisibility({ enabled: true, group, preset: 'Desktop' })
 }
 
 function handleOpenSettings(e: Event) {

@@ -81,7 +81,7 @@ export const electronSplashDismiss = defineInvokeEventa<void>('eventa:invoke:ele
 export const electronStageEnsure = defineInvokeEventa<{ created: boolean }>('eventa:invoke:electron:stage:ensure')
 // Control Strip asks Main to release the Actor Stage window (text-only companion).
 export const electronStageRelease = defineInvokeEventa<void>('eventa:invoke:electron:stage:release')
-export const electronCustomizerToggleVisibility = defineInvokeEventa<void, boolean | { enabled?: boolean, group?: string } | undefined>('eventa:invoke:electron:windows:customizer:toggle-visibility')
+export const electronCustomizerToggleVisibility = defineInvokeEventa<void, boolean | { enabled?: boolean, group?: string, preset?: string } | undefined>('eventa:invoke:electron:windows:customizer:toggle-visibility')
 export const electronGetCustomizerWindowState = defineInvokeEventa<boolean>('eventa:invoke:electron:windows:customizer:get-state')
 export const electronEnsureBeatSync = defineInvokeEventa<void, void>('eventa:invoke:electron:beat-sync:ensure')
 

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ControlStripPreset } from '@proj-airi/stage-ui/stores/settings/control-strip'
+
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { estimateTokens } from '@proj-airi/stage-shared'
 import { CUSTOMIZER_CATALOG } from '@proj-airi/stage-ui/constants/control-customizer'
@@ -7,9 +9,9 @@ import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-ses
 import { useSystemOneStore } from '@proj-airi/stage-ui/stores/modules/system-one'
 import { useSettings, useSettingsAudioDevice, useSettingsControlStrip, useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsControlsIsland } from '@proj-airi/stage-ui/stores/settings/controls-island'
-import { useBroadcastChannel, useColorMode } from '@vueuse/core'
+import { onClickOutside, useBroadcastChannel, useColorMode } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 
 import ColorPicker from '../../../../../packages/stage-ui/src/components/data-pane/color-picker.vue'
 
@@ -24,9 +26,22 @@ const liveSessionStore = useLiveSessionStore()
 const systemOneStore = useSystemOneStore()
 const controlsIslandStore = useSettingsControlsIsland()
 
-const { buttons, backgroundTint } = storeToRefs(controlStripStore)
+const { customizerPreset, editingButtons, backgroundTint } = storeToRefs(controlStripStore)
+const buttons = editingButtons
 const { powerState } = storeToRefs(liveSessionStore)
 const { alwaysOnTop, fadeOnHoverEnabled } = storeToRefs(controlsIslandStore)
+
+// Preset dropdown UI state
+const isPresetDropdownOpen = ref(false)
+const presetDropdownRef = useTemplateRef<HTMLElement>('presetDropdownRef')
+onClickOutside(presetDropdownRef, () => {
+  isPresetDropdownOpen.value = false
+})
+
+function selectPreset(preset: ControlStripPreset) {
+  controlStripStore.setCustomizerPreset(preset)
+  isPresetDropdownOpen.value = false
+}
 
 const activeButtons = computed(() => {
   return buttons.value.filter(btn => btn.enabled)
@@ -383,9 +398,16 @@ onMounted(() => {
         activeGroupId.value = group
       }
     }
+    const handleSetPreset = (_event: any, preset: ControlStripPreset) => {
+      if (['Desktop', 'Basic', 'Fun', 'Custom'].includes(preset)) {
+        controlStripStore.setCustomizerPreset(preset)
+      }
+    }
     window.electron.ipcRenderer.on('set-customizer-group', handleSetGroup)
+    window.electron.ipcRenderer.on('set-customizer-preset', handleSetPreset)
     onUnmounted(() => {
       window.electron.ipcRenderer.removeListener('set-customizer-group', handleSetGroup)
+      window.electron.ipcRenderer.removeListener('set-customizer-preset', handleSetPreset)
     })
   }
 })
@@ -676,6 +698,48 @@ onMounted(() => {
         </div>
         <!-- Action Buttons (non-draggable) -->
         <div class="flex items-center gap-2" style="-webkit-app-region: no-drag;">
+          <!-- Preset Selector Dropdown -->
+          <div ref="presetDropdownRef" class="relative">
+            <button
+              type="button"
+              class="pointer-events-auto flex cursor-pointer items-center gap-1.5 border border-neutral-700/50 rounded-lg bg-neutral-900/60 px-2.5 py-1 text-[10px] text-neutral-300 font-bold tracking-wide transition-all duration-200 active:scale-95 dark:border-neutral-800 hover:bg-white/10 hover:text-neutral-100"
+              @click="isPresetDropdownOpen = !isPresetDropdownOpen"
+            >
+              <div
+                class="h-1.5 w-1.5 rounded-full"
+                :class="[
+                  customizerPreset === 'Custom'
+                    ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'
+                    : 'bg-sky-400',
+                ]"
+              />
+              <span class="tracking-wider uppercase">Preset: {{ customizerPreset }}</span>
+              <div class="i-solar:alt-arrow-down-linear text-xs opacity-70" />
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div
+              v-if="isPresetDropdownOpen"
+              class="absolute right-0 top-full z-50 mt-1.5 w-36 flex flex-col border border-white/10 rounded-xl bg-neutral-900/95 py-1 shadow-xl backdrop-blur-xl"
+            >
+              <button
+                v-for="preset in (['Desktop', 'Basic', 'Fun', 'Custom'] as const)"
+                :key="preset"
+                type="button"
+                :class="[
+                  'px-3 py-1.5 text-xs text-left cursor-pointer transition flex items-center justify-between',
+                  customizerPreset === preset
+                    ? 'text-emerald-400 bg-emerald-500/10 font-bold'
+                    : 'text-neutral-300 hover:bg-white/5 hover:text-white',
+                ]"
+                @click="selectPreset(preset)"
+              >
+                <span>{{ preset }}</span>
+                <div v-if="customizerPreset === preset" class="i-solar:check-read-linear text-xs text-emerald-400" />
+              </button>
+            </div>
+          </div>
+
           <button
             class="pointer-events-auto cursor-pointer border border-neutral-700/50 rounded-lg bg-neutral-900/60 px-2.5 py-1 text-[10px] text-neutral-300 font-bold tracking-wide uppercase transition-all duration-200 active:scale-95 dark:border-neutral-800 hover:bg-white/10 hover:text-neutral-100"
             @click="resetWindowPositions"

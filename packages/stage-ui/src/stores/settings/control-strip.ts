@@ -1,8 +1,8 @@
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
-import { useLocalStorage } from '@vueuse/core'
+import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { CUSTOMIZER_CATALOG } from '../../constants/control-customizer'
 
@@ -12,6 +12,9 @@ export interface ControlStripButton {
   label: string
   icon: string
 }
+
+export type ControlStripPreset = 'Desktop' | 'Basic' | 'Fun' | 'Custom'
+export type TrayControlStripPreset = 'Basic' | 'Fun' | 'Custom'
 
 // CRITICAL NOTICE: Bumping BUTTONS_CATALOG_VERSION will COMPLETELY WIPE every user's custom control strip button arrangement and force-reset them to defaults.
 // * DO NOT bump this version simply for adding new button IDs or changing defaults.
@@ -64,6 +67,34 @@ export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
 export function getDefaultControlStripButtons(): ControlStripButton[] {
   return isStageTamagotchi() ? DEFAULT_BUTTONS : DEFAULT_MOBILE_BUTTONS
 }
+
+export const DEFAULT_BASIC_TRAY_BUTTONS: ControlStripButton[] = [
+  { id: 'mic', enabled: true, label: 'Mic', icon: 'i-solar:microphone-3-bold' },
+  { id: 'gemini-tts', enabled: true, label: 'Voice', icon: 'i-solar:volume-loud-bold' },
+  { id: 'chat', enabled: true, label: 'TTS', icon: 'i-solar:chat-round-line-bold' },
+  { id: 'gemini-witness', enabled: true, label: 'Vision', icon: 'i-solar:eye-bold' },
+  { id: 'stage', enabled: true, label: 'Stage', icon: 'i-solar:box-bold' },
+  { id: 'always-on-top', enabled: true, label: 'Sleep', icon: 'i-solar:moon-bold' },
+  { id: 'actor-wardrobe', enabled: true, label: 'Outfit', icon: 'i-solar:t-shirt-bold' },
+  { id: 'actor-motion-playground', enabled: true, label: 'Motion', icon: 'i-solar:running-round-bold' },
+  { id: 'actor-all-emotions', enabled: true, label: 'Emotion', icon: 'i-solar:smile-circle-bold' },
+  { id: 'actor-vfx', enabled: true, label: 'FX / Aura', icon: 'i-solar:stars-minimalistic-bold' },
+  { id: 'caption', enabled: true, label: 'Record', icon: 'i-solar:record-circle-bold' },
+]
+
+export const DEFAULT_FUN_TRAY_BUTTONS: ControlStripButton[] = [
+  { id: 'actor-wardrobe', enabled: true, label: 'Outfit', icon: 'i-solar:t-shirt-bold' },
+  { id: 'actor-motion-playground', enabled: true, label: 'Motion', icon: 'i-solar:running-round-bold' },
+  { id: 'actor-all-emotions', enabled: true, label: 'Emotion', icon: 'i-solar:smile-circle-bold' },
+  { id: 'actor-vfx', enabled: true, label: 'FX / Aura', icon: 'i-solar:stars-minimalistic-bold' },
+  { id: 'actor-motions', enabled: true, label: 'Dance', icon: 'i-solar:music-note-2-bold' },
+  { id: 'actor-gunslinger', enabled: true, label: 'Arcade', icon: 'i-solar:gamepad-bold' },
+  { id: 'actor-selfies', enabled: true, label: 'Selfie', icon: 'i-solar:camera-bold' },
+  { id: 'stage-atmosphere', enabled: true, label: 'Stage FX', icon: 'i-solar:magic-stick-3-bold' },
+  { id: 'actor-characters', enabled: true, label: 'Cast', icon: 'i-solar:users-group-rounded-bold' },
+  { id: 'actor-macaron', enabled: true, label: 'Macaron', icon: 'i-solar:donut-bold-duotone' },
+  { id: 'viewport-tactile', enabled: true, label: 'Tactile', icon: 'i-solar:heart-bold' },
+]
 
 export const useSettingsControlStrip = defineStore('settings-control-strip', () => {
   const orientation = useLocalStorageManualReset<'vertical' | 'horizontal'>('settings/control-strip/orientation', 'vertical')
@@ -230,6 +261,139 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
     localStorage.setItem('settings/control-strip/buttons-version', expectedVersion)
   }
 
+  // Presets & Multi-surface Control Strip Management
+  const trayPreset = useLocalStorage<TrayControlStripPreset>('settings/control-strip/tray-preset', 'Basic')
+  const customizerPreset = useLocalStorage<ControlStripPreset>('settings/control-strip/customizer-preset', 'Desktop')
+
+  const basicButtons = useLocalStorage<ControlStripButton[]>('settings/control-strip/presets/basic', () => DEFAULT_BASIC_TRAY_BUTTONS.map(b => ({ ...b })))
+  const funButtons = useLocalStorage<ControlStripButton[]>('settings/control-strip/presets/fun', () => DEFAULT_FUN_TRAY_BUTTONS.map(b => ({ ...b })))
+  const customButtons = useLocalStorage<ControlStripButton[]>('settings/control-strip/presets/custom', () => DEFAULT_BASIC_TRAY_BUTTONS.map(b => ({ ...b })))
+
+  interface ControlStripSyncSignal {
+    type: string
+    preset?: string
+  }
+
+  const { data: syncSignal, post: broadcastSync } = useBroadcastChannel<ControlStripSyncSignal, ControlStripSyncSignal>({
+    name: 'airi:control-strip-sync',
+  })
+
+  watch(syncSignal, (signal) => {
+    if (!signal)
+      return
+    try {
+      if (signal.type === 'buttons-sync' || signal.type === 'preset-sync') {
+        const storedCustom = localStorage.getItem('settings/control-strip/presets/custom')
+        if (storedCustom)
+          customButtons.value = JSON.parse(storedCustom)
+
+        const storedBasic = localStorage.getItem('settings/control-strip/presets/basic')
+        if (storedBasic)
+          basicButtons.value = JSON.parse(storedBasic)
+
+        const storedFun = localStorage.getItem('settings/control-strip/presets/fun')
+        if (storedFun)
+          funButtons.value = JSON.parse(storedFun)
+
+        const storedDesktop = localStorage.getItem('settings/control-strip/buttons')
+        if (storedDesktop)
+          buttons.value = JSON.parse(storedDesktop)
+
+        const storedTrayPreset = localStorage.getItem('settings/control-strip/tray-preset')
+        if (storedTrayPreset) {
+          const parsed = JSON.parse(storedTrayPreset) as TrayControlStripPreset
+          if (['Basic', 'Fun', 'Custom'].includes(parsed))
+            trayPreset.value = parsed
+        }
+
+        const storedCustomizerPreset = localStorage.getItem('settings/control-strip/customizer-preset')
+        if (storedCustomizerPreset) {
+          const parsed = JSON.parse(storedCustomizerPreset) as ControlStripPreset
+          if (['Desktop', 'Basic', 'Fun', 'Custom'].includes(parsed))
+            customizerPreset.value = parsed
+        }
+      }
+    }
+    catch (e) {
+      console.warn('[control-strip] cross-window sync error:', e)
+    }
+  })
+
+  const activeTrayButtons = computed<ControlStripButton[]>(() => {
+    switch (trayPreset.value) {
+      case 'Fun':
+        return funButtons.value
+      case 'Custom':
+        return customButtons.value
+      case 'Basic':
+      default:
+        return basicButtons.value
+    }
+  })
+
+  const editingButtons = computed<ControlStripButton[]>({
+    get() {
+      switch (customizerPreset.value) {
+        case 'Basic':
+          return basicButtons.value
+        case 'Fun':
+          return funButtons.value
+        case 'Custom':
+          return customButtons.value
+        case 'Desktop':
+        default:
+          return buttons.value
+      }
+    },
+    set(val) {
+      switch (customizerPreset.value) {
+        case 'Basic':
+          basicButtons.value = val
+          break
+        case 'Fun':
+          funButtons.value = val
+          break
+        case 'Custom':
+          customButtons.value = val
+          break
+        case 'Desktop':
+        default:
+          buttons.value = val
+          break
+      }
+      broadcastSync({ type: 'buttons-sync', preset: customizerPreset.value })
+    },
+  })
+
+  function setCustomizerPreset(preset: ControlStripPreset) {
+    customizerPreset.value = preset
+    broadcastSync({ type: 'preset-sync', preset })
+  }
+
+  function setTrayPreset(preset: TrayControlStripPreset) {
+    trayPreset.value = preset
+    broadcastSync({ type: 'preset-sync', preset })
+  }
+
+  function resetPreset(preset: ControlStripPreset) {
+    switch (preset) {
+      case 'Basic':
+        basicButtons.value = DEFAULT_BASIC_TRAY_BUTTONS.map(b => ({ ...b }))
+        break
+      case 'Fun':
+        funButtons.value = DEFAULT_FUN_TRAY_BUTTONS.map(b => ({ ...b }))
+        break
+      case 'Custom':
+        customButtons.value = DEFAULT_BASIC_TRAY_BUTTONS.map(b => ({ ...b }))
+        break
+      case 'Desktop':
+      default:
+        resetButtons()
+        break
+    }
+    broadcastSync({ type: 'buttons-sync', preset })
+  }
+
   function resetState() {
     orientation.reset()
     stageMode.reset()
@@ -240,6 +404,9 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
     captionOpen.reset()
     workspaceOpen.reset()
     resetButtons()
+    resetPreset('Basic')
+    resetPreset('Fun')
+    resetPreset('Custom')
     backgroundTint.reset()
     collapsed.reset()
     selfieIncludeBg.reset()
@@ -257,6 +424,16 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
     captionOpen,
     workspaceOpen,
     buttons,
+    trayPreset,
+    customizerPreset,
+    basicButtons,
+    funButtons,
+    customButtons,
+    activeTrayButtons,
+    editingButtons,
+    setCustomizerPreset,
+    setTrayPreset,
+    resetPreset,
     backgroundTint,
     collapsed,
     dockedEdge,

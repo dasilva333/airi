@@ -110,9 +110,10 @@ export function setupCustomizerWindowManager(params: {
     return Boolean(currentWindow && !currentWindow.isDestroyed() && currentWindow.isVisible())
   }
 
-  async function toggleVisibility(payload?: boolean | { enabled?: boolean, group?: string }) {
+  async function toggleVisibility(payload?: boolean | { enabled?: boolean, group?: string, preset?: string }) {
     const enabled = typeof payload === 'object' ? payload.enabled : payload
     const group = typeof payload === 'object' ? payload.group : undefined
+    const preset = typeof payload === 'object' ? payload.preset : undefined
 
     if (enabled === undefined) {
       if (isVisible()) {
@@ -141,6 +142,10 @@ export function setupCustomizerWindowManager(params: {
 
     if (group && currentWindow && !currentWindow.isDestroyed() && isVisible()) {
       currentWindow.webContents.send('set-customizer-group', group)
+    }
+
+    if (preset && currentWindow && !currentWindow.isDestroyed() && isVisible()) {
+      currentWindow.webContents.send('set-customizer-preset', preset)
     }
   }
 
