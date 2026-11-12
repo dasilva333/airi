@@ -35,6 +35,177 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-12] Upstream Delta: `1e3d4df4..a1a56927` (5 commits, 64 files, 16 update(s))
+
+### 🎯 Executive Highlights
+- **Commercial Cloud Monetization — Subscription-First Hierarchy & Capacitor Curve (`a1a569272`, PR #3486, PR #3494)**: Upstream merged a major monetization overhaul establishing the "Capacitor" recurring subscription as the primary gateway for Flux, relegating one-time packs to top-ups. Features account-state visibility gating, dynamic usage curve projection (`GET /api/v1/flux/capacitor/usage`), and desktop RevenueCat key ingestion (PR #3494). *(Rejected in fork — offline-first & BYOS architecture)*.
+- **Architectural ADR Execution — Module Defaults Decoupling (`69269fe43`, PR #3492, PR #3499)**: Merged Step 2 of `2026-11-11-module-defaults-and-character-values.md`. The module stores (consciousness, vision, speech) now hold exclusively global defaults, while character cards encapsulate character-specific overrides. `getModules(characterId)` resolves the two upon read. Step 3 (PR #3499) follows up with settings UI notices.
+- **Speech Store Voice Catalog Isolation (`b0a3b02d9`, PR #3491)**: Fixed an issue where switching a character's speech model/provider cleared the global store voice catalog. `loadVoicesForCharacter` now isolates character-specific voice lists without altering the active store's catalog or selected voice.
+- **Acoustic Intelligence — Voiceprint Enrollment in Onboarding (PR #3500)**: @sumimakito opened a draft extending merged PR #2980, introducing voiceprint enrollment directly into the first-run onboarding stepper.
+- **Agent Capabilities — MCP Computer-Use & Terminal Approval (PR #3496)**: Community draft by @3361559784 integrating computer-use MCP, terminal execution approval flows, and conversation compaction.
+- **Ecosystem Trace Releases & Telemetry Reporting (`45f8ec108`, `85c7eae22`, PRs #3498, #3493)**: Released `trace-kit`, `ui-trace`, `ui-timeline`, `timeline-canvas`, and `stream-kit` to public npm, and added app origin attribution to OpenPanel telemetry events.
+
+#### 💬 Discussion & Community Buzz
+- **#3486: `feat(stage-ui,stage-pages,stage-layouts): put the subscription first and show Flux by account state` (+9 new comments, 21 total)**: Heavy maintainer and contributor traffic finalizing the Capacitor consumption curve, balance fallback toggle, and account-state gating before merge.
+- **#3492: `refactor(stage-ui,stage-pages): keep the global module defaults in the module stores` (+4 new comments, 8 total)**: High architectural velocity between RainbowBird and maintainers resolving context-bridge readiness and follower/leader state syncing.
+- **#3493: `fix(stage-ui,stage-shared): report app pages under an origin for each installed app` (5 comments)**: Discussion around OpenPanel telemetry origins and app page lifecycles.
+- **#3491: `fix(stage-ui): read the voice of a character from the voices of its own speech selection` (+1 new comment, 5 total)**: Quick review validating non-destructive voice catalog loading for custom character models.
+- **#3408: `feat(stage-tamagotchi,stage-shared): add screen vision snapshot and companion desktop capture` (+1 new comment, 14 total)**: Continuing design iteration on desktop capture mechanisms.
+
+#### 🍒 Cherry-Pick Candidates
+- **`b0a3b02d9` / PR #3491 (`fix(stage-ui): read the voice of a character from the voices of its own speech selection`)**: High-value candidate for `packages/stage-ui/src/stores/modules/speech.ts`. In our multi-actor environment (`<|ACTOR|>`) and character card switching, preventing a character model load from wiping the active speech store's voice catalog preserves audio stability and prevents voice resets.
+- **PR #3500 (`feat(stage-ui,stage-pages): enroll voiceprint in onboarding flow`)**: Monitor for closure/merge. Relevant to evaluating speaker diarization enrollment placement within our canonical Onboarding V3 (`airi-onboarding-v3`) per `docs/proposal-speaker-diarization-and-voiceprint-tracker.md`.
+- **PR #3496 (`feat: integrate computer-use MCP, terminal approval, and conversation compact`)**: Monitor closely as it matures from Draft. Its patterns for MCP computer-use and terminal authorization directly align with our capability pack and sandbox initiatives (`docs/design-capability-packs.md`, `airi-sandbox-virtual-workstation`).
+- **PR #3495 (`fix(build): load UnoCSS icons with inherited VSCODE_CWD`)**: Developer tooling fix for UnoCSS icon resolution when VS Code sets `VSCODE_CWD`. Low-risk cherry-pick if IDE icon resolution quirks occur.
+
+#### ⚠️ Divergence / Collision Warnings
+- **`packages/stage-ui/src/stores/chat.ts` (`69269fe43` / PR #3492)**: Upstream introduced `chatReadyFor(sessionId)` and refactored `activeChatReady`. Our fork's `chat.ts` is substantially divergent (multi-actor turn arbitration, Sacred Journal retrieval, Echo chips, and STMM grounding). Do not cleanly cherry-pick or auto-merge; extract only the session-scoped readiness concept manually if adopting ADR Step 2.
+- **`server/apps/api/*`, `packages/stage-pages/src/pages/settings/flux.vue`, `capacitor-section.vue` (`a1a569272` / PR #3486)**: Upstream continues heavy investment in commercial cloud billing, Capacitor credit pools, and RevenueCat (`#3494`). Our fork maintains strict offline-first, local-first data persistence (BYOS), and zero server accounts. Reject all Flux/Capacitor changes.
+- **`apps/stage-tamagotchi/.../controls-island/*` (PR #3497)**: Upstream is still tuning the deprecated Controls Island menu alignments. In this fork, Controls Island and floating chat overlays were completely replaced by the dedicated Control Strip and desktop Chat Workspace. Auto-reject.
+- **`packages/stage-shared/src/analytics/openpanel.ts` (`85c7eae22` / PR #3493)**: Telemetry reporting changes. Auto-reject per fork privacy invariants.
+
+### 📋 Upstream Commits
+- `a1a569272` feat(stage-ui,stage-pages,stage-layouts): put the subscription first and show Flux by account state (#3486) [#3486](https://github.com/moeru-ai/airi/pull/3486) _(RainbowBird, 2026-11-12)_
+- `45f8ec108` chore(trace): enable public npm releases for trace packages (#3498) [#3498](https://github.com/moeru-ai/airi/pull/3498) _(Lulu, 2026-11-12)_
+- `69269fe43` refactor(stage-ui,stage-pages): keep the global module defaults in the module stores (#3492) [#3492](https://github.com/moeru-ai/airi/pull/3492) _(RainbowBird, 2026-11-12)_
+- `85c7eae22` fix(stage-ui,stage-shared): report app pages under an origin for each installed app (#3493) [#3493](https://github.com/moeru-ai/airi/pull/3493) _(RainbowBird, 2026-11-12)_
+- `b0a3b02d9` fix(stage-ui): read the voice of a character from the voices of its own speech selection (#3491) [#3491](https://github.com/moeru-ai/airi/pull/3491) _(RainbowBird, 2026-11-12)_
+
+### 🔬 Subsystem Breakdown
+#### Other / Uncategorized (`🔍 inspect`) — 24 file(s) (+777/-463)
+- `.x18n/check-baseline.json` *(+44/-9)*
+- `packages/stage-shared/src/env-vars.ts` *(+1/-2)*
+- `packages/stage-ui/src/composables/{capacitor-settings-page.browser.test.ts => capacitor-section.browser.test.ts}` *(+73/-14)*
+- `packages/stage-ui/src/composables/use-data-maintenance.browser.test.ts` *(+2/-2)*
+- `packages/stage-ui/src/composables/use-flux-status.browser.test.ts` *(+71/-0)*
+- `packages/stage-ui/src/composables/use-flux-status.ts` *(+45/-0)*
+- `packages/stage-ui/src/composables/use-settings-needs-attention.test.ts` *(+2/-2)*
+- `packages/stage-ui/src/composables/use-settings-needs-attention.ts` *(+1/-1)*
+- `packages/stage-ui/src/libs/product-signals/events/app/events/lifecycle.ts` *(+4/-2)*
+- `packages/stage-ui/src/libs/product-signals/index.ts` *(+2/-9)*
+- `packages/stage-ui/src/libs/product-signals/openpanel.ts` *(+14/-8)*
+- `packages/stage-ui/src/libs/product-signals/surface.ts` *(+34/-0)*
+- `packages/stage-ui/src/libs/product-signals/utils/reported-location.test.ts` *(+26/-0)*
+- `packages/stage-ui/src/libs/product-signals/utils/reported-location.ts` *(+30/-0)*
+- `packages/stage-ui/src/stores/mods/api/context-bridge.contract.browser.test.ts` *(+37/-0)*
+- `packages/stage-ui/src/stores/mods/api/context-bridge.ts` *(+56/-54)*
+- `packages/stage-ui/src/stores/modules/airi-card-inheritance.browser.test.ts` *(+53/-8)*
+- `packages/stage-ui/src/stores/modules/airi-card-inheritance.test.ts` *(+45/-16)*
+- `packages/stage-ui/src/stores/modules/airi-card.test.ts` *(+1/-48)*
+- `packages/stage-ui/src/stores/modules/airi-card.ts` *(+119/-247)*
+- `packages/stage-ui/src/stores/modules/speech.browser.test.ts` *(+6/-18)*
+- `packages/stage-ui/src/stores/modules/speech.test.ts` *(+41/-14)*
+- `packages/stage-ui/src/stores/modules/speech.ts` *(+52/-9)*
+- `packages/stage-ui/src/stores/modules/vision/store.ts` *(+18/-0)*
+
+#### Deprecated Surfaces (Control Island / Chat Floating / Fullscreen Island) (`⚪ ignore / rejected in fork (decoupled into Control Strip & Dedicated Chat Workspace)`) — 4 file(s) (+67/-20)
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-auth-button.test.ts` *(+28/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-auth-button.vue` *(+29/-20)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-notifications.browser.test.ts` *(+5/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-overflow.browser.test.ts` *(+5/-0)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 3 file(s) (+50/-20)
+- `deploy/openpanel/README.md` *(+23/-1)*
+- `docs/ai/adr/2026-11-11-module-defaults-and-character-values.md` *(+11/-7)*
+- `packages/stage-ui/README.md` *(+16/-12)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 2 file(s) (+59/-41)
+- `packages/i18n/src/locales/en/settings.yaml` *(+26/-17)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+33/-24)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 5 file(s) (+65/-64)
+- `packages/stage-layouts/src/components/Layouts/Header.vue` *(+8/-1)*
+- `packages/stage-layouts/src/components/Layouts/HeaderAvatar.vue` *(+2/-60)*
+- `packages/stage-layouts/src/components/Layouts/header-flux.vue` *(+31/-0)*
+- `packages/stage-layouts/src/components/Layouts/mobile-settings-drawer.vue` *(+21/-0)*
+- `packages/stage-layouts/src/layouts/settings.vue` *(+3/-3)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 14 file(s) (+1092/-560)
+- `packages/stage-pages/src/assets/capacitor.png` *(+0/-0)*
+- `packages/stage-pages/src/components/capacitor-section.vue` *(+671/-0)*
+- `packages/stage-pages/src/components/capacitor-usage.browser.test.ts` *(+77/-0)*
+- `packages/stage-pages/src/components/capacitor-usage.ts` *(+127/-0)*
+- `packages/stage-pages/src/pages/settings/account/account-settings-page.vue` *(+2/-59)*
+- `packages/stage-pages/src/pages/settings/capacitor.vue` *(+0/-350)*
+- `packages/stage-pages/src/pages/settings/flux.browser.test.ts` *(+113/-0)*
+- `packages/stage-pages/src/pages/settings/flux.vue` *(+89/-117)*
+- `packages/stage-pages/src/pages/settings/modules/consciousness.vue` *(+1/-9)*
+- `packages/stage-pages/src/pages/settings/modules/speech.vue` *(+1/-15)*
+- `packages/stage-pages/src/pages/settings/modules/vision.vue` *(+1/-7)*
+- `packages/stage-pages/src/settings-search.ts` *(+0/-1)*
+- `packages/ui-timeline/package.json` *(+5/-1)*
+- `packages/ui-trace/package.json` *(+5/-1)*
+
+#### Telemetry & Analytics (`⚪ ignore / rejected in fork`) — 3 file(s) (+21/-12)
+- `packages/stage-shared/src/analytics/openpanel.ts` *(+14/-0)*
+- `packages/stage-ui/src/composables/use-analytics.test.ts` *(+3/-3)*
+- `packages/stage-ui/src/composables/use-analytics.ts` *(+4/-9)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 1 file(s) (+8/-4)
+- `packages/stage-ui/src/stores/chat.ts` *(+8/-4)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 3 file(s) (+0/-3)
+- `packages/stream-kit/package.json` *(+0/-1)*
+- `packages/timeline-canvas/package.json` *(+0/-1)*
+- `packages/trace-kit/package.json` *(+0/-1)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 5 file(s) (+165/-3)
+- `server/apps/api/src/routes/flux/index.ts` *(+4/-0)*
+- `server/apps/api/src/routes/flux/route.test.ts` *(+26/-0)*
+- `server/apps/api/src/services/domain/flux.test.ts` *(+65/-0)*
+- `server/apps/api/src/services/domain/flux.ts` *(+52/-1)*
+- `server/docs/ai/adr/2026-10-04-subscription-credits.md` *(+18/-2)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (8)
+- [PR] [#3497](https://github.com/moeru-ai/airi/pull/3497) `fix(stage-tamagotchi): align controls island menu entries` by **@lulu0119** *(Draft)* *(0 comments)*
+- [PR] [#3500](https://github.com/moeru-ai/airi/pull/3500) `feat(stage-ui,stage-pages): enroll voiceprint in onboarding flow` by **@sumimakito** *(Draft)* *(0 comments)*
+- [PR] [#3499](https://github.com/moeru-ai/airi/pull/3499) `feat(stage-pages,i18n): tell that a module settings page edits the default` by **@luoling8192** *(4 comments)*
+- [PR] [#3498](https://github.com/moeru-ai/airi/pull/3498) `chore(trace): enable public npm releases for trace packages` by **@lulu0119** *(2 comments)*
+- [PR] [#3493](https://github.com/moeru-ai/airi/pull/3493) `fix(stage-ui,stage-shared): report app pages under an origin for each installed app` by **@luoling8192** *(5 comments)*
+- [PR] [#3496](https://github.com/moeru-ai/airi/pull/3496) `feat: integrate computer-use MCP, terminal approval, and conversation compact` by **@3361559784** *(Draft)* *(1 comments)*
+- [PR] [#3495](https://github.com/moeru-ai/airi/pull/3495) `fix(build): load UnoCSS icons with inherited VSCODE_CWD` by **@lulu0119** *(2 comments)*
+- [PR] [#3494](https://github.com/moeru-ai/airi/pull/3494) `build(stage-tamagotchi): pass the RevenueCat web key to desktop builds` by **@luoling8192** *(2 comments)*
+
+#### 🔄 Status & Lifecycle Changes (3)
+- [PR] [#3486](https://github.com/moeru-ai/airi/pull/3486) `feat(stage-ui,stage-pages,stage-layouts): put the subscription first and show Flux by account state` — `OPEN` ➔ `MERGED`
+- [PR] [#3492](https://github.com/moeru-ai/airi/pull/3492) `refactor(stage-ui,stage-pages): keep the global module defaults in the module stores` — `OPEN` ➔ `MERGED`
+- [PR] [#3491](https://github.com/moeru-ai/airi/pull/3491) `fix(stage-ui): read the voice of a character from the voices of its own speech selection` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (5)
+- [PR] [#3486](https://github.com/moeru-ai/airi/pull/3486) `feat(stage-ui,stage-pages,stage-layouts): put the subscription first and show Flux by account state` — *+9 comments (12 ➔ 21 total)*
+- [PR] [#3492](https://github.com/moeru-ai/airi/pull/3492) `refactor(stage-ui,stage-pages): keep the global module defaults in the module stores` — *+4 comments (4 ➔ 8 total)*
+- [PR] [#3309](https://github.com/moeru-ai/airi/pull/3309) `fix(deps): bump vue-i18n and @intlify/core to 11.4.18` — *+1 comments (2 ➔ 3 total)*
+- [PR] [#3491](https://github.com/moeru-ai/airi/pull/3491) `fix(stage-ui): read the voice of a character from the voices of its own speech selection` — *+1 comments (4 ➔ 5 total)*
+- [PR] [#3408](https://github.com/moeru-ai/airi/pull/3408) `feat(stage-tamagotchi,stage-shared): add screen vision snapshot and companion desktop capture` — *+1 comments (13 ➔ 14 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [Draft] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+- [PR] [#3468](https://github.com/moeru-ai/airi/pull/3468) `feat(ui): use generated beam avatars as the default user avatar` [MERGED] — *(3 comments)*
+  - *Focus*: Procedural beam avatars with dynamic chromatic hue & user profile identity; tracked for selective port per docs/design-procedural-beam-avatars-and-user-profile-identity.md
+- [PR] [#3472](https://github.com/moeru-ai/airi/pull/3472) `fix(stage-layouts): safely fallback undefined route.meta in settings layout (#3220)` [OPEN] — *(5 comments)*
+  - *Focus*: Route meta fallback during settings navigation (#3220); evaluated against fork Master-Detail topology and desktop Electron shell
+
+---
 ## [2026-11-11] Upstream Delta: `822243de..1e3d4df4` (10 commits, 58 files, 25 update(s))
 
 ### 🎯 Executive Highlights
