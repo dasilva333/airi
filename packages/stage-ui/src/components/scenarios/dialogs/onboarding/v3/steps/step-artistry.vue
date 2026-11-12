@@ -2,14 +2,18 @@
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
   artistryComfyHealthCheck,
+  CLOUDFLARE_IMAGE_MODELS,
   POLLINATIONS_DEFAULT_MODELS,
   REPLICATE_IMAGEGEN_PRESETS,
 } from '@proj-airi/stage-shared'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
+import { useCloudflareStore } from '@proj-airi/stage-ui/stores/modules/cloudflare'
+import { Button } from '@proj-airi/ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import CloudflareConnectDialog from '../../../cloudflare/CloudflareConnectDialog.vue'
 import ArtPreviewModal from '../components/art-preview-modal.vue'
 import AssistantBubble from '../components/assistant-bubble.vue'
 import ComfyuiWorkflowModal from '../components/comfyui-workflow-modal.vue'
@@ -26,13 +30,20 @@ const { t } = useI18n()
 
 const draft = useOnboardingV3Draft()
 const artistryStore = useArtistryStore()
+const cloudflareStore = useCloudflareStore()
 const displayModelsStore = useDisplayModelsStore()
 
+const isConnectModalOpen = ref(false)
+const isCloudflareConnected = computed(() => Boolean(cloudflareStore.activeAccountId && cloudflareStore.activeAccessToken))
+const cfAccountIdInput = ref(artistryStore.cloudflareAccountId || cloudflareStore.activeAccountId || '')
+
 // --- State Bindings ---
-const selectedProvider = ref<'pollinations' | 'comfyui' | 'nanobanana' | 'replicate' | 'none'>(
-  (draft.state.artistryProvider as any) || 'pollinations',
+const selectedProvider = ref<'cloudflare' | 'pollinations' | 'comfyui' | 'openai-image' | 'replicate' | 'nanobanana' | 'none'>(
+  (draft.state.artistryProvider as any) || (isCloudflareConnected.value ? 'cloudflare' : 'pollinations'),
 )
-const selectedModel = ref<string>(draft.state.artistryModel || '')
+const selectedModel = ref<string>(
+  draft.state.artistryModel || (selectedProvider.value === 'cloudflare' ? '@cf/black-forest-labs/flux-1-schnell' : (selectedProvider.value === 'openai-image' ? 'gpt-image' : '')),
+)
 const apiKey = ref<string>(draft.state.artistryApiKey || '')
 const comfyServerUrl = ref<string>(draft.state.artistryComfyServerUrl || artistryStore.comfyuiServerUrl || 'http://127.0.0.1:8188')
 const visualPrompt = ref<string>(draft.state.artistryVisualPrompt || '')
@@ -120,53 +131,81 @@ function appendStyle(styleTag: string) {
 // --- Providers Configuration ---
 const providers = computed(() => [
   {
+    id: 'cloudflare' as const,
+    name: 'Cloudflare Workers AI',
+    secondary: t('onboarding.steps.artistry.providers.cloudflare.secondary', 'Remote · Free (10k daily neurons)'),
+    badge: t('onboarding.steps.artistry.providers.cloudflare.badge', 'Remote Free'),
+    badgeColor: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
+    desc: 'Serverless GPU inference with FLUX, Leonardo, SDXL, and DreamShaper.',
+    icon: 'i-simple-icons:cloudflare',
+  },
+  {
     id: 'pollinations' as const,
     name: 'Pollinations AI',
-    secondary: t('onboarding.steps.artistry.providers.pollinations.secondary'),
-    badge: t('onboarding.steps.artistry.providers.pollinations.badge'),
-    badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    secondary: t('onboarding.steps.artistry.providers.pollinations.secondary', 'Remote · Free (Zero-config)'),
+    badge: t('onboarding.steps.artistry.providers.pollinations.badge', 'Remote Free'),
+    badgeColor: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
     desc: 'Instant cloud image generation without API keys or accounts.',
     icon: 'i-solar:magic-stick-3-bold-duotone',
   },
   {
     id: 'comfyui' as const,
     name: 'ComfyUI',
-    secondary: t('onboarding.steps.artistry.providers.comfyui.secondary'),
-    badge: t('onboarding.steps.artistry.providers.comfyui.badge'),
-    badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+    secondary: t('onboarding.steps.artistry.providers.comfyui.secondary', 'Local · Free (Self-hosted node)'),
+    badge: t('onboarding.steps.artistry.providers.comfyui.badge', 'Local Free'),
+    badgeColor: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20',
     desc: 'Execute custom workflows on localhost:8188 or WSL node.',
     icon: 'i-solar:monitor-camera-bold-duotone',
   },
   {
-    id: 'nanobanana' as const,
-    name: 'Nano Banana',
-    secondary: 'Google AI Studio',
-    badge: 'Google AI Studio',
-    badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    desc: 'Native Google Gemini image synthesis models.',
-    icon: 'i-solar:gallery-round-bold-duotone',
+    id: 'openai-image' as const,
+    name: 'OpenAI GPT Image',
+    secondary: t('onboarding.steps.artistry.providers.openai-image.secondary', 'Remote · Paid (API key)'),
+    badge: t('onboarding.steps.artistry.providers.openai-image.badge', 'Remote Paid'),
+    badgeColor: 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/20',
+    desc: 'Generate and edit images with native OpenAI Images API.',
+    icon: 'i-solar:gallery-bold-duotone',
   },
   {
     id: 'replicate' as const,
     name: 'Replicate.ai',
-    secondary: t('onboarding.steps.artistry.providers.replicate.secondary'),
-    badge: t('onboarding.steps.artistry.providers.replicate.badge'),
-    badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    secondary: t('onboarding.steps.artistry.providers.replicate.secondary', 'Remote · Paid (API key)'),
+    badge: t('onboarding.steps.artistry.providers.replicate.badge', 'Remote Paid'),
+    badgeColor: 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/20',
     desc: 'High-resolution LoRAs, FLUX, and specialized checkpoints.',
     icon: 'i-solar:cloud-upload-bold-duotone',
   },
   {
+    id: 'nanobanana' as const,
+    name: 'Nano Banana',
+    secondary: t('onboarding.steps.artistry.providers.nanobanana.secondary', 'Remote · Paid (Google AI Studio key)'),
+    badge: t('onboarding.steps.artistry.providers.nanobanana.badge', 'Remote Paid'),
+    badgeColor: 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/20',
+    desc: 'Native Google Gemini image synthesis models.',
+    icon: 'i-solar:gallery-round-bold-duotone',
+  },
+  {
     id: 'none' as const,
-    name: t('onboarding.steps.artistry.providers.none.shortName'),
-    secondary: t('onboarding.steps.artistry.providers.none.secondary'),
-    badge: t('onboarding.steps.artistry.providers.none.badge'),
-    badgeColor: 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20',
+    name: t('onboarding.steps.artistry.providers.none.shortName', 'None'),
+    secondary: t('onboarding.steps.artistry.providers.none.secondary', 'Disabled · Image generation off'),
+    badge: t('onboarding.steps.artistry.providers.none.badge', 'Disabled'),
+    badgeColor: 'bg-neutral-500/10 text-neutral-700 dark:text-neutral-400 border-neutral-500/20',
     desc: 'Bypass all image generation and visual manifestations.',
     icon: 'i-solar:forbidden-circle-bold-duotone',
   },
 ])
 
 // --- Unified Model / Workflow Dropdown Options ---
+const cloudflareModelOptions = CLOUDFLARE_IMAGE_MODELS.map(m => ({
+  label: m.label,
+  value: m.value,
+}))
+
+const openaiModelOptions = [
+  { label: 'GPT Image (Auto / Latest)', value: 'gpt-image' },
+  { label: 'GPT Image 2.6 Sunburst', value: 'gpt-image-2.6-sunburst' },
+]
+
 const nanobananaModelOptions = [
   { label: 'Nano Banana 2 (Gemini 3.1 Flash Image)', value: 'gemini-3.1-flash-image-preview' },
   { label: 'Nano Banana Pro (Gemini 3 Pro Image)', value: 'gemini-3-pro-image-preview' },
@@ -205,8 +244,12 @@ const comfyuiWorkflowOptions = computed(() => {
 })
 
 const currentModelOptions = computed(() => {
+  if (selectedProvider.value === 'cloudflare')
+    return cloudflareModelOptions
   if (selectedProvider.value === 'pollinations')
     return pollinationsModelOptions.value
+  if (selectedProvider.value === 'openai-image')
+    return openaiModelOptions
   if (selectedProvider.value === 'comfyui')
     return comfyuiWorkflowOptions.value
   if (selectedProvider.value === 'nanobanana')
@@ -218,8 +261,17 @@ const currentModelOptions = computed(() => {
 
 // Ensure selectedModel has a sensible fallback when provider switches
 watch(selectedProvider, (newProvider) => {
-  if (newProvider === 'pollinations') {
+  if (newProvider === 'cloudflare') {
+    selectedModel.value = '@cf/black-forest-labs/flux-1-schnell'
+    if (cloudflareStore.activeAccessToken && !apiKey.value) {
+      apiKey.value = cloudflareStore.activeAccessToken
+    }
+  }
+  else if (newProvider === 'pollinations') {
     selectedModel.value = ''
+  }
+  else if (newProvider === 'openai-image') {
+    selectedModel.value = 'gpt-image'
   }
   else if (newProvider === 'nanobanana') {
     selectedModel.value = 'gemini-3.1-flash-image-preview'
@@ -308,6 +360,16 @@ function handleWorkflowSaved(template: any) {
   syncDraft()
 }
 
+function handleCloudflareConnected() {
+  if (cloudflareStore.activeAccessToken) {
+    apiKey.value = cloudflareStore.activeAccessToken
+  }
+  if (cloudflareStore.activeAccountId) {
+    cfAccountIdInput.value = cloudflareStore.activeAccountId
+  }
+  syncDraft()
+}
+
 // --- Preview Modal ---
 const isPreviewModalOpen = ref(false)
 
@@ -317,6 +379,16 @@ function openPreviewModal() {
 
 // --- Sync to Draft ---
 function syncDraft() {
+  if (selectedProvider.value === 'cloudflare') {
+    const acc = cfAccountIdInput.value.trim() || cloudflareStore.activeAccountId
+    if (acc) {
+      artistryStore.cloudflareAccountId = acc
+    }
+    const token = apiKey.value.trim() || cloudflareStore.activeAccessToken
+    if (token) {
+      artistryStore.cloudflareApiToken = token
+    }
+  }
   draft.setArtistry({
     provider: selectedProvider.value,
     model: selectedModel.value,
@@ -412,10 +484,18 @@ function handleNext() {
                 <div :class="[p.icon]" />
               </div>
               <div :class="['flex-1 min-w-0']">
-                <div :class="['text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate']">
-                  {{ p.name }}
+                <div :class="['flex items-center gap-1.5']">
+                  <span :class="['text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate']">
+                    {{ p.name }}
+                  </span>
+                  <span
+                    v-if="p.badge"
+                    :class="['text-[9px] px-1.5 py-0.5 rounded-full border font-semibold shrink-0', p.badgeColor]"
+                  >
+                    {{ p.badge }}
+                  </span>
                 </div>
-                <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 truncate']">
+                <div :class="['text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5']">
                   {{ p.secondary }}
                 </div>
               </div>
@@ -427,8 +507,69 @@ function handleNext() {
 
           <!-- Dynamic Contextual Credentials / Setup Row -->
           <div v-if="selectedProvider !== 'none'" :class="['pt-2 border-t border-neutral-200 dark:border-white/5 space-y-3']">
+            <!-- Cloudflare Workers AI: Connect State & Model -->
+            <div v-if="selectedProvider === 'cloudflare'" :class="['space-y-3']">
+              <!-- Authenticated / Connected Banner -->
+              <div v-if="isCloudflareConnected" :class="['flex items-center justify-between p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5']">
+                <div :class="['flex items-center gap-2 min-w-0']">
+                  <span :class="['w-2 h-2 rounded-full bg-emerald-500 shrink-0']" />
+                  <span :class="['text-xs font-semibold text-emerald-700 dark:text-emerald-400']">
+                    {{ t('onboarding.steps.artistry.cloudflareConnected') }}
+                  </span>
+                  <span :class="['text-[11px] font-mono text-neutral-500 dark:text-neutral-400 truncate']">
+                    ({{ cloudflareStore.activeAccountId }})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  :class="['text-[11px] text-primary-600 dark:text-primary-400 hover:underline cursor-pointer font-medium shrink-0']"
+                  @click="isConnectModalOpen = true"
+                >
+                  {{ t('onboarding.steps.artistry.switchAccount') }}
+                </button>
+              </div>
+
+              <!-- Not connected banner with 1-click connect button -->
+              <div v-else :class="['flex flex-col gap-2.5 p-3.5 rounded-xl border border-amber-500/20 bg-amber-500/5']">
+                <p :class="['text-xs text-neutral-600 leading-relaxed dark:text-neutral-300']">
+                  {{ t('onboarding.steps.artistry.cloudflareConnectPrompt') }}
+                </p>
+                <div :class="['flex items-center gap-2']">
+                  <Button
+                    variant="primary"
+                    :class="['h-[38px] flex cursor-pointer items-center gap-1.5 px-4 text-xs font-medium']"
+                    @click="isConnectModalOpen = true"
+                  >
+                    <div :class="['i-simple-icons:cloudflare text-sm text-[#F38020]']" />
+                    <span>{{ t('onboarding.steps.artistry.connectCloudflareAccount') }}</span>
+                  </Button>
+                </div>
+
+                <!-- Manual fallback fields -->
+                <div :class="['pt-2 border-t border-amber-500/15 space-y-2']">
+                  <div :class="['text-[11px] font-semibold text-neutral-500 dark:text-neutral-400']">
+                    {{ t('onboarding.steps.artistry.manualCredentials') }}
+                  </div>
+                  <input
+                    v-model="cfAccountIdInput"
+                    type="text"
+                    :placeholder="t('onboarding.steps.artistry.cloudflareAccountId')"
+                    :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-primary-500 focus:outline-none font-mono']"
+                    @input="syncDraft"
+                  >
+                  <input
+                    v-model="apiKey"
+                    type="password"
+                    :placeholder="t('onboarding.steps.artistry.cloudflareApiToken')"
+                    :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-primary-500 focus:outline-none font-mono']"
+                    @input="syncDraft"
+                  >
+                </div>
+              </div>
+            </div>
+
             <!-- Pollinations AI: Optional Pollen Token -->
-            <div v-if="selectedProvider === 'pollinations'" :class="['space-y-1.5']">
+            <div v-else-if="selectedProvider === 'pollinations'" :class="['space-y-1.5']">
               <div :class="['flex items-center justify-between text-xs']">
                 <label :class="['font-medium text-neutral-700 dark:text-neutral-300']">
                   {{ t('onboarding.steps.artistry.pollinationsApiKeyPollenToken') }} <span :class="['text-neutral-400 text-[10px]']">{{ t('onboarding.steps.artistry.optional') }}</span>
@@ -439,6 +580,20 @@ function handleNext() {
                 v-model="apiKey"
                 type="password"
                 :placeholder="t('onboarding.steps.artistry.leaveBlankFor100FreeModeOrEnterTokenForFluxGrok')"
+                :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-primary-500 focus:outline-none font-mono']"
+                @input="syncDraft"
+              >
+            </div>
+
+            <!-- OpenAI GPT Image: API Key -->
+            <div v-else-if="selectedProvider === 'openai-image'" :class="['space-y-1.5']">
+              <label :class="['text-xs font-medium text-neutral-700 dark:text-neutral-300 block']">
+                {{ t('onboarding.steps.artistry.openaiApiKey') }}
+              </label>
+              <input
+                v-model="apiKey"
+                type="password"
+                placeholder="sk-proj-..."
                 :class="['w-full rounded-xl bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 px-3.5 py-2 text-xs text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:border-primary-500 focus:outline-none font-mono']"
                 @input="syncDraft"
               >
@@ -780,6 +935,11 @@ function handleNext() {
       </div>
 
       <!-- Modals -->
+      <CloudflareConnectDialog
+        v-model="isConnectModalOpen"
+        @connected="handleCloudflareConnected"
+      />
+
       <ComfyuiWorkflowModal
         v-model:open="isWorkflowModalOpen"
         :raw-workflow="pendingWorkflowRaw"

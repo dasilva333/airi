@@ -76,7 +76,7 @@ export interface OnboardingV3DraftState {
   visionStrategy?: 'direct' | 'forward'
   visionPromptShimDirect?: string
   visionPromptShimForward?: string
-  artistryProvider?: 'pollinations' | 'comfyui' | 'nanobanana' | 'replicate' | 'none'
+  artistryProvider?: 'cloudflare' | 'pollinations' | 'comfyui' | 'openai-image' | 'replicate' | 'nanobanana' | 'none'
   artistryModel?: string
   artistryApiKey?: string
   artistryComfyServerUrl?: string
@@ -544,7 +544,7 @@ export const useOnboardingV3Draft = defineStore('onboarding-v3-draft', () => {
   }
 
   function setArtistry(artistry: {
-    provider?: 'pollinations' | 'comfyui' | 'nanobanana' | 'replicate' | 'none'
+    provider?: 'cloudflare' | 'pollinations' | 'comfyui' | 'openai-image' | 'replicate' | 'nanobanana' | 'none'
     model?: string
     apiKey?: string
     comfyServerUrl?: string

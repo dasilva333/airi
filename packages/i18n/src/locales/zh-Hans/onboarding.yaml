@@ -1960,18 +1960,27 @@ steps:
       preview: 预览
     providers:
       comfyui:
-        badge: 本地节点
-        secondary: 你的服务器
+        badge: 本地免费
+        secondary: 本地 · 免费 (自托管节点)
       none:
         badge: 已禁用
-        secondary: 已关闭图像生成
+        secondary: 已关闭 · 停用图像生成
         shortName: 无
       pollinations:
-        badge: 完全免费 / 无需配置
-        secondary: 托管服务
+        badge: 云端免费
+        secondary: 云端 · 免费 (零配置)
       replicate:
-        badge: 云端 API
-        secondary: 云端服务
+        badge: 云端付费
+        secondary: 云端 · 付费 (API 密钥)
+      cloudflare:
+        badge: 云端免费
+        secondary: 云端 · 免费 (每日 10k 神经元)
+      openai-image:
+        badge: 云端付费
+        secondary: 云端 · 付费 (API 密钥)
+      nanobanana:
+        badge: 云端付费
+        secondary: 云端 · 付费 (Google AI Studio 密钥)
     models:
       freeRouter: 免费路由（Pollinations 自动选择）
     connection:
@@ -1994,6 +2003,15 @@ steps:
     directorDescription: 随对话发展创作场景图片和自拍。
     companionCreation: 伙伴创作图片
     companionCreationDescription: 让伙伴在你提出请求时创作图片。
+    connectCloudflareAccount: 连接 Cloudflare 账户
+    cloudflareConnectPrompt: 连接你的 Cloudflare 账户以解锁免费无服务器图像生成（每日 10,000 免费神经元）。
+    cloudflareConnected: 已连接至 Cloudflare
+    switchAccount: 切换账户
+    manualCredentials: 或直接输入凭据
+    cloudflareAccountId: Cloudflare 账户 ID
+    cloudflareApiToken: Cloudflare API 令牌
+    openaiApiKey: OpenAI API 密钥
+    openaiBaseUrl: 自定义 Base URL（可选）
   memory:
     label: 记忆体系
     subtitle: 认知记忆四象限

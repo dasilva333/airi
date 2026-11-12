@@ -22,6 +22,8 @@ import { useChatSessionStore } from '../../../../../../stores/chat/session-store
 import { useDisplayModelsStore } from '../../../../../../stores/display-models'
 import { ensureMcpServersForAllowedTools } from '../../../../../../stores/mcp-tool-bridge'
 import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
+import { useArtistryStore } from '../../../../../../stores/modules/artistry'
+import { useCloudflareStore } from '../../../../../../stores/modules/cloudflare'
 import { useHearingStore } from '../../../../../../stores/modules/hearing-store'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useVisionStore } from '../../../../../../stores/modules/vision'
@@ -730,6 +732,64 @@ export function useStarterCardCommit() {
       }
       catch (err) {
         console.warn('[useStarterCardCommit] Hearing persistence warning:', err)
+      }
+    }
+
+    // 5. Persist Artistry Provider & Settings
+    if (draft.modules?.artistry) {
+      try {
+        const artistryStore = useArtistryStore()
+        if (draft.artistryProvider)
+          artistryStore.activeProvider = draft.artistryProvider
+        if (draft.artistryModel)
+          artistryStore.activeModel = draft.artistryModel
+        if (draft.artistryVisualPrompt)
+          artistryStore.defaultPromptPrefix = draft.artistryVisualPrompt
+        if (draft.artistryComfyServerUrl)
+          artistryStore.comfyuiServerUrl = draft.artistryComfyServerUrl
+        if (draft.artistryProvider === 'pollinations') {
+          if (draft.artistryApiKey)
+            artistryStore.pollinationsApiKey = draft.artistryApiKey
+          if (draft.artistryModel)
+            artistryStore.pollinationsModel = draft.artistryModel
+        }
+        else if (draft.artistryProvider === 'nanobanana') {
+          if (draft.artistryApiKey)
+            artistryStore.nanobananaApiKey = draft.artistryApiKey
+          if (draft.artistryModel)
+            artistryStore.nanobananaModel = draft.artistryModel
+        }
+        else if (draft.artistryProvider === 'replicate') {
+          if (draft.artistryApiKey)
+            artistryStore.replicateApiKey = draft.artistryApiKey
+          if (draft.artistryModel)
+            artistryStore.replicateDefaultModel = draft.artistryModel
+        }
+        else if (draft.artistryProvider === 'openai-image') {
+          if (draft.artistryApiKey)
+            artistryStore.openaiImageApiKey = draft.artistryApiKey
+          if (draft.artistryModel)
+            artistryStore.openaiImageModel = draft.artistryModel
+        }
+        else if (draft.artistryProvider === 'cloudflare') {
+          if (draft.artistryApiKey)
+            artistryStore.cloudflareApiToken = draft.artistryApiKey
+          if (draft.artistryModel)
+            artistryStore.cloudflareImageModel = draft.artistryModel
+          try {
+            const cloudflareStore = useCloudflareStore()
+            if (cloudflareStore.activeAccountId && !artistryStore.cloudflareAccountId)
+              artistryStore.cloudflareAccountId = cloudflareStore.activeAccountId
+            if (cloudflareStore.activeAccessToken && !artistryStore.cloudflareApiToken)
+              artistryStore.cloudflareApiToken = cloudflareStore.activeAccessToken
+          }
+          catch {
+            // non-store context fallback
+          }
+        }
+      }
+      catch (err) {
+        console.warn('[useStarterCardCommit] Artistry persistence warning:', err)
       }
     }
 

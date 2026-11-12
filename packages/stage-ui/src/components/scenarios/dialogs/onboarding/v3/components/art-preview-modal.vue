@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { artistryGenerateHeadless, formatCorsProxyUrl } from '@proj-airi/stage-shared'
+import {
+  artistryGenerateHeadless,
+  CLOUDFLARE_IMAGE_DEFAULTS,
+  formatCorsProxyUrl,
+  isCloudflareFixedStepsModel,
+  isCloudflareMultipartModel,
+  isCloudflareOmitDimensionsModel,
+} from '@proj-airi/stage-shared'
+import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
+import { useCloudflareStore } from '@proj-airi/stage-ui/stores/modules/cloudflare'
 import {
   DialogContent,
   DialogOverlay,
@@ -59,6 +68,134 @@ async function fetchDirectPollinations(promptText: string, modelId?: string) {
   return `data:image/jpeg;base64,${base64}`
 }
 
+async function fetchDirectCloudflare(promptText: string, modelId?: string) {
+  const artistryStore = useArtistryStore()
+  const cloudflareStore = useCloudflareStore()
+  const creds = artistryStore.getEffectiveCloudflareCredentials()
+  const accountId = creds.accountId || cloudflareStore.activeAccountId
+  let apiToken = props.apiKey || creds.apiToken || cloudflareStore.activeAccessToken
+
+  if (!accountId || !apiToken) {
+    throw new Error('Cloudflare Account ID or API token is missing. Please connect your Cloudflare account or enter an API token.')
+  }
+
+  const targetModel = modelId || CLOUDFLARE_IMAGE_DEFAULTS.model
+  const rawUrl = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${targetModel.replace(/^\/+/, '')}`
+  const targetUrl = formatCorsProxyUrl(rawUrl)
+
+  const isMultipart = isCloudflareMultipartModel(targetModel)
+  const isFixedSteps = isCloudflareFixedStepsModel(targetModel)
+
+  const makeReq = async (token: string) => {
+    let body: string | FormData
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
+    if (isMultipart) {
+      const form = new FormData()
+      form.append('prompt', promptText)
+      form.append('width', '1024')
+      form.append('height', '1024')
+      body = form
+    }
+    else {
+      headers['Content-Type'] = 'application/json'
+      headers.Accept = 'application/json'
+      const payload: Record<string, any> = { prompt: promptText }
+      if (!isCloudflareOmitDimensionsModel(targetModel)) {
+        payload.width = 1024
+        payload.height = 1024
+      }
+      if (!isFixedSteps) {
+        payload.steps = 4
+      }
+      body = JSON.stringify(payload)
+    }
+    return fetch(targetUrl, { method: 'POST', headers, body })
+  }
+
+  let response = await makeReq(apiToken)
+  if (response.status === 401 && cloudflareStore.cfOAuthTokens?.refreshToken) {
+    try {
+      await cloudflareStore.refreshOAuthTokens()
+      if (cloudflareStore.activeAccessToken) {
+        apiToken = cloudflareStore.activeAccessToken
+        response = await makeReq(apiToken)
+      }
+    }
+    catch {}
+  }
+
+  if (!response.ok) {
+    let errDetail = ''
+    try {
+      const errData = await response.json()
+      if (errData?.errors?.length)
+        errDetail = errData.errors.map((e: any) => e.message || e.code).join('; ')
+    }
+    catch {}
+    throw new Error(`Cloudflare Workers AI returned HTTP ${response.status}${errDetail ? `: ${errDetail}` : ''}`)
+  }
+
+  const contentType = response.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) {
+    const json = await response.json()
+    const b64 = json.result?.image
+    if (!b64)
+      throw new Error('Cloudflare response did not contain an image.')
+    return b64.startsWith('data:image/') ? b64 : `data:image/png;base64,${b64}`
+  }
+  const arrayBuffer = await response.arrayBuffer()
+  const bytes = new Uint8Array(arrayBuffer)
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  const base64 = btoa(binary)
+  return `data:image/png;base64,${base64}`
+}
+
+async function fetchDirectOpenAI(promptText: string, modelId?: string) {
+  const artistryStore = useArtistryStore()
+  const apiKey = props.apiKey || artistryStore.openaiImageApiKey
+  if (!apiKey) {
+    throw new Error('OpenAI Image API key is required. Please enter an API key.')
+  }
+  const rawBaseUrl = (artistryStore.openaiImageBaseUrl || 'https://api.openai.com/v1').trim().replace(/\/+$/, '')
+  const endpoint = new URL('images/generations', `${rawBaseUrl}/`)
+  const targetUrl = formatCorsProxyUrl(endpoint.toString())
+
+  const response = await fetch(targetUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: modelId || 'gpt-image',
+      prompt: promptText,
+      n: 1,
+      output_format: 'png',
+      size: '1024x1024',
+    }),
+  })
+  if (!response.ok) {
+    let errDetail = ''
+    try {
+      const errData = await response.json()
+      if (errData?.error?.message)
+        errDetail = `: ${errData.error.message}`
+    }
+    catch {}
+    throw new Error(`OpenAI Images API returned HTTP ${response.status}${errDetail}`)
+  }
+  const data = await response.json()
+  const item = data.data?.[0]
+  if (item?.b64_json)
+    return item.b64_json.startsWith('data:image/') ? item.b64_json : `data:image/png;base64,${item.b64_json}`
+  if (item?.url)
+    return item.url
+  throw new Error('No image returned from OpenAI.')
+}
+
 async function runGeneration() {
   if (!props.prompt.trim()) {
     generationError.value = t('onboarding.steps.artistry.preview.messages.pleaseEnterAVisualStylePromptFirst')
@@ -73,28 +210,37 @@ async function runGeneration() {
   try {
     let resultUrl = ''
 
-    if (generateInvoke) {
+    if (props.provider === 'pollinations') {
+      generationStatus.value = t('onboarding.steps.artistry.preview.messages.synthesizingWithPollinationsAi')
+      resultUrl = await fetchDirectPollinations(props.prompt, props.model)
+    }
+    else if (props.provider === 'cloudflare') {
+      generationStatus.value = 'Synthesizing with Cloudflare Workers AI...'
+      resultUrl = await fetchDirectCloudflare(props.prompt, props.model)
+    }
+    else if (props.provider === 'openai-image') {
+      generationStatus.value = 'Synthesizing with OpenAI Images API...'
+      resultUrl = await fetchDirectOpenAI(props.prompt, props.model)
+    }
+    else if (generateInvoke) {
       generationStatus.value = t('onboarding.steps.artistry.preview.messages.synthesizingViaValue', { value0: props.provider.toUpperCase() })
       try {
+        const artistryStore = useArtistryStore()
+        const globalsPayload = JSON.parse(JSON.stringify(artistryStore.artistryGlobals || {}))
         const res = await Promise.race([
           generateInvoke({
             prompt: props.prompt,
             model: props.model,
             provider: props.provider,
             options: { width: 1024, height: 1024 },
+            globals: globalsPayload,
           }),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error(t('onboarding.steps.artistry.preview.errors.timeout'))), 35000),
           ),
         ])
         if (res?.error) {
-          if (props.provider === 'pollinations') {
-            console.warn('[ArtPreviewModal] Main process error, falling back to CORS proxy:', res.error)
-            resultUrl = await fetchDirectPollinations(props.prompt, props.model)
-          }
-          else {
-            throw new Error(res.error)
-          }
+          throw new Error(res.error)
         }
         else if (res?.base64) {
           resultUrl = res.base64.startsWith('data:image/')
@@ -106,18 +252,8 @@ async function runGeneration() {
         }
       }
       catch (ipcErr: any) {
-        if (props.provider === 'pollinations') {
-          console.warn('[ArtPreviewModal] IPC throw or timeout, falling back to CORS proxy:', ipcErr)
-          resultUrl = await fetchDirectPollinations(props.prompt, props.model)
-        }
-        else {
-          throw ipcErr
-        }
+        throw ipcErr
       }
-    }
-    else if (props.provider === 'pollinations') {
-      generationStatus.value = t('onboarding.steps.artistry.preview.messages.synthesizingWithPollinationsAi')
-      resultUrl = await fetchDirectPollinations(props.prompt, props.model)
     }
     else {
       throw new Error(t('onboarding.steps.artistry.preview.errors.desktopRequired', { provider: props.provider }))
