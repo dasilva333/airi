@@ -44,3 +44,17 @@ const historyMessages = computed(() => messages.value as unknown as ChatHistoryI
     </div>
   </div>
 </template>
+
+<style scoped>
+:deep(.markdown-content p) {
+  margin-bottom: 0.5rem;
+}
+
+:deep(.markdown-content p:last-child),
+:deep(.markdown-content ul:last-child),
+:deep(.markdown-content ol:last-child),
+:deep(.markdown-content pre:last-child),
+:deep(.markdown-content blockquote:last-child) {
+  margin-bottom: 0 !important;
+}
+</style>
