@@ -147,6 +147,22 @@ const allArtistryProvidersMetadata = computed(() => {
       deployment: 'cloud',
       iconImage: undefined,
     },
+    {
+      id: 'cloudflare',
+      category: 'artistry',
+      icon: 'i-simple-icons:cloudflare',
+      iconColor: 'text-orange-500',
+      name: t('settings.pages.providers.provider.cloudflare-image.title', 'Cloudflare Workers AI'),
+      localizedName: t('settings.pages.providers.provider.cloudflare-image.title', 'Cloudflare Workers AI'),
+      description: t('settings.pages.providers.provider.cloudflare-image.description', 'Free serverless neural image generation (FLUX, Leonardo, SDXL, DreamShaper).'),
+      localizedDescription: t('settings.pages.providers.provider.cloudflare-image.description', 'Free serverless neural image generation (FLUX, Leonardo, SDXL, DreamShaper).'),
+      configured: Boolean(artistryStore.getEffectiveCloudflareCredentials().accountId && artistryStore.getEffectiveCloudflareCredentials().apiToken),
+      to: '/settings/providers/artistry/cloudflare',
+      pricing: 'free',
+      deployment: 'cloud',
+      beginnerRecommended: true,
+      iconImage: undefined,
+    },
   ]
 })
 

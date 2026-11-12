@@ -1263,6 +1263,18 @@ pages:
       wiro-ai:
         title: Wiro AI
         description: 高速兼容 OpenAI 的 LLM 网关，支持内置视觉模型
+      cloudflare-image:
+        title: Cloudflare Workers AI
+        description: 使用 Cloudflare 免费无服务器神经网络模型生成图像（FLUX.1 Schnell、FLUX.2
+          Klein/Dev、Leonardo、SDXL 和 DreamShaper）。
+        account-id:
+          label: Cloudflare 账户 ID
+          description: 您的 32 位十六进制账户 ID。如果留空，将使用已连接的 Cloudflare 账户。
+        api-token:
+          label: Workers AI API 令牌
+          description: 具有 Workers AI 权限的 API 令牌。如果留空，将使用已连接的 Cloudflare 账户令牌。
+        model:
+          label: 图像生成模型
     title: 服务来源
     filters:
       all: 全部

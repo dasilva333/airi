@@ -1579,6 +1579,20 @@ pages:
       wiro-ai:
         title: Wiro AI
         description: Fast OpenAI-compatible LLM gateway with built-in vision models
+      cloudflare-image:
+        title: Cloudflare Workers AI
+        description: Generate images with free serverless neural models on Cloudflare
+          (FLUX.1 Schnell, FLUX.2 Klein/Dev, Leonardo, SDXL, and DreamShaper).
+        account-id:
+          label: Cloudflare Account ID
+          description: Your 32-character hexadecimal Account ID. If blank, uses your
+            connected Cloudflare account.
+        api-token:
+          label: Workers AI API Token
+          description: API Token with Workers AI Read/Edit permissions. If blank, uses
+            your connected Cloudflare account token.
+        model:
+          label: Image Generation Model
     title: Inference Providers
     cache:
       title: Model Cache

@@ -1028,6 +1028,12 @@ interface VoiceProfile {
 | `artistry-openai-image-model` | `stores/modules/artistry.ts` |
 | `artistry-openai-image-width` | `stores/modules/artistry.ts` |
 | `artistry-openai-image-height` | `stores/modules/artistry.ts` |
+| `artistry-cloudflare-account-id` | `stores/modules/artistry.ts` |
+| `artistry-cloudflare-api-token` | `stores/modules/artistry.ts` |
+| `artistry-cloudflare-image-model` | `stores/modules/artistry.ts` |
+| `artistry-cloudflare-image-steps` | `stores/modules/artistry.ts` |
+| `artistry-cloudflare-image-width` | `stores/modules/artistry.ts` |
+| `artistry-cloudflare-image-height` | `stores/modules/artistry.ts` |
 
 ### 4.9 Sync Engine
 

@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto'
 
 import { useLogg } from '@guiiai/logg'
 
+import { CloudflareImageProvider } from './providers/cloudflare'
 import { ComfyUIProvider } from './providers/comfyui'
 import { NanoBananaProvider } from './providers/nanobanana'
 import { OpenAIImageProvider } from './providers/openai-image'
@@ -61,6 +62,7 @@ artistryProviders.set('replicate', new ReplicateProvider())
 artistryProviders.set('nanobanana', new NanoBananaProvider())
 artistryProviders.set('openai-image', new OpenAIImageProvider())
 artistryProviders.set('pollinations', new PollinationsProvider())
+artistryProviders.set('cloudflare', new CloudflareImageProvider())
 
 // Deduplication map for headless requests
 const pendingHeadlessRequests = new Map<string, Promise<{ imageUrl?: string, base64?: string, error?: string }>>()

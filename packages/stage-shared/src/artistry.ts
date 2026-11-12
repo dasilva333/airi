@@ -6,6 +6,136 @@ export const OPENAI_IMAGE_DEFAULTS = {
   model: 'gpt-image',
 } as const
 
+/** Shared defaults for the Cloudflare Workers AI image provider. */
+export const CLOUDFLARE_IMAGE_DEFAULTS = {
+  model: '@cf/black-forest-labs/flux-1-schnell',
+  steps: 4,
+} as const
+
+export interface CloudflareImageModelMeta {
+  label: string
+  value: string
+  description?: string
+  format: 'multipart' | 'json'
+  fixedSteps?: number
+  defaultSteps?: number
+  maxSteps?: number
+  neuronEstimate?: string
+}
+
+export const CLOUDFLARE_IMAGE_MODELS: readonly CloudflareImageModelMeta[] = [
+  {
+    label: 'FLUX.1 Schnell (Recommended / 4-step)',
+    value: '@cf/black-forest-labs/flux-1-schnell',
+    description: 'Fast 4-step generation, lowest compute usage (~57.6 neurons/img)',
+    format: 'json',
+    defaultSteps: 4,
+    maxSteps: 8,
+    neuronEstimate: '~57.6 neurons / img (Recommended · ~173 imgs/day free)',
+  },
+  {
+    label: 'FLUX.2 Klein 4B (Fast / Fixed 4-step)',
+    value: '@cf/black-forest-labs/flux-2-klein-4b',
+    description: 'Fast distilled generation and multi-reference editing with fixed 4 steps',
+    format: 'multipart',
+    fixedSteps: 4,
+    defaultSteps: 4,
+    maxSteps: 4,
+    neuronEstimate: '~104 neurons / img (~95 imgs/day free)',
+  },
+  {
+    label: 'FLUX.2 Klein 9B (High Quality / Fixed 4-step)',
+    value: '@cf/black-forest-labs/flux-2-klein-9b',
+    description: 'Larger Klein variant with improved quality and fixed 4 steps',
+    format: 'multipart',
+    fixedSteps: 4,
+    defaultSteps: 4,
+    maxSteps: 4,
+    neuronEstimate: '~1,364 neurons / img (~7 imgs/day free)',
+  },
+  {
+    label: 'FLUX.2 Dev (Detailed Photorealism)',
+    value: '@cf/black-forest-labs/flux-2-dev',
+    description: 'Detailed, realistic generation with multi-reference image support',
+    format: 'multipart',
+    defaultSteps: 20,
+    maxSteps: 50,
+    neuronEstimate: '~3,000 neurons / img at 20 steps (~3 imgs/day free)',
+  },
+  {
+    label: 'Leonardo Lucid Origin (Stylized & Graphic)',
+    value: '@cf/leonardo/lucid-origin',
+    description: 'Prompt adherence, sharp graphic design, and accurate text rendering',
+    format: 'json',
+    defaultSteps: 20,
+    maxSteps: 50,
+    neuronEstimate: 'Leonardo partner model · Design & typography',
+  },
+  {
+    label: 'Leonardo Phoenix 1.0 (Typography & Adherence)',
+    value: '@cf/leonardo/phoenix-1.0',
+    description: 'Strong prompt adherence and coherent text generation within images',
+    format: 'json',
+    defaultSteps: 20,
+    maxSteps: 50,
+    neuronEstimate: 'Leonardo partner model · Prompt adherence',
+  },
+  {
+    label: 'SDXL Lightning (ByteDance / 4-step)',
+    value: '@cf/bytedance/stable-diffusion-xl-lightning',
+    description: 'Ultra-fast 4-step SDXL variant',
+    format: 'json',
+    defaultSteps: 4,
+    maxSteps: 8,
+    neuronEstimate: 'ByteDance fast 4-step SDXL',
+  },
+  {
+    label: 'SDXL Base 1.0 (Stability AI)',
+    value: '@cf/stabilityai/stable-diffusion-xl-base-1.0',
+    description: 'Foundational Stable Diffusion XL model',
+    format: 'json',
+    defaultSteps: 20,
+    maxSteps: 50,
+    neuronEstimate: 'Stability AI foundational model',
+  },
+  {
+    label: 'DreamShaper 8 LCM (Photorealistic LCM)',
+    value: '@cf/lykon/dreamshaper-8-lcm',
+    description: 'Fine-tuned Stable Diffusion LCM with photorealistic styling',
+    format: 'json',
+    defaultSteps: 8,
+    maxSteps: 20,
+    neuronEstimate: 'Lykon DreamShaper Latent Consistency Model',
+  },
+] as const
+
+export function isCloudflareMultipartModel(model: string): boolean {
+  return model.includes('flux-2')
+}
+
+export function isCloudflareFixedStepsModel(model: string): boolean {
+  return model.includes('klein')
+}
+
+export function isCloudflareOmitDimensionsModel(model: string): boolean {
+  return model.includes('flux-1-schnell')
+}
+
+export function getCloudflareModelDefaultSteps(model: string): number {
+  if (isCloudflareFixedStepsModel(model))
+    return 4
+  const found = CLOUDFLARE_IMAGE_MODELS.find(m => m.value === model)
+  if (found?.defaultSteps)
+    return found.defaultSteps
+  if (model.includes('flux-1-schnell') || model.includes('lightning'))
+    return 4
+  if (model.includes('dreamshaper'))
+    return 8
+  if (model.includes('flux-2-dev') || model.includes('leonardo') || model.includes('stable-diffusion-xl-base'))
+    return 20
+  return 4
+}
+
 export const artistryGenerateHeadless = defineInvokeEventa<{ imageUrl?: string, base64?: string, error?: string }, { prompt: string, model?: string, provider?: string, options?: Record<string, any>, globals?: Record<string, any> }>('eventa:invoke:electron:artistry:generate-headless')
 
 export const artistryComfyHealthCheck = defineInvokeEventa<{ gpus: string, vramStr: string }, { url: string }>('eventa:invoke:electron:artistry:comfy-health-check')

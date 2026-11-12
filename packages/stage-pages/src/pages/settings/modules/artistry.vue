@@ -1,9 +1,20 @@
 <script setup lang="ts">
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { formatCorsProxyUrl, POLLINATIONS_DEFAULT_MODELS, REPLICATE_IMAGEGEN_PRESETS } from '@proj-airi/stage-shared'
+import {
+  CLOUDFLARE_IMAGE_DEFAULTS,
+  CLOUDFLARE_IMAGE_MODELS,
+  formatCorsProxyUrl,
+  getCloudflareModelDefaultSteps,
+  isCloudflareFixedStepsModel,
+  isCloudflareMultipartModel,
+  isCloudflareOmitDimensionsModel,
+  POLLINATIONS_DEFAULT_MODELS,
+  REPLICATE_IMAGEGEN_PRESETS,
+} from '@proj-airi/stage-shared'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
+import { useCloudflareStore } from '@proj-airi/stage-ui/stores/modules/cloudflare'
 import { Select } from '@proj-airi/ui/components/form'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref } from 'vue'
@@ -13,6 +24,7 @@ import { artistryGenerateHeadless } from '../../../../../../apps/stage-tamagotch
 
 const router = useRouter()
 const artistryStore = useArtistryStore()
+const cloudflareStore = useCloudflareStore()
 const backgroundStore = useBackgroundStore()
 const airiCardStore = useAiriCardStore()
 
@@ -33,6 +45,10 @@ const {
   openaiImageBaseUrl,
   openaiImageWidth,
   openaiImageHeight,
+  cloudflareImageModel,
+  cloudflareImageSteps,
+  cloudflareImageWidth,
+  cloudflareImageHeight,
 } = storeToRefs(artistryStore)
 
 const generateInvoke = useElectronEventaInvoke(artistryGenerateHeadless)
@@ -83,6 +99,15 @@ const providers = [
     description: 'Generate and edit images with native OpenAI Images API.',
     icon: 'i-solar:gallery-bold-duotone',
     configRoute: '/settings/providers/artistry/openai-image',
+  },
+  {
+    id: 'cloudflare',
+    name: 'Cloudflare Workers AI',
+    badge: '10,000 Free Daily Neurons',
+    badgeColor: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+    description: 'Free serverless FLUX, Leonardo, SDXL, and DreamShaper models.',
+    icon: 'i-simple-icons:cloudflare',
+    configRoute: '/settings/providers/artistry/cloudflare',
   },
   {
     id: 'none',
@@ -173,6 +198,54 @@ const openaiResolutionPreset = computed({
       if (w && h) {
         openaiImageWidth.value = w
         openaiImageHeight.value = h
+      }
+    }
+  },
+})
+
+// --- Cloudflare Workers AI Options ---
+const cloudflareModelOptions = computed(() => {
+  return CLOUDFLARE_IMAGE_MODELS.map(m => ({
+    label: m.label,
+    value: m.value,
+  }))
+})
+
+const cloudflareResolutionOptions = computed(() => {
+  const base = [
+    { label: 'Auto (Model Default / 1024×1024)', value: 'auto' },
+    { label: '1024 × 1024 (Square 1:1)', value: '1024x1024' },
+    { label: '1792 × 1024 (Landscape 16:9)', value: '1792x1024' },
+    { label: '1024 × 1792 (Portrait 9:16)', value: '1024x1792' },
+    { label: '1024 × 768 (Landscape 4:3)', value: '1024x768' },
+    { label: '768 × 1024 (Portrait 3:4)', value: '768x1024' },
+    { label: '512 × 512 (Fast Preview 1:1)', value: '512x512' },
+  ]
+  if (cloudflareImageWidth.value && cloudflareImageHeight.value) {
+    const key = `${cloudflareImageWidth.value}x${cloudflareImageHeight.value}`
+    if (!base.some(o => o.value === key)) {
+      base.push({ label: `${cloudflareImageWidth.value} × ${cloudflareImageHeight.value} (Custom)`, value: key })
+    }
+  }
+  return base
+})
+
+const cloudflareResolutionPreset = computed({
+  get: () => {
+    if (!cloudflareImageWidth.value && !cloudflareImageHeight.value)
+      return 'auto'
+    return `${cloudflareImageWidth.value}x${cloudflareImageHeight.value}`
+  },
+  set: (val: string) => {
+    if (val === 'auto') {
+      cloudflareImageWidth.value = ''
+      cloudflareImageHeight.value = ''
+    }
+    else {
+      const [w, h] = val.split('x')
+      if (w && h) {
+        cloudflareImageWidth.value = w
+        cloudflareImageHeight.value = h
       }
     }
   },
@@ -376,6 +449,138 @@ async function fetchDirectOpenAIImage(prompt: string, model: string, width?: num
   return { imageUrl, base64 }
 }
 
+async function fetchDirectCloudflareImage(prompt: string, model: string, width?: number, height?: number, steps?: number) {
+  const credentials = artistryStore.getEffectiveCloudflareCredentials()
+  const accountId = credentials.accountId
+  let apiToken = credentials.apiToken
+
+  if (!accountId || !apiToken) {
+    throw new Error('Cloudflare Account ID or API token is not configured. Please connect your account or enter credentials in Settings > Providers > Cloudflare Workers AI.')
+  }
+
+  const targetModel = model || cloudflareImageModel.value || CLOUDFLARE_IMAGE_DEFAULTS.model
+  const rawUrl = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${targetModel.replace(/^\/+/, '')}`
+  const url = formatCorsProxyUrl(rawUrl)
+
+  const isMultipart = isCloudflareMultipartModel(targetModel)
+  const isFixedSteps = isCloudflareFixedStepsModel(targetModel)
+  const resolvedSteps = isFixedSteps ? 4 : (steps || cloudflareImageSteps.value || getCloudflareModelDefaultSteps(targetModel))
+
+  const makeRequest = async (token: string) => {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+    }
+
+    let body: string | FormData
+    if (isMultipart) {
+      const form = new FormData()
+      form.append('prompt', prompt)
+      if (width)
+        form.append('width', String(width))
+      if (height)
+        form.append('height', String(height))
+      if (!isFixedSteps && resolvedSteps) {
+        form.append('steps', String(resolvedSteps))
+      }
+      body = form
+    }
+    else {
+      headers['Content-Type'] = 'application/json'
+      headers.Accept = 'application/json'
+      const payload: Record<string, any> = { prompt }
+      if (!isCloudflareOmitDimensionsModel(targetModel)) {
+        if (width)
+          payload.width = width
+        if (height)
+          payload.height = height
+      }
+      if (resolvedSteps) {
+        payload.steps = resolvedSteps
+        if (targetModel.includes('stable-diffusion') || targetModel.includes('sdxl')) {
+          payload.num_steps = resolvedSteps
+        }
+      }
+      body = JSON.stringify(payload)
+    }
+
+    return fetch(url, {
+      method: 'POST',
+      headers,
+      body,
+    })
+  }
+
+  let response = await makeRequest(apiToken)
+
+  // Transparent OAuth token refresh on 401
+  if (response.status === 401 && cloudflareStore.cfOAuthTokens?.refreshToken) {
+    try {
+      await cloudflareStore.refreshOAuthTokens()
+      if (cloudflareStore.activeAccessToken) {
+        apiToken = cloudflareStore.activeAccessToken
+        response = await makeRequest(apiToken)
+      }
+    }
+    catch {
+      // If refresh fails, fall through to reporting original response error
+    }
+  }
+
+  if (!response.ok) {
+    let errorDetail = ''
+    try {
+      const errorData = await response.json()
+      if (errorData?.errors?.length) {
+        errorDetail = errorData.errors.map((e: any) => e.message || e.code || JSON.stringify(e)).join('; ')
+      }
+      else if (errorData?.messages?.length) {
+        errorDetail = errorData.messages.join('; ')
+      }
+    }
+    catch {
+      try {
+        const text = await response.text()
+        if (text)
+          errorDetail = text.slice(0, 300)
+      }
+      catch {
+        // Fallback to HTTP status text
+      }
+    }
+    throw new Error(`Cloudflare Workers AI returned HTTP ${response.status}${errorDetail ? `: ${errorDetail}` : ` (${response.statusText})`}.`)
+  }
+
+  const contentType = response.headers.get('content-type') || ''
+  let imageUrl = ''
+  let base64 = ''
+
+  if (contentType.includes('application/json')) {
+    const json = await response.json()
+    if (!json.success && json.errors?.length) {
+      throw new Error(`Cloudflare Workers AI error: ${json.errors.map((e: any) => e.message || e.code).join('; ')}`)
+    }
+    const b64 = json.result?.image
+    if (!b64) {
+      throw new Error('Cloudflare Workers AI response did not contain an image.')
+    }
+    base64 = b64.replace(/^data:image\/[^;]+;base64,/, '')
+    imageUrl = b64.startsWith('data:image/') ? b64 : `data:image/png;base64,${b64}`
+  }
+  else {
+    const arrayBuffer = await response.arrayBuffer()
+    const bytes = new Uint8Array(arrayBuffer)
+    let binary = ''
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i])
+    }
+    base64 = btoa(binary)
+    const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png'
+    imageUrl = `data:${mime};base64,${base64}`
+  }
+
+  return { imageUrl, base64 }
+}
+
 // --- Live Generation Runner ---
 async function generatePreviewImage() {
   if (activeProvider.value === 'none') {
@@ -428,12 +633,22 @@ async function generatePreviewImage() {
       width = Number(openaiImageWidth.value) || 1024
       height = Number(openaiImageHeight.value) || 1024
     }
+    else if (providerId === 'cloudflare') {
+      modelId = cloudflareImageModel.value || CLOUDFLARE_IMAGE_DEFAULTS.model
+      width = Number(cloudflareImageWidth.value) || 1024
+      height = Number(cloudflareImageHeight.value) || 1024
+    }
 
     generationStatusLabel.value = `Dispatching to ${providerId.toUpperCase()}...`
 
-    // Direct Renderer Fetch for Web & DevTools Network Observability (OpenAI Image)
+    // Direct Renderer Fetch for Web & DevTools Network Observability (OpenAI Image & Cloudflare Workers AI)
     if (providerId === 'openai-image') {
       const directRes = await fetchDirectOpenAIImage(testPrompt.value, modelId, width, height)
+      resultImageUrl = directRes.imageUrl
+      resultBase64 = directRes.base64
+    }
+    else if (providerId === 'cloudflare') {
+      const directRes = await fetchDirectCloudflareImage(testPrompt.value, modelId, width, height, cloudflareImageSteps.value)
       resultImageUrl = directRes.imageUrl
       resultBase64 = directRes.base64
     }
@@ -773,6 +988,33 @@ onMounted(() => {
             </div>
             <div v-if="!openaiImageApiKey" class="rounded-lg bg-amber-500/10 p-2.5 text-[11px] text-amber-600 dark:text-amber-400">
               API key not configured. Click "Provider Settings & Keys" below to configure credentials.
+            </div>
+          </div>
+
+          <!-- Cloudflare Workers AI -->
+          <div v-else-if="activeProvider === 'cloudflare'" class="border-t border-neutral-100 pt-3 space-y-3 dark:border-neutral-800">
+            <div class="w-full flex flex-col gap-1.5">
+              <label class="text-xs text-neutral-600 font-medium dark:text-neutral-300">
+                Workers AI Model
+              </label>
+              <Select
+                v-model="cloudflareImageModel"
+                :options="cloudflareModelOptions"
+                class="w-full text-xs"
+              />
+            </div>
+            <div class="w-full flex flex-col gap-1.5">
+              <label class="text-xs text-neutral-600 font-medium dark:text-neutral-300">
+                Resolution & Aspect Ratio
+              </label>
+              <Select
+                v-model="cloudflareResolutionPreset"
+                :options="cloudflareResolutionOptions"
+                class="w-full text-xs"
+              />
+            </div>
+            <div v-if="!artistryStore.getEffectiveCloudflareCredentials().accountId || !artistryStore.getEffectiveCloudflareCredentials().apiToken" class="rounded-lg bg-amber-500/10 p-2.5 text-[11px] text-amber-600 dark:text-amber-400">
+              Cloudflare credentials not configured. Click "Provider Settings & Keys" below to connect your account or enter an API token.
             </div>
           </div>
 

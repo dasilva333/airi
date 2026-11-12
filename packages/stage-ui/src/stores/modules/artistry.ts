@@ -1,7 +1,9 @@
-import { OPENAI_IMAGE_DEFAULTS } from '@proj-airi/stage-shared'
+import { CLOUDFLARE_IMAGE_DEFAULTS, OPENAI_IMAGE_DEFAULTS } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
 import { computed, isRef } from 'vue'
+
+import { useCloudflareStore } from './cloudflare'
 
 export interface ComfyUIWorkflowTemplate {
   id: string
@@ -72,6 +74,42 @@ export const useArtistryStore = defineStore('artistry', () => {
   const openaiImageWidth = useLocalStorageManualReset<string>('artistry-openai-image-width', '')
   const openaiImageHeight = useLocalStorageManualReset<string>('artistry-openai-image-height', '')
 
+  // --- Cloudflare Workers AI image provider settings ---
+  const cloudflareAccountId = useLocalStorageManualReset<string>('artistry-cloudflare-account-id', '')
+  const cloudflareApiToken = useLocalStorageManualReset<string>('artistry-cloudflare-api-token', '')
+  const cloudflareImageModel = useLocalStorageManualReset<string>(
+    'artistry-cloudflare-image-model',
+    CLOUDFLARE_IMAGE_DEFAULTS.model,
+  )
+  const cloudflareImageSteps = useLocalStorageManualReset<number>(
+    'artistry-cloudflare-image-steps',
+    CLOUDFLARE_IMAGE_DEFAULTS.steps,
+  )
+  const cloudflareImageWidth = useLocalStorageManualReset<string>('artistry-cloudflare-image-width', '')
+  const cloudflareImageHeight = useLocalStorageManualReset<string>('artistry-cloudflare-image-height', '')
+
+  function getEffectiveCloudflareCredentials() {
+    let accountId = cloudflareAccountId.value.trim()
+    let apiToken = cloudflareApiToken.value.trim()
+
+    if (!accountId || !apiToken) {
+      try {
+        const cfStore = useCloudflareStore()
+        if (!accountId && cfStore.activeAccountId) {
+          accountId = cfStore.activeAccountId
+        }
+        if (!apiToken && cfStore.activeAccessToken) {
+          apiToken = cfStore.activeAccessToken
+        }
+      }
+      catch {
+        // useCloudflareStore might not be available in non-Vue/worker contexts
+      }
+    }
+
+    return { accountId, apiToken }
+  }
+
   // --- Pollinations AI provider settings ---
   const pollinationsApiKey = useLocalStorageManualReset<string>('artistry-pollinations-api-key', '')
   const pollinationsModel = useLocalStorageManualReset<string>('artistry-pollinations-model', '')
@@ -141,6 +179,12 @@ export const useArtistryStore = defineStore('artistry', () => {
     openaiImageModel.reset()
     openaiImageWidth.reset()
     openaiImageHeight.reset()
+    cloudflareAccountId.reset()
+    cloudflareApiToken.reset()
+    cloudflareImageModel.reset()
+    cloudflareImageSteps.reset()
+    cloudflareImageWidth.reset()
+    cloudflareImageHeight.reset()
     pollinationsApiKey.reset()
     pollinationsModel.reset()
     pollinationsWidth.reset()
@@ -168,6 +212,11 @@ export const useArtistryStore = defineStore('artistry', () => {
       return !!openaiImageApiKey.value.trim() && !!openaiImageBaseUrl.value.trim() && !!openaiImageModel.value.trim()
     }
 
+    if (activeProvider.value === 'cloudflare') {
+      const { accountId, apiToken } = getEffectiveCloudflareCredentials()
+      return Boolean(accountId && apiToken)
+    }
+
     if (activeProvider.value === 'pollinations') {
       return true
     }
@@ -191,6 +240,14 @@ export const useArtistryStore = defineStore('artistry', () => {
     openaiImageModel: openaiImageModel.value,
     openaiImageWidth: openaiImageWidth.value,
     openaiImageHeight: openaiImageHeight.value,
+    cloudflareAccountId: cloudflareAccountId.value,
+    cloudflareApiToken: cloudflareApiToken.value,
+    cloudflareEffectiveAccountId: getEffectiveCloudflareCredentials().accountId,
+    cloudflareEffectiveApiToken: getEffectiveCloudflareCredentials().apiToken,
+    cloudflareImageModel: cloudflareImageModel.value,
+    cloudflareImageSteps: cloudflareImageSteps.value,
+    cloudflareImageWidth: cloudflareImageWidth.value,
+    cloudflareImageHeight: cloudflareImageHeight.value,
     pollinationsApiKey: pollinationsApiKey.value,
     pollinationsModel: pollinationsModel.value,
     pollinationsWidth: pollinationsWidth.value,
@@ -228,6 +285,15 @@ export const useArtistryStore = defineStore('artistry', () => {
     openaiImageModel,
     openaiImageWidth,
     openaiImageHeight,
+
+    // Cloudflare Workers AI provider config
+    cloudflareAccountId,
+    cloudflareApiToken,
+    cloudflareImageModel,
+    cloudflareImageSteps,
+    cloudflareImageWidth,
+    cloudflareImageHeight,
+    getEffectiveCloudflareCredentials,
 
     // Pollinations AI provider config
     pollinationsApiKey,

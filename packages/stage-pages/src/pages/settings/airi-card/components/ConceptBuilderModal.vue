@@ -385,6 +385,7 @@ const providerOptions = [
   { value: 'inherit', label: 'Inherit Global' },
   { value: 'pollinations', label: 'Pollinations AI' },
   { value: 'openai-image', label: 'OpenAI GPT Image' },
+  { value: 'cloudflare', label: 'Cloudflare Workers AI' },
   { value: 'replicate', label: 'Replicate' },
   { value: 'comfyui', label: 'ComfyUI' },
   { value: 'none', label: 'Disable Artistry' },

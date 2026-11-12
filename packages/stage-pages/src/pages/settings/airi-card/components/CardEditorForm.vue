@@ -529,6 +529,7 @@ const artistryProviderOptions = computed(() => {
     { value: 'nanobanana', label: 'Nano Banana (Google AI Studio)' },
     { value: 'replicate', label: 'Replicate (Cloud)' },
     { value: 'openai-image', label: 'OpenAI GPT Image (Cloud)' },
+    { value: 'cloudflare', label: 'Cloudflare Workers AI (Free)' },
   ]
 })
 
