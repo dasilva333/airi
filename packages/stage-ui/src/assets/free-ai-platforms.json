@@ -1,4 +1,15 @@
 {
+  "aclide": {
+    "id": "aclide",
+    "name": "aclide",
+    "baseUrl": "https://api.aclide.ai/v1",
+    "signupUrl": "https://aclide.com/en/dashboard/api-keys",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "shared monthly credits"
+  },
   "agnes": {
     "id": "agnes",
     "name": "Agnes AI",
@@ -54,6 +65,17 @@
     "timeoutMs": null,
     "note": "daily free requests; 1 per minute"
   },
+  "aisense": {
+    "id": "aisense",
+    "name": "AI SENSE",
+    "baseUrl": "https://api.aisense.ai/v1",
+    "signupUrl": "https://www.aisense.no/free-public-api-decide-api-endpoint",
+    "keyless": true,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "keyless decisions"
+  },
   "anyapi": {
     "id": "anyapi",
     "name": "AnyAPI",
@@ -64,6 +86,17 @@
     "extraHeaders": null,
     "timeoutMs": null,
     "note": "free key"
+  },
+  "apinex": {
+    "id": "apinex",
+    "name": "apinex",
+    "baseUrl": "https://api.apinex.ai/v1",
+    "signupUrl": "https://apinex.bond/keys",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "shared daily free chat and decisions"
   },
   "bai": {
     "id": "bai",
@@ -87,6 +120,17 @@
     "timeoutMs": null,
     "note": "free key"
   },
+  "beatapi": {
+    "id": "beatapi",
+    "name": "beatapi",
+    "baseUrl": "https://api.beatapi.ai/v1",
+    "signupUrl": "https://beatapi.io",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "JEV decisions; temporary free offer"
+  },
   "blaze": {
     "id": "blaze",
     "name": "BlazeAPI",
@@ -97,6 +141,28 @@
     "extraHeaders": null,
     "timeoutMs": null,
     "note": "daily free tokens; Discord verification"
+  },
+  "blockrun": {
+    "id": "blockrun",
+    "name": "blockrun",
+    "baseUrl": "https://api.blockrun.ai/v1",
+    "signupUrl": "https://user.blockrun.ai/dashboard/keys",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "zero-priced models"
+  },
+  "brave": {
+    "id": "brave",
+    "name": "brave",
+    "baseUrl": "https://api.brave.ai/v1",
+    "signupUrl": "https://brave.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": null
   },
   "cerebras": {
     "id": "cerebras",
@@ -113,7 +179,7 @@
     "id": "clod",
     "name": "CLōD",
     "baseUrl": "https://api.clod.io/v1",
-    "signupUrl": "https://newapp.clod.io",
+    "signupUrl": "https://app.clod.io",
     "keyless": false,
     "validateUrl": null,
     "extraHeaders": null,
@@ -142,6 +208,17 @@
     "timeoutMs": null,
     "note": null
   },
+  "decision-only": {
+    "id": "decision-only",
+    "name": "decision-only",
+    "baseUrl": "https://api.decision-only.ai/v1",
+    "signupUrl": "https://decision-only.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": null
+  },
   "dreamprompting": {
     "id": "dreamprompting",
     "name": "DreamPrompting",
@@ -164,6 +241,17 @@
     "timeoutMs": null,
     "note": "shared weekly credits"
   },
+  "exa": {
+    "id": "exa",
+    "name": "exa",
+    "baseUrl": "https://api.exa.ai/v1",
+    "signupUrl": "https://exa.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": null
+  },
   "experiential": {
     "id": "experiential",
     "name": "Experiential Labs",
@@ -175,16 +263,71 @@
     "timeoutMs": null,
     "note": "shared monthly credits"
   },
-  "github": {
-    "id": "github",
-    "name": "GitHub Models",
-    "baseUrl": "https://models.github.ai/inference",
-    "signupUrl": "https://github.com/settings/tokens",
+  "firecrawl": {
+    "id": "firecrawl",
+    "name": "firecrawl",
+    "baseUrl": "https://api.firecrawl.ai/v1",
+    "signupUrl": "https://firecrawl.ai",
     "keyless": false,
     "validateUrl": null,
     "extraHeaders": null,
     "timeoutMs": null,
     "note": null
+  },
+  "freeai": {
+    "id": "freeai",
+    "name": "freeai",
+    "baseUrl": "https://api.freeai.ai/v1",
+    "signupUrl": "https://free.ai/account/#api-keys",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "shared free speech / transcription quota"
+  },
+  "freeinference": {
+    "id": "freeinference",
+    "name": "freeinference",
+    "baseUrl": "https://api.freeinference.ai/v1",
+    "signupUrl": "https://freeinference.org",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "research; requests logged"
+  },
+  "freemodel": {
+    "id": "freemodel",
+    "name": "freemodel",
+    "baseUrl": "https://api.freemodel.ai/v1",
+    "signupUrl": "https://freemodel.in/dashboard",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "monthly allowance; Telegram verification"
+  },
+  "freetts": {
+    "id": "freetts",
+    "name": "freetts",
+    "baseUrl": "https://api.freetts.ai/v1",
+    "signupUrl": "https://freetts.org/dashboard?section=api-keys",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "personal use only; watermarked TTS"
+  },
+  "gizmo": {
+    "id": "gizmo",
+    "name": "gizmo",
+    "baseUrl": "https://api.gizmo.ai/v1",
+    "signupUrl": "https://gizmoplatforms.com/developers",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "monthly free-model requests"
   },
   "google": {
     "id": "google",
@@ -208,6 +351,17 @@
     "timeoutMs": null,
     "note": null
   },
+  "halx": {
+    "id": "halx",
+    "name": "HAL-X",
+    "baseUrl": "https://api.halx.ai/v1",
+    "signupUrl": "https://hal-x.ai",
+    "keyless": true,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "keyless decisions"
+  },
   "huggingface": {
     "id": "huggingface",
     "name": "HuggingFace Router",
@@ -218,6 +372,61 @@
     "extraHeaders": null,
     "timeoutMs": null,
     "note": null
+  },
+  "inferbase": {
+    "id": "inferbase",
+    "name": "inferbase",
+    "baseUrl": "https://api.inferbase.ai/v1",
+    "signupUrl": "https://inferbase.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "shared monthly and daily allowance"
+  },
+  "iteracompute": {
+    "id": "iteracompute",
+    "name": "iteracompute",
+    "baseUrl": "https://api.iteracompute.ai/v1",
+    "signupUrl": "https://iteracompute.com/free/",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "30M free tokens / month, shared"
+  },
+  "jamai": {
+    "id": "jamai",
+    "name": "jamai",
+    "baseUrl": "https://api.jamai.ai/v1",
+    "signupUrl": "https://cloud.jamaibase.com",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "monthly ELLM allowance"
+  },
+  "keenable": {
+    "id": "keenable",
+    "name": "keenable",
+    "baseUrl": "https://api.keenable.ai/v1",
+    "signupUrl": "https://keenable.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": null
+  },
+  "kenari": {
+    "id": "kenari",
+    "name": "kenari",
+    "baseUrl": "https://api.kenari.ai/v1",
+    "signupUrl": "https://kenari.id",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "shared daily free chat and images"
   },
   "kilo": {
     "id": "kilo",
@@ -230,6 +439,28 @@
     "timeoutMs": null,
     "note": "no key needed"
   },
+  "kiosapi": {
+    "id": "kiosapi",
+    "name": "kiosapi",
+    "baseUrl": "https://api.kiosapi.ai/v1",
+    "signupUrl": "https://kiosapi.id/dashboard/keys",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "shared daily free chat"
+  },
+  "linkup": {
+    "id": "linkup",
+    "name": "linkup",
+    "baseUrl": "https://api.linkup.ai/v1",
+    "signupUrl": "https://linkup.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": null
+  },
   "llm7": {
     "id": "llm7",
     "name": "LLM7",
@@ -240,6 +471,17 @@
     "extraHeaders": null,
     "timeoutMs": null,
     "note": "anon ok"
+  },
+  "llmtr": {
+    "id": "llmtr",
+    "name": "llmtr",
+    "baseUrl": "https://api.llmtr.ai/v1",
+    "signupUrl": "https://llmtr.com",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "daily free-model quotas"
   },
   "logfare": {
     "id": "logfare",
@@ -296,6 +538,28 @@
     "timeoutMs": null,
     "note": "free key, needs Aliyun cn binding"
   },
+  "moondream": {
+    "id": "moondream",
+    "name": "moondream",
+    "baseUrl": "https://api.moondream.ai/v1",
+    "signupUrl": "https://moondream.ai/c/cloud/api-keys",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "$5 shared monthly credits"
+  },
+  "nabh": {
+    "id": "nabh",
+    "name": "nabh",
+    "baseUrl": "https://api.nabh.ai/v1",
+    "signupUrl": "https://app.nabh.cloud",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "50 shared monthly credits"
+  },
   "nara": {
     "id": "nara",
     "name": "NaraRouter",
@@ -320,6 +584,17 @@
     "timeoutMs": null,
     "note": "free key"
   },
+  "novai": {
+    "id": "novai",
+    "name": "novai",
+    "baseUrl": "https://api.novai.ai/v1",
+    "signupUrl": "https://aiapi-pro.com",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "daily free chat + video quota"
+  },
   "nvidia": {
     "id": "nvidia",
     "name": "NVIDIA NIM",
@@ -341,6 +616,17 @@
     "extraHeaders": null,
     "timeoutMs": 120000,
     "note": null
+  },
+  "onomeo": {
+    "id": "onomeo",
+    "name": "onomeo",
+    "baseUrl": "https://api.onomeo.ai/v1",
+    "signupUrl": "https://onomeo.com/dashboard",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "30 free calls / 5 hours, shared"
   },
   "opencode": {
     "id": "opencode",
@@ -378,6 +664,17 @@
     "timeoutMs": null,
     "note": "free key"
   },
+  "outcrawl": {
+    "id": "outcrawl",
+    "name": "outcrawl",
+    "baseUrl": "https://api.outcrawl.ai/v1",
+    "signupUrl": "https://outcrawl.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": null
+  },
   "ovh": {
     "id": "ovh",
     "name": "OVH AI Endpoints",
@@ -389,6 +686,28 @@
     "timeoutMs": null,
     "note": "no key needed"
   },
+  "parallel": {
+    "id": "parallel",
+    "name": "parallel",
+    "baseUrl": "https://api.parallel.ai/v1",
+    "signupUrl": "https://parallel.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": null
+  },
+  "plugsky": {
+    "id": "plugsky",
+    "name": "plugsky",
+    "baseUrl": "https://api.plugsky.ai/v1",
+    "signupUrl": "https://plugsky.com/dashboard",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "free chat aliases"
+  },
   "pollinations": {
     "id": "pollinations",
     "name": "Pollinations",
@@ -399,6 +718,17 @@
     "extraHeaders": null,
     "timeoutMs": null,
     "note": null
+  },
+  "powertokens": {
+    "id": "powertokens",
+    "name": "PowerTokens",
+    "baseUrl": "https://api.powertokens.ai/v1",
+    "signupUrl": "https://www.powertokens.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "free: glm-4.7-flash"
   },
   "qianfan": {
     "id": "qianfan",
@@ -443,6 +773,17 @@
     "extraHeaders": null,
     "timeoutMs": null,
     "note": "free key"
+  },
+  "rime": {
+    "id": "rime",
+    "name": "rime",
+    "baseUrl": "https://api.rime.ai/v1",
+    "signupUrl": "https://app.rime.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "shared monthly TTS / transcription credits"
   },
   "router9": {
     "id": "router9",
@@ -501,6 +842,17 @@
     "timeoutMs": null,
     "note": "daily free-model quota"
   },
+  "serpsearch": {
+    "id": "serpsearch",
+    "name": "serpsearch",
+    "baseUrl": "https://api.serpsearch.ai/v1",
+    "signupUrl": "https://serpsearch.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": null
+  },
   "siliconflow": {
     "id": "siliconflow",
     "name": "SiliconFlow",
@@ -511,6 +863,17 @@
     "extraHeaders": null,
     "timeoutMs": null,
     "note": "image + TTS"
+  },
+  "simplellm": {
+    "id": "simplellm",
+    "name": "simplellm",
+    "baseUrl": "https://api.simplellm.ai/v1",
+    "signupUrl": "https://app.simplellm.eu",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "shared hourly and daily free quota"
   },
   "speechify": {
     "id": "speechify",
@@ -523,6 +886,39 @@
     "timeoutMs": null,
     "note": "monthly free TTS characters"
   },
+  "speka": {
+    "id": "speka",
+    "name": "speka",
+    "baseUrl": "https://api.speka.ai/v1",
+    "signupUrl": "https://speka.me/dashboard/keys",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "$1 shared monthly credits"
+  },
+  "tavily": {
+    "id": "tavily",
+    "name": "tavily",
+    "baseUrl": "https://api.tavily.ai/v1",
+    "signupUrl": "https://tavily.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": null
+  },
+  "typhoon": {
+    "id": "typhoon",
+    "name": "typhoon",
+    "baseUrl": "https://api.typhoon.ai/v1",
+    "signupUrl": "https://playground.opentyphoon.ai",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "free research API"
+  },
   "unorouter": {
     "id": "unorouter",
     "name": "UnoRouter",
@@ -533,6 +929,17 @@
     "extraHeaders": null,
     "timeoutMs": null,
     "note": "free key"
+  },
+  "varosity": {
+    "id": "varosity",
+    "name": "varosity",
+    "baseUrl": "https://api.varosity.ai/v1",
+    "signupUrl": "https://varosity.ai/app/keys/api-keys",
+    "keyless": false,
+    "validateUrl": null,
+    "extraHeaders": null,
+    "timeoutMs": null,
+    "note": "one-time $1.50 starter credit"
   },
   "volcengine": {
     "id": "volcengine",
