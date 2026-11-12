@@ -394,7 +394,7 @@ function resetStats() {
 onMounted(() => {
   if (window.electron?.ipcRenderer) {
     const handleSetGroup = (_event: any, group: string) => {
-      if (CUSTOMIZER_CATALOG.some(g => g.id === group)) {
+      if (CUSTOMIZER_CATALOG.some(g => g.id === group) || group === 'stats' || group === 'preview') {
         activeGroupId.value = group
       }
     }
