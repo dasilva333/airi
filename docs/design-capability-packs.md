@@ -190,6 +190,11 @@ The initial naive roadmap envisioned computer use as a simple 1-line entry in `m
    - *Upstream Architecture*: Resolves binary paths dynamically to `app.asar.unpacked` when packaged, configured via `electron-builder.config.ts`.
 6. **Injeca DI Container Encapsulation (Fork Invariant)**:
    - Upstream hardwired `setupComputerUse` directly into `main/index.ts`. In our fork (`dasilva333/airi`), all Electron main services must be encapsulated as modular `injeca` services (`defineService`) and cleanly decoupled between `RendererStage` and `ControlStrip`.
+7. **Host Integration, Terminal Approvals & Context Compaction (Upstream PR #3496 Lessons)**:
+   - *Community Milestone*: In Upstream Draft PR [#3496](https://github.com/moeru-ai/airi/pull/3496) (`feat: integrate computer-use MCP, terminal approval, and conversation compact`), `@3361559784` consolidated 59 commits across 167 files (+16,813 / -503 lines), addressing three critical execution requirements:
+     - **Extended Computer-Use MCP & AUV Paths**: Standardizes tool invocations across both generic MCP stdio channels and native AUV host daemons.
+     - **Terminal Approvals / Human-in-the-Loop (HITL)**: Before terminal commands execute, host/renderer flows surface explicit confirmation/approval prompts, preventing autonomous run-away shell operations.
+     - **Conversation Compact Handling**: Multi-turn computer-use automation cycles rapidly exhaust LLM context windows. Introduces conversation compaction handling in the core agent runtime to condense intermediate tool executions while maintaining task focus.
 
 ##### macOS Permission Boundaries & Current Fork Status
 A key point of confusion in desktop automation is the distinction between display perception and synthetic input:
