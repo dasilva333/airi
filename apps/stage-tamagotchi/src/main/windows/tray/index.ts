@@ -17,6 +17,7 @@ import {
   electronOpenSettings,
   electronTrayPopoverClose,
   electronTrayPopoverGetPinState,
+  electronTrayPopoverSetCollapsed,
   electronTrayPopoverTogglePin,
 } from '../../../shared/eventa'
 import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
@@ -26,6 +27,7 @@ import { setupBaseWindowElectronInvokes, transparentWindowConfig } from '../shar
 
 export const TRAY_WINDOW_WIDTH = 420
 export const TRAY_WINDOW_HEIGHT = 620
+export const TRAY_WINDOW_HEIGHT_COLLAPSED = 525
 
 export interface TrayWindowManager {
   getWindow: () => Promise<ElectronBrowserWindow>
@@ -112,6 +114,7 @@ export function setupTrayWindowManager(params: {
   settingsWindow?: SettingsWindowManager
 }): TrayWindowManager {
   let isPinned = false
+  let isCollapsed = false
   let currentWindow: ElectronBrowserWindow | undefined
 
   const reusable = createReusableWindow(async () => {
@@ -139,6 +142,24 @@ export function setupTrayWindowManager(params: {
 
     defineInvokeHandler(context, electronTrayPopoverGetPinState, () => isPinned)
 
+    defineInvokeHandler(context, electronTrayPopoverSetCollapsed, (payload) => {
+      isCollapsed = Boolean(payload?.collapsed)
+      if (window && !window.isDestroyed()) {
+        const bounds = window.getBounds()
+        const targetHeight = isCollapsed ? TRAY_WINDOW_HEIGHT_COLLAPSED : TRAY_WINDOW_HEIGHT
+        const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y })
+        const isTaskbarBottom = !isMacOS && display.workArea.y === 0 && display.workArea.height < display.bounds.height
+        const deltaY = isTaskbarBottom ? bounds.height - targetHeight : 0
+        console.log(`[TrayWindow] setCollapsed: collapsed=${isCollapsed}, bounds=(${bounds.x}, ${bounds.y + deltaY}, ${bounds.width}, ${targetHeight})`)
+        window.setBounds({
+          x: bounds.x,
+          y: bounds.y + deltaY,
+          width: bounds.width,
+          height: targetHeight,
+        }, false)
+      }
+    })
+
     defineInvokeHandler(context, electronTrayPopoverClose, () => {
       if (window && !window.isDestroyed()) {
         window.hide()
@@ -164,9 +185,24 @@ export function setupTrayWindowManager(params: {
 
   const show = async (bounds?: Rectangle) => {
     const window = await reusable.getWindow()
+    const targetHeight = isCollapsed ? TRAY_WINDOW_HEIGHT_COLLAPSED : TRAY_WINDOW_HEIGHT
     if (bounds) {
-      const pos = calculatePopoverPosition(bounds, { width: TRAY_WINDOW_WIDTH, height: TRAY_WINDOW_HEIGHT })
-      window.setPosition(pos.x, pos.y, false)
+      const pos = calculatePopoverPosition(bounds, { width: TRAY_WINDOW_WIDTH, height: targetHeight })
+      window.setBounds({
+        x: pos.x,
+        y: pos.y,
+        width: TRAY_WINDOW_WIDTH,
+        height: targetHeight,
+      }, false)
+    }
+    else {
+      const currentBounds = window.getBounds()
+      if (currentBounds.height !== targetHeight) {
+        window.setBounds({
+          ...currentBounds,
+          height: targetHeight,
+        }, false)
+      }
     }
     window.show()
     window.focus()

@@ -88,6 +88,7 @@ export const electronEnsureBeatSync = defineInvokeEventa<void, void>('eventa:inv
 export const electronTrayPopoverTogglePin = defineInvokeEventa<boolean, boolean | undefined>('eventa:invoke:electron:windows:tray:toggle-pin')
 export const electronTrayPopoverGetPinState = defineInvokeEventa<boolean>('eventa:invoke:electron:windows:tray:get-pin-state')
 export const electronTrayPopoverClose = defineInvokeEventa<void>('eventa:invoke:electron:windows:tray:close')
+export const electronTrayPopoverSetCollapsed = defineInvokeEventa<void, { collapsed: boolean }>('eventa:invoke:electron:windows:tray:set-collapsed')
 
 export interface StageMateEnsureModelPayload {
   modelId: string
