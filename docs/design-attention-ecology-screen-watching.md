@@ -625,7 +625,19 @@ The final structured payload injected into the Character LLM prompt follows this
 
 1. **Crop Dimension Clamping**: Tesseract WASM execution time scales superlinearly with image dimensions. When cropping spatial candidates, width MUST be clamped to $\le 600\text{px}$ and height to $\le 140\text{px}$. Giant desktop containers ($>10\%$ screen area) must be deprioritized to the end of the OCR queue.
 2. **WASM LSTM Pre-Warming**: Tesseract's Leptonica and LSTM recognition pipeline incurs a 300–500ms one-time initialization penalty upon its first recognize call. Pre-warming the worker with a blank $32\times 32$ canvas during initialization keeps runtime stopwatch budgets accurate.
-3. **Background Ticking Discipline**: While the manual Attention Lab runs on developer button triggers, background perception in the runtime loop (`useScreenWatcherStore`) must gate Phase 1 behind Stage 0 (aHash / pHash delta). If the desktop is idle or static, no WASM passes are executed.
+3. **Stage 0/1 Pre-Gating Discipline**: While the manual Attention Lab runs on developer button triggers, continuous background perception (both `useScreenWatcherStore` and the `saccade-observer.ts` CLI loop) must gate Phase 1 behind **Stage 0 (pHash delta)** and **Stage 1 (CLIP cosine novelty)**. If the desktop is static or low-novelty, no Mirage or OCR WASM passes are executed.
+4. **Shared Modular Primitives (`@proj-airi/stage-ui/libs/attention`)**: All 4 pipeline phases are implemented once as pure functional primitives in `packages/stage-ui/src/libs/attention/` (`decomposeMacroFrame`, `runBudgetedMicroOcr`, `triageSystemOne`, `computeFovealCropRect`, `assembleObservationPayload`) and shared across the Attention Lab GUI, the CLI harness (`pnpm test:attention:saccade`), and the production `useScreenWatcherStore`.
+5. **Single-Pass Batched Multi-Question System-1 Triage**: `triageSystemOne()` accepts a `TripwireQuestion[]` array (supporting both `Auto` multi-question mode and single-preset focus). All active questions are evaluated as parallel `noul` heads alongside the `focal_candidate` `choice` head in a single ~100–150ms System-1 forward pass, with automatic local keyword fallback when no System-1 provider is configured.
+
+### 16.4 Saccade & Foveal CLI Observer (`pnpm test:attention:saccade`)
+
+For headless benchmarking and rapid pipeline debugging without Electron UI overhead, `scripts/tests/attention-ecology-harness/saccade-observer.ts` runs the full Stage 0/1 + 4-Phase Saccade & Foveal pipeline in the terminal with live ASCII spatial bounding-box maps, per-phase latency breakdowns, and `[REAL-TIME SCREEN OBSERVATION]` payloads:
+- `g` — Toggle Stage 0/1 (pHash + CLIP) pre-gate (`ON` / `OFF`)
+- `r` — Cycle Phase 1 Mirage Macro resolution (`Native` | `Medium 768px` | `Low 384px`)
+- `b` — Cycle Phase 2 Micro-OCR budget (`Low 1000ms` | `Medium 2500ms` | `High 5000ms`)
+- `q` — Cycle Phase 3 Tripwire mode (`Auto (All 4)` | `Video` | `Error` | `Chat` | `Novelty`)
+- `l` — Toggle Phase 4/5 LLM commentary (`OFF` by default / `ON`)
+- `Space` — Force-run a full tick immediately (bypassing Stage 0/1 gate)
 
 ---
 

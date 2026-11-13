@@ -32,8 +32,17 @@ export interface VerifiedCandidate extends SpatialCandidate {
   cropDataUrl?: string
 }
 
+export interface TripwireQuestion {
+  id: string
+  label: string
+  question: string
+  sensitivity?: number
+}
+
 export interface System1TriageResult {
   winningCandidate: VerifiedCandidate | SpatialCandidate | null
+  matchedQuestion?: TripwireQuestion
+  questionScores?: Record<string, number>
   triggered: boolean
   triggerConfidence: number
   triageReason: string
@@ -50,7 +59,7 @@ export interface FovealCropRect {
 
 export interface ObservationPayloadInput {
   windowTitle?: string
-  question: string
+  question?: string
   triage: System1TriageResult
   fovealDimensions?: { width: number, height: number }
   fovealSceneDescription: string

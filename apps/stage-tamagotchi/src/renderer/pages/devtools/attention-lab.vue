@@ -6,12 +6,13 @@ import type { SourcesOptions } from 'electron'
 
 import { useElectronScreenCapture } from '@proj-airi/electron-screen-capture/vue'
 import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
-import { computeFovealCropRect, decomposeMacroFrame, sortCandidatesForOcr } from '@proj-airi/stage-ui/libs/attention'
+import { computeFovealCropRect, computeLocalTripwireScore, decomposeMacroFrame, sortCandidatesForOcr, triageSystemOne, TRIPWIRE_PRESETS } from '@proj-airi/stage-ui/libs/attention'
 import { getMirageClient } from '@proj-airi/stage-ui/libs/inference'
 import { useLLM } from '@proj-airi/stage-ui/stores/llm'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
+import { useSystemOneStore } from '@proj-airi/stage-ui/stores/modules/system-one'
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { Button, FieldCheckbox, FieldInput, FieldSelect, Select, SelectTab } from '@proj-airi/ui'
@@ -539,28 +540,8 @@ export interface FinalPayloadBundle {
   fovealCropUrl?: string
 }
 
-const tripwirePresets = [
-  {
-    label: 'Video / Stream Watching',
-    question: 'Did the user start watching a notable video, live stream, or music release?',
-    sensitivity: 70,
-  },
-  {
-    label: 'Compiler / Build Error',
-    question: 'Did the user encounter a compiler error, broken build, failing test run, or terminal exception?',
-    sensitivity: 80,
-  },
-  {
-    label: 'Direct Messaging / Chat',
-    question: 'Is the user messaging, chatting, or collaborating with a friend or colleague?',
-    sensitivity: 75,
-  },
-  {
-    label: 'Novelty & Social Events',
-    question: 'Did a notable, unexpected, or socially meaningful event occur on screen that warrants conversation?',
-    sensitivity: 75,
-  },
-]
+const systemOneStore = useSystemOneStore()
+const tripwirePresets = TRIPWIRE_PRESETS
 
 const activeTripwirePresetIndex = ref(0)
 const customTripwireQuestion = ref('')
@@ -585,51 +566,6 @@ const fovealMirageDescription = ref<string | null>(null)
 const fovealMirageResult = ref<MirageAnalysisResult | null>(null)
 const finalPayload = ref<FinalPayloadBundle | null>(null)
 
-function computeLocalTripwireScore(text: string, question: string, tags: string[]): number {
-  const t = text.toLowerCase()
-  const q = question.toLowerCase()
-  let score = 15
-
-  // Video / streaming / music
-  if (q.includes('video') || q.includes('stream') || q.includes('music') || q.includes('watch')) {
-    if (t.includes('youtube') || tags.includes('#tripwire:youtube') || t.includes('video') || t.includes('watch') || t.includes('subscribe'))
-      score = 96
-    else if (t.includes('gemini') || t.includes('carbon') || t.includes('insane') || t.includes('podcast'))
-      score = 92
-    else if (t.includes('play') || t.includes('audio') || t.includes('song'))
-      score = 85
-    else if (t.includes('entire screen') || t.includes('tue nov'))
-      score = 8
-  }
-  // Compiler / build / exception
-  else if (q.includes('error') || q.includes('compiler') || q.includes('build') || q.includes('fail') || q.includes('exception')) {
-    if (t.includes('error') || t.includes('fail') || t.includes('exception') || t.includes('fatal') || t.includes('syntaxerror'))
-      score = 98
-    else if (t.includes('terminal') || t.includes('warn') || t.includes('panic'))
-      score = 85
-    else
-      score = 10
-  }
-  // Chat / messaging
-  else if (q.includes('message') || q.includes('chat') || q.includes('collaborat')) {
-    if (t.includes('discord') || t.includes('slack') || t.includes('telegram') || t.includes('chat') || t.includes('message'))
-      score = 95
-    else if (t.includes('reply') || t.includes('typing') || t.includes('send'))
-      score = 85
-    else
-      score = 12
-  }
-  // Novelty / Social
-  else {
-    if (t.length > 25)
-      score = 78
-    else if (t.length > 5)
-      score = 65
-  }
-
-  return score
-}
-
 async function runSystemOneTriage() {
   const candidatePool = finalVerifiedCandidates.value.length > 0
     ? finalVerifiedCandidates.value
@@ -643,32 +579,55 @@ async function runSystemOneTriage() {
   isEvaluatingStep2.value = true
   step2Error.value = null
   step2ProgressText.value = 'Evaluating candidates against active sentinel tripwire...'
-  const t0 = performance.now()
 
   try {
     const activeQuestion = customTripwireQuestion.value.trim()
       || tripwirePresets[activeTripwirePresetIndex.value]?.question
       || 'Did a notable, unexpected, or socially meaningful event occur on screen?'
 
-    const scores: CandidateScoreResult[] = []
+    const triage = await triageSystemOne({
+      verifiedCandidates: finalVerifiedCandidates.value as any,
+      allCandidates: candidates.value,
+      questions: [{
+        id: 'active',
+        label: 'Active Tripwire',
+        question: activeQuestion,
+        sensitivity: tripwireSensitivity.value / 100,
+      }],
+      sensitivityThreshold: tripwireSensitivity.value / 100,
+      executeSystemOne: systemOneStore.configured
+        ? (state, schema) => systemOneStore.execute(state, schema)
+        : undefined,
+    })
 
-    for (const cand of candidatePool) {
+    const scores: CandidateScoreResult[] = candidatePool.map((cand) => {
       const text = ('ocrText' in cand ? cand.ocrText : cand.textSnippet) || cand.label
-      const score = computeLocalTripwireScore(text, activeQuestion, cand.tags)
+      const isTriageWinner = triage.winningCandidate?.id === cand.id
+      const score = isTriageWinner && !triage.usedFallback
+        ? Math.round(triage.triggerConfidence * 100)
+        : Math.round(computeLocalTripwireScore(text, activeQuestion, cand.tags) * 100)
       const passed = score >= tripwireSensitivity.value
 
-      scores.push({
+      return {
         candidate: cand,
         score,
         passed,
-        rationale: passed
-          ? `Matched tripwire interest pattern (${score}% >= ${tripwireSensitivity.value}%)`
-          : `Below sensitivity threshold (${score}% < ${tripwireSensitivity.value}%)`,
-        isWinner: false,
-      })
-    }
+        rationale: isTriageWinner && !triage.usedFallback
+          ? triage.triageReason
+          : passed
+            ? `Matched tripwire interest pattern (${score}% >= ${tripwireSensitivity.value}%)`
+            : `Below sensitivity threshold (${score}% < ${tripwireSensitivity.value}%)`,
+        isWinner: isTriageWinner,
+      }
+    })
 
-    scores.sort((a, b) => b.score - a.score)
+    scores.sort((a, b) => {
+      if (a.isWinner && !b.isWinner)
+        return -1
+      if (!a.isWinner && b.isWinner)
+        return 1
+      return b.score - a.score
+    })
 
     if (scores.length > 0) {
       scores[0].isWinner = true
@@ -676,7 +635,7 @@ async function runSystemOneTriage() {
       activeBox.value = scores[0].candidate.box
     }
     candidateScores.value = scores
-    const triageMs = Math.round(performance.now() - t0)
+    const triageMs = triage.latencyMs
 
     const winner = scores[0]
     if (!winner || !winner.candidate) {

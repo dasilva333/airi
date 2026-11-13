@@ -39,9 +39,11 @@ export function assembleObservationPayload(input: ObservationPayloadInput): stri
     `- [${v.id}] ${v.label} (${v.zone}): "${v.ocrText || v.textSnippet || 'N/A'}"`,
   ).join('\n')
 
+  const questionText = input.triage.matchedQuestion?.question || input.question || 'N/A'
+
   return `[REAL-TIME SCREEN OBSERVATION]
 Active Window: ${input.windowTitle || 'Unknown'}
-Tripwire Question: "${input.question}"
+Tripwire Question: "${questionText}"
 System-1 Verdict: ${input.triage.triggered ? 'TRIGGERED' : 'QUIET'} (${Math.round(input.triage.triggerConfidence * 100)}% confidence)
 Focal Target: ${winner ? `${winner.id} (${winner.label} in ${winner.zone})` : 'None'}
 Focal OCR Text: "${winnerText}"

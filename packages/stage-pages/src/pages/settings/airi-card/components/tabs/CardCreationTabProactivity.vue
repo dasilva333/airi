@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { isWithinSchedule } from '@proj-airi/stage-shared'
 import { useVisionSources } from '@proj-airi/stage-ui/composables'
-import { downloadLayaModel, formatBytes, getLayaCacheSize, isLayaDownloaded, isModelCached } from '@proj-airi/stage-ui/libs/inference'
+import { isModelCached } from '@proj-airi/stage-ui/libs/inference'
 import { useProactivityStore, useScreenWatcherStore } from '@proj-airi/stage-ui/stores'
+import { useSystemOneStore } from '@proj-airi/stage-ui/stores/modules/system-one'
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useVisionOrchestratorStore } from '@proj-airi/stage-ui/stores/modules/vision/orchestrator'
-import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { Progress } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import {
   TooltipArrow,
@@ -84,7 +83,6 @@ const activeSubTab = ref<SubTabId>('schedule')
 watch(activeSubTab, (subTab) => {
   if (subTab === 'screen') {
     void checkModelCaches()
-    void checkLayaCache()
   }
   else if (subTab === 'ledger') {
     void refreshTelemetry()
@@ -94,7 +92,6 @@ watch(activeSubTab, (subTab) => {
 onMounted(() => {
   if (activeSubTab.value === 'screen') {
     void checkModelCaches()
-    void checkLayaCache()
   }
   else if (activeSubTab.value === 'ledger') {
     void refreshTelemetry()
@@ -165,7 +162,7 @@ export interface SentinelQuestionConfig {
 }
 
 const screenWatchingGatingMode = defineModel<'trigger_tags' | 'system1_sentinel'>('screenWatchingGatingMode', { default: 'trigger_tags' })
-const screenWatchingSentinelProvider = defineModel<'laya-local' | 'typesafe-ai' | 'openrouter-ai' | 'opencode-go'>('screenWatchingSentinelProvider', { default: 'laya-local' })
+defineModel<'laya-local' | 'typesafe-ai' | 'openrouter-ai' | 'opencode-go'>('screenWatchingSentinelProvider', { default: 'laya-local' })
 const screenWatchingSentinelQuestions = defineModel<SentinelQuestionConfig[]>('screenWatchingSentinelQuestions', {
   default: () => [
     {
@@ -198,52 +195,12 @@ const screenWatchingSentinelPolicy = defineModel<'any' | 'all'>('screenWatchingS
 const screenWatchingSentinelThreshold = defineModel<number>('screenWatchingSentinelThreshold', { default: 0.75 })
 const screenWatchingSentinelEvidenceEnabled = defineModel<boolean>('screenWatchingSentinelEvidenceEnabled', { default: true })
 
-const providersStore = useProvidersStore()
-const isLayaCached = ref(false)
-const layaCacheSize = ref(0)
-const isDownloadingLaya = ref(false)
-const layaProgress = ref(0)
-const layaDownloadError = ref('')
-
-const isTypeSafeConfigured = computed(() => Boolean(providersStore.configuredProviders['typesafe-ai']))
-const isOpenRouterConfigured = computed(() => Boolean(providersStore.configuredProviders['openrouter-ai']))
-
-async function checkLayaCache() {
-  try {
-    isLayaCached.value = await isLayaDownloaded('int8')
-    layaCacheSize.value = await getLayaCacheSize()
-  }
-  catch (e) {
-    console.warn('[CardCreationTabProactivity] Laya cache check error:', e)
-  }
-}
-
-async function handleDownloadLaya() {
-  if (isDownloadingLaya.value)
-    return
-
-  isDownloadingLaya.value = true
-  layaProgress.value = 0
-  layaDownloadError.value = ''
-
-  try {
-    await downloadLayaModel({
-      precision: 'int8',
-      onProgress: (p) => {
-        layaProgress.value = p.percentage
-      },
-    })
-    await checkLayaCache()
-    providersStore.forceProviderConfigured('laya-local')
-  }
-  catch (err: any) {
-    console.error('[CardCreationTabProactivity] Failed to download Laya:', err)
-    layaDownloadError.value = err?.message || 'Download failed'
-  }
-  finally {
-    isDownloadingLaya.value = false
-  }
-}
+const systemOneStore = useSystemOneStore()
+const {
+  configured: isSystemOneConfigured,
+  activeProvider: systemOneActiveProvider,
+  activeModel: systemOneActiveModel,
+} = storeToRefs(systemOneStore)
 
 const DEFAULT_PRESET_QUESTIONS = [
   {
@@ -1411,159 +1368,62 @@ const intervalPresets = [2, 5, 10, 20]
 
             <!-- MODE 2: System-1 Cognitive Sentinel -->
             <div v-else class="flex flex-col gap-4">
-              <!-- Cognitive Engine Setup Panel -->
-              <div class="flex flex-col gap-2.5 border border-neutral-200/80 rounded-xl bg-neutral-50/70 p-3.5 dark:border-neutral-800 dark:bg-neutral-900/40">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="i-solar:cpu-bolt-bold-duotone text-sm text-primary-500" />
-                    <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-300">
-                      Cognitive Engine Backend
+              <!-- Global System-1 Engine Status Banner (Managed in #/settings/modules/system-one) -->
+              <div
+                :class="[
+                  'flex flex-col gap-2.5 rounded-xl border p-3.5 sm:flex-row sm:items-center sm:justify-between',
+                  isSystemOneConfigured
+                    ? 'border-emerald-500/30 bg-emerald-500/5 dark:border-emerald-500/20 dark:bg-emerald-950/20'
+                    : 'border-amber-500/30 bg-amber-500/5 dark:border-amber-500/20 dark:bg-amber-950/20',
+                ]"
+              >
+                <div class="flex items-start gap-2.5">
+                  <span
+                    :class="[
+                      'mt-0.5 text-base',
+                      isSystemOneConfigured
+                        ? 'i-solar:cpu-bolt-bold-duotone text-emerald-500'
+                        : 'i-solar:danger-triangle-bold-duotone text-amber-500',
+                    ]"
+                  />
+                  <div class="flex flex-col gap-0.5">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-neutral-800 font-semibold dark:text-neutral-100">
+                        Global System-1 Engine
+                      </span>
+                      <span
+                        v-if="isSystemOneConfigured"
+                        class="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-600 font-medium font-mono dark:text-emerald-400"
+                      >
+                        {{ systemOneActiveProvider }} · {{ systemOneActiveModel || 'default' }}
+                      </span>
+                      <span
+                        v-else
+                        class="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600 font-medium dark:text-amber-400"
+                      >
+                        Not Configured
+                      </span>
+                    </div>
+                    <span class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      {{
+                        isSystemOneConfigured
+                          ? 'Active System-1 coprocessor is shared globally across all character cards.'
+                          : 'Configure a System-1 backend (OpenCode Go, OpenRouter, TypeSafe Jev, Laya, or OpenJev) in global settings.'
+                      }}
                     </span>
                   </div>
-                  <span class="text-[10px] text-neutral-400 font-mono">
-                    Non-Autoregressive Classifier (~100ms)
-                  </span>
                 </div>
-
-                <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <!-- Provider 1: Local Laya (ONNX) -->
-                  <button
-                    type="button"
-                    :class="[
-                      'flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all duration-150',
-                      screenWatchingSentinelProvider === 'laya-local'
-                        ? 'border-primary-500 bg-primary-50/40 text-primary-900 shadow-sm dark:bg-primary-950/30 dark:text-primary-200'
-                        : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300',
-                    ]"
-                    @click="screenWatchingSentinelProvider = 'laya-local'"
-                  >
-                    <div class="w-full flex items-center justify-between">
-                      <div class="flex items-center gap-1.5 text-xs font-semibold">
-                        <span class="i-solar:laptop-bold-duotone text-primary-500" />
-                        <span>Local Laya</span>
-                      </div>
-                      <span class="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[9px] text-emerald-600 font-medium dark:text-emerald-400">
-                        Zero Cost
-                      </span>
-                    </div>
-                    <p class="text-[11px] text-neutral-500 leading-snug dark:text-neutral-400">
-                      Local ModernBERT ONNX. 100% private, on-device screening.
-                    </p>
-                    <div class="mt-auto w-full pt-1">
-                      <span
-                        v-if="isLayaCached"
-                        class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400"
-                      >
-                        <span class="i-solar:check-circle-bold text-emerald-500" />
-                        Ready Offline ({{ formatBytes(layaCacheSize) }})
-                      </span>
-                      <div v-else class="flex flex-col gap-1.5">
-                        <div class="flex items-center justify-between gap-1">
-                          <span class="inline-flex items-center gap-1 text-[10px] text-amber-600 font-medium dark:text-amber-400">
-                            <span class="i-solar:danger-triangle-bold text-amber-500" />
-                            Not Cached
-                          </span>
-                          <button
-                            type="button"
-                            class="inline-flex items-center gap-1 rounded bg-primary-600 px-2 py-0.5 text-[10px] text-white font-medium hover:bg-primary-500 disabled:opacity-50"
-                            :disabled="isDownloadingLaya"
-                            @click.stop="handleDownloadLaya"
-                          >
-                            <span v-if="isDownloadingLaya" class="i-solar:restart-bold animate-spin text-[10px]" />
-                            <span v-else class="i-solar:download-square-bold text-[10px]" />
-                            <span>{{ isDownloadingLaya ? `${layaProgress}%` : 'Download' }}</span>
-                          </button>
-                        </div>
-                        <Progress v-if="isDownloadingLaya" :progress="layaProgress" class="h-1.5" />
-                        <span v-if="layaDownloadError" class="text-[9px] text-red-500">
-                          {{ layaDownloadError }}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-
-                  <!-- Provider 2: TypeSafe Jev (Cloud) -->
-                  <button
-                    type="button"
-                    :class="[
-                      'flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all duration-150',
-                      screenWatchingSentinelProvider === 'typesafe-ai'
-                        ? 'border-primary-500 bg-primary-50/40 text-primary-900 shadow-sm dark:bg-primary-950/30 dark:text-primary-200'
-                        : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300',
-                    ]"
-                    @click="screenWatchingSentinelProvider = 'typesafe-ai'"
-                  >
-                    <div class="w-full flex items-center justify-between">
-                      <div class="flex items-center gap-1.5 text-xs font-semibold">
-                        <span class="i-solar:cloud-bold-duotone text-violet-500" />
-                        <span>TypeSafe Jev</span>
-                      </div>
-                      <span class="rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-600 font-medium dark:text-violet-400">
-                        Cloud Fast
-                      </span>
-                    </div>
-                    <p class="text-[11px] text-neutral-500 leading-snug dark:text-neutral-400">
-                      Ultra-fast discrete logits triage. Sub-120ms latency.
-                    </p>
-                    <div class="mt-auto w-full pt-1">
-                      <span
-                        v-if="isTypeSafeConfigured"
-                        class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400"
-                      >
-                        <span class="i-solar:check-circle-bold text-emerald-500" />
-                        Configured
-                      </span>
-                      <span
-                        v-else
-                        class="inline-flex items-center gap-1 text-[10px] text-amber-600 font-medium dark:text-amber-400"
-                      >
-                        <span class="i-solar:danger-triangle-bold text-amber-500" />
-                        API Key Required in Providers
-                      </span>
-                    </div>
-                  </button>
-
-                  <!-- Provider 3: OpenRouter Decisions -->
-                  <button
-                    type="button"
-                    :class="[
-                      'flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all duration-150',
-                      screenWatchingSentinelProvider === 'openrouter-ai'
-                        ? 'border-primary-500 bg-primary-50/40 text-primary-900 shadow-sm dark:bg-primary-950/30 dark:text-primary-200'
-                        : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300',
-                    ]"
-                    @click="screenWatchingSentinelProvider = 'openrouter-ai'"
-                  >
-                    <div class="w-full flex items-center justify-between">
-                      <div class="flex items-center gap-1.5 text-xs font-semibold">
-                        <span class="i-solar:server-square-bold-duotone text-sky-500" />
-                        <span>OpenRouter</span>
-                      </div>
-                      <span class="rounded bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-600 font-medium dark:text-sky-400">
-                        Alpha Decisions
-                      </span>
-                    </div>
-                    <p class="text-[11px] text-neutral-500 leading-snug dark:text-neutral-400">
-                      OpenRouter alpha decisions endpoint using Jev models.
-                    </p>
-                    <div class="mt-auto w-full pt-1">
-                      <span
-                        v-if="isOpenRouterConfigured"
-                        class="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400"
-                      >
-                        <span class="i-solar:check-circle-bold text-emerald-500" />
-                        Configured
-                      </span>
-                      <span
-                        v-else
-                        class="inline-flex items-center gap-1 text-[10px] text-amber-600 font-medium dark:text-amber-400"
-                      >
-                        <span class="i-solar:danger-triangle-bold text-amber-500" />
-                        API Key Required in Providers
-                      </span>
-                    </div>
-                  </button>
-                </div>
+                <RouterLink
+                  to="/settings/modules/system-one"
+                  :class="[
+                    'inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+                    'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50',
+                    'dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700',
+                  ]"
+                >
+                  <span class="i-solar:settings-bold-duotone text-sm text-primary-500" />
+                  <span>Configure System-1</span>
+                </RouterLink>
               </div>
 
               <!-- Sentinel Question Tripwire Manager -->

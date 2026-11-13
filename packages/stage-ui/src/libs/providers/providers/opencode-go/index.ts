@@ -32,6 +32,9 @@ function getFallbackSessionId(): string {
 }
 
 export function resolveOpenCodeSessionId(): string {
+  if (typeof window === 'undefined')
+    return 'airi-default-session'
+
   try {
     const pinia = getActivePinia()
     if (pinia) {

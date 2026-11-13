@@ -48,6 +48,7 @@
     "test:attention:live": "tsx scripts/tests/attention-ecology-harness/live-ticker-observer.ts",
     "test:attention:desktop": "tsx scripts/tests/attention-ecology-harness/live-desktop-observer.ts",
     "test:attention:dashboard": "tsx scripts/tests/attention-ecology-harness/live-desktop-dashboard.ts",
+    "test:attention:saccade": "tsx scripts/tests/attention-ecology-harness/saccade-observer.ts",
     "test:run": "vitest run",
     "test:locomo": "node --test scripts/tests/locomo-benchmark/evaluator-parity.test.mjs",
     "test:nan0": "tsx packages/nan0-runtime/scripts/nan0-cli.ts",
