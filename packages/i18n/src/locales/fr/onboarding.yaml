@@ -2202,6 +2202,15 @@ steps:
       replicate:
         badge: Cloud API
         secondary: Cloud service
+      cloudflare:
+        secondary: Distant · Gratuit (10k neurones par jour)
+        badge: Distant Gratuit
+      openai-image:
+        badge: Distant Payant
+        secondary: Distant · Payant (clé API)
+      nanobanana:
+        badge: Distant Payant
+        secondary: Distant · Payant (clé Google AI Studio)
     models:
       freeRouter: Free Router (Pollinations Auto)
     connection:
@@ -2224,6 +2233,17 @@ steps:
     directorDescription: Creates scene images and selfies as conversations unfold.
     companionCreation: Companion image creation
     companionCreationDescription: Lets your companion create images when you ask.
+    connectCloudflareAccount: Connecter un compte Cloudflare
+    cloudflareConnectPrompt: Connectez votre compte Cloudflare pour débloquer la
+      génération d images serverless gratuite avec 10 000 neurones quotidiens
+      offerts.
+    cloudflareConnected: Connecté à Cloudflare
+    switchAccount: Changer
+    manualCredentials: Ou saisissez les identifiants directement
+    cloudflareAccountId: ID de compte Cloudflare
+    cloudflareApiToken: Jeton d API Cloudflare
+    openaiApiKey: Clé API OpenAI
+    openaiBaseUrl: URL de base personnalisée (Optionnel)
   memory:
     label: Mémoire
     subtitle: Hiérarchie cognitive en 4 quadrants

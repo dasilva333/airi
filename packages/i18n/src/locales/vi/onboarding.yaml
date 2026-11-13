@@ -2192,6 +2192,15 @@ steps:
       replicate:
         badge: Cloud API
         secondary: Cloud service
+      cloudflare:
+        secondary: Từ xa · Miễn phí (10k neuron mỗi ngày)
+        badge: Từ xa Miễn phí
+      openai-image:
+        badge: Từ xa Trả phí
+        secondary: Từ xa · Trả phí (khóa API)
+      nanobanana:
+        badge: Từ xa Trả phí
+        secondary: Từ xa · Trả phí (khóa Google AI Studio)
     models:
       freeRouter: Free Router (Pollinations Auto)
     connection:
@@ -2214,6 +2223,16 @@ steps:
     directorDescription: Creates scene images and selfies as conversations unfold.
     companionCreation: Companion image creation
     companionCreationDescription: Lets your companion create images when you ask.
+    connectCloudflareAccount: Kết nối tài khoản Cloudflare
+    cloudflareConnectPrompt: Kết nối tài khoản Cloudflare của bạn để mở khóa tính
+      năng tạo hình ảnh không cần máy chủ miễn phí với 10.000 neuron mỗi ngày.
+    cloudflareConnected: Đã kết nối với Cloudflare
+    switchAccount: Chuyển đổi
+    manualCredentials: Hoặc nhập thông tin xác thực trực tiếp
+    cloudflareAccountId: ID tài khoản Cloudflare
+    cloudflareApiToken: Mã token API Cloudflare
+    openaiApiKey: Khóa API OpenAI
+    openaiBaseUrl: URL cơ sở tùy chỉnh (Tùy chọn)
   memory:
     label: Ký ức
     subtitle: Hệ thống ghi nhớ 4 góc phần tư

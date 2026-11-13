@@ -2108,6 +2108,15 @@ steps:
       replicate:
         badge: Cloud API
         secondary: Cloud service
+      cloudflare:
+        secondary: 遠端 · 免費 (每日 10k 神經元)
+        badge: 遠端免費
+      openai-image:
+        badge: 遠端付費
+        secondary: 遠端 · 付費 (API 金鑰)
+      nanobanana:
+        badge: 遠端付費
+        secondary: 遠端 · 付費 (Google AI Studio 金鑰)
     models:
       freeRouter: Free Router (Pollinations Auto)
     connection:
@@ -2130,6 +2139,15 @@ steps:
     directorDescription: Creates scene images and selfies as conversations unfold.
     companionCreation: Companion image creation
     companionCreationDescription: Lets your companion create images when you ask.
+    connectCloudflareAccount: 連接 Cloudflare 帳戶
+    cloudflareConnectPrompt: 連接您的 Cloudflare 帳戶以解鎖免費無伺服器圖像生成，每天贈送 10,000 個免費神經元。
+    cloudflareConnected: 已連接至 Cloudflare
+    switchAccount: 切換帳戶
+    manualCredentials: 或直接輸入憑證
+    cloudflareAccountId: Cloudflare 帳戶 ID
+    cloudflareApiToken: Cloudflare API 權杖
+    openaiApiKey: OpenAI API 金鑰
+    openaiBaseUrl: 自訂基礎 URL (選填)
   memory:
     label: 記憶體系
     subtitle: 認知記憶四象限

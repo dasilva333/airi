@@ -2191,6 +2191,15 @@ steps:
       replicate:
         badge: Cloud API
         secondary: Cloud service
+      cloudflare:
+        secondary: Удаленно · Бесплатно (10 тыс. нейронов в день)
+        badge: Удаленно бесплатно
+      openai-image:
+        badge: Удаленно платно
+        secondary: Удаленно · Платно (ключ API)
+      nanobanana:
+        badge: Удаленно платно
+        secondary: Удаленно · Платно (ключ Google AI Studio)
     models:
       freeRouter: Free Router (Pollinations Auto)
     connection:
@@ -2213,6 +2222,16 @@ steps:
     directorDescription: Creates scene images and selfies as conversations unfold.
     companionCreation: Companion image creation
     companionCreationDescription: Lets your companion create images when you ask.
+    connectCloudflareAccount: Подключить аккаунт Cloudflare
+    cloudflareConnectPrompt: Подключите аккаунт Cloudflare, чтобы разблокировать
+      бессерверную генерацию изображений с 10 000 бесплатными нейронами в день.
+    cloudflareConnected: Подключено к Cloudflare
+    switchAccount: Сменить
+    manualCredentials: Или введите учетные данные напрямую
+    cloudflareAccountId: Идентификатор аккаунта Cloudflare
+    cloudflareApiToken: Токен API Cloudflare
+    openaiApiKey: Ключ API OpenAI
+    openaiBaseUrl: Пользовательский базовый URL (необязательно)
   memory:
     label: Память
     subtitle: 4 квадранта когнитивной памяти

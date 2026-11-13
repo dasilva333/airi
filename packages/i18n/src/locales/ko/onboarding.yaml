@@ -2121,6 +2121,15 @@ steps:
       replicate:
         badge: Cloud API
         secondary: Cloud service
+      cloudflare:
+        secondary: 원격 · 무료 (일일 1만 뉴런)
+        badge: 원격 무료
+      openai-image:
+        badge: 원격 유료
+        secondary: 원격 · 유료 (API 키)
+      nanobanana:
+        badge: 원격 유료
+        secondary: 원격 · 유료 (Google AI Studio 키)
     models:
       freeRouter: Free Router (Pollinations Auto)
     connection:
@@ -2143,6 +2152,15 @@ steps:
     directorDescription: Creates scene images and selfies as conversations unfold.
     companionCreation: Companion image creation
     companionCreationDescription: Lets your companion create images when you ask.
+    connectCloudflareAccount: Cloudflare 계정 연결
+    cloudflareConnectPrompt: Cloudflare 계정을 연결하여 매일 10,000개의 무료 뉴런으로 서버리스 이미지 생성을 잠금 해제하세요.
+    cloudflareConnected: Cloudflare에 연결됨
+    switchAccount: 전환
+    manualCredentials: 또는 직접 자격 증명 입력
+    cloudflareAccountId: Cloudflare 계정 ID
+    cloudflareApiToken: Cloudflare API 토큰
+    openaiApiKey: OpenAI API 키
+    openaiBaseUrl: 사용자 지정 기본 URL (선택 사항)
   memory:
     label: 기억
     subtitle: 4사분면 인지 메모리

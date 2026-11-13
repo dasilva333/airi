@@ -2179,6 +2179,15 @@ steps:
       replicate:
         badge: Cloud API
         secondary: Cloud service
+      cloudflare:
+        secondary: ระยะไกล · ฟรี (10k นิวรอนต่อวัน)
+        badge: ระยะไกลฟรี
+      openai-image:
+        badge: ระยะไกลแบบชำระเงิน
+        secondary: ระยะไกล · ชำระเงิน (คีย์ API)
+      nanobanana:
+        badge: ระยะไกลแบบชำระเงิน
+        secondary: ระยะไกล · ชำระเงิน (คีย์ Google AI Studio)
     models:
       freeRouter: Free Router (Pollinations Auto)
     connection:
@@ -2201,6 +2210,17 @@ steps:
     directorDescription: Creates scene images and selfies as conversations unfold.
     companionCreation: Companion image creation
     companionCreationDescription: Lets your companion create images when you ask.
+    connectCloudflareAccount: เชื่อมต่อบัญชี Cloudflare
+    cloudflareConnectPrompt: เชื่อมต่อบัญชี Cloudflare
+      ของคุณเพื่อปลดล็อกการสร้างภาพแบบไร้เซิร์ฟเวอร์ฟรีพร้อม 10,000
+      นิวรอนฟรีต่อวัน
+    cloudflareConnected: เชื่อมต่อกับ Cloudflare แล้ว
+    switchAccount: สลับบัญชี
+    manualCredentials: หรือป้อนข้อมูลรับรองโดยตรง
+    cloudflareAccountId: รหัสบัญชี Cloudflare
+    cloudflareApiToken: โทเค็น API Cloudflare
+    openaiApiKey: คีย์ API OpenAI
+    openaiBaseUrl: URL พื้นฐานที่กำหนดเอง (ไม่บังคับ)
 
   memory:
     label: Memory
