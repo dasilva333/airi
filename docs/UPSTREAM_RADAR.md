@@ -35,6 +35,314 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-13] Upstream Delta: `a1a56927..6c33b82f` (16 commits, 175 files, 23 update(s))
+
+### 🎯 Executive Highlights
+**Macro Trajectory & Focus**:
+- **Releases v0.15.3 & v0.15.4**: Upstream tagged two releases in rapid succession, shipping RevenueCat commercial monetization, onboarding permissions, and controls island redesigns.
+- **Commercial Monetization Push (RevenueCat)**: Heavy ongoing upstream investment in commercial subscription infrastructure: promotional entitlements via API (#3226), desktop web keys passed to builds (#3494), and a dedicated "Subscription" row added to the desktop Island menu (#3510). *(Auto-reject: fork remains strictly offline-first / BYOS).*
+- **Controls Island Restructuring**: Controls Island overhauled from a grid into a single capsule and app menu (#3484, #3509, #3508). *(Auto-reject: fork deleted controls-island in favor of the decoupled Control Strip).*
+- **Permissions Step in Onboarding (#3383)**: Multi-step permissions wizard (Mic with voice spectrum feedback via fft.js, PTT shortcut with keycaps feedback, Screen preview) added across Tamagotchi, Web, and Pocket.
+- **Voiceprint Enrollment (#3500)**: Moved from Draft ➔ Ready with 5 new comments, integrating CAM++ voiceprint enrollment into upstream's onboarding flow (building upon PR #2980).
+- **Session-Character Coupling Proposal (#3514)**: A new PR opened by @luoling8192 to automatically make the character of a selected session the active character.
+
+#### 💬 Discussion & Community Buzz
+- **#3383** `add a permissions step to onboarding` — (+6 new comments, 15 total) [Merged]: Discussion around cross-platform permission flows, audio spectrum analysis with fft.js, and skip/later semantics.
+- **#3500** `enroll voiceprint in onboarding flow` — (+5 new comments, 5 total) [Draft ➔ Ready]: Active discussions on wiring local speaker diarization / CAM++ voice enrollment into initial setup.
+- **#3499** `say that the module settings pages edit the default` — (+2 new comments, 6 total) [Merged]: Clarifying module settings copy across English and Simplified Chinese locales.
+- **#3484** `replace the controls Island grid with one app menu` — (+1 new comments, 5 total) [Merged]: Collapsing the island grid into a single unified menu capsule.
+- **#3496** `integrate computer-use MCP, terminal approval, and conversation compact` — (+1 new comments, 2 total): Ongoing discussion regarding MCP computer use and terminal approval.
+- **#3514** `make the character of a selected session the active character` — 5 comments on a freshly opened PR by @luoling8192.
+- **Watched Radar Pillars**: #3000 identity-continuity eval (126 comments), #2541 drop-in MCP plugins (59 comments), #2290 official ASR streaming (59 comments), #2672 window-local characters (48 comments).
+
+#### 🍒 Cherry-Pick Candidates
+- **PR #3512 (`8cde111f9`)** — `fix(audio): report the whole duration of an ended clip`:
+  - **Subsystem**: `packages/audio` (`audio-output.ts`).
+  - **Verdict**: **HIGH-VALUE CANDIDATE**. Fixes a Chromium Web Audio race condition where `ended` fires before `currentTime` passes the end of a clip within a 128-frame render quantum, under-reporting playback by up to ~46 frames (e.g. 98.96 ms vs 100 ms). Resolves it cleanly by using buffer duration for naturally ended nodes while preserving `stoppedAt` for faded nodes. Clean, isolated, 100% compatible.
+- **PR #3504 (`f3a148ddd`)** — `fix(stage-ui): put the error retry button beside its message`:
+  - **Subsystem**: `packages/stage-ui` (`error-item.vue`).
+  - **Verdict**: **LOW-EFFORT UI CANDIDATE**. Prevents error items from expanding to 28rem and places retry button into a flex-row beside the error message instead of stranding it on an empty row to the far right.
+- **PR #3506 (`d3de7dff2`)** — `fix(stage-pages): align the card editor identity fields`:
+  - **Subsystem**: `packages/stage-pages` (`CardEditor.vue`).
+  - **Verdict**: **CONDITIONAL CANDIDATE**. Unifies card identity fields (Name, Nickname, Model, Version) into a single CSS grid with aligned top headings and bottom inputs, preventing height mismatches when descriptions wrap.
+
+#### ⚠️ Divergence & Collision Warnings
+- **`stores/onboarding.ts` & `onboarding.vue`**: Upstream added permissions steps and auth callback modifications (#3383). Our fork diverged completely with canonical **Onboarding V3** (`airi-onboarding-v3`). Do not cherry-pick onboarding flows directly.
+- **`stage-islands/controls-island/*`**: Heavy upstream refactoring (capsule menu, subscription row, auth button removal) touching 19 files (+942/-2099 lines). These paths were purged in our fork; permanently auto-reject.
+- **`apps/stage-tamagotchi/src/main/services/electron/global-shortcut.ts`**: Upstream modified global shortcut lifecycle to unbind shortcuts when windows close (#3383). Reconcile carefully if updating shortcut management.
+- **Commercial Monetization / RevenueCat (`server/apps/api`, `stage-tamagotchi`)**: Upstream continues building hosted commercial billing (#3226, #3494, #3510). Incompatible with our offline-first / BYOS invariant.
+
+### 📋 Upstream Commits
+- `6c33b82fa` feat(i18n): say that the module settings pages edit the default (#3499) [#3499](https://github.com/moeru-ai/airi/pull/3499) _(RainbowBird, 2026-11-13)_
+- `1d4f8bd6d` chore(nix): update pnpmDeps hash (#3513) [#3513](https://github.com/moeru-ai/airi/pull/3513) _(Weathercold, 2026-11-13)_
+- `4facacec9` feat(stage-ui,stage-web,stage-tamagotchi,stage-pocket): add a permissions step to onboarding (#3383) [#3383](https://github.com/moeru-ai/airi/pull/3383) _(Neko, 2026-11-13)_
+- `8cde111f9` fix(audio): report the whole duration of an ended clip (#3512) [#3512](https://github.com/moeru-ai/airi/pull/3512) _(Makito, 2026-11-13)_
+- `ddb36ff7b` fix(stage-tamagotchi): switch the character from the Island menu through activateCard (#3508) [#3508](https://github.com/moeru-ai/airi/pull/3508) _(RainbowBird, 2026-11-13)_
+- `3f47df573` feat(stage-tamagotchi): draw the controls Island as one capsule (#3509) [#3509](https://github.com/moeru-ai/airi/pull/3509) _(RainbowBird, 2026-11-13)_
+- `ff5b16495` feat(stage-tamagotchi): add a Subscription row to the Island menu (#3510) [#3510](https://github.com/moeru-ai/airi/pull/3510) _(RainbowBird, 2026-11-13)_
+- `e1d4ba406` feat(stage-tamagotchi): replace the controls Island grid with one app menu (#3484) [#3484](https://github.com/moeru-ai/airi/pull/3484) _(RainbowBird, 2026-11-13)_
+- `d3de7dff2` fix(stage-pages): align the card editor identity fields (#3506) [#3506](https://github.com/moeru-ai/airi/pull/3506) _(蓝莓🫐, 2026-11-13)_
+- `1661fd814` fix(stage-tamagotchi): keep the title bar on character card pages (#3505) [#3505](https://github.com/moeru-ai/airi/pull/3505) _(蓝莓🫐, 2026-11-13)_
+- `f3a148ddd` fix(stage-ui): put the error retry button beside its message (#3504) [#3504](https://github.com/moeru-ai/airi/pull/3504) _(蓝莓🫐, 2026-11-13)_
+- `0f77855b4` feat(stage-tamagotchi,stage-ui): draw native glass behind more floating surfaces (#3503) [#3503](https://github.com/moeru-ai/airi/pull/3503) _(RainbowBird, 2026-11-13)_
+- `69d60cf95` release: v0.15.4  _(RainbowBird, 2026-11-13)_
+- `31b59ef24` build(stage-tamagotchi): pass the RevenueCat web key to desktop builds (#3494) [#3494](https://github.com/moeru-ai/airi/pull/3494) _(RainbowBird, 2026-11-13)_
+- `51b6b498d` release: v0.15.3  _(RainbowBird, 2026-11-13)_
+- `e18a9a5b8` feat(api): grant the Capacitor of a promotional RevenueCat entitlement (#3226) [#3226](https://github.com/moeru-ai/airi/pull/3226) _(RainbowBird, 2026-11-13)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 4 file(s) (+114/-5)
+- `.agents/skills/design-audio-visualizations/SKILL.md` *(+105/-0)*
+- `.github/workflows/release-tamagotchi.yml` *(+2/-0)*
+- `AGENTS.md` *(+1/-0)*
+- `docs/ai/adr/2026-11-11-module-defaults-and-character-values.md` *(+6/-5)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 47 file(s) (+2951/-31)
+- `.x18n/check-baseline.json` *(+112/-0)*
+- `nix/pnpm-deps-hash.txt` *(+1/-1)*
+- `packages/audio/src/browser.browser.test.ts` *(+7/-0)*
+- `packages/audio/src/browser/audio-output.ts` *(+3/-1)*
+- `packages/electron-eventa/src/electron/system-preferences.ts` *(+8/-0)*
+- `packages/pipelines-audio/src/index.ts` *(+1/-0)*
+- `packages/pipelines-audio/src/spectrum.test.ts` *(+102/-0)*
+- `packages/pipelines-audio/src/spectrum.ts` *(+133/-0)*
+- `packages/scenarios-stage-tamagotchi-electron/src/scenarios/demo-controls-settings-chat-websocket/sections/settings.ts` *(+1/-1)*
+- `packages/stage-ui/src/components/misc/profile-switcher-popover.vue` *(+3/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/error-item.vue` *(+2/-4)*
+- `packages/stage-ui/src/components/scenarios/dialogs/onboarding/onboarding.browser.test.ts` *(+136/-0)*
+- `packages/stage-ui/src/components/scenarios/dialogs/onboarding/onboarding.vue` *(+25/-5)*
+- `packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-permissions.vue` *(+290/-0)*
+- `packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-welcome.vue` *(+2/-2)*
+- `packages/stage-ui/src/components/scenarios/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/microphone-device-button.vue` *(+66/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/microphone-voice-visual.vue` *(+142/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-basic-page.vue` *(+41/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-card.vue` *(+64/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-icons.ts` *(+10/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-microphone-page.vue` *(+76/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-page-layout.vue` *(+37/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-pages.browser.test.ts` *(+26/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-screen-page.vue` *(+173/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-shortcut-page.browser.test.ts` *(+140/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-shortcut-page.vue` *(+188/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-status-line.vue` *(+21/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-steps.vue` *(+72/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-summary.vue` *(+81/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permissions-panel.browser.test.ts` *(+82/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permissions-panel.vue` *(+27/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/permissions.story.vue` *(+228/-0)*
+- `packages/stage-ui/src/components/scenarios/status/status-capsule.browser.test.ts` *(+29/-0)*
+- `packages/stage-ui/src/components/scenarios/status/status-capsule.vue` *(+8/-2)*
+- `packages/stage-ui/src/composables/permissions/use-device-permission-status.ts` *(+60/-0)*
+- `packages/stage-ui/src/composables/permissions/use-microphone-check.ts` *(+74/-0)*
+- `packages/stage-ui/src/composables/permissions/use-microphone-spectrum.ts` *(+49/-0)*
+- `packages/stage-ui/src/composables/permissions/use-shortcut-keys.ts` *(+98/-0)*
+- `packages/stage-ui/src/libs/product-signals/events/controls-island/events/action.ts` *(+7/-0)*
+- `packages/stage-ui/src/libs/voice/band-gate.test.ts` *(+67/-0)*
+- `packages/stage-ui/src/libs/voice/band-gate.ts` *(+76/-0)*
+- `packages/stage-ui/src/stores/device-permissions.ts` *(+88/-0)*
+- `packages/stage-ui/src/stores/onboarding.test.ts` *(+66/-1)*
+- `packages/stage-ui/src/stores/onboarding.ts` *(+26/-14)*
+- `pnpm-workspace.yaml` *(+1/-0)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 14 file(s) (+259/-280)
+- `apps/stage-pocket/android/app-version.properties` *(+2/-2)*
+- `apps/stage-pocket/ios/App/App.xcodeproj/project.pbxproj` *(+8/-4)*
+- `apps/stage-pocket/ios/App/App/DevBridgeViewController.swift` *(+1/-0)*
+- `apps/stage-pocket/ios/App/App/MicrophonePermissionPlugin.swift` *(+25/-0)*
+- `apps/stage-pocket/src/App.vue` *(+7/-13)*
+- `apps/stage-pocket/src/components/onboarding/step-permissions.vue` *(+0/-47)*
+- `apps/stage-pocket/src/components/permissions/permission-card.vue` *(+0/-65)*
+- `apps/stage-pocket/src/components/permissions/permissions-panel.vue` *(+0/-147)*
+- `apps/stage-pocket/src/composables/device-permissions.ts` *(+79/-0)*
+- `apps/stage-pocket/src/modules/microphone-permission.ts` *(+1/-1)*
+- `apps/stage-pocket/src/pages/settings/system/permissions.vue` *(+1/-1)*
+- `apps/stage-web/src/App.vue` *(+14/-0)*
+- `apps/stage-web/src/composables/device-permissions.ts` *(+116/-0)*
+- `apps/stage-web/src/pages/auth/callback.vue` *(+5/-0)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 20 file(s) (+559/-15)
+- `apps/stage-tamagotchi-kirie/package.json` *(+1/-1)*
+- `apps/stage-tamagotchi/package.json` *(+1/-1)*
+- `apps/stage-tamagotchi/src/main/index.ts` *(+1/-1)*
+- `apps/stage-tamagotchi/src/main/services/electron/global-shortcut.test.ts` *(+46/-1)*
+- `apps/stage-tamagotchi/src/main/services/electron/global-shortcut.ts` *(+23/-1)*
+- `apps/stage-tamagotchi/src/main/services/electron/system-preferences.ts` *(+34/-2)*
+- `apps/stage-tamagotchi/src/main/windows/onboarding/index.ts` *(+7/-0)*
+- `apps/stage-tamagotchi/src/renderer/App.vue` *(+5/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/Window/settings-window-frame.vue` *(+3/-1)*
+- `apps/stage-tamagotchi/src/renderer/composables/use-device-permissions.test.ts` *(+79/-0)*
+- `apps/stage-tamagotchi/src/renderer/composables/use-device-permissions.ts` *(+109/-0)*
+- `apps/stage-tamagotchi/src/renderer/composables/use-onboarding-authentication.test.ts` *(+38/-0)*
+- `apps/stage-tamagotchi/src/renderer/composables/use-onboarding-authentication.ts` *(+4/-1)*
+- `apps/stage-tamagotchi/src/renderer/composables/use-push-to-talk-shortcut.browser.test.ts` *(+91/-3)*
+- `apps/stage-tamagotchi/src/renderer/composables/use-push-to-talk-shortcut.ts` *(+74/-2)*
+- `apps/stage-tamagotchi/src/renderer/pages/index.vue` *(+9/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/onboarding.vue` *(+2/-1)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/system/index.vue` *(+6/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/system/permissions.vue` *(+22/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/spotlight.vue` *(+4/-0)*
+
+#### Deprecated Surfaces (Control Island / Chat Floating / Fullscreen Island) (`⚪ ignore / rejected in fork (decoupled into Control Strip & Dedicated Chat Workspace)`) — 19 file(s) (+942/-2099)
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/control-button-tooltip.vue` *(+18/-10)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/control-button.vue` *(+20/-6)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-auth-button.test.ts` *(+0/-161)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-auth-button.vue` *(+0/-189)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-chat-button.vue` *(+2/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-fade-on-hover.vue` *(+0/-86)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-menu.browser.test.ts` *(+434/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-menu.vue` *(+333/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-microphone.browser.test.ts` *(+2/-2)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-notifications.browser.test.ts` *(+0/-171)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-overflow.browser.test.ts` *(+0/-660)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-profile-picker.vue` *(+0/-41)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-speech-mute.test.ts` *(+0/-94)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-speech-mute.vue` *(+0/-53)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/index.vue` *(+118/-532)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/indicator-mic-volume.vue` *(+3/-3)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/use-controls-island-layout.ts` *(+0/-89)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/resource-status-island/index.vue` *(+7/-1)*
+- `apps/stage-tamagotchi/src/renderer/pages/chat-floating.vue` *(+5/-0)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 48 file(s) (+60/-49)
+- `engines/stage-tamagotchi-godot/package.json` *(+1/-1)*
+- `integrations/twitter-services/package.json` *(+1/-1)*
+- `integrations/vscode/airi-plugin-vscode/package.json` *(+1/-1)*
+- `integrations/vscode/vscode-airi/package.json` *(+1/-1)*
+- `package.json` *(+1/-1)*
+- `packages/agents/package.json` *(+1/-1)*
+- `packages/better-ws/package.json` *(+1/-1)*
+- `packages/cap-vite/package.json` *(+1/-1)*
+- `packages/cloud-client/package.json` *(+1/-1)*
+- `packages/core-character/package.json` *(+1/-1)*
+- `packages/electron-eventa/package.json` *(+1/-1)*
+- `packages/electron-native-backdrop/package.json` *(+1/-1)*
+- `packages/electron-screen-capture/package.json` *(+1/-1)*
+- `packages/electron-vueuse/package.json` *(+1/-1)*
+- `packages/extension-protocol/package.json` *(+1/-1)*
+- `packages/input-gamepad-vueuse/package.json` *(+1/-1)*
+- `packages/input-gamepad/package.json` *(+1/-1)*
+- `packages/input-playstation-dualsense-5/package.json` *(+1/-1)*
+- `packages/mathjson/package.json` *(+1/-1)*
+- `packages/memory-pgvector/package.json` *(+1/-1)*
+- `packages/model-driver-lipsync/package.json` *(+1/-1)*
+- `packages/model-driver-magic-live2d/package.json` *(+1/-1)*
+- `packages/motion-driver-magic/package.json` *(+1/-1)*
+- `packages/pipelines-audio/package.json` *(+3/-3)*
+- `packages/plugin-protocol/package.json` *(+1/-1)*
+- `packages/plugin-sdk-tamagotchi/package.json` *(+1/-1)*
+- `packages/plugin-sdk/package.json` *(+1/-1)*
+- `packages/provider-inference/package.json` *(+1/-1)*
+- `packages/scenarios-stage-tamagotchi-browser/package.json` *(+1/-1)*
+- `packages/scenarios-stage-tamagotchi-electron/package.json` *(+1/-1)*
+- `packages/server-runtime/package.json` *(+1/-1)*
+- `packages/server-sdk/package.json` *(+1/-1)*
+- `packages/server-shared/package.json` *(+1/-1)*
+- `packages/speech-transformer-chem/package.json` *(+1/-1)*
+- `packages/speech-transformer-math/package.json` *(+1/-1)*
+- `packages/stage-ui/package.json` *(+1/-1)*
+- `packages/stream-kit/package.json` *(+1/-1)*
+- `packages/testing-audio/package.json` *(+1/-1)*
+- `packages/timeline-canvas/package.json` *(+1/-1)*
+- `packages/trace-kit/package.json` *(+1/-1)*
+- `packages/unocss-preset-fonts/package.json` *(+1/-1)*
+- `packages/vitest-plugin-fakemic/package.json` *(+1/-1)*
+- `plugins/airi-plugin-bilibili-laplace/package.json` *(+1/-1)*
+- `plugins/airi-plugin-claude-code/package.json` *(+1/-1)*
+- `plugins/airi-plugin-game-chess/package.json` *(+1/-1)*
+- `plugins/airi-plugin-web-extension/package.json` *(+1/-1)*
+- `pnpm-lock.yaml` *(+11/-0)*
+- `services/computer-use-mcp/package.json` *(+1/-1)*
+
+#### Core Agent Runtime (`🔍 inspect`) — 1 file(s) (+1/-1)
+- `packages/core-agent/package.json` *(+1/-1)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 5 file(s) (+189/-5)
+- `packages/i18n/glossary/terms.yaml` *(+1/-1)*
+- `packages/i18n/src/locales/en/settings.yaml` *(+84/-2)*
+- `packages/i18n/src/locales/en/tamagotchi/stage.yaml` *(+10/-0)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+84/-2)*
+- `packages/i18n/src/locales/zh-Hans/tamagotchi/stage.yaml` *(+10/-0)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 5 file(s) (+26/-18)
+- `packages/stage-pages/src/pages/settings/airi-card/components/CardEditor.vue` *(+20/-12)*
+- `packages/ui-timeline/package.json` *(+1/-1)*
+- `packages/ui-trace/package.json` *(+1/-1)*
+- `packages/ui/package.json` *(+1/-1)*
+- `packages/ui/src/components/layouts/progressive-blur.vue` *(+3/-3)*
+
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 12 file(s) (+174/-20)
+- `server/apps/api/README.md` *(+1/-0)*
+- `server/apps/api/package.json` *(+1/-1)*
+- `server/apps/api/src/services/adapters/revenuecat-subscriber.test.ts` *(+8/-3)*
+- `server/apps/api/src/services/adapters/revenuecat-subscriber.ts` *(+15/-8)*
+- `server/apps/api/src/services/adapters/revenuecat-subscriptions.test.ts` *(+31/-0)*
+- `server/apps/api/src/services/adapters/revenuecat-subscriptions.ts` *(+26/-3)*
+- `server/apps/auth/package.json` *(+1/-1)*
+- `server/docs/ai/adr/2026-10-04-subscription-credits.md` *(+1/-1)*
+- `server/docs/ai/adr/2026-10-29-promotional-capacitors.md` *(+87/-0)*
+- `server/packages/auth-shared/package.json` *(+1/-1)*
+- `server/packages/http-error-shared/package.json` *(+1/-1)*
+- `server/packages/server-sdk-shared/package.json` *(+1/-1)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (12)
+- [PR] [#3514](https://github.com/moeru-ai/airi/pull/3514) `feat(stage-ui): make the character of a selected session the active character` by **@luoling8192** *(5 comments)*
+- [PR] [#3513](https://github.com/moeru-ai/airi/pull/3513) `chore(nix): update pnpmDeps hash` by **@Weathercold** *(2 comments)*
+- [PR] [#3512](https://github.com/moeru-ai/airi/pull/3512) `fix(audio): report the whole duration of an ended clip` by **@sumimakito** *(2 comments)*
+- [PR] [#3511](https://github.com/moeru-ai/airi/pull/3511) `refactor(component-calling): validate component props` by **@nayounsang** *(4 comments)*
+- [PR] [#3508](https://github.com/moeru-ai/airi/pull/3508) `fix(stage-tamagotchi): switch the character from the Island menu through activateCard` by **@luoling8192** *(2 comments)*
+- [PR] [#3509](https://github.com/moeru-ai/airi/pull/3509) `feat(stage-tamagotchi): draw the controls Island as one capsule` by **@luoling8192** *(2 comments)*
+- [PR] [#3510](https://github.com/moeru-ai/airi/pull/3510) `feat(stage-tamagotchi): add a Subscription row to the Island menu` by **@luoling8192** *(2 comments)*
+- [PR] [#3506](https://github.com/moeru-ai/airi/pull/3506) `fix(stage-pages): align the card editor identity fields` by **@chiba233** *(2 comments)*
+- [PR] [#3505](https://github.com/moeru-ai/airi/pull/3505) `fix(stage-tamagotchi): keep the title bar on character card pages` by **@chiba233** *(2 comments)*
+- [PR] [#3504](https://github.com/moeru-ai/airi/pull/3504) `fix(stage-ui): put the error retry button beside its message` by **@chiba233** *(4 comments)*
+- [PR] [#3503](https://github.com/moeru-ai/airi/pull/3503) `feat(stage-tamagotchi,stage-ui): draw native glass behind more floating surfaces` by **@luoling8192** *(2 comments)*
+- [PR] [#3501](https://github.com/moeru-ai/airi/pull/3501) `docs(deploy): record the separate OpenPanel project of the docs site` by **@luoling8192** *(1 comments)*
+
+#### 🔄 Status & Lifecycle Changes (6)
+- [PR] [#3500](https://github.com/moeru-ai/airi/pull/3500) `feat(stage-ui,stage-pages): enroll voiceprint in onboarding flow` — `Draft` ➔ `Ready`
+- [PR] [#3499](https://github.com/moeru-ai/airi/pull/3499) `feat(i18n): say that the module settings pages edit the default` — `OPEN` ➔ `MERGED`
+- [PR] [#3383](https://github.com/moeru-ai/airi/pull/3383) `feat(stage-ui,stage-web,stage-tamagotchi,stage-pocket): add a permissions step to onboarding` — `OPEN` ➔ `MERGED`
+- [PR] [#3484](https://github.com/moeru-ai/airi/pull/3484) `feat(stage-tamagotchi): replace the controls Island grid with one app menu` — `OPEN` ➔ `MERGED`
+- [PR] [#3494](https://github.com/moeru-ai/airi/pull/3494) `build(stage-tamagotchi): pass the RevenueCat web key to desktop builds` — `OPEN` ➔ `MERGED`
+- [PR] [#3226](https://github.com/moeru-ai/airi/pull/3226) `feat(api): grant the Capacitor of a promotional RevenueCat entitlement` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (5)
+- [PR] [#3500](https://github.com/moeru-ai/airi/pull/3500) `feat(stage-ui,stage-pages): enroll voiceprint in onboarding flow` — *+5 comments (0 ➔ 5 total)*
+- [PR] [#3499](https://github.com/moeru-ai/airi/pull/3499) `feat(i18n): say that the module settings pages edit the default` — *+2 comments (4 ➔ 6 total)*
+- [PR] [#3383](https://github.com/moeru-ai/airi/pull/3383) `feat(stage-ui,stage-web,stage-tamagotchi,stage-pocket): add a permissions step to onboarding` — *+6 comments (9 ➔ 15 total)*
+- [PR] [#3484](https://github.com/moeru-ai/airi/pull/3484) `feat(stage-tamagotchi): replace the controls Island grid with one app menu` — *+1 comments (4 ➔ 5 total)*
+- [PR] [#3496](https://github.com/moeru-ai/airi/pull/3496) `feat: integrate computer-use MCP, terminal approval, and conversation compact` — *+1 comments (1 ➔ 2 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [Draft] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+- [PR] [#3468](https://github.com/moeru-ai/airi/pull/3468) `feat(ui): use generated beam avatars as the default user avatar` [MERGED] — *(3 comments)*
+  - *Focus*: Procedural beam avatars with dynamic chromatic hue & user profile identity; tracked for selective port per docs/design-procedural-beam-avatars-and-user-profile-identity.md
+- [PR] [#3472](https://github.com/moeru-ai/airi/pull/3472) `fix(stage-layouts): safely fallback undefined route.meta in settings layout (#3220)` [OPEN] — *(5 comments)*
+  - *Focus*: Route meta fallback during settings navigation (#3220); evaluated against fork Master-Detail topology and desktop Electron shell
+
+---
 ## [2026-11-12] Upstream Delta: `1e3d4df4..a1a56927` (5 commits, 64 files, 16 update(s))
 
 ### 🎯 Executive Highlights
