@@ -11,7 +11,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (e: 'attach'): void
-  (e: 'screenshot'): void
+  (e: 'screenshot', event?: MouseEvent): void
 }>()
 </script>
 
@@ -65,12 +65,12 @@ const emit = defineEmits<{
         <!-- Take Screenshot -->
         <button
           class="mb-2 w-full flex items-center gap-3 rounded-xl bg-primary-50/50 p-2.5 text-left transition-all dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-800/30"
-          @click="emit('screenshot')"
+          @click="emit('screenshot', $event)"
         >
           <div class="i-solar:monitor-camera-bold-duotone text-lg text-primary-600 dark:text-primary-400" />
           <div class="flex flex-col">
             <span class="text-[13px] text-primary-900 font-semibold leading-none dark:text-primary-100">Take Screenshot</span>
-            <span class="mt-1 text-[10px] text-primary-600/70 dark:text-primary-400/70">Capture and attach screen</span>
+            <span class="mt-1 text-[10px] text-primary-600/70 dark:text-primary-400/70">Capture and attach screen (Shift to ask)</span>
           </div>
         </button>
 

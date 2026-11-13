@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { captureScreenSnapshotFile } from '@proj-airi/stage-shared'
 import {
   ChatImagesPopover,
   ProducerChoiceBubble,
@@ -16,7 +17,7 @@ import { BasicContentEditable } from '@proj-airi/ui'
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, ref, shallowRef, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
@@ -170,9 +171,34 @@ async function handleVoiceClick() {
   useHearingStore().micOwner = nextEnabled ? 'ambient' : null
 }
 
-function handleScreenshotClick() {
-  // Vision capture is typically restricted in browser unless using getDisplayMedia
-  toast.info('Vision capture is optimized for desktop. Please use the attach button for screenshots.')
+const isCapturingScreen = shallowRef(false)
+
+async function handleScreenshotClick(event?: MouseEvent) {
+  if (isCapturingScreen.value)
+    return
+
+  isCapturingScreen.value = true
+  try {
+    const file = await captureScreenSnapshotFile()
+    if (file) {
+      await handleFilePaste([file])
+      if (event?.shiftKey) {
+        if (!messageInput.value.trim()) {
+          messageInput.value = t('stage.chat.images.screen-question') || 'What is on my screen right now?'
+        }
+        await handleSend()
+      }
+      else {
+        toast.success('Screenshot attached!')
+      }
+    }
+  }
+  catch (err) {
+    console.error('[ChatArea] Screen capture failed:', err)
+  }
+  finally {
+    isCapturingScreen.value = false
+  }
 }
 </script>
 

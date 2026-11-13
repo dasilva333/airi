@@ -45,7 +45,7 @@ import { BasicTextarea, Button } from '@proj-airi/ui'
 import { until, useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, PopoverAnchor, PopoverContent, PopoverPortal, PopoverRoot } from 'reka-ui'
-import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
@@ -1107,7 +1107,13 @@ function addScreenshotAttachment(data: string, mimeType: string) {
   addImageAttachmentFromBase64(data, mimeType, 'screenshot.png')
 }
 
-async function handleScreenshotClick() {
+const isCapturingScreen = shallowRef(false)
+
+async function handleScreenshotClick(event?: MouseEvent) {
+  if (isCapturingScreen.value)
+    return
+
+  isCapturingScreen.value = true
   console.log('[InteractiveArea] Manual screenshot capture requested via visionStore...')
   try {
     const result = await visionStore.captureSnapshot({ width: 1280, height: 720 }) as any
@@ -1124,7 +1130,15 @@ async function handleScreenshotClick() {
       const base64 = result.dataUrl.split(',')[1]
       if (base64) {
         addScreenshotAttachment(base64, 'image/png')
-        toast.success('Screenshot attached!')
+        if (event?.shiftKey) {
+          if (!messageInput.value.trim()) {
+            messageInput.value = t('stage.chat.images.screen-question') || 'What is on my screen right now?'
+          }
+          await handleSend()
+        }
+        else {
+          toast.success('Screenshot attached!')
+        }
       }
     }
     else {
@@ -1134,6 +1148,9 @@ async function handleScreenshotClick() {
   }
   catch (err) {
     console.error('[InteractiveArea] Screenshot capture failed:', err)
+  }
+  finally {
+    isCapturingScreen.value = false
   }
 }
 
@@ -1891,6 +1908,23 @@ defineExpose({
             @attach="fileInput?.click()"
             @screenshot="handleScreenshotClick"
           />
+
+          <!-- Screen Capture Toolbar Button (with Shift+Click Quick-Ask) -->
+          <button
+            data-testid="chat-screen-capture-button"
+            type="button"
+            :class="[
+              'h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl transition-all duration-200 active:scale-95',
+              'bg-neutral-200/20 text-neutral-500 hover:bg-neutral-200/40 hover:text-neutral-700',
+              'dark:bg-neutral-800/20 dark:text-neutral-400 dark:hover:bg-neutral-800/40 dark:hover:text-neutral-200',
+            ]"
+            :title="t('stage.chat.images.capture-screen') || 'Capture screen (Hold Shift to ask immediately)'"
+            :aria-label="t('stage.chat.images.capture-screen') || 'Capture screen'"
+            :disabled="isCapturingScreen"
+            @click="handleScreenshotClick"
+          >
+            <div :class="[isCapturingScreen ? 'i-svg-spinners:ring-resize' : 'i-solar:screencast-bold-duotone', 'text-base']" />
+          </button>
 
           <!-- Suggest Response (Producer Sparkle) Inline Button -->
           <PopoverRoot v-model:open="isTooltipOpen">

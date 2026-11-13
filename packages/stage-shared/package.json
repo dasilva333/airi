@@ -21,6 +21,7 @@
     "./beat-sync": "./src/beat-sync/index.ts",
     "./electron-renderer": "./src/electron-renderer.d.ts",
     "./composables": "./src/composables/index.ts",
+    "./screen-capture": "./src/screen-capture/index.ts",
     "./shortcuts": "./src/shortcuts.ts",
     "./utils/*": "./src/utils/*.ts",
     "./webgpu": "./src/webgpu/index.ts"

@@ -11,6 +11,14 @@ chat:
   reasoning_only: The model only generated a reasoning response (chain of thought
     message). Please check your max token budget to ensure the LLM has enough
     room to generate a displayed response.
+  composer:
+    screen: Screen capture
+    images: Images
+    add: Add
+  images:
+    capture-screen: Capture screen (Hold Shift to ask immediately)
+    capturing-screen: Capturing screen…
+    screen-question: What is on my screen right now?
 message: Say something...
 operations:
   load-models: Load Models
