@@ -34,6 +34,8 @@
     "./features/motions/live2d": "./src/features/motions/live2d/index.ts",
     "./features/*": "./src/features/*",
     "./libs/*": "./src/libs/*.ts",
+    "./libs/attention": "./src/libs/attention/index.ts",
+    "./libs/attention/*": "./src/libs/attention/*",
     "./libs/audio": "./src/libs/audio/index.ts",
     "./libs/audio/*": "./src/libs/audio/*",
     "./libs/inference": "./src/libs/inference/index.ts",
