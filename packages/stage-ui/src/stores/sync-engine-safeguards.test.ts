@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { storage, storageState } from '../database/storage'
 import { S3StorageClient, useSyncEngineStore } from './sync-engine'
 import { extractAllowedSessionIds, shouldSkipMergeableKey } from './sync-engine-merge'
+import { markSyncTombstone, readSyncTombstones, SYNC_TOMBSTONE_CAP, SYNC_TOMBSTONES_KEY } from './sync-tombstones'
 
 describe('sync-engine-safeguards', () => {
   describe('extractAllowedSessionIds', () => {
@@ -440,6 +441,288 @@ describe('sync-engine-safeguards', () => {
       expect(res2).toBe(true)
       // listFiles should have been called only ONCE due to inFlightReconcile promise sharing
       expect(listFilesCallCount).toBe(1)
+    })
+  })
+
+  describe('full reconcile secret-key exclusion', () => {
+    let pinia: ReturnType<typeof createTestingPinia>
+    let writeCalls: string[] = []
+
+    beforeEach(async () => {
+      pinia = createTestingPinia({ createSpy: vi.fn, stubActions: false })
+      setActivePinia(pinia)
+      storageState.isImportingRemoteData = false
+      writeCalls = []
+
+      const keys = await storage.getKeys()
+      for (const k of keys) {
+        await storage.removeItem(k)
+      }
+      localStorage.clear()
+      localStorage.setItem('settings/sync/enabled', 'true')
+    })
+
+    afterEach(async () => {
+      localStorage.clear()
+      delete (window as any).electron
+      const keys = await storage.getKeys()
+      for (const k of keys) {
+        await storage.removeItem(k)
+      }
+    })
+
+    it('does not upload credential-bearing keys while an ordinary key is uploaded', async () => {
+      const syncStore = useSyncEngineStore(pinia)
+      syncStore.activeProvider = 'local-fs'
+
+      await storage.setItem('local:settings/appearance', { theme: 'dark' })
+      await storage.setItemRaw('local:peers/device-keypair', { privateKey: 'sk-secret' })
+      await storage.setItemRaw('local:providers', { p1: { id: 'p1', definitionId: 'x', name: 'p1', config: { apiKey: 'sk-secret' }, validated: false, validationBypassed: false } })
+      await storage.setItemRaw('local:localstorage/settings/credentials/openai', { value: 'sk-secret', originalKey: 'settings/credentials/openai' })
+
+      ;(window as any).electron = {
+        ipcRenderer: {
+          invoke: vi.fn(async (channel: string, payload: any) => {
+            if (channel === 'byos-fs:validate-path')
+              return { success: true }
+            if (channel === 'byos-fs:list-files')
+              return { success: true, files: [] }
+            if (channel === 'byos-fs:write-file') {
+              writeCalls.push(payload.relPath)
+              return { success: true, mtime: Date.now() }
+            }
+            return { success: true }
+          }),
+        },
+      }
+
+      const success = await syncStore.reconcile({ skipBinaryAssets: true })
+      expect(success).toBe(true)
+
+      expect(writeCalls).toContain('db/settings/appearance.json')
+      expect(writeCalls).not.toContain('db/peers/device-keypair.json')
+      expect(writeCalls).not.toContain('db/providers.json')
+      expect(writeCalls).not.toContain('db/localstorage/settings/credentials/openai.json')
+    })
+  })
+
+  describe('sync tombstones', () => {
+    let pinia: ReturnType<typeof createTestingPinia>
+    let writeCalls: Array<{ relPath: string, content: string }> = []
+
+    beforeEach(async () => {
+      pinia = createTestingPinia({ createSpy: vi.fn, stubActions: false })
+      setActivePinia(pinia)
+      storageState.isImportingRemoteData = false
+      writeCalls = []
+
+      const keys = await storage.getKeys()
+      for (const k of keys) {
+        await storage.removeItem(k)
+      }
+      localStorage.clear()
+      localStorage.setItem('settings/sync/enabled', 'true')
+    })
+
+    afterEach(async () => {
+      localStorage.clear()
+      delete (window as any).electron
+      const keys = await storage.getKeys()
+      for (const k of keys) {
+        await storage.removeItem(k)
+      }
+    })
+
+    it('markSyncTombstone round-trips through storage and dedupes ids', async () => {
+      await markSyncTombstone('local:memory/text-journal/user-1', ['id-a', 'id-b'])
+      await markSyncTombstone('local:memory/text-journal/user-1', ['id-b', 'id-c'])
+      const tombstones = await readSyncTombstones()
+      // Re-marking an existing id touches it to the newest end (FIFO by last mark)
+      expect(tombstones['local:memory/text-journal/user-1']).toEqual(['id-a', 'id-b', 'id-c'])
+    })
+
+    it('writing tombstones does not enqueue an outbox entry for local:sync/tombstones', async () => {
+      await markSyncTombstone('local:memory/text-journal/user-1', ['id-a'])
+      expect(await storage.getItemRaw('outbox:queue/sync/tombstones')).toBeNull()
+    })
+
+    it('cap eviction drops the oldest entry beyond the per-key FIFO cap', async () => {
+      const ids = Array.from({ length: SYNC_TOMBSTONE_CAP + 1 }, (_, i) => `id-${String(i).padStart(5, '0')}`)
+      // Mark in chunks so each call reads the accumulated store
+      for (let i = 0; i < ids.length; i += 100) {
+        await markSyncTombstone('local:memory/short-term/user-1', ids.slice(i, i + 100))
+      }
+      const tombstones = await readSyncTombstones()
+      expect(tombstones['local:memory/short-term/user-1'].length).toBe(SYNC_TOMBSTONE_CAP)
+      expect(tombstones['local:memory/short-term/user-1']).not.toContain('id-00000')
+      expect(tombstones['local:memory/short-term/user-1']).toContain(`id-${String(SYNC_TOMBSTONE_CAP).padStart(5, '0')}`)
+      expect(await storage.getItemRaw(SYNC_TOMBSTONES_KEY)).toBeTruthy()
+    })
+
+    it('reconcile does not resurrect a chat session whose delete is pending in the outbox', async () => {
+      const syncStore = useSyncEngineStore(pinia)
+      syncStore.activeProvider = 'local-fs'
+
+      // Local session was deleted; the delete is queued but has not reached remote yet.
+      // No local file, no local timestamp — the pre-fix code would download remote and re-create it.
+      await storage.setItemRaw('outbox:queue/chat/sessions/gone-1', {
+        key: 'local:chat/sessions/gone-1',
+        action: 'delete',
+        timestamp: Date.now(),
+      })
+
+      const remoteFiles = [
+        { relPath: 'db/chat/sessions/gone-1.json', mtime: 5000, size: 100 },
+      ]
+      const readCalls: string[] = []
+      ;(window as any).electron = {
+        ipcRenderer: {
+          invoke: vi.fn(async (channel: string, payload: any) => {
+            if (channel === 'byos-fs:validate-path')
+              return { success: true }
+            if (channel === 'byos-fs:list-files')
+              return { success: true, files: remoteFiles }
+            if (channel === 'byos-fs:read-file') {
+              readCalls.push(payload.relPath)
+              return { success: true, content: JSON.stringify({ id: 'gone-1', meta: { characterId: 'sylvia' }, messages: [{ id: 'm1', content: 'secret', updatedAt: 1 }] }) }
+            }
+            if (channel === 'byos-fs:delete-file')
+              return { success: true }
+            return { success: true }
+          }),
+        },
+      }
+
+      const success = await syncStore.reconcile({ skipBinaryAssets: true })
+      expect(success).toBe(true)
+      expect(readCalls).not.toContain('db/chat/sessions/gone-1.json')
+      expect(await storage.getItemRaw('local:chat/sessions/gone-1')).toBeNull()
+    })
+
+    it('reconcile merge drops a tombstoned session from the chat index', async () => {
+      const syncStore = useSyncEngineStore(pinia)
+      syncStore.activeProvider = 'local-fs'
+
+      // Local index no longer contains `gone-1` (deleted here); remote still lists it.
+      await storage.setItemRaw('local:chat/index/default', {
+        userId: 'default',
+        characters: {
+          sylvia: {
+            activeSessionId: 'keep-1',
+            sessions: {
+              'keep-1': { sessionId: 'keep-1', characterId: 'sylvia', updatedAt: 2000 },
+            },
+          },
+        },
+      })
+      await storage.setItemRaw('local:sync-metadata/timestamps/chat/index/default', 1000)
+      await markSyncTombstone('local:chat/index/default', ['gone-1'])
+
+      const remoteIndex = {
+        userId: 'default',
+        characters: {
+          sylvia: {
+            activeSessionId: 'gone-1',
+            sessions: {
+              'keep-1': { sessionId: 'keep-1', characterId: 'sylvia', updatedAt: 2000 },
+              'gone-1': { sessionId: 'gone-1', characterId: 'sylvia', updatedAt: 3000 },
+            },
+          },
+        },
+      }
+      const remoteFiles = [
+        { relPath: 'db/chat/index/default.json', mtime: 5000, size: 100 },
+      ]
+      ;(window as any).electron = {
+        ipcRenderer: {
+          invoke: vi.fn(async (channel: string, payload: any) => {
+            if (channel === 'byos-fs:validate-path')
+              return { success: true }
+            if (channel === 'byos-fs:list-files')
+              return { success: true, files: remoteFiles }
+            if (channel === 'byos-fs:read-file')
+              return { success: true, content: JSON.stringify(remoteIndex) }
+            if (channel === 'byos-fs:write-file')
+              return { success: true, mtime: 6000 }
+            return { success: true }
+          }),
+        },
+      }
+
+      const success = await syncStore.reconcile({ skipBinaryAssets: true })
+      expect(success).toBe(true)
+
+      const stored = await storage.getItemRaw<any>('local:chat/index/default')
+      expect(Object.keys(stored?.characters?.sylvia?.sessions ?? {})).toEqual(['keep-1'])
+      expect(stored?.characters?.sylvia?.activeSessionId).not.toBe('gone-1')
+    })
+
+    it('outbox merge drops a tombstoned remote-only id and never re-uploads it', async () => {
+      const syncStore = useSyncEngineStore(pinia)
+      syncStore.activeProvider = 'local-fs'
+
+      // Local journal entry array no longer contains id-deleted (deleted on this device)
+      await storage.setItemRaw('local:memory/text-journal/user-1', [{ id: 'id-keep', title: 'keep', updatedAt: 1000 }])
+      await markSyncTombstone('local:memory/text-journal/user-1', ['id-deleted'])
+
+      // Remote still holds both entries
+      const remoteJournal = [{ id: 'id-keep', title: 'keep', updatedAt: 1000 }, { id: 'id-deleted', title: 'gone', updatedAt: 2000 }]
+      ;(window as any).electron = {
+        ipcRenderer: {
+          invoke: vi.fn(async (channel: string, payload: any) => {
+            if (channel === 'byos-fs:validate-path')
+              return { success: true }
+            if (channel === 'byos-fs:read-file')
+              return { success: true, content: JSON.stringify(remoteJournal) }
+            if (channel === 'byos-fs:write-file') {
+              writeCalls.push({ relPath: payload.relPath, content: payload.content })
+              return { success: true, mtime: Date.now() }
+            }
+            return { success: true }
+          }),
+        },
+      }
+
+      const success = await syncStore.processOutbox()
+      expect(success).toBe(true)
+
+      const journalWrite = writeCalls.find(call => call.relPath === 'db/memory/text-journal/user-1.json')
+      expect(journalWrite).toBeDefined()
+      const uploaded = JSON.parse(journalWrite!.content)
+      expect(uploaded.map((entry: any) => entry.id)).toEqual(['id-keep'])
+      const persisted = await storage.getItemRaw<any[]>('local:memory/text-journal/user-1')
+      expect(persisted?.map((entry: any) => entry.id)).toEqual(['id-keep'])
+    })
+
+    it('outbox merge passes a non-tombstoned remote-only id through', async () => {
+      const syncStore = useSyncEngineStore(pinia)
+      syncStore.activeProvider = 'local-fs'
+
+      await storage.setItemRaw('local:memory/text-journal/user-1', [{ id: 'id-keep', title: 'keep', updatedAt: 1000 }])
+      const remoteJournal = [{ id: 'id-keep', title: 'keep', updatedAt: 1000 }, { id: 'id-other', title: 'new from remote', updatedAt: 2000 }]
+      ;(window as any).electron = {
+        ipcRenderer: {
+          invoke: vi.fn(async (channel: string, payload: any) => {
+            if (channel === 'byos-fs:validate-path')
+              return { success: true }
+            if (channel === 'byos-fs:read-file')
+              return { success: true, content: JSON.stringify(remoteJournal) }
+            if (channel === 'byos-fs:write-file') {
+              writeCalls.push({ relPath: payload.relPath, content: payload.content })
+              return { success: true, mtime: Date.now() }
+            }
+            return { success: true }
+          }),
+        },
+      }
+
+      const success = await syncStore.processOutbox()
+      expect(success).toBe(true)
+
+      const journalWrite = writeCalls.find(call => call.relPath === 'db/memory/text-journal/user-1.json')
+      expect(journalWrite).toBeDefined()
+      const uploaded = JSON.parse(journalWrite!.content)
+      expect(uploaded.map((entry: any) => entry.id).sort()).toEqual(['id-keep', 'id-other'])
     })
   })
 })

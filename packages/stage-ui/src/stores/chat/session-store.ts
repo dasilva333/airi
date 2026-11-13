@@ -25,6 +25,7 @@ import { useShortTermMemoryStore } from '../memory-short-term'
 import { useTextJournalStore } from '../memory-text-journal'
 import { useAiriCardStore } from '../modules/airi-card'
 import { useSettingsGeneral } from '../settings'
+import { markSyncTombstone } from '../sync-tombstones'
 import { CHAT_STREAM_CHANNEL_NAME } from './constants'
 import { stripLargeInlineImagesForPersistence } from './message-sanitizer'
 import { updateRecentTopics } from './recent-topics'
@@ -1079,6 +1080,8 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
     for (const sessionId of sessionIds)
       await enqueuePersist(() => chatSessionsRepo.deleteSession(sessionId))
+    if (sessionIds.size > 0)
+      await markSyncTombstone(`local:chat/index/${index.value?.userId ?? currentUserId}`, [...sessionIds])
 
     sessionMessages.value = {}
     sessionMetas.value = {}
@@ -1156,6 +1159,18 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     if (!characterId)
       return
 
+    // NOTICE: record the delete in the device-local sync tombstone store before unloading,
+    // so the BYOS merge drops this session's messages/index entry instead of resurrecting them.
+    // Loaded sessions expose their message ids in memory; unopened ones need one repo read.
+    let deletedMessageIds = (sessionMessages.value[sessionId] ?? []).map(m => m?.id).filter((id): id is string => Boolean(id))
+    if (deletedMessageIds.length === 0) {
+      const stored = await chatSessionsRepo.getSession(sessionId).catch(() => null)
+      deletedMessageIds = (stored?.messages ?? []).map(m => m?.id).filter((id): id is string => Boolean(id))
+    }
+    if (deletedMessageIds.length > 0)
+      await markSyncTombstone(`local:chat/sessions/${sessionId}`, deletedMessageIds)
+    await markSyncTombstone(`local:chat/index/${index.value?.userId ?? getCurrentUserId()}`, [sessionId])
+
     // NOTICE: Delete from local reactive memory first to clear the state immediately,
     // preventing in-flight updates or broadcast events from resurrecting it during IDB await.
     delete sessionMessages.value[sessionId]
@@ -1189,6 +1204,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     const current = sessionMessages.value[sessionId] ?? []
     const next = current.filter(msg => msg.id !== messageId)
     if (next.length !== current.length) {
+      await markSyncTombstone(`local:chat/sessions/${sessionId}`, [messageId])
       sessionMessages.value[sessionId] = next
       await persistSession(sessionId)
       broadcastStreamEvent({ type: 'session-refreshed', sessionId, messages: JSON.parse(JSON.stringify(next)) })

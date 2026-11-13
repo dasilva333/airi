@@ -571,6 +571,16 @@ The event log is the read-mostly audit trail for chat-related state events. Entr
 | **Description** | Written on every `storage.setItemRaw`/`removeItem` to track the last modification time of each key |
 | **Sync** | **Skipped** by the sync engine (internal metadata) |
 
+### 1.13b Sync Metadata — Tombstones
+
+| Attribute | Value |
+| :--- | :--- |
+| **Key** | `local:sync/tombstones` |
+| **File** | `packages/stage-ui/src/stores/sync-tombstones.ts` |
+| **Type** | `Record<fullMergeableKey, string[]>` — e.g. `{ 'local:memory/text-journal/default': ['id1'] }` |
+| **Description** | Device-local bookkeeping: ids deleted via wired delete paths (memory text journal, short-term memory, chat sessions/messages/index). `mergeArraysById`, `mergeChatSessions`/`mergeChatMessagesById`, and `mergeChatIndices` drop tombstoned ids regardless of side, so deletions survive sync. FIFO cap of 1000 ids **per key** (no TTL — payloads carry no trustworthy delete timestamp); `mergeByIdLww` is the shared merge primitive. |
+| **Sync** | **Skipped** (device-local bookkeeping; `enqueueSync` excludes it) |
+
 ### 1.14 Sync Metadata — Conflicts
 
 | Attribute | Value |

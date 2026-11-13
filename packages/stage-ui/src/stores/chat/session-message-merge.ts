@@ -1,6 +1,6 @@
 import type { ChatHistoryItem } from '../../types/chat'
 
-function extractMessageContent(message: ChatHistoryItem) {
+export function extractMessageContent(message: ChatHistoryItem) {
   if (typeof message.content === 'string')
     return message.content
 
@@ -15,6 +15,20 @@ function extractMessageContent(message: ChatHistoryItem) {
   }
 
   return ''
+}
+
+/**
+ * Union two id-keyed entity lists: everything in `current` (in-memory, wins on
+ * id clash), plus stored items whose ids are neither overlaid nor tombstoned in
+ * `removedIds` (persist paths pass locally deleted ids so a re-read cannot
+ * resurrect them). Stored items without an id are carried over as-is since
+ * there is nothing to dedupe them against.
+ */
+export function mergeById<T extends { id?: string | number }>(stored: T[] | null | undefined, current: T[], removedIds?: Set<string>): T[] {
+  const currentIds = new Set(current.map(item => item?.id).filter(id => id !== undefined && id !== null).map(String))
+  const storedOnly = (stored ?? []).filter(item => item && (item.id === undefined || item.id === null
+    || (!removedIds?.has(String(item.id)) && !currentIds.has(String(item.id)))))
+  return [...current, ...storedOnly]
 }
 
 function getMessageFingerprint(message: ChatHistoryItem) {

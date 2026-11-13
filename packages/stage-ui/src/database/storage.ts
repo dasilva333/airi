@@ -26,6 +26,8 @@ async function enqueueSync(key: string, action: 'upsert' | 'delete') {
     return
   if (key.startsWith('local:sync-metadata'))
     return // Skip metadata keys
+  if (key === 'local:sync/tombstones')
+    return // Device-local delete tombstones; never synced
 
   const keyWithoutPrefix = key.replace('local:', '')
 
