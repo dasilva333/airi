@@ -47,10 +47,17 @@ Unified architecture for real-time audio-reactive dancing across Live2D and VRM 
 - `conductor/phrase-scheduler.ts`: Musical phrase bar scheduling (`barsPerPhrase`, auto vs fixed bar cadence) and lookahead buffer preparation.
 - `dsp/`: Beat/bar phase alignment helpers.
 
-### Phase 2 & 3 (Planned / In-Progress Targets)
-- `packages/stage-ui/src/types/card.schema.ts` & `packages/stage-ui/src/stores/modules/airi-card.ts`: Per-character `AiriExtension.beatSync` schema.
-- `packages/stage-ui/src/components/scenarios/layout/popovers/BeatSyncPopover.vue`: Dedicated Control Strip popover (`actor-beat-sync`).
-- `packages/stage-layouts/src/components/Layouts/ChatOptions/ChatOptionsCapabilitiesView.vue`: Quick Settings Beat Sync toggle + BPM status.
+### Phase 2 & 3 (Implemented)
+- **Per-Character Schema & VRM/Live2D Bridges**:
+  - `packages/stage-ui/src/types/card.schema.ts` & `packages/stage-ui/src/stores/modules/airi-card.ts`: `AiriBeatSyncSchema` / `AiriExtension.beatSync`.
+  - `packages/stage-shared/src/beat-sync/vrm-clips.ts`: `beatSyncEnergyTierFromNormalized`, `computeBeatSyncVrmDanceSpeed`, `selectBeatSyncVrmClipForEnergy`.
+  - `packages/stage-ui-three/src/stores/model-store.ts`, `VRMModel.vue`, `ThreeScene.vue`: `TriggerMotionOptions.timeScale` and `setMotionTimeScale` / `onMotionTimeScale`.
+  - `packages/stage-ui-live2d/src/stores/live2d.ts` & `Model.vue`: `setBeatSyncConfig` / `onBeatSyncConfig` (`style`, `strength`).
+  - `packages/stage-ui/src/stores/modules/beat-sync-choreography.ts`: `useBeatSyncChoreographyStore` unified coordinator.
+- **Control Strip & Chat Quick Settings UI**:
+  - `packages/stage-ui/src/components/scenarios/layout/popovers/BeatSyncPopover.vue`: Dedicated 3-state Control Strip popover (`Live2D` / `VRM · Dance clips` / `VRM · AI choreography` / `Unsupported`).
+  - `packages/stage-ui/src/components/scenarios/layout/popovers/registry.ts`, `ControlStrip.vue`, `control-customizer.ts`, `control-strip-labels.ts`, `stores/settings/control-strip.ts`: `actor-beat-sync` registration.
+  - `packages/stage-layouts/src/components/Layouts/ChatOptions/ChatOptionsCapabilitiesView.vue`: Quick Settings Beat Sync toggle + live BPM pill.
 
 ---
 

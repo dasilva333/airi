@@ -321,6 +321,14 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         defaultOnStrip: true,
       },
       {
+        id: 'actor-beat-sync',
+        label: 'Beat Sync',
+        description: 'Audio-reactive dancing for Live2D and VRM avatars (clips & AI choreography).',
+        icon: 'i-solar:music-note-2-linear',
+        type: 'menu',
+        defaultOnStrip: true,
+      },
+      {
         id: 'actor-all-emotions',
         label: 'All Emotions',
         description: 'Full list of model emotions/expressions to preview or toggle.',

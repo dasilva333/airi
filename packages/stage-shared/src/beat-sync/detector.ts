@@ -150,6 +150,9 @@ export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): 
     stop()
 
     context = new AudioContext()
+    if (context.state === 'suspended') {
+      await context.resume()
+    }
     analyser = await startTemporaAnalyser({
       context,
       worklet: analyserWorklet,
@@ -253,6 +256,10 @@ export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): 
           track.stop()
           stream.removeTrack(track)
         })
+
+        if (stream.getAudioTracks().length === 0) {
+          throw new Error('No system audio track available (check macOS Screen & System Audio Recording permission)')
+        }
 
         const node = ctx.createMediaStreamSource(stream)
         stopSource = () => {

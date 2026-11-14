@@ -35,7 +35,7 @@ defineInvokeHandler(context, beatSyncToggleInvokeEventa, async (enabled) => {
   // eslint-disable-next-line no-console
   console.log('[toggle]', enabled)
   if (enabled) {
-    detector.startScreenCapture()
+    await detector.startScreenCapture()
   }
   else {
     detector.stop()

@@ -10,6 +10,26 @@ export const BEAT_SYNC_ENERGY_TIERS: readonly BeatSyncEnergyTier[] = ['calm', 'm
 
 export type BeatSyncVrmClipTiers = Record<BeatSyncEnergyTier, string[]>
 
+export const DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS: BeatSyncVrmClipTiers = {
+  calm: ['armsSwing', 'ladylake', 'magicEyeWink', 'showcase'],
+  medium: ['aiCatDance', 'armsUpDownDance', 'kawaiiKaiwai', 'tetris'],
+  intense: ['blingBang', 'crabDance', 'hitoMania', 'humansAreJustCylinders'],
+}
+
+export const BUILTIN_BEAT_SYNC_DANCE_KEYS: readonly string[] = [
+  ...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.calm,
+  ...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.medium,
+  ...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.intense,
+]
+
+export function formatBeatSyncClipLabel(key: string): string {
+  const raw = key.replace(/^custom-vrma:/, '')
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, c => c.toUpperCase())
+}
+
 export function beatSyncEnergyTierFromNormalized(energy: number): BeatSyncEnergyTier {
   if (energy < 0.33)
     return 'calm'

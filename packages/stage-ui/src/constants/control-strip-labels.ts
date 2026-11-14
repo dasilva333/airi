@@ -139,6 +139,7 @@ export const CONTROL_STRIP_SHORT_LABELS: Record<string, string> = {
   'actor-wardrobe': 'Wear',
   'actor-motions': 'Move',
   'actor-motion-playground': 'Move',
+  'actor-beat-sync': 'Beat',
   'actor-all-emotions': 'Mood',
   'actor-vfx': 'VFX',
   'actor-selfies': 'Self',

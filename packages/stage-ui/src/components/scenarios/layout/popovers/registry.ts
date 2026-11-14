@@ -20,6 +20,7 @@ import type { Component } from 'vue'
 
 import AtmospherePopover from './AtmospherePopover.vue'
 import AvatarsPopover from './AvatarsPopover.vue'
+import BeatSyncPopover from './BeatSyncPopover.vue'
 import CharactersPopover from './CharactersPopover.vue'
 import ChatPresetPopover from './ChatPresetPopover.vue'
 import EmotionsPopover from './EmotionsPopover.vue'
@@ -34,6 +35,7 @@ import WardrobePopover from './WardrobePopover.vue'
 export const STRIP_POPOVER_COMPONENTS: Record<string, Component> = {
   'actor-all-emotions': EmotionsPopover,
   'actor-avatars': AvatarsPopover,
+  'actor-beat-sync': BeatSyncPopover,
   'actor-characters': CharactersPopover,
   'actor-macaron': MacaronPopover,
   'actor-motion-playground': MotionStudioPopover,

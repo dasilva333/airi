@@ -273,6 +273,20 @@ const stripLength = computed(() => {
   return N === 0 ? 52 : 52 + 44 * N
 })
 
+function getPopoverExtraWidth(popoverId: string | null): number {
+  if (popoverId === 'actor-motion-playground')
+    return 404
+  if (popoverId === 'actor-beat-sync')
+    return 344
+  return 276
+}
+
+function getPopoverMinHeight(popoverId: string | null): number {
+  if (popoverId === 'actor-motion-playground' || popoverId === 'actor-beat-sync')
+    return 580
+  return 500
+}
+
 async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'left' | 'right' | 'top' | 'bottom') {
   const current = await getBounds()
   if (!current)
@@ -287,7 +301,8 @@ async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'lef
   if (activePopover.value) {
     const placement = lastPlacement.value || 'bottom'
     if (lastOrientation.value === 'vertical') {
-      x = current.x + (placement === 'left' ? 276 : 0)
+      const prevExtraW = getPopoverExtraWidth(activePopover.value)
+      x = current.x + (placement === 'left' ? prevExtraW : 0)
       y = current.y + (current.height - stripLength.value) / 2
     }
     else {
@@ -304,9 +319,10 @@ async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'lef
 
   if (nextPopover) {
     if (controlStripStore.orientation === 'vertical') {
-      targetW = 324
-      targetH = Math.max(500, h)
-      targetX = x - (nextPlacement === 'left' ? 276 : 0)
+      const nextExtraW = getPopoverExtraWidth(nextPopover)
+      targetW = 48 + nextExtraW
+      targetH = Math.max(getPopoverMinHeight(nextPopover), h)
+      targetX = x - (nextPlacement === 'left' ? nextExtraW : 0)
       targetY = y - (targetH - h) / 2
     }
     else {

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
+import { getBeatSyncState, listenBeatSyncStateChange } from '@proj-airi/stage-shared/beat-sync'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useTheme } from '@proj-airi/ui'
 import { onClickOutside } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, ref, toRef, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 // Ported stores & states for Popovers
 
 import SelfiesPopover from './popovers/SelfiesPopover.vue'
@@ -37,6 +38,19 @@ const { dispatchAction } = useControlStripAction()
 const settingsStore = useSettings()
 const stageModelSettings = useSettingsStageModel()
 const { gunslingerStance } = storeToRefs(stageModelSettings)
+const isBeatSyncActive = ref(false)
+let stopBeatSyncStateWatch: (() => void) | undefined
+onMounted(() => {
+  void getBeatSyncState().then((s) => {
+    isBeatSyncActive.value = Boolean(s?.isActive)
+  })
+  stopBeatSyncStateWatch = listenBeatSyncStateChange((s) => {
+    isBeatSyncActive.value = Boolean(s?.isActive)
+  })
+})
+onUnmounted(() => {
+  stopBeatSyncStateWatch?.()
+})
 
 console.log('[ControlStrip.vue] Setup loaded with Selfie feature support')
 const { themeMode, isDark } = useTheme()
@@ -247,7 +261,7 @@ const { isDragging, onDragStart } = useControlStripDrag({
 function handleAction(actionId: string) {
   console.info(`[Control Strip] Button clicked: "${actionId}".`)
 
-  const menuButtons = ['actor-characters', 'actor-avatars', 'actor-wardrobe', 'actor-motions', 'actor-motion-playground', 'actor-all-emotions', 'actor-vfx', 'actor-selfies', 'actor-macaron', 'gemini-voice', 'stage-atmosphere']
+  const menuButtons = ['actor-characters', 'actor-avatars', 'actor-wardrobe', 'actor-motions', 'actor-motion-playground', 'actor-beat-sync', 'actor-all-emotions', 'actor-vfx', 'actor-selfies', 'actor-macaron', 'gemini-voice', 'stage-atmosphere']
   if (menuButtons.includes(actionId)) {
     if (activePopover.value === actionId) {
       activePopover.value = null
@@ -366,6 +380,7 @@ function toggleOrientation() {
           'bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-100',
           'transition-all duration-200 hover:scale-105 cursor-pointer control-strip-btn shadow-sm',
           btn.id === 'stage' && controlStripStore.stageDisabled ? 'opacity-40 grayscale cursor-not-allowed' : '',
+          btn.id === 'actor-beat-sync' && isBeatSyncActive ? 'text-amber-500 dark:text-amber-400 bg-amber-500/15 ring-1 ring-amber-500/40' : '',
           activePopover === btn.id ? 'ring-2 ring-primary-500 ring-offset-2 ring-offset-transparent dark:ring-primary-400 bg-primary-500/15' : '',
         ]"
         :title="btn.title"
@@ -417,7 +432,9 @@ function toggleOrientation() {
           popoverPlacement === 'left' ? 'right-full mr-3 top-1/2 -translate-y-1/2' : '',
           activePopover === 'actor-motion-playground'
             ? 'w-[360px] sm:w-[380px] max-w-[92vw] max-h-[85vh] overflow-y-auto scrollbar-thin'
-            : 'w-64 max-w-xs max-h-[440px] overflow-y-auto scrollbar-thin',
+            : activePopover === 'actor-beat-sync'
+              ? 'w-72 sm:w-80 max-w-[92vw] max-h-[85vh] overflow-y-auto scrollbar-thin'
+              : 'w-64 max-w-xs max-h-[440px] overflow-y-auto scrollbar-thin',
         ]"
         @click.stop
       >

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useBeatSyncChoreographyStore } from '@proj-airi/stage-ui/stores/modules/beat-sync-choreography'
 import { useSystemOneStore } from '@proj-airi/stage-ui/stores/modules/system-one'
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 
 const isAutoSuggestionsEnabled = useLocalStorage('airi:producer:auto-suggestions-enabled', false)
 
@@ -13,6 +14,23 @@ function handleToggleAutoSuggestions() {
 
 const airiCardStore = useAiriCardStore()
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
+
+const beatSyncChoreoStore = useBeatSyncChoreographyStore()
+const {
+  isActive: isBeatSyncActive,
+  isRendererSupported: isBeatSyncSupported,
+  bpm: beatSyncBpm,
+} = storeToRefs(beatSyncChoreoStore)
+
+onMounted(() => {
+  beatSyncChoreoStore.initListeners()
+})
+
+function handleToggleBeatSync() {
+  if (!isBeatSyncSupported.value)
+    return
+  void beatSyncChoreoStore.toggleDancing()
+}
 
 const isHeartbeatsEnabled = computed(() => {
   return activeCard.value?.extensions?.airi?.heartbeats?.enabled ?? false
@@ -257,6 +275,45 @@ function handleToggleCognitivePipeline() {
       >
         <span
           :class="isHeartbeatsEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+          class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+        />
+      </div>
+    </div>
+
+    <!-- Toggle: Beat Sync -->
+    <div
+      class="w-full flex items-center justify-between rounded-xl px-2.5 py-2 transition"
+      :class="isBeatSyncSupported ? 'cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/60' : 'opacity-50 cursor-not-allowed'"
+      @click="handleToggleBeatSync"
+    >
+      <div class="flex items-center gap-2.5">
+        <div
+          class="size-4.5"
+          :class="isBeatSyncActive
+            ? 'text-amber-500 i-solar:music-note-2-bold-duotone'
+            : 'text-neutral-400 dark:text-neutral-500 i-solar:music-note-2-linear'"
+        />
+        <div class="flex flex-col">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Beat Sync</span>
+            <span
+              v-if="isBeatSyncActive && beatSyncBpm"
+              class="rounded-full bg-amber-500/15 px-1.5 py-0.25 text-[9px] text-amber-600 font-semibold tabular-nums dark:text-amber-400"
+            >
+              {{ Math.round(beatSyncBpm) }} BPM
+            </span>
+          </div>
+          <span class="text-[9px] text-neutral-400">
+            {{ !isBeatSyncSupported ? 'Live2D & VRM avatars only' : (isBeatSyncActive ? (beatSyncBpm ? 'Dancing to audio' : 'Finding the beat…') : 'Audio-reactive dancing') }}
+          </span>
+        </div>
+      </div>
+      <div
+        :class="isBeatSyncActive ? 'bg-amber-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+        class="relative h-4 w-7 inline-flex shrink-0 items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+      >
+        <span
+          :class="isBeatSyncActive ? 'translate-x-3.5' : 'translate-x-0.5'"
           class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
         />
       </div>

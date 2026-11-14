@@ -12,7 +12,10 @@ import { synthesizeDanceBrief } from '@proj-airi/motion-choreography'
 import {
   BEAT_SYNC_ENERGY_TIERS,
   beatSyncEnergyTierFromNormalized,
+  BUILTIN_BEAT_SYNC_DANCE_KEYS,
   computeBeatSyncVrmDanceSpeed,
+  DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS,
+  formatBeatSyncClipLabel,
   getBeatSyncState,
   listenBeatSyncBeatSignal,
   listenBeatSyncStateChange,
@@ -87,14 +90,15 @@ export const useBeatSyncChoreographyStore = defineStore('beat-sync-choreography'
   const detectorState = ref<BeatSyncDetectorState>()
   const vibe = ref<BeatSyncVibe | null>(null)
   const lastBeatAt = ref<number>(0)
+  const captureError = ref<string | null>(null)
   let listenersInitialized = false
 
   // --- Global Fallbacks (machine-level / cardless fallback) ---
   const globalAudioSourceLabel = useLocalStorageManualReset<string>('settings/beat-sync/audio-source-label', () => 'System audio')
   const globalClipTiers = useLocalStorageManualReset<BeatSyncVrmClipTiers>('settings/beat-sync/vrm-clip-tiers', () => ({
-    calm: [],
-    medium: [],
-    intense: [],
+    calm: [...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.calm],
+    medium: [...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.medium],
+    intense: [...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.intense],
   }))
   const cardlessBeatSyncFallback = ref<AiriBeatSync>({})
 
@@ -154,7 +158,30 @@ export const useBeatSyncChoreographyStore = defineStore('beat-sync-choreography'
     const hasCardClips = BEAT_SYNC_ENERGY_TIERS.some(t => (cardTiers[t]?.length ?? 0) > 0)
     if (hasCardClips)
       return cardTiers
-    return globalClipTiers.value
+
+    const hasGlobalClips = BEAT_SYNC_ENERGY_TIERS.some(t => (globalClipTiers.value[t]?.length ?? 0) > 0)
+    if (hasGlobalClips)
+      return globalClipTiers.value
+
+    return {
+      calm: [...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.calm],
+      medium: [...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.medium],
+      intense: [...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.intense],
+    }
+  })
+
+  const availableDanceClips = computed(() => {
+    const builtin = BUILTIN_BEAT_SYNC_DANCE_KEYS.map(key => ({
+      key,
+      label: formatBeatSyncClipLabel(key),
+      source: 'builtin' as const,
+    }))
+    const custom = customAnimationsList.value.map(item => ({
+      key: item.key,
+      label: item.name,
+      source: 'custom' as const,
+    }))
+    return [...custom, ...builtin]
   })
 
   const totalAssignedClips = computed(() => {
@@ -163,14 +190,14 @@ export const useBeatSyncChoreographyStore = defineStore('beat-sync-choreography'
       + resolvedClipTiers.value.intense.length
   })
 
-  const hasAnyDanceClips = computed(() => totalAssignedClips.value > 0 || customAnimationsList.value.length > 0)
+  const hasAnyDanceClips = computed(() => totalAssignedClips.value > 0 || availableDanceClips.value.length > 0)
 
   const nowPlayingClipName = computed(() => {
     const key = nowPlayingClipKey.value
     if (!key)
       return null
     const found = customAnimationsList.value.find(item => item.key === key)
-    return found?.name ?? key.replace(/^custom-vrma:/, '')
+    return found?.name ?? formatBeatSyncClipLabel(key)
   })
 
   // --- Persistence Helpers ---
@@ -267,6 +294,40 @@ export const useBeatSyncChoreographyStore = defineStore('beat-sync-choreography'
     if (activeCard.value && activeCardId.value) {
       void updateCharacterBeatSync({ vrm: { clipTiers: next } })
     }
+  }
+
+  function resetClipTiersToDefaults() {
+    const defaults: BeatSyncVrmClipTiers = {
+      calm: [...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.calm],
+      medium: [...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.medium],
+      intense: [...DEFAULT_BEAT_SYNC_VRM_CLIP_TIERS.intense],
+    }
+    globalClipTiers.value = defaults
+    if (activeCard.value && activeCardId.value) {
+      void updateCharacterBeatSync({ vrm: { clipTiers: defaults } })
+    }
+  }
+
+  function previewClip(clipKey: string) {
+    if (activeRenderer.value !== 'vrm')
+      return
+    nowPlayingClipKey.value = clipKey
+    modelStore.triggerMotion(clipKey, {
+      loop: true,
+      fadeDuration: 0.4,
+      timeScale: isActive.value ? danceSpeed.value : 1,
+    })
+  }
+
+  async function importDanceClip(file: File, targetTier?: BeatSyncEnergyTier) {
+    const key = await customVrmAnimationsStore.addCustomAnimation(file, { source: 'uploaded' })
+    if (targetTier) {
+      const current = resolvedClipTiers.value[targetTier]
+      if (!current.includes(key)) {
+        setTierClips(targetTier, [...current, key])
+      }
+    }
+    return key
   }
 
   // --- VRM Clip Playback ---
@@ -466,11 +527,19 @@ export const useBeatSyncChoreographyStore = defineStore('beat-sync-choreography'
   // --- Public Lifecycle Actions ---
   async function startDancing(): Promise<boolean> {
     initListeners()
+    captureError.value = null
     if (!isRendererSupported.value)
       return false
 
     if (!isActive.value) {
-      await toggleBeatSync(true)
+      try {
+        await toggleBeatSync(true)
+      }
+      catch (err: any) {
+        captureError.value = err?.message || String(err)
+        console.error('[BeatSyncChoreography] Failed to start audio capture:', err)
+        return false
+      }
     }
 
     if (activeRenderer.value === 'live2d') {
@@ -563,6 +632,7 @@ export const useBeatSyncChoreographyStore = defineStore('beat-sync-choreography'
     detectorState,
     vibe,
     lastBeatAt,
+    captureError,
     globalAudioSourceLabel,
     globalClipTiers,
     nowPlayingClipKey,
@@ -585,6 +655,7 @@ export const useBeatSyncChoreographyStore = defineStore('beat-sync-choreography'
     live2dConfig,
     vrmConfig,
     resolvedClipTiers,
+    availableDanceClips,
     totalAssignedClips,
     hasAnyDanceClips,
 
@@ -601,6 +672,9 @@ export const useBeatSyncChoreographyStore = defineStore('beat-sync-choreography'
     setBarsPerPhrase,
     setAutoBars,
     setTierClips,
+    resetClipTiersToDefaults,
+    previewClip,
+    importDanceClip,
     triggerVrmClipForTier,
   }
 })
