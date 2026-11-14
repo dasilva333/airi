@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { ChatWorkspacePopover } from '@proj-airi/stage-layouts'
+import { CharacterAvatar } from '@proj-airi/stage-ui/components'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useDark, useLocalStorage, useToggle } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
-
-import stickerAvatar from '../assets/relu-sticker-wow.avif'
 
 import {
   electronOpenSettings,
@@ -55,9 +54,17 @@ const airiCardStore = useAiriCardStore()
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 const isWorkspaceOpen = ref(false)
 
+const effectiveCardId = computed(() => {
+  return airiCardStore.resolveCardId(activeCardId.value)
+})
+
+const effectiveDisplayModelId = computed(() => {
+  return airiCardStore.getCardDisplayModelId(effectiveCardId.value)
+})
+
 const activeCharacterName = computed(() => {
-  const card = airiCardStore.cards.get(activeCardId.value) || activeCard.value
-  return card?.name || activeCardId.value || 'Character'
+  const card = airiCardStore.cards.get(effectiveCardId.value) || activeCard.value
+  return card?.name || effectiveCardId.value || 'Character'
 })
 
 // Voice output master mute
@@ -142,134 +149,150 @@ const companionSubtitle = computed(() => {
         'rounded-2xl shadow-xl z-10',
       ]"
     >
-      <!-- Top Utility Bar (Always Visible, ~35px) -->
+      <!-- 1. COMPANION HEADER (Expanded: avatar + identity + controls; Collapsed: compact bar) -->
       <div
         :class="[
-          'px-3.5 py-1.5 min-h-[35px]',
-          'flex items-center justify-between',
+          'flex justify-between gap-2 flex-shrink-0',
+          isCollapsed
+            ? 'px-3.5 py-1.5 min-h-[35px] items-center'
+            : 'px-3.5 pt-2.5 pb-1.5 items-start',
         ]"
       >
-        <!-- Left: blank for now as requested -->
-        <div />
+        <!-- Left: Expanded Identity -->
+        <div v-if="!isCollapsed" class="min-w-0 flex items-center gap-2.5 pt-0.5">
+          <CharacterAvatar
+            :card-id="effectiveCardId"
+            :name="activeCharacterName"
+            :display-model-id="effectiveDisplayModelId"
+            size-class="w-18 h-18"
+            class="border-2 border-primary-500/70 shadow-sm"
+          />
 
-        <!-- Right Button Cluster: [Collapse Chevron] [Pin] [Settings] [Close] -->
-        <div class="flex items-center gap-1 -mr-1">
-          <!-- Chevron collapse/expand button -->
-          <button
-            type="button"
-            :title="isCollapsed ? 'Expand Header' : 'Collapse Header'"
-            :class="[
-              'p-1 rounded-md transition cursor-pointer',
-              isCollapsed
-                ? 'text-primary-500 bg-primary-50 dark:bg-primary-950/60'
-                : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200',
-            ]"
-            @click="toggleCollapse"
-          >
-            <div :class="[isCollapsed ? 'i-solar:alt-arrow-down-linear' : 'i-solar:alt-arrow-up-linear', 'text-xs']" />
-          </button>
-
-          <!-- Pin button -->
-          <button
-            type="button"
-            title="Pin window"
-            :class="[
-              'p-1 rounded-md transition cursor-pointer',
-              isPinned
-                ? 'text-primary-500 bg-primary-50 dark:bg-primary-950/60'
-                : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200',
-            ]"
-            @click="handleTogglePin"
-          >
-            <div class="i-solar:pin-bold text-xs" />
-          </button>
-
-          <!-- Settings (Cog) button -->
-          <button
-            type="button"
-            title="Settings"
-            class="cursor-pointer rounded-md p-1 text-neutral-400 transition hover:text-neutral-700 dark:hover:text-neutral-200"
-            @click="handleOpenSettings"
-          >
-            <div class="i-solar:settings-linear text-xs" />
-          </button>
-
-          <!-- Close button -->
-          <button
-            type="button"
-            title="Close"
-            class="cursor-pointer rounded-md p-1 text-neutral-400 transition hover:text-neutral-700 dark:hover:text-neutral-200"
-            @click="() => closeRpc()"
-          >
-            <div class="i-solar:close-square-linear text-xs" />
-          </button>
-        </div>
-      </div>
-
-      <!-- Collapsible Section: Identity Header & Tab Switcher -->
-      <div v-show="!isCollapsed" class="flex flex-shrink-0 flex-col">
-        <!-- 1. COMPANION IDENTITY & RAPID ACTION PILLS -->
-        <div
-          :class="[
-            'px-3.5 pb-2.5',
-            'border-neutral-200/70 dark:border-neutral-800/70',
-            'flex items-center justify-between gap-2',
-          ]"
-        >
-          <!-- Character Avatar & Identity -->
-          <div class="min-w-0 flex items-center gap-2.5">
-            <div
-              :class="[
-                'relative w-16 h-16 rounded-full overflow-hidden flex-shrink-0',
-                'border-2 border-primary-500/70 shadow-sm',
-                'bg-neutral-100 dark:bg-neutral-800',
-              ]"
+          <div class="min-w-0 flex-1">
+            <ChatWorkspacePopover
+              v-model:open="isWorkspaceOpen"
+              :character-id="effectiveCardId"
             >
-              <img
-                :src="stickerAvatar"
-                alt="AIRI"
-                class="h-full w-full object-cover object-center"
-              >
-            </div>
-
-            <div class="min-w-0 flex-1">
-              <ChatWorkspacePopover
-                v-model:open="isWorkspaceOpen"
-                :character-id="activeCardId"
-              >
-                <template #trigger>
-                  <button
-                    type="button"
-                    title="Switch Character / Session"
+              <template #trigger>
+                <button
+                  type="button"
+                  title="Switch Character / Session"
+                  :class="[
+                    'flex items-center gap-1.5 cursor-pointer select-none text-left rounded-lg p-0.5 -ml-1 transition max-w-full',
+                    'hover:bg-neutral-100/80 dark:hover:bg-neutral-800/80',
+                  ]"
+                >
+                  <span class="truncate text-base text-primary-600 font-bold tracking-tight dark:text-primary-400">
+                    {{ activeCharacterName }}
+                  </span>
+                  <div
                     :class="[
-                      'flex items-center gap-1.5 cursor-pointer select-none text-left rounded-lg p-0.5 -ml-1 transition',
-                      'hover:bg-neutral-100/80 dark:hover:bg-neutral-800/80',
+                      'p-0.5 px-1 rounded-md transition flex items-center justify-center flex-shrink-0',
+                      'bg-neutral-100/90 hover:bg-neutral-200/80 dark:bg-neutral-800/90 dark:hover:bg-neutral-700/80',
+                      'border border-neutral-200/70 dark:border-neutral-700/70 shadow-xs',
+                      'text-neutral-500 dark:text-neutral-400',
                     ]"
                   >
-                    <span class="text-base text-primary-600 font-bold tracking-tight dark:text-primary-400">
-                      {{ activeCharacterName }}
-                    </span>
-                    <div
-                      :class="[
-                        'p-0.5 px-1 rounded-md transition flex items-center justify-center',
-                        'bg-neutral-100/90 hover:bg-neutral-200/80 dark:bg-neutral-800/90 dark:hover:bg-neutral-700/80',
-                        'border border-neutral-200/70 dark:border-neutral-700/70 shadow-xs',
-                        'text-neutral-500 dark:text-neutral-400',
-                      ]"
-                    >
-                      <div class="i-solar:alt-arrow-down-linear text-xs" />
-                    </div>
-                  </button>
-                </template>
-              </ChatWorkspacePopover>
-              <div class="mt-0.5 text-xs text-neutral-500 leading-tight italic dark:text-neutral-400">
-                {{ companionSubtitle }}
-              </div>
+                    <div class="i-solar:alt-arrow-down-linear text-xs" />
+                  </div>
+                </button>
+              </template>
+            </ChatWorkspacePopover>
+            <div class="mt-0.5 text-xs text-neutral-500 leading-tight italic dark:text-neutral-400">
+              {{ companionSubtitle }}
             </div>
           </div>
+        </div>
 
-          <!-- Rapid Action Pills: Voice Mute | Theme -->
+        <!-- Left: Collapsed Compact Identity -->
+        <div v-else class="min-w-0 flex flex-1 items-center">
+          <ChatWorkspacePopover
+            v-model:open="isWorkspaceOpen"
+            :character-id="effectiveCardId"
+          >
+            <template #trigger>
+              <button
+                type="button"
+                title="Switch Character / Session"
+                :class="[
+                  'flex items-center gap-2 cursor-pointer select-none text-left rounded-lg px-1 py-0.5 -ml-1 transition max-w-full',
+                  'hover:bg-neutral-100/80 dark:hover:bg-neutral-800/80',
+                ]"
+              >
+                <CharacterAvatar
+                  :card-id="effectiveCardId"
+                  :name="activeCharacterName"
+                  :display-model-id="effectiveDisplayModelId"
+                  size-class="w-6 h-6"
+                  class="shadow-xs border border-primary-500/70"
+                />
+                <span class="truncate text-xs text-primary-600 font-bold tracking-tight dark:text-primary-400">
+                  {{ activeCharacterName }}
+                </span>
+                <div class="i-solar:alt-arrow-down-linear flex-shrink-0 text-[10px] text-neutral-400" />
+              </button>
+            </template>
+          </ChatWorkspacePopover>
+        </div>
+
+        <!-- Right: Top-Right Window Controls + Rapid Action Pills (when expanded) -->
+        <div class="flex flex-shrink-0 flex-col items-end gap-1.5">
+          <!-- Top-Right: [Collapse Chevron] [Pin] [Settings] [Close] -->
+          <div class="flex items-center gap-1 -mr-1">
+            <!-- Chevron collapse/expand button -->
+            <button
+              type="button"
+              :title="isCollapsed ? 'Expand Header' : 'Collapse Header'"
+              :class="[
+                'p-1 rounded-md transition cursor-pointer',
+                isCollapsed
+                  ? 'text-primary-500 bg-primary-50 dark:bg-primary-950/60'
+                  : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200',
+              ]"
+              @click="toggleCollapse"
+            >
+              <div :class="[isCollapsed ? 'i-solar:alt-arrow-down-linear' : 'i-solar:alt-arrow-up-linear', 'text-xs']" />
+            </button>
+
+            <!-- Pin button -->
+            <button
+              type="button"
+              title="Pin window"
+              :class="[
+                'p-1 rounded-md transition cursor-pointer',
+                isPinned
+                  ? 'text-primary-500 bg-primary-50 dark:bg-primary-950/60'
+                  : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200',
+              ]"
+              @click="handleTogglePin"
+            >
+              <div class="i-solar:pin-bold text-xs" />
+            </button>
+
+            <!-- Settings (Cog) button -->
+            <button
+              type="button"
+              title="Settings"
+              class="cursor-pointer rounded-md p-1 text-neutral-400 transition hover:text-neutral-700 dark:hover:text-neutral-200"
+              @click="handleOpenSettings"
+            >
+              <div class="i-solar:settings-linear text-xs" />
+            </button>
+
+            <!-- Close button -->
+            <button
+              type="button"
+              title="Close"
+              class="cursor-pointer rounded-md p-1 text-neutral-400 transition hover:text-neutral-700 dark:hover:text-neutral-200"
+              @click="() => closeRpc()"
+            >
+              <div class="i-solar:close-square-linear text-xs" />
+            </button>
+          </div>
+
+          <!-- Rapid Action Pills: Voice Mute | Theme (Expanded only) -->
           <div
+            v-show="!isCollapsed"
             :class="[
               'flex items-center gap-1 p-0.5 rounded-full flex-shrink-0',
               'bg-neutral-100/80 dark:bg-neutral-800/80',
@@ -307,63 +330,64 @@ const companionSubtitle = computed(() => {
             </button>
           </div>
         </div>
+      </div>
 
-        <!-- 2. SEGMENTED TAB SWITCHER (~38px) -->
+      <!-- 2. SEGMENTED TAB SWITCHER (~38px, Expanded only) -->
+      <div
+        v-show="!isCollapsed"
+        :class="[
+          'px-2 pb-1.5 flex-shrink-0',
+          'bg-neutral-50/50 dark:bg-neutral-950/30',
+        ]"
+      >
         <div
           :class="[
-            'px-2 pb-1.5',
-            'bg-neutral-50/50 dark:bg-neutral-950/30',
+            'grid grid-cols-3 gap-1 p-1 rounded-xl',
+            'bg-neutral-100 dark:bg-neutral-800/80',
+            'text-sm font-semibold',
           ]"
         >
-          <div
+          <button
+            type="button"
             :class="[
-              'grid grid-cols-3 gap-1 p-1 rounded-xl',
-              'bg-neutral-100 dark:bg-neutral-800/80',
-              'text-sm font-semibold',
+              'py-1 rounded-lg transition flex items-center justify-center gap-1.5',
+              activeTab === 'chat'
+                ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-400 shadow-sm'
+                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
             ]"
+            @click="activeTab = 'chat'"
           >
-            <button
-              type="button"
-              :class="[
-                'py-1 rounded-lg transition flex items-center justify-center gap-1.5',
-                activeTab === 'chat'
-                  ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
-              ]"
-              @click="activeTab = 'chat'"
-            >
-              <div class="i-solar:chat-round-line-bold text-xs" />
-              Chat
-            </button>
+            <div class="i-solar:chat-round-line-bold text-xs" />
+            Chat
+          </button>
 
-            <button
-              type="button"
-              :class="[
-                'py-1 rounded-lg transition flex items-center justify-center gap-1.5',
-                activeTab === 'controls'
-                  ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
-              ]"
-              @click="activeTab = 'controls'"
-            >
-              <div class="i-solar:widget-2-bold text-xs" />
-              Controls
-            </button>
+          <button
+            type="button"
+            :class="[
+              'py-1 rounded-lg transition flex items-center justify-center gap-1.5',
+              activeTab === 'controls'
+                ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-400 shadow-sm'
+                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
+            ]"
+            @click="activeTab = 'controls'"
+          >
+            <div class="i-solar:widget-2-bold text-xs" />
+            Controls
+          </button>
 
-            <button
-              type="button"
-              :class="[
-                'py-1 rounded-lg transition flex items-center justify-center gap-1.5',
-                activeTab === 'status'
-                  ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
-              ]"
-              @click="activeTab = 'status'"
-            >
-              <div class="i-solar:chart-square-bold text-xs" />
-              Status
-            </button>
-          </div>
+          <button
+            type="button"
+            :class="[
+              'py-1 rounded-lg transition flex items-center justify-center gap-1.5',
+              activeTab === 'status'
+                ? 'bg-white dark:bg-neutral-700 text-primary-600 dark:text-primary-400 shadow-sm'
+                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
+            ]"
+            @click="activeTab = 'status'"
+          >
+            <div class="i-solar:chart-square-bold text-xs" />
+            Status
+          </button>
         </div>
       </div>
 
