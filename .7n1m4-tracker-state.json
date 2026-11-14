@@ -1,6 +1,6 @@
 {
-  "last_inspected_sha": "bee21ea5c50686fa6a1d0173b1bbec028dd3a6e1",
-  "last_run_timestamp": "2026-11-10T16:39:42.625Z",
+  "last_inspected_sha": "b208f045fa8637fed173862f2d526bdd2e20a7c2",
+  "last_run_timestamp": "2026-11-13T16:20:23.873Z",
   "remote": "7n1m4",
   "branch": "main",
   "tracked_prs": {
@@ -11,7 +11,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-10-21T12:31:27Z",
-      "url": "https://github.com/anlmalabs/airi/pull/8",
+      "url": "https://github.com/7n1m4/airi/pull/8",
       "type": "PR"
     },
     "PR:7": {
@@ -21,7 +21,7 @@
       "author": "7n1m4",
       "commentsCount": 1,
       "updatedAt": "2026-10-17T14:45:56Z",
-      "url": "https://github.com/anlmalabs/airi/pull/7",
+      "url": "https://github.com/7n1m4/airi/pull/7",
       "type": "PR"
     },
     "PR:6": {
@@ -31,7 +31,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-10-21T12:31:36Z",
-      "url": "https://github.com/anlmalabs/airi/pull/6",
+      "url": "https://github.com/7n1m4/airi/pull/6",
       "type": "PR"
     },
     "PR:5": {
@@ -41,7 +41,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-10-21T12:31:38Z",
-      "url": "https://github.com/anlmalabs/airi/pull/5",
+      "url": "https://github.com/7n1m4/airi/pull/5",
       "type": "PR"
     },
     "Issue:1": {
@@ -51,7 +51,7 @@
       "author": "7n1m4",
       "commentsCount": 34,
       "updatedAt": "2026-11-10T04:51:18Z",
-      "url": "https://github.com/anlmalabs/airi/issues/1",
+      "url": "https://github.com/7n1m4/airi/issues/1",
       "type": "Issue"
     },
     "Issue:2": {
@@ -61,7 +61,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-10-21T11:07:16Z",
-      "url": "https://github.com/anlmalabs/airi/issues/2",
+      "url": "https://github.com/7n1m4/airi/issues/2",
       "type": "Issue"
     },
     "Issue:4": {
@@ -71,7 +71,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-10-21T11:07:20Z",
-      "url": "https://github.com/anlmalabs/airi/issues/4",
+      "url": "https://github.com/7n1m4/airi/issues/4",
       "type": "Issue"
     },
     "Issue:3": {
@@ -81,7 +81,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-10-21T11:07:18Z",
-      "url": "https://github.com/anlmalabs/airi/issues/3",
+      "url": "https://github.com/7n1m4/airi/issues/3",
       "type": "Issue"
     },
     "PR:20": {
@@ -91,7 +91,7 @@
       "author": "anlmabot",
       "commentsCount": 1,
       "updatedAt": "2026-11-07T22:05:09Z",
-      "url": "https://github.com/anlmalabs/airi/pull/20",
+      "url": "https://github.com/7n1m4/airi/pull/20",
       "type": "PR"
     },
     "PR:18": {
@@ -101,7 +101,7 @@
       "author": "anlmabot",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T22:05:10Z",
-      "url": "https://github.com/anlmalabs/airi/pull/18",
+      "url": "https://github.com/7n1m4/airi/pull/18",
       "type": "PR"
     },
     "PR:16": {
@@ -111,7 +111,7 @@
       "author": "anlmabot",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T22:05:11Z",
-      "url": "https://github.com/anlmalabs/airi/pull/16",
+      "url": "https://github.com/7n1m4/airi/pull/16",
       "type": "PR"
     },
     "PR:14": {
@@ -121,7 +121,7 @@
       "author": "anlmabot",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T22:05:16Z",
-      "url": "https://github.com/anlmalabs/airi/pull/14",
+      "url": "https://github.com/7n1m4/airi/pull/14",
       "type": "PR"
     },
     "PR:15": {
@@ -131,7 +131,7 @@
       "author": "anlmabot",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T22:05:11Z",
-      "url": "https://github.com/anlmalabs/airi/pull/15",
+      "url": "https://github.com/7n1m4/airi/pull/15",
       "type": "PR"
     },
     "PR:13": {
@@ -141,7 +141,7 @@
       "author": "anlmabot",
       "commentsCount": 0,
       "updatedAt": "2026-10-21T12:40:26Z",
-      "url": "https://github.com/anlmalabs/airi/pull/13",
+      "url": "https://github.com/7n1m4/airi/pull/13",
       "type": "PR"
     },
     "PR:12": {
@@ -151,7 +151,7 @@
       "author": "anlmabot",
       "commentsCount": 0,
       "updatedAt": "2026-10-21T12:31:13Z",
-      "url": "https://github.com/anlmalabs/airi/pull/12",
+      "url": "https://github.com/7n1m4/airi/pull/12",
       "type": "PR"
     },
     "PR:11": {
@@ -161,7 +161,7 @@
       "author": "anlmabot",
       "commentsCount": 0,
       "updatedAt": "2026-10-21T12:18:35Z",
-      "url": "https://github.com/anlmalabs/airi/pull/11",
+      "url": "https://github.com/7n1m4/airi/pull/11",
       "type": "PR"
     },
     "Issue:19": {
@@ -171,7 +171,7 @@
       "author": "anlmabot",
       "commentsCount": 121,
       "updatedAt": "2026-10-21T15:07:34Z",
-      "url": "https://github.com/anlmalabs/airi/issues/19",
+      "url": "https://github.com/7n1m4/airi/issues/19",
       "type": "Issue"
     },
     "Issue:17": {
@@ -181,7 +181,7 @@
       "author": "anlmabot",
       "commentsCount": 387,
       "updatedAt": "2026-11-10T01:40:35Z",
-      "url": "https://github.com/anlmalabs/airi/issues/17",
+      "url": "https://github.com/7n1m4/airi/issues/17",
       "type": "Issue"
     },
     "Issue:9": {
@@ -191,7 +191,7 @@
       "author": "anlmabot",
       "commentsCount": 0,
       "updatedAt": "2026-10-21T11:25:31Z",
-      "url": "https://github.com/anlmalabs/airi/issues/9",
+      "url": "https://github.com/7n1m4/airi/issues/9",
       "type": "Issue"
     },
     "Issue:10": {
@@ -201,7 +201,7 @@
       "author": "anlmabot",
       "commentsCount": 1,
       "updatedAt": "2026-11-02T19:45:16Z",
-      "url": "https://github.com/anlmalabs/airi/issues/10",
+      "url": "https://github.com/7n1m4/airi/issues/10",
       "type": "Issue"
     },
     "PR:21": {
@@ -211,7 +211,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-10-27T13:42:43Z",
-      "url": "https://github.com/anlmalabs/airi/pull/21",
+      "url": "https://github.com/7n1m4/airi/pull/21",
       "type": "PR"
     },
     "PR:23": {
@@ -221,7 +221,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-10-28T14:15:20Z",
-      "url": "https://github.com/anlmalabs/airi/pull/23",
+      "url": "https://github.com/7n1m4/airi/pull/23",
       "type": "PR"
     },
     "PR:22": {
@@ -231,7 +231,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-10-27T21:27:19Z",
-      "url": "https://github.com/anlmalabs/airi/pull/22",
+      "url": "https://github.com/7n1m4/airi/pull/22",
       "type": "PR"
     },
     "PR:25": {
@@ -241,7 +241,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T22:05:08Z",
-      "url": "https://github.com/anlmalabs/airi/pull/25",
+      "url": "https://github.com/7n1m4/airi/pull/25",
       "type": "PR"
     },
     "Issue:24": {
@@ -251,7 +251,7 @@
       "author": "7n1m4",
       "commentsCount": 5,
       "updatedAt": "2026-11-02T19:40:41Z",
-      "url": "https://github.com/anlmalabs/airi/issues/24",
+      "url": "https://github.com/7n1m4/airi/issues/24",
       "type": "Issue"
     },
     "PR:33": {
@@ -261,7 +261,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T22:05:04Z",
-      "url": "https://github.com/anlmalabs/airi/pull/33",
+      "url": "https://github.com/7n1m4/airi/pull/33",
       "type": "PR"
     },
     "PR:32": {
@@ -271,7 +271,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T22:05:00Z",
-      "url": "https://github.com/anlmalabs/airi/pull/32",
+      "url": "https://github.com/7n1m4/airi/pull/32",
       "type": "PR"
     },
     "PR:31": {
@@ -281,7 +281,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T22:05:01Z",
-      "url": "https://github.com/anlmalabs/airi/pull/31",
+      "url": "https://github.com/7n1m4/airi/pull/31",
       "type": "PR"
     },
     "PR:30": {
@@ -291,7 +291,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T22:05:02Z",
-      "url": "https://github.com/anlmalabs/airi/pull/30",
+      "url": "https://github.com/7n1m4/airi/pull/30",
       "type": "PR"
     },
     "PR:29": {
@@ -301,7 +301,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T22:05:02Z",
-      "url": "https://github.com/anlmalabs/airi/pull/29",
+      "url": "https://github.com/7n1m4/airi/pull/29",
       "type": "PR"
     },
     "PR:28": {
@@ -311,7 +311,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-11-02T19:41:52Z",
-      "url": "https://github.com/anlmalabs/airi/pull/28",
+      "url": "https://github.com/7n1m4/airi/pull/28",
       "type": "PR"
     },
     "PR:27": {
@@ -321,7 +321,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-11-02T19:36:19Z",
-      "url": "https://github.com/anlmalabs/airi/pull/27",
+      "url": "https://github.com/7n1m4/airi/pull/27",
       "type": "PR"
     },
     "Issue:26": {
@@ -331,7 +331,7 @@
       "author": "7n1m4",
       "commentsCount": 1,
       "updatedAt": "2026-11-02T19:43:10Z",
-      "url": "https://github.com/anlmalabs/airi/issues/26",
+      "url": "https://github.com/7n1m4/airi/issues/26",
       "type": "Issue"
     },
     "PR:37": {
@@ -340,8 +340,8 @@
       "isDraft": false,
       "author": "7n1m4",
       "commentsCount": 0,
-      "updatedAt": "2026-11-08T08:27:00Z",
-      "url": "https://github.com/anlmalabs/airi/pull/37",
+      "updatedAt": "2026-11-12T20:14:13Z",
+      "url": "https://github.com/7n1m4/airi/pull/37",
       "type": "PR"
     },
     "PR:36": {
@@ -351,7 +351,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T23:22:51Z",
-      "url": "https://github.com/anlmalabs/airi/pull/36",
+      "url": "https://github.com/7n1m4/airi/pull/36",
       "type": "PR"
     },
     "PR:35": {
@@ -361,7 +361,7 @@
       "author": "anlmabot",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T22:35:51Z",
-      "url": "https://github.com/anlmalabs/airi/pull/35",
+      "url": "https://github.com/7n1m4/airi/pull/35",
       "type": "PR"
     },
     "PR:34": {
@@ -371,7 +371,7 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-11-07T21:57:54Z",
-      "url": "https://github.com/anlmalabs/airi/pull/34",
+      "url": "https://github.com/7n1m4/airi/pull/34",
       "type": "PR"
     },
     "PR:38": {
@@ -381,7 +381,107 @@
       "author": "7n1m4",
       "commentsCount": 0,
       "updatedAt": "2026-11-09T05:09:09Z",
-      "url": "https://github.com/anlmalabs/airi/pull/38",
+      "url": "https://github.com/7n1m4/airi/pull/38",
+      "type": "PR"
+    },
+    "PR:48": {
+      "title": "feat: add Rust gateway client for the daemon pivot",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-13T12:12:46Z",
+      "url": "https://github.com/7n1m4/airi/pull/48",
+      "type": "PR"
+    },
+    "PR:47": {
+      "title": "fix: post-#46 follow-through — CSRF belt, system-config key strip, sync lease, tamagotchi boot, slint audit archive",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-13T10:04:56Z",
+      "url": "https://github.com/7n1m4/airi/pull/47",
+      "type": "PR"
+    },
+    "PR:46": {
+      "title": "fix: post-merge audit follow-through — sync hardening, server prod traps, daemon/channel safety, tamagotchi honesty",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-13T09:52:13Z",
+      "url": "https://github.com/7n1m4/airi/pull/46",
+      "type": "PR"
+    },
+    "PR:45": {
+      "title": "fix: audit follow-through — sync tombstones, server prod traps, Rust CI gate, dead-peer TTL",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-13T08:55:25Z",
+      "url": "https://github.com/7n1m4/airi/pull/45",
+      "type": "PR"
+    },
+    "PR:44": {
+      "title": "feat: unify — daemon hosts the gateway; app and renderer become thin clients (increment 2)",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-13T08:34:36Z",
+      "url": "https://github.com/7n1m4/airi/pull/44",
+      "type": "PR"
+    },
+    "PR:43": {
+      "title": "chore: untrack dev database cluster and local agent notes",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-13T07:43:57Z",
+      "url": "https://github.com/7n1m4/airi/pull/43",
+      "type": "PR"
+    },
+    "PR:42": {
+      "title": "feat: runtime pivot — daemon gateway, Rust wire types, audit hardening",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-13T07:41:47Z",
+      "url": "https://github.com/7n1m4/airi/pull/42",
+      "type": "PR"
+    },
+    "PR:41": {
+      "title": "chore: move Qt app out of apps/ to the repo root",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-12T21:14:18Z",
+      "url": "https://github.com/7n1m4/airi/pull/41",
+      "type": "PR"
+    },
+    "PR:40": {
+      "title": "chore: remove Stage-Mate and stage-qt native apps",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-12T20:39:28Z",
+      "url": "https://github.com/7n1m4/airi/pull/40",
+      "type": "PR"
+    },
+    "PR:39": {
+      "title": "fix: post-audit hardening sweep (27 findings)",
+      "state": "MERGED",
+      "isDraft": false,
+      "author": "7n1m4",
+      "commentsCount": 0,
+      "updatedAt": "2026-11-12T20:07:17Z",
+      "url": "https://github.com/7n1m4/airi/pull/39",
       "type": "PR"
     }
   },
@@ -497,6 +597,14 @@
       "commits_count": 3,
       "files_count": 45,
       "pr_changes_count": 2
+    },
+    {
+      "date": "2026-11-13T16:20:23.873Z",
+      "from_sha": "bee21ea5c50686fa6a1d0173b1bbec028dd3a6e1",
+      "to_sha": "b208f045fa8637fed173862f2d526bdd2e20a7c2",
+      "commits_count": 74,
+      "files_count": 2854,
+      "pr_changes_count": 10
     }
   ],
   "acknowledged_mentions": [
@@ -511,6 +619,13 @@
     "https://github.com/anlmalabs/airi/issues/24#issuecomment-6474079282",
     "https://github.com/anlmalabs/airi/issues/24#issuecomment-6474229731",
     "https://github.com/anlmalabs/airi/issues/24#issuecomment-6475843985",
-    "https://github.com/anlmalabs/airi/issues/24#issuecomment-6475846784"
+    "https://github.com/anlmalabs/airi/issues/24#issuecomment-6475846784",
+    "https://github.com/7n1m4/airi/issues/1#issuecomment-6382505252",
+    "https://github.com/7n1m4/airi/issues/1#issuecomment-6442783645",
+    "https://github.com/7n1m4/airi/issues/1#issuecomment-6453934222",
+    "https://github.com/7n1m4/airi/issues/1#issuecomment-6473559133",
+    "https://github.com/7n1m4/airi/issues/1#issuecomment-6476456954",
+    "https://github.com/7n1m4/airi/issues/1#issuecomment-6477119522",
+    "https://github.com/7n1m4/airi/issues/1#issuecomment-6477379397"
   ]
 }
