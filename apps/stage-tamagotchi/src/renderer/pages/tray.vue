@@ -2,12 +2,16 @@
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { ChatWorkspacePopover } from '@proj-airi/stage-layouts'
 import { CharacterAvatar } from '@proj-airi/stage-ui/components'
+import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useSettings } from '@proj-airi/stage-ui/stores/settings'
+import { BeamAvatar } from '@proj-airi/ui'
 import { useDark, useLocalStorage, useToggle } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
+import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 
 import {
   electronOpenSettings,
@@ -66,6 +70,55 @@ const activeCharacterName = computed(() => {
   const card = airiCardStore.cards.get(effectiveCardId.value) || activeCard.value
   return card?.name || effectiveCardId.value || 'Character'
 })
+
+// Avatar display mode: Static | Gaze (Beam) | Stage (WebGL)
+type TrayAvatarMode = 'static' | 'gaze' | 'stage'
+const avatarMode = useLocalStorage<TrayAvatarMode>('airi:tray:avatar-mode', 'static')
+const isAvatarModeOpen = ref(false)
+const stageState = ref<'pending' | 'loading' | 'mounted'>('pending')
+
+const settingsStore = useSettings()
+const { stageModelRenderer } = storeToRefs(settingsStore)
+
+const AVATAR_MODE_OPTIONS: Array<{ id: TrayAvatarMode, label: string, icon: string }> = [
+  { id: 'static', label: 'Static', icon: 'i-solar:gallery-bold' },
+  { id: 'gaze', label: 'Gaze', icon: 'i-solar:eye-bold' },
+  { id: 'stage', label: 'Stage', icon: 'i-solar:layers-bold' },
+]
+
+const activeAvatarModeOption = computed(() => {
+  return AVATAR_MODE_OPTIONS.find(opt => opt.id === avatarMode.value) ?? AVATAR_MODE_OPTIONS[0]
+})
+
+// Never boot a tiny WebGL stage in collapsed mode; fall back to Static when Stage is selected
+const effectiveCollapsedAvatarMode = computed<'static' | 'gaze'>(() => {
+  return avatarMode.value === 'gaze' ? 'gaze' : 'static'
+})
+
+const canRenderStage = computed(() => {
+  return !isCollapsed.value && avatarMode.value === 'stage' && stageModelRenderer.value !== 'disabled'
+})
+
+watch(canRenderStage, (enabled) => {
+  if (!enabled)
+    stageState.value = 'pending'
+})
+
+const stageHeadFraming = computed(() => {
+  switch (stageModelRenderer.value) {
+    case 'vrm':
+      return { xOffset: 0, yOffset: -18, scale: 0.7 }
+    case 'live2d':
+      return { xOffset: 0, yOffset: 56, scale: 2.8 }
+    default:
+      return { xOffset: 0, yOffset: 0, scale: 1.8 }
+  }
+})
+
+function selectAvatarMode(mode: TrayAvatarMode) {
+  avatarMode.value = mode
+  isAvatarModeOpen.value = false
+}
 
 // Voice output master mute
 const chatOrchestrator = useChatOrchestratorStore()
@@ -160,13 +213,44 @@ const companionSubtitle = computed(() => {
       >
         <!-- Left: Expanded Identity -->
         <div v-if="!isCollapsed" class="min-w-0 flex items-center gap-2.5 pt-0.5">
-          <CharacterAvatar
-            :card-id="effectiveCardId"
-            :name="activeCharacterName"
-            :display-model-id="effectiveDisplayModelId"
-            size-class="w-18 h-18"
-            class="border-2 border-primary-500/70 shadow-sm"
-          />
+          <div
+            :class="[
+              'relative w-18 h-18 overflow-hidden flex-shrink-0',
+              'border-2 border-primary-500/70 shadow-sm',
+              'bg-neutral-100 dark:bg-neutral-800',
+              avatarMode === 'stage' ? 'rounded-xl' : 'rounded-full',
+            ]"
+          >
+            <!-- Static mode OR Stage backdrop while WebGL initializes / disabled -->
+            <CharacterAvatar
+              v-if="avatarMode === 'static' || (avatarMode === 'stage' && (!canRenderStage || stageState !== 'mounted'))"
+              :card-id="effectiveCardId"
+              :name="activeCharacterName"
+              :display-model-id="effectiveDisplayModelId"
+              :shape="avatarMode === 'stage' ? 'square' : 'circle'"
+              size-class="h-full w-full"
+            />
+
+            <!-- Gaze (Beam) mode -->
+            <BeamAvatar
+              v-else-if="avatarMode === 'gaze'"
+              :name="activeCharacterName"
+            />
+
+            <!-- Live WebGL Stage mode -->
+            <RendererStage
+              v-if="canRenderStage"
+              v-model:state="stageState"
+              :focus-at="{ x: 0, y: 0 }"
+              :show-background="false"
+              :radial-menu-enabled="false"
+              :draggable="false"
+              :x-offset="stageHeadFraming.xOffset"
+              :y-offset="stageHeadFraming.yOffset"
+              :scale="stageHeadFraming.scale"
+              class="absolute inset-0 h-full w-full"
+            />
+          </div>
 
           <div class="min-w-0 flex-1">
             <ChatWorkspacePopover
@@ -219,13 +303,19 @@ const companionSubtitle = computed(() => {
                   'hover:bg-neutral-100/80 dark:hover:bg-neutral-800/80',
                 ]"
               >
-                <CharacterAvatar
-                  :card-id="effectiveCardId"
-                  :name="activeCharacterName"
-                  :display-model-id="effectiveDisplayModelId"
-                  size-class="w-6 h-6"
-                  class="shadow-xs border border-primary-500/70"
-                />
+                <div class="shadow-xs relative h-6 w-6 flex-shrink-0 overflow-hidden border border-primary-500/70 rounded-full">
+                  <BeamAvatar
+                    v-if="effectiveCollapsedAvatarMode === 'gaze'"
+                    :name="activeCharacterName"
+                  />
+                  <CharacterAvatar
+                    v-else
+                    :card-id="effectiveCardId"
+                    :name="activeCharacterName"
+                    :display-model-id="effectiveDisplayModelId"
+                    size-class="h-full w-full"
+                  />
+                </div>
                 <span class="truncate text-xs text-primary-600 font-bold tracking-tight dark:text-primary-400">
                   {{ activeCharacterName }}
                 </span>
@@ -290,44 +380,102 @@ const companionSubtitle = computed(() => {
             </button>
           </div>
 
-          <!-- Rapid Action Pills: Voice Mute | Theme (Expanded only) -->
-          <div
-            v-show="!isCollapsed"
-            :class="[
-              'flex items-center gap-1 p-0.5 rounded-full flex-shrink-0',
-              'bg-neutral-100/80 dark:bg-neutral-800/80',
-              'border border-neutral-200/60 dark:border-neutral-700/60',
-            ]"
-          >
-            <!-- Rapid Pill: Voice Mute -->
-            <button
-              type="button"
-              :title="isVoiceMuted ? 'Unmute Voice' : 'Mute Voice'"
-              :class="[
-                'p-1.5 rounded-full transition cursor-pointer',
-                !isVoiceMuted
-                  ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
-                  : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 hover:text-neutral-600',
-              ]"
-              @click="toggleVoiceMute"
-            >
-              <div :class="[!isVoiceMuted ? 'i-solar:volume-loud-bold' : 'i-solar:volume-cross-bold', 'text-xs']" />
-            </button>
+          <!-- Rapid Actions Row: Avatar Mode Selector + Voice/Theme Capsule (Expanded only) -->
+          <div v-show="!isCollapsed" class="flex flex-shrink-0 items-center gap-1.5">
+            <!-- Avatar Mode Selector Popover -->
+            <PopoverRoot v-model:open="isAvatarModeOpen">
+              <PopoverTrigger as-child>
+                <button
+                  type="button"
+                  :title="`Avatar Mode: ${activeAvatarModeOption.label}`"
+                  :class="[
+                    'w-7 h-7 flex items-center justify-center rounded-full transition cursor-pointer',
+                    'bg-neutral-100/80 dark:bg-neutral-800/80',
+                    'border',
+                    isAvatarModeOpen
+                      ? 'border-primary-500/70 text-primary-600 dark:text-primary-400 bg-primary-50/70 dark:bg-primary-950/50'
+                      : 'border-neutral-200/60 dark:border-neutral-700/60 text-neutral-600 dark:text-neutral-300 hover:text-primary-600 dark:hover:text-primary-400',
+                  ]"
+                >
+                  <div :class="[activeAvatarModeOption.icon, 'text-xs']" />
+                </button>
+              </PopoverTrigger>
+              <PopoverPortal>
+                <PopoverContent
+                  side="bottom"
+                  align="end"
+                  :side-offset="6"
+                  :collision-padding="8"
+                  :class="[
+                    'z-[10000] w-32 p-1 rounded-xl',
+                    'bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl',
+                    'border border-neutral-200/80 dark:border-neutral-800/80 shadow-xl',
+                    'flex flex-col gap-0.5',
+                  ]"
+                >
+                  <button
+                    v-for="option in AVATAR_MODE_OPTIONS"
+                    :key="option.id"
+                    type="button"
+                    :class="[
+                      'w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer',
+                      avatarMode === option.id
+                        ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
+                        : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800',
+                    ]"
+                    @click="selectAvatarMode(option.id)"
+                  >
+                    <span class="flex items-center gap-2">
+                      <div :class="[option.icon, 'text-xs']" />
+                      <span>{{ option.label }}</span>
+                    </span>
+                    <div
+                      v-if="avatarMode === option.id"
+                      class="i-solar:check-read-linear text-xs text-primary-500"
+                    />
+                  </button>
+                </PopoverContent>
+              </PopoverPortal>
+            </PopoverRoot>
 
-            <!-- Rapid Pill: Theme Toggle (Moon / Sun) -->
-            <button
-              type="button"
-              :title="isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+            <!-- Rapid Action Pills: Voice Mute | Theme -->
+            <div
               :class="[
-                'p-1.5 rounded-full transition cursor-pointer',
-                isDark
-                  ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
-                  : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 hover:text-neutral-600',
+                'flex items-center gap-1 p-0.5 rounded-full flex-shrink-0',
+                'bg-neutral-100/80 dark:bg-neutral-800/80',
+                'border border-neutral-200/60 dark:border-neutral-700/60',
               ]"
-              @click="toggleDark()"
             >
-              <div :class="[isDark ? 'i-solar:moon-bold' : 'i-solar:sun-2-bold', 'text-xs']" />
-            </button>
+              <!-- Rapid Pill: Voice Mute -->
+              <button
+                type="button"
+                :title="isVoiceMuted ? 'Unmute Voice' : 'Mute Voice'"
+                :class="[
+                  'p-1.5 rounded-full transition cursor-pointer',
+                  !isVoiceMuted
+                    ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
+                    : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 hover:text-neutral-600',
+                ]"
+                @click="toggleVoiceMute"
+              >
+                <div :class="[!isVoiceMuted ? 'i-solar:volume-loud-bold' : 'i-solar:volume-cross-bold', 'text-xs']" />
+              </button>
+
+              <!-- Rapid Pill: Theme Toggle (Moon / Sun) -->
+              <button
+                type="button"
+                :title="isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+                :class="[
+                  'p-1.5 rounded-full transition cursor-pointer',
+                  isDark
+                    ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400'
+                    : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 hover:text-neutral-600',
+                ]"
+                @click="toggleDark()"
+              >
+                <div :class="[isDark ? 'i-solar:moon-bold' : 'i-solar:sun-2-bold', 'text-xs']" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
