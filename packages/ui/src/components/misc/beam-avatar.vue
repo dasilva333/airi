@@ -5,8 +5,12 @@ const props = withDefaults(defineProps<{
   name: string
   square?: boolean
   colors?: string[]
+  gazeX?: number
+  gazeY?: number
 }>(), {
   square: false,
+  gazeX: 0,
+  gazeY: 0,
 })
 
 const SIZE = 36
@@ -86,6 +90,15 @@ const data = computed(() => {
     faceTranslateY: wrapperTranslateY > SIZE / 6 ? wrapperTranslateY / 2 : getUnit(numFromName, 7, 2),
   }
 })
+const gazeOffset = computed(() => {
+  const clamp = (v: number) => Math.max(-1, Math.min(1, v))
+  return {
+    x: clamp(props.gazeX ?? 0) * 2.2,
+    y: clamp(props.gazeY ?? 0) * 1.8,
+    faceX: clamp(props.gazeX ?? 0) * 1.1,
+    faceY: clamp(props.gazeY ?? 0) * 0.9,
+  }
+})
 </script>
 
 <template>
@@ -111,7 +124,10 @@ const data = computed(() => {
         :fill="data.wrapperColor"
         :rx="data.isCircle ? SIZE : SIZE / 6"
       />
-      <g :transform="`translate(${data.faceTranslateX} ${data.faceTranslateY}) rotate(${data.faceRotate} ${SIZE / 2} ${SIZE / 2})`">
+      <g
+        :transform="`translate(${data.faceTranslateX + gazeOffset.faceX} ${data.faceTranslateY + gazeOffset.faceY}) rotate(${data.faceRotate} ${SIZE / 2} ${SIZE / 2})`"
+        class="transition-transform duration-150 ease-out"
+      >
         <path
           v-if="data.isMouthOpen"
           :d="`M15 ${19 + data.mouthSpread}c2 1 4 1 6 0`"
@@ -123,24 +139,29 @@ const data = computed(() => {
           :d="`M13,${19 + data.mouthSpread} a1,0.75 0 0,0 10,0`"
           :fill="data.faceColor"
         />
-        <rect
-          :x="14 - data.eyeSpread"
-          y="14"
-          width="1.5"
-          height="2"
-          rx="1"
-          stroke="none"
-          :fill="data.faceColor"
-        />
-        <rect
-          :x="20 + data.eyeSpread"
-          y="14"
-          width="1.5"
-          height="2"
-          rx="1"
-          stroke="none"
-          :fill="data.faceColor"
-        />
+        <g
+          :transform="`translate(${gazeOffset.x} ${gazeOffset.y})`"
+          class="transition-transform duration-100 ease-out"
+        >
+          <rect
+            :x="14 - data.eyeSpread"
+            y="14"
+            width="1.5"
+            height="2"
+            rx="1"
+            stroke="none"
+            :fill="data.faceColor"
+          />
+          <rect
+            :x="20 + data.eyeSpread"
+            y="14"
+            width="1.5"
+            height="2"
+            rx="1"
+            stroke="none"
+            :fill="data.faceColor"
+          />
+        </g>
       </g>
     </g>
   </svg>

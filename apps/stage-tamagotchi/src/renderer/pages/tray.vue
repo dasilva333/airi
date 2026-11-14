@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
+import { useElectronEventaInvoke, useElectronRelativeMouse } from '@proj-airi/electron-vueuse'
 import { ChatWorkspacePopover } from '@proj-airi/stage-layouts'
 import { CharacterAvatar } from '@proj-airi/stage-ui/components'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
-import { useSettings } from '@proj-airi/stage-ui/stores/settings'
+import { useSettings, useSettingsTheme } from '@proj-airi/stage-ui/stores/settings'
 import { BeamAvatar } from '@proj-airi/ui'
-import { useDark, useLocalStorage, useToggle } from '@vueuse/core'
+import { useDark, useLocalStorage, usePreferredReducedMotion, useToggle } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
@@ -119,6 +119,60 @@ function selectAvatarMode(mode: TrayAvatarMode) {
   avatarMode.value = mode
   isAvatarModeOpen.value = false
 }
+
+// Global cursor tracking relative to the tray window
+const prefersReducedMotion = usePreferredReducedMotion()
+const { x: cursorX, y: cursorY } = useElectronRelativeMouse({ initialValue: { x: 52, y: 52 } })
+
+const normalizedGaze = computed(() => {
+  if (prefersReducedMotion.value === 'reduce') {
+    return { x: 0, y: 0 }
+  }
+  const centerX = isCollapsed.value ? 28 : 52
+  const centerY = isCollapsed.value ? 24 : 52
+  const range = 360
+  return {
+    x: Math.max(-1, Math.min(1, (cursorX.value - centerX) / range)),
+    y: Math.max(-1, Math.min(1, (cursorY.value - centerY) / range)),
+  }
+})
+
+// Accent palette picker (shared with SettingsThemeHeaderWidget)
+const settingsTheme = useSettingsTheme()
+const colorSpectrumRows = [
+  [
+    { name: 'Crimson', color: '#E11D48' },
+    { name: 'Coral', color: '#F43F5E' },
+    { name: 'Tangerine', color: '#EA580C' },
+    { name: 'Marigold', color: '#F59E0B' },
+    { name: 'Amber', color: '#EAB308' },
+    { name: 'Lemon', color: '#84CC16' },
+  ],
+  [
+    { name: 'Lime', color: '#65A30D' },
+    { name: 'Emerald', color: '#16A34A' },
+    { name: 'Mint', color: '#10B981' },
+    { name: 'Jade', color: '#059669' },
+    { name: 'Viridian', color: '#0D9488' },
+    { name: 'Teal', color: '#0891B2' },
+  ],
+  [
+    { name: 'Turquoise', color: '#06B6D4' },
+    { name: 'Cyan', color: undefined },
+    { name: 'Cerulean', color: '#2563EB' },
+    { name: 'Cobalt', color: '#3B82F6' },
+    { name: 'Sapphire', color: '#4F46E5' },
+    { name: 'Denim', color: '#6366F1' },
+  ],
+  [
+    { name: 'Indigo', color: '#7C3AED' },
+    { name: 'Amethyst', color: '#9333EA' },
+    { name: 'Violet', color: '#A855F7' },
+    { name: 'Fuchsia', color: '#C026D3' },
+    { name: 'Magenta', color: '#DB2777' },
+    { name: 'Rose', color: '#E11D74' },
+  ],
+]
 
 // Voice output master mute
 const chatOrchestrator = useChatOrchestratorStore()
@@ -235,13 +289,15 @@ const companionSubtitle = computed(() => {
             <BeamAvatar
               v-else-if="avatarMode === 'gaze'"
               :name="activeCharacterName"
+              :gaze-x="normalizedGaze.x"
+              :gaze-y="normalizedGaze.y"
             />
 
             <!-- Live WebGL Stage mode -->
             <RendererStage
               v-if="canRenderStage"
               v-model:state="stageState"
-              :focus-at="{ x: 0, y: 0 }"
+              :focus-at="{ x: cursorX, y: cursorY }"
               :show-background="false"
               :radial-menu-enabled="false"
               :draggable="false"
@@ -307,6 +363,8 @@ const companionSubtitle = computed(() => {
                   <BeamAvatar
                     v-if="effectiveCollapsedAvatarMode === 'gaze'"
                     :name="activeCharacterName"
+                    :gaze-x="normalizedGaze.x"
+                    :gaze-y="normalizedGaze.y"
                   />
                   <CharacterAvatar
                     v-else
@@ -475,6 +533,84 @@ const companionSubtitle = computed(() => {
               >
                 <div :class="[isDark ? 'i-solar:moon-bold' : 'i-solar:sun-2-bold', 'text-xs']" />
               </button>
+
+              <!-- Rapid Pill: Accent Palette Picker -->
+              <PopoverRoot>
+                <PopoverTrigger as-child>
+                  <button
+                    type="button"
+                    title="Accent Palette"
+                    class="group flex cursor-pointer items-center justify-center rounded-full p-1 transition hover:bg-neutral-200/70 dark:hover:bg-neutral-700/70"
+                  >
+                    <div class="shadow-xs h-3.5 w-3.5 rounded-full bg-primary-500 ring-1 ring-black/15 transition-transform group-hover:scale-110 dark:ring-white/25" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverPortal>
+                  <PopoverContent
+                    side="bottom"
+                    align="end"
+                    :side-offset="8"
+                    :collision-padding="10"
+                    :class="[
+                      'z-[10050] max-w-[260px] w-auto p-3 rounded-2xl',
+                      'bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl shadow-2xl',
+                      'border border-neutral-200/90 dark:border-neutral-800/90',
+                    ]"
+                  >
+                    <div class="mb-2.5 flex items-center justify-between border-b border-neutral-100 pb-2 dark:border-neutral-800">
+                      <div class="flex items-center gap-1.5">
+                        <div class="i-solar:palette-round-bold-duotone text-xs text-primary-500" />
+                        <span class="text-xs text-neutral-800 font-semibold dark:text-neutral-200">
+                          Accent Palette
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        :class="[
+                          'flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer',
+                          'border border-amber-500/40 text-amber-600 dark:border-amber-400/40 dark:text-amber-400',
+                          'hover:bg-amber-500/10 active:scale-95',
+                        ]"
+                        @click="settingsTheme.setThemeColorsHue()"
+                      >
+                        <div class="i-solar:restart-linear text-[10px]" />
+                        <span>Reset</span>
+                      </button>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                      <div
+                        v-for="(row, rowIdx) in colorSpectrumRows"
+                        :key="rowIdx"
+                        class="grid grid-cols-6 gap-1.5"
+                      >
+                        <button
+                          v-for="swatch in row"
+                          :key="swatch.name"
+                          type="button"
+                          :title="swatch.name"
+                          :class="[
+                            'relative h-6 w-6 rounded-md transition-all duration-150 cursor-pointer',
+                            'hover:scale-115 hover:z-10 hover:shadow-md focus:outline-none',
+                            settingsTheme.isColorSelectedForPrimary(swatch.color)
+                              ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-neutral-900 scale-105 z-5 shadow-xs'
+                              : 'ring-1 ring-black/10 dark:ring-white/10',
+                          ]"
+                          :style="{
+                            backgroundColor: swatch.color || 'oklch(65% 0.18 220.44)',
+                          }"
+                          @click="settingsTheme.applyPrimaryColorFrom(swatch.color)"
+                        >
+                          <div
+                            v-if="settingsTheme.isColorSelectedForPrimary(swatch.color)"
+                            class="shadow-xs absolute inset-0 m-auto h-1.5 w-1.5 rounded-full bg-white"
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </PopoverPortal>
+              </PopoverRoot>
             </div>
           </div>
         </div>
