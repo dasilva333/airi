@@ -11,6 +11,20 @@ export interface WebSocketHistoryItem {
   event: WebSocketEvent
 }
 
+// Bearer tokens never belong in a 1000-event devtools ring buffer that renders
+// into a settings page. module:authenticate carries the gateway auth token;
+// redact it (and token-shaped fields) before storing.
+function redactSecrets(event: WebSocketEvent): WebSocketEvent {
+  if (!event || typeof event !== 'object')
+    return event
+  const type = (event as any).type
+  const data = (event as any).data
+  if (type === 'module:authenticate' && data && typeof data === 'object' && 'token' in data) {
+    return { ...(event as any), data: { ...(data as any), token: '[redacted]' } } as WebSocketEvent
+  }
+  return event
+}
+
 export const useWebSocketInspectorStore = defineStore('devtools:websocket-inspector', () => {
   const history = ref<WebSocketHistoryItem[]>([])
   const isEnabled = ref(true)
@@ -24,7 +38,7 @@ export const useWebSocketInspectorStore = defineStore('devtools:websocket-inspec
       id: nanoid(),
       timestamp: Date.now(),
       direction,
-      event,
+      event: redactSecrets(event),
     })
 
     if (history.value.length > maxHistory.value) {

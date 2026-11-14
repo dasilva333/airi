@@ -9,6 +9,29 @@ import { computed, ref, watch } from 'vue'
 
 import { useWebSocketInspectorStore } from '../../devtools/websocket-inspector'
 
+function isLoopbackHostname(host: string): boolean {
+  const h = host.toLowerCase().replace(/^\[|\]$/g, '')
+  return h === 'localhost' || h === '127.0.0.1' || h === '::1'
+}
+
+// ws:// beyond loopback is never legitimate: the daemon enforces wss-only for
+// non-loopback binds, and the in-app fallback would otherwise ship the bearer
+// token in cleartext. Rewrite to wss (fail-closed) rather than connect plaintext.
+function enforceLoopbackWs(urlStr: string): string {
+  try {
+    const parsed = new URL(urlStr)
+    if (parsed.protocol === 'ws:' && !isLoopbackHostname(parsed.hostname)) {
+      console.warn(`[ServerChannel] Non-loopback ws:// URL rewritten to wss:// (TLS is required beyond loopback): ${urlStr}`)
+      parsed.protocol = 'wss:'
+      return parsed.toString()
+    }
+    return urlStr
+  }
+  catch {
+    return urlStr
+  }
+}
+
 function isLocalhostUrl(urlStr: string): boolean {
   if (!urlStr)
     return false
@@ -21,6 +44,35 @@ function isLocalhostUrl(urlStr: string): boolean {
   }
 }
 
+// localStorage contract: stage-tamagotchi's daemon mirror writes settings/server-channel/{hostname,port,tls-enabled,websocket-tls-config}
+// into localStorage from the main process; stage-web has no daemon and never sets them, so derivation yields ws://localhost:6121/ws.
+export function resolveWebSocketUrl(getItem: (key: string) => string | null): string {
+  try {
+    const override = getItem('settings/connection/websocket-url')
+    if (override && override.trim())
+      return enforceLoopbackWs(override.trim())
+
+    const tlsFlag = getItem('settings/server-channel/tls-enabled')
+    let tls = tlsFlag === 'true'
+    if (tlsFlag === null) {
+      try {
+        tls = JSON.parse(getItem('settings/server-channel/websocket-tls-config') ?? 'null') !== null
+      }
+      catch {
+        tls = false
+      }
+    }
+
+    const host = getItem('settings/server-channel/hostname') || 'localhost'
+    const port = getItem('settings/server-channel/port') || '6121'
+    const valid = /^[A-Z0-9.-]+$/i.test(host) && /^\d{1,5}$/.test(port) && Number(port) >= 1 && Number(port) <= 65535
+    const [resolvedHost, resolvedPort] = valid ? [host, port] : ['localhost', '6121']
+    return enforceLoopbackWs(`${tls ? 'wss' : 'ws'}://${resolvedHost}:${resolvedPort}/ws`)
+  }
+  catch {
+    return 'ws://localhost:6121/ws'
+  }
+}
 export type ChannelServerStatus = 'disconnected' | 'connecting' | 'connected' | 'unreachable'
 
 export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:server', () => {
@@ -111,7 +163,7 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     if (initializing.value)
       return initializing.value
 
-    const targetUrl = websocketUrl.value || defaultWebSocketUrl
+    const targetUrl = enforceLoopbackWs(websocketUrl.value || defaultWebSocketUrl)
     status.value = 'connecting'
 
     const possibleEvents = Array.from(new Set<keyof WebSocketEvents>([
@@ -127,6 +179,10 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
       // to cross-process broadcasts (ContextBridge).
       const timeout = setTimeout(() => {
         console.warn('[PipelineTTS:Server] Initialization timed out after 5000ms. Proceeding without immediate connection.')
+        connected.value = false
+        status.value = 'unreachable'
+        initializing.value = null
+        clearListeners()
         resolve()
       }, 5000)
 
