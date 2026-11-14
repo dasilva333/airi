@@ -35,6 +35,143 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-14] Upstream Delta: `6c33b82f..26b691f5` (5 commits, 58 files, 15 update(s))
+
+### 🎯 Executive Highlights
+Executive Highlights: Upstream released v0.15.4 (#3519) and merged voiceprint enrollment in onboarding (#3500) plus auto-activating the selected session's character (#3514). New PRs target Google Gemini TTS 3.8 models (#3522), Windows plugin-sdk file URL loading (#3520), keeping notification speech clients out of the Vue reactive graph (#3521), and unifying character settings (#3515). PR #3496 (computer-use MCP, terminal approval, conversation compact) moved from Draft to Ready.
+Discussion & Community Buzz: #3404: cache synthesized audio & message speech replay (+5 comments, 24 total); #3496: computer-use MCP & terminal approval (+3 comments, 5 total); #3500: voiceprint onboarding (+2 comments, 7 total); #3318: Simplified Chinese i18n (+2 comments, 6 total); newly opened #3520 (12 comments) and #3522 (6 comments).
+Cherry-Pick Candidates: #3521 (keep notification speech client out of reactive graph — clean Vue reactive-safety fix); #3522 (Gemini TTS 3.8 model update & temperature omission); monitor #3404 (speech replay cache) and #3496 (computer-use MCP / compact).
+Divergence / Collision Warnings: packages/stage-ui/src/stores/chat/session-store.ts (#3514) conflicts with our multi-actor <|ACTOR|> staging and decoupled Control Strip; apps/stage-tamagotchi/electron.vite.config.ts requires hand-merging; step-permissions.vue diverges from our Onboarding V3.
+
+### 📋 Upstream Commits
+- `26b691f57` chore: update README release artifacts to v0.15.4 (#3519) [#3519](https://github.com/moeru-ai/airi/pull/3519) _(Neko, 2026-11-14)_
+- `3fbe80725` docs(agents): ignore autofix.ci baseline updates in reviews (#3517) [#3517](https://github.com/moeru-ai/airi/pull/3517) _(Makito, 2026-11-14)_
+- `5604a3ffd` chore(nix): update assets hash (#3518) [#3518](https://github.com/moeru-ai/airi/pull/3518) _(Weathercold, 2026-11-13)_
+- `c7002e34f` feat(stage-ui,stage-pages): enroll voiceprint in onboarding flow (#3500) [#3500](https://github.com/moeru-ai/airi/pull/3500) _(Makito, 2026-11-14)_
+- `c20896dd9` feat(stage-ui): make the character of a selected session the active character (#3514) [#3514](https://github.com/moeru-ai/airi/pull/3514) _(RainbowBird, 2026-11-14)_
+
+### 🔬 Subsystem Breakdown
+#### Other / Uncategorized (`🔍 inspect`) — 38 file(s) (+2126/-296)
+- `.x18n/check-baseline.json` *(+0/-7)*
+- `nix/assets-hash.txt` *(+1/-1)*
+- `packages/stage-ui/src/components/scenarios/dialogs/onboarding/onboarding.browser.test.ts` *(+90/-0)*
+- `packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-permissions.vue` *(+169/-58)*
+- `packages/stage-ui/src/components/scenarios/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/blocked-page.vue` *(+32/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/microphone-voice-visual.vue` *(+5/-64)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-pages.browser.test.ts` *(+6/-1)*
+- `packages/stage-ui/src/components/scenarios/permissions/permission-summary.vue` *(+25/-26)*
+- `packages/stage-ui/src/components/scenarios/permissions/permissions.story.vue` *(+56/-2)*
+- `packages/stage-ui/src/components/scenarios/permissions/voiceprint-circles-visual.browser.test.ts` *(+35/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/voiceprint-circles-visual.vue` *(+275/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/voiceprint-page.browser.test.ts` *(+183/-0)*
+- `packages/stage-ui/src/components/scenarios/permissions/voiceprint-page.vue` *(+246/-0)*
+- `packages/stage-ui/src/components/scenarios/voiceprint/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/components/scenarios/voiceprint/voiceprint-sample.vue` *(+39/-0)*
+- `packages/stage-ui/src/composables/permissions/use-voice-wave-layers.ts` *(+96/-0)*
+- `packages/stage-ui/src/composables/use-data-maintenance.browser.test.ts` *(+8/-8)*
+- `packages/stage-ui/src/composables/use-data-maintenance.ts` *(+2/-2)*
+- `packages/stage-ui/src/composables/use-voice-enrollment.ts` *(+65/-9)*
+- `packages/stage-ui/src/composables/voice-input-trace.test.ts` *(+20/-2)*
+- `packages/stage-ui/src/composables/voice-input-trace.ts` *(+11/-3)*
+- `packages/stage-ui/src/libs/noise/simplex.ts` *(+98/-0)*
+- `packages/stage-ui/src/libs/onboarding/device-setup-pages.test.ts` *(+57/-0)*
+- `packages/stage-ui/src/libs/onboarding/device-setup-pages.ts` *(+84/-0)*
+- `packages/stage-ui/src/libs/voice/speaker-evidence-plugin.test.ts` *(+25/-8)*
+- `packages/stage-ui/src/libs/voice/speaker-evidence-plugin.ts` *(+37/-14)*
+- `packages/stage-ui/src/libs/voice/voice-enrollment.ts` *(+6/-0)*
+- `packages/stage-ui/src/libs/voice/voiceprint.test.ts` *(+19/-3)*
+- `packages/stage-ui/src/libs/voice/voiceprint.ts` *(+40/-5)*
+- `packages/stage-ui/src/stores/onboarding.test.ts` *(+62/-0)*
+- `packages/stage-ui/src/stores/onboarding.ts` *(+29/-3)*
+- `packages/stage-ui/src/stores/speaker-tracker.browser.test.ts` *(+83/-19)*
+- `packages/stage-ui/src/stores/speaker-tracker.ts` *(+43/-20)*
+- `packages/stage-ui/src/stores/voice.ts` *(+13/-9)*
+- `packages/stage-ui/src/stores/voiceprint.browser.test.ts` *(+67/-9)*
+- `packages/stage-ui/src/stores/voiceprint.ts` *(+93/-23)*
+- `packages/trace-kit/src/profiles/voice.ts` *(+4/-0)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 8 file(s) (+99/-14)
+- `README.md` *(+2/-2)*
+- `docs/README.fr.md` *(+2/-2)*
+- `docs/README.ja-JP.md` *(+2/-2)*
+- `docs/README.ko-KR.md` *(+2/-2)*
+- `docs/README.ru-RU.md` *(+2/-2)*
+- `docs/README.vi.md` *(+2/-2)*
+- `docs/README.zh-CN.md` *(+2/-2)*
+- `docs/ai/adr/2026-11-13-chat-selects-character.md` *(+85/-0)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 1 file(s) (+9/-0)
+- `apps/stage-tamagotchi/electron.vite.config.ts` *(+9/-0)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 1 file(s) (+9/-0)
+- `apps/stage-web/vite.config.ts` *(+9/-0)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 4 file(s) (+103/-30)
+- `packages/i18n/AGENTS.md` *(+7/-0)*
+- `packages/i18n/glossary/terms.yaml` *(+2/-2)*
+- `packages/i18n/src/locales/en/settings.yaml` *(+47/-14)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+47/-14)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 4 file(s) (+203/-72)
+- `packages/stage-pages/src/pages/settings/modules/hearing/index.vue` *(+1/-1)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/voiceprint.browser.test.ts` *(+102/-17)*
+- `packages/stage-pages/src/pages/settings/modules/hearing/voiceprint.vue` *(+88/-51)*
+- `packages/ui/src/components/form/select/select.vue` *(+12/-3)*
+
+#### Cognitive & Consciousness (`⚠️ hand-merge`) — 2 file(s) (+156/-13)
+- `packages/stage-ui/src/stores/chat/session-store.browser.test.ts` *(+98/-0)*
+- `packages/stage-ui/src/stores/chat/session-store.ts` *(+58/-13)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (8)
+- [PR] [#3523](https://github.com/moeru-ai/airi/pull/3523) `fix(stage-tamagotchi): cleanup redundant pending installer after Windows update` by **@aaditya079** *(2 comments)*
+- [PR] [#3522](https://github.com/moeru-ai/airi/pull/3522) `fix(provider-inference,stage-pages): update Google Gemini TTS to 3.8 models and omit temperature` by **@aaditya079** *(6 comments)*
+- [PR] [#3520](https://github.com/moeru-ai/airi/pull/3520) `fix(plugin-sdk): load extension entrypoints through a file URL on Windows` by **@thdtjgus123** *(12 comments)*
+- [PR] [#3521](https://github.com/moeru-ai/airi/pull/3521) `fix(stage-ui): keep the notification speech client out of the reactive graph` by **@thdtjgus123** *(5 comments)*
+- [PR] [#3519](https://github.com/moeru-ai/airi/pull/3519) `chore: update README release artifacts to v0.15.4` by **@nekomeowww** *(3 comments)*
+- [PR] [#3515](https://github.com/moeru-ai/airi/pull/3515) `feat(stage-pages,stage-tamagotchi,i18n): make "Characters" the one settings entry for a character` by **@luoling8192** *(3 comments)*
+- [PR] [#3517](https://github.com/moeru-ai/airi/pull/3517) `docs(agents): ignore autofix.ci baseline updates in reviews` by **@sumimakito** *(1 comments)*
+- [PR] [#3518](https://github.com/moeru-ai/airi/pull/3518) `chore(nix): update assets hash` by **@Weathercold** *(2 comments)*
+
+#### 🔄 Status & Lifecycle Changes (3)
+- [PR] [#3496](https://github.com/moeru-ai/airi/pull/3496) `feat: integrate computer-use MCP, terminal approval, and conversation compact` — `Draft` ➔ `Ready`
+- [PR] [#3500](https://github.com/moeru-ai/airi/pull/3500) `feat(stage-ui,stage-pages): enroll voiceprint in onboarding flow` — `OPEN` ➔ `MERGED`
+- [PR] [#3514](https://github.com/moeru-ai/airi/pull/3514) `feat(stage-ui): make the character of a selected session the active character` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (4)
+- [PR] [#3404](https://github.com/moeru-ai/airi/pull/3404) `feat(stage-ui,speech): cache synthesized audio and add message speech replay` — *+5 comments (19 ➔ 24 total)*
+- [PR] [#3318](https://github.com/moeru-ai/airi/pull/3318) `fix(i18n): refine Simplified Chinese translations` — *+2 comments (4 ➔ 6 total)*
+- [PR] [#3496](https://github.com/moeru-ai/airi/pull/3496) `feat: integrate computer-use MCP, terminal approval, and conversation compact` — *+3 comments (2 ➔ 5 total)*
+- [PR] [#3500](https://github.com/moeru-ai/airi/pull/3500) `feat(stage-ui,stage-pages): enroll voiceprint in onboarding flow` — *+2 comments (5 ➔ 7 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [Draft] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+- [PR] [#3468](https://github.com/moeru-ai/airi/pull/3468) `feat(ui): use generated beam avatars as the default user avatar` [MERGED] — *(3 comments)*
+  - *Focus*: Procedural beam avatars with dynamic chromatic hue & user profile identity; tracked for selective port per docs/design-procedural-beam-avatars-and-user-profile-identity.md
+- [PR] [#3472](https://github.com/moeru-ai/airi/pull/3472) `fix(stage-layouts): safely fallback undefined route.meta in settings layout (#3220)` [OPEN] — *(5 comments)*
+  - *Focus*: Route meta fallback during settings navigation (#3220); evaluated against fork Master-Detail topology and desktop Electron shell
+
+---
 ## [2026-11-13] Upstream Delta: `a1a56927..6c33b82f` (16 commits, 175 files, 23 update(s))
 
 ### 🎯 Executive Highlights
