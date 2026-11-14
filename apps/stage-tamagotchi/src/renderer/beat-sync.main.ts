@@ -7,6 +7,8 @@ import {
   beatSyncStateChangedInvokeEventa,
   beatSyncToggleInvokeEventa,
   beatSyncUpdateParametersInvokeEventa,
+  beatSyncUpdateVibeParametersInvokeEventa,
+  beatSyncVibeSignaledInvokeEventa,
   createBeatSyncDetector,
   createContext,
 } from '@proj-airi/stage-shared/beat-sync'
@@ -15,6 +17,7 @@ const context = createContext()
 
 const changeState = defineInvoke(context, beatSyncStateChangedInvokeEventa)
 const signalBeat = defineInvoke(context, beatSyncBeatSignaledInvokeEventa)
+const signalVibe = defineInvoke(context, beatSyncVibeSignaledInvokeEventa)
 
 const detector = createBeatSyncDetector({
   env: StageEnvironment.Tamagotchi,
@@ -26,6 +29,7 @@ detector.on('beat', (e) => {
   console.debug('[beat]', e) // This could be noisy.
   signalBeat(e)
 })
+detector.on('vibe', vibe => signalVibe(vibe))
 
 defineInvokeHandler(context, beatSyncToggleInvokeEventa, async (enabled) => {
   // eslint-disable-next-line no-console
@@ -42,6 +46,9 @@ defineInvokeHandler(context, beatSyncUpdateParametersInvokeEventa, async (params
   // eslint-disable-next-line no-console
   console.log('[update-params]', params)
   detector.updateParameters(params)
+})
+defineInvokeHandler(context, beatSyncUpdateVibeParametersInvokeEventa, async (params) => {
+  detector.updateVibeParameters(params)
 })
 defineInvokeHandler(context, beatSyncGetInputByteFrequencyDataInvokeEventa, async () => {
   // eslint-disable-next-line no-console

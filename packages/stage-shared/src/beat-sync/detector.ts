@@ -1,7 +1,7 @@
 import type { EventContext } from '@moeru/eventa'
 import type { Analyser, AnalyserBeatEvent, AnalyserWorkletParameters } from '@nekopaw/tempora'
 
-import type { BeatSyncDetectorEventMap, BeatSyncDetectorState } from './types'
+import type { BeatSyncDetectorEventMap, BeatSyncDetectorState, BeatSyncVibe } from './types'
 
 import analyserWorklet from '@nekopaw/tempora/worklet?url'
 
@@ -18,15 +18,20 @@ import {
   beatSyncStateChangedInvokeEventa,
   beatSyncToggleInvokeEventa,
   beatSyncUpdateParametersInvokeEventa,
+  beatSyncUpdateVibeParametersInvokeEventa,
+  beatSyncVibeSignaledInvokeEventa,
   createContext,
   electronEnsureBeatSync,
 } from './eventa'
+import { BEAT_SYNC_ANALYSIS_INTERVAL_MS, BEAT_SYNC_HIT_COOLDOWN_MS, BEAT_SYNC_HIT_THRESHOLD } from './settings'
+import { BeatSyncTempoEstimator, BeatSyncVibeTracker } from './vibe'
 
 export const inputAnalyserFFTSize = 1024
 
 export interface BeatSyncDetector {
   start: (createSource: (context: AudioContext) => Promise<AudioNode>) => Promise<void>
   updateParameters: (params: Partial<AnalyserWorkletParameters>) => void
+  updateVibeParameters: (params: { energyGain?: number }) => void
   startScreenCapture: () => Promise<void>
   stop: () => void
   on: <E extends keyof BeatSyncDetectorEventMap>(event: E, listener: BeatSyncDetectorEventMap[E]) => () => void
@@ -56,13 +61,54 @@ export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): 
   let inputAnalyserNode: AnalyserNode | undefined
   let inputAnalyserBuffer: Uint8Array<ArrayBuffer> | undefined
 
+  let vibeAnalyserNode: AnalyserNode | undefined
+  let vibeTimeDomainBuffer: Uint8Array<ArrayBuffer> | undefined
+  let vibeFrequencyBuffer: Uint8Array<ArrayBuffer> | undefined
+  let vibeInterval: ReturnType<typeof setInterval> | undefined
+  const vibeTracker = new BeatSyncVibeTracker()
+  const tempoEstimator = new BeatSyncTempoEstimator()
+
   const listeners: { [K in keyof BeatSyncDetectorEventMap]: Array<(...args: any) => void> } = {
     stateChange: [],
     beat: [],
+    vibe: [],
   }
 
   const emit = <E extends keyof BeatSyncDetectorEventMap>(event: E, ...args: Parameters<BeatSyncDetectorEventMap[E]>) => {
     listeners[event].forEach(listener => listener(...args))
+  }
+
+  const stopVibeLoop = () => {
+    if (vibeInterval) {
+      clearInterval(vibeInterval)
+      vibeInterval = undefined
+    }
+  }
+
+  const startVibeLoop = () => {
+    stopVibeLoop()
+    let lastBeatAt = Number.NEGATIVE_INFINITY
+    vibeInterval = setInterval(() => {
+      try {
+        if (!vibeAnalyserNode || !vibeTimeDomainBuffer || !vibeFrequencyBuffer)
+          return
+
+        vibeAnalyserNode.getByteTimeDomainData(vibeTimeDomainBuffer)
+        vibeAnalyserNode.getByteFrequencyData(vibeFrequencyBuffer)
+        const now = performance.now()
+        const vibe = vibeTracker.update(vibeTimeDomainBuffer, vibeFrequencyBuffer)
+        const isHit = vibe.hit >= BEAT_SYNC_HIT_THRESHOLD
+          && now - lastBeatAt >= BEAT_SYNC_HIT_COOLDOWN_MS
+        if (isHit) {
+          lastBeatAt = now
+          tempoEstimator.noteHit(now)
+        }
+        emit('vibe', { ...vibe, ...tempoEstimator.update(vibe.hit) })
+      }
+      catch (error) {
+        console.warn('[beat-sync] Vibe analysis failed', error)
+      }
+    }, BEAT_SYNC_ANALYSIS_INTERVAL_MS)
   }
 
   const stop = () => {
@@ -71,8 +117,18 @@ export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): 
 
     state.isActive = false
     emit('stateChange', state)
+    stopVibeLoop()
+    vibeTracker.reset()
+    tempoEstimator.reset()
     stopSource?.()
     stopSource = undefined
+
+    if (vibeAnalyserNode) {
+      vibeAnalyserNode.disconnect()
+      vibeAnalyserNode = undefined
+      vibeTimeDomainBuffer = undefined
+      vibeFrequencyBuffer = undefined
+    }
 
     if (inputAnalyserNode) {
       inputAnalyserNode.disconnect()
@@ -110,17 +166,30 @@ export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): 
     inputAnalyserNode.smoothingTimeConstant = 0.8 // A value between 0 and 1. Higher value smooths out changes.
     inputAnalyserBuffer = new Uint8Array(inputAnalyserNode.frequencyBinCount)
 
+    vibeAnalyserNode = context.createAnalyser()
+    vibeAnalyserNode.fftSize = 2048
+    vibeAnalyserNode.smoothingTimeConstant = 0.2
+    vibeTimeDomainBuffer = new Uint8Array(vibeAnalyserNode.fftSize)
+    vibeFrequencyBuffer = new Uint8Array(vibeAnalyserNode.frequencyBinCount)
+
     node.connect(inputAnalyserNode)
+    node.connect(vibeAnalyserNode)
     inputAnalyserNode.connect(analyser?.workletNode)
 
     source = node
 
     state.isActive = true
     emit('stateChange', state)
+    startVibeLoop()
   }
 
   const updateParameters = (params: Partial<AnalyserWorkletParameters>) => {
     analyser?.updateParameters(params)
+  }
+
+  const updateVibeParameters = (params: { energyGain?: number }) => {
+    if (params.energyGain !== undefined)
+      vibeTracker.setEnergyGain(params.energyGain)
   }
 
   const startScreenCapture = async () => start(async (ctx) => {
@@ -225,6 +294,7 @@ export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): 
   return {
     start,
     updateParameters,
+    updateVibeParameters,
     startScreenCapture,
     stop,
     on,
@@ -351,4 +421,29 @@ export async function getBeatSyncInputByteFrequencyData() {
   }
 
   throw new Error('Unknown environment for getBeatSyncInputByteFrequencyData()')
+}
+
+export async function updateBeatSyncVibeParameters(params: { energyGain?: number }) {
+  if (isStageWeb()) {
+    return getDetector().updateVibeParameters(params)
+  }
+
+  if (isStageTamagotchi()) {
+    await ensureElectronBeatSyncWindow()
+    return defineInvoke(getContext(), beatSyncUpdateVibeParametersInvokeEventa)(params)
+  }
+
+  throw new Error('Unknown environment for updateBeatSyncVibeParameters()')
+}
+
+export function listenBeatSyncVibeSignal(listener: (vibe: BeatSyncVibe) => void) {
+  if (isStageWeb()) {
+    return getDetector().on('vibe', listener)
+  }
+
+  if (isStageTamagotchi()) {
+    return defineInvokeHandler(getContext(), beatSyncVibeSignaledInvokeEventa, listener)
+  }
+
+  throw new Error('Unknown environment for listenBeatSyncVibeSignal()')
 }

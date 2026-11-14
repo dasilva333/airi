@@ -1,7 +1,7 @@
 import type { InvocableEventContext } from '@moeru/eventa'
 import type { AnalyserBeatEvent, AnalyserWorkletParameters } from '@nekopaw/tempora'
 
-import type { BeatSyncDetectorState } from './types'
+import type { BeatSyncDetectorState, BeatSyncVibe } from './types'
 
 import { createContext as createWebContext, defineInvokeEventa } from '@moeru/eventa'
 import { createContext as createBroadcastChannelContext } from '@moeru/eventa/adapters/broadcast-channel'
@@ -17,6 +17,8 @@ export const beatSyncGetInputByteFrequencyDataInvokeEventa = defineInvokeEventa<
 // Events
 export const beatSyncStateChangedInvokeEventa = defineInvokeEventa<void, BeatSyncDetectorState>('eventa:event:electron:beat-sync:state-changed')
 export const beatSyncBeatSignaledInvokeEventa = defineInvokeEventa<void, AnalyserBeatEvent>('eventa:event:electron:beat-sync:beat-signaled')
+export const beatSyncVibeSignaledInvokeEventa = defineInvokeEventa<void, BeatSyncVibe>('eventa:event:electron:beat-sync:vibe-signaled')
+export const beatSyncUpdateVibeParametersInvokeEventa = defineInvokeEventa<void, { energyGain?: number }>('eventa:event:electron:beat-sync:update-vibe-parameters')
 
 let _broadcastChannel: BroadcastChannel | undefined
 function getBroadcastChannel() {

@@ -8,7 +8,7 @@ import JSZip from 'jszip'
 
 import { Point } from '@pixi/math'
 import { DSLVirtualMachine } from '@proj-airi/live2d-runtime'
-import { listenBeatSyncBeatSignal } from '@proj-airi/stage-shared/beat-sync'
+import { listenBeatSyncBeatSignal, listenBeatSyncVibeSignal } from '@proj-airi/stage-shared/beat-sync'
 import { useTheme } from '@proj-airi/ui'
 import { breakpointsTailwind, until, useBreakpoints, useBroadcastChannel, useDebounceFn } from '@vueuse/core'
 import { formatHex } from 'culori'
@@ -1850,11 +1850,15 @@ onMounted(() => {
     console.debug('[Live2D Model] Received beat signal:', e)
     beatSync.scheduleBeat()
   })
+  const removeVibeListener = listenBeatSyncVibeSignal((vibe) => {
+    beatSync.setEnergy(vibe.energy)
+  })
   const cleanupTriggerMotion = live2dStore.onTriggerMotion((group, index) => {
     setMotion(group, index)
   })
   onUnmounted(() => {
     removeListener()
+    removeVibeListener()
     cleanupTriggerMotion()
   })
 })

@@ -212,6 +212,11 @@ The catalog contains 78 discoverable skills. Desktop chatbox and interaction pip
 - **Key Paths**: `packages/stage-ui/src/components/scenes/HeadTetheredRadialMenu.vue`, `packages/stage-ui/src/components/scenes/RendererStage.vue`, `packages/stage-shared/src/utils/radial-geometry.ts`, `apps/stage-tamagotchi/src/renderer/pages/actor.vue`, `docs/design-stage-radial-menu.md`.
 - **Content**: Pure nested radial pie menu hierarchy (Root 5/6 wedges → Size, Snap compass, Interaction Mode, Layers, Monitor), 60 FPS head-tracking `requestAnimationFrame` loop, torso offset clamping, 4-runtime avatar anchor matrix (VRM/MMD/Spine bone projection vs Live2D viewport-centering fallback), 3D perspective parallax tilt (`computeParallaxTilt`), compact viewport auto-scaling (`menuScale`), magnetic cursor slice snapping via `atan2`, drag-conflict suppression (`dist <= 8`), and Web Audio oscillator sound effects. Peer skills: `airi-stage-ui-surfaces`, `airi-character-rendering`.
 
+#### 2.19 `airi-beat-sync-choreography`
+- **Target Domain**: Audio-reactive Beat Sync & AI Choreography — audio capture, `BeatSyncVibeTracker`, `BeatSyncTempoEstimator`, Live2D energy-modulated dancing, VRM energy-tier `.vrma` clip playback, FlowMDM AI choreography orchestration, per-character `AiriExtension.beatSync` persistence, and Control Strip / Chat Quick Settings surfaces.
+- **Key Paths**: `.agents/skills/airi-beat-sync-choreography/SKILL.md`, `packages/stage-shared/src/beat-sync/{detector,eventa,settings,types,vibe}.ts`, `apps/stage-tamagotchi/src/renderer/beat-sync.main.ts`, `packages/stage-ui-live2d/src/composables/live2d/beat-sync.ts`, `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue`, `packages/motion-choreography/src/`.
+- **Content**: Dual Tempora beat + 30 Hz Vibe/Tempo emission (`BeatSyncVibeTracker` 30s rolling p10/p90 dBFS normalization, `BeatSyncTempoEstimator` 6s onset autocorrelation with 120 BPM prior), BPM-scaled VRM clip speed (`clamp(bpm/120, 0.5, 2.0)`) vs energy-tier intensity selection, Live2D `strength` × `energy` modulation, per-character `AiriExtension.beatSync` storage, and Control Strip `BeatSyncPopover` / `ChatOptionsCapabilitiesView` integration. FlowMDM diffusion/compilation stays in `airi-generative-motion-vrma`; Control Strip shell rules stay in `airi-stage-ui-surfaces`.
+
 ---
 
 ### 🟣 Phase 3: Module Systems, Cognition & Memory
@@ -476,11 +481,11 @@ The catalog contains 78 discoverable skills. Desktop chatbox and interaction pip
 | Group | Discoverable skills |
 | --- | ---: |
 | Core plumbing and infrastructure | 10 |
-| Character, stage, motion and sensing | 15 |
+| Character, stage, motion and sensing | 16 |
 | Modules, cognition and memory | 23 |
 | Operational SOPs and research | 8 |
 | UI surfaces and adjacent services | 17 |
-| **Total** | **73** |
+| **Total** | **74** |
 
 The counts follow the catalog groups above, not a separate historical rollout table.
 

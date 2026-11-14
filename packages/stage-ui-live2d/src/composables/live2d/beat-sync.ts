@@ -26,6 +26,9 @@ export interface BeatSyncController {
   setStyle: (style: BeatSyncStyleName) => void
   getStyle: () => BeatSyncStyleName
   setAutoStyleShift: (enabled: boolean) => void
+  setStrength: (strength: number) => void
+  getStrength: () => number
+  setEnergy: (energy: number) => void
 }
 
 interface BeatSegment {
@@ -46,6 +49,8 @@ interface CreateBeatSyncControllerOptions {
   styles?: Partial<Record<BeatSyncStyleName, BeatStyleConfig>>
   initialStyle?: BeatSyncStyleName
   autoStyleShift?: boolean
+  initialStrength?: number
+  initialEnergy?: number
 }
 
 type BeatStylePattern = 'v' | 'swing' | 'sway'
@@ -76,9 +81,13 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
     styles = {},
     initialStyle = 'punchy-v',
     autoStyleShift = false,
+    initialStrength = 0.65,
+    initialEnergy = 0.5,
   } = options
 
   const styleMap = { ...defaultStyles, ...styles }
+
+  const clamp01 = (v: number) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5)
 
   const targetX = ref<number>(0)
   const targetY = ref<number>(0)
@@ -95,7 +104,15 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
   const avgInterval = ref<number | null>(null)
   const style = ref<BeatSyncStyleName>(initialStyle)
   const autoShift = ref(autoStyleShift)
+  const strength = ref(clamp01(initialStrength))
+  const energy = ref(clamp01(initialEnergy))
   const baseAngles = computed(() => baseAnglesGetter())
+
+  function getAmplitudeScale() {
+    const strengthScale = 0.25 + strength.value * 1.15
+    const energyScale = 0.55 + energy.value * 0.75
+    return strengthScale * energyScale
+  }
 
   function lerp(from: number, to: number, t: number) {
     return from + (to - from) * t
@@ -111,11 +128,12 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
 
   function getTopPose(side: 'left' | 'right') {
     const { topYaw, topRoll, swingLift, pattern } = getStyleConfig()
+    const scale = getAmplitudeScale()
     const direction = side === 'left' ? -1 : 1
-    const zOffset = (pattern === 'swing' || pattern === 'sway') ? (swingLift ?? topRoll) : topRoll
+    const zOffset = ((pattern === 'swing' || pattern === 'sway') ? (swingLift ?? topRoll) : topRoll) * scale
     const z = baseAngles.value.z + (pattern === 'swing' || pattern === 'sway' ? zOffset : direction * zOffset)
     return {
-      y: baseAngles.value.y + (direction * topYaw),
+      y: baseAngles.value.y + (direction * topYaw * scale),
       z,
     }
   }
@@ -124,7 +142,7 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
     const { bottomDip } = getStyleConfig()
     return {
       y: baseAngles.value.y,
-      z: baseAngles.value.z - bottomDip,
+      z: baseAngles.value.z - bottomDip * getAmplitudeScale(),
     }
   }
 
@@ -288,7 +306,7 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
       const sidePose = getTopPose(currentSide)
       const oppositePose = getTopPose(nextSide)
       const centerPose = { y: baseAngles.value.y, z: baseAngles.value.z }
-      const lift = styleConfig.swingLift ?? 10
+      const lift = (styleConfig.swingLift ?? 10) * getAmplitudeScale()
 
       // First beat after prime: move to initial side anchor
       if (!patternStarted.value) {
@@ -347,6 +365,9 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
     setStyle: (s: BeatSyncStyleName) => { style.value = s },
     getStyle: () => style.value,
     setAutoStyleShift: (enabled: boolean) => { autoShift.value = enabled },
+    setStrength: (value: number) => { strength.value = clamp01(value) },
+    getStrength: () => strength.value,
+    setEnergy: (value: number) => { energy.value = clamp01(value) },
     debugState: () => ({
       primed: primed.value,
       patternStarted: patternStarted.value,
