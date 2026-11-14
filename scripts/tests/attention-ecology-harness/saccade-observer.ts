@@ -97,8 +97,8 @@ function parseArgs(argv: string[]): CliArgs {
     once: false,
     noGate: false,
     llm: false,
-    llmModel: 'glm-5',
-    systemOneModel: 'jev-1.13-free',
+    llmModel: process.env.OPENCODE_GO_LLM_MODEL || process.env.OPENCODE_GO_MODEL || 'deepseek-v4.1-flash',
+    systemOneModel: process.env.OPENCODE_GO_S1_MODEL || 'jev-1.13-free',
   }
 
   for (let i = 0; i < argv.length; i++) {
