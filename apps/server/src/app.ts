@@ -16,6 +16,7 @@ import { parsedEnv } from './libs/env'
 import { initOtel } from './libs/otel'
 import { sessionMiddleware } from './middlewares/auth'
 import { otelMiddleware } from './middlewares/otel'
+import { requireSameOrigin } from './middlewares/require-origin'
 import { createCharacterRoutes } from './routes/characters'
 import { createChatRoutes } from './routes/chats'
 import { createGoogleDriveRoutes } from './routes/gdrive'
@@ -55,6 +56,7 @@ function buildApp({ auth, characterService, chatService, providerService, gdrive
         credentials: true,
       }),
     )
+    .use('/api/*', requireSameOrigin)
     .use(honoLogger())
 
   if (otel) {

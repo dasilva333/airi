@@ -98,6 +98,9 @@ describe('providerRoutes', () => {
     expect(data.length).toBe(2)
     expect(data.some((p: any) => p.isSystem === true)).toBe(true)
     expect(data.some((p: any) => p.isSystem === false)).toBe(true)
+    // System config must not leak its pooled apiKey to any signed-up user.
+    const sys = data.find((p: any) => p.isSystem === true)
+    expect(JSON.stringify(sys.config ?? {})).not.toContain('sys-sk')
   })
 
   it('get /:id should return specific provider (user or system)', async () => {
@@ -116,6 +119,7 @@ describe('providerRoutes', () => {
     const dataSys = await resSys.json()
     expect(dataSys.id).toBe('sys-1')
     expect(dataSys.isSystem).toBe(true)
+    expect(JSON.stringify(dataSys.config ?? {})).not.toContain('sys-sk')
   })
 
   it('patch /:id should update provider config', async () => {

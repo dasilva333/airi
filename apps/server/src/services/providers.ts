@@ -4,6 +4,28 @@ import { and, eq, isNull, sql } from 'drizzle-orm'
 
 import * as schema from '../schemas/providers'
 
+// Anything credential-shaped must not be readable by non-admin users of this
+// API, even if the system config row carries it — treat names as hints only,
+// keys are matched loosely by shape (apiKey, api_key, secret, token, ...).
+const CREDENTIAL_KEY = /(api[-_]?key|secret|token|password|credential|bearer|authorization)/i
+
+export function stripCredentialKeys(value: unknown): unknown {
+  if (Array.isArray(value))
+    return value.map(stripCredentialKeys)
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      if (CREDENTIAL_KEY.test(key))
+        continue
+      out[key] = stripCredentialKeys(val)
+    }
+    return out
+  }
+  return value
+}
+
+const toSafeSystemRow = (row: any) => ({ ...row, config: stripCredentialKeys(row.config) as any })
+
 export function createProviderService(db: Database) {
   return {
     async findAll(ownerId: string) {
@@ -42,7 +64,9 @@ export function createProviderService(db: Database) {
         .from(schema.systemProviderConfigs)
         .where(isNull(schema.systemProviderConfigs.deletedAt))
 
-      return await userConfigs.unionAll(systemConfigs)
+      const rows = await userConfigs.unionAll(systemConfigs)
+      // System rows are pooled for every signed-up user: never hand out their secrets.
+      return rows.map((row: any) => (row.isSystem === true || row.is_system === true ? toSafeSystemRow(row) : row))
     },
 
     async findUserConfigsByOwnerId(ownerId: string) {
@@ -75,7 +99,7 @@ export function createProviderService(db: Database) {
       })
 
       if (systemConfig) {
-        return { ...systemConfig, isSystem: true }
+        return { ...toSafeSystemRow(systemConfig), isSystem: true }
       }
 
       return null
