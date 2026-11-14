@@ -14,6 +14,7 @@ type BroadcastChannelEvents
   = | BroadcastChannelEventShouldUpdateView
     | BroadcastChannelEventTriggerMotion
     | BroadcastChannelEventTriggerEmotion
+    | BroadcastChannelEventBeatSyncConfig
 
 interface BroadcastChannelEventShouldUpdateView {
   type: 'live2d-should-update-view'
@@ -31,6 +32,16 @@ interface BroadcastChannelEventTriggerEmotion {
   name: string
   intensity: number
   duration?: number
+}
+
+export interface Live2DBeatSyncConfig {
+  style?: 'punchy-v' | 'swing-lr' | 'sway-sine'
+  strength?: number
+}
+
+interface BroadcastChannelEventBeatSyncConfig {
+  type: 'live2d-beat-sync-config'
+  config: Live2DBeatSyncConfig
 }
 
 export const defaultModelParameters = {
@@ -63,6 +74,7 @@ export const useLive2d = defineStore('live2d', () => {
   const shouldUpdateViewHooks = ref(new Set<(reason?: string) => void>())
   const triggerMotionHooks = ref(new Set<(group: string, index?: number) => void>())
   const triggerEmotionHooks = ref(new Set<(name: string, intensity: number, duration?: number) => void>())
+  const beatSyncConfigHooks = ref(new Set<(config: Live2DBeatSyncConfig) => void>())
   const activeEmotionTimers = ref<Record<string, any>>({})
   const activeEmotionResets = ref<Record<string, () => void>>({})
 
@@ -137,6 +149,18 @@ export const useLive2d = defineStore('live2d', () => {
     }
   }
 
+  const onBeatSyncConfig = (hook: (config: Live2DBeatSyncConfig) => void) => {
+    beatSyncConfigHooks.value.add(hook)
+    return () => {
+      beatSyncConfigHooks.value.delete(hook)
+    }
+  }
+
+  function setBeatSyncConfig(config: Live2DBeatSyncConfig) {
+    post({ type: 'live2d-beat-sync-config', config })
+    beatSyncConfigHooks.value.forEach(hook => hook(config))
+  }
+
   function resolveMotionGroupAndIndex(group: string, index?: number) {
     let resolvedGroup = group
     let resolvedIndex = index
@@ -184,6 +208,9 @@ export const useLive2d = defineStore('live2d', () => {
     else if (event?.type === 'live2d-trigger-emotion') {
       triggerEmotionHooks.value.forEach(hook => hook(event.name, event.intensity, event.duration))
       executeTriggerEmotion(event.name, event.intensity, event.duration)
+    }
+    else if (event?.type === 'live2d-beat-sync-config') {
+      beatSyncConfigHooks.value.forEach(hook => hook(event.config))
     }
   })
 
@@ -377,6 +404,8 @@ export const useLive2d = defineStore('live2d', () => {
     onTriggerMotion,
     triggerMotion,
     onTriggerEmotion,
+    onBeatSyncConfig,
+    setBeatSyncConfig,
     triggerEmotion(emotionKey: string, intensity: number = 1, duration?: number) {
       console.info('[Live2D Store] Posting trigger-emotion event via BroadcastChannel:', { emotionKey, intensity, duration })
       post({ type: 'live2d-trigger-emotion', name: emotionKey, intensity, duration })

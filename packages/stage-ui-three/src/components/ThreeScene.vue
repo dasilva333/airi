@@ -285,8 +285,8 @@ onMounted(() => {
       modelRef.value?.setExpression(name, intensity, decayMs)
     }
   })
-  unsubscribeTriggerMotion = modelStore.onTriggerMotion((name) => {
-    modelRef.value?.playTransientAnimation(name)
+  unsubscribeTriggerMotion = modelStore.onTriggerMotion((name, options) => {
+    modelRef.value?.playTransientAnimation(name, options)
   })
   unsubscribeTriggerVfx = modelStore.onTriggerVfx((name, duration) => {
     if (auraController.value && (name === 'fire' || name === 'electric' || name === 'magic' || name === 'verdant')) {

@@ -65,6 +65,7 @@ type BroadcastChannelEvents
   = | BroadcastChannelEventShouldUpdateView
     | BroadcastChannelEventTriggerEmotion
     | BroadcastChannelEventTriggerMotion
+    | BroadcastChannelEventSetMotionTimeScale
     | BroadcastChannelEventTriggerVfx
     | BroadcastChannelEventSetMeshVisibility
 
@@ -82,12 +83,18 @@ interface BroadcastChannelEventTriggerEmotion {
 export interface TriggerMotionOptions {
   loop?: boolean
   fadeDuration?: number
+  timeScale?: number
 }
 
 interface BroadcastChannelEventTriggerMotion {
   type: 'trigger-motion'
   name: string
   options?: TriggerMotionOptions
+}
+
+interface BroadcastChannelEventSetMotionTimeScale {
+  type: 'set-motion-time-scale'
+  timeScale: number
 }
 
 interface BroadcastChannelEventTriggerVfx {
@@ -110,6 +117,7 @@ export const useModelStore = defineStore('modelStore', () => {
   const shouldUpdateViewHooks = ref(new Set<(reason?: string) => void>())
   const triggerEmotionHooks = ref(new Set<(name: string, intensity: number) => void>())
   const triggerMotionHooks = ref(new Set<(name: string, options?: TriggerMotionOptions) => void>())
+  const motionTimeScaleHooks = ref(new Set<(timeScale: number) => void>())
   const triggerVfxHooks = ref(new Set<(name: string, duration?: number) => void>())
 
   const onShouldUpdateView = (hook: (reason?: string) => void) => {
@@ -146,6 +154,18 @@ export const useModelStore = defineStore('modelStore', () => {
   function triggerMotion(name: string, options?: TriggerMotionOptions) {
     post({ type: 'trigger-motion', name, options })
     triggerMotionHooks.value.forEach(hook => hook(name, options))
+  }
+
+  const onMotionTimeScale = (hook: (timeScale: number) => void) => {
+    motionTimeScaleHooks.value.add(hook)
+    return () => {
+      motionTimeScaleHooks.value.delete(hook)
+    }
+  }
+
+  function setMotionTimeScale(timeScale: number) {
+    post({ type: 'set-motion-time-scale', timeScale })
+    motionTimeScaleHooks.value.forEach(hook => hook(timeScale))
   }
 
   const onTriggerVfx = (hook: (name: string, duration?: number) => void) => {
@@ -291,6 +311,9 @@ export const useModelStore = defineStore('modelStore', () => {
     }
     else if (event.type === 'trigger-motion') {
       triggerMotionHooks.value.forEach(hook => hook(event.name, event.options))
+    }
+    else if (event.type === 'set-motion-time-scale') {
+      motionTimeScaleHooks.value.forEach(hook => hook(event.timeScale))
     }
     else if (event.type === 'trigger-vfx') {
       triggerVfxHooks.value.forEach(hook => hook(event.name, event.duration))
@@ -471,6 +494,8 @@ export const useModelStore = defineStore('modelStore', () => {
     triggerEmotion,
     onTriggerMotion,
     triggerMotion,
+    onMotionTimeScale,
+    setMotionTimeScale,
     onTriggerVfx,
     triggerVfx,
 

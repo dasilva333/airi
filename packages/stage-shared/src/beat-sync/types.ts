@@ -1,5 +1,7 @@
 import type { AnalyserBeatEvent } from '@nekopaw/tempora'
 
+export type BeatSyncEnergyTier = 'calm' | 'medium' | 'intense'
+
 export interface BeatSyncDetectorState {
   isActive: boolean
 }

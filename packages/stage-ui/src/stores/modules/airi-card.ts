@@ -1,6 +1,6 @@
 import type { Card, ccv3 } from '@proj-airi/ccc'
 
-import type { AiriCadence, AiriCognition, AiriPacing, CardCustomSticker, CharacterCueAllowlist } from '../../types/card.schema'
+import type { AiriBeatSync, AiriCadence, AiriCognition, AiriPacing, CardCustomSticker, CharacterCueAllowlist } from '../../types/card.schema'
 import type { VoiceProfile } from '../providers'
 
 import { debug } from '@proj-airi/stage-shared'
@@ -255,6 +255,8 @@ export interface AiriExtension {
   }
 
   sandbox?: AiriSandboxConfig
+
+  beatSync?: AiriBeatSync
 
   toolCallReflection?: {
     enabled?: boolean

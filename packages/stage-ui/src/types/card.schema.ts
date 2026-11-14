@@ -314,6 +314,27 @@ export const CardCustomStickerSchema = looseObject({
 
 export type CardCustomSticker = InferOutput<typeof CardCustomStickerSchema>
 
+export const AiriBeatSyncSchema = looseObject({
+  live2d: optional(looseObject({
+    style: optional(union([literal('punchy-v'), literal('swing-lr'), literal('sway-sine')])),
+    strength: optional(pipe(number(), minValue(0), maxValue(1))),
+  })),
+  vrm: optional(looseObject({
+    mode: optional(union([literal('clips'), literal('ai')])),
+    persona: optional(union([literal('none'), literal('idol'), literal('gothic_maid'), literal('cool_android')])),
+    cyclePersonas: optional(boolean()),
+    barsPerPhrase: optional(pipe(number(), integer(), minValue(4), maxValue(64))),
+    autoBars: optional(boolean()),
+    clipTiers: optional(looseObject({
+      calm: optional(array(string())),
+      medium: optional(array(string())),
+      intense: optional(array(string())),
+    })),
+  })),
+})
+
+export type AiriBeatSync = InferOutput<typeof AiriBeatSyncSchema>
+
 const AiriExtensionSchema = looseObject({
   modules: optional(AiriModulesSchema),
   cognition: optional(AiriCognitionSchema),
@@ -442,6 +463,7 @@ const AiriExtensionSchema = looseObject({
     activeBackgroundId: optional(string()),
     active_expressions: optional(record(string(), number())),
   })),
+  beatSync: optional(AiriBeatSyncSchema),
   voice_profiles: optional(array(record(string(), unknown()))),
   rwkv: optional(looseObject({
     stateCartridgeId: optional(string()),

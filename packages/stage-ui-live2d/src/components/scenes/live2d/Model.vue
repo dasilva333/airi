@@ -1853,12 +1853,19 @@ onMounted(() => {
   const removeVibeListener = listenBeatSyncVibeSignal((vibe) => {
     beatSync.setEnergy(vibe.energy)
   })
+  const cleanupBeatSyncConfig = live2dStore.onBeatSyncConfig((config) => {
+    if (config.style)
+      beatSync.setStyle(config.style)
+    if (typeof config.strength === 'number')
+      beatSync.setStrength(config.strength)
+  })
   const cleanupTriggerMotion = live2dStore.onTriggerMotion((group, index) => {
     setMotion(group, index)
   })
   onUnmounted(() => {
     removeListener()
     removeVibeListener()
+    cleanupBeatSyncConfig()
     cleanupTriggerMotion()
   })
 })

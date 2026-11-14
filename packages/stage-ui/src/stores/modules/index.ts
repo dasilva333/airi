@@ -1,5 +1,6 @@
 export * from './airi-card'
 export * from './arcade-knowledge'
+export * from './beat-sync-choreography'
 export * from './cloudflare'
 export * from './code-assistant'
 export * from './consciousness'

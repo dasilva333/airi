@@ -509,6 +509,7 @@ async function playTransientAnimation(key: string, options?: TriggerMotionOption
 
     newAction.reset()
     newAction.setEffectiveWeight(1)
+    newAction.setEffectiveTimeScale(options?.timeScale ?? 1)
     newAction.play()
 
     emit('playStatus', {
@@ -919,6 +920,13 @@ onMounted(async () => {
   // Register motion trigger listener (from modelStore / BroadcastChannel)
   modelStore.onTriggerMotion((key, options) => {
     void playTransientAnimation(key, options)
+  })
+  const unsubscribeMotionTimeScale = modelStore.onMotionTimeScale((timeScale) => {
+    if (currentAction)
+      currentAction.setEffectiveTimeScale(timeScale)
+  })
+  onUnmounted(() => {
+    unsubscribeMotionTimeScale()
   })
 
   /*
