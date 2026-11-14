@@ -1,6 +1,10 @@
 # CRITICAL REQUIREMENT: First-Action Domain Skill Loading
 - **Always consult `.agents/skills` immediately upon receiving a prompt**: Whenever the user sends a message (especially the very first message or any task kickoff), the very first thing you MUST do is evaluate all user input, inspect `.agents/skills/` and [`docs/project-specialized-skills.md`](./docs/project-specialized-skills.md) to identify the relevant domain skill(s), view and read the associated `SKILL.md` (and any relevant reference files), and only after that proceed to do codebase research or take action.
 - **Strictly follow domain skill source maps and anchors**: Every domain `SKILL.md` documents authoritative source code paths and key functions/symbols. Once loaded, you MUST prioritize and inspect the exact paths and symbols cited in the skill rather than conducting redundant, broad filesystem searches or symbol discovery. Loading a skill exists precisely to eliminate rediscovery.
+- **Fail-closed on citation path resolution (No panic discovery)**: If reading a file cited by a domain skill fails with `file does not exist`:
+  1. **Do not** abandon the citation and **do not** fall back into broad filesystem discovery (`find`, `grep -rn`, etc.).
+  2. Audit directory prefixes first: when running from a parent workspace root, check if the active monorepo directory is nested (e.g. `airi_dasilva333/packages/...`).
+  3. If still missing, check only the immediate parent directory or git log for renames. Never revert to broad globbing or symbol searches after loading a skill.
 
 # CRITICAL REQUIREMENT: Git Status Reporting
 - **Always run `git status` after every single commit or file modification, and report exactly what files are still open, unstaged, or pending.** Never assume the working directory is clean or that unrelated modifications are invisible.
@@ -25,6 +29,7 @@ Read the relevant section of [`docs/rosetta-stone.md`](./docs/rosetta-stone.md) 
 ## Strict Workspace & Repository Boundary
 
 - **Never escape the designated workspace root:** All file searches, greps, inspections, edits, and shell commands MUST remain strictly scoped within the active repository root assigned to this session.
+- **Monorepo directory resolution**: The monorepo repository root may be the current working directory (cwd) or located in a nested folder inside cwd (such as `./airi_dasilva333/`). All relative paths cited in domain skills, docs, and architecture notes (e.g., `packages/...`, `apps/...`, `docs/...`) resolve relative to the monorepo root. Always check whether a nested monorepo prefix is required before referencing or opening files from an outer workspace root.
 - **Foreign project context detection:** If user prompts, screenshots, logs, or error traces reference an unrelated codebase, foreign framework, or distinct application architecture not present in this repository:
   1. **Do not** probe parent or sibling directories, and do not execute cross-repository searches.
   2. **Do not** assume ownership or silently perform work in a foreign codebase.

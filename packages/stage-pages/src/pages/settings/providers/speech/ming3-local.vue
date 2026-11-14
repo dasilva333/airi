@@ -78,11 +78,19 @@ const preset = computed({
 
 const threads = computed({
   get(): string | number {
-    const v = getLiveOptions().threads
-    return (typeof v === 'number' || v === 'auto' ? v : undefined) ?? (providerConfig.value?.threads as string | number | undefined) ?? 'auto'
+    const v = getLiveOptions().threads ?? providerConfig.value?.threads
+    if (v === 'auto')
+      return 'auto'
+    const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : Number.NaN
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 'auto'
   },
   set(val: string | number) {
-    getLiveOptions().threads = val
+    if (val === 'auto') {
+      getLiveOptions().threads = 'auto'
+      return
+    }
+    const n = Number(val)
+    getLiveOptions().threads = Number.isFinite(n) && n > 0 ? Math.floor(n) : 'auto'
   },
 })
 
@@ -110,6 +118,7 @@ const threadOptions = computed(() => [
   { label: t('settings.pages.providers.provider.ming3-local.threads.auto'), value: 'auto' as string | number },
   { label: '1', value: 1 as string | number },
   { label: '2', value: 2 as string | number },
+  { label: '3', value: 3 as string | number },
   { label: '4', value: 4 as string | number },
   { label: '8', value: 8 as string | number },
 ])
