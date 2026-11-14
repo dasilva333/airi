@@ -88,10 +88,14 @@ A new window manager factory is located under `apps/stage-tamagotchi/src/main/wi
 
 ### 5.1 Window Configuration
 ```typescript
+const TRAY_WINDOW_WIDTH = 420
+const TRAY_WINDOW_HEIGHT = 620 // 525px visual panel + transparent shadow/caret margin
+const TRAY_WINDOW_HEIGHT_COLLAPSED = 525 // 430px visual panel when header is collapsed
+
 const window = new BrowserWindow({
   title: 'AIRI Pocket',
-  width: 390,
-  height: 580,
+  width: TRAY_WINDOW_WIDTH,
+  height: TRAY_WINDOW_HEIGHT,
   show: false,
   frame: false,
   resizable: false,
@@ -108,6 +112,7 @@ const window = new BrowserWindow({
 // Ensures visibility across all virtual desktops / workspaces without Dock re-surfacing
 showWindowOnAllWorkspaces(window)
 ```
+Collapsing or expanding the header invokes `electronTrayPopoverSetCollapsed` over Eventa IPC, resizing the window between `TRAY_WINDOW_HEIGHT` (`620px`) and `TRAY_WINDOW_HEIGHT_COLLAPSED` (`525px`) while preserving macOS caret / taskbar alignment.
 
 ### 5.2 Dynamic Positioning & Caret Alignment
 
@@ -164,25 +169,22 @@ To mimic native menu behavior while allowing power-user persistence:
 
 ## 6. Renderer Surface: The Three-Segmented Cockpit (`#/tray`)
 
-The popover renders a dedicated route: `apps/stage-tamagotchi/src/renderer/pages/tray.vue` (390×580 px).
+The popover renders a dedicated route: `apps/stage-tamagotchi/src/renderer/pages/tray.vue` (`420×620 px` expanded, `420×525 px` collapsed, with `p-0.5` tab content body padding).
 
-### 6.1 The Persistent Companion Header (~72px)
-Visible across all tabs, establishing AIRI's living presence:
-- **Character Portrait**: 48–64px circular thumbnail. Displays active costume and expression.
-- **Character Selector**: Interactive dropdown chevron (`AIRI [v]`) allowing rapid switching between installed character cards without navigating to settings.
-- **Contextual Vitality Status**: Dynamic status indicators reflecting real-time engine activity:
-  - *Listening*: `🟢 Listening • Curious ♡` — `"Ready to chat with you!"`
-  - *Idle*: `🟢 Idle • Comfy ♡` — `"Stage is ready."`
-  - *Generating*: `🟢 Thinking • Generating...` — `"Gemini 2.5 Pro • 420ms"`
-  - *Observing*: `🟢 Observing • Focused` — `"Watching active screen window"`
-- **Header Action Strip**:
-  - **4 Rapid Pill Toggles**:
-    1. `Mic`: Mute/unmute microphone input.
-    2. `Voice`: Mute/unmute TTS speech output and adjust volume.
-    3. `Vision`: Toggle screen observation and Vibe Island salience gate.
-    4. `Sleep`: Instant engine standby (freezes 3D/2D render loops to save VRAM).
-  - **Pin Icon**: Toggles `isPinned` state.
-  - **Settings Gear**: Opens the main Settings Hub (`#/settings`).
+### 6.1 The Persistent Companion Header (Collapsible Focus Mode)
+Visible across all tabs, establishing AIRI's living presence in either **Expanded** or **Collapsed** focus mode (`airi:tray:is-collapsed`):
+- **Expanded Mode**:
+  - **Avatar Region (56×56 px)**: Supports a 3-way **Avatar Mode** (`airi:tray:avatar-mode`) via a Reka UI popover button next to the rapid action capsule:
+    1. **Static**: Circular (`rounded-full`) `<CharacterAvatar />` thumbnail.
+    2. **Gaze**: Circular (`rounded-full`) procedural `<BeamAvatar />` from `@proj-airi/ui` bound to `--chromatic-hue` and driven by global cursor tracking (`useElectronRelativeMouse`).
+    3. **Stage**: Square (`rounded-xl`) live `<RendererStage />` (`:show-background="false"`, `:radial-menu-enabled="false"`, `:draggable="false"`) with local head-framing offsets (`xOffset`, `yOffset`, `scale` per `stageModelRenderer`), `:focus-at="{ x: cursorX, y: cursorY }"`, and `<CharacterAvatar />` as a loading backdrop.
+  - **Character Selector**: Interactive dropdown (`AIRI [v]`) allowing rapid switching between installed character cards without navigating to settings.
+  - **Window & Rapid Action Controls**:
+    - Top-right utility cluster: `[⌃ Collapse] [📌 Pin] [⚙️ Settings] [✕ Close]`.
+    - Rapid action row underneath: `[Avatar Mode Popover]` + `[🔊 Voice Mute | 🌙/☀️ Theme | 🎨 Accent Palette Swatch]` capsule (including an inline 24-swatch chromatic hue picker).
+- **Collapsed Mode (`min-h-[35px]`)**:
+  - **Compact Identity (`flex-1 min-w-0`)**: Clickable `[24px avatar] [truncated character name + ⌄]` dropdown trigger on the left. When `Stage` mode is selected, collapsed mode automatically falls back to `Static` and unmounts `<RendererStage />` to avoid micro-WebGL overhead.
+  - **Window Controls**: `[⌄ Expand] [📌 Pin] [⚙️ Settings] [✕ Close]` on the right.
 
 ---
 
@@ -190,9 +192,9 @@ Visible across all tabs, establishing AIRI's living presence:
 A quick, seamless conversation with AIRI, perfectly synchronized with the primary desktop chat session.
 
 - **Shared State**: Operates directly on the active session in `chatSessionsStore` (`apps/stage-tamagotchi/src/renderer/stores/chat-sessions.ts`). Messages sent from Pocket appear in the desktop chat, and vice versa.
-- **Multi-Bubble Rendering**: Renders the latest conversation turns using lightweight, compact bubbles:
-  - *Airi's bubble*: Light green/pastel card, character name, timestamp, and optional emotion marker.
-  - *User's bubble*: Soft neutral card, right-aligned, with double-check delivered indicators.
+- **Multi-Bubble Rendering**: Renders the latest conversation turns using lightweight, compact bubbles in `ChatTab.vue`:
+  - *Airi's bubble*: Soft neutral/tinted card with character name, timestamp, and trailing markdown paragraph margin reset (`:last-child { margin-bottom: 0 !important }`) for tight vertical density.
+  - *User's bubble*: Right-aligned bubble styled with the active chromatic accent hue (`--chromatic-hue`).
 - **Live Response Streaming**: If an LLM response is actively generating when the user opens the tray, the window opens directly to the live streaming turn with active auto-scroll.
 - **Integrated Composer**:
   - Image attachment button (`carbon:image`).
@@ -251,11 +253,11 @@ A high-density diagnostics and quota tracking surface directly inspired by the u
 
 ## 7. Optional Upgrades & Progressive Enhancement
 
-### 7.1 Live Companion Peek (Opt-In)
-- **Default (Option A)**: Static high-resolution WebP avatar thumbnail from `airi-model-preview-caching`. Zero GPU impact.
-- **Opt-In (Option B)**: An animated 120×120 WebGL avatar peek at the top of the Chat tab.
-  - *Resource Protection*: Rendering is strictly paused (`requestAnimationFrame` halted) whenever the popover window is blurred or hidden, ensuring it consumes zero GPU resources while closed.
-  - *Shared Texture Stream*: In multi-window mode, consumes offscreen frame captures from the primary `RendererStage.vue` rather than duplicating the entire Three.js/Live2D engine.
+### 7.1 Companion Avatar Modes (`Static` / `Gaze` / `Stage`)
+Implemented directly in `apps/stage-tamagotchi/src/renderer/pages/tray.vue` via the header Avatar Mode popover (`airi:tray:avatar-mode`):
+- **Static (Default)**: High-resolution WebP `<CharacterAvatar />` thumbnail. Zero GPU impact.
+- **Gaze**: Procedural `<BeamAvatar />` (`packages/ui/src/components/misc/beam-avatar.vue`) bound to `--chromatic-hue` with real-time eye/face tracking driven by `useElectronRelativeMouse`.
+- **Stage**: Live 56×56 px square (`rounded-xl`) `<RendererStage />` with local head-framing offsets (`xOffset`, `yOffset`, `scale`), `:focus-at` cursor tracking via `useElectronRelativeMouse`, and `<CharacterAvatar />` backdrop while loading. Unmounts and falls back to `Static` whenever the header is collapsed or hidden.
 
 ### 7.2 Context Actions
 The header and footer dynamically adapt to companion activity:

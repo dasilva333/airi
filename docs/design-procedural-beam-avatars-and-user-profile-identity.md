@@ -198,14 +198,13 @@ Enhance [`packages/stage-ui/src/components/scenarios/chat/user-item.vue`](../pac
 
 ## 6. Implementation Checklist & Verification Gates
 
-When scheduled for implementation:
-
-- [ ] **Step 1**: Create `packages/ui/src/components/misc/beam-avatar.vue` and `user-avatar.vue`.
-- [ ] **Step 2**: Add export bindings in `packages/ui/src/components/index.ts`.
+- [x] **Step 1a**: Create `packages/ui/src/components/misc/beam-avatar.vue` (implemented with deterministic OKLCH palette bound to `--chromatic-hue` plus optional `gazeX`/`gazeY` normalized cursor-tracking offsets).
+- [ ] **Step 1b**: Create `packages/ui/src/components/misc/user-avatar.vue`.
+- [x] **Step 2**: Add export bindings for `BeamAvatar` in `packages/ui/src/components/misc/index.ts` (re-exported via `packages/ui/src/index.ts`) and integrate into AIRI Pocket (`apps/stage-tamagotchi/src/renderer/pages/tray.vue` `'gaze'` mode driven by `useElectronRelativeMouse`).
 - [ ] **Step 3**: Extend `useSettingsUserProfile` store in `packages/stage-ui/src/stores/settings/user-profile.ts` with typed reset support.
 - [ ] **Step 4**: Build the Avatar Studio section in `packages/stage-pages/src/pages/settings/system/user-profile.vue`.
 - [ ] **Step 5**: Integrate `UserAvatar` into `packages/stage-ui/src/components/scenarios/chat/user-item.vue`.
-- [ ] **Step 6**: Run verification:
+- [ ] **Step 6**: Run verification for remaining user-profile steps:
   - `pnpm -F @proj-airi/ui typecheck`
   - `pnpm -F @proj-airi/stage-ui typecheck`
   - `pnpm -F @proj-airi/stage-pages typecheck`

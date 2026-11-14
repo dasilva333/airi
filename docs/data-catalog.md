@@ -1279,6 +1279,10 @@ Persisted Three.js scene state — camera rig, model transform, lighting, and sk
 | `vhack_gemini_res` | `string` | `stores/vhack.ts` |
 | `airi_cc_{sha256hash}` | `string` (JSON, cached color data) | `libs/character-media-resolver.ts` |
 | `airi:debug` | `'1'` (string flag) | `stores/providers/helpers.ts` |
+| `airi:tray:active-tab` | `'chat' \| 'controls' \| 'status'` (default `'controls'`) | `apps/stage-tamagotchi/src/renderer/pages/tray.vue` |
+| `airi:tray:is-collapsed` | `boolean` (default `false`) | `apps/stage-tamagotchi/src/renderer/pages/tray.vue` |
+| `airi:tray:avatar-mode` | `'static' \| 'gaze' \| 'stage'` (default `'static'`) | `apps/stage-tamagotchi/src/renderer/pages/tray.vue` |
+| `airi:audio:voice-muted` | `boolean` (default `false`) | `apps/stage-tamagotchi/src/renderer/pages/tray.vue` |
 
 ---
 

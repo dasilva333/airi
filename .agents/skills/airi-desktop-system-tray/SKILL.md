@@ -31,6 +31,10 @@ The desktop system tray lives in the Electron main process:
 | `AppIconVisibility` | `apps/stage-tamagotchi/src/main/windows/shared/app-icon.ts` | Controls Dock/Taskbar presence when tray-only mode is active |
 | `toggleWindowShow` | `apps/stage-tamagotchi/src/main/windows/shared/window.ts` | Safe window show/hide toggling with `isDestroyed()` verification |
 | `electronAppIconGet` / `electronAppIconSet` | `apps/stage-tamagotchi/src/shared/eventa.ts` | Eventa IPC contracts for querying and updating app icon visibility |
+| `setupTrayWindowManager` / `TRAY_WINDOW_*` | `apps/stage-tamagotchi/src/main/windows/tray/index.ts` | AIRI Pocket popover `BrowserWindow` (`420×620` expanded, `420×525` collapsed), caret anchoring, pin/collapse IPC |
+| `tray.vue` (`#/tray`) | `apps/stage-tamagotchi/src/renderer/pages/tray.vue` | Pocket popover shell: unified header, 3-mode avatar (`Static` / `Gaze` / `Stage`), inline Accent Palette, global cursor tracking, 3-tab body |
+| `ChatTab.vue` / `ControlsTab.vue` / `StatusTab.vue` | `apps/stage-tamagotchi/src/renderer/components/tray/` | Pocket tab surfaces (compact chat, quick controls grid, live runtime/GPU/token status) |
+| `electronTrayPopover*` | `apps/stage-tamagotchi/src/shared/eventa.ts` | Eventa IPC contracts (`TogglePin`, `GetPinState`, `SetCollapsed`, `Close`) for Pocket window control |
 
 ---
 
