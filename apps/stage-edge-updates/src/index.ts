@@ -1,6 +1,6 @@
 export interface Env {
   UPDATES_BUCKET: R2Bucket
-  METRICS: KVNamespace
+  METRICS?: KVNamespace
   UPLOAD_SECRET?: string
 }
 
@@ -47,63 +47,6 @@ const CORS_HEADERS = {
   'Access-Control-Max-Age': '86400',
 }
 
-async function incrementCounter(kv: KVNamespace, key: string, by = 1): Promise<number> {
-  const current = Number.parseInt((await kv.get(key)) || '0', 10) || 0
-  const updated = current + by
-  await kv.put(key, updated.toString())
-  return updated
-}
-
-async function recordTelemetry(request: Request, key: string, env: Env) {
-  // Never record telemetry for granular CAS objects (avoids burning KV daily write quota)
-  if (key.startsWith('objects/'))
-    return
-
-  try {
-    const today = new Date().toISOString().slice(0, 10)
-    const country = (request as any).cf?.country || 'Unknown'
-    const userAgent = request.headers.get('user-agent') || 'Unknown'
-
-    // Increment overall hits
-    await Promise.allSettled([
-      incrementCounter(env.METRICS, 'hits:total'),
-      incrementCounter(env.METRICS, `hits:date:${today}`),
-      env.METRICS.put('telemetry:last_seen', JSON.stringify({
-        timestamp: new Date().toISOString(),
-        key,
-        country,
-        userAgent: userAgent.slice(0, 120),
-      })),
-    ])
-
-    // Route-specific metrics
-    if (key.startsWith('channels/')) {
-      const channel = key.replace(/^channels\//, '').replace(/\.json$/, '')
-      await Promise.allSettled([
-        incrementCounter(env.METRICS, `channels:${channel}:hits`),
-        incrementCounter(env.METRICS, 'channels:total_checks'),
-      ])
-    }
-    else if (key.startsWith('bundles/')) {
-      const bundle = key.replace(/^bundles\//, '')
-      await Promise.allSettled([
-        incrementCounter(env.METRICS, `bundles:${bundle}:downloads`),
-        incrementCounter(env.METRICS, 'bundles:total_downloads'),
-      ])
-    }
-    else if (key.startsWith('installers/')) {
-      const installer = key.replace(/^installers\//, '')
-      await Promise.allSettled([
-        incrementCounter(env.METRICS, `installers:${installer}:downloads`),
-        incrementCounter(env.METRICS, 'installers:total_downloads'),
-      ])
-    }
-  }
-  catch (e) {
-    console.error('Failed to record telemetry:', e)
-  }
-}
-
 async function getStats(env: Env): Promise<Response> {
   const today = new Date().toISOString().slice(0, 10)
   const [
@@ -116,17 +59,19 @@ async function getStats(env: Env): Promise<Response> {
     devHits,
     nightlyHits,
     lastSeenRaw,
-  ] = await Promise.all([
-    env.METRICS.get('hits:total'),
-    env.METRICS.get(`hits:date:${today}`),
-    env.METRICS.get('channels:total_checks'),
-    env.METRICS.get('bundles:total_downloads'),
-    env.METRICS.get('channels:stable:hits'),
-    env.METRICS.get('channels:canary:hits'),
-    env.METRICS.get('channels:dev:hits'),
-    env.METRICS.get('channels:nightly:hits'),
-    env.METRICS.get('telemetry:last_seen'),
-  ])
+  ] = env.METRICS
+    ? await Promise.all([
+        env.METRICS.get('hits:total'),
+        env.METRICS.get(`hits:date:${today}`),
+        env.METRICS.get('channels:total_checks'),
+        env.METRICS.get('bundles:total_downloads'),
+        env.METRICS.get('channels:stable:hits'),
+        env.METRICS.get('channels:canary:hits'),
+        env.METRICS.get('channels:dev:hits'),
+        env.METRICS.get('channels:nightly:hits'),
+        env.METRICS.get('telemetry:last_seen'),
+      ])
+    : [null, null, null, null, null, null, null, null, null]
 
   let lastSeen = null
   if (lastSeenRaw) {
@@ -164,7 +109,7 @@ async function getStats(env: Env): Promise<Response> {
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
 
     // Handle CORS preflight
@@ -247,10 +192,12 @@ export default {
 
     // Health / Discovery check
     if (key === '' || key === 'health') {
-      const [totalHits, totalDownloads] = await Promise.all([
-        env.METRICS.get('hits:total'),
-        env.METRICS.get('bundles:total_downloads'),
-      ])
+      const [totalHits, totalDownloads] = env.METRICS
+        ? await Promise.all([
+            env.METRICS.get('hits:total'),
+            env.METRICS.get('bundles:total_downloads'),
+          ])
+        : [null, null]
 
       return new Response(
         JSON.stringify({
@@ -275,10 +222,7 @@ export default {
       )
     }
 
-    // Non-blocking telemetry tracking via waitUntil (skip internal CAS objects to preserve KV write quota)
-    if (request.method === 'GET' && !key.startsWith('objects/')) {
-      ctx.waitUntil(recordTelemetry(request, key, env))
-    }
+    // Rely on Cloudflare's built-in Worker analytics tab instead of burning KV write quotas
 
     try {
       const isHead = request.method === 'HEAD'
