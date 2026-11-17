@@ -35,6 +35,158 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-17] Upstream Delta: `36113ac5..473112a3` (4 commits, 57 files, 12 update(s))
+
+### 🎯 Executive Highlights
+**Core Developments**: Upstream merged 4 commits across 57 files and triaged 11 PR updates. The primary highlights are:
+1. **Model-Scoped Settings Persistence** (PR #3544, commit `1c010856b` by @luoling8192): Stores renderer settings per model ID (`settings/models/<model id>/<renderer>/<name>`), stopping parameter bleed across Live2D, VRM/Three.js, MMD, Spine, and Tachie.
+2. **Controls Island Menu Detachment** (PR #3542, commit `27ff2f65b` by @chiba233): Detached the Controls Island dropdown menu into an independent, transparent Electron window (`controls-menu`) to resolve clipping on small stage bounds.
+3. **Terminology Harmonization** (PR #3515, commit `5ca41a566` by @luoling8192): Unified the settings and stage terminology to consistently name the concept "Characters" across English and Simplified Chinese locale dictionaries.
+4. **Product Analytics Re-enablement** (PR #3531, commit `473112a30` by @luoling8192): Fixed client analytics re-enablement logic in `product-signals`.
+
+**Discussion & Community Buzz**:
+- PR #3496: `feat: integrate computer-use MCP, terminal approval, compact, and analytics sync` (+5 comments, 29 total) — Strong community engagement and discussion velocity around MCP execution approval prompts, context compaction, and analytics telemetry.
+- PR #3408: `feat(stage-tamagotchi,stage-shared): add screen vision snapshot and companion desktop capture` (+2 comments, 16 total) — Discussion around multi-screen vision snapshotting and companion desktop stream coordination.
+- PR #3463: `fix(web-extension): read the playing video on YouTube Shorts` (+1 comment, 6 total) — Web extension DOM observer fixes for short-form video tracking.
+- PR #3462: `feat(stage-ui): store spark notify reactions in the chat session` (+1 comment, 5 total) — Storing spark notify reaction history in chat sessions.
+- PR #3373: `feat(flux): separate usage and payment receipts` (+1 comment, 2 total) — Commercial billing refinement for receipt separation.
+
+**Cherry-Pick Candidates**:
+1. **PR #3544 (`1c010856b`) — Model-Scoped Display Model Settings**: ⭐ **Top Priority Candidate**. Introduces `useModelScopedLocalStorage` and `useModelScopedLocalStorageManualReset` in `@proj-airi/stage-shared`. Resolves persistent issue where switching character models causes camera, scale, position, and motion parameters to bleed across models. Features automated backward-compatible migration of legacy unscoped keys and zero breaking changes to renderer ref consumers. Directly reinforces our fork's multi-actor dynamic switching (`<|ACTOR|>`).
+2. **PR #3515 (`5ca41a566`) — i18n "Characters" Terminology Harmonization**: Clean terminology alignment in `packages/i18n/glossary/terms.yaml` and locale YAML files (`settings.yaml`, `stage.yaml`). Safe for additive translation porting via `scripts/yaml-manager.js`.
+3. **PR #3543 — Stage-Pocket `any` Type Cleansing**: Minor type-safety hygiene refactor removing explicit `any` in mobile Capacitor code.
+
+**Divergence / Collision Warnings**:
+1. **Controls Island Menu Window (PR #3542 / `27ff2f65b`)**: ⛔ **Permanent Auto-Reject**. Upstream created an extra Electron window (`apps/stage-tamagotchi/src/main/windows/controls-menu/`) and Eventa RPC contracts to prevent dropdown menu clipping on compact stage windows. In this fork, Controls Island was deprecated and removed in favor of the decoupled Control Strip (`windows/main`, `ControlStrip.vue`) and Actor Stage (`windows/stage`, `RendererStage.vue`). Do NOT port upstream `controls-menu` window or Island menu changes; touching `apps/stage-tamagotchi/src/main/index.ts` introduces collision risk.
+2. **Telemetry & Analytics Sync (PR #3496 & PR #3531 / `473112a30`)**: Upstream continues coupling terminal execution with telemetry and refining client-side analytics re-enablement. Strictly violates this fork's local-first privacy invariant. Auto-reject.
+3. **Commercial Flux Billing (PR #3373)**: Receipt separation for paid recharge records; irrelevant to our local-first, zero-telemetry architecture.
+
+### 📋 Upstream Commits
+- `473112a30` fix(stage-ui): turn analytics back on after it was turned off (#3531) [#3531](https://github.com/moeru-ai/airi/pull/3531) _(RainbowBird, 2026-11-17)_
+- `5ca41a566` feat(i18n): name the concept "Characters" in the settings (#3515) [#3515](https://github.com/moeru-ai/airi/pull/3515) _(RainbowBird, 2026-11-17)_
+- `1c010856b` feat(stage-ui,stage-shared): store display model settings for each model (#3544) [#3544](https://github.com/moeru-ai/airi/pull/3544) _(RainbowBird, 2026-11-17)_
+- `27ff2f65b` feat(stage-tamagotchi): open the app menu in its own window (#3542) [#3542](https://github.com/moeru-ai/airi/pull/3542) _(蓝莓🫐, 2026-11-17)_
+
+### 🔬 Subsystem Breakdown
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 12 file(s) (+599/-13)
+- `apps/stage-tamagotchi/src/main/index.ts` *(+15/-1)*
+- `apps/stage-tamagotchi/src/main/windows/controls-menu/index.ts` *(+219/-0)*
+- `apps/stage-tamagotchi/src/main/windows/controls-menu/placement.test.ts` *(+79/-0)*
+- `apps/stage-tamagotchi/src/main/windows/controls-menu/placement.ts` *(+59/-0)*
+- `apps/stage-tamagotchi/src/main/windows/controls-menu/rpc/index.electron.ts` *(+53/-0)*
+- `apps/stage-tamagotchi/src/main/windows/main/index.ts` *(+6/-0)*
+- `apps/stage-tamagotchi/src/main/windows/main/rpc/index.electron.ts` *(+8/-0)*
+- `apps/stage-tamagotchi/src/renderer/App.vue` *(+3/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/chat-window/chat-speech-mute-button.vue` *(+2/-11)*
+- `apps/stage-tamagotchi/src/renderer/composables/playback-speaking-reader.ts` *(+19/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/controls-menu.vue` *(+83/-0)*
+- `apps/stage-tamagotchi/src/shared/eventa/index.ts` *(+53/-0)*
+
+#### Deprecated Surfaces (Control Island / Chat Floating / Fullscreen Island) (`⚪ ignore / rejected in fork (decoupled into Control Strip & Dedicated Chat Workspace)`) — 7 file(s) (+247/-529)
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-menu.browser.test.ts` *(+0/-435)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-menu.vue` *(+46/-52)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-microphone.browser.test.ts` *(+11/-6)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-visibility.test.ts` *(+27/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/controls-island-visibility.ts` *(+23/-0)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/index.vue` *(+89/-36)*
+- `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/use-controls-island-sign-in.ts` *(+51/-0)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 1 file(s) (+64/-0)
+- `apps/stage-web/src/pages/devtools/vrm-model-position.browser.test.ts` *(+64/-0)*
+
+#### Documentation & Scaffolding (`⚪ ignore`) — 2 file(s) (+82/-0)
+- `docs/ai/adr/2026-11-17-display-model-settings-per-model.md` *(+57/-0)*
+- `packages/scenarios-stage-tamagotchi-electron/README.md` *(+25/-0)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 5 file(s) (+71/-72)
+- `packages/i18n/glossary/terms.yaml` *(+9/-10)*
+- `packages/i18n/src/locales/en/settings.yaml` *(+28/-28)*
+- `packages/i18n/src/locales/en/stage.yaml` *(+2/-2)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+30/-30)*
+- `packages/i18n/src/locales/zh-Hans/stage.yaml` *(+2/-2)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 20 file(s) (+718/-58)
+- `packages/scenarios-stage-tamagotchi-electron/src/context.ts` *(+43/-0)*
+- `packages/scenarios-stage-tamagotchi-electron/src/index.ts` *(+1/-0)*
+- `packages/scenarios-stage-tamagotchi-electron/src/runtime/controls-menu.ts` *(+154/-0)*
+- `packages/scenarios-stage-tamagotchi-electron/src/runtime/windows.ts` *(+10/-0)*
+- `packages/scenarios-stage-tamagotchi-electron/src/scenarios/controls-menu-window.ts` *(+47/-0)*
+- `packages/stage-shared/src/composables/index.ts` *(+1/-0)*
+- `packages/stage-shared/src/composables/use-model-scoped-local-storage/index.test.ts` *(+139/-0)*
+- `packages/stage-shared/src/composables/use-model-scoped-local-storage/index.ts` *(+193/-0)*
+- `packages/stage-ui-mmd/src/stores/mmd.ts` *(+25/-20)*
+- `packages/stage-ui-mmd/src/stores/view-control.ts` *(+4/-4)*
+- `packages/stage-ui-spine/src/stores/spine.ts` *(+12/-8)*
+- `packages/stage-ui-spine/src/stores/view-control.ts` *(+3/-3)*
+- `packages/stage-ui-tachie/src/stores/tachie.ts` *(+4/-4)*
+- `packages/stage-ui/src/features/motions/live2d/settings.test.ts` *(+1/-1)*
+- `packages/stage-ui/src/features/motions/live2d/settings.ts` *(+6/-6)*
+- `packages/stage-ui/src/libs/product-signals/client.test.ts` *(+40/-0)*
+- `packages/stage-ui/src/libs/product-signals/client.ts` *(+7/-7)*
+- `packages/stage-ui/src/stores/display-models.ts` *(+7/-1)*
+- `packages/stage-ui/src/stores/settings/spine.ts` *(+4/-4)*
+- `packages/stage-ui/src/stores/settings/stage-model.ts` *(+17/-0)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 1 file(s) (+1/-1)
+- `packages/stage-pages/src/pages/settings/airi-card/components/card-list-item.browser.test.ts` *(+1/-1)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 9 file(s) (+67/-43)
+- `packages/stage-ui-live2d/src/composables/live2d/eye-tracking.test.ts` *(+2/-0)*
+- `packages/stage-ui-live2d/src/composables/live2d/live2d.test.ts` *(+2/-0)*
+- `packages/stage-ui-live2d/src/composables/live2d/live2d.ts` *(+8/-8)*
+- `packages/stage-ui-live2d/src/stores/model-parameters.ts` *(+5/-5)*
+- `packages/stage-ui-live2d/src/stores/view-control.ts` *(+3/-3)*
+- `packages/stage-ui-three/src/components/ThreeScene.vue` *(+8/-1)*
+- `packages/stage-ui-three/src/stores/camera.ts` *(+4/-4)*
+- `packages/stage-ui-three/src/stores/model-store.ts` *(+33/-20)*
+- `packages/stage-ui-three/src/stores/view-control.ts` *(+2/-2)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (4)
+- [PR] [#3545](https://github.com/moeru-ai/airi/pull/3545) `feat(api-server,auth-server): add scripts to rotate the master key and auth secret` by **@luoling8192** *(5 comments)*
+- [PR] [#3544](https://github.com/moeru-ai/airi/pull/3544) `feat(stage-ui,stage-shared): store display model settings for each model` by **@luoling8192** *(4 comments)*
+- [PR] [#3543](https://github.com/moeru-ai/airi/pull/3543) `refactor(stage-pocket): remove explicit any types` by **@nayounsang** *(3 comments)*
+- [PR] [#3542](https://github.com/moeru-ai/airi/pull/3542) `feat(stage-tamagotchi): open the app menu in its own window` by **@chiba233** *(11 comments)*
+
+#### 🔄 Status & Lifecycle Changes (2)
+- [PR] [#3531](https://github.com/moeru-ai/airi/pull/3531) `fix(stage-ui): turn analytics back on after it was turned off` — `OPEN` ➔ `MERGED`
+- [PR] [#3515](https://github.com/moeru-ai/airi/pull/3515) `feat(i18n): name the concept "Characters" in the settings` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (6)
+- [PR] [#3474](https://github.com/moeru-ai/airi/pull/3474) `fix(provider-inference): support OpenRouter speech models` — *+1 comments (5 ➔ 6 total)*
+- [PR] [#3373](https://github.com/moeru-ai/airi/pull/3373) `feat(flux): separate usage and payment receipts` — *+1 comments (1 ➔ 2 total)*
+- [PR] [#3462](https://github.com/moeru-ai/airi/pull/3462) `feat(stage-ui): store spark notify reactions in the chat session` — *+1 comments (4 ➔ 5 total)*
+- [PR] [#3463](https://github.com/moeru-ai/airi/pull/3463) `fix(web-extension): read the playing video on YouTube Shorts` — *+1 comments (5 ➔ 6 total)*
+- [PR] [#3496](https://github.com/moeru-ai/airi/pull/3496) `feat: integrate computer-use MCP, terminal approval, compact, and analytics sync` — *+5 comments (24 ➔ 29 total)*
+- [PR] [#3408](https://github.com/moeru-ai/airi/pull/3408) `feat(stage-tamagotchi,stage-shared): add screen vision snapshot and companion desktop capture` — *+2 comments (14 ➔ 16 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [Draft] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+- [PR] [#3468](https://github.com/moeru-ai/airi/pull/3468) `feat(ui): use generated beam avatars as the default user avatar` [MERGED] — *(3 comments)*
+  - *Focus*: Procedural beam avatars with dynamic chromatic hue & user profile identity; tracked for selective port per docs/design-procedural-beam-avatars-and-user-profile-identity.md
+- [PR] [#3472](https://github.com/moeru-ai/airi/pull/3472) `fix(stage-layouts): safely fallback undefined route.meta in settings layout (#3220)` [OPEN] — *(5 comments)*
+  - *Focus*: Route meta fallback during settings navigation (#3220); evaluated against fork Master-Detail topology and desktop Electron shell
+
+---
 ## [2026-11-16] Upstream Delta: `a2020fd3..36113ac5` (5 commits, 89 files, 14 update(s))
 
 ### 🎯 Executive Highlights
