@@ -2,12 +2,14 @@
 import type { VoiceInfo } from '../../../stores/providers'
 
 import { createAudioBlob } from '@proj-airi/stage-shared'
+import { createQueue } from '@proj-airi/stream-kit'
 import { FieldCheckbox, FieldSelect } from '@proj-airi/ui'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import SpeechStreamingPlayground from './speech-streaming-playground.vue'
 
+import { useAudioContext } from '../../../stores/audio'
 import { TestDummyMarker } from '../../gadgets'
 
 const props = defineProps<{
@@ -16,7 +18,12 @@ const props = defineProps<{
   availableVoices: VoiceInfo[]
 
   // Provider-specific handlers (provided from parent)
-  generateSpeech: (input: string, voice: string, useSSML: boolean) => Promise<ArrayBuffer>
+  generateSpeech: (
+    input: string,
+    voice: string,
+    useSSML: boolean,
+    onSegment?: (wav: ArrayBuffer) => void,
+  ) => Promise<ArrayBuffer>
 
   // Current state
   apiKeyConfigured?: boolean
@@ -24,6 +31,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const { audioContext } = useAudioContext()
 
 // Playground state
 const testText = ref(props.defaultText || 'Hello! This is a test of the voice synthesis.')
@@ -35,9 +43,36 @@ const useSSML = ref(false)
 const ssmlText = ref('')
 const selectedVoice = ref('')
 
+const firstAudioMs = ref<number | null>(null)
 const latencyMs = ref<number | null>(null)
 const audioDurationSec = ref<number | null>(null)
 const rtf = ref<number | null>(null)
+
+let activePlaybackRunId = 0
+let activeSourceNode: AudioBufferSourceNode | null = null
+
+const segmentAudioQueue = createQueue<{ audioBuffer: AudioBuffer, runId: number }>({
+  handlers: [
+    (ctx) => {
+      if (ctx.data.runId !== activePlaybackRunId) {
+        return Promise.resolve()
+      }
+      return new Promise((resolve) => {
+        const source = audioContext.createBufferSource()
+        source.buffer = ctx.data.audioBuffer
+        source.connect(audioContext.destination)
+        activeSourceNode = source
+        source.onended = () => {
+          if (activeSourceNode === source) {
+            activeSourceNode = null
+          }
+          resolve()
+        }
+        source.start(0)
+      })
+    },
+  ],
+})
 
 // Watch for changes in available voices
 watch(
@@ -69,24 +104,49 @@ async function handleGenerateTestSpeech() {
 
   isGenerating.value = true
   errorMessage.value = ''
+  firstAudioMs.value = null
   latencyMs.value = null
   audioDurationSec.value = null
   rtf.value = null
 
   try {
     // Stop any currently playing audio
-    if (audioUrl.value) {
-      stopTestAudio()
-    }
+    stopTestAudio()
+    const runId = ++activePlaybackRunId
 
     const input = useSSML.value ? ssmlText.value : testText.value
+    let streamedSegments = 0
 
     const startTime = performance.now()
-    const response = await props.generateSpeech(input, selectedVoice.value, useSSML.value)
+    const response = await props.generateSpeech(
+      input,
+      selectedVoice.value,
+      useSSML.value,
+      (segmentWav) => {
+        if (runId !== activePlaybackRunId)
+          return
+        streamedSegments++
+        if (firstAudioMs.value === null) {
+          firstAudioMs.value = Math.round(performance.now() - startTime)
+        }
+        void audioContext.decodeAudioData(segmentWav.slice(0))
+          .then((audioBuffer) => {
+            if (runId === activePlaybackRunId) {
+              segmentAudioQueue.enqueue({ audioBuffer, runId })
+            }
+          })
+          .catch((err) => {
+            console.warn('Failed to decode streamed segment:', err)
+          })
+      },
+    )
     const endTime = performance.now()
 
     const elapsedMs = endTime - startTime
     latencyMs.value = Math.round(elapsedMs)
+    if (firstAudioMs.value === null) {
+      firstAudioMs.value = latencyMs.value
+    }
 
     // Decode audio duration and compute RTF
     try {
@@ -106,12 +166,14 @@ async function handleGenerateTestSpeech() {
     // Convert the response to a blob and create an object URL
     audioUrl.value = URL.createObjectURL(createAudioBlob(response))
 
-    // Play the audio
-    setTimeout(() => {
-      if (audioPlayer.value) {
-        audioPlayer.value.play()
-      }
-    }, 100)
+    // Auto-play via <audio> only when the provider did not stream segments via AudioContext
+    if (streamedSegments === 0) {
+      setTimeout(() => {
+        if (audioPlayer.value) {
+          audioPlayer.value.play()
+        }
+      }, 100)
+    }
   }
   catch (error) {
     console.error('Error generating speech:', error)
@@ -124,6 +186,14 @@ async function handleGenerateTestSpeech() {
 
 // Function to stop audio playback
 function stopTestAudio() {
+  activePlaybackRunId++
+  if (activeSourceNode) {
+    try {
+      activeSourceNode.stop()
+    }
+    catch {}
+    activeSourceNode = null
+  }
   if (audioPlayer.value) {
     audioPlayer.value.pause()
     audioPlayer.value.currentTime = 0
@@ -239,6 +309,9 @@ defineExpose({
       <audio v-if="audioUrl" ref="audioPlayer" :src="audioUrl" controls class="mt-2 w-full" />
 
       <div v-if="latencyMs !== null && audioDurationSec !== null" class="mt-2 flex flex-wrap gap-x-6 gap-y-2 border border-neutral-100 rounded-xl bg-neutral-50/50 p-3.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-400">
+        <div v-if="firstAudioMs !== null">
+          First Audio (TTFA): <span class="text-neutral-700 font-bold dark:text-neutral-300">{{ firstAudioMs }}ms</span>
+        </div>
         <div>
           Latency: <span class="text-neutral-700 font-bold dark:text-neutral-300">{{ latencyMs }}ms</span>
         </div>

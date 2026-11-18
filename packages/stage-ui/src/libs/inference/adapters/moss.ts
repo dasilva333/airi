@@ -47,6 +47,7 @@ export interface MossAdapter {
       promptAudioWaveform?: Float32Array
       promptAudioChannels?: number
       promptAudioCodes?: number[][]
+      onSegment?: (wav: ArrayBuffer) => void
       signal?: AbortSignal
     },
   ) => Promise<ArrayBuffer>
@@ -242,6 +243,7 @@ export function createMossAdapter(): MossAdapter {
       promptAudioWaveform?: Float32Array
       promptAudioChannels?: number
       promptAudioCodes?: number[][]
+      onSegment?: (wav: ArrayBuffer) => void
       signal?: AbortSignal
     },
   ): Promise<ArrayBuffer> {
@@ -286,6 +288,7 @@ export function createMossAdapter(): MossAdapter {
           }
           if (chunk.channelData && chunk.channelData.length > 0) {
             numChannels = chunk.channels && chunk.channels > 0 ? chunk.channels : chunk.channelData.length
+            const segRate = chunk.samplingRate || samplingRate
             for (let c = 0; c < numChannels; c++) {
               if (!channelChunkLists[c])
                 channelChunkLists[c] = []
@@ -294,13 +297,21 @@ export function createMossAdapter(): MossAdapter {
             }
             if (chunk.samplingRate)
               samplingRate = chunk.samplingRate
+            if (options.onSegment) {
+              const segInterleaved = interleavePlanarChannels(chunk.channelData.slice(0, numChannels))
+              options.onSegment(encodeWav(segInterleaved, segRate, numChannels))
+            }
           }
           else if (chunk.samples) {
+            const segRate = chunk.samplingRate || samplingRate
             if (!channelChunkLists[0])
               channelChunkLists[0] = []
             channelChunkLists[0].push(chunk.samples)
             if (chunk.samplingRate)
               samplingRate = chunk.samplingRate
+            if (options.onSegment) {
+              options.onSegment(encodeWav(chunk.samples, segRate, 1))
+            }
           }
         }
 

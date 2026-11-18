@@ -199,7 +199,12 @@ async function ensureModelLoaded() {
   }
 }
 
-async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: boolean) {
+async function handleGenerateSpeech(
+  input: string,
+  voiceId: string,
+  _useSSML: boolean,
+  onSegment?: (wav: ArrayBuffer) => void,
+) {
   try {
     await ensureModelLoaded()
 
@@ -218,6 +223,7 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
       voiceId,
       {
         ...config,
+        onSegment,
       },
     )
 

@@ -503,7 +503,10 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         const adapter = await getMossAdapterInstance()
 
         const provider: SpeechProvider = {
-          speech: () => {
+          speech: (_model?: string, extra?: Record<string, unknown>) => {
+            const onSegment = typeof extra?.onSegment === 'function'
+              ? extra.onSegment as (wav: ArrayBuffer) => void
+              : undefined
             return {
               baseURL: 'http://moss-nano-local/v1/',
               model: 'moss-tts-nano-100m',
@@ -589,6 +592,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                     promptAudioWaveform,
                     promptAudioChannels,
                     promptAudioCodes,
+                    onSegment,
                   }
 
                   const wavBuffer = await adapter.generate(text, voiceId, options)

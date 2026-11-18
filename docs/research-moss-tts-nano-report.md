@@ -334,3 +334,17 @@ The moss adapter currently doesn't register in the coordinator. Integration poin
 ## Relevant Skills
 
 - [[airi-local-inference-engines]]
+- [[airi-local-tts-engines]]
+
+---
+
+## 6. Post-Report Implementation Status (2026-11-17)
+
+Since this report was authored, the following items have been resolved in the codebase (see also [AIRI_MOSS_TTS_Nano_Review.md](./AIRI_MOSS_TTS_Nano_Review.md)):
+
+- **Section 4 Rank 1 (Reference conditioning)**: Implemented in `packages/stage-ui/src/stores/providers/moss-audio-utils.ts` (`conditionMossPlanarWaveform`), including endpoint-accurate 50 ms edge fades and rejection of all-quiet/zero reference clips.
+- **Section 4 Rank 2 (Pre-computed `promptAudioCodes` cache)**: Implemented for both custom uploaded profiles and bundled starter voices (`moss-voice-profiles-metadata`, guarded by `conditioningVersion: MOSS_PROMPT_CODES_VERSION = 2` and 16-codebook shape validation).
+- **Section 4 Rank 3 (`OfflineAudioContext` resampling)**: Implemented in `preprocessMossReferenceAudio()` using `codecMeta.codec_config` (`48000 Hz`, `2` channels) reported by the worker at load time.
+- **Section 4 Rank 5 (`MODEL_VRAM_ESTIMATES`)**: Added `'moss-tts-nano': 400 * 1024 * 1024` in `packages/stage-ui/src/libs/inference/coordinator.ts`.
+- **Stereo output, threading, sampling & Level A streaming**: Worker + adapter now preserve 2-channel stereo WAV output, use shared `resolveWasmThreads()` (`libs/inference/threading.ts`) at load time, expose `fixed | full | greedy` sampling, lazy-load optional ONNX sessions (`codecEncode`, `localCachedStep`/`localGreedyFrame`, `codecDecodeStep`), and stream decoded segments via `onSegment` into `SpeechPlayground`.
+- **Remaining open**: `createGpuWorkerHost()` worker-crash recovery wrapper (Rank 4) and experimental WebGPU EP profiling (Q3).
