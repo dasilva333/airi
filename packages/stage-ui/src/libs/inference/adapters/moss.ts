@@ -11,6 +11,7 @@ import { createContext } from '@moeru/eventa/adapters/webworkers'
 import { Mutex } from 'async-mutex'
 
 import { removeInferenceStatus, updateInferenceStatus } from '../../../composables/use-inference-status'
+import { MOSS_PROMPT_CODES_VERSION } from '../../../stores/providers/moss-audio-utils'
 import { consumeLoadStream, mossGenerateEvent, mossLoadEvent, mossUnloadEvent } from '../contract'
 import { resolveWasmThreads } from '../threading'
 
@@ -303,15 +304,17 @@ export function createMossAdapter(): MossAdapter {
           }
         }
 
-        // Persist freshly-encoded reference codes for subsequent cache hits (Phase B).
+        // Persist freshly-encoded reference codes for subsequent cache hits (both custom & starter voices).
         if (freshlyEncodedCodes && freshlyEncodedCodes.length > 0) {
           try {
             const { default: localforage } = await import('localforage')
             const metaStore = localforage.createInstance({ name: 'moss-voice-profiles-metadata' })
             const existing = await metaStore.getItem<any>(voiceId)
-            if (existing) {
-              await metaStore.setItem(voiceId, { ...existing, promptAudioCodes: freshlyEncodedCodes })
-            }
+            await metaStore.setItem(voiceId, {
+              ...(existing || { id: voiceId, name: voiceId, createdAt: Date.now() }),
+              promptAudioCodes: freshlyEncodedCodes,
+              conditioningVersion: MOSS_PROMPT_CODES_VERSION,
+            })
           }
           catch (err) {
             // Non-fatal: caching is an optimization only

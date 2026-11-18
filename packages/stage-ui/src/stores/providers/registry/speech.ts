@@ -50,7 +50,7 @@ import {
   MING3_MODEL_ID,
   MING3_MODEL_NAME,
 } from '../ming3-catalog'
-import { getMossAdapterInstance, preprocessMossReferenceAudio, sanitizeMossInputText } from '../moss-audio-utils'
+import { getMossAdapterInstance, isValidMossPromptAudioCodes, MOSS_PROMPT_CODES_VERSION, preprocessMossReferenceAudio, sanitizeMossInputText } from '../moss-audio-utils'
 import { buildOpenAICompatibleProvider } from '../openai-compatible-builder'
 import { getPocketTtsAdapterInstance, preprocessPocketReferenceAudio } from '../pocket-audio-utils'
 import { hexToBytes, readSSEAudioStream } from '../sse-audio-stream'
@@ -534,53 +534,50 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                     })
                   }
 
-                  // Fetch custom voice from IndexedDB if needed
-                  // Phase B: prefer cached prompt_audio_codes; else decode/condition
+                  // Fetch custom or starter voice from IndexedDB if needed
+                  // Phase B: prefer versioned cached prompt_audio_codes; else decode/condition
                   // on the main thread (AudioContext is main-thread only) then send a
                   // channel-planar waveform the worker feeds directly to the codec.
                   let promptAudioWaveform: Float32Array | undefined
                   let promptAudioChannels: number | undefined
                   let promptAudioCodes: number[][] | undefined
-                  if (isStarterVoiceId(voiceId)) {
-                    const rawBuf = await getStarterVoiceArrayBuffer(voiceId)
-                    if (rawBuf) {
-                      const codec = adapter.codecConfig ?? { sample_rate: 48000, channels: 2 }
-                      promptAudioChannels = codec.channels
-                      promptAudioWaveform = await preprocessMossReferenceAudio(
-                        rawBuf,
-                        codec.sample_rate,
-                        codec.channels,
-                      )
-                      console.log('[MOSS Provider] Loaded bundled starter voice:', voiceId, 'planar length:', promptAudioWaveform.length)
+                  const builtinIds = adapter.builtinVoices?.map(v => v.id) ?? ['Trump', 'Ava', 'Bella']
+                  if (!builtinIds.includes(voiceId)) {
+                    const localforage = (await import('localforage')).default
+                    const mossVoiceProfilesStore = localforage.createInstance({
+                      name: 'moss-voice-profiles-metadata',
+                    })
+                    const metadata = await mossVoiceProfilesStore.getItem<any>(voiceId)
+                    if (
+                      metadata?.conditioningVersion === MOSS_PROMPT_CODES_VERSION
+                      && isValidMossPromptAudioCodes(metadata?.promptAudioCodes)
+                    ) {
+                      promptAudioCodes = metadata.promptAudioCodes
                     }
-                  }
-                  else {
-                    const builtinIds = adapter.builtinVoices?.map(v => v.id) ?? ['Trump', 'Ava', 'Bella']
-                    if (!builtinIds.includes(voiceId)) {
-                      const localforage = (await import('localforage')).default
-                      const mossVoiceProfileBlobsStore = localforage.createInstance({
-                        name: 'voice-profile-blobs',
-                      })
-                      const mossVoiceProfilesStore = localforage.createInstance({
-                        name: 'moss-voice-profiles-metadata',
-                      })
-                      const metadata = await mossVoiceProfilesStore.getItem<any>(voiceId)
-                      promptAudioCodes = metadata?.promptAudioCodes
-                      console.log('[MOSS Provider] voiceId:', voiceId, 'cached codes:', !!promptAudioCodes)
-                      if (!promptAudioCodes) {
+
+                    if (!promptAudioCodes) {
+                      let rawBuf: ArrayBuffer | undefined
+                      if (isStarterVoiceId(voiceId)) {
+                        rawBuf = await getStarterVoiceArrayBuffer(voiceId) ?? undefined
+                      }
+                      else {
+                        const mossVoiceProfileBlobsStore = localforage.createInstance({
+                          name: 'voice-profile-blobs',
+                        })
                         const audioBlob = await mossVoiceProfileBlobsStore.getItem<Blob>(voiceId)
-                        console.log('[MOSS Provider] voiceId:', voiceId, 'found blob:', !!audioBlob)
                         if (audioBlob) {
-                          const buffer = await audioBlob.arrayBuffer()
-                          const codec = adapter.codecConfig ?? { sample_rate: 48000, channels: 2 }
-                          promptAudioChannels = codec.channels
-                          promptAudioWaveform = await preprocessMossReferenceAudio(
-                            buffer,
-                            codec.sample_rate,
-                            codec.channels,
-                          )
-                          console.log('[MOSS Provider] conditioned planar length:', promptAudioWaveform.length, 'channels:', promptAudioChannels)
+                          rawBuf = await audioBlob.arrayBuffer()
                         }
+                      }
+
+                      if (rawBuf) {
+                        const codec = adapter.codecConfig ?? { sample_rate: 48000, channels: 2 }
+                        promptAudioChannels = codec.channels
+                        promptAudioWaveform = await preprocessMossReferenceAudio(
+                          rawBuf,
+                          codec.sample_rate,
+                          codec.channels,
+                        )
                       }
                     }
                   }

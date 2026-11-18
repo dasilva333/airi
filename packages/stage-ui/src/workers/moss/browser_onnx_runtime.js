@@ -1552,22 +1552,9 @@ const BrowserOnnxTtsRuntime = class {
       ['prefill', joinRelativeAssetPath(ttsBaseDir, this.ttsMeta.files.prefill), resolveModelExternalDataRelativePaths(ttsBaseDir, this.ttsMeta.external_data_files, this.ttsMeta.files.prefill)],
       ['decode', joinRelativeAssetPath(ttsBaseDir, this.ttsMeta.files.decode_step), resolveModelExternalDataRelativePaths(ttsBaseDir, this.ttsMeta.external_data_files, this.ttsMeta.files.decode_step)],
       ['codecDecode', joinRelativeAssetPath(codecBaseDir, this.codecMeta.files.decode_full), resolveModelExternalDataRelativePaths(codecBaseDir, this.codecMeta.external_data_files, this.codecMeta.files.decode_full)],
-      ['codecEncode', joinRelativeAssetPath(codecBaseDir, this.codecMeta.files.encode), resolveModelExternalDataRelativePaths(codecBaseDir, this.codecMeta.external_data_files, this.codecMeta.files.encode)],
     ]
-    if (this.ttsMeta.files.local_greedy_frame) {
-      sessionSpecs.push(['localGreedyFrame', joinRelativeAssetPath(ttsBaseDir, this.ttsMeta.files.local_greedy_frame), resolveModelExternalDataRelativePaths(ttsBaseDir, this.ttsMeta.external_data_files, this.ttsMeta.files.local_greedy_frame)])
-    }
     if (this.ttsMeta.files.local_fixed_sampled_frame) {
       sessionSpecs.push(['localFixedSampledFrame', joinRelativeAssetPath(ttsBaseDir, this.ttsMeta.files.local_fixed_sampled_frame), resolveModelExternalDataRelativePaths(ttsBaseDir, this.ttsMeta.external_data_files, this.ttsMeta.files.local_fixed_sampled_frame)])
-    }
-    if (this.ttsMeta.files.local_cached_step) {
-      sessionSpecs.push(['localCachedStep', joinRelativeAssetPath(ttsBaseDir, this.ttsMeta.files.local_cached_step), resolveModelExternalDataRelativePaths(ttsBaseDir, this.ttsMeta.external_data_files, this.ttsMeta.files.local_cached_step)])
-    }
-    else {
-      sessionSpecs.push(['localDecoder', joinRelativeAssetPath(ttsBaseDir, this.ttsMeta.files.local_decoder), resolveModelExternalDataRelativePaths(ttsBaseDir, this.ttsMeta.external_data_files, this.ttsMeta.files.local_decoder)])
-    }
-    if (this.codecMeta.files.decode_step) {
-      sessionSpecs.push(['codecDecodeStep', joinRelativeAssetPath(codecBaseDir, this.codecMeta.files.decode_step), resolveModelExternalDataRelativePaths(codecBaseDir, this.codecMeta.external_data_files, this.codecMeta.files.decode_step)])
     }
     for (const [key, relativePath, externalDataRelativePaths] of sessionSpecs) {
       if (this.sessions[key]) {
@@ -1577,14 +1564,61 @@ const BrowserOnnxTtsRuntime = class {
       this.sessions[key] = await this.createOrtSession(relativePath, externalDataRelativePaths)
       this.log(`ORT session ready: ${relativePath}`)
     }
-    this.codecStreamingSession = this.sessions.codecDecodeStep && this.codecMeta.streaming_decode
-      ? new CodecStreamingDecodeSession({
-          codecMeta: this.codecMeta,
-          session: this.sessions.codecDecodeStep,
-          getProfileState: () => this.profileState,
-        })
-      : null
     this.prepared = true
+  }
+
+  async ensureSamplingSessionLoaded(sampleMode) {
+    await this.ensureManifestLoaded()
+    await this.ensureOrtConfigured()
+    const ttsBaseDir = this.ttsMetaRelativePath.split('/').slice(0, -1).join('/')
+    const specs = []
+    if (sampleMode === SAMPLE_MODE_FIXED && this.ttsMeta.files.local_fixed_sampled_frame) {
+      specs.push(['localFixedSampledFrame', joinRelativeAssetPath(ttsBaseDir, this.ttsMeta.files.local_fixed_sampled_frame), resolveModelExternalDataRelativePaths(ttsBaseDir, this.ttsMeta.external_data_files, this.ttsMeta.files.local_fixed_sampled_frame)])
+    }
+    else {
+      if (sampleMode === SAMPLE_MODE_GREEDY && this.ttsMeta.files.local_greedy_frame) {
+        specs.push(['localGreedyFrame', joinRelativeAssetPath(ttsBaseDir, this.ttsMeta.files.local_greedy_frame), resolveModelExternalDataRelativePaths(ttsBaseDir, this.ttsMeta.external_data_files, this.ttsMeta.files.local_greedy_frame)])
+      }
+      if (this.ttsMeta.files.local_cached_step) {
+        specs.push(['localCachedStep', joinRelativeAssetPath(ttsBaseDir, this.ttsMeta.files.local_cached_step), resolveModelExternalDataRelativePaths(ttsBaseDir, this.ttsMeta.external_data_files, this.ttsMeta.files.local_cached_step)])
+      }
+      else if (this.ttsMeta.files.local_decoder) {
+        specs.push(['localDecoder', joinRelativeAssetPath(ttsBaseDir, this.ttsMeta.files.local_decoder), resolveModelExternalDataRelativePaths(ttsBaseDir, this.ttsMeta.external_data_files, this.ttsMeta.files.local_decoder)])
+      }
+    }
+    for (const [key, relativePath, externalDataRelativePaths] of specs) {
+      if (this.sessions[key]) {
+        continue
+      }
+      this.log(`Creating ORT session: ${relativePath}`)
+      this.sessions[key] = await this.createOrtSession(relativePath, externalDataRelativePaths)
+      this.log(`ORT session ready: ${relativePath}`)
+    }
+  }
+
+  async ensureCodecStreamingLoaded() {
+    await this.ensureManifestLoaded()
+    await this.ensureOrtConfigured()
+    if (this.codecStreamingSession) {
+      return this.codecStreamingSession
+    }
+    if (!this.codecMeta.files.decode_step || !this.codecMeta.streaming_decode) {
+      return null
+    }
+    const codecBaseDir = this.codecMetaRelativePath.split('/').slice(0, -1).join('/')
+    const relativePath = joinRelativeAssetPath(codecBaseDir, this.codecMeta.files.decode_step)
+    const externalDataRelativePaths = resolveModelExternalDataRelativePaths(codecBaseDir, this.codecMeta.external_data_files, this.codecMeta.files.decode_step)
+    if (!this.sessions.codecDecodeStep) {
+      this.log(`Creating ORT session: ${relativePath}`)
+      this.sessions.codecDecodeStep = await this.createOrtSession(relativePath, externalDataRelativePaths)
+      this.log(`ORT session ready: ${relativePath}`)
+    }
+    this.codecStreamingSession = new CodecStreamingDecodeSession({
+      codecMeta: this.codecMeta,
+      session: this.sessions.codecDecodeStep,
+      getProfileState: () => this.profileState,
+    })
+    return this.codecStreamingSession
   }
 
   async warmup() {
@@ -2102,6 +2136,7 @@ const BrowserOnnxTtsRuntime = class {
     this.ensureReusableSynthesisState()
     const totalStartedAt = this.profileState?.enabled ? nowMs() : 0
     const generationDefaults = resolveGenerationDefaults(this.manifest.generation_defaults, { doSample, sampleMode })
+    await this.ensureSamplingSessionLoaded(generationDefaults.sample_mode)
     const rowWidth = this.manifest.tts_config.n_vq + 1
     const audioAssistantSlotTokenId = this.manifest.tts_config.audio_assistant_slot_token_id
     const audioPadTokenId = this.manifest.tts_config.audio_pad_token_id
@@ -2294,6 +2329,9 @@ const BrowserOnnxTtsRuntime = class {
       promptAudioCodes,
       textTokenIds: resolvedTextTokenIds,
     })
+    if (streaming) {
+      await this.ensureCodecStreamingLoaded()
+    }
     if (!streaming || !this.codecStreamingSession) {
       const generatedFrames2 = await this.generateAudioFrames({ requestRows, isCancelled, doSample, sampleMode })
       let chunk = null
@@ -2310,7 +2348,11 @@ const BrowserOnnxTtsRuntime = class {
       }
       catch (error) {
         const message = error?.message || String(error)
-        if (!this.codecStreamingSession || !/bad_alloc|std::bad_alloc|alloc/i.test(message)) {
+        if (!/bad_alloc|std::bad_alloc|alloc/i.test(message)) {
+          throw error
+        }
+        const streamingSession = await this.ensureCodecStreamingLoaded()
+        if (!streamingSession) {
           throw error
         }
         this.log(`Full codec decode failed, falling back to incremental decode: ${message}`)

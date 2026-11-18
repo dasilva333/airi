@@ -15,6 +15,15 @@
 
 import type { MossAdapter } from '../../libs/inference/adapters/moss'
 
+export const MOSS_PROMPT_CODES_VERSION = 2
+
+export function isValidMossPromptAudioCodes(codes: unknown, expectedCodebooks = 16): codes is number[][] {
+  return Array.isArray(codes)
+    && codes.length > 0
+    && Array.isArray(codes[0])
+    && codes[0].length === expectedCodebooks
+}
+
 let mossAdapter: MossAdapter | null = null
 
 /**

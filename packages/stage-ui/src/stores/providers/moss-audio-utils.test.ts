@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { interleavePlanarChannels, normalizeMossSamplingMode } from '../../libs/inference/adapters/moss'
-import { conditionMossPlanarWaveform, getMossAdapterInstance, MOSS_REFERENCE_PREPROCESS_DEFAULTS, sanitizeMossInputText } from './moss-audio-utils'
+import { conditionMossPlanarWaveform, getMossAdapterInstance, isValidMossPromptAudioCodes, MOSS_REFERENCE_PREPROCESS_DEFAULTS, sanitizeMossInputText } from './moss-audio-utils'
 
 describe('mOSS audio utilities unit tests', () => {
   it('instantiates MOSS adapter singleton lazily', async () => {
@@ -75,6 +75,13 @@ describe('mOSS audio utilities unit tests', () => {
       expect(normalizeMossSamplingMode('full')).toBe('full')
       expect(normalizeMossSamplingMode('greedy')).toBe('greedy')
       expect(normalizeMossSamplingMode(undefined)).toBe('fixed')
+    })
+
+    it('validates promptAudioCodes matrix shape', () => {
+      expect(isValidMossPromptAudioCodes(undefined)).toBe(false)
+      expect(isValidMossPromptAudioCodes([])).toBe(false)
+      expect(isValidMossPromptAudioCodes([[1, 2]])).toBe(false)
+      expect(isValidMossPromptAudioCodes([Array.from({ length: 16 }, (_, i) => i)])).toBe(true)
     })
   })
 })

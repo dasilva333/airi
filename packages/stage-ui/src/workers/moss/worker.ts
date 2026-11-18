@@ -68,7 +68,6 @@ defineStreamInvokeHandler(context, mossLoadEvent, toStreamHandler<MossLoadReques
 
   await runtime.ensureManifestLoaded()
   await runtime.ensureSynthesisLoaded()
-  await runtime.ensureCodecEncodeLoaded()
 
   const builtinVoices = Array.isArray(runtime.manifest?.builtin_voices)
     ? runtime.manifest.builtin_voices
@@ -148,6 +147,7 @@ defineStreamInvokeHandler(context, mossGenerateEvent, toStreamHandler<MossGenera
     }
   }
 
+  runtime.setProfilingEnabled?.(true)
   await runtime.synthesizeVoiceClone({
     text,
     voiceName: voiceId,
@@ -176,6 +176,11 @@ defineStreamInvokeHandler(context, mossGenerateEvent, toStreamHandler<MossGenera
       }
     },
   })
+
+  const profile = runtime.getProfileSnapshot?.()
+  if (profile?.stages) {
+    console.log('[MOSS Worker] stage timings (ms):', profile.stages)
+  }
 
   if (freshlyEncodedCodes && freshlyEncodedCodes.length > 0) {
     emit({

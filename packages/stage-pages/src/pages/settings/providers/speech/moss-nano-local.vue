@@ -447,6 +447,9 @@ watch(model, async (newValue) => {
                 v-model="samplingMode"
                 :options="samplingModeOptions"
               />
+              <span class="text-[10px] text-neutral-400">
+                Fixed is fastest and recommended. Greedy is deterministic, but may miss the stop token on some voices and pad up to 30s of silence.
+              </span>
             </div>
           </div>
         </div>
