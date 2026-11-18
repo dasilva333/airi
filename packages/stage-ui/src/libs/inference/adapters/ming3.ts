@@ -23,9 +23,9 @@ import {
   MING3_MODEL_ID,
   normalizeMing3Language,
 } from '../../../stores/providers/ming3-catalog'
-import { isThreadingAvailable } from '../../../workers/ming3/loader'
 import { evictOtherMing3Models, formatBytes } from '../cache-utils'
 import { MODEL_NAMES } from '../constants'
+import { resolveWasmThreads } from '../threading'
 
 export interface Ming3Adapter {
   loadModel: (options?: {
@@ -88,14 +88,7 @@ interface PendingGenerate {
 }
 
 export function resolveMing3Threads(threads?: number | 'auto'): number {
-  if (!isThreadingAvailable())
-    return 1
-  const hw = typeof navigator !== 'undefined' && navigator.hardwareConcurrency ? navigator.hardwareConcurrency : 4
-  if (typeof threads === 'number' && Number.isFinite(threads) && threads > 0)
-    return Math.min(hw, 32, Math.max(1, Math.floor(threads)))
-  if (hw <= 1)
-    return 1
-  return Math.min(4, Math.max(2, Math.floor(hw / 2)))
+  return resolveWasmThreads(threads)
 }
 
 export function createMing3Adapter(): Ming3Adapter {

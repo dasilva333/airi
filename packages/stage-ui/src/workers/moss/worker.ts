@@ -4,7 +4,7 @@
  * Last rebuilt: 2026-06-25T12:50:00Z
  */
 
-import type { LoadModelRequest, LoadStreamItem, MossGenerateChunk, MossGenerateRequest } from '../../libs/inference/contract'
+import type { LoadStreamItem, MossGenerateChunk, MossGenerateRequest, MossLoadRequest } from '../../libs/inference/contract'
 
 import { defineInvokeHandler, defineStreamInvokeHandler, toStreamHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/webworkers/worker'
@@ -20,9 +20,9 @@ const { context } = createContext()
 
 let runtime: any = null
 
-defineStreamInvokeHandler(context, mossLoadEvent, toStreamHandler<LoadModelRequest, LoadStreamItem>(async ({ payload, emit, options }) => {
+defineStreamInvokeHandler(context, mossLoadEvent, toStreamHandler<MossLoadRequest, LoadStreamItem>(async ({ payload, emit, options }) => {
   const signal = options?.abortController?.signal
-  const { hfToken } = payload
+  const { hfToken, cpuThreads } = payload
 
   const onProgress = (p: any) => {
     emit({
@@ -63,12 +63,21 @@ defineStreamInvokeHandler(context, mossLoadEvent, toStreamHandler<LoadModelReque
 
   await runtime.configure({
     modelPath: modelSpec.managedPath,
-    threadCount: 4, // default
+    threadCount: cpuThreads ?? 4,
   })
 
   await runtime.ensureManifestLoaded()
   await runtime.ensureSynthesisLoaded()
   await runtime.ensureCodecEncodeLoaded()
+
+  const builtinVoices = Array.isArray(runtime.manifest?.builtin_voices)
+    ? runtime.manifest.builtin_voices
+        .filter((v: any) => v && typeof v.voice === 'string')
+        .map((v: any) => ({
+          id: String(v.voice),
+          name: String(v.display_name || v.voice),
+        }))
+    : []
 
   emit({
     kind: 'ready',
@@ -79,9 +88,10 @@ defineStreamInvokeHandler(context, mossLoadEvent, toStreamHandler<LoadModelReque
         // available in a worker scope). The main thread needs the real codec
         // sample rate/channels to condition reference audio correctly.
         codecConfig: {
-          sample_rate: runtime.codecMeta?.codec_config?.sample_rate ?? 16000,
-          channels: runtime.codecMeta?.codec_config?.channels ?? 1,
+          sample_rate: runtime.codecMeta?.codec_config?.sample_rate ?? 48000,
+          channels: runtime.codecMeta?.codec_config?.channels ?? 2,
         },
+        builtinVoices,
       },
     },
   })
@@ -93,19 +103,11 @@ defineStreamInvokeHandler(context, mossGenerateEvent, toStreamHandler<MossGenera
   }
 
   const signal = options?.abortController?.signal
-  const { text, voiceId, cpuThreads, attentionBackend: _attentionBackend, samplingMode, voiceCloneMaxTokens, promptAudioWaveform, promptAudioChannels, promptAudioCodes: cachedPromptAudioCodes } = payload
-  console.log('[MOSS Worker] generate request:', { voiceId, hasWaveform: !!promptAudioWaveform, channels: promptAudioChannels, hasCachedCodes: !!cachedPromptAudioCodes })
+  const { text, voiceId, samplingMode, voiceCloneMaxTokens, promptAudioWaveform, promptAudioChannels, promptAudioCodes: cachedPromptAudioCodes } = payload
+  console.log('[MOSS Worker] generate request:', { voiceId, samplingMode, hasWaveform: !!promptAudioWaveform, channels: promptAudioChannels, hasCachedCodes: !!cachedPromptAudioCodes })
 
   if (signal?.aborted) {
     throw new DOMException('Aborted', 'AbortError')
-  }
-
-  // Configure threads dynamically
-  if (cpuThreads) {
-    await runtime.configure({
-      modelPath: runtime.localPathRoot || '',
-      threadCount: cpuThreads,
-    })
   }
 
   // Prepare extraVoices for custom voice clone
@@ -151,7 +153,7 @@ defineStreamInvokeHandler(context, mossGenerateEvent, toStreamHandler<MossGenera
     voiceName: voiceId,
     extraVoices,
     sampleMode: samplingMode,
-    doSample: samplingMode === 'dynamic',
+    doSample: samplingMode !== 'greedy',
     streaming: false, // Generate full waveform then stream segments
     enableNormalizeTtsText: false, // done by Audio Studio / pipeline
     enableWeTextProcessing: false,
@@ -162,9 +164,14 @@ defineStreamInvokeHandler(context, mossGenerateEvent, toStreamHandler<MossGenera
       if (signal?.aborted)
         return
       if (chunk.chunkData && chunk.chunkData[0]) {
+        const channels = typeof chunk.channels === 'number' && chunk.channels > 0
+          ? chunk.channels
+          : chunk.chunkData.length
         emit({
           samples: chunk.chunkData[0],
-          samplingRate: chunk.sampleRate || 16000,
+          channelData: chunk.chunkData,
+          channels,
+          samplingRate: chunk.sampleRate || 48000,
         })
       }
     },

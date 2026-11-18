@@ -5,6 +5,7 @@ import {
   SpeechPlayground,
   SpeechProviderSettings,
 } from '@proj-airi/stage-ui/components'
+import { isWasmThreadingAvailable, resolveWasmThreads } from '@proj-airi/stage-ui/libs/inference/threading'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { Button, Callout, Input, Progress, Select } from '@proj-airi/ui'
@@ -47,6 +48,13 @@ const availableVoices = computed(() => {
   return speechStore.availableVoices[providerId] || []
 })
 
+// NOTICE: `getProviderConfig()` returns a detached snapshot copy — mutating it
+// never persists, so writes go through the live persisted instance options
+// (`getProviderInstanceConfig(providerId).options`), mirroring ming3-local.vue.
+function getLiveOptions(): Record<string, unknown> {
+  return providersStore.getProviderInstanceConfig(providerId).options as Record<string, unknown>
+}
+
 // Get provider config
 const providerConfig = computed(() => {
   return providersStore.getProviderConfig(providerId)
@@ -65,10 +73,7 @@ const model = computed({
     return (providerConfig.value?.model as string) || defaultModel
   },
   set(val: string) {
-    const config = providersStore.getProviderConfig(providerId)
-    if (config) {
-      config.model = val
-    }
+    getLiveOptions().model = val
   },
 })
 
@@ -81,38 +86,41 @@ const modelOptions = computed(() => {
 
 // Configuration tuning properties
 const cpuThreads = computed({
-  get(): number {
-    return (providerConfig.value?.cpuThreads as number) ?? 4
+  get(): string {
+    const raw = providerConfig.value?.cpuThreads
+    if (raw === undefined || raw === null || raw === '' || raw === 'auto')
+      return ''
+    return String(raw)
   },
-  set(val: number) {
-    const config = providersStore.getProviderConfig(providerId)
-    if (config) {
-      config.cpuThreads = Number(val)
+  set(val: string) {
+    const options = getLiveOptions()
+    const trimmed = String(val ?? '').trim()
+    if (!trimmed || trimmed === 'auto') {
+      options.cpuThreads = 'auto'
+    }
+    else {
+      const parsed = Number(trimmed)
+      options.cpuThreads = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 'auto'
     }
   },
 })
 
-const attentionBackend = computed({
-  get(): string {
-    return (providerConfig.value?.attentionBackend as string) ?? 'sdpa'
-  },
-  set(val: string) {
-    const config = providersStore.getProviderConfig(providerId)
-    if (config) {
-      config.attentionBackend = val
-    }
-  },
+const resolvedThreads = computed(() => {
+  return resolveWasmThreads((providerConfig.value?.cpuThreads as number | 'auto' | string | undefined) ?? 'auto')
 })
+
+const wasmThreadingAvailable = computed(() => isWasmThreadingAvailable())
 
 const samplingMode = computed({
   get(): string {
-    return (providerConfig.value?.samplingMode as string) ?? 'fixed'
+    const raw = providerConfig.value?.samplingMode as string | undefined
+    if (raw === 'full' || raw === 'greedy' || raw === 'fixed')
+      return raw
+    // Legacy 'dynamic' previously fell through to 'fixed' in the runtime.
+    return 'fixed'
   },
   set(val: string) {
-    const config = providersStore.getProviderConfig(providerId)
-    if (config) {
-      config.samplingMode = val
-    }
+    getLiveOptions().samplingMode = val
   },
 })
 
@@ -121,21 +129,14 @@ const voiceCloneMaxTokens = computed({
     return (providerConfig.value?.voiceCloneMaxTokens as number) ?? 75
   },
   set(val: number) {
-    const config = providersStore.getProviderConfig(providerId)
-    if (config) {
-      config.voiceCloneMaxTokens = Number(val)
-    }
+    getLiveOptions().voiceCloneMaxTokens = Number(val)
   },
 })
 
-const attentionBackendOptions = [
-  { label: 'Scale Dot Product (SDPA)', value: 'sdpa' },
-  { label: 'Eager / Manual', value: 'eager' },
-]
-
 const samplingModeOptions = [
-  { label: 'Fixed (High Performance)', value: 'fixed' },
-  { label: 'Dynamic (High Quality)', value: 'dynamic' },
+  { label: 'Fixed (Default · Balanced)', value: 'fixed' },
+  { label: 'Full Sampling (Experimental)', value: 'full' },
+  { label: 'Greedy (Deterministic)', value: 'greedy' },
 ]
 
 // Sanitization & unique checking
@@ -419,14 +420,16 @@ watch(model, async (newValue) => {
                 type="number"
                 min="1"
                 max="32"
-                placeholder="4"
+                :placeholder="`Auto (${resolvedThreads})`"
               />
-              <span class="text-[10px] text-neutral-400">Thread count for WASM fallback</span>
+              <span class="text-[10px] text-neutral-400">
+                Running on CPU · WASM ({{ resolvedThreads }} thread{{ resolvedThreads === 1 ? '' : 's' }}{{ wasmThreadingAvailable ? '' : ', single-threaded without crossOriginIsolated' }})
+              </span>
             </div>
 
             <!-- Voice Clone Max Text Tokens -->
             <div class="space-y-1">
-              <label class="text-xs text-neutral-600 font-medium dark:text-neutral-300">Max Text Tokens (Clone)</label>
+              <label class="text-xs text-neutral-600 font-medium dark:text-neutral-300">Target Text Tokens per Segment</label>
               <Input
                 v-model="voiceCloneMaxTokens"
                 type="number"
@@ -434,20 +437,11 @@ watch(model, async (newValue) => {
                 max="512"
                 placeholder="75"
               />
-              <span class="text-[10px] text-neutral-400">Prompt length for reference audio conditioning</span>
-            </div>
-
-            <!-- Attention Backend -->
-            <div class="space-y-1">
-              <label class="text-xs text-neutral-600 font-medium dark:text-neutral-300">Attention Backend</label>
-              <Select
-                v-model="attentionBackend"
-                :options="attentionBackendOptions"
-              />
+              <span class="text-[10px] text-neutral-400">Limits target utterance segments in SentencePiece tokens</span>
             </div>
 
             <!-- Sampling Mode -->
-            <div class="space-y-1">
+            <div class="sm:col-span-2 space-y-1">
               <label class="text-xs text-neutral-600 font-medium dark:text-neutral-300">Sampling Mode</label>
               <Select
                 v-model="samplingMode"

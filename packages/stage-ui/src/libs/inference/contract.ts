@@ -434,12 +434,16 @@ export const moondreamLoadEvent = defineInvokeEventa<LoadStreamItem, MoondreamLo
 export const moondreamProcessEvent = defineInvokeEventa<MoondreamProcessResult, MoondreamProcessRequest>('inference:moondream:process')
 export const moondreamUnloadEvent = defineInvokeEventa<void, undefined>('inference:moondream:unload')
 
+export type MossSamplingMode = 'fixed' | 'full' | 'greedy'
+
+export interface MossLoadRequest extends LoadModelRequest {
+  cpuThreads?: number
+}
+
 export interface MossGenerateRequest {
   text: string
   voiceId: string
-  cpuThreads: number
-  attentionBackend: string
-  samplingMode: string
+  samplingMode: MossSamplingMode
   voiceCloneMaxTokens: number
   /** channel-planar conditioned reference waveform (decoded/resampled/trimmed on the main thread) */
   promptAudioWaveform?: Float32Array
@@ -450,8 +454,11 @@ export interface MossGenerateRequest {
 }
 
 export interface MossGenerateChunk {
-  /** audio chunk payload — present on audio frames */
+  /** mono audio chunk payload — kept for backwards compatibility */
   samples?: Float32Array
+  /** per-channel planar audio chunk payloads (e.g. [left, right] for stereo) */
+  channelData?: Float32Array[]
+  channels?: number
   samplingRate?: number
   /**
    * metadata marker emitted once when this request freshly encoded a new reference
@@ -461,7 +468,7 @@ export interface MossGenerateChunk {
   promptAudioCodes?: number[][]
 }
 
-export const mossLoadEvent = defineInvokeEventa<LoadStreamItem, LoadModelRequest>('inference:moss:load')
+export const mossLoadEvent = defineInvokeEventa<LoadStreamItem, MossLoadRequest>('inference:moss:load')
 export const mossGenerateEvent = defineInvokeEventa<MossGenerateChunk, MossGenerateRequest>('inference:moss:generate')
 export const mossUnloadEvent = defineInvokeEventa<void, undefined>('inference:moss:unload')
 

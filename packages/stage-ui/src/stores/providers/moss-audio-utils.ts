@@ -13,12 +13,14 @@
  * until both paths converge on one.
  */
 
-let mossAdapter: any = null
+import type { MossAdapter } from '../../libs/inference/adapters/moss'
+
+let mossAdapter: MossAdapter | null = null
 
 /**
  * Singleton accessor for the MOSS adapter, lazily created on first use.
  */
-export async function getMossAdapterInstance() {
+export async function getMossAdapterInstance(): Promise<MossAdapter> {
   if (!mossAdapter) {
     const { createMossAdapter } = await import('../../libs/inference/adapters/moss')
     mossAdapter = createMossAdapter()
@@ -35,7 +37,7 @@ export interface MossReferencePreprocessOptions {
   maxDurationMs: number
 }
 
-const MOSS_REFERENCE_PREPROCESS_DEFAULTS: MossReferencePreprocessOptions = {
+export const MOSS_REFERENCE_PREPROCESS_DEFAULTS: MossReferencePreprocessOptions = {
   silenceThresholdDb: -45,
   paddingMs: 150,
   fadeMs: 50,
@@ -108,12 +110,12 @@ export async function preprocessMossReferenceAudio(
  * channel-planar reference waveform. All frame logic is computed on real samples
  * so the conditioning is correct regardless of target sample-rate.
  */
-function conditionMossPlanarWaveform(
+export function conditionMossPlanarWaveform(
   planar: Float32Array,
   waveformLength: number,
   channels: number,
   sampleRate: number,
-  opts: MossReferencePreprocessOptions,
+  opts: MossReferencePreprocessOptions = MOSS_REFERENCE_PREPROCESS_DEFAULTS,
 ): Float32Array {
   if (waveformLength === 0)
     return planar
@@ -152,7 +154,7 @@ function conditionMossPlanarWaveform(
     lastActive--
 
   if (firstActive >= numFrames || lastActive < firstActive) {
-    return peakNormalizeMossPlanar(planar, channels, opts.targetPeakDb)
+    throw new Error('Reference audio contains no audible speech above the silence threshold.')
   }
 
   let startFrame = Math.max(0, firstActive - paddingFrames)
@@ -210,7 +212,7 @@ function applyMossEdgeFadePlanar(planar: Float32Array, waveformLength: number, c
     for (let i = 0; i < fadeCount; i++) {
       const t = i / fadeCount
       planar[base + i] *= t
-      planar[base + (waveformLength - 1 - i)] *= (1 - t)
+      planar[base + (waveformLength - 1 - i)] *= t
     }
   }
 }

@@ -495,8 +495,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
       defaultOptions: () => ({
         model: 'moss-tts-nano-100m',
         voiceId: '',
-        cpuThreads: 4,
-        attentionBackend: 'sdpa',
+        cpuThreads: 'auto',
         samplingMode: 'fixed',
         voiceCloneMaxTokens: 75,
       }),
@@ -530,7 +529,9 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
 
                   // Load model on demand if not ready
                   if (adapter.state !== 'ready') {
-                    await adapter.loadModel()
+                    await adapter.loadModel({
+                      cpuThreads: _config.cpuThreads as number | 'auto' | string | undefined,
+                    })
                   }
 
                   // Fetch custom voice from IndexedDB if needed
@@ -543,7 +544,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                   if (isStarterVoiceId(voiceId)) {
                     const rawBuf = await getStarterVoiceArrayBuffer(voiceId)
                     if (rawBuf) {
-                      const codec = adapter.codecConfig ?? { sample_rate: 16000, channels: 1 }
+                      const codec = adapter.codecConfig ?? { sample_rate: 48000, channels: 2 }
                       promptAudioChannels = codec.channels
                       promptAudioWaveform = await preprocessMossReferenceAudio(
                         rawBuf,
@@ -554,7 +555,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                     }
                   }
                   else {
-                    const builtinIds = ['Trump', 'LJS']
+                    const builtinIds = adapter.builtinVoices?.map(v => v.id) ?? ['Trump', 'Ava', 'Bella']
                     if (!builtinIds.includes(voiceId)) {
                       const localforage = (await import('localforage')).default
                       const mossVoiceProfileBlobsStore = localforage.createInstance({
@@ -571,7 +572,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                         console.log('[MOSS Provider] voiceId:', voiceId, 'found blob:', !!audioBlob)
                         if (audioBlob) {
                           const buffer = await audioBlob.arrayBuffer()
-                          const codec = adapter.codecConfig ?? { sample_rate: 16000, channels: 1 }
+                          const codec = adapter.codecConfig ?? { sample_rate: 48000, channels: 2 }
                           promptAudioChannels = codec.channels
                           promptAudioWaveform = await preprocessMossReferenceAudio(
                             buffer,
@@ -585,8 +586,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                   }
 
                   const options = {
-                    cpuThreads: Number(_config.cpuThreads ?? 4),
-                    attentionBackend: String(_config.attentionBackend ?? 'sdpa'),
+                    cpuThreads: _config.cpuThreads as number | 'auto' | string | undefined,
                     samplingMode: String(_config.samplingMode ?? 'fixed'),
                     voiceCloneMaxTokens: Number(_config.voiceCloneMaxTokens ?? 75),
                     promptAudioWaveform,
@@ -627,6 +627,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         loadModel: async (_config: Record<string, unknown>, _hooks?: { onProgress?: (progress: ProgressInfo) => Promise<void> | void }) => {
           const adapter = await getMossAdapterInstance()
           await adapter.loadModel({
+            cpuThreads: _config.cpuThreads as number | 'auto' | string | undefined,
             onProgress: (p: any) => {
               if (_hooks?.onProgress) {
                 _hooks.onProgress({
@@ -651,22 +652,37 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
             description: v.description,
           }))
 
-          const builtin: VoiceInfo[] = [
-            {
-              id: 'Trump',
-              name: 'EN Trump',
-              provider: 'moss-nano-local',
-              languages: [{ code: 'en-US', title: 'English (US)' }],
-              gender: 'male',
-            },
-            {
-              id: 'LJS',
-              name: 'EN LJS',
-              provider: 'moss-nano-local',
-              languages: [{ code: 'en-US', title: 'English (US)' }],
-              gender: 'female',
-            },
-          ]
+          const adapter = await getMossAdapterInstance()
+          const builtin: VoiceInfo[] = (adapter.builtinVoices && adapter.builtinVoices.length > 0)
+            ? adapter.builtinVoices.map(v => ({
+                id: v.id,
+                name: v.name,
+                provider: 'moss-nano-local',
+                languages: [{ code: 'en-US', title: 'English (US)' }],
+              }))
+            : [
+                {
+                  id: 'Trump',
+                  name: 'EN Trump',
+                  provider: 'moss-nano-local',
+                  languages: [{ code: 'en-US', title: 'English (US)' }],
+                  gender: 'male',
+                },
+                {
+                  id: 'Ava',
+                  name: 'EN Ava',
+                  provider: 'moss-nano-local',
+                  languages: [{ code: 'en-US', title: 'English (US)' }],
+                  gender: 'female',
+                },
+                {
+                  id: 'Bella',
+                  name: 'EN Bella',
+                  provider: 'moss-nano-local',
+                  languages: [{ code: 'en-US', title: 'English (US)' }],
+                  gender: 'female',
+                },
+              ]
           try {
             const localforage = (await import('localforage')).default
             const mossVoiceProfilesStore = localforage.createInstance({
