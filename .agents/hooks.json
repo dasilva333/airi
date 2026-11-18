@@ -1,39 +1,5 @@
 {
   "airi-assistant-sync": {
-    "enabled": true,
-    "PreInvocation": [
-      {
-        "type": "command",
-        "command": "bash \"${HOME}/Projects.nosync/airi/airi_dasilva333/.agents/hooks/airi-hook.sh\" PreInvocation work \"Antigravity is thinking...\""
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${HOME}/Projects.nosync/airi/airi_dasilva333/.agents/hooks/airi-hook.sh\" PreToolUse wait \"Tool approval requested\""
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${HOME}/Projects.nosync/airi/airi_dasilva333/.agents/hooks/airi-hook.sh\" PostToolUse work \"Executing tool...\""
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "type": "command",
-        "command": "bash \"${HOME}/Projects.nosync/airi/airi_dasilva333/.agents/hooks/airi-hook.sh\" Stop done \"Task finished\""
-      }
-    ]
+    "enabled": false
   }
 }

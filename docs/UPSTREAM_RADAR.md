@@ -35,6 +35,92 @@
 
 <!-- RADAR_ENTRIES -->
 
+## [2026-11-18] Upstream Delta: `473112a3..b3a6d607` (1 commits, 7 files, 11 update(s))
+
+### 🎯 Executive Highlights
+**Core Developments**: Upstream merged 1 commit across 7 files and triaged 11 PR updates (3 new items opened, 2 status/lifecycle changes, 6 active discussions).
+1. **Hosted API Router Master Key Rotation** (PR #3545, commit `b3a6d6071` by @RainbowBird): Added an automated rotation script and cryptographic test harness for rotating the LLM router master key in `server/apps/api`.
+2. **Context Bridge Speech Transcript Handling** (PR #3547 by @mekoand): Fixes dropped `input:text:voice` events in the `stage-ui` context bridge when external modules or the Discord bot forward recognized speech transcripts to the chat orchestrator.
+3. **Plugin SDK Windows Path & Cache Separation** (PR #3548 by @leaft, Draft): Fixes Windows drive paths being misinterpreted as URL schemes and decouples entrypoint paths from Node ESM cache keys using `pathToFileURL` and `URLSearchParams`.
+4. **Minecraft Inventory Destination Corrections** (PR #3273, Draft ➔ Ready): Transitioned to ready-for-review; fixes equipment slot mapping for shields (`off-hand`) and elytra (`torso`).
+
+**Discussion & Community Buzz**:
+- PR #3496: `feat: integrate computer-use MCP, terminal approval, compact, and analytics sync` (+6 comments, 35 total) — Active community discussions and automated review bot findings concerning MCP approval gates, conversation compaction, and PostHog/OpenPanel analytics sync.
+- PR #3545: `feat(api-server): add a script to rotate the LLM router master key` (+5 comments, 10 total) — Maintainer review and testing discussions leading to merge.
+- PR #2916: `fix(core-agent): exclude nested reasoning from streamed speech` (+3 comments, 6 total) — Discussion regarding boundary cursor tracking when models emit nested tags (e.g. `<analysis>` inside `<think>`).
+- PR #3530: `test: remove UI tests that check only layout or repeat another test` (+2 comments, 8 total) — Discussion on removing 28 redundant DOM/layout unit tests across `stage-pages`, `stage-ui`, and `stage-tamagotchi`.
+- PR #3463: `fix(web-extension): read the playing video on YouTube Shorts` (+1 comment, 7 total) — Web extension DOM observer fixes to target the active playing video on YouTube Shorts rather than paused background mini-players.
+- PR #3273: `fix(minecraft): use correct equipment slots for shields and elytra` (+1 comment, 2 total) — Final test verification and mergeability confirmation.
+
+**Cherry-Pick Candidates**:
+1. **PR #3547 — Context Bridge `input:text:voice` Ingestion**: ⭐ **High Value Candidate**. Solves an issue where external speech transcripts sent via WebSocket or modules as `input:text:voice` are dropped because `context-bridge.ts` previously only listened to `input:text`. Exists directly in `packages/stage-ui/src/stores/mods/api/context-bridge.ts` and aligns cleanly with our fork speech and channel ingestion architecture.
+2. **PR #3463 — Web Extension YouTube Shorts Video Selector**: 🔍 **Selective Candidate**. Adds `pickVideo` logic to resolve the active video element when YouTube Shorts opens after a regular video, ignoring paused background mini-players. Applies directly to `plugins/airi-plugin-web-extension`.
+3. **PR #3548 — Plugin SDK Windows Path & Cache Invalidation**: 🔍 **Watch & Evaluate (Draft)**. Decouples plugin entrypoint file URLs from ESM cache bust keys via `pathToFileURL`. Worth monitoring once taken out of draft for adoption in `packages/plugin-sdk`.
+*(Note: PR #2916 cursor protection for nested `<think>` tags was already identified and previously implemented in this fork `packages/stage-ui/src/composables/response-categoriser.ts` line 767).*
+
+**Divergence / Collision Warnings**:
+1. **Hosted API Router Key Rotation (PR #3545 / `b3a6d6071`)**: ⛔ **Permanent Auto-Reject**. Modifies `server/apps/api` encryption scripts for the hosted cloud router. This fork operates on a strictly client/local-first architecture with direct provider access; cloud router key rotation has zero applicability.
+2. **Computer-Use & Telemetry Sync (PR #3496)**: Upstream bundles computer-use execution approval with OpenPanel/PostHog dual analytics and checkout tracking. This fork strictly rejects cloud telemetry and maintains sovereign, offline capability packs (`docs/design-capability-packs.md`).
+3. **Drawer Surface Notifications Header (PR #3549)**: Touches `inbox-panel.vue` in `stage-ui`, which belongs to upstream cloud account notifications system, absent in this fork.
+
+### 📋 Upstream Commits
+- `b3a6d6071` feat(api-server): add a script to rotate the LLM router master key (#3545) [#3545](https://github.com/moeru-ai/airi/pull/3545) _(RainbowBird, 2026-11-18)_
+
+### 🔬 Subsystem Breakdown
+#### Cloud Services, Billing & Auth (`⚪ ignore / rejected in fork (offline-first architecture)`) — 7 file(s) (+560/-4)
+- `server/apps/api/README.md` *(+28/-0)*
+- `server/apps/api/src/routes/audio-speech-ws/session.ts` *(+1/-1)*
+- `server/apps/api/src/scripts/rotate-llm-router-master-key/index.ts` *(+199/-0)*
+- `server/apps/api/src/scripts/rotate-llm-router-master-key/rotation.test.ts` *(+134/-0)*
+- `server/apps/api/src/scripts/rotate-llm-router-master-key/rotation.ts` *(+167/-0)*
+- `server/apps/api/src/services/domain/providers.ts` *(+4/-3)*
+- `server/apps/auth/README.md` *(+27/-0)*
+
+### 📬 Upstream Activity Radar
+#### 🆕 New Items Opened (3)
+- [PR] [#3547](https://github.com/moeru-ai/airi/pull/3547) `fix(stage-ui,discord-bot): handle voice transcripts that modules send` by **@mekoand** *(5 comments)*
+- [PR] [#3549](https://github.com/moeru-ai/airi/pull/3549) `fix(stage-ui): line up the Notifications header in the drawer surface` by **@chiba233** *(2 comments)*
+- [PR] [#3548](https://github.com/moeru-ai/airi/pull/3548) `fix(plugin-sdk): separate entrypoint paths from load cache keys` by **@leaft** *(Draft)* *(1 comments)*
+
+#### 🔄 Status & Lifecycle Changes (2)
+- [PR] [#3273](https://github.com/moeru-ai/airi/pull/3273) `fix(minecraft): use correct equipment slots for shields and elytra` — `Draft` ➔ `Ready`
+- [PR] [#3545](https://github.com/moeru-ai/airi/pull/3545) `feat(api-server): add a script to rotate the LLM router master key` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (6)
+- [PR] [#3273](https://github.com/moeru-ai/airi/pull/3273) `fix(minecraft): use correct equipment slots for shields and elytra` — *+1 comments (1 ➔ 2 total)*
+- [PR] [#2916](https://github.com/moeru-ai/airi/pull/2916) `fix(core-agent): exclude nested reasoning from streamed speech` — *+3 comments (3 ➔ 6 total)*
+- [PR] [#3496](https://github.com/moeru-ai/airi/pull/3496) `feat: integrate computer-use MCP, terminal approval, compact, and analytics sync` — *+6 comments (29 ➔ 35 total)*
+- [PR] [#3463](https://github.com/moeru-ai/airi/pull/3463) `fix(web-extension): read the playing video on YouTube Shorts` — *+1 comments (6 ➔ 7 total)*
+- [PR] [#3545](https://github.com/moeru-ai/airi/pull/3545) `feat(api-server): add a script to rotate the LLM router master key` — *+5 comments (5 ➔ 10 total)*
+- [PR] [#3530](https://github.com/moeru-ai/airi/pull/3530) `test: remove UI tests that check only layout or repeat another test` — *+2 comments (6 ➔ 8 total)*
+
+### 👁️ Watched Upstream Monitor
+- [#2634](https://github.com/moeru-ai/airi/pull/2634) `[WIP] feat(cortico-bridge): embed Cortico persona core as AIRI's brain` [Draft] — *(1 comments)*
+  - *Focus*: External Cortico daemon vs in-process native memory; track maintainer reaction to 2-process / web breakage
+- [#2672](https://github.com/moeru-ai/airi/pull/2672) `refactor(stage-ui): bind conversations to window-local characters` [Draft] — *(48 comments)*
+  - *Focus*: Window-local character selection, conversation scoping, standalone card profile page, shared CharacterCard
+- [#2541](https://github.com/moeru-ai/airi/pull/2541) `Telltworose/feat/drop in plugins` [OPEN] — *(59 comments)*
+  - *Focus*: MCP stdio child processes & card-level tool scoping; track author rebase and explanation to maintainers regarding deleted in-process loader
+- [#2290](https://github.com/moeru-ai/airi/pull/2290) `feat(server): stream official ASR over WebSocket` [OPEN] — *(59 comments)*
+  - *Focus*: Official ASR streaming over WebSocket vs OpenAI-compatible HTTP SSE; track rebase and backend transport decisions
+- [PR] [#2120](https://github.com/moeru-ai/airi/pull/2120) `refactor(stage-pages): rebuild AIRI Card editor` [CLOSED] — *(41 comments)*
+  - *Focus*: Card editor overhaul in stage-pages, dirty draft protection, route vs modal lifecycles
+- [PR] [#2980](https://github.com/moeru-ai/airi/pull/2980) `feat(stage-ui,stage-pages): add voiceprint enrollment` [MERGED] — *(15 comments)*
+  - *Focus*: Local speaker diarization & CAM++ voiceprint enrollment; track worker bundling, enrollment UX, and WASM performance for fork port
+- [PR] [#2552](https://github.com/moeru-ai/airi/pull/2552) ` add bilingual subtitles` [Draft] — *(36 comments)*
+  - *Focus*: Bilingual subtitle rendering in stage overlays; monitor for closure/merge to evaluate for fork adoption
+- [PR] [#3000](https://github.com/moeru-ai/airi/pull/3000) `feat(memory-eval): add identity-continuity evaluation package` [OPEN] — *(126 comments)*
+  - *Focus*: Mathematical metrics (Wasserstein-1, GMM BIC bimodality, fixed-point operator) for persona continuity during long-turn memory compression; monitor maintainer triage and package boundary placement
+- [PR] [#3049](https://github.com/moeru-ai/airi/pull/3049) `fix(stage-shared): parse Electron punctuation accelerators` [MERGED] — *(3 comments)*
+  - *Focus*: Global shortcut punctuation mapping; tracked for proposal-global-shortcuts.md piggyback
+- [PR] [#3121](https://github.com/moeru-ai/airi/pull/3121) `fix(stage-tamagotchi): read WebP screenshots in computer_use_read_image` [MERGED] — *(20 comments)*
+  - *Focus*: Chromium canvas WebP-to-PNG decoder via Eventa contract; companion tool to computer_use squatted in fork capability packs. Monitor where upstream lands upon closure.
+- [PR] [#3468](https://github.com/moeru-ai/airi/pull/3468) `feat(ui): use generated beam avatars as the default user avatar` [MERGED] — *(3 comments)*
+  - *Focus*: Procedural beam avatars with dynamic chromatic hue & user profile identity; tracked for selective port per docs/design-procedural-beam-avatars-and-user-profile-identity.md
+- [PR] [#3472](https://github.com/moeru-ai/airi/pull/3472) `fix(stage-layouts): safely fallback undefined route.meta in settings layout (#3220)` [OPEN] — *(5 comments)*
+  - *Focus*: Route meta fallback during settings navigation (#3220); evaluated against fork Master-Detail topology and desktop Electron shell
+
+---
 ## [2026-11-17] Upstream Delta: `36113ac5..473112a3` (4 commits, 57 files, 12 update(s))
 
 ### 🎯 Executive Highlights
