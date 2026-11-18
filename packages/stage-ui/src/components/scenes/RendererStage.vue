@@ -371,6 +371,8 @@ function handleChangeCos(e: Event) {
   settingsStore.stageModelSelectedUrl = detail
 }
 
+let removeDatingSimToggleListener: (() => void) | undefined
+
 onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('dating-sim:trigger-motion', handleTriggerMotion)
@@ -388,14 +390,9 @@ onMounted(() => {
         debug('[RendererStage] Failed to remove dating-sim-toggle listeners', e)
       }
 
-      const removeListener = (window as any).electron.ipcRenderer.on('dating-sim-toggle', () => {
+      removeDatingSimToggleListener = (window as any).electron.ipcRenderer.on('dating-sim-toggle', () => {
         const ds = useDatingSimStore()
         ds.toggleDatingSim()
-      })
-
-      onUnmounted(() => {
-        if (removeListener)
-          removeListener()
       })
     }
   }
@@ -407,6 +404,9 @@ onUnmounted(() => {
     window.removeEventListener('dating-sim:clear-exp', handleClearExp)
     window.removeEventListener('dating-sim:motions-enable', handleMotionsEnable)
     window.removeEventListener('dating-sim:change-cos', handleChangeCos)
+
+    removeDatingSimToggleListener?.()
+    removeDatingSimToggleListener = undefined
 
     if ((window as any).electron) {
       (window as any).electron.ipcRenderer.removeAllListeners('dating-sim-toggle')

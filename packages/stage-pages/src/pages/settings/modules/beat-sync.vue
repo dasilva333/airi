@@ -125,10 +125,12 @@ watch(state, async (newState) => {
   }
 }, { immediate: true, deep: true })
 
+let removeHandlerFns: Array<() => void> = []
+
 onMounted(() => {
   getBeatSyncState().then(initialState => state.value = initialState)
 
-  const removeHandlerFns = [
+  removeHandlerFns = [
     listenBeatSyncStateChange((newState) => {
       state.value = { ...newState }
     }),
@@ -140,12 +142,11 @@ onMounted(() => {
       })
     }),
   ]
-
-  const removeHandlers = () => removeHandlerFns.forEach(fn => fn())
-  onUnmounted(() => removeHandlers())
 })
 
 onUnmounted(() => {
+  removeHandlerFns.forEach(fn => fn())
+  removeHandlerFns = []
   isUpdatingFrequencies.value = false
 })
 </script>

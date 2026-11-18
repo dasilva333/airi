@@ -391,29 +391,34 @@ function resetStats() {
   systemOneStore.resetUsageStats()
 }
 
+let handleSetGroup: ((_event: any, group: string) => void) | undefined
+let handleSetPreset: ((_event: any, preset: ControlStripPreset) => void) | undefined
+
 onMounted(() => {
   if (window.electron?.ipcRenderer) {
-    const handleSetGroup = (_event: any, group: string) => {
+    handleSetGroup = (_event: any, group: string) => {
       if (CUSTOMIZER_CATALOG.some(g => g.id === group) || group === 'stats' || group === 'preview') {
         activeGroupId.value = group
       }
     }
-    const handleSetPreset = (_event: any, preset: ControlStripPreset) => {
+    handleSetPreset = (_event: any, preset: ControlStripPreset) => {
       if (['Desktop', 'Basic', 'Fun', 'Custom'].includes(preset)) {
         controlStripStore.setCustomizerPreset(preset)
       }
     }
     window.electron.ipcRenderer.on('set-customizer-group', handleSetGroup)
     window.electron.ipcRenderer.on('set-customizer-preset', handleSetPreset)
-    onUnmounted(() => {
-      window.electron.ipcRenderer.removeListener('set-customizer-group', handleSetGroup)
-      window.electron.ipcRenderer.removeListener('set-customizer-preset', handleSetPreset)
-    })
   }
 })
 
-// Cleanup pointer listeners if component is unmounted mid-drag
+// Cleanup IPC & pointer listeners if component is unmounted mid-drag
 onUnmounted(() => {
+  if (window.electron?.ipcRenderer) {
+    if (handleSetGroup)
+      window.electron.ipcRenderer.removeListener('set-customizer-group', handleSetGroup)
+    if (handleSetPreset)
+      window.electron.ipcRenderer.removeListener('set-customizer-preset', handleSetPreset)
+  }
   document.removeEventListener('mousemove', onStripMouseMove)
   document.removeEventListener('mouseup', onStripMouseUp)
 })

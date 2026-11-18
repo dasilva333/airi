@@ -219,11 +219,17 @@ export function useModulesList() {
     gaming: t('settings.pages.modules.categories.gaming'),
   }))
 
+  let removeBeatSyncListener: (() => void) | undefined
+
   // TODO(Makito): We can make this a reactive value from a synthetic store.
   onMounted(() => {
     getBeatSyncState().then(initialState => beatSyncState.value = initialState)
-    const removeListener = listenBeatSyncStateChange(newState => beatSyncState.value = { ...newState })
-    onUnmounted(() => removeListener())
+    removeBeatSyncListener = listenBeatSyncStateChange(newState => beatSyncState.value = { ...newState })
+  })
+
+  onUnmounted(() => {
+    removeBeatSyncListener?.()
+    removeBeatSyncListener = undefined
   })
 
   return {
