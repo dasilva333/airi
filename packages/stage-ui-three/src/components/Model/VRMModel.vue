@@ -911,6 +911,8 @@ async function loadModel() {
   }
 }
 
+let unsubscribeMotionTimeScale: (() => void) | undefined
+
 onMounted(async () => {
   isUnmounted = false
   // wait until scene is not undefined
@@ -921,12 +923,9 @@ onMounted(async () => {
   modelStore.onTriggerMotion((key, options) => {
     void playTransientAnimation(key, options)
   })
-  const unsubscribeMotionTimeScale = modelStore.onMotionTimeScale((timeScale) => {
+  unsubscribeMotionTimeScale = modelStore.onMotionTimeScale((timeScale) => {
     if (currentAction)
       currentAction.setEffectiveTimeScale(timeScale)
-  })
-  onUnmounted(() => {
-    unsubscribeMotionTimeScale()
   })
 
   /*
@@ -1059,6 +1058,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   isUnmounted = true
+  unsubscribeMotionTimeScale?.()
+  unsubscribeMotionTimeScale = undefined
   componentCleanUp(false)
 })
 

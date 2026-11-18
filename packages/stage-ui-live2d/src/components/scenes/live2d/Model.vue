@@ -1845,29 +1845,27 @@ watch(live2dIdleAnimationEnabled, (enabled) => {
   }
 })
 
+let beatSyncCleanups: Array<() => void> = []
+
 onMounted(() => {
-  const removeListener = listenBeatSyncBeatSignal((e) => {
-    console.debug('[Live2D Model] Received beat signal:', e)
-    beatSync.scheduleBeat()
-  })
-  const removeVibeListener = listenBeatSyncVibeSignal((vibe) => {
-    beatSync.setEnergy(vibe.energy)
-  })
-  const cleanupBeatSyncConfig = live2dStore.onBeatSyncConfig((config) => {
-    if (config.style)
-      beatSync.setStyle(config.style)
-    if (typeof config.strength === 'number')
-      beatSync.setStrength(config.strength)
-  })
-  const cleanupTriggerMotion = live2dStore.onTriggerMotion((group, index) => {
-    setMotion(group, index)
-  })
-  onUnmounted(() => {
-    removeListener()
-    removeVibeListener()
-    cleanupBeatSyncConfig()
-    cleanupTriggerMotion()
-  })
+  beatSyncCleanups = [
+    listenBeatSyncBeatSignal((e) => {
+      console.debug('[Live2D Model] Received beat signal:', e)
+      beatSync.scheduleBeat()
+    }),
+    listenBeatSyncVibeSignal((vibe) => {
+      beatSync.setEnergy(vibe.energy)
+    }),
+    live2dStore.onBeatSyncConfig((config) => {
+      if (config.style)
+        beatSync.setStyle(config.style)
+      if (typeof config.strength === 'number')
+        beatSync.setStrength(config.strength)
+    }),
+    live2dStore.onTriggerMotion((group, index) => {
+      setMotion(group, index)
+    }),
+  ]
 })
 
 onMounted(async () => {
@@ -1876,6 +1874,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   isUnmounted = true
+  beatSyncCleanups.forEach(fn => fn())
+  beatSyncCleanups = []
   disposeShouldUpdateView?.()
   disposeDslRuntime()
   cleanupCanvasListeners()

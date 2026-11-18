@@ -105,20 +105,26 @@ const { selectedOption, sampledColor } = storeToRefs(backgroundStore)
 const backgroundSurface = useTemplateRef<InstanceType<typeof BackgroundProvider>>('backgroundSurface')
 const { syncBackgroundTheme } = useBackgroundThemeColor({ backgroundSurface, selectedOption, sampledColor })
 
+let handleOpenSettings: ((e: Event) => void) | undefined
+
 onMounted(() => {
   syncBackgroundTheme()
 
   if (typeof window !== 'undefined') {
-    const handleOpenSettings = (e: Event) => {
+    handleOpenSettings = (e: Event) => {
       const route = (e as CustomEvent).detail?.route
       if (route) {
         void router.push(route)
       }
     }
     window.addEventListener('control-strip:open-settings', handleOpenSettings as EventListener)
-    onUnmounted(() => {
-      window.removeEventListener('control-strip:open-settings', handleOpenSettings as EventListener)
-    })
+  }
+})
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined' && handleOpenSettings) {
+    window.removeEventListener('control-strip:open-settings', handleOpenSettings as EventListener)
+    handleOpenSettings = undefined
   }
 })
 
