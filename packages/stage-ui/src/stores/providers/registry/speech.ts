@@ -37,6 +37,7 @@ import {
   STARTER_VOICE_CATALOG,
 } from '../../../constants/voices/starter-voice-catalog'
 import { getKokoroAdapter } from '../../../libs/inference/adapters/kokoro'
+import { normalizePocketBundle } from '../../../libs/inference/adapters/pocket-tts'
 import { getDefaultKokoroModel, getKokoroVoiceList, KOKORO_MODELS, kokoroModelsToModelInfo } from '../../../workers/kokoro/constants'
 import { models as elevenLabsModels } from '../elevenlabs/list-models'
 import { createNativeElevenLabsProvider } from '../elevenlabs/native'
@@ -52,7 +53,7 @@ import {
 } from '../ming3-catalog'
 import { getMossAdapterInstance, isValidMossPromptAudioCodes, MOSS_PROMPT_CODES_VERSION, preprocessMossReferenceAudio, sanitizeMossInputText } from '../moss-audio-utils'
 import { buildOpenAICompatibleProvider } from '../openai-compatible-builder'
-import { getPocketTtsAdapterInstance, preprocessPocketReferenceAudio } from '../pocket-audio-utils'
+import { getPocketTtsAdapterInstance, isValidPocketVoiceEmbedding, POCKET_EMBEDDING_CONDITIONING_VERSION, preprocessPocketReferenceAudio } from '../pocket-audio-utils'
 import { hexToBytes, readSSEAudioStream } from '../sse-audio-stream'
 import {
   fetchSpeakers as fetchVoicevoxSpeakers,
@@ -733,16 +734,19 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         model: 'english_2026-04',
         language: 'english',
         voiceId: '',
-        cpuThreads: 4,
+        cpuThreads: 'auto',
       }),
       createProvider: async (_config) => {
         const adapter = await getPocketTtsAdapterInstance()
 
         const provider: SpeechProvider = {
-          speech: () => {
+          speech: (_model?: string, extra?: Record<string, any>) => {
+            const onSegment = typeof extra?.onSegment === 'function'
+              ? extra.onSegment as (wav: ArrayBuffer) => void
+              : undefined
             return {
               baseURL: 'http://pocket-tts-local/v1/',
-              model: 'english_2026-04',
+              model: normalizePocketBundle(_model || (_config.model as string) || (_config.language as string)),
               fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
                 try {
                   if (!init?.body || typeof init.body !== 'string') {
@@ -751,7 +755,11 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                   const body = JSON.parse(init.body)
                   const text = body.input || ''
                   const voiceId = body.voice || ''
-                  console.info('[PocketTTS Provider] Received HTTP speech request:', { textLength: text.length, voiceId, bodyLanguage: body.language })
+                  const targetBundle = normalizePocketBundle(
+                    _model || (body.language as string) || (_config.model as string) || (_config.language as string),
+                  )
+                  const cpuThreads = (_config.cpuThreads as number | 'auto' | string | undefined) ?? 'auto'
+                  console.info('[PocketTTS Provider] Received HTTP speech request:', { textLength: text.length, voiceId, targetBundle, cpuThreads })
                   let promptAudioWaveform: Float32Array | undefined
                   const promptAudioChannels = 1
                   let promptVoiceEmbedding: PocketTtsVoiceEmbedding | undefined
@@ -759,8 +767,22 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
 
                   if (voiceId) {
                     if (isStarterVoiceId(voiceId)) {
-                      const rawBuf = await getStarterVoiceArrayBuffer(voiceId)
-                      if (rawBuf) {
+                      const { default: localforage } = await import('localforage')
+                      const metaStore = localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })
+                      const cachedMeta = await metaStore.getItem<any>(voiceId)
+                      const bundleCache = cachedMeta?.embeddingsByBundle?.[targetBundle]
+                      if (
+                        bundleCache?.conditioningVersion === POCKET_EMBEDDING_CONDITIONING_VERSION
+                        && isValidPocketVoiceEmbedding(bundleCache?.embedding)
+                      ) {
+                        console.info(`[PocketTTS Provider] Cache hit for starter voice "${voiceId}" (${targetBundle})`)
+                        promptVoiceEmbedding = bundleCache.embedding
+                      }
+                      else {
+                        const rawBuf = await getStarterVoiceArrayBuffer(voiceId)
+                        if (!rawBuf) {
+                          throw new Error(`Starter voice "${voiceId}" audio asset could not be loaded.`)
+                        }
                         console.info('[PocketTTS Provider] Loaded bundled starter voice:', voiceId)
                         promptAudioWaveform = await preprocessPocketReferenceAudio(rawBuf, 24000, 1)
                       }
@@ -770,27 +792,27 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                       predefinedVoiceName = voiceId
                     }
                     else {
-                      try {
-                        const { default: localforage } = await import('localforage')
-                        const metaStore = localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })
-                        const blobStore = localforage.createInstance({ name: 'pocket-voice-profiles-blobs' })
+                      const { default: localforage } = await import('localforage')
+                      const metaStore = localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })
+                      const blobStore = localforage.createInstance({ name: 'pocket-voice-profiles-blobs' })
 
-                        const profileMeta = await metaStore.getItem<any>(voiceId)
-                        if (profileMeta?.promptVoiceEmbedding) {
-                          console.info('[PocketTTS Provider] Found cached promptVoiceEmbedding for voiceId:', voiceId)
-                          promptVoiceEmbedding = profileMeta.promptVoiceEmbedding
-                        }
-                        else {
-                          const blob = await blobStore.getItem<Blob>(voiceId)
-                          if (blob) {
-                            console.info('[PocketTTS Provider] Preprocessing reference audio WAV blob for voiceId:', voiceId)
-                            const arrayBuf = await blob.arrayBuffer()
-                            promptAudioWaveform = await preprocessPocketReferenceAudio(arrayBuf, 24000, 1)
-                          }
-                        }
+                      const profileMeta = await metaStore.getItem<any>(voiceId)
+                      const bundleCache = profileMeta?.embeddingsByBundle?.[targetBundle]
+                      if (
+                        bundleCache?.conditioningVersion === POCKET_EMBEDDING_CONDITIONING_VERSION
+                        && isValidPocketVoiceEmbedding(bundleCache?.embedding)
+                      ) {
+                        console.info(`[PocketTTS Provider] Cache hit for custom voice "${voiceId}" (${targetBundle})`)
+                        promptVoiceEmbedding = bundleCache.embedding
                       }
-                      catch (err) {
-                        console.warn('[PocketTTS Provider] Error retrieving voice profile:', err)
+                      else {
+                        const blob = await blobStore.getItem<Blob>(voiceId)
+                        if (!blob) {
+                          throw new Error(`Custom voice profile "${voiceId}" audio blob was not found in local storage. Please re-upload the reference WAV in Pocket TTS settings.`)
+                        }
+                        console.info('[PocketTTS Provider] Preprocessing reference audio WAV blob for voiceId:', voiceId)
+                        const arrayBuf = await blob.arrayBuffer()
+                        promptAudioWaveform = await preprocessPocketReferenceAudio(arrayBuf, 24000, 1)
                       }
                     }
                   }
@@ -800,12 +822,13 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                     text,
                     voiceId || 'default',
                     {
-                      language: body.language || 'english_2026-04',
-                      cpuThreads: 4,
+                      language: targetBundle,
+                      cpuThreads,
                       promptAudioWaveform,
                       promptAudioChannels,
                       promptVoiceEmbedding,
                       predefinedVoiceName,
+                      onSegment,
                     },
                   )
 
@@ -871,7 +894,8 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         loadModel: async (_config: Record<string, unknown>, hooks?: { onProgress?: (progress: ProgressInfo) => Promise<void> | void }) => {
           const adapter = await getPocketTtsAdapterInstance()
           await adapter.loadModel({
-            language: (_config.language as string) || 'english',
+            language: normalizePocketBundle((_config.model as string) || (_config.language as string) || 'english_2026-04'),
+            cpuThreads: (_config.cpuThreads as number | 'auto' | string | undefined) ?? 'auto',
             onProgress: (p: any) => {
               if (hooks?.onProgress) {
                 hooks.onProgress({
@@ -907,7 +931,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
             const metaStore = localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })
             const customVoices: VoiceInfo[] = []
             await metaStore.iterate((val: any) => {
-              if (val && val.id && val.name) {
+              if (val && val.id && val.name && !val.isStarterCache) {
                 // Custom cloned profiles stay visible for every language — users
                 // recondition them per language at generation time.
                 customVoices.push({

@@ -116,6 +116,7 @@ async function handleGenerateTestSpeech() {
 
     const input = useSSML.value ? ssmlText.value : testText.value
     let streamedSegments = 0
+    let decodeChain = Promise.resolve()
 
     const startTime = performance.now()
     const response = await props.generateSpeech(
@@ -129,15 +130,18 @@ async function handleGenerateTestSpeech() {
         if (firstAudioMs.value === null) {
           firstAudioMs.value = Math.round(performance.now() - startTime)
         }
-        void audioContext.decodeAudioData(segmentWav.slice(0))
-          .then((audioBuffer) => {
+        const decodePromise = audioContext.decodeAudioData(segmentWav.slice(0))
+        decodeChain = decodeChain.then(async () => {
+          try {
+            const audioBuffer = await decodePromise
             if (runId === activePlaybackRunId) {
               segmentAudioQueue.enqueue({ audioBuffer, runId })
             }
-          })
-          .catch((err) => {
+          }
+          catch (err) {
             console.warn('Failed to decode streamed segment:', err)
-          })
+          }
+        })
       },
     )
     const endTime = performance.now()

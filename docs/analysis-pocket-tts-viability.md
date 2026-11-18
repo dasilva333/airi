@@ -29,10 +29,13 @@ Pocket TTS is a 2-stage neural text-to-speech system optimized for low-latency C
 ```
 
 ### Performance & Asset Benchmarks
-* **Weight Payload**: ~100M parameters (~160MB Int8 quantized sub-graphs).
+* **Weight Payload**: Bundle-dependent — ~146 MB for `english_2026-04` (6-layer Flow-LM) and ~375 MB for 24-layer bundles (`french_24l`, `spanish_24l`, `german_24l`, `portuguese_24l`, `italian_24l`).
 * **Upstream Model Source**: `KevinAHM/pocket-tts-onnx` on Hugging Face.
-* **Storage Location**: Origin Private File System (OPFS) (`pocket-tts-browser-model-store`).
-* **Latency**: ~200ms to first audio chunk (~6x real-time on 2 CPU cores).
+* **Storage Location**: Origin Private File System (OPFS) (`pocket-tts-browser-model-store`, single-active-bundle eviction).
+* **Upstream Native Reference**: ~200 ms first audio / ~6x real-time on native M4 CPU; browser WASM TTFA and RTF depend on `crossOriginIsolated` threading (`resolveWasmThreads`) and bundle depth (see `docs/AIRI_Pocket_TTS_Review.md`).
+* **Verified Browser Device Benchmarks (2026-11-17, Batches 1–4)**:
+  * Cold boot: **2496 ms** TTFA, **5293 ms** total latency, 5.36 s audio, **0.987 RTF**.
+  * Warm runs (2 runs): **588 ms / 579 ms** TTFA (median **583.5 ms**), **3164 ms / 3645 ms** total latency, **0.628 / 0.624 RTF** (median **0.626 RTF**).
 
 ---
 
@@ -78,13 +81,13 @@ Every file involved in the Pocket TTS integration is mapped below with its speci
 
 ---
 
-## 3. Fast-Path Optimization: Pre-Computed Voice Embedding Caching
+## 3. Fast-Path Optimization: Bundle-Scoped Voice Embedding Caching
 
-To guarantee sub-second latency across all voice clone generations:
+To eliminate redundant `mimi_encoder` inference across voice clone generations:
 
-1. **First Run**: When a new custom `.wav` voice profile is imported, `mimi_encoder_int8` runs **once**, producing a speaker-projected voice embedding `[1, V, 1024]`.
-2. **IndexedDB Persist**: The extracted `promptVoiceEmbedding` (Float32Array + dims) is cached permanently in `localforage` (`pocket-voice-profiles-metadata`).
-3. **Subsequent Turns**: All future speech generations for that voice profile bypass `mimi_encoder` entirely, passing the pre-computed `promptVoiceEmbedding` straight into the `flow_lm_main` voice prefill (with `bos_before_voice` prepended when the bundle requires it).
+1. **First Run**: When a custom `.wav` profile or bundled starter voice is used in a given language bundle (`english_2026-04`, `french_24l`, etc.), `mimi_encoder_int8` is lazy-loaded on demand and produces a speaker-projected voice embedding `[1, V, 1024]`.
+2. **IndexedDB Persist**: The extracted `promptVoiceEmbedding` (Float32Array + dims) is cached in `localforage` (`pocket-voice-profiles-metadata`) keyed per canonical bundle (`embeddingsByBundle[bundle]`) with `conditioningVersion = 2` (`POCKET_EMBEDDING_CONDITIONING_VERSION`).
+3. **Subsequent Turns**: All future speech generations for that voice + bundle bypass `mimi_encoder` (never even instantiating the encoder session), passing the pre-computed `promptVoiceEmbedding` straight into the `flow_lm_main` voice prefill (with `bos_before_voice` prepended when the bundle requires it).
 
 *Note: Pocket TTS has no discrete "prompt audio codes" (that is MOSS-TTS-Nano's codec artifact) — the cacheable conditioning artifact here is the continuous voice embedding.*
 
@@ -92,8 +95,9 @@ To guarantee sub-second latency across all voice clone generations:
 
 ## 4. Key Lessons & Known Constraints
 
-* **CPU Core Allocation**: Pocket TTS requires only 2 CPU cores running multithreaded WASM SIMD, preventing VRAM evictions alongside AIRI's Live2D/3D canvases.
-* **Audio Context Scope**: Audio decoding & peak normalization are performed on the main thread via Web Audio (`OfflineAudioContext`) because `AudioContext` is not available in Web Worker scopes.
+* **CPU Core Allocation**: Pocket TTS uses `resolveWasmThreads()` (`1` thread when `!crossOriginIsolated`, or `Auto` / manual `1..32` when isolated) and recreates the worker when the effective thread count changes, avoiding VRAM evictions alongside AIRI's Live2D/3D canvases.
+* **Audio Context Scope**: Audio decoding, resampling (24 kHz mono), RMS silence trimming, symmetric 50 ms edge fades, all-quiet rejection, and peak normalization are performed on the main thread via Web Audio (`OfflineAudioContext`) + `conditionMossPlanarWaveform`.
+* **Progressive Streaming (`onSegment`)**: `pocket_onnx_engine.ts` streams decoded PCM chunks (`FIRST_DECODE_FRAMES = 3`, `NORMAL_DECODE_FRAMES = 12`, plus `250 ms` inter-chunk gaps), and the adapter forwards each chunk as a mono WAV via `options.onSegment` for ordered `AudioContext` playback in `SpeechPlayground`.
 
 ---
 

@@ -6,12 +6,38 @@
  * rate — silence trimming, peak normalization).
  */
 
-let pocketTtsAdapter: any = null
+import type { PocketTtsAdapter } from '../../libs/inference/adapters/pocket-tts'
+import type { PocketTtsVoiceEmbedding } from '../../libs/inference/contract'
+
+import { conditionMossPlanarWaveform, MOSS_REFERENCE_PREPROCESS_DEFAULTS } from './moss-audio-utils'
+
+export const POCKET_EMBEDDING_CONDITIONING_VERSION = 2
+
+export function isValidPocketVoiceEmbedding(
+  emb: unknown,
+  expectedDim = 1024,
+): emb is PocketTtsVoiceEmbedding {
+  if (!emb || typeof emb !== 'object')
+    return false
+  const candidate = emb as { data?: unknown, dims?: unknown }
+  const data = candidate.data
+  const dims = candidate.dims
+  if (!(data instanceof Float32Array) || data.length === 0)
+    return false
+  if (!Array.isArray(dims) || dims.length !== 3)
+    return false
+  const [batch, frames, dim] = dims
+  if (batch !== 1 || !Number.isInteger(frames) || frames <= 0 || dim !== expectedDim)
+    return false
+  return data.length === frames * dim
+}
+
+let pocketTtsAdapter: PocketTtsAdapter | null = null
 
 /**
  * Singleton accessor for the Pocket TTS adapter, lazily created on first use.
  */
-export async function getPocketTtsAdapterInstance() {
+export async function getPocketTtsAdapterInstance(): Promise<PocketTtsAdapter> {
   if (!pocketTtsAdapter) {
     const { createPocketTtsAdapter } = await import('../../libs/inference/adapters/pocket-tts')
     pocketTtsAdapter = createPocketTtsAdapter()
@@ -28,13 +54,8 @@ export interface PocketReferencePreprocessOptions {
   maxDurationMs: number
 }
 
-const POCKET_REFERENCE_PREPROCESS_DEFAULTS: PocketReferencePreprocessOptions = {
-  silenceThresholdDb: -45,
-  paddingMs: 150,
-  fadeMs: 50,
-  targetPeakDb: -3,
-  minDurationMs: 1000,
-  maxDurationMs: 15000,
+export const POCKET_REFERENCE_PREPROCESS_DEFAULTS: PocketReferencePreprocessOptions = {
+  ...MOSS_REFERENCE_PREPROCESS_DEFAULTS,
 }
 
 /**
@@ -85,61 +106,16 @@ export async function preprocessPocketReferenceAudio(
     }
   }
 
-  const rawSamples = renderedAudio.getChannelData(0)
-  if (rawSamples.length === 0) {
-    throw new Error('Preprocessed audio contained 0 samples.')
+  const waveformLength = renderedAudio.length
+  const planarWaveform = new Float32Array(waveformLength * targetChannels)
+  for (let c = 0; c < targetChannels; c++) {
+    planarWaveform.set(renderedAudio.getChannelData(c), c * waveformLength)
   }
-
-  // Peak normalization & silence threshold trimming
-  const thresholdRatio = 10 ** (opts.silenceThresholdDb / 20)
-  let startIdx = 0
-  while (startIdx < rawSamples.length && Math.abs(rawSamples[startIdx]) < thresholdRatio) {
-    startIdx++
-  }
-  let endIdx = rawSamples.length - 1
-  while (endIdx > startIdx && Math.abs(rawSamples[endIdx]) < thresholdRatio) {
-    endIdx--
-  }
-
-  if (startIdx >= endIdx) {
-    startIdx = 0
-    endIdx = rawSamples.length - 1
-  }
-
-  const paddingSamples = Math.round((opts.paddingMs / 1000) * targetSampleRate)
-  const paddedStart = Math.max(0, startIdx - paddingSamples)
-  const paddedEnd = Math.min(rawSamples.length, endIdx + 1 + paddingSamples)
-
-  let sliced = rawSamples.subarray(paddedStart, paddedEnd)
-
-  const minSamples = Math.round((opts.minDurationMs / 1000) * targetSampleRate)
-  const maxSamples = Math.round((opts.maxDurationMs / 1000) * targetSampleRate)
-  if (sliced.length < minSamples) {
-    sliced = rawSamples.subarray(0, Math.min(rawSamples.length, maxSamples))
-  }
-  else if (sliced.length > maxSamples) {
-    sliced = sliced.subarray(0, maxSamples)
-  }
-
-  // Peak normalization to targetPeakDb
-  let maxAbs = 0
-  for (let i = 0; i < sliced.length; i++) {
-    const val = Math.abs(sliced[i])
-    if (val > maxAbs)
-      maxAbs = val
-  }
-
-  const result = new Float32Array(sliced.length)
-  if (maxAbs > 1e-6) {
-    const targetPeakRatio = 10 ** (opts.targetPeakDb / 20)
-    const scale = targetPeakRatio / maxAbs
-    for (let i = 0; i < sliced.length; i++) {
-      result[i] = sliced[i] * scale
-    }
-  }
-  else {
-    result.set(sliced)
-  }
-
-  return result
+  return conditionMossPlanarWaveform(
+    planarWaveform,
+    waveformLength,
+    targetChannels,
+    targetSampleRate,
+    opts,
+  )
 }

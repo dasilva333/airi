@@ -509,7 +509,12 @@ export interface PocketTtsGenerateChunk {
   voiceEmbedding?: PocketTtsVoiceEmbedding
 }
 
-export const pocketTtsLoadEvent = defineInvokeEventa<LoadStreamItem, LoadModelRequest>('inference:pocket-tts:load')
+export interface PocketTtsLoadRequest extends LoadModelRequest {
+  language?: string
+  cpuThreads?: number
+}
+
+export const pocketTtsLoadEvent = defineInvokeEventa<LoadStreamItem, PocketTtsLoadRequest>('inference:pocket-tts:load')
 export const pocketTtsGenerateEvent = defineInvokeEventa<PocketTtsGenerateChunk, PocketTtsGenerateRequest>('inference:pocket-tts:generate')
 export const pocketTtsUnloadEvent = defineInvokeEventa<void, undefined>('inference:pocket-tts:unload')
 

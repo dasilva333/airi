@@ -11,8 +11,26 @@ import { createContext } from '@moeru/eventa/adapters/webworkers'
 import { Mutex } from 'async-mutex'
 
 import { removeInferenceStatus, updateInferenceStatus } from '../../../composables/use-inference-status'
+import { POCKET_EMBEDDING_CONDITIONING_VERSION } from '../../../stores/providers/pocket-audio-utils'
 import { evictOtherPocketModels } from '../cache-utils'
 import { consumeLoadStream, pocketTtsGenerateEvent, pocketTtsLoadEvent, pocketTtsUnloadEvent } from '../contract'
+import { resolveWasmThreads } from '../threading'
+
+const POCKET_BUNDLE_ALIASES: Record<string, string> = {
+  english: 'english_2026-04',
+  french: 'french_24l',
+  spanish: 'spanish_24l',
+  german: 'german_24l',
+  portuguese: 'portuguese_24l',
+  italian: 'italian_24l',
+}
+
+export function normalizePocketBundle(languageOrModel?: string): string {
+  const raw = (languageOrModel || '').trim()
+  if (!raw)
+    return 'english_2026-04'
+  return POCKET_BUNDLE_ALIASES[raw] || raw.replace(/_2026_/, '_2026-')
+}
 
 export interface PocketTtsAdapter {
   /**
@@ -20,6 +38,7 @@ export interface PocketTtsAdapter {
    */
   loadModel: (options?: {
     language?: string
+    cpuThreads?: number | 'auto' | string
     onProgress?: (p: ProgressPayload) => void
     signal?: AbortSignal
   }) => Promise<void>
@@ -32,11 +51,12 @@ export interface PocketTtsAdapter {
     voiceId: string,
     options: {
       language?: string
-      cpuThreads?: number
+      cpuThreads?: number | 'auto' | string
       promptAudioWaveform?: Float32Array
       promptAudioChannels?: number
       promptVoiceEmbedding?: PocketTtsVoiceEmbedding
       predefinedVoiceName?: string
+      onSegment?: (wav: ArrayBuffer) => void
       signal?: AbortSignal
     },
   ) => Promise<ArrayBuffer>
@@ -107,17 +127,41 @@ function concatFloat32(parts: Float32Array[]): Float32Array {
 
 export function createPocketTtsAdapter(): PocketTtsAdapter {
   let worker: Worker | null = null
+  let workerCrashed = false
   let state: PocketTtsAdapter['state'] = 'idle'
+  let loadedBundle: string | null = null
+  let loadedThreads: number | null = null
   let codecConfig: { sample_rate: number, channels: number } | null = null
   const mutex = new Mutex()
 
+  function resetWorker(): void {
+    if (worker) {
+      try {
+        const { context } = createContext(worker)
+        const invokeUnload = defineStreamInvoke(context, pocketTtsUnloadEvent)
+        invokeUnload(undefined)
+      }
+      catch {}
+      worker.terminate()
+      worker = null
+    }
+    workerCrashed = false
+    loadedBundle = null
+    loadedThreads = null
+  }
+
   function ensureWorker(): Worker {
+    if (worker && workerCrashed) {
+      resetWorker()
+    }
     if (!worker) {
+      workerCrashed = false
       worker = new Worker(
         new URL('../../../workers/pocket-tts/worker.ts', import.meta.url),
         { type: 'module' },
       )
       worker.addEventListener('error', () => {
+        workerCrashed = true
         state = 'error'
       })
     }
@@ -128,13 +172,24 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
 
   async function doLoadModel(options?: {
     language?: string
+    cpuThreads?: number | 'auto' | string
     onProgress?: (p: ProgressPayload) => void
     signal?: AbortSignal
   }): Promise<void> {
-    console.info('[PocketTTS Adapter] doLoadModel() started. Current state:', state, 'Options:', options)
-    if (state === 'ready') {
-      console.info('[PocketTTS Adapter] Model is already in ready state. Skipping load.')
+    const targetBundle = normalizePocketBundle(options?.language)
+    const targetThreads = resolveWasmThreads(options?.cpuThreads)
+
+    console.info('[PocketTTS Adapter] doLoadModel() started. Current state:', state, { targetBundle, targetThreads, loadedBundle, loadedThreads })
+    if (state === 'ready' && loadedBundle === targetBundle && loadedThreads === targetThreads && !workerCrashed) {
+      console.info('[PocketTTS Adapter] Model is already ready with matching bundle and thread count. Skipping load.')
       return
+    }
+
+    // ORT initializes its WASM thread pool once per worker, so a thread-count change
+    // requires recreating the worker at an idle boundary.
+    if (worker && loadedThreads !== null && loadedThreads !== targetThreads) {
+      console.info(`[PocketTTS Adapter] Thread count changed (${loadedThreads} -> ${targetThreads}); recreating worker...`)
+      resetWorker()
     }
 
     state = 'loading'
@@ -144,14 +199,14 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
       progress: { phase: 'download', percent: 0 },
     })
 
-    console.info(`[PocketTTS Adapter] Invoking worker stream for language/model: "${options?.language || 'english_2026-04'}"...`)
+    console.info(`[PocketTTS Adapter] Invoking worker stream for bundle "${targetBundle}" (threads=${targetThreads})...`)
     const hfToken = typeof localStorage !== 'undefined' ? localStorage.getItem('settings/connection/hf-token') || undefined : undefined
     const w = ensureWorker()
     const { context } = createContext(w)
     const invokeLoad = defineStreamInvoke(context, pocketTtsLoadEvent)
 
     const stream = invokeLoad(
-      { device: 'wasm', language: options?.language || 'english_2026-04', hfToken },
+      { device: 'wasm', language: targetBundle, cpuThreads: targetThreads, hfToken },
       { signal: options?.signal },
     )
 
@@ -166,18 +221,22 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
       codecConfig = { sample_rate: codec.sample_rate, channels: codec.channels }
     }
 
+    loadedBundle = targetBundle
+    loadedThreads = targetThreads
     state = 'ready'
     console.info('[PocketTTS Adapter] Model successfully loaded & ready.')
     updateInferenceStatus(modelStatusId, { state: 'ready' })
 
-    // Enforce single active Pocket language bundle in OPFS (mirrors the
-    // Whisper single-shard eviction). Switching languages evicts the previous
-    // bundle, including its voice embeddings (full-dir evict).
-    void evictOtherPocketModels(options?.language || 'english_2026-04')
+    // Enforce single active Pocket language bundle in OPFS after the replacement
+    // bundle is verified ready (serialized so concurrent cleanup can't race).
+    await evictOtherPocketModels(targetBundle).catch((err) => {
+      console.warn('[PocketTTS Adapter] Failed to evict previous Pocket bundle:', err)
+    })
   }
 
   async function loadModel(options?: {
     language?: string
+    cpuThreads?: number | 'auto' | string
     onProgress?: (p: ProgressPayload) => void
     signal?: AbortSignal
   }): Promise<void> {
@@ -204,22 +263,26 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
     voiceId: string,
     options: {
       language?: string
-      cpuThreads?: number
+      cpuThreads?: number | 'auto' | string
       promptAudioWaveform?: Float32Array
       promptAudioChannels?: number
       promptVoiceEmbedding?: PocketTtsVoiceEmbedding
       predefinedVoiceName?: string
+      onSegment?: (wav: ArrayBuffer) => void
       signal?: AbortSignal
     },
   ): Promise<ArrayBuffer> {
-    console.info('[PocketTTS Adapter] generate() invoked.', { textLength: text.length, voiceId, state, options })
+    const targetBundle = normalizePocketBundle(options.language)
+    const targetThreads = resolveWasmThreads(options.cpuThreads)
+
+    console.info('[PocketTTS Adapter] generate() invoked.', { textLength: text.length, voiceId, state, targetBundle, targetThreads })
     console.info('[PocketTTS Adapter] Acquiring mutex lock for generate()...')
     const release = await mutex.acquire()
     try {
       console.info('[PocketTTS Adapter] Mutex lock acquired for generate(). Checking state...')
-      if (state !== 'ready') {
-        console.info('[PocketTTS Adapter] State is not ready. Calling doLoadModel()...')
-        await doLoadModel({ language: options.language, signal: options.signal })
+      if (state !== 'ready' || loadedBundle !== targetBundle || loadedThreads !== targetThreads || workerCrashed) {
+        console.info('[PocketTTS Adapter] Reloading worker/model for requested bundle/threads...', { state, loadedBundle, targetBundle, loadedThreads, targetThreads })
+        await doLoadModel({ language: targetBundle, cpuThreads: targetThreads, signal: options.signal })
       }
 
       state = 'running'
@@ -235,8 +298,8 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
         {
           text,
           voiceId,
-          language: options.language,
-          cpuThreads: options.cpuThreads,
+          language: targetBundle,
+          cpuThreads: targetThreads,
           promptAudioWaveform: options.promptAudioWaveform,
           promptAudioChannels: options.promptAudioChannels,
           promptVoiceEmbedding: options.promptVoiceEmbedding,
@@ -260,21 +323,44 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
           chunks.push(chunk.samples)
           if (chunk.samplingRate)
             samplingRate = chunk.samplingRate
+          if (options.onSegment) {
+            options.onSegment(encodeWav(chunk.samples, samplingRate, 1))
+          }
         }
       }
 
       console.info(`[PocketTTS Adapter] Stream complete. Total chunks received: ${chunks.length}`)
 
-      // Persist freshly-encoded voice embedding for subsequent cache hits
+      // Persist freshly-encoded voice embedding keyed per bundle + conditioning version
+      // for both custom uploaded profiles and bundled starter voices.
       if (freshlyEncodedEmbedding) {
         try {
           const { default: localforage } = await import('localforage')
           const metaStore = localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })
           const existing = await metaStore.getItem<any>(voiceId)
-          if (existing) {
-            await metaStore.setItem(voiceId, { ...existing, promptVoiceEmbedding: freshlyEncodedEmbedding })
-            console.info('[PocketTTS Adapter] Persisted promptVoiceEmbedding to localforage for voiceId:', voiceId)
+          const bundleEntry = {
+            bundle: targetBundle,
+            conditioningVersion: POCKET_EMBEDDING_CONDITIONING_VERSION,
+            embedding: freshlyEncodedEmbedding,
           }
+          const nextEmbeddingsByBundle = {
+            ...existing?.embeddingsByBundle,
+            [targetBundle]: bundleEntry,
+          }
+          if (existing) {
+            await metaStore.setItem(voiceId, {
+              ...existing,
+              embeddingsByBundle: nextEmbeddingsByBundle,
+            })
+          }
+          else {
+            await metaStore.setItem(voiceId, {
+              id: voiceId,
+              isStarterCache: true,
+              embeddingsByBundle: nextEmbeddingsByBundle,
+            })
+          }
+          console.info(`[PocketTTS Adapter] Persisted bundle-scoped promptVoiceEmbedding (${targetBundle}) for voiceId:`, voiceId)
         }
         catch (err) {
           console.warn('[PocketTTS Adapter] Failed to persist promptVoiceEmbedding to localforage:', err)
@@ -295,8 +381,15 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
     }
     catch (err) {
       console.error('[PocketTTS Adapter] Speech generation failed:', err)
-      state = 'error'
-      updateInferenceStatus(modelStatusId, { state: 'error' })
+      if (workerCrashed) {
+        state = 'error'
+        updateInferenceStatus(modelStatusId, { state: 'error' })
+      }
+      else {
+        // Keep healthy worker ready so transient request/preset/abort errors don't poison future turns.
+        state = loadedBundle ? 'ready' : 'idle'
+        updateInferenceStatus(modelStatusId, { state: state === 'ready' ? 'ready' : 'idle' })
+      }
       throw err
     }
     finally {
@@ -306,16 +399,7 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
   }
 
   function terminate(): void {
-    if (worker) {
-      try {
-        const { context } = createContext(worker)
-        const invokeUnload = defineStreamInvoke(context, pocketTtsUnloadEvent)
-        invokeUnload(undefined)
-      }
-      catch {}
-      worker.terminate()
-      worker = null
-    }
+    resetWorker()
     state = 'terminated'
     codecConfig = null
     removeInferenceStatus(modelStatusId)

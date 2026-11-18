@@ -98,7 +98,9 @@ async function downloadAndWriteFile(
   const response = await fetch(url, { headers })
   if (!response.ok) {
     console.error(`[Pocket ModelStore] HTTP ${response.status} failed for ${url}`)
-    throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`)
+    const error = new Error(`Failed to fetch ${url}: HTTP ${response.status}`) as Error & { status?: number }
+    error.status = response.status
+    throw error
   }
 
   const fileHandle = await dirHandle.getFileHandle(fileName, { create: true })

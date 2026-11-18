@@ -6,6 +6,7 @@ import {
   SpeechPlayground,
   SpeechProviderSettings,
 } from '@proj-airi/stage-ui/components'
+import { isWasmThreadingAvailable, resolveWasmThreads } from '@proj-airi/stage-ui/libs/inference/threading'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { Button, Input, Select } from '@proj-airi/ui'
@@ -120,12 +121,29 @@ const modelOptions = computed(() => {
   ]
 })
 
+const wasmThreadingAvailable = isWasmThreadingAvailable()
+
+const resolvedThreads = computed(() => {
+  return resolveWasmThreads(getLiveOptions().cpuThreads as number | 'auto' | string | undefined)
+})
+
 const cpuThreads = computed({
-  get(): number {
-    return (getLiveOptions().cpuThreads as number) ?? (providerConfig.value?.cpuThreads as number) ?? 4
+  get(): string {
+    const raw = getLiveOptions().cpuThreads ?? providerConfig.value?.cpuThreads
+    if (raw === undefined || raw === null || raw === '' || raw === 'auto')
+      return ''
+    return String(raw)
   },
-  set(val: number) {
-    getLiveOptions().cpuThreads = Number(val)
+  set(val: string | number) {
+    const raw = String(val ?? '').trim()
+    if (!raw || raw === 'auto') {
+      getLiveOptions().cpuThreads = 'auto'
+      return
+    }
+    const parsed = Number(raw)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      getLiveOptions().cpuThreads = Math.min(32, Math.max(1, Math.floor(parsed)))
+    }
   },
 })
 
@@ -142,8 +160,12 @@ const currentLanguage = computed({
     const options = getLiveOptions()
     options.language = val
     const bundle = LANG_TO_BUNDLE[val]
-    if (bundle)
+    if (bundle) {
       options.model = bundle
+      if (isActiveProvider.value) {
+        speechStore.activeSpeechModel = bundle
+      }
+    }
   },
 })
 
@@ -167,8 +189,8 @@ function setActiveSpeechProvider() {
 
 async function loadCustomVoiceProfiles() {
   const profiles: PocketVoiceProfile[] = []
-  await pocketVoiceProfilesStore.iterate((val: PocketVoiceProfile) => {
-    if (val && val.id) {
+  await pocketVoiceProfilesStore.iterate((val: PocketVoiceProfile & { isStarterCache?: boolean }) => {
+    if (val && val.id && val.name && !val.isStarterCache) {
       profiles.push(val)
     }
   })
@@ -265,7 +287,7 @@ function triggerUpload() {
   fileInput.value?.click()
 }
 
-async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: boolean) {
+async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: boolean, onSegment?: (wav: ArrayBuffer) => void) {
   const toastId = toast.loading('Initializing Pocket TTS engine & verifying ONNX weights...')
   try {
     console.info('[Pocket Playground] Starting speech generation...', { input, voiceId, selectedModel: model.value })
@@ -288,6 +310,7 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
         ...liveOptions,
         model: selectedModel,
         language: currentLanguage.value,
+        onSegment,
       },
     )
 
@@ -326,16 +349,22 @@ onMounted(async () => {
 })
 
 // Setters already persist + keep model/language in lockstep; this watcher only
-// refreshes the filtered voice list. Guard re-entry so a slow voice fetch can't
-// stack up and flash stale dropdown state.
+// refreshes the filtered voice list. Coalesce overlapping refreshes so a slow
+// voice fetch finishes and re-runs once if the user changed models mid-flight.
 let voicesReloadInFlight = false
-watch(model, async () => {
-  if (voicesReloadInFlight)
+let voicesReloadPending = false
+async function reloadVoicesForModelChange() {
+  if (voicesReloadInFlight) {
+    voicesReloadPending = true
     return
+  }
   voicesReloadInFlight = true
+  voicesLoading.value = true
   try {
-    voicesLoading.value = true
-    await speechStore.loadVoicesForProvider(providerId)
+    do {
+      voicesReloadPending = false
+      await speechStore.loadVoicesForProvider(providerId)
+    } while (voicesReloadPending)
   }
   catch (error) {
     console.error('[Pocket Settings] Error reloading voices:', error)
@@ -344,6 +373,10 @@ watch(model, async () => {
     voicesLoading.value = false
     voicesReloadInFlight = false
   }
+}
+
+watch(model, () => {
+  void reloadVoicesForModelChange()
 })
 </script>
 
@@ -430,9 +463,11 @@ watch(model, async () => {
                 type="number"
                 min="1"
                 max="32"
-                placeholder="4"
+                :placeholder="`Auto (${resolvedThreads})`"
               />
-              <span class="text-[10px] text-neutral-400">Thread count for WASM execution</span>
+              <span class="text-[10px] text-neutral-400">
+                Running on CPU · WASM ({{ resolvedThreads }} thread{{ resolvedThreads === 1 ? '' : 's' }}{{ wasmThreadingAvailable ? '' : ', single-threaded without crossOriginIsolated' }})
+              </span>
             </div>
 
             <!-- Target Language -->

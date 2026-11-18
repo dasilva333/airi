@@ -22,9 +22,13 @@ import * as ort from 'onnxruntime-web'
 
 import { ensurePredefinedVoiceEmbedding, ensureSentencePieceModule, readOpfsFileBlob, readOpfsFileBytes } from './pocket_model_store'
 
-// Set ONNX WASM SIMD CDN assets & thread count
+// Set ONNX WASM SIMD CDN assets; thread count is configured dynamically before session creation
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.2/dist/'
-ort.env.wasm.numThreads = 2
+
+export function configurePocketOrt(threadCount: number): void {
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.2/dist/'
+  ort.env.wasm.numThreads = Math.max(1, Math.floor(threadCount))
+}
 
 const INTERNAL_ROOT_DIR_NAME = 'pocket-tts-browser-model-store'
 
@@ -81,13 +85,14 @@ export interface PocketEngineSessions {
   flowLm: ort.InferenceSession
   flowLmFlow: ort.InferenceSession
   mimiDecoder: ort.InferenceSession
-  mimiEncoder: ort.InferenceSession
+  mimiEncoder: ort.InferenceSession | null
   textConditioner: ort.InferenceSession
   bundle: PocketBundleManifest
   bosBeforeVoice?: { data: Float32Array, shape: number[] }
 }
 
 const activeSessions: Record<string, PocketEngineSessions> = {}
+const mimiEncoderLoadPromises: Record<string, Promise<ort.InferenceSession>> = {}
 
 async function readOpfsFileUint8Array(langFolder: string, fileName: string): Promise<Uint8Array> {
   const opfsRoot = await navigator.storage.getDirectory()
@@ -135,14 +140,28 @@ export async function getOrLoadPocketSessions(langFolder: string): Promise<Pocke
     return activeSessions[langFolder]
   }
 
+  // Release any previously loaded language sessions so stale WASM heaps don't linger
+  for (const [otherLang, other] of Object.entries(activeSessions)) {
+    if (otherLang === langFolder)
+      continue
+    delete activeSessions[otherLang]
+    delete mimiEncoderLoadPromises[otherLang]
+    await Promise.allSettled([
+      other.flowLm.release(),
+      other.flowLmFlow.release(),
+      other.mimiDecoder.release(),
+      other.mimiEncoder?.release(),
+      other.textConditioner.release(),
+    ])
+  }
+
   console.info(`[Pocket ONNX Engine] Reading Int8 ONNX model ArrayBuffers from OPFS for "${langFolder}"...`)
 
-  const [bundle, flowLmBytes, flowLmFlowBytes, mimiDecBytes, mimiEncBytes, textCondBytes] = await Promise.all([
+  const [bundle, flowLmBytes, flowLmFlowBytes, mimiDecBytes, textCondBytes] = await Promise.all([
     readOpfsJson<PocketBundleManifest>(langFolder, 'bundle.json'),
     readOpfsFileUint8Array(langFolder, 'flow_lm_main_int8.onnx'),
     readOpfsFileUint8Array(langFolder, 'flow_lm_flow_int8.onnx'),
     readOpfsFileUint8Array(langFolder, 'mimi_decoder_int8.onnx'),
-    readOpfsFileUint8Array(langFolder, 'mimi_encoder_int8.onnx'),
     readOpfsFileUint8Array(langFolder, 'text_conditioner_int8.onnx'),
   ])
 
@@ -157,29 +176,30 @@ export async function getOrLoadPocketSessions(langFolder: string): Promise<Pocke
     }
   }
 
-  console.info(`[Pocket ONNX Engine] Instantiating ONNX WASM sessions (FlowLM: ${flowLmBytes.length}B, Flow: ${flowLmFlowBytes.length}B, MimiDecoder: ${mimiDecBytes.length}B)...`)
+  console.info(`[Pocket ONNX Engine] Instantiating 4 synthesis ONNX WASM sessions (FlowLM: ${flowLmBytes.length}B, Flow: ${flowLmFlowBytes.length}B, MimiDecoder: ${mimiDecBytes.length}B; mimi_encoder loads lazily on uncached voice waveforms)...`)
 
   const sessionOptions: ort.InferenceSession.SessionOptions = {
     executionProviders: ['wasm'],
     graphOptimizationLevel: 'all',
   }
 
-  const [flowLm, flowLmFlow, mimiDecoder, mimiEncoder, textConditioner] = await Promise.all([
+  const [flowLm, flowLmFlow, mimiDecoder, textConditioner] = await Promise.all([
     ort.InferenceSession.create(flowLmBytes, sessionOptions),
     ort.InferenceSession.create(flowLmFlowBytes, sessionOptions),
     ort.InferenceSession.create(mimiDecBytes, sessionOptions),
-    ort.InferenceSession.create(mimiEncBytes, sessionOptions),
     ort.InferenceSession.create(textCondBytes, sessionOptions),
+    // Initialize SentencePiece WASM + tokenizer.model during load so first-utterance TTFA stays low
+    getPocketTokenizer(langFolder, bundle.tokenizer_file || 'tokenizer.model'),
   ])
 
-  console.info(`[Pocket ONNX Engine] ✅ All 5 ONNX WASM sessions initialized successfully for "${langFolder}".`)
+  console.info(`[Pocket ONNX Engine] ✅ Synthesis ONNX WASM sessions & SentencePiece tokenizer initialized for "${langFolder}".`)
 
   const sessions: PocketEngineSessions = {
     langFolder,
     flowLm,
     flowLmFlow,
     mimiDecoder,
-    mimiEncoder,
+    mimiEncoder: null,
     textConditioner,
     bundle,
     bosBeforeVoice,
@@ -187,6 +207,31 @@ export async function getOrLoadPocketSessions(langFolder: string): Promise<Pocke
 
   activeSessions[langFolder] = sessions
   return sessions
+}
+
+async function ensurePocketMimiEncoder(sessions: PocketEngineSessions): Promise<ort.InferenceSession> {
+  if (sessions.mimiEncoder) {
+    return sessions.mimiEncoder
+  }
+  const lang = sessions.langFolder
+  mimiEncoderLoadPromises[lang] ??= (async () => {
+    console.info(`[Pocket ONNX Engine] Lazy-loading mimi_encoder_int8.onnx for "${lang}"...`)
+    const mimiEncBytes = await readOpfsFileUint8Array(lang, 'mimi_encoder_int8.onnx')
+    const encoder = await ort.InferenceSession.create(mimiEncBytes, {
+      executionProviders: ['wasm'],
+      graphOptimizationLevel: 'all',
+    })
+    sessions.mimiEncoder = encoder
+    console.info(`[Pocket ONNX Engine] ✅ mimi_encoder_int8.onnx initialized for "${lang}".`)
+    return encoder
+  })()
+  try {
+    return await mimiEncoderLoadPromises[lang]
+  }
+  catch (err) {
+    delete mimiEncoderLoadPromises[lang]
+    throw err
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -375,9 +420,10 @@ export async function encodePocketVoiceEmbedding(
   sessions: PocketEngineSessions,
   audio: Float32Array,
 ): Promise<PocketTtsVoiceEmbedding> {
+  const mimiEncoder = await ensurePocketMimiEncoder(sessions)
   const input = new ort.Tensor('float32', audio, [1, 1, audio.length])
-  const outputs = await sessions.mimiEncoder.run({ audio: input })
-  const embeddings = outputs[sessions.mimiEncoder.outputNames[0]]
+  const outputs = await mimiEncoder.run({ audio: input })
+  const embeddings = outputs[mimiEncoder.outputNames[0]]
 
   let dims = embeddings.dims.slice()
   while (dims.length > 3 && dims[0] === 1)
@@ -623,7 +669,14 @@ export async function getPocketPredefinedVoiceState(
     await ensurePredefinedVoiceEmbedding(sessions.langFolder, voice, accessToken)
   }
   catch (err) {
-    throw new Error(`[Pocket ONNX Engine] Failed to fetch predefined voice '${voice}' from the gated kyutai/pocket-tts repo. Configure an HF token with the kyutai/pocket-tts gate accepted in the provider settings. Cause: ${err}`)
+    const status = (err as { status?: number })?.status
+    if (status === 401 || status === 403) {
+      throw new Error(`[Pocket ONNX Engine] Predefined voice '${voice}' requires a Hugging Face token with the kyutai/pocket-tts gate accepted (HTTP ${status}). Configure your token in Connection Settings.`)
+    }
+    if (status === 404) {
+      throw new Error(`[Pocket ONNX Engine] Predefined voice '${voice}' was not found for bundle '${sessions.langFolder}' (HTTP 404).`)
+    }
+    throw new Error(`[Pocket ONNX Engine] Failed to load predefined voice '${voice}' (network or OPFS error): ${err}`)
   }
   return buildPredefinedVoiceFlowState(sessions, voice)
 }
@@ -653,7 +706,7 @@ export async function synthesizePocketSpeech(
   sessions: PocketEngineSessions,
   text: string,
   voice: PocketTtsVoiceEmbedding | string | null,
-  onChunk: (samples: Float32Array) => void,
+  onChunk?: (samples: Float32Array) => void,
   signal?: AbortSignal,
   accessToken = '',
 ): Promise<Float32Array> {
@@ -696,10 +749,16 @@ export async function synthesizePocketSpeech(
     })
   }
 
-  const chunks: Float32Array[] = []
+  const chunks: Float32Array[] | null = onChunk ? null : []
+  let streamedSamples = 0
   const pushChunk = (pcm: Float32Array) => {
-    chunks.push(pcm)
-    onChunk(pcm)
+    streamedSamples += pcm.length
+    if (onChunk) {
+      onChunk(pcm)
+    }
+    else {
+      chunks!.push(pcm)
+    }
   }
 
   let mimiState = initStateFromManifest(mimiManifest)
@@ -815,6 +874,11 @@ export async function synthesizePocketSpeech(
       updateStateFromManifestOutputs(mimiState, decOut, mimiManifest)
       pushChunk(new Float32Array(decOut[sessions.mimiDecoder.outputNames[0]].data as Float32Array))
     }
+  }
+
+  if (!chunks) {
+    console.info(`[Pocket ONNX Engine] Neural synthesis complete (streamed). Total ${sampleRate}Hz PCM samples emitted: ${streamedSamples} (~${(streamedSamples / sampleRate).toFixed(2)}s)`)
+    return new Float32Array(0)
   }
 
   let totalLength = 0

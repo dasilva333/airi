@@ -3,14 +3,14 @@
  * Speaks the Eventa inference contract for Pocket TTS.
  */
 
-import type { LoadModelRequest, LoadStreamItem, PocketTtsGenerateChunk, PocketTtsGenerateRequest, PocketTtsVoiceEmbedding } from '../../libs/inference/contract'
+import type { LoadStreamItem, PocketTtsGenerateChunk, PocketTtsGenerateRequest, PocketTtsLoadRequest, PocketTtsVoiceEmbedding } from '../../libs/inference/contract'
 
 import { defineStreamInvokeHandler, toStreamHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/webworkers/worker'
 
 import { pocketTtsGenerateEvent, pocketTtsLoadEvent } from '../../libs/inference/contract'
 import { ensureExternalBrowserOnnxModels } from './pocket_model_store'
-import { encodePocketVoiceEmbedding, getOrLoadPocketSessions, synthesizePocketSpeech } from './pocket_onnx_engine'
+import { configurePocketOrt, encodePocketVoiceEmbedding, getOrLoadPocketSessions, synthesizePocketSpeech } from './pocket_onnx_engine'
 
 const { context } = createContext()
 
@@ -40,15 +40,17 @@ function normalizePocketLanguage(language: string): string {
 // portable across languages.
 let cachedVoice: { key: string, embedding: PocketTtsVoiceEmbedding } | null = null
 
-defineStreamInvokeHandler(context, pocketTtsLoadEvent, toStreamHandler<LoadModelRequest, LoadStreamItem>(async ({ payload, emit, options }) => {
+defineStreamInvokeHandler(context, pocketTtsLoadEvent, toStreamHandler<PocketTtsLoadRequest, LoadStreamItem>(async ({ payload, emit, options }) => {
   const signal = options?.abortController?.signal
-  const { hfToken } = payload
-  if (hfToken) {
-    activeHfToken = hfToken
-  }
+  const { hfToken, cpuThreads } = payload
+  activeHfToken = hfToken || ''
   activeLanguage = normalizePocketLanguage(payload.language || payload.model || 'english_2026-04')
+  const effectiveThreads = typeof cpuThreads === 'number' && Number.isFinite(cpuThreads) && cpuThreads > 0
+    ? Math.floor(cpuThreads)
+    : 1
+  configurePocketOrt(effectiveThreads)
 
-  console.info(`[Pocket Worker] Load model request received for language/model: "${activeLanguage}"`)
+  console.info(`[Pocket Worker] Load model request received for language/model: "${activeLanguage}" (threads=${effectiveThreads})`)
 
   const onProgress = (p: any) => {
     console.info(`[Pocket Worker] Download progress: ${p.message} (${p.percent || 0}%)`)
@@ -93,6 +95,8 @@ defineStreamInvokeHandler(context, pocketTtsLoadEvent, toStreamHandler<LoadModel
     info: {
       device: 'wasm',
       metadata: {
+        loadedBundle: activeLanguage,
+        threads: effectiveThreads,
         codecConfig: {
           sample_rate: sessions.bundle.sample_rate || 24000,
           channels: 1,
@@ -109,7 +113,10 @@ defineStreamInvokeHandler(context, pocketTtsGenerateEvent, toStreamHandler<Pocke
 
   const signal = options?.abortController?.signal
   const { text, voiceId, promptAudioWaveform, predefinedVoiceName, hfToken } = payload
-  const effectiveHfToken = hfToken || activeHfToken
+  if (payload.language) {
+    activeLanguage = normalizePocketLanguage(payload.language)
+  }
+  const effectiveHfToken = hfToken !== undefined ? hfToken : activeHfToken
   const voiceCacheKey = `${activeLanguage}:${voiceId}`
   console.info('[Pocket Worker] Generate request:', { voiceId, textLength: text.length, hasWaveform: !!promptAudioWaveform, hasCachedEmbedding: !!payload.promptVoiceEmbedding, predefinedVoiceName, hasHfToken: !!effectiveHfToken })
 
