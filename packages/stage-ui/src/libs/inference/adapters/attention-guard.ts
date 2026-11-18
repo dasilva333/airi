@@ -48,7 +48,7 @@ export interface AttentionGuardAdapter {
     width: number,
     height: number,
     interestTags?: string[],
-    options?: { signal?: AbortSignal, pngBytes?: ArrayBuffer, degraded?: boolean },
+    options?: { signal?: AbortSignal, pngBytes?: ArrayBuffer, degraded?: boolean, preGateOnly?: boolean },
   ) => Promise<AttentionGuardProcessResult>
   /** Terminate the worker. */
   terminate: () => void
@@ -145,7 +145,7 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
     width: number,
     height: number,
     interestTags?: string[],
-    options?: { signal?: AbortSignal, pngBytes?: ArrayBuffer, degraded?: boolean },
+    options?: { signal?: AbortSignal, pngBytes?: ArrayBuffer, degraded?: boolean, preGateOnly?: boolean },
   ): Promise<AttentionGuardProcessResult> {
     throwIfAborted(options?.signal)
 
@@ -180,7 +180,7 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
           GPU_PRIORITY.ATTENTION_GUARD_PROCESS,
           options?.signal,
           ({ crashSignal }) => host.rpc!.process(
-            { dataUrl: pngBytes ? undefined : dataUrl, pngBytes, width, height, interestTags: cleanInterestTags, degraded: options?.degraded },
+            { dataUrl: pngBytes ? undefined : dataUrl, pngBytes, width, height, interestTags: cleanInterestTags, degraded: options?.degraded, preGateOnly: options?.preGateOnly },
             {
               signal: AbortSignal.any([signalWithTimeout(options?.signal, PROCESS_TIMEOUT), crashSignal]),
               ...(pngBytes ? { transfer: [pngBytes] } : {}),

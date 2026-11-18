@@ -589,6 +589,12 @@ export interface AttentionGuardProcessRequest {
    * 1280px, never upscale). Set by the orchestrator from the memory sentinel.
    */
   degraded?: boolean
+  /**
+   * When true, stop after Stage 0 (aHash) + Stage 1 (CLIP novelty) and skip
+   * Stage 2 OCR and Stage 3 VLM/summary synthesis. Used as a fast pre-gate
+   * before the 4-phase Saccade & Foveal pipeline.
+   */
+  preGateOnly?: boolean
 }
 
 export type AttentionGuardDecision = 'BASELINE' | 'IGNORE' | 'NOTE' | 'PROMOTE'

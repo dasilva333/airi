@@ -260,7 +260,7 @@ defineStreamInvokeHandler(context, attentionGuardLoadEvent, toStreamHandler<any,
   }
 }))
 
-defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, pngBytes, interestTags, degraded }) => {
+defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, pngBytes, interestTags, degraded, preGateOnly }) => {
   const stageMs = { stage0Ms: 0, stage1Ms: 0, stage2Ms: 0, stage3Ms: 0 }
   let rawImage: RawImage | null = null
 
@@ -354,6 +354,30 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, pngBy
     const embedding = await getVisionEmbedding(rawImage, state.device)
     const novelty = calculateCosineDistance(embedding, state.centroid!)
     stageMs.stage1Ms = performance.now() - t1
+
+    if (preGateOnly) {
+      const temp = state.prevGray
+      state.prevGray = state.currentGray
+      state.currentGray = temp
+      state.prevHash.set(curHash)
+
+      state.accepted.push(embedding)
+      if (state.accepted.length > 50) {
+        state.accepted.shift()
+      }
+      state.centroid = centroidOf(state.accepted)
+
+      return {
+        decision: novelty < 0.015 ? 'IGNORE' : 'NOTE',
+        stage0Delta: normDistance,
+        novelty,
+        ocrErrorPatternHits: 0,
+        ocrErrorPatterns: [],
+        interestKeywordHits: 0,
+        interestKeywords: [],
+        stageMs,
+      } satisfies AttentionGuardProcessResult
+    }
 
     // -- Stage 2: delta-region OCR error evidence + interest match -------------
     const t2 = performance.now()

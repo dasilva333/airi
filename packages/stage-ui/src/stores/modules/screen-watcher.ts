@@ -17,6 +17,7 @@ import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
 import { useConsciousnessStore } from './consciousness'
 import { useLiveSessionStore } from './live-session'
+import { useSaccadeAttentionStore } from './saccade-attention'
 import { useSpeechStore } from './speech'
 import { useVisionStore } from './vision'
 import { ATTENTION_GUARD_WORKLOAD_ID, useVisionOrchestratorStore } from './vision/orchestrator'
@@ -81,6 +82,7 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
   const chatSessionStore = useChatSessionStore()
   const consciousnessStore = useConsciousnessStore()
   const speechStore = useSpeechStore()
+  const saccadeAttentionStore = useSaccadeAttentionStore()
   const providersStore = useProvidersStore()
   const llmStore = useLLM()
   const liveSessionStore = useLiveSessionStore()
@@ -512,26 +514,99 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       // neuters this side's buffer, so slow CLIP/OCR ticks hold ~1 native copy.
       let pngBytes: ArrayBuffer | undefined = dataUrlToBytes(dataUrl!)
       const tickStart = performance.now()
-      const processed = await visionOrchestrator.processCapture({
-        dataUrl: dataUrl!,
-        pngBytes,
-        width,
-        height,
-        sourceId,
-        workloadId,
-        interestTags: cleanTags,
-        enableVlm: isMoondream,
-        vlmTier: config.vlmTier || (config.enableVlm ? 'moondream' : 'lightweight'),
-        timestamp: snapshot.timestamp || Date.now(),
-        gatingMode: config.gatingMode || 'trigger_tags',
-        sentinelProvider: config.sentinelProvider || 'laya-local',
-        sentinelModel: config.sentinelModel,
-        sentinelQuestions: config.sentinelQuestions ? toRaw(config.sentinelQuestions) : undefined,
-        sentinelPolicy: config.sentinelPolicy || 'any',
-        sentinelThreshold: config.sentinelThreshold ?? 0.75,
-        sentinelEvidenceEnabled: config.sentinelEvidenceEnabled ?? true,
-        activeWindow: proactivityStore.activeWinStr,
-      })
+
+      let processed: any = null
+
+      // If System-1 Sentinel mode is selected, run Stage 0 pHash + Stage 1 CLIP pre-gate first,
+      // then route changed/novel frames through the 4-Phase Saccade & Foveal attention pipeline.
+      if (config.gatingMode === 'system1_sentinel') {
+        try {
+          const guardAdapter = await visionOrchestrator.ensureGuardLoaded({ enableVlm: false })
+          const preGate = await guardAdapter.process(
+            dataUrl!,
+            width,
+            height,
+            cleanTags,
+            {
+              ...(pngBytes && pngBytes.byteLength > 0 ? { pngBytes } : {}),
+              degraded: false,
+              preGateOnly: true,
+            },
+          )
+          // pngBytes may have been transferred to the worker above
+          pngBytes = undefined
+
+          if (preGate.decision === 'IGNORE') {
+            const gateMs = Math.round((preGate.stageMs?.stage0Ms || 0) + (preGate.stageMs?.stage1Ms || 0))
+            const reason = preGate.novelty === 0
+              ? `Stage 0 static Δ=${preGate.stage0Delta.toFixed(4)}`
+              : `Stage 1 CLIP novelty=${preGate.novelty.toFixed(4)} < 0.015`
+            console.log(`[ScreenWatcher:PreGate] ⏭️ Skipped Saccade (${reason}) in ${gateMs}ms.`)
+            processed = preGate
+          }
+        }
+        catch (preGateErr) {
+          console.warn('[ScreenWatcher:PreGate] Pre-gate check failed, continuing to Saccade:', preGateErr)
+        }
+
+        if (!processed) {
+          const rawQuestions = config.sentinelQuestions ? toRaw(config.sentinelQuestions) : []
+          const activeQuestions = rawQuestions.filter(q => q.enabled).map(q => ({
+            id: q.id,
+            label: (q as any).label || q.text.slice(0, 30),
+            question: q.text,
+            sensitivity: q.threshold ?? config.sentinelThreshold ?? 0.70,
+          }))
+
+          try {
+            const saccadeRes = await saccadeAttentionStore.processSaccadeAttention({
+              dataUrl: dataUrl!,
+              width,
+              height,
+              activeWindow: proactivityStore.activeWinStr,
+              questions: activeQuestions,
+              sensitivityThreshold: config.sentinelThreshold ?? 0.70,
+            })
+
+            processed = {
+              decision: saccadeRes.decision,
+              summary: saccadeRes.payloadText,
+              novelty: saccadeRes.triage.triggerConfidence,
+              interestKeywords: saccadeRes.triage.matchedQuestion ? [saccadeRes.triage.matchedQuestion.label] : [],
+              ocrErrorPatternHits: 0,
+              interestKeywordHits: saccadeRes.decision === 'PROMOTE' ? 1 : 0,
+              saccadePayload: saccadeRes.payloadText,
+              fovealCropDataUrl: saccadeRes.fovealCropDataUrl,
+            }
+          }
+          catch (saccadeErr) {
+            console.warn('[ScreenWatcher:Saccade] Error in Saccade & Foveal pipeline, falling back to legacy gate:', saccadeErr)
+          }
+        }
+      }
+
+      if (!processed) {
+        processed = await visionOrchestrator.processCapture({
+          dataUrl: dataUrl!,
+          pngBytes,
+          width,
+          height,
+          sourceId,
+          workloadId,
+          interestTags: cleanTags,
+          enableVlm: isMoondream,
+          vlmTier: config.vlmTier || (config.enableVlm ? 'moondream' : 'lightweight'),
+          timestamp: snapshot.timestamp || Date.now(),
+          gatingMode: config.gatingMode || 'trigger_tags',
+          sentinelProvider: config.sentinelProvider || 'laya-local',
+          sentinelModel: config.sentinelModel,
+          sentinelQuestions: config.sentinelQuestions ? toRaw(config.sentinelQuestions) : undefined,
+          sentinelPolicy: config.sentinelPolicy || 'any',
+          sentinelThreshold: config.sentinelThreshold ?? 0.75,
+          sentinelEvidenceEnabled: config.sentinelEvidenceEnabled ?? true,
+          activeWindow: proactivityStore.activeWinStr,
+        })
+      }
       // NOTICE: Immediately release large base64 screen capture frame to reclaim V8 heap / PartitionAlloc memory
       // (pngBytes was neutered by the transfer when the worker path used it).
       dataUrl = undefined
@@ -635,17 +710,35 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
     }
     finally {
       isCapturing.value = false
+      if (isRunning.value && tickEpoch === watcherEpoch) {
+        scheduleNextTick()
+      }
     }
+  }
+
+  function scheduleNextTick(): void {
+    if (timerHandle) {
+      clearTimeout(timerHandle)
+      timerHandle = null
+    }
+    if (!isRunning.value)
+      return
+
+    const intervalMs = activeConfig.value?.captureIntervalMs || 2000
+    timerHandle = setTimeout(() => {
+      timerHandle = null
+      void captureAndProcess()
+    }, intervalMs)
   }
 
   function startWatcher(): void {
     if (timerHandle) {
-      clearInterval(timerHandle)
+      clearTimeout(timerHandle)
       timerHandle = null
     }
 
     const intervalMs = activeConfig.value?.captureIntervalMs || 2000
-    console.log(`[ScreenWatcher:Lifecycle] 🟢 Starting ambient screen watcher (interval=${intervalMs}ms)...`)
+    console.log(`[ScreenWatcher:Lifecycle] 🟢 Starting ambient screen watcher (post-completion delay=${intervalMs}ms)...`)
 
     // Warm guard worker before first tick if using attention guard and currently within schedule
     if (!activeConfig.value?.workload || activeConfig.value.workload === 'attention-guard') {
@@ -664,15 +757,13 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
     }
 
     isRunning.value = true
-    timerHandle = setInterval(() => {
-      void captureAndProcess()
-    }, intervalMs)
+    scheduleNextTick()
   }
 
   function pauseWatcher(): void {
     if (timerHandle) {
       console.log('[ScreenWatcher:Lifecycle] ⏸️ Pausing ambient screen watcher timer.')
-      clearInterval(timerHandle)
+      clearTimeout(timerHandle)
       timerHandle = null
     }
     isRunning.value = false
